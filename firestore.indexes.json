@@ -1,0 +1,37 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "students",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "escuelaId", "order": "ASCENDING" },
+        { "fieldPath": "username", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "students",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "grupoId", "order": "ASCENDING" },
+        { "fieldPath": "orden", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "actividadId", "order": "ASCENDING" },
+        { "fieldPath": "alumnoId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "activities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "asignaturaId", "order": "ASCENDING" },
+        { "fieldPath": "parcial", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

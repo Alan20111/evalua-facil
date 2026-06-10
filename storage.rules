@@ -1,0 +1,12 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Submissions: authenticated users can read/write
+    match /submissions/{activityId}/{alumnoId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|application/msword|application/vnd.openxmlformats.*|image/jpeg|image/png');
+    }
+  }
+}

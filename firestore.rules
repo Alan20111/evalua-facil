@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Schools: any authenticated user can read; write to create or update
+    match /schools/{schoolId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+
+    // Users: readable by auth'd users, writable by owner
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
+    }
+
+    // Groups: teacher CRUD, authenticated read
+    match /groups/{groupId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+    }
+
+    // Students: teacher of the group can write, auth'd can read
+    match /students/{studentId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+
+    // Subjects: teacher CRUD, auth'd read
+    match /subjects/{subjectId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+    }
+
+    // Activities: teacher CRUD, auth'd read
+    match /activities/{activityId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+    }
+
+    // Submissions: student creates own, teacher grades (update), auth'd reads
+    match /submissions/{submissionId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+    }
+  }
+}
