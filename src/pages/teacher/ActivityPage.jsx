@@ -15,7 +15,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, FileText, CheckCircle, Clock, Circle, X,
-  Download, Star,
+  Download, Star, Pencil,
 } from 'lucide-react'
 
 const STATUS_COLORS = {
@@ -40,6 +40,9 @@ export default function ActivityPage() {
   const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '' })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editForm, setEditForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '' })
+  const [editSaving, setEditSaving] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -69,6 +72,36 @@ export default function ActivityPage() {
       toast('Error al cargar: ' + err.message, 'error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  function openEditModal() {
+    setEditForm({
+      nombre: activity?.nombre || '',
+      maxCalif: String(activity?.maxCalif ?? '10'),
+      instrucciones: activity?.instrucciones || '',
+      fechaLimite: activity?.fechaLimite || '',
+    })
+    setShowEditModal(true)
+  }
+
+  async function handleEditActivity(e) {
+    e.preventDefault()
+    setEditSaving(true)
+    try {
+      await updateDoc(doc(db, 'activities', activityId), {
+        nombre: editForm.nombre.trim(),
+        maxCalif: parseFloat(editForm.maxCalif) || 10,
+        instrucciones: editForm.instrucciones.trim(),
+        fechaLimite: editForm.fechaLimite || null,
+      })
+      toast('Actividad actualizada')
+      setShowEditModal(false)
+      loadAll()
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setEditSaving(false)
     }
   }
 
@@ -141,6 +174,13 @@ export default function ActivityPage() {
               <h1 className="text-xl font-bold text-slate-900">{activity?.nombre}</h1>
               <p className="text-slate-400 text-xs">{subject?.nombre} · Parcial {activity?.parcial}</p>
             </div>
+            <button
+              onClick={openEditModal}
+              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex-shrink-0"
+              title="Editar actividad"
+            >
+              <Pencil size={18} />
+            </button>
           </div>
 
           {/* Stats */}
@@ -286,6 +326,75 @@ export default function ActivityPage() {
               >
                 {saving ? <Spinner size="sm" /> : <Star size={16} />}
                 {saving ? 'Guardando…' : 'Guardar calificación'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit activity modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowEditModal(false)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold">Editar actividad</h3>
+              <button onClick={() => setShowEditModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleEditActivity} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+                <input
+                  type="text"
+                  value={editForm.nombre}
+                  onChange={(e) => setEditForm((f) => ({ ...f, nombre: e.target.value }))}
+                  required
+                  autoFocus
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Calificación máxima</label>
+                <input
+                  type="number"
+                  value={editForm.maxCalif}
+                  onChange={(e) => setEditForm((f) => ({ ...f, maxCalif: e.target.value }))}
+                  required
+                  min="1"
+                  max="100"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Instrucciones <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <textarea
+                  value={editForm.instrucciones}
+                  onChange={(e) => setEditForm((f) => ({ ...f, instrucciones: e.target.value }))}
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 resize-none"
+                  placeholder="Instrucciones para los alumnos…"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="date"
+                  value={editForm.fechaLimite}
+                  onChange={(e) => setEditForm((f) => ({ ...f, fechaLimite: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={editSaving}
+                className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {editSaving ? <Spinner size="sm" /> : <Pencil size={16} />}
+                {editSaving ? 'Guardando…' : 'Guardar cambios'}
               </button>
             </form>
           </div>

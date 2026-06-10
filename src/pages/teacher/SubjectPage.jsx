@@ -7,6 +7,8 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  updateDoc,
+  deleteDoc,
   doc,
   serverTimestamp,
 } from 'firebase/firestore'
@@ -17,14 +19,11 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
-  CheckCircle, Circle, X,
+  CheckCircle, Circle, X, Pencil, Trash2,
 } from 'lucide-react'
 
 const PARCIALES = [1, 2, 3]
 
-// Fetch all submissions for a set of activities in as few round trips as possible.
-// Firestore `in` takes up to 30 values per query, so we chunk and run the chunks
-// in parallel — turning N per-activity queries into ceil(N/30) parallel queries.
 async function fetchSubmissionsForActivities(actIds) {
   if (actIds.length === 0) return []
   const chunks = []
@@ -37,6 +36,8 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
+const EMPTY_FORM = { nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '' }
+
 export default function SubjectPage() {
   const { subjectId } = useParams()
   const { currentUser } = useAuth()
@@ -45,10 +46,19 @@ export default function SubjectPage() {
   const [activities, setActivities] = useState([])
   const [submissionCounts, setSubmissionCounts] = useState({})
   const [openParcial, setOpenParcial] = useState(1)
+
+  // Modal: create or edit activity
   const [showModal, setShowModal] = useState(false)
+  const [modalMode, setModalMode] = useState('create') // 'create' | 'edit'
   const [modalParcial, setModalParcial] = useState(1)
-  const [form, setForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '' })
+  const [editActivityId, setEditActivityId] = useState(null)
+  const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+
+  // Delete confirmation
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // activity object or null
+  const [deleting, setDeleting] = useState(false)
+
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
   const toast = useToast()
@@ -58,8 +68,6 @@ export default function SubjectPage() {
   async function loadAll() {
     setLoading(true)
     try {
-      // Subject doc and its activities are both keyed by subjectId (from the URL),
-      // so fetch them together instead of waiting one for the other.
       const [subSnap, actsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
@@ -69,21 +77,18 @@ export default function SubjectPage() {
       const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       setActivities(acts)
 
-      // Group (needs grupoId) and every submission for these activities, in parallel.
       const [grpSnap, subDocs] = await Promise.all([
         getDoc(doc(db, 'groups', subData.grupoId)),
         fetchSubmissionsForActivities(acts.map((a) => a.id)),
       ])
       setGroup({ id: grpSnap.id, ...grpSnap.data() })
 
-      // Tally counts per activity in memory — no extra round trips.
       const counts = {}
-      acts.forEach((a) => { counts[a.id] = { delivered: 0, graded: 0, total: 0 } })
+      acts.forEach((a) => { counts[a.id] = { delivered: 0, graded: 0 } })
       subDocs.forEach((d) => {
         const data = d.data()
         const c = counts[data.actividadId]
         if (!c) return
-        c.total++
         if (data.estado !== 'pendiente') c.delivered++
         if (data.calificacion != null) c.graded++
       })
@@ -95,24 +100,53 @@ export default function SubjectPage() {
     }
   }
 
-  async function handleCreateActivity(e) {
+  function openAdd(parcial) {
+    setModalMode('create')
+    setModalParcial(parcial)
+    setEditActivityId(null)
+    setForm(EMPTY_FORM)
+    setShowModal(true)
+  }
+
+  function openEdit(activity) {
+    setModalMode('edit')
+    setModalParcial(activity.parcial)
+    setEditActivityId(activity.id)
+    setForm({
+      nombre: activity.nombre || '',
+      maxCalif: String(activity.maxCalif ?? '10'),
+      instrucciones: activity.instrucciones || '',
+      fechaLimite: activity.fechaLimite || '',
+    })
+    setShowModal(true)
+  }
+
+  async function handleSaveActivity(e) {
     e.preventDefault()
     setSaving(true)
+    const payload = {
+      nombre: form.nombre.trim(),
+      maxCalif: parseFloat(form.maxCalif) || 10,
+      instrucciones: form.instrucciones.trim(),
+      fechaLimite: form.fechaLimite || null,
+    }
     try {
-      const ref = await addDoc(collection(db, 'activities'), {
-        nombre: form.nombre.trim(),
-        tipo: 'archivo',
-        parcial: modalParcial,
-        maxCalif: parseFloat(form.maxCalif) || 10,
-        instrucciones: form.instrucciones.trim(),
-        fechaLimite: form.fechaLimite || null,
-        asignaturaId: subjectId,
-        docenteId: currentUser.uid,
-        createdAt: serverTimestamp(),
-      })
+      if (modalMode === 'create') {
+        await addDoc(collection(db, 'activities'), {
+          ...payload,
+          tipo: 'archivo',
+          parcial: modalParcial,
+          asignaturaId: subjectId,
+          docenteId: currentUser.uid,
+          createdAt: serverTimestamp(),
+        })
+        toast('Actividad creada')
+      } else {
+        await updateDoc(doc(db, 'activities', editActivityId), payload)
+        toast('Actividad actualizada')
+      }
       setShowModal(false)
-      setForm({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '' })
-      toast('Actividad creada')
+      setForm(EMPTY_FORM)
       loadAll()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -121,9 +155,19 @@ export default function SubjectPage() {
     }
   }
 
-  function openAdd(parcial) {
-    setModalParcial(parcial)
-    setShowModal(true)
+  async function handleDeleteActivity() {
+    if (!deleteConfirm) return
+    setDeleting(true)
+    try {
+      await deleteDoc(doc(db, 'activities', deleteConfirm.id))
+      toast('Actividad eliminada')
+      setDeleteConfirm(null)
+      loadAll()
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setDeleting(false)
+    }
   }
 
   if (loading) return (
@@ -158,7 +202,6 @@ export default function SubjectPage() {
             const isOpen = openParcial === p
             return (
               <div key={p} className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-                {/* Parcial header */}
                 <button
                   onClick={() => setOpenParcial(isOpen ? 0 : p)}
                   className="w-full px-4 py-4 flex items-center gap-3 hover:bg-slate-50 transition-colors"
@@ -173,7 +216,6 @@ export default function SubjectPage() {
                   {isOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
                 </button>
 
-                {/* Activities list */}
                 {isOpen && (
                   <div className="border-t border-slate-100 px-4 py-3 space-y-2">
                     {acts.length === 0 && (
@@ -182,36 +224,58 @@ export default function SubjectPage() {
                     {acts.map((a) => {
                       const counts = submissionCounts[a.id] || {}
                       return (
-                        <button
+                        <div
                           key={a.id}
-                          onClick={() => navigate(`/activity/${a.id}`)}
-                          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100 text-left"
+                          className="flex items-center gap-1 rounded-xl border border-slate-100 bg-white hover:border-indigo-100 transition-colors"
                         >
-                          <FileText size={18} className="text-slate-400 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-900 truncate">{a.nombre}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-xs text-slate-400">Máx: {a.maxCalif}</span>
-                              {a.fechaLimite && (
-                                <span className="text-xs text-amber-600 flex items-center gap-0.5">
-                                  <Clock size={10} /> {new Date(a.fechaLimite).toLocaleDateString('es-MX')}
+                          {/* Main clickable area → activity detail */}
+                          <button
+                            onClick={() => navigate(`/activity/${a.id}`)}
+                            className="flex items-center gap-3 flex-1 min-w-0 px-3 py-3 text-left"
+                          >
+                            <FileText size={18} className="text-slate-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-slate-900 truncate">{a.nombre}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-xs text-slate-400">Máx: {a.maxCalif}</span>
+                                {a.fechaLimite && (
+                                  <span className="text-xs text-amber-600 flex items-center gap-0.5">
+                                    <Clock size={10} /> {new Date(a.fechaLimite).toLocaleDateString('es-MX')}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {counts.graded > 0 && (
+                                <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                  <CheckCircle size={9} /> {counts.graded}
+                                </span>
+                              )}
+                              {counts.delivered > 0 && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                  <Circle size={9} /> {counts.delivered}
                                 </span>
                               )}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {counts.graded > 0 && (
-                              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <CheckCircle size={10} /> {counts.graded}
-                              </span>
-                            )}
-                            {counts.delivered > 0 && (
-                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                <Circle size={10} /> {counts.delivered}
-                              </span>
-                            )}
-                          </div>
-                        </button>
+                          </button>
+
+                          {/* Edit */}
+                          <button
+                            onClick={() => openEdit(a)}
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex-shrink-0 mr-0.5"
+                            title="Editar"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          {/* Delete */}
+                          <button
+                            onClick={() => setDeleteConfirm(a)}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0 mr-1"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       )
                     })}
                     <button
@@ -228,18 +292,18 @@ export default function SubjectPage() {
         </div>
       </div>
 
-      {/* Create activity modal */}
+      {/* Create / Edit activity modal */}
       {showModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowModal(false)} />
           <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">
-                Nueva actividad — Parcial {modalParcial}
+                {modalMode === 'create' ? `Nueva actividad — Parcial ${modalParcial}` : 'Editar actividad'}
               </h3>
               <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
             </div>
-            <form onSubmit={handleCreateActivity} className="space-y-4">
+            <form onSubmit={handleSaveActivity} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
                 <input
@@ -292,10 +356,39 @@ export default function SubjectPage() {
                 disabled={saving}
                 className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {saving ? <Spinner size="sm" /> : <Plus size={16} />}
-                {saving ? 'Creando…' : 'Crear actividad'}
+                {saving ? <Spinner size="sm" /> : modalMode === 'create' ? <Plus size={16} /> : <Pencil size={16} />}
+                {saving ? 'Guardando…' : modalMode === 'create' ? 'Crear actividad' : 'Guardar cambios'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteConfirm(null)} />
+          <div className="relative bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-slate-900 mb-1">¿Eliminar actividad?</h3>
+            <p className="text-sm text-slate-500 mb-5">
+              "<strong>{deleteConfirm.nombre}</strong>" se eliminará permanentemente.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteActivity}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {deleting ? <Spinner size="sm" /> : <Trash2 size={14} />}
+                {deleting ? 'Eliminando…' : 'Eliminar'}
+              </button>
+            </div>
           </div>
         </div>
       )}

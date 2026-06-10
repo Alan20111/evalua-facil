@@ -102,9 +102,12 @@ export default function StudentActivityPage() {
     }
   }
 
-  async function handleUpload(e) {
-    e.preventDefault()
-    if (!file || !student) return
+  async function handleUpload() {
+    if (!file) return
+    if (!student) {
+      toast('No se encontró tu perfil de alumno. Intenta cerrar sesión y volver a entrar.', 'error')
+      return
+    }
     if (!ALLOWED_TYPES.includes(file.type)) {
       toast('Tipo de archivo no permitido', 'error')
       return
@@ -234,7 +237,7 @@ export default function StudentActivityPage() {
         {!submission && (
           <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
             <h2 className="font-semibold text-slate-900 mb-4">Subir entrega</h2>
-            <form onSubmit={handleUpload} className="space-y-4">
+            <div className="space-y-4">
               <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
                 file ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
               }`}>
@@ -251,14 +254,17 @@ export default function StudentActivityPage() {
                 <p className="text-xs text-slate-400 mt-1">{ALLOWED_EXT} · máx 10 MB</p>
               </label>
               <button
-                type="submit"
+                type="button"
+                onClick={handleUpload}
+                onMouseDown={(e) => e.preventDefault()}
                 disabled={!file || uploading}
+                style={{ touchAction: 'manipulation' }}
                 className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {uploading ? <Spinner size="sm" /> : <Upload size={16} />}
                 {uploading ? 'Subiendo…' : 'Entregar'}
               </button>
-            </form>
+            </div>
           </div>
         )}
       </div>
