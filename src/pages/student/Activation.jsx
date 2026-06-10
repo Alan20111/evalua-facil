@@ -144,16 +144,24 @@ export default function StudentActivation() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toUpperCase())}
+                  onInput={(e) => setUsername(e.target.value.toUpperCase())}
                   required
                   autoFocus
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 font-mono tracking-widest text-center text-lg"
                   placeholder="Ej: MERK"
                   maxLength={8}
                 />
               </div>
               <button
-                type="submit"
+                type="button"
+                onClick={handleFindStudent}
+                onMouseDown={(e) => e.preventDefault()}
                 disabled={loading || !username.trim()}
+                style={{ touchAction: 'manipulation' }}
                 className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? <Spinner size="sm" /> : null}
@@ -198,8 +206,11 @@ export default function StudentActivation() {
                   />
                 </div>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleActivate}
+                  onMouseDown={(e) => e.preventDefault()}
                   disabled={loading}
+                  style={{ touchAction: 'manipulation' }}
                   className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={16} />}
