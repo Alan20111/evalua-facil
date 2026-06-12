@@ -10,53 +10,40 @@ import { GraduationCap } from 'lucide-react'
 
 export default function StudentLogin() {
   const [username, setUsername] = useState('')
-  const [claveSEP, setClaveSEP] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
   const handleLogin = async (e) => {
     e.preventDefault()
+    setError('')
     setLoading(true)
     try {
-      // 1. Find school by claveSEP
-      const schoolSnap = await getDocs(
-        query(collection(db, 'schools'), where('claveSEP', '==', claveSEP.trim().toUpperCase()))
-      )
-      if (schoolSnap.empty) {
-        toast('Escuela no encontrada', 'error')
-        return
-      }
-      const schoolId = schoolSnap.docs[0].id
-
-      // 2. Find student by username + school
+      // Find student by username (single-field query, no composite index needed)
       const stuSnap = await getDocs(
-        query(
-          collection(db, 'students'),
-          where('escuelaId', '==', schoolId),
-          where('username', '==', username.trim().toUpperCase())
-        )
+        query(collection(db, 'students'), where('username', '==', username.trim().toUpperCase()))
       )
       if (stuSnap.empty) {
-        toast('Usuario no encontrado', 'error')
+        setError('Usuario no encontrado. Verifica tu username.')
         return
       }
       const student = stuSnap.docs[0].data()
       if (!student.activado) {
-        toast('Cuenta no activada. Escanea el QR de tu grupo.', 'error')
+        setError('Cuenta no activada. Escanea el QR de tu grupo primero.')
         return
       }
 
-      // 3. Sign in with generated email
-      const email = studentEmail(username.trim().toUpperCase(), schoolId)
+      // escuelaId comes from the student record — no need for the teacher to tell us
+      const email = studentEmail(username.trim().toUpperCase(), student.escuelaId)
       await signInWithEmailAndPassword(auth, email, password)
       navigate('/alumno/dashboard')
     } catch (err) {
-      if (err.code === 'auth/invalid-credential') {
-        toast('Contraseña incorrecta', 'error')
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        setError('Contraseña incorrecta.')
       } else {
-        toast('Error al iniciar sesión', 'error')
+        setError('Error al iniciar sesión. Intenta de nuevo.')
       }
     } finally {
       setLoading(false)
@@ -77,23 +64,17 @@ export default function StudentLogin() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Clave SEP de tu escuela</label>
-              <input
-                type="text"
-                value={claveSEP}
-                onChange={(e) => setClaveSEP(e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
-                placeholder="Ej: CBTis 255"
-              />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value.toUpperCase())}
+                onChange={(e) => { setUsername(e.target.value.toUpperCase()); setError('') }}
                 required
+                autoFocus
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="characters"
+                spellCheck={false}
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 font-mono tracking-widest text-center text-lg"
                 placeholder="Ej: MERK"
                 maxLength={8}
@@ -104,12 +85,17 @@ export default function StudentLogin() {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setError('') }}
                 required
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
                 placeholder="••••••••"
               />
             </div>
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                {error}
+              </p>
+            )}
             <button
               type="submit"
               disabled={loading}

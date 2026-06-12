@@ -7,6 +7,7 @@ import {
   getDocs,
   getDoc,
   updateDoc,
+  setDoc,
   doc,
 } from 'firebase/firestore'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
@@ -93,8 +94,19 @@ export default function StudentActivation() {
     setLoading(true)
     try {
       const email = studentEmail(student.username, student.escuelaId)
-      await createUserWithEmailAndPassword(auth, email, password)
-      await updateDoc(doc(db, 'students', student.id), { activado: true })
+      const cred = await createUserWithEmailAndPassword(auth, email, password)
+      await Promise.all([
+        setDoc(doc(db, 'users', cred.user.uid), {
+          role: 'alumno',
+          username: student.username,
+          escuelaId: student.escuelaId,
+          studentId: student.id,
+          nombre: student.nombre,
+          apellidoPaterno: student.apellidoPaterno,
+          apellidoMaterno: student.apellidoMaterno,
+        }),
+        updateDoc(doc(db, 'students', student.id), { activado: true, uid: cred.user.uid }),
+      ])
       toast('¡Cuenta activada! Bienvenido/a')
       navigate('/alumno/dashboard')
     } catch (err) {
