@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
+import {
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+  sendEmailVerification,
+  signOut,
+} from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { GraduationCap } from 'lucide-react'
+import { GraduationCap, Mail, ArrowLeft } from 'lucide-react'
 
 function GoogleIcon() {
   return (
@@ -19,17 +25,26 @@ function GoogleIcon() {
 }
 
 export default function TeacherLogin() {
+  const [method, setMethod] = useState(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [needsVerification, setNeedsVerification] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendDone, setResendDone] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
-  const handleSubmit = async (e) => {
+  const handleEmail = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      const cred = await signInWithEmailAndPassword(auth, email, password)
+      if (!cred.user.emailVerified) {
+        await signOut(auth)
+        setNeedsVerification(true)
+        return
+      }
       navigate('/dashboard')
     } catch (err) {
       toast(
@@ -58,10 +73,59 @@ export default function TeacherLogin() {
     }
   }
 
+  const handleResend = async () => {
+    setResendLoading(true)
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password)
+      await sendEmailVerification(cred.user)
+      await signOut(auth)
+      setResendDone(true)
+      toast('Correo de verificación reenviado')
+    } catch {
+      toast('Error al reenviar el correo', 'error')
+    } finally {
+      setResendLoading(false)
+    }
+  }
+
+  if (needsVerification) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
+        <div className="w-full max-w-sm">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+              <Mail size={24} className="text-amber-500" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-900 mb-2">Verifica tu correo</h2>
+            <p className="text-sm text-slate-500 mb-6">
+              Enviamos un enlace de verificación a <strong>{email}</strong>.
+              Ábrelo y regresa aquí para iniciar sesión.
+            </p>
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendLoading || resendDone}
+              className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {resendLoading ? <Spinner size="sm" /> : null}
+              {resendDone ? 'Correo enviado ✓' : 'Reenviar correo de verificación'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setNeedsVerification(false)}
+              className="w-full mt-3 py-3 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition-colors"
+            >
+              Volver
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center mx-auto mb-4">
             <GraduationCap size={32} className="text-white" />
@@ -70,71 +134,104 @@ export default function TeacherLogin() {
           <p className="text-slate-500 text-sm mt-1">Acceso para docentes</p>
         </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Correo electrónico
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
-                placeholder="nombre@correo.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
-                placeholder="••••••••"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {loading ? <Spinner size="sm" /> : null}
-              {loading ? 'Entrando…' : 'Iniciar sesión'}
-            </button>
-          </form>
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
+          {method === null ? (
+            <>
+              {/* Google */}
+              <div>
+                <button
+                  type="button"
+                  onClick={handleGoogle}
+                  disabled={loading}
+                  className="w-full py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {loading ? <Spinner size="sm" /> : <GoogleIcon />}
+                  Continuar con Google
+                </button>
+                <p className="text-center text-xs text-slate-400 mt-2">
+                  Recomendado para uso en un solo equipo
+                </p>
+              </div>
 
-          <div className="flex items-center gap-3 my-4">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-xs text-slate-400">o</span>
-            <div className="flex-1 h-px bg-slate-200" />
-          </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-400">o</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
 
-          <button
-            onClick={handleGoogle}
-            disabled={loading}
-            className="w-full py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm"
-          >
-            <GoogleIcon />
-            Continuar con Google
-          </button>
+              {/* Email */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setMethod('email')}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <Mail size={18} />
+                  Acceso con correo electrónico
+                </button>
+                <p className="text-center text-xs text-slate-400 mt-2">
+                  Recomendado para uso en varios equipos
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setMethod(null)}
+                className="flex items-center gap-1.5 text-slate-400 hover:text-slate-600 text-sm -mb-1"
+              >
+                <ArrowLeft size={15} /> Volver
+              </button>
+              <form onSubmit={handleEmail} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Correo electrónico
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
+                    placeholder="nombre@correo.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Contraseña
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {loading ? <Spinner size="sm" /> : null}
+                  {loading ? 'Entrando…' : 'Iniciar sesión'}
+                </button>
+              </form>
+            </>
+          )}
         </div>
 
         <p className="text-center text-sm text-slate-500 mt-6">
           ¿No tienes cuenta?{' '}
           <Link to="/register" className="text-indigo-600 font-semibold hover:underline">
-            Regístrate aquí
+            Crear cuenta nueva
           </Link>
         </p>
-
-        <p className="text-center text-sm text-slate-400 mt-4">
+        <p className="text-center text-sm text-slate-400 mt-3">
           ¿Eres alumno?{' '}
           <Link to="/alumno" className="text-slate-500 hover:underline">
             Acceso de alumnos

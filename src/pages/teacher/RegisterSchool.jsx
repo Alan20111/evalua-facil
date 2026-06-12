@@ -1,25 +1,15 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  setDoc,
-  where,
-} from 'firebase/firestore'
+import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { GraduationCap, Check } from 'lucide-react'
+import { planteles } from '../../data/planteles'
 
 export default function RegisterSchool() {
-  const [claveSEP, setClaveSEP] = useState('')
-  const [schoolName, setSchoolName] = useState('')
-  const [schoolExists, setSchoolExists] = useState(null)
-  const [schoolId, setSchoolId] = useState(null)
-  const [searching, setSearching] = useState(false)
+  const [cct, setCct] = useState('')
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
@@ -27,57 +17,51 @@ export default function RegisterSchool() {
 
   const user = auth.currentUser
 
-  const checkSchool = async () => {
-    if (!claveSEP.trim()) return
-    setSearching(true)
-    try {
-      const snap = await getDocs(
-        query(collection(db, 'schools'), where('claveSEP', '==', claveSEP.trim().toUpperCase()))
-      )
-      if (snap.empty) {
-        setSchoolExists(false)
-        setSchoolId(null)
-      } else {
-        setSchoolExists(true)
-        setSchoolId(snap.docs[0].id)
-        setSchoolName(snap.docs[0].data().nombre)
-      }
-    } catch {
-      toast('Error al buscar la escuela', 'error')
-    } finally {
-      setSearching(false)
-    }
-  }
+  const cctMatch = useMemo(() => {
+    const val = cct.trim().toUpperCase()
+    if (val.length < 5) return null
+    return planteles.find((p) => p.cct === val) || null
+  }, [cct])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!schoolExists && !schoolName.trim()) {
-      toast('Escribe el nombre de tu escuela', 'error')
+    if (!cctMatch) {
+      toast('CCT no encontrado. Verifica la clave de tu plantel.', 'error')
       return
     }
     setSaving(true)
     try {
-      let finalSchoolId = schoolId
-      if (!schoolExists) {
+      const schoolSnap = await getDocs(
+        query(collection(db, 'schools'), where('claveSEP', '==', cctMatch.cct))
+      )
+      let schoolId
+      if (!schoolSnap.empty) {
+        schoolId = schoolSnap.docs[0].id
+      } else {
         const newRef = doc(collection(db, 'schools'))
         await setDoc(newRef, {
-          claveSEP: claveSEP.trim().toUpperCase(),
-          nombre: schoolName.trim(),
+          claveSEP: cctMatch.cct,
+          nombre: cctMatch.nombre,
+          municipio: cctMatch.municipio,
+          estado: cctMatch.estado,
         })
-        finalSchoolId = newRef.id
+        schoolId = newRef.id
       }
+
+      const username = user.displayName || user.email.split('@')[0]
       const profile = {
         role: 'docente',
-        nombre: user.displayName || user.email.split('@')[0],
+        username,
+        nombre: username,
         email: user.email,
-        escuelaId: finalSchoolId,
+        escuelaId: schoolId,
+        photoURL: user.photoURL || null,
       }
       await setDoc(doc(db, 'users', user.uid), profile)
-      // Set the enriched profile in memory so the dashboard shows the school right away.
       setUserProfile({
         ...profile,
-        schoolName: schoolName.trim(),
-        claveSEP: claveSEP.trim().toUpperCase(),
+        schoolName: cctMatch.nombre,
+        claveSEP: cctMatch.cct,
       })
       navigate('/dashboard')
     } catch (err) {
@@ -95,11 +79,10 @@ export default function RegisterSchool() {
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Un último paso</h1>
-          <p className="text-slate-500 text-sm mt-1">Indica tu escuela para continuar</p>
+          <p className="text-slate-500 text-sm mt-1">Indica tu plantel para continuar</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-5">
-          {/* Google account info */}
           <div className="bg-slate-50 rounded-xl px-4 py-3">
             <p className="text-xs text-slate-400 mb-0.5">Cuenta de Google</p>
             <p className="text-sm font-semibold text-slate-800">{user?.displayName}</p>
@@ -109,59 +92,35 @@ export default function RegisterSchool() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Clave SEP de tu escuela
+                CCT de tu plantel
               </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={claveSEP}
-                  onChange={(e) => {
-                    setClaveSEP(e.target.value)
-                    setSchoolExists(null)
-                  }}
-                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
-                  placeholder="CBTis 255"
-                />
-                <button
-                  type="button"
-                  onClick={checkSchool}
-                  disabled={searching || !claveSEP.trim()}
-                  className="px-4 py-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  {searching ? <Spinner size="sm" /> : 'Buscar'}
-                </button>
-              </div>
-              {schoolExists === true && (
-                <p className="text-emerald-600 text-xs mt-1 flex items-center gap-1">
-                  <Check size={12} /> Escuela encontrada: <strong>{schoolName}</strong>
+              <input
+                type="text"
+                value={cct}
+                onChange={(e) => setCct(e.target.value.toUpperCase())}
+                required
+                className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 text-sm font-mono transition-colors ${
+                  cctMatch
+                    ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50'
+                    : 'border-slate-200 focus:ring-indigo-500 bg-slate-50'
+                }`}
+                placeholder="Ej. 11ECT0001X"
+              />
+              {cctMatch ? (
+                <p className="text-emerald-600 text-xs mt-1.5 flex items-start gap-1">
+                  <Check size={12} className="mt-0.5 flex-shrink-0" />
+                  <span>{cctMatch.nombre} — {cctMatch.municipio}, {cctMatch.estado}</span>
                 </p>
-              )}
-              {schoolExists === false && (
-                <p className="text-amber-600 text-xs mt-1">
-                  Escuela no registrada — se creará una nueva.
+              ) : cct.length >= 5 ? (
+                <p className="text-amber-600 text-xs mt-1.5">
+                  CCT no encontrado. Verifica que sea correcto.
                 </p>
-              )}
+              ) : null}
             </div>
-
-            {schoolExists === false && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Nombre de tu escuela
-                </label>
-                <input
-                  type="text"
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
-                  placeholder="Centro de Bachillerato 255"
-                />
-              </div>
-            )}
 
             <button
               type="submit"
-              disabled={saving || schoolExists === null}
+              disabled={saving || !cctMatch}
               className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {saving ? <Spinner size="sm" /> : null}

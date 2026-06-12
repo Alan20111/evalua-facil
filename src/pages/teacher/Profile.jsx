@@ -1,59 +1,336 @@
+import { useState, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { signOut } from 'firebase/auth'
-import { auth } from '../../firebase'
+import { signOut, sendPasswordResetEmail } from 'firebase/auth'
+import { doc, updateDoc, getDocs, query, collection, where, setDoc } from 'firebase/firestore'
+import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
-import { User, School, LogOut, BookOpen } from 'lucide-react'
+import Spinner from '../../components/Spinner'
+import { Camera, Check, LogOut, Mail, Lock, School, User } from 'lucide-react'
+import { planteles } from '../../data/planteles'
+
+async function uploadAvatar(file) {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+  const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+  const fd = new FormData()
+  fd.append('file', file)
+  fd.append('upload_preset', preset)
+  fd.append('folder', 'evalua-facil/avatars')
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+    { method: 'POST', body: fd }
+  )
+  if (!res.ok) throw new Error('Error al subir imagen')
+  return (await res.json()).secure_url
+}
 
 export default function Profile() {
-  const { userProfile } = useAuth()
+  const { currentUser, userProfile, setUserProfile } = useAuth()
   const navigate = useNavigate()
+  const toast = useToast()
+  const fileRef = useRef(null)
+
+  const [username, setUsername] = useState(
+    userProfile?.username || userProfile?.nombre || ''
+  )
+  const [nombre, setNombre] = useState(userProfile?.nombreMostrar || '')
+  const [savingInfo, setSavingInfo] = useState(false)
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
+  const [cct, setCct] = useState(userProfile?.claveSEP || '')
+  const [savingPlantel, setSavingPlantel] = useState(false)
+
+  const cctMatch = useMemo(() => {
+    const val = cct.trim().toUpperCase()
+    if (val.length < 5) return null
+    return planteles.find((p) => p.cct === val) || null
+  }, [cct])
+
+  async function handlePhotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoUploading(true)
+    try {
+      const url = await uploadAvatar(file)
+      await updateDoc(doc(db, 'users', currentUser.uid), { photoURL: url })
+      setUserProfile((p) => ({ ...p, photoURL: url }))
+      toast('Foto actualizada')
+    } catch (err) {
+      toast('Error al subir foto: ' + err.message, 'error')
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
+  async function handleSaveInfo(e) {
+    e.preventDefault()
+    if (!username.trim()) {
+      toast('El nombre de usuario es requerido', 'error')
+      return
+    }
+    setSavingInfo(true)
+    try {
+      const updates = {
+        username: username.trim(),
+        nombre: username.trim(),
+      }
+      if (nombre.trim()) updates.nombreMostrar = nombre.trim()
+      await updateDoc(doc(db, 'users', currentUser.uid), updates)
+      setUserProfile((p) => ({ ...p, ...updates }))
+      toast('Perfil actualizado')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingInfo(false)
+    }
+  }
+
+  async function handleResetPassword() {
+    try {
+      await sendPasswordResetEmail(auth, currentUser.email)
+      setResetSent(true)
+      toast('Correo enviado para cambiar contraseña')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  async function handleSavePlantel(e) {
+    e.preventDefault()
+    if (!cctMatch) {
+      toast('CCT no encontrado en el catálogo', 'error')
+      return
+    }
+    setSavingPlantel(true)
+    try {
+      const schoolSnap = await getDocs(
+        query(collection(db, 'schools'), where('claveSEP', '==', cctMatch.cct))
+      )
+      let schoolId
+      if (!schoolSnap.empty) {
+        schoolId = schoolSnap.docs[0].id
+      } else {
+        const newRef = doc(collection(db, 'schools'))
+        await setDoc(newRef, {
+          claveSEP: cctMatch.cct,
+          nombre: cctMatch.nombre,
+          municipio: cctMatch.municipio,
+          estado: cctMatch.estado,
+        })
+        schoolId = newRef.id
+      }
+      await updateDoc(doc(db, 'users', currentUser.uid), { escuelaId: schoolId })
+      setUserProfile((p) => ({
+        ...p,
+        escuelaId: schoolId,
+        schoolName: cctMatch.nombre,
+        claveSEP: cctMatch.cct,
+      }))
+      toast('Plantel actualizado')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingPlantel(false)
+    }
+  }
 
   const handleLogout = async () => {
     await signOut(auth)
     navigate('/')
   }
 
+  const displayName = userProfile?.username || userProfile?.nombre || 'Docente'
+  const initials = displayName.charAt(0).toUpperCase()
+
+  const inputCls =
+    'w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50'
+
   return (
     <TeacherLayout>
-      <div className="max-w-xl mx-auto px-4 py-6">
-        <h1 className="text-xl font-bold text-slate-900 mb-6">Mi perfil</h1>
-
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          {/* Avatar */}
-          <div className="bg-indigo-600 p-6 flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-3">
-              <User size={28} className="text-white" />
+      <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
+        {/* Photo + identity */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full bg-indigo-100 overflow-hidden flex items-center justify-center">
+              {userProfile?.photoURL ? (
+                <img
+                  src={userProfile.photoURL}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-2xl font-bold text-indigo-600">{initials}</span>
+              )}
             </div>
-            <p className="text-white font-bold text-lg">{userProfile?.nombre}</p>
-            <p className="text-indigo-200 text-sm mt-0.5">Docente</p>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={photoUploading}
+              className="absolute -bottom-1 -right-1 w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60"
+            >
+              {photoUploading ? <Spinner size="sm" /> : <Camera size={13} />}
+            </button>
           </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handlePhotoChange}
+          />
+          <div className="text-center">
+            <p className="font-bold text-slate-900">{displayName}</p>
+            <p className="text-sm text-slate-400">{currentUser?.email}</p>
+            {userProfile?.schoolName && (
+              <p className="text-xs text-slate-400 mt-0.5">{userProfile.schoolName}</p>
+            )}
+          </div>
+        </div>
 
-          {/* Info */}
-          <div className="divide-y divide-slate-100">
-            <div className="px-5 py-4 flex items-center gap-3">
-              <BookOpen size={18} className="text-slate-400" />
-              <div>
-                <p className="text-xs text-slate-400">Correo</p>
-                <p className="text-sm font-medium text-slate-900">{userProfile?.email}</p>
-              </div>
+        {/* Información personal */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <User size={17} className="text-slate-400" />
+            Información personal
+          </h2>
+          <form onSubmit={handleSaveInfo} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Nombre de usuario <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                className={inputCls}
+                placeholder="Ej. García Pérez Juan"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Así aparecerás para tus alumnos
+              </p>
             </div>
-            <div className="px-5 py-4 flex items-center gap-3">
-              <School size={18} className="text-slate-400" />
-              <div>
-                <p className="text-xs text-slate-400">Escuela</p>
-                <p className="text-sm font-medium text-slate-900">{userProfile?.schoolName || '—'}</p>
-                {userProfile?.claveSEP && (
-                  <p className="text-xs text-slate-400 mt-0.5">Clave SEP: {userProfile.claveSEP}</p>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Nombre visible{' '}
+                <span className="text-slate-400 font-normal">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                className={inputCls}
+                placeholder="Ej. Profa. García"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={savingInfo}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {savingInfo ? <Spinner size="sm" /> : null}
+              {savingInfo ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          </form>
+        </div>
+
+        {/* Seguridad */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <Lock size={17} className="text-slate-400" />
+            Seguridad
+          </h2>
+          <div className="space-y-4">
+            {/* Email */}
+            <div className="flex items-center gap-3">
+              <Mail size={18} className="text-slate-400 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 truncate">
+                  {currentUser?.email}
+                </p>
+                {currentUser?.emailVerified ? (
+                  <p className="text-xs text-emerald-500 flex items-center gap-1">
+                    <Check size={10} /> Verificado
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-500">Sin verificar</p>
                 )}
               </div>
+            </div>
+
+            {/* Password reset */}
+            <div className="border-t border-slate-100 pt-4 flex items-start gap-3">
+              <Lock size={18} className="text-slate-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-900">Contraseña</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Recibirás un correo para crear una nueva contraseña
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={resetSent}
+                className="text-indigo-600 text-sm font-semibold hover:underline disabled:opacity-50 flex-shrink-0"
+              >
+                {resetSent ? 'Enviado ✓' : 'Cambiar'}
+              </button>
             </div>
           </div>
         </div>
 
+        {/* Plantel */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <School size={17} className="text-slate-400" />
+            Plantel
+          </h2>
+          <form onSubmit={handleSavePlantel} className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                CCT del plantel
+              </label>
+              <input
+                type="text"
+                value={cct}
+                onChange={(e) => setCct(e.target.value.toUpperCase())}
+                className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 text-sm font-mono transition-colors ${
+                  cctMatch
+                    ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50'
+                    : 'border-slate-200 focus:ring-indigo-500 bg-slate-50'
+                }`}
+                placeholder="Ej. 11ECT0001X"
+              />
+              {cctMatch ? (
+                <p className="text-emerald-600 text-xs mt-1.5 flex items-start gap-1">
+                  <Check size={12} className="mt-0.5 flex-shrink-0" />
+                  <span>
+                    {cctMatch.nombre} — {cctMatch.municipio}, {cctMatch.estado}
+                  </span>
+                </p>
+              ) : cct.length >= 5 ? (
+                <p className="text-amber-600 text-xs mt-1.5">
+                  CCT no encontrado en el catálogo
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="submit"
+              disabled={savingPlantel || !cctMatch}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {savingPlantel ? <Spinner size="sm" /> : null}
+              {savingPlantel ? 'Guardando…' : 'Guardar plantel'}
+            </button>
+          </form>
+        </div>
+
+        {/* Logout */}
         <button
+          type="button"
           onClick={handleLogout}
-          className="w-full mt-6 py-3 border border-red-200 text-red-500 rounded-xl font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+          className="w-full py-3 border border-red-200 text-red-500 rounded-xl font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
         >
           <LogOut size={18} /> Cerrar sesión
         </button>
