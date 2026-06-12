@@ -10,6 +10,7 @@ import {
   updateDoc,
   arrayUnion,
   doc,
+  onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
@@ -67,18 +68,21 @@ export default function StudentActivityPage() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  useEffect(() => { loadAll() }, [activityId, userProfile?.studentId])
-
+  // Real-time listener: keeps activity fresh when teacher saves changes (extensions, edits)
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') loadAll() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [activityId, userProfile?.studentId])
+    if (!activityId) return
+    const unsub = onSnapshot(doc(db, 'activities', activityId), (snap) => {
+      if (snap.exists()) setActivity({ id: snap.id, ...snap.data() })
+    })
+    return () => unsub()
+  }, [activityId])
 
-  async function loadAll() {
+  // One-time load for everything else (student, subject, submission)
+  useEffect(() => { loadOther() }, [activityId, userProfile?.studentId])
+
+  async function loadOther() {
     setLoading(true)
     try {
-      // Resolve student ID upfront to parallelise all initial fetches
       let studentId = userProfile?.studentId
       if (!studentId) {
         const username = currentUser.email.split('@')[0].split('.')[0].toUpperCase()
@@ -86,7 +90,6 @@ export default function StudentActivityPage() {
         studentId = snap.empty ? null : snap.docs[0].id
       }
 
-      // Batch 1: activity + student in parallel (both IDs known)
       const [actSnap, studSnap] = await Promise.all([
         getDoc(doc(db, 'activities', activityId)),
         studentId ? getDoc(doc(db, 'students', studentId)) : Promise.resolve(null),
@@ -96,7 +99,6 @@ export default function StudentActivityPage() {
       const studData = studSnap?.exists() ? { id: studSnap.id, ...studSnap.data() } : null
       setStudent(studData)
 
-      // Batch 2: subject + submission in parallel (both IDs now known)
       const [subSnap, subsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', actData.asignaturaId)),
         studentId
