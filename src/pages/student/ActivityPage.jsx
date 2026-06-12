@@ -7,6 +7,8 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  updateDoc,
+  arrayUnion,
   doc,
   serverTimestamp,
 } from 'firebase/firestore'
@@ -102,29 +104,51 @@ export default function StudentActivityPage() {
     }
   }
 
+  function buildHistoryEntry() {
+    return {
+      archivoURL: submission?.archivoURL ?? null,
+      nombreArchivo: submission?.nombreArchivo ?? null,
+      completadoSinArchivo: !!submission?.completadoSinArchivo,
+      fechaEntrega: submission?.fechaEntrega ?? null,
+    }
+  }
+
   async function handleUpload() {
     if (!file) return
-    if (!student) {
-      toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error')
-      return
-    }
+    if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
     if (!ALLOWED_TYPES.includes(file.type)) { toast('Tipo de archivo no permitido', 'error'); return }
     if (file.size > 10 * 1024 * 1024) { toast('El archivo no puede superar 10 MB', 'error'); return }
     setUploading(true)
     try {
       const url = await uploadToCloudinary(file)
-      await addDoc(collection(db, 'submissions'), {
-        alumnoId: student.id,
-        actividadId: activityId,
-        archivoURL: url,
-        nombreArchivo: file.name,
-        completadoSinArchivo: false,
-        fechaEntrega: serverTimestamp(),
-        calificacion: null,
-        comentario: '',
-        estado: 'entregado',
-      })
-      toast('Tarea entregada')
+      if (submission) {
+        // Re-submit: archive current version, update doc
+        await updateDoc(doc(db, 'submissions', submission.id), {
+          archivoURL: url,
+          nombreArchivo: file.name,
+          completadoSinArchivo: false,
+          fechaEntrega: serverTimestamp(),
+          calificacion: null,
+          comentario: '',
+          estado: 'entregado',
+          historial: arrayUnion(buildHistoryEntry()),
+        })
+        toast('Versión corregida entregada')
+      } else {
+        await addDoc(collection(db, 'submissions'), {
+          alumnoId: student.id,
+          actividadId: activityId,
+          archivoURL: url,
+          nombreArchivo: file.name,
+          completadoSinArchivo: false,
+          fechaEntrega: serverTimestamp(),
+          calificacion: null,
+          comentario: '',
+          estado: 'entregado',
+          historial: [],
+        })
+        toast('Tarea entregada')
+      }
       setFile(null)
       loadAll()
     } catch (err) {
@@ -135,24 +159,36 @@ export default function StudentActivityPage() {
   }
 
   async function handleMarkComplete() {
-    if (!student) {
-      toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error')
-      return
-    }
+    if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
     setUploading(true)
     try {
-      await addDoc(collection(db, 'submissions'), {
-        alumnoId: student.id,
-        actividadId: activityId,
-        archivoURL: null,
-        nombreArchivo: null,
-        completadoSinArchivo: true,
-        fechaEntrega: serverTimestamp(),
-        calificacion: null,
-        comentario: '',
-        estado: 'entregado',
-      })
-      toast('Tarea marcada como completada')
+      if (submission) {
+        await updateDoc(doc(db, 'submissions', submission.id), {
+          archivoURL: null,
+          nombreArchivo: null,
+          completadoSinArchivo: true,
+          fechaEntrega: serverTimestamp(),
+          calificacion: null,
+          comentario: '',
+          estado: 'entregado',
+          historial: arrayUnion(buildHistoryEntry()),
+        })
+        toast('Versión corregida marcada como completada')
+      } else {
+        await addDoc(collection(db, 'submissions'), {
+          alumnoId: student.id,
+          actividadId: activityId,
+          archivoURL: null,
+          nombreArchivo: null,
+          completadoSinArchivo: true,
+          fechaEntrega: serverTimestamp(),
+          calificacion: null,
+          comentario: '',
+          estado: 'entregado',
+          historial: [],
+        })
+        toast('Tarea marcada como completada')
+      }
       loadAll()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -174,6 +210,8 @@ export default function StudentActivityPage() {
   // Extended deadline for this student (set by teacher)
   const extendedDate = activity?.extensiones?.[student?.id]
   const displayDate = extendedDate || activity?.fechaLimite
+  // Can re-submit if teacher gave an extension and task isn't graded yet
+  const canResubmit = !!extendedDate && !isGraded && !!submission
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -283,9 +321,16 @@ export default function StudentActivityPage() {
         </div>
 
         {/* Upload */}
-        {!submission && (
+        {(!submission || canResubmit) && (
           <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-900 mb-4">Subir entrega</h2>
+            <h2 className="font-semibold text-slate-900 mb-1">
+              {canResubmit ? 'Subir versión corregida' : 'Subir entrega'}
+            </h2>
+            {canResubmit && (
+              <p className="text-xs text-orange-500 mb-3">
+                Tu maestro extendió la fecha — puedes subir una corrección.
+              </p>
+            )}
             <div className="space-y-3">
               <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
                 file ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
