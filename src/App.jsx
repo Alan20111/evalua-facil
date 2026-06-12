@@ -17,9 +17,17 @@ import StudentDashboard from './pages/student/Dashboard'
 import StudentSubjectPage from './pages/student/SubjectPage'
 import StudentActivityPage from './pages/student/ActivityPage'
 
+// A teacher who signed up with email/password must verify their email before
+// accessing the app. Google accounts are pre-verified; students use fake
+// @evalua.local emails and are exempt from this check.
+function isUnverifiedTeacher(user) {
+  return !!user && !user.emailVerified && !user.email?.endsWith('@evalua.local')
+}
+
 function ProtectedTeacher({ children }) {
   const { currentUser, userProfile } = useAuth()
   if (!currentUser) return <Navigate to="/" replace />
+  if (isUnverifiedTeacher(currentUser)) return <Navigate to="/" replace />
   if (userProfile && userProfile.role !== 'docente') return <Navigate to="/alumno" replace />
   return children
 }
@@ -33,6 +41,10 @@ function ProtectedStudent({ children }) {
 function RootRedirect() {
   const { currentUser, userProfile } = useAuth()
   if (!currentUser) return <TeacherLogin />
+  // Authenticated but unverified email teacher: keep them on the login screen
+  // (which offers the resend-verification path) rather than redirecting into the
+  // protected app — this also prevents a redirect loop with ProtectedTeacher.
+  if (isUnverifiedTeacher(currentUser)) return <TeacherLogin />
   if (userProfile?.role === 'docente') return <Navigate to="/dashboard" replace />
   // Student accounts use @evalua.local emails; a non-student with no profile is a
   // new Google sign-in waiting for handleGoogle to navigate to /register/school.

@@ -42,6 +42,7 @@ export default function TeacherLogin() {
       const cred = await signInWithEmailAndPassword(auth, email, password)
       if (!cred.user.emailVerified) {
         await signOut(auth)
+        setResendDone(false)
         setNeedsVerification(true)
         return
       }
@@ -65,7 +66,12 @@ export default function TeacherLogin() {
       const snap = await getDoc(doc(db, 'users', result.user.uid))
       navigate(snap.exists() ? '/dashboard' : '/register/school')
     } catch (err) {
-      if (err.code !== 'auth/popup-closed-by-user') {
+      if (err.code === 'auth/popup-closed-by-user') {
+        // user dismissed the popup — nothing to report
+      } else {
+        // If the popup succeeded but the profile lookup failed, the user is left
+        // authenticated with no profile (blank screen). Sign back out to recover.
+        if (auth.currentUser) await signOut(auth).catch(() => {})
         toast('Error al iniciar con Google', 'error')
       }
     } finally {

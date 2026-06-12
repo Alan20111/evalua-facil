@@ -100,7 +100,8 @@ export default function TeacherLayout({ children }) {
     }
   }
 
-  const displayName = userProfile?.username || userProfile?.nombre || 'Docente'
+  const displayName =
+    userProfile?.nombreMostrar || userProfile?.username || userProfile?.nombre || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
 
   return (

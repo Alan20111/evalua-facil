@@ -219,6 +219,7 @@ export default function GroupPage() {
         docenteId: currentUser.uid,
         grupoId: groupId,
         escuelaId: userProfile.escuelaId,
+        archived: false,
         createdAt: serverTimestamp(),
       })
       setNewSubject('')

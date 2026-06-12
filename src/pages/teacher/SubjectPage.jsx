@@ -19,7 +19,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
-  CheckCircle, Circle, X, Pencil, Trash2,
+  CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
 } from 'lucide-react'
 
 const PARCIALES = [1, 2, 3]
@@ -58,6 +58,7 @@ export default function SubjectPage() {
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState(null) // activity object or null
   const [deleting, setDeleting] = useState(false)
+  const [archiving, setArchiving] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
@@ -170,6 +171,21 @@ export default function SubjectPage() {
     }
   }
 
+  async function handleToggleArchive() {
+    if (!subject) return
+    const next = !subject.archived
+    setArchiving(true)
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), { archived: next })
+      setSubject((s) => ({ ...s, archived: next }))
+      toast(next ? 'Asignatura archivada' : 'Asignatura restaurada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setArchiving(false)
+    }
+  }
+
   if (loading) return (
     <TeacherLayout>
       <div className="flex justify-center py-20"><Spinner size="lg" /></div>
@@ -188,10 +204,26 @@ export default function SubjectPage() {
             >
               <ArrowLeft size={20} />
             </button>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">{subject?.nombre}</h1>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-slate-900 truncate">{subject?.nombre}</h1>
+                {subject?.archived && (
+                  <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">
+                    Archivada
+                  </span>
+                )}
+              </div>
               <p className="text-slate-400 text-xs">{group?.nombre} · {group?.ciclo}</p>
             </div>
+            <button
+              type="button"
+              onClick={handleToggleArchive}
+              disabled={archiving}
+              title={subject?.archived ? 'Restaurar asignatura' : 'Archivar asignatura'}
+              className="p-2 text-slate-400 hover:text-amber-600 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0"
+            >
+              {subject?.archived ? <ArchiveRestore size={19} /> : <Archive size={19} />}
+            </button>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { GraduationCap, Check } from 'lucide-react'
-import { planteles } from '../../data/planteles'
+import { usePlanteles, findPlantel } from '../../data/usePlanteles'
 
 export default function RegisterSchool() {
   const [cct, setCct] = useState('')
@@ -14,17 +14,23 @@ export default function RegisterSchool() {
   const navigate = useNavigate()
   const toast = useToast()
   const { setUserProfile } = useAuth()
+  const { planteles, loading: catalogLoading } = usePlanteles()
 
   const user = auth.currentUser
 
-  const cctMatch = useMemo(() => {
-    const val = cct.trim().toUpperCase()
-    if (val.length < 5) return null
-    return planteles.find((p) => p.cct === val) || null
-  }, [cct])
+  // Guard: reaching this page without an active Google session is invalid.
+  useEffect(() => {
+    if (!user) navigate('/', { replace: true })
+  }, [user, navigate])
+
+  const cctMatch = useMemo(() => findPlantel(planteles, cct), [planteles, cct])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!user) {
+      navigate('/', { replace: true })
+      return
+    }
     if (!cctMatch) {
       toast('CCT no encontrado. Verifica la clave de tu plantel.', 'error')
       return
@@ -42,8 +48,10 @@ export default function RegisterSchool() {
         await setDoc(newRef, {
           claveSEP: cctMatch.cct,
           nombre: cctMatch.nombre,
-          municipio: cctMatch.municipio,
-          estado: cctMatch.estado,
+          shortName: cctMatch.short,
+          subsistema: cctMatch.sub,
+          municipio: cctMatch.mun,
+          estado: cctMatch.edo,
         })
         schoolId = newRef.id
       }
@@ -104,13 +112,17 @@ export default function RegisterSchool() {
                     ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50'
                     : 'border-slate-200 focus:ring-indigo-500 bg-slate-50'
                 }`}
-                placeholder="Ej. 11ECT0001X"
+                placeholder="Ej. 11DCT0010U"
               />
               {cctMatch ? (
                 <p className="text-emerald-600 text-xs mt-1.5 flex items-start gap-1">
                   <Check size={12} className="mt-0.5 flex-shrink-0" />
-                  <span>{cctMatch.nombre} — {cctMatch.municipio}, {cctMatch.estado}</span>
+                  <span>
+                    <strong>{cctMatch.short}</strong> · {cctMatch.nombre} — {cctMatch.mun}, {cctMatch.edo}
+                  </span>
                 </p>
+              ) : catalogLoading && cct.length >= 5 ? (
+                <p className="text-slate-400 text-xs mt-1.5">Cargando catálogo de planteles…</p>
               ) : cct.length >= 5 ? (
                 <p className="text-amber-600 text-xs mt-1.5">
                   CCT no encontrado. Verifica que sea correcto.

@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth'
+import { createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth'
 import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { GraduationCap, Check, Mail } from 'lucide-react'
-import { planteles } from '../../data/planteles'
+import { usePlanteles, findPlantel } from '../../data/usePlanteles'
 
 export default function TeacherRegister() {
   const [form, setForm] = useState({
@@ -22,14 +22,14 @@ export default function TeacherRegister() {
   const [done, setDone] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
+  const { planteles, loading: catalogLoading } = usePlanteles()
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  const cctMatch = useMemo(() => {
-    const val = form.cct.trim().toUpperCase()
-    if (val.length < 5) return null
-    return planteles.find((p) => p.cct === val) || null
-  }, [form.cct])
+  const cctMatch = useMemo(
+    () => findPlantel(planteles, form.cct),
+    [planteles, form.cct]
+  )
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -47,6 +47,9 @@ export default function TeacherRegister() {
     }
     setLoading(true)
     try {
+      // Create the auth user FIRST so we never orphan a school doc if signup fails.
+      const cred = await createUserWithEmailAndPassword(auth, form.email, form.password)
+
       const schoolSnap = await getDocs(
         query(collection(db, 'schools'), where('claveSEP', '==', cctMatch.cct))
       )
@@ -58,16 +61,17 @@ export default function TeacherRegister() {
         await setDoc(newRef, {
           claveSEP: cctMatch.cct,
           nombre: cctMatch.nombre,
-          municipio: cctMatch.municipio,
-          estado: cctMatch.estado,
+          shortName: cctMatch.short,
+          subsistema: cctMatch.sub,
+          municipio: cctMatch.mun,
+          estado: cctMatch.edo,
         })
         schoolId = newRef.id
       }
 
-      const cred = await createUserWithEmailAndPassword(auth, form.email, form.password)
-      await sendEmailVerification(cred.user)
-
-      const username = `${form.apellidoPaterno.trim()} ${form.apellidoMaterno.trim()} ${form.nombrePropio.trim()}`.replace(/\s+/g, ' ').trim()
+      const username = `${form.apellidoPaterno.trim()} ${form.apellidoMaterno.trim()} ${form.nombrePropio.trim()}`
+        .replace(/\s+/g, ' ')
+        .trim()
       await setDoc(doc(db, 'users', cred.user.uid), {
         role: 'docente',
         apellidoPaterno: form.apellidoPaterno.trim().toUpperCase(),
@@ -80,8 +84,9 @@ export default function TeacherRegister() {
         photoURL: null,
       })
 
-      // Sign out so they verify email before accessing the dashboard
-      await auth.currentUser?.reload()
+      await sendEmailVerification(cred.user)
+      // Sign out so the user MUST verify their email before reaching the dashboard.
+      await signOut(auth)
       setDone(true)
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
@@ -105,7 +110,7 @@ export default function TeacherRegister() {
             <h2 className="text-lg font-bold text-slate-900 mb-2">¡Cuenta creada!</h2>
             <p className="text-sm text-slate-500 mb-6">
               Enviamos un correo de verificación a{' '}
-              <strong>{form.email}</strong>. Ábrelo antes de iniciar sesión.
+              <strong>{form.email}</strong>. Ábrelo y verifica tu cuenta antes de iniciar sesión.
             </p>
             <button
               type="button"
@@ -120,7 +125,8 @@ export default function TeacherRegister() {
     )
   }
 
-  const inputCls = 'w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50'
+  const inputCls =
+    'w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50'
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50 py-8">
@@ -191,13 +197,17 @@ export default function TeacherRegister() {
                     ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50'
                     : 'border-slate-200 focus:ring-indigo-500 bg-slate-50'
                 }`}
-                placeholder="Ej. 11ECT0001X"
+                placeholder="Ej. 11DCT0010U"
               />
               {cctMatch ? (
                 <p className="text-emerald-600 text-xs mt-1.5 flex items-start gap-1">
                   <Check size={12} className="mt-0.5 flex-shrink-0" />
-                  <span>{cctMatch.nombre} — {cctMatch.municipio}, {cctMatch.estado}</span>
+                  <span>
+                    <strong>{cctMatch.short}</strong> · {cctMatch.nombre} — {cctMatch.mun}, {cctMatch.edo}
+                  </span>
                 </p>
+              ) : catalogLoading && form.cct.length >= 5 ? (
+                <p className="text-slate-400 text-xs mt-1.5">Cargando catálogo de planteles…</p>
               ) : form.cct.length >= 5 ? (
                 <p className="text-amber-600 text-xs mt-1.5">
                   CCT no encontrado en el catálogo. Verifica que sea correcto.

@@ -95,7 +95,10 @@ export default function TeacherDashboard() {
         <div className="mb-6">
           <p className="text-slate-500 text-sm">{saludo},</p>
           <h1 className="text-2xl font-bold text-slate-900">
-            {userProfile?.nombre?.split(' ')[0] ?? 'Docente'}
+            {userProfile?.nombrePropio?.split(' ')[0] ||
+              userProfile?.username ||
+              userProfile?.nombre ||
+              'Docente'}
           </h1>
           {userProfile?.schoolName && (
             <p className="text-slate-400 text-xs mt-0.5">{userProfile.schoolName}</p>

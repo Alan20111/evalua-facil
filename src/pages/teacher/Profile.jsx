@@ -8,7 +8,7 @@ import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { Camera, Check, LogOut, Mail, Lock, School, User } from 'lucide-react'
-import { planteles } from '../../data/planteles'
+import { usePlanteles, findPlantel } from '../../data/usePlanteles'
 
 async function uploadAvatar(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -40,12 +40,9 @@ export default function Profile() {
   const [resetSent, setResetSent] = useState(false)
   const [cct, setCct] = useState(userProfile?.claveSEP || '')
   const [savingPlantel, setSavingPlantel] = useState(false)
+  const { planteles, loading: catalogLoading } = usePlanteles()
 
-  const cctMatch = useMemo(() => {
-    const val = cct.trim().toUpperCase()
-    if (val.length < 5) return null
-    return planteles.find((p) => p.cct === val) || null
-  }, [cct])
+  const cctMatch = useMemo(() => findPlantel(planteles, cct), [planteles, cct])
 
   async function handlePhotoChange(e) {
     const file = e.target.files?.[0]
@@ -115,8 +112,10 @@ export default function Profile() {
         await setDoc(newRef, {
           claveSEP: cctMatch.cct,
           nombre: cctMatch.nombre,
-          municipio: cctMatch.municipio,
-          estado: cctMatch.estado,
+          shortName: cctMatch.short,
+          subsistema: cctMatch.sub,
+          municipio: cctMatch.mun,
+          estado: cctMatch.edo,
         })
         schoolId = newRef.id
       }
@@ -140,7 +139,8 @@ export default function Profile() {
     navigate('/')
   }
 
-  const displayName = userProfile?.username || userProfile?.nombre || 'Docente'
+  const displayName =
+    userProfile?.nombreMostrar || userProfile?.username || userProfile?.nombre || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
 
   const inputCls =
@@ -306,9 +306,11 @@ export default function Profile() {
                 <p className="text-emerald-600 text-xs mt-1.5 flex items-start gap-1">
                   <Check size={12} className="mt-0.5 flex-shrink-0" />
                   <span>
-                    {cctMatch.nombre} — {cctMatch.municipio}, {cctMatch.estado}
+                    <strong>{cctMatch.short}</strong> · {cctMatch.nombre} — {cctMatch.mun}, {cctMatch.edo}
                   </span>
                 </p>
+              ) : catalogLoading && cct.length >= 5 ? (
+                <p className="text-slate-400 text-xs mt-1.5">Cargando catálogo de planteles…</p>
               ) : cct.length >= 5 ? (
                 <p className="text-amber-600 text-xs mt-1.5">
                   CCT no encontrado en el catálogo
