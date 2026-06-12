@@ -30,7 +30,7 @@ async function fetchActivitiesForSubjects(subjectIds) {
 }
 
 export default function StudentDashboard() {
-  const { currentUser } = useAuth()
+  const { currentUser, userProfile } = useAuth()
   const [student, setStudent] = useState(null)
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -44,23 +44,22 @@ export default function StudentDashboard() {
   async function loadData() {
     setLoading(true)
     try {
-      // Find student profile from Firebase Auth email
-      const emailParts = currentUser.email.split('@')[0]
-      const dotIdx = emailParts.indexOf('.')
-      const username = emailParts.slice(0, dotIdx)
-      const escuelaId = emailParts.slice(dotIdx + 1)
-      const studs = await getDocs(
-        query(
-          collection(db, 'students'),
-          where('escuelaId', '==', escuelaId),
-          where('username', '==', username.toUpperCase())
+      // Resolve student record via userProfile.studentId (set by AuthContext for all accounts)
+      // This avoids the Firebase Auth email-lowercasing bug that broke the old escuelaId query.
+      let studData
+      if (userProfile?.studentId) {
+        const snap = await getDoc(doc(db, 'students', userProfile.studentId))
+        if (!snap.exists()) { toast('No se encontró tu perfil de alumno', 'error'); return }
+        studData = { id: snap.id, ...snap.data() }
+      } else {
+        // Legacy fallback: query by username only (single-field, no case issue)
+        const username = currentUser.email.split('@')[0].split('.')[0].toUpperCase()
+        const studs = await getDocs(
+          query(collection(db, 'students'), where('username', '==', username))
         )
-      )
-      if (studs.empty) {
-        toast('No se encontró tu perfil de alumno', 'error')
-        return
+        if (studs.empty) { toast('No se encontró tu perfil de alumno', 'error'); return }
+        studData = { id: studs.docs[0].id, ...studs.docs[0].data() }
       }
-      const studData = { id: studs.docs[0].id, ...studs.docs[0].data() }
       setStudent(studData)
 
       // Subjects for the student's group.

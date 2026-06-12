@@ -49,7 +49,7 @@ async function uploadToCloudinary(file) {
 
 export default function StudentActivityPage() {
   const { activityId } = useParams()
-  const { currentUser } = useAuth()
+  const { currentUser, userProfile } = useAuth()
   const [activity, setActivity] = useState(null)
   const [subject, setSubject] = useState(null)
   const [student, setStudent] = useState(null)
@@ -71,20 +71,17 @@ export default function StudentActivityPage() {
       const subSnap = await getDoc(doc(db, 'subjects', actData.asignaturaId))
       setSubject({ id: subSnap.id, ...subSnap.data() })
 
-      const emailParts = currentUser.email.split('@')[0]
-      const dotIdx = emailParts.indexOf('.')
-      const username = emailParts.slice(0, dotIdx)
-      const escuelaId = emailParts.slice(dotIdx + 1)
-
-      const studs = await getDocs(
-        query(
-          collection(db, 'students'),
-          where('escuelaId', '==', escuelaId),
-          where('username', '==', username.toUpperCase())
-        )
-      )
-      if (!studs.empty) {
-        const studData = { id: studs.docs[0].id, ...studs.docs[0].data() }
+      // Resolve student via userProfile.studentId to avoid Firebase email-lowercasing bug
+      let studData = null
+      if (userProfile?.studentId) {
+        const snap = await getDoc(doc(db, 'students', userProfile.studentId))
+        if (snap.exists()) studData = { id: snap.id, ...snap.data() }
+      } else {
+        const username = currentUser.email.split('@')[0].split('.')[0].toUpperCase()
+        const studs = await getDocs(query(collection(db, 'students'), where('username', '==', username)))
+        if (!studs.empty) studData = { id: studs.docs[0].id, ...studs.docs[0].data() }
+      }
+      if (studData) {
         setStudent(studData)
         const subsSnap = await getDocs(
           query(

@@ -21,7 +21,7 @@ const PARCIALES = [1, 2, 3]
 
 export default function StudentSubjectPage() {
   const { subjectId } = useParams()
-  const { currentUser } = useAuth()
+  const { currentUser, userProfile } = useAuth()
   const [subject, setSubject] = useState(null)
   const [student, setStudent] = useState(null)
   const [activities, setActivities] = useState([])
@@ -36,27 +36,27 @@ export default function StudentSubjectPage() {
   async function loadAll() {
     setLoading(true)
     try {
-      const emailParts = currentUser.email.split('@')[0]
-      const dotIdx = emailParts.indexOf('.')
-      const username = emailParts.slice(0, dotIdx)
-      const escuelaId = emailParts.slice(dotIdx + 1)
+      // Resolve student via userProfile.studentId to avoid Firebase email-lowercasing bug
+      const getStudentPromise = userProfile?.studentId
+        ? getDoc(doc(db, 'students', userProfile.studentId))
+        : (async () => {
+            const username = currentUser.email.split('@')[0].split('.')[0].toUpperCase()
+            const snap = await getDocs(query(collection(db, 'students'), where('username', '==', username)))
+            return snap.empty ? null : snap.docs[0]
+          })()
 
-      // Subject, student profile and activities are independent → one parallel batch
-      // instead of three sequential round trips.
-      const [subSnap, studsSnap, actsSnap] = await Promise.all([
+      const [subSnap, studentResult, actsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
-        getDocs(query(
-          collection(db, 'students'),
-          where('escuelaId', '==', escuelaId),
-          where('username', '==', username.toUpperCase())
-        )),
+        getStudentPromise,
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
       ])
       setSubject({ id: subSnap.id, ...subSnap.data() })
       const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       setActivities(acts)
-      if (studsSnap.empty) return
-      const studData = { id: studsSnap.docs[0].id, ...studsSnap.docs[0].data() }
+      if (!studentResult) return
+      const studData = userProfile?.studentId
+        ? { id: studentResult.id, ...studentResult.data() }
+        : { id: studentResult.id, ...studentResult.data() }
       setStudent(studData)
 
       // One query for ALL of this student's submissions, then map to activities in memory
