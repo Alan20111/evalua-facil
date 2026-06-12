@@ -19,25 +19,14 @@ function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
 }
 
-function getCiclos() {
+function getCicloInfo() {
   const now = new Date()
   const year = now.getFullYear()
-  const month = now.getMonth() + 1 // 1-12
+  const month = now.getMonth() + 1
   if (month >= 8) {
-    // AGO-ENE period is current/upcoming
-    return [
-      `AGO ${year}-ENE ${year + 1}`,
-      `FEB ${year + 1}-JUL ${year + 1}`,
-      `FEB ${year}-JUL ${year}`,
-    ]
-  } else {
-    // FEB-JUL period is current, AGO-ENE is upcoming
-    return [
-      `AGO ${year}-ENE ${year + 1}`,
-      `FEB ${year}-JUL ${year}`,
-      `AGO ${year - 1}-ENE ${year}`,
-    ]
+    return { current: `AGO ${year}-ENE ${year + 1}`, next: `FEB ${year + 1}-JUL ${year + 1}` }
   }
+  return { current: `FEB ${year}-JUL ${year}`, next: `AGO ${year}-ENE ${year + 1}` }
 }
 
 export default function TeacherDashboard() {
@@ -45,7 +34,7 @@ export default function TeacherDashboard() {
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [newGroup, setNewGroup] = useState({ nombre: '', ciclo: getCiclos()[0] })
+  const [newGroup, setNewGroup] = useState({ nombre: '', ciclo: getCicloInfo().current })
   const [creating, setCreating] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
@@ -96,7 +85,7 @@ export default function TeacherDashboard() {
         createdAt: serverTimestamp(),
       })
       setShowModal(false)
-      setNewGroup({ nombre: '', ciclo: getCiclos()[0] })
+      setNewGroup({ nombre: '', ciclo: getCicloInfo().current })
       toast('Grupo creado exitosamente')
       navigate(`/group/${ref.id}`)
     } catch (err) {
@@ -218,19 +207,31 @@ export default function TeacherDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Ciclo escolar
                 </label>
-                <select
-                  value={newGroup.ciclo}
-                  onChange={(e) => setNewGroup((f) => ({ ...f, ciclo: e.target.value }))}
-                  required
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
-                >
-                  {getCiclos().map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                {(() => {
+                  const { current, next } = getCicloInfo()
+                  return (
+                    <div className="flex rounded-xl overflow-hidden border border-slate-200">
+                      {[{ label: 'Período actual', value: current }, { label: 'Siguiente período', value: next }].map(({ label, value }, i) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setNewGroup((f) => ({ ...f, ciclo: value }))}
+                          className={`flex-1 py-2.5 px-2 text-center transition-colors ${i > 0 ? 'border-l border-slate-200' : ''} ${
+                            newGroup.ciclo === value
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className={`block text-xs mb-0.5 ${newGroup.ciclo === value ? 'text-indigo-200' : 'text-slate-400'}`}>{label}</span>
+                          <span className="block text-sm font-semibold">{value}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
               <button
                 type="submit"
