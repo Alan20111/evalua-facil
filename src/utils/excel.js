@@ -55,48 +55,110 @@ export function exportStudentListExcel(students) {
   XLSX.writeFile(wb, 'lista_alumnos.xlsx')
 }
 
-export function exportGradesExcel(students, activities, submissions) {
-  const parciales = [1, 2, 3]
-  const header = ['#', 'Alumno']
-  parciales.forEach((p) => {
-    const acts = activities.filter((a) => a.parcial === p)
-    acts.forEach((a) => header.push(`P${p} - ${a.nombre}`))
-    header.push(`Promedio P${p}`)
-  })
-  header.push('Promedio Final')
+export function exportSubjectGrades({ subject, group, activities, students, submissions }) {
+  const PARCIALES = [1, 2, 3]
 
-  const rows = students.map((s) => {
-    const row = [s.orden, `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre}`]
-    let totalCalifs = []
-    parciales.forEach((p) => {
-      const acts = activities.filter((a) => a.parcial === p)
-      const parcialCalifs = []
+  // ── Column layout ────────────────────────────────────────────────
+  // Fixed cols: #, Apellido Paterno, Apellido Materno, Nombre(s)
+  // Per parcial: [act1, act2, ..., Prom Px]
+  // Final: Promedio Final
+
+  const FIXED = 4  // number of fixed left columns
+  const parcialMeta = PARCIALES.map((p) => {
+    const acts = activities.filter((a) => a.parcial === p)
+    return { p, acts, cols: acts.length + 1 }  // +1 for avg column
+  })
+
+  const totalCols = FIXED + parcialMeta.reduce((s, m) => s + m.cols, 0) + 1
+
+  // ── Row 0: Title ─────────────────────────────────────────────────
+  const titleRow = Array(totalCols).fill('')
+  titleRow[0] = `${subject.nombre}   ·   ${group.nombre}   (${group.ciclo})`
+
+  // ── Row 1: Parcial headers (merged per block) ────────────────────
+  const parcialRow = Array(totalCols).fill('')
+  let col = FIXED
+  const parcialRanges = {}
+  PARCIALES.forEach((p, pi) => {
+    const { cols } = parcialMeta[pi]
+    parcialRanges[p] = { start: col, end: col + cols - 1 }
+    parcialRow[col] = `PARCIAL ${p}`
+    col += cols
+  })
+  parcialRow[col] = 'FINAL'
+
+  // ── Row 2: Column names ──────────────────────────────────────────
+  const nameRow = ['#', 'Apellido Paterno', 'Apellido Materno', 'Nombre(s)']
+  PARCIALES.forEach((p, pi) => {
+    const { acts } = parcialMeta[pi]
+    acts.forEach((a) => nameRow.push(a.nombre))
+    nameRow.push(`Prom. P${p}`)
+  })
+  nameRow.push('Promedio Final')
+
+  // ── Data rows ────────────────────────────────────────────────────
+  const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  const dataRows = sorted.map((s) => {
+    const row = [s.orden, s.apellidoPaterno, s.apellidoMaterno, s.nombre]
+    const finalGrades = []
+
+    PARCIALES.forEach((p, pi) => {
+      const { acts } = parcialMeta[pi]
+      const parGrades = []
       acts.forEach((a) => {
         const sub = submissions.find(
           (sub) => sub.alumnoId === s.id && sub.actividadId === a.id
         )
-        const grade =
-          sub?.calificacion != null ? sub.calificacion : ''
-        row.push(grade)
-        if (grade !== '') parcialCalifs.push(grade)
+        if (sub?.calificacion != null) {
+          // Normalize to 0-10 scale regardless of maxCalif
+          const norm = parseFloat(((sub.calificacion / (a.maxCalif || 10)) * 10).toFixed(2))
+          row.push(norm)
+          parGrades.push(norm)
+        } else {
+          row.push('')
+        }
       })
-      const avg =
-        parcialCalifs.length
-          ? (parcialCalifs.reduce((a, b) => a + b, 0) / parcialCalifs.length).toFixed(1)
-          : ''
-      row.push(avg)
-      if (avg !== '') totalCalifs.push(parseFloat(avg))
-    })
-    const final =
-      totalCalifs.length
-        ? (totalCalifs.reduce((a, b) => a + b, 0) / totalCalifs.length).toFixed(1)
+      const parAvg = parGrades.length
+        ? parseFloat((parGrades.reduce((a, b) => a + b, 0) / parGrades.length).toFixed(2))
         : ''
+      row.push(parAvg)
+      if (parAvg !== '') finalGrades.push(parAvg)
+    })
+
+    const final = finalGrades.length
+      ? parseFloat((finalGrades.reduce((a, b) => a + b, 0) / finalGrades.length).toFixed(2))
+      : ''
     row.push(final)
     return row
   })
 
-  const ws = XLSX.utils.aoa_to_sheet([header, ...rows])
+  // ── Build sheet ──────────────────────────────────────────────────
+  const allRows = [titleRow, [], parcialRow, nameRow, ...dataRows]
+  const ws = XLSX.utils.aoa_to_sheet(allRows)
+
+  // Merges: title spans all cols; each parcial header spans its block
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
+    ...PARCIALES.map((p) => ({
+      s: { r: 2, c: parcialRanges[p].start },
+      e: { r: 2, c: parcialRanges[p].end },
+    })),
+  ]
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 4 },   // #
+    { wch: 20 },  // apellidoPaterno
+    { wch: 20 },  // apellidoMaterno
+    { wch: 22 },  // nombre
+    ...Array(totalCols - FIXED).fill({ wch: 13 }),
+  ]
+
+  // Row heights: title row taller
+  ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }, { hpt: 18 }]
+
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Calificaciones')
-  XLSX.writeFile(wb, 'calificaciones.xlsx')
+  const safeName = subject.nombre.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
+  XLSX.writeFile(wb, `calificaciones_${safeName}.xlsx`)
 }

@@ -17,9 +17,11 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
+import { exportSubjectGrades } from '../../utils/excel'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
+  FileSpreadsheet,
 } from 'lucide-react'
 
 const PARCIALES = [1, 2, 3]
@@ -61,6 +63,7 @@ export default function SubjectPage() {
   const [archiving, setArchiving] = useState(false)
 
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -188,6 +191,26 @@ export default function SubjectPage() {
       toast('Error: ' + err.message, 'error')
     } finally {
       setArchiving(false)
+    }
+  }
+
+  async function handleExport() {
+    if (!subject || !group) return
+    setExporting(true)
+    try {
+      const [studsSnap, subDocs] = await Promise.all([
+        getDocs(query(collection(db, 'students'), where('grupoId', '==', subject.grupoId))),
+        fetchSubmissionsForActivities(activities.map((a) => a.id)),
+      ])
+      const students = studsSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      const submissions = subDocs.map((d) => ({ id: d.id, ...d.data() }))
+      exportSubjectGrades({ subject, group, activities, students, submissions })
+    } catch (err) {
+      toast('Error al exportar: ' + err.message, 'error')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -326,6 +349,18 @@ export default function SubjectPage() {
               </div>
             )
           })}
+        </div>
+
+        {/* Export button */}
+        <div className="px-4 pb-6">
+          <button
+            onClick={handleExport}
+            disabled={exporting || activities.length === 0}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-emerald-200 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-40"
+          >
+            {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />}
+            {exporting ? 'Generando Excel…' : 'Exportar calificaciones a Excel'}
+          </button>
         </div>
       </div>
 
