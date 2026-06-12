@@ -16,7 +16,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, Upload, CheckCircle, Clock, FileText, Star,
-  MessageSquare,
+  MessageSquare, Download,
 } from 'lucide-react'
 
 const ALLOWED_TYPES = [
@@ -215,6 +215,22 @@ export default function StudentActivityPage() {
             )}
           </div>
         </div>
+
+        {/* View submitted file */}
+        {submission && !submission.completadoSinArchivo && submission.archivoURL && (
+          <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+            <p className="text-xs font-medium text-slate-500 mb-2">Tu entrega</p>
+            <a
+              href={submission.archivoURL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
+            >
+              <Download size={15} className="text-indigo-500 flex-shrink-0" />
+              <span className="truncate">{submission.nombreArchivo}</span>
+            </a>
+          </div>
+        )}
 
         {/* Grade */}
         {isGraded && (
