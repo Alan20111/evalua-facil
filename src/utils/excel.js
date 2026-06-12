@@ -1,5 +1,16 @@
 import * as XLSX from 'xlsx'
 
+export function downloadStudentTemplate() {
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Apellido Paterno', 'Apellido Materno', 'Nombre(s)'],
+    ['García', 'López', 'Juan Carlos'],
+  ])
+  ws['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 25 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Alumnos')
+  XLSX.writeFile(wb, 'plantilla-alumnos.xlsx')
+}
+
 export function parseStudentExcel(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()

@@ -25,7 +25,7 @@ import {
   UserPlus, Trash2,
 } from 'lucide-react'
 import { generateUsername, generateResetPassword } from '../../utils/generate'
-import { parseStudentExcel, exportStudentListExcel } from '../../utils/excel'
+import { parseStudentExcel, exportStudentListExcel, downloadStudentTemplate } from '../../utils/excel'
 
 export default function GroupPage() {
   const { groupId } = useParams()
@@ -326,6 +326,13 @@ export default function GroupPage() {
                 <Download size={15} /> Exportar
               </button>
             </div>
+            <button
+              type="button"
+              onClick={downloadStudentTemplate}
+              className="w-full flex items-center justify-center gap-2 py-2 border border-indigo-200 rounded-xl text-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
+            >
+              <Download size={15} /> Descargar plantilla de importación
+            </button>
 
             {/* Student list */}
             {filtered.length === 0 ? (

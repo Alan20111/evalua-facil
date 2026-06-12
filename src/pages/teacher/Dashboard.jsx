@@ -19,12 +19,33 @@ function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
 }
 
+function getCiclos() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1 // 1-12
+  if (month >= 8) {
+    // AGO-ENE period is current/upcoming
+    return [
+      `AGO ${year}-ENE ${year + 1}`,
+      `FEB ${year + 1}-JUL ${year + 1}`,
+      `FEB ${year}-JUL ${year}`,
+    ]
+  } else {
+    // FEB-JUL period is current, AGO-ENE is upcoming
+    return [
+      `AGO ${year}-ENE ${year + 1}`,
+      `FEB ${year}-JUL ${year}`,
+      `AGO ${year - 1}-ENE ${year}`,
+    ]
+  }
+}
+
 export default function TeacherDashboard() {
   const { currentUser, userProfile } = useAuth()
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [newGroup, setNewGroup] = useState({ nombre: '', ciclo: '' })
+  const [newGroup, setNewGroup] = useState({ nombre: '', ciclo: getCiclos()[0] })
   const [creating, setCreating] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
@@ -63,19 +84,19 @@ export default function TeacherDashboard() {
 
   async function handleCreateGroup(e) {
     e.preventDefault()
-    if (!newGroup.nombre.trim() || !newGroup.ciclo.trim()) return
+    if (!newGroup.nombre.trim() || !newGroup.ciclo) return
     setCreating(true)
     try {
       const ref = await addDoc(collection(db, 'groups'), {
         nombre: newGroup.nombre.trim().toUpperCase(),
-        ciclo: newGroup.ciclo.trim(),
+        ciclo: newGroup.ciclo,
         docenteId: currentUser.uid,
         escuelaId: userProfile.escuelaId,
         accessCode: generateAccessCode(),
         createdAt: serverTimestamp(),
       })
       setShowModal(false)
-      setNewGroup({ nombre: '', ciclo: '' })
+      setNewGroup({ nombre: '', ciclo: getCiclos()[0] })
       toast('Grupo creado exitosamente')
       navigate(`/group/${ref.id}`)
     } catch (err) {
@@ -200,14 +221,16 @@ export default function TeacherDashboard() {
                 <label className="block text-sm font-medium text-slate-700 mb-1">
                   Ciclo escolar
                 </label>
-                <input
-                  type="text"
+                <select
                   value={newGroup.ciclo}
                   onChange={(e) => setNewGroup((f) => ({ ...f, ciclo: e.target.value }))}
                   required
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
-                  placeholder="Ej: 2025-A, 2025-B"
-                />
+                >
+                  {getCiclos().map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
               <button
                 type="submit"
