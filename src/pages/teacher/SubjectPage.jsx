@@ -133,7 +133,7 @@ export default function SubjectPage() {
     }
     try {
       if (modalMode === 'create') {
-        await addDoc(collection(db, 'activities'), {
+        const ref = await addDoc(collection(db, 'activities'), {
           ...payload,
           tipo: 'archivo',
           parcial: modalParcial,
@@ -141,14 +141,19 @@ export default function SubjectPage() {
           docenteId: currentUser.uid,
           createdAt: serverTimestamp(),
         })
+        setActivities((prev) => [
+          ...prev,
+          { id: ref.id, ...payload, tipo: 'archivo', parcial: modalParcial, asignaturaId: subjectId, docenteId: currentUser.uid },
+        ])
+        setSubmissionCounts((prev) => ({ ...prev, [ref.id]: { delivered: 0, graded: 0 } }))
         toast('Actividad creada')
       } else {
         await updateDoc(doc(db, 'activities', editActivityId), payload)
+        setActivities((prev) => prev.map((a) => a.id === editActivityId ? { ...a, ...payload } : a))
         toast('Actividad actualizada')
       }
       setShowModal(false)
       setForm(EMPTY_FORM)
-      loadAll()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -161,9 +166,9 @@ export default function SubjectPage() {
     setDeleting(true)
     try {
       await deleteDoc(doc(db, 'activities', deleteConfirm.id))
+      setActivities((prev) => prev.filter((a) => a.id !== deleteConfirm.id))
       toast('Actividad eliminada')
       setDeleteConfirm(null)
-      loadAll()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {

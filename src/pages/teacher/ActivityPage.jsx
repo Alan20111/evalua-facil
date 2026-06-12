@@ -15,7 +15,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, FileText, CheckCircle, Clock, Circle, X,
-  Download, Star, Pencil, CalendarDays,
+  Download, Star, Pencil, CalendarDays, Search, ArrowDownAZ,
 } from 'lucide-react'
 
 const STATUS_COLORS = {
@@ -43,6 +43,8 @@ export default function ActivityPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editForm, setEditForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '' })
   const [editSaving, setEditSaving] = useState(false)
+  const [searchStudents, setSearchStudents] = useState('')
+  const [sortAlpha, setSortAlpha] = useState(false)
   // Per-student deadline extension
   const [extendMode, setExtendMode] = useState(false)
   const [extendDate, setExtendDate] = useState('')
@@ -179,10 +181,18 @@ export default function ActivityPage() {
     calificado: students.filter((s) => getStatus(s.id) === 'calificado').length,
   }
 
-  const filtered =
-    filter === 'todos'
-      ? students
-      : students.filter((s) => getStatus(s.id) === filter)
+  let filtered = filter === 'todos' ? students : students.filter((s) => getStatus(s.id) === filter)
+  if (searchStudents.trim()) {
+    const q = searchStudents.trim().toLowerCase()
+    filtered = filtered.filter((s) =>
+      `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre}`.toLowerCase().includes(q)
+    )
+  }
+  if (sortAlpha) {
+    filtered = [...filtered].sort((a, b) =>
+      `${a.apellidoPaterno} ${a.nombre}`.localeCompare(`${b.apellidoPaterno} ${b.nombre}`, 'es')
+    )
+  }
 
   if (loading) return (
     <TeacherLayout>
@@ -246,50 +256,75 @@ export default function ActivityPage() {
           </div>
         </div>
 
+        {/* Search + sort */}
+        <div className="px-4 pt-4 pb-2 flex gap-2">
+          <div className="flex-1 relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              value={searchStudents}
+              onChange={(e) => setSearchStudents(e.target.value)}
+              placeholder="Buscar alumno…"
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+            />
+          </div>
+          <button
+            onClick={() => setSortAlpha((v) => !v)}
+            title="Ordenar por nombre"
+            className={`p-2 rounded-xl border transition-colors ${
+              sortAlpha ? 'border-indigo-400 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <ArrowDownAZ size={18} />
+          </button>
+        </div>
+
         {/* Student list */}
-        <div className="px-4 py-4 space-y-2">
-          {filtered.length === 0 && (
+        <div className="px-4 pb-4">
+          {filtered.length === 0 ? (
             <p className="text-center text-slate-400 text-sm py-8">Sin alumnos en esta categoría</p>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+              {filtered.map((s, i) => {
+                const status = getStatus(s.id)
+                const sub = submissions[s.id]
+                const hasExtension = !!activity?.extensiones?.[s.id]
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => openGrade(s)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors cursor-pointer ${
+                      i > 0 ? 'border-t border-slate-100' : ''
+                    }`}
+                  >
+                    <span className="w-5 text-xs text-slate-400 text-right flex-shrink-0">{s.orden}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">
+                        {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
+                      </p>
+                      {sub?.fechaEntrega?.seconds && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {new Date(sub.fechaEntrega.seconds * 1000).toLocaleString('es-MX', {
+                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                          })}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {hasExtension && <CalendarDays size={13} className="text-orange-400" />}
+                      {sub?.calificacion != null && (
+                        <span className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
+                          <Star size={12} /> {sub.calificacion}/{activity?.maxCalif}
+                        </span>
+                      )}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[status]}`}>
+                        {STATUS_LABELS[status]}
+                      </span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           )}
-          {filtered.map((s) => {
-            const status = getStatus(s.id)
-            const sub = submissions[s.id]
-            const hasExtension = !!activity?.extensiones?.[s.id]
-            return (
-              <button
-                key={s.id}
-                onClick={() => openGrade(s)}
-                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-slate-100 bg-white text-left transition-colors shadow-sm hover:border-indigo-200 hover:shadow-md cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-semibold text-slate-500">{s.orden}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">
-                    {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
-                  </p>
-                  {sub?.fechaEntrega && (
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {new Date(sub.fechaEntrega?.seconds * 1000).toLocaleString('es-MX')}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {hasExtension && (
-                    <CalendarDays size={13} className="text-orange-400" title="Fecha extendida" />
-                  )}
-                  {sub?.calificacion != null && (
-                    <span className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
-                      <Star size={12} /> {sub.calificacion}/{activity?.maxCalif}
-                    </span>
-                  )}
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${STATUS_COLORS[status]}`}>
-                    {STATUS_LABELS[status]}
-                  </span>
-                </div>
-              </button>
-            )
-          })}
         </div>
       </div>
 
