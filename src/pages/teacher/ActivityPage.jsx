@@ -15,7 +15,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, FileText, CheckCircle, Clock, Circle, X,
-  Download, Star, Pencil,
+  Download, Star, Pencil, CalendarDays,
 } from 'lucide-react'
 
 const STATUS_COLORS = {
@@ -43,6 +43,10 @@ export default function ActivityPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editForm, setEditForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '' })
   const [editSaving, setEditSaving] = useState(false)
+  // Per-student deadline extension
+  const [extendMode, setExtendMode] = useState(false)
+  const [extendDate, setExtendDate] = useState('')
+  const [savingExtension, setSavingExtension] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -119,6 +123,14 @@ export default function ActivityPage() {
       calificacion: sub?.calificacion != null ? String(sub.calificacion) : '',
       comentario: sub?.comentario || '',
     })
+    setExtendMode(false)
+    setExtendDate(activity?.extensiones?.[student.id] || '')
+  }
+
+  function closeModal() {
+    setSelected(null)
+    setExtendMode(false)
+    setExtendDate('')
   }
 
   async function saveGrade(e) {
@@ -132,12 +144,32 @@ export default function ActivityPage() {
         estado: 'calificado',
       })
       toast('Calificación guardada')
-      setSelected(null)
+      closeModal()
       loadAll()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function saveExtension() {
+    if (!selected || !extendDate) return
+    setSavingExtension(true)
+    try {
+      await updateDoc(doc(db, 'activities', activityId), {
+        [`extensiones.${selected.student.id}`]: extendDate,
+      })
+      setActivity((prev) => ({
+        ...prev,
+        extensiones: { ...(prev.extensiones || {}), [selected.student.id]: extendDate },
+      }))
+      toast('Fecha de entrega actualizada')
+      setExtendMode(false)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingExtension(false)
     }
   }
 
@@ -222,16 +254,12 @@ export default function ActivityPage() {
           {filtered.map((s) => {
             const status = getStatus(s.id)
             const sub = submissions[s.id]
+            const hasExtension = !!activity?.extensiones?.[s.id]
             return (
               <button
                 key={s.id}
-                onClick={() => status !== 'pendiente' ? openGrade(s) : null}
-                disabled={status === 'pendiente'}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border text-left transition-colors shadow-sm ${
-                  status === 'pendiente'
-                    ? 'bg-white border-slate-100 opacity-60 cursor-default'
-                    : 'bg-white border-slate-100 hover:border-indigo-200 hover:shadow-md cursor-pointer'
-                }`}
+                onClick={() => openGrade(s)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-slate-100 bg-white text-left transition-colors shadow-sm hover:border-indigo-200 hover:shadow-md cursor-pointer"
               >
                 <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
                   <span className="text-xs font-semibold text-slate-500">{s.orden}</span>
@@ -247,6 +275,9 @@ export default function ActivityPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {hasExtension && (
+                    <CalendarDays size={13} className="text-orange-400" title="Fecha extendida" />
+                  )}
                   {sub?.calificacion != null && (
                     <span className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
                       <Star size={12} /> {sub.calificacion}/{activity?.maxCalif}
@@ -262,72 +293,125 @@ export default function ActivityPage() {
         </div>
       </div>
 
-      {/* Grade modal */}
-      {selected && selected.sub && (
+      {/* Grade / detail modal */}
+      {selected && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSelected(null)} />
-          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+          <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-base font-semibold text-slate-900">
                   {selected.student.apellidoPaterno} {selected.student.nombre}
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-                  <FileText size={11} /> {selected.sub.nombreArchivo}
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {selected.sub
+                    ? selected.sub.completadoSinArchivo
+                      ? 'Completada sin archivo'
+                      : selected.sub.nombreArchivo
+                    : 'Sin entrega aún'}
                 </p>
               </div>
-              <button onClick={() => setSelected(null)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+              <button onClick={closeModal} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
             </div>
 
-            {/* Download file */}
-            <a
-              href={selected.sub.archivoURL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 hover:bg-slate-100 transition-colors mb-4"
-            >
-              <Download size={16} className="text-indigo-500" />
-              Ver / Descargar entrega
-            </a>
-
-            <form onSubmit={saveGrade} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
-                </label>
-                <input
-                  type="number"
-                  value={gradeForm.calificacion}
-                  onChange={(e) => setGradeForm((f) => ({ ...f, calificacion: e.target.value }))}
-                  required
-                  min="0"
-                  max={activity?.maxCalif}
-                  step="0.1"
-                  autoFocus
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Comentario <span className="text-slate-400">(opcional)</span>
-                </label>
-                <textarea
-                  value={gradeForm.comentario}
-                  onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
-                  rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 resize-none"
-                  placeholder="Retroalimentación para el alumno…"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            {/* File download (only when there's a file) */}
+            {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
+              <a
+                href={selected.sub.archivoURL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 hover:bg-slate-100 transition-colors mb-4"
               >
-                {saving ? <Spinner size="sm" /> : <Star size={16} />}
-                {saving ? 'Guardando…' : 'Guardar calificación'}
-              </button>
-            </form>
+                <Download size={16} className="text-indigo-500" />
+                Ver / Descargar entrega
+              </a>
+            )}
+
+            {/* Grade form (only when submission exists) */}
+            {selected.sub ? (
+              <form onSubmit={saveGrade} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={gradeForm.calificacion}
+                    onChange={(e) => setGradeForm((f) => ({ ...f, calificacion: e.target.value }))}
+                    required
+                    min="0"
+                    max={activity?.maxCalif}
+                    step="0.1"
+                    autoFocus
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Comentario <span className="text-slate-400">(opcional)</span>
+                  </label>
+                  <textarea
+                    value={gradeForm.comentario}
+                    onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
+                    rows={2}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 resize-none"
+                    placeholder="Retroalimentación para el alumno…"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {saving ? <Spinner size="sm" /> : <Star size={16} />}
+                  {saving ? 'Guardando…' : 'Guardar calificación'}
+                </button>
+              </form>
+            ) : (
+              <p className="text-sm text-slate-400 text-center py-4">
+                El alumno aún no ha entregado esta tarea.
+              </p>
+            )}
+
+            {/* Extend deadline — subtle text, always visible */}
+            <div className="mt-4 pt-3 border-t border-slate-100">
+              {!extendMode ? (
+                <button
+                  type="button"
+                  onClick={() => setExtendMode(true)}
+                  className="text-xs text-slate-400 hover:text-slate-500 transition-colors"
+                >
+                  Modificar fecha de entrega
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-slate-600">Nueva fecha límite para este alumno</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={extendDate}
+                      onChange={(e) => setExtendDate(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={saveExtension}
+                      disabled={!extendDate || savingExtension}
+                      className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl disabled:opacity-50 transition-colors"
+                    >
+                      {savingExtension ? '…' : 'Guardar'}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setExtendMode(false)}
+                    className="text-xs text-slate-400"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

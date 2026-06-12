@@ -32,19 +32,16 @@ const ALLOWED_EXT = '.doc, .docx, .pdf, .jpg, .jpeg, .png'
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
   const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-
   const formData = new FormData()
   formData.append('file', file)
   formData.append('upload_preset', uploadPreset)
   formData.append('folder', 'evalua-facil/submissions')
-
   const res = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
     { method: 'POST', body: formData }
   )
   if (!res.ok) throw new Error('Error al subir archivo a Cloudinary')
-  const data = await res.json()
-  return data.secure_url
+  return (await res.json()).secure_url
 }
 
 export default function StudentActivityPage() {
@@ -65,32 +62,38 @@ export default function StudentActivityPage() {
   async function loadAll() {
     setLoading(true)
     try {
-      const actSnap = await getDoc(doc(db, 'activities', activityId))
+      // Resolve student ID upfront to parallelise all initial fetches
+      let studentId = userProfile?.studentId
+      if (!studentId) {
+        const username = currentUser.email.split('@')[0].split('.')[0].toUpperCase()
+        const snap = await getDocs(query(collection(db, 'students'), where('username', '==', username)))
+        studentId = snap.empty ? null : snap.docs[0].id
+      }
+
+      // Batch 1: activity + student in parallel (both IDs known)
+      const [actSnap, studSnap] = await Promise.all([
+        getDoc(doc(db, 'activities', activityId)),
+        studentId ? getDoc(doc(db, 'students', studentId)) : Promise.resolve(null),
+      ])
       const actData = { id: actSnap.id, ...actSnap.data() }
       setActivity(actData)
-      const subSnap = await getDoc(doc(db, 'subjects', actData.asignaturaId))
-      setSubject({ id: subSnap.id, ...subSnap.data() })
+      const studData = studSnap?.exists() ? { id: studSnap.id, ...studSnap.data() } : null
+      setStudent(studData)
 
-      // Resolve student via userProfile.studentId to avoid Firebase email-lowercasing bug
-      let studData = null
-      if (userProfile?.studentId) {
-        const snap = await getDoc(doc(db, 'students', userProfile.studentId))
-        if (snap.exists()) studData = { id: snap.id, ...snap.data() }
-      } else {
-        const username = currentUser.email.split('@')[0].split('.')[0].toUpperCase()
-        const studs = await getDocs(query(collection(db, 'students'), where('username', '==', username)))
-        if (!studs.empty) studData = { id: studs.docs[0].id, ...studs.docs[0].data() }
-      }
-      if (studData) {
-        setStudent(studData)
-        const subsSnap = await getDocs(
-          query(
-            collection(db, 'submissions'),
-            where('actividadId', '==', activityId),
-            where('alumnoId', '==', studData.id)
-          )
-        )
-        if (!subsSnap.empty) setSubmission({ id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() })
+      // Batch 2: subject + submission in parallel (both IDs now known)
+      const [subSnap, subsSnap] = await Promise.all([
+        getDoc(doc(db, 'subjects', actData.asignaturaId)),
+        studentId
+          ? getDocs(query(
+              collection(db, 'submissions'),
+              where('actividadId', '==', activityId),
+              where('alumnoId', '==', studentId)
+            ))
+          : Promise.resolve(null),
+      ])
+      setSubject({ id: subSnap.id, ...subSnap.data() })
+      if (subsSnap && !subsSnap.empty) {
+        setSubmission({ id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() })
       }
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -102,17 +105,11 @@ export default function StudentActivityPage() {
   async function handleUpload() {
     if (!file) return
     if (!student) {
-      toast('No se encontró tu perfil de alumno. Intenta cerrar sesión y volver a entrar.', 'error')
+      toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error')
       return
     }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      toast('Tipo de archivo no permitido', 'error')
-      return
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast('El archivo no puede superar 10 MB', 'error')
-      return
-    }
+    if (!ALLOWED_TYPES.includes(file.type)) { toast('Tipo de archivo no permitido', 'error'); return }
+    if (file.size > 10 * 1024 * 1024) { toast('El archivo no puede superar 10 MB', 'error'); return }
     setUploading(true)
     try {
       const url = await uploadToCloudinary(file)
@@ -121,16 +118,44 @@ export default function StudentActivityPage() {
         actividadId: activityId,
         archivoURL: url,
         nombreArchivo: file.name,
+        completadoSinArchivo: false,
         fechaEntrega: serverTimestamp(),
         calificacion: null,
         comentario: '',
         estado: 'entregado',
       })
-      toast('Tarea entregada exitosamente')
+      toast('Tarea entregada')
       setFile(null)
       loadAll()
     } catch (err) {
       toast('Error al subir: ' + err.message, 'error')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleMarkComplete() {
+    if (!student) {
+      toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error')
+      return
+    }
+    setUploading(true)
+    try {
+      await addDoc(collection(db, 'submissions'), {
+        alumnoId: student.id,
+        actividadId: activityId,
+        archivoURL: null,
+        nombreArchivo: null,
+        completadoSinArchivo: true,
+        fechaEntrega: serverTimestamp(),
+        calificacion: null,
+        comentario: '',
+        estado: 'entregado',
+      })
+      toast('Tarea marcada como completada')
+      loadAll()
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
     } finally {
       setUploading(false)
     }
@@ -144,6 +169,11 @@ export default function StudentActivityPage() {
 
   const isGraded = submission?.calificacion != null
   const isDelivered = !!submission && !isGraded
+  const noFile = submission?.completadoSinArchivo
+
+  // Extended deadline for this student (set by teacher)
+  const extendedDate = activity?.extensiones?.[student?.id]
+  const displayDate = extendedDate || activity?.fechaLimite
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -172,11 +202,15 @@ export default function StudentActivityPage() {
             : <FileText size={24} className="text-slate-400 flex-shrink-0" />}
           <div>
             <p className="font-semibold text-slate-900 text-sm">
-              {isGraded ? 'Calificado' : isDelivered ? 'Entregado — pendiente de calificación' : 'Pendiente de entrega'}
+              {isGraded ? 'Calificado'
+                : isDelivered ? 'Entregado — pendiente de calificación'
+                : 'Pendiente de entrega'}
             </p>
             {isDelivered && (
               <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                <FileText size={10} /> {submission.nombreArchivo}
+                {noFile
+                  ? <><CheckCircle size={10} /> Completada sin archivo</>
+                  : <><FileText size={10} /> {submission.nombreArchivo}</>}
               </p>
             )}
           </div>
@@ -218,11 +252,13 @@ export default function StudentActivityPage() {
             <span className="text-slate-500">Calificación máxima</span>
             <span className="font-semibold text-slate-900">{activity?.maxCalif} pts</span>
           </div>
-          {activity?.fechaLimite && (
+          {displayDate && (
             <div className="flex items-center justify-between text-sm mt-2">
-              <span className="text-slate-500">Fecha límite</span>
-              <span className="font-semibold text-slate-900">
-                {new Date(activity.fechaLimite).toLocaleDateString('es-MX', {
+              <span className="text-slate-500">
+                {extendedDate ? 'Fecha límite (extendida)' : 'Fecha límite'}
+              </span>
+              <span className={`font-semibold ${extendedDate ? 'text-orange-600' : 'text-slate-900'}`}>
+                {new Date(displayDate).toLocaleDateString('es-MX', {
                   day: 'numeric', month: 'long', year: 'numeric',
                 })}
               </span>
@@ -234,7 +270,7 @@ export default function StudentActivityPage() {
         {!submission && (
           <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
             <h2 className="font-semibold text-slate-900 mb-4">Subir entrega</h2>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
                 file ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
               }`}>
@@ -260,6 +296,16 @@ export default function StudentActivityPage() {
               >
                 {uploading ? <Spinner size="sm" /> : <Upload size={16} />}
                 {uploading ? 'Subiendo…' : 'Entregar'}
+              </button>
+              <button
+                type="button"
+                onClick={handleMarkComplete}
+                onMouseDown={(e) => e.preventDefault()}
+                disabled={uploading}
+                style={{ touchAction: 'manipulation' }}
+                className="w-full py-1.5 text-xs text-slate-400 hover:text-slate-500 transition-colors"
+              >
+                Marcar como completada sin archivo
               </button>
             </div>
           </div>
