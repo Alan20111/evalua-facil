@@ -251,13 +251,9 @@ export default function TeacherDashboard() {
                 <button
                   type="button"
                   onClick={() => setCicloMode(cicloMode === 'custom' ? 'current' : 'custom')}
-                  className={`mt-2 w-full py-2 rounded-xl border text-sm font-medium transition-colors ${
-                    cicloMode === 'custom'
-                      ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                      : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                  }`}
+                  className="mt-1 w-full py-1.5 text-xs text-slate-400 hover:text-slate-500 transition-colors"
                 >
-                  {cicloMode === 'custom' ? `✓ ${selectedCiclo}` : '+ Otro período'}
+                  {cicloMode === 'custom' ? `✓ ${selectedCiclo}` : 'Otro período'}
                 </button>
 
                 {cicloMode === 'custom' && (
