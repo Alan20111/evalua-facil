@@ -46,6 +46,14 @@ async function uploadToCloudinary(file) {
   return (await res.json()).secure_url
 }
 
+function fmtDate(dateStr) {
+  if (!dateStr) return ''
+  // YYYY-MM-DD is parsed as UTC midnight; append T00:00:00 to force local time
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-MX', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
+
 export default function StudentActivityPage() {
   const { activityId } = useParams()
   const { currentUser, userProfile } = useAuth()
@@ -59,7 +67,13 @@ export default function StudentActivityPage() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  useEffect(() => { loadAll() }, [activityId])
+  useEffect(() => { loadAll() }, [activityId, userProfile?.studentId])
+
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') loadAll() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [activityId, userProfile?.studentId])
 
   async function loadAll() {
     setLoading(true)
@@ -312,9 +326,7 @@ export default function StudentActivityPage() {
                 {extendedDate ? 'Fecha límite (extendida)' : 'Fecha límite'}
               </span>
               <span className={`font-semibold ${extendedDate ? 'text-orange-600' : 'text-slate-900'}`}>
-                {new Date(displayDate).toLocaleDateString('es-MX', {
-                  day: 'numeric', month: 'long', year: 'numeric',
-                })}
+                {fmtDate(displayDate)}
               </span>
             </div>
           )}
