@@ -24,6 +24,7 @@ export default function StudentActivation() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const [loading, setLoading] = useState(false)
   const [initLoading, setInitLoading] = useState(true)
   const navigate = useNavigate()
@@ -80,12 +81,13 @@ export default function StudentActivation() {
 
   async function handleActivate(e) {
     e.preventDefault()
-    if (password !== confirmPassword) {
-      toast('Las contraseñas no coinciden', 'error')
+    setPasswordError('')
+    if (password.length < 6) {
+      setPasswordError('La contraseña debe tener al menos 6 caracteres')
       return
     }
-    if (password.length < 4) {
-      toast('La contraseña debe tener al menos 4 caracteres', 'error')
+    if (password !== confirmPassword) {
+      setPasswordError('Las contraseñas no coinciden')
       return
     }
     setLoading(true)
@@ -97,16 +99,15 @@ export default function StudentActivation() {
       navigate('/alumno/dashboard')
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
-        // Account exists, just sign in and mark activated
         try {
           await signInWithEmailAndPassword(auth, studentEmail(student.username, student.escuelaId), password)
           await updateDoc(doc(db, 'students', student.id), { activado: true })
           navigate('/alumno/dashboard')
         } catch {
-          toast('Esta cuenta ya existe. Usa el inicio de sesión de alumnos.', 'error')
+          setPasswordError('Esta cuenta ya existe. Usa el inicio de sesión de alumnos.')
         }
       } else {
-        toast('Error al activar: ' + err.message, 'error')
+        setPasswordError('Error al activar. Intenta de nuevo.')
       }
     } finally {
       setLoading(false)
@@ -187,11 +188,11 @@ export default function StudentActivation() {
                   <input
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); setPasswordError('') }}
                     required
                     autoFocus
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
-                    placeholder="Mínimo 4 caracteres"
+                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 ${passwordError ? 'border-red-400' : 'border-slate-200'}`}
+                    placeholder="Mínimo 6 caracteres"
                   />
                 </div>
                 <div>
@@ -199,12 +200,17 @@ export default function StudentActivation() {
                   <input
                     type="password"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 ${passwordError ? 'border-red-400' : 'border-slate-200'}`}
                     placeholder="Repite tu contraseña"
                   />
                 </div>
+                {passwordError && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                    {passwordError}
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={handleActivate}
