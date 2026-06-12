@@ -7,7 +7,6 @@ import {
   getDocs,
   getDoc,
   updateDoc,
-  deleteDoc,
   doc,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
@@ -48,8 +47,6 @@ export default function ActivityPage() {
   const [extendMode, setExtendMode] = useState(false)
   const [extendDate, setExtendDate] = useState('')
   const [savingExtension, setSavingExtension] = useState(false)
-  const [reopening, setReopening] = useState(false)
-  const [confirmReopen, setConfirmReopen] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -134,23 +131,6 @@ export default function ActivityPage() {
     setSelected(null)
     setExtendMode(false)
     setExtendDate('')
-    setConfirmReopen(false)
-  }
-
-  async function reopenSubmission() {
-    if (!selected?.sub) return
-    setReopening(true)
-    try {
-      await deleteDoc(doc(db, 'submissions', selected.sub.id))
-      toast('Entrega reabierta — el alumno puede volver a subir')
-      closeModal()
-      loadAll()
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setReopening(false)
-      setConfirmReopen(false)
-    }
   }
 
   async function saveGrade(e) {
@@ -419,42 +399,8 @@ export default function ActivityPage() {
               </p>
             )}
 
-            {/* Bottom actions — reopen + extend date */}
+            {/* Bottom actions — extend date */}
             <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
-
-              {/* Reopen submission */}
-              {selected.sub && (
-                !confirmReopen ? (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmReopen(true)}
-                      className="text-xs text-slate-400 hover:text-slate-500 transition-colors"
-                    >
-                      Reabrir entrega
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <p className="text-xs text-slate-500 flex-1">¿Borrar entrega y dejar que suba de nuevo?</p>
-                    <button
-                      type="button"
-                      onClick={reopenSubmission}
-                      disabled={reopening}
-                      className="text-xs text-red-500 font-medium hover:text-red-600 transition-colors"
-                    >
-                      {reopening ? '…' : 'Sí, reabrir'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmReopen(false)}
-                      className="text-xs text-slate-400"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                )
-              )}
 
               {/* Extend deadline */}
               {!extendMode ? (
