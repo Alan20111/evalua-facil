@@ -1,0 +1,12 @@
+{
+  "name": "evalua-facil-seeds",
+  "version": "1.0.0",
+  "description": "Database seeding and clearing scripts for Evalúa Fácil",
+  "main": "clear-db.js",
+  "scripts": {
+    "clear": "node clear-db.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}
