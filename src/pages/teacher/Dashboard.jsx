@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { Plus, Users, BookOpen, ChevronRight, X } from 'lucide-react'
+import { Plus, Users, BookOpen, ChevronRight, ChevronLeft, X } from 'lucide-react'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -34,8 +34,19 @@ export default function TeacherDashboard() {
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [newGroup, setNewGroup] = useState({ nombre: '', ciclo: getCicloInfo().current })
+  const [newGroup, setNewGroup] = useState({ nombre: '' })
+  const [cicloMode, setCicloMode] = useState('current') // 'current' | 'next' | 'custom'
+  const [customType, setCustomType] = useState('AGO')
+  const [customYear, setCustomYear] = useState(new Date().getFullYear())
   const [creating, setCreating] = useState(false)
+
+  const cicloInfo = getCicloInfo()
+  const minYear = new Date().getFullYear()
+  const selectedCiclo =
+    cicloMode === 'current' ? cicloInfo.current
+    : cicloMode === 'next' ? cicloInfo.next
+    : customType === 'FEB' ? `FEB ${customYear}-JUL ${customYear}`
+    : `AGO ${customYear}-ENE ${customYear + 1}`
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -73,19 +84,22 @@ export default function TeacherDashboard() {
 
   async function handleCreateGroup(e) {
     e.preventDefault()
-    if (!newGroup.nombre.trim() || !newGroup.ciclo) return
+    if (!newGroup.nombre.trim()) return
     setCreating(true)
     try {
       const ref = await addDoc(collection(db, 'groups'), {
         nombre: newGroup.nombre.trim().toUpperCase(),
-        ciclo: newGroup.ciclo,
+        ciclo: selectedCiclo,
         docenteId: currentUser.uid,
         escuelaId: userProfile.escuelaId,
         accessCode: generateAccessCode(),
         createdAt: serverTimestamp(),
       })
       setShowModal(false)
-      setNewGroup({ nombre: '', ciclo: getCicloInfo().current })
+      setNewGroup({ nombre: '' })
+      setCicloMode('current')
+      setCustomType('AGO')
+      setCustomYear(new Date().getFullYear())
       toast('Grupo creado exitosamente')
       navigate(`/group/${ref.id}`)
     } catch (err) {
@@ -210,28 +224,81 @@ export default function TeacherDashboard() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Ciclo escolar
                 </label>
-                {(() => {
-                  const { current, next } = getCicloInfo()
-                  return (
-                    <div className="flex rounded-xl overflow-hidden border border-slate-200">
-                      {[{ label: 'Período actual', value: current }, { label: 'Siguiente período', value: next }].map(({ label, value }, i) => (
+
+                {/* Opciones rápidas */}
+                <div className="flex rounded-xl overflow-hidden border border-slate-200">
+                  {[
+                    { label: 'Período actual', mode: 'current', value: cicloInfo.current },
+                    { label: 'Siguiente período', mode: 'next', value: cicloInfo.next },
+                  ].map(({ label, mode, value }, i) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setCicloMode(mode)}
+                      className={`flex-1 py-2.5 px-2 text-center transition-colors ${i > 0 ? 'border-l border-slate-200' : ''} ${
+                        cicloMode === mode
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className={`block text-xs mb-0.5 ${cicloMode === mode ? 'text-indigo-200' : 'text-slate-400'}`}>{label}</span>
+                      <span className="block text-sm font-semibold">{value}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Otro período */}
+                <button
+                  type="button"
+                  onClick={() => setCicloMode(cicloMode === 'custom' ? 'current' : 'custom')}
+                  className={`mt-2 w-full py-2 rounded-xl border text-sm font-medium transition-colors ${
+                    cicloMode === 'custom'
+                      ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                      : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  {cicloMode === 'custom' ? `✓ ${selectedCiclo}` : '+ Otro período'}
+                </button>
+
+                {cicloMode === 'custom' && (
+                  <div className="mt-2 p-3 rounded-xl border border-indigo-200 bg-indigo-50 flex items-center gap-3">
+                    {/* Tipo de período */}
+                    <div className="flex rounded-lg overflow-hidden border border-indigo-200 flex-1">
+                      {[{ label: 'FEB–JUL', value: 'FEB' }, { label: 'AGO–ENE', value: 'AGO' }].map(({ label, value }, i) => (
                         <button
                           key={value}
                           type="button"
-                          onClick={() => setNewGroup((f) => ({ ...f, ciclo: value }))}
-                          className={`flex-1 py-2.5 px-2 text-center transition-colors ${i > 0 ? 'border-l border-slate-200' : ''} ${
-                            newGroup.ciclo === value
-                              ? 'bg-indigo-600 text-white'
-                              : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                          onClick={() => setCustomType(value)}
+                          className={`flex-1 py-2 text-xs font-semibold transition-colors ${i > 0 ? 'border-l border-indigo-200' : ''} ${
+                            customType === value ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-indigo-100'
                           }`}
                         >
-                          <span className={`block text-xs mb-0.5 ${newGroup.ciclo === value ? 'text-indigo-200' : 'text-slate-400'}`}>{label}</span>
-                          <span className="block text-sm font-semibold">{value}</span>
+                          {label}
                         </button>
                       ))}
                     </div>
-                  )
-                })()}
+
+                    {/* Año */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={customYear <= minYear}
+                        onClick={() => setCustomYear((y) => y - 1)}
+                        className="p-1.5 rounded-lg border border-indigo-200 bg-white text-slate-600 hover:bg-indigo-100 disabled:opacity-30 transition-colors"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="w-12 text-center text-sm font-bold text-slate-800">{customYear}</span>
+                      <button
+                        type="button"
+                        onClick={() => setCustomYear((y) => y + 1)}
+                        className="p-1.5 rounded-lg border border-indigo-200 bg-white text-slate-600 hover:bg-indigo-100 transition-colors"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
               <button
                 type="submit"
