@@ -133,7 +133,7 @@ export default function StudentActivityPage() {
     if (!file) return
     if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
     if (!ALLOWED_TYPES.includes(file.type)) { toast('Tipo de archivo no permitido', 'error'); return }
-    if (file.size > 10 * 1024 * 1024) { toast('El archivo no puede superar 10 MB', 'error'); return }
+    if (file.size > 5 * 1024 * 1024) { toast('El archivo no puede superar 5 MB', 'error'); return }
     setUploading(true)
     try {
       const url = await uploadToCloudinary(file)
@@ -359,7 +359,7 @@ export default function StudentActivityPage() {
                 <p className="text-sm mt-2 font-medium text-slate-700">
                   {file ? file.name : 'Toca para seleccionar archivo'}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">{ALLOWED_EXT} · máx 10 MB</p>
+                <p className="text-xs text-slate-400 mt-1">{ALLOWED_EXT} · máx 5 MB</p>
               </label>
               <button
                 type="button"

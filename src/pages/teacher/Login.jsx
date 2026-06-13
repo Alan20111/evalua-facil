@@ -67,10 +67,8 @@ export default function TeacherLogin() {
       navigate(snap.exists() ? '/dashboard' : '/register/school')
     } catch (err) {
       if (err.code === 'auth/popup-closed-by-user') {
-        // user dismissed the popup — nothing to report
+        // user dismissed — nothing to report
       } else {
-        // If the popup succeeded but the profile lookup failed, the user is left
-        // authenticated with no profile (blank screen). Sign back out to recover.
         if (auth.currentUser) await signOut(auth).catch(() => {})
         toast('Error al iniciar con Google', 'error')
       }
@@ -111,7 +109,7 @@ export default function TeacherLogin() {
               type="button"
               onClick={handleResend}
               disabled={resendLoading || resendDone}
-              className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {resendLoading ? <Spinner size="sm" /> : null}
               {resendDone ? 'Correo enviado ✓' : 'Reenviar correo de verificación'}
@@ -133,17 +131,38 @@ export default function TeacherLogin() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Evalúa Fácil</h1>
-          <p className="text-slate-500 text-sm mt-1">Acceso para docentes</p>
+          <p className="text-slate-500 text-sm mt-1">Evidencias y calificaciones. Sin complicaciones.</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
           {method === null ? (
             <>
-              {/* Google */}
+              {/* Email primero — recomendado para múltiples equipos */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setMethod('email')}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <Mail size={18} />
+                  Acceso con correo electrónico
+                </button>
+                <p className="text-center text-xs text-slate-400 mt-2">
+                  Para usar desde cualquier equipo o dispositivo
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-400">o</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+
+              {/* Google — para equipo fijo */}
               <div>
                 <button
                   type="button"
@@ -155,28 +174,7 @@ export default function TeacherLogin() {
                   Continuar con Google
                 </button>
                 <p className="text-center text-xs text-slate-400 mt-2">
-                  Recomendado para uso en un solo equipo
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-slate-200" />
-                <span className="text-xs text-slate-400">o</span>
-                <div className="flex-1 h-px bg-slate-200" />
-              </div>
-
-              {/* Email */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setMethod('email')}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  <Mail size={18} />
-                  Acceso con correo electrónico
-                </button>
-                <p className="text-center text-xs text-slate-400 mt-2">
-                  Recomendado para uso en varios equipos
+                  Para usar siempre en el mismo equipo
                 </p>
               </div>
             </>
@@ -200,7 +198,7 @@ export default function TeacherLogin() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-slate-50"
                     placeholder="nombre@correo.com"
                   />
                 </div>
@@ -214,14 +212,14 @@ export default function TeacherLogin() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     autoComplete="current-password"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-slate-50"
                     placeholder="••••••••"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : null}
                   {loading ? 'Entrando…' : 'Iniciar sesión'}
@@ -233,7 +231,7 @@ export default function TeacherLogin() {
 
         <p className="text-center text-sm text-slate-500 mt-6">
           ¿No tienes cuenta?{' '}
-          <Link to="/register" className="text-indigo-600 font-semibold hover:underline">
+          <Link to="/register" className="text-blue-600 font-semibold hover:underline">
             Crear cuenta nueva
           </Link>
         </p>

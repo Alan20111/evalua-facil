@@ -109,7 +109,7 @@ export default function TeacherLayout({ children }) {
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-30 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
             EF
           </div>
           <span className="font-semibold text-slate-800 text-sm">Evalúa Fácil</span>
@@ -129,7 +129,7 @@ export default function TeacherLayout({ children }) {
         <aside className="hidden md:flex flex-col w-64 h-screen sticky top-0 bg-white border-r border-slate-200 flex-shrink-0 z-20">
           {/* Logo */}
           <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
               EF
             </div>
             <span className="font-bold text-slate-800">Evalúa Fácil</span>
@@ -140,7 +140,7 @@ export default function TeacherLayout({ children }) {
             to="/profile"
             className="flex items-center gap-3 px-3 py-3 mx-2 mt-2 rounded-xl hover:bg-slate-50 transition-colors group"
           >
-            <div className="w-9 h-9 rounded-full bg-indigo-100 overflow-hidden flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center flex-shrink-0">
               {userProfile?.photoURL ? (
                 <img
                   src={userProfile.photoURL}
@@ -148,7 +148,7 @@ export default function TeacherLayout({ children }) {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-sm font-bold text-indigo-600">{initials}</span>
+                <span className="text-sm font-bold text-blue-600">{initials}</span>
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -183,7 +183,7 @@ export default function TeacherLayout({ children }) {
                   className={({ isActive }) =>
                     `flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors ${
                       isActive
-                        ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                        ? 'bg-blue-50 text-blue-700 font-semibold'
                         : 'text-slate-700 hover:bg-slate-50'
                     }`
                   }
@@ -198,7 +198,7 @@ export default function TeacherLayout({ children }) {
             <button
               type="button"
               onClick={() => setShowNewModal(true)}
-              className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-indigo-600 hover:bg-indigo-50 transition-colors mt-1"
+              className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-blue-600 hover:bg-blue-50 transition-colors mt-1"
             >
               <Plus size={14} />
               Nueva asignatura…
@@ -223,7 +223,7 @@ export default function TeacherLayout({ children }) {
                       className={({ isActive }) =>
                         `flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors opacity-60 ${
                           isActive
-                            ? 'bg-indigo-50 text-indigo-700'
+                            ? 'bg-blue-50 text-blue-700'
                             : 'text-slate-500 hover:bg-slate-50'
                         }`
                       }
@@ -243,7 +243,7 @@ export default function TeacherLayout({ children }) {
               className={({ isActive }) =>
                 `flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors ${
                   isActive
-                    ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                    ? 'bg-blue-50 text-blue-700 font-semibold'
                     : 'text-slate-500 hover:bg-slate-50'
                 }`
               }
@@ -277,7 +277,7 @@ export default function TeacherLayout({ children }) {
             to="/dashboard"
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
-                isActive ? 'text-indigo-600' : 'text-slate-400'
+                isActive ? 'text-blue-600' : 'text-slate-400'
               }`
             }
           >
@@ -288,7 +288,7 @@ export default function TeacherLayout({ children }) {
             to="/profile"
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
-                isActive ? 'text-indigo-600' : 'text-slate-400'
+                isActive ? 'text-blue-600' : 'text-slate-400'
               }`
             }
           >
@@ -330,7 +330,7 @@ export default function TeacherLayout({ children }) {
                     setShowNewModal(false)
                     navigate('/dashboard')
                   }}
-                  className="py-2.5 px-5 bg-indigo-600 text-white font-semibold rounded-xl text-sm"
+                  className="py-2.5 px-5 bg-blue-600 text-white font-semibold rounded-xl text-sm"
                 >
                   Ir al panel
                 </button>
@@ -347,7 +347,7 @@ export default function TeacherLayout({ children }) {
                     onChange={(e) => setNewSubjectName(e.target.value)}
                     required
                     autoFocus
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                     placeholder="Ej. Matemáticas I"
                   />
                 </div>
@@ -359,7 +359,7 @@ export default function TeacherLayout({ children }) {
                     value={selectedGroupId}
                     onChange={(e) => setSelectedGroupId(e.target.value)}
                     required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                   >
                     {groups.map((g) => (
                       <option key={g.id} value={g.id}>
@@ -371,7 +371,7 @@ export default function TeacherLayout({ children }) {
                 <button
                   type="submit"
                   disabled={creating || !newSubjectName.trim()}
-                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {creating ? <Spinner size="sm" /> : null}
                   {creating ? 'Creando…' : 'Crear asignatura'}

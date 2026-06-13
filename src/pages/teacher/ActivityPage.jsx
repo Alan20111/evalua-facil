@@ -218,7 +218,7 @@ export default function ActivityPage() {
             </div>
             <button
               onClick={openEditModal}
-              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex-shrink-0"
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
               title="Editar actividad"
             >
               <Pencil size={18} />
@@ -264,14 +264,14 @@ export default function ActivityPage() {
               value={searchStudents}
               onChange={(e) => setSearchStudents(e.target.value)}
               placeholder="Buscar alumno…"
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
+              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
             />
           </div>
           <button
             onClick={() => setSortAlpha((v) => !v)}
             title="Ordenar por nombre"
             className={`p-2 rounded-xl border transition-colors ${
-              sortAlpha ? 'border-indigo-400 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-400 hover:text-slate-600'
+              sortAlpha ? 'border-blue-400 bg-blue-50 text-blue-600' : 'border-slate-200 text-slate-400 hover:text-slate-600'
             }`}
           >
             <ArrowDownAZ size={18} />
@@ -357,7 +357,7 @@ export default function ActivityPage() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 hover:bg-slate-100 transition-colors mb-4"
               >
-                <Download size={16} className="text-indigo-500" />
+                <Download size={16} className="text-blue-500" />
                 Ver / Descargar entrega
               </a>
             )}
@@ -377,7 +377,7 @@ export default function ActivityPage() {
                       {v.completadoSinArchivo
                         ? <span className="text-slate-400 italic">sin archivo</span>
                         : v.archivoURL
-                          ? <a href={v.archivoURL} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:underline truncate flex items-center gap-1">
+                          ? <a href={v.archivoURL} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline truncate flex items-center gap-1">
                               <Download size={10} /> {v.nombreArchivo}
                             </a>
                           : <span className="text-slate-300 italic">sin archivo</span>
@@ -404,7 +404,7 @@ export default function ActivityPage() {
                     max={activity?.maxCalif}
                     step="0.1"
                     autoFocus
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                   />
                 </div>
                 <div>
@@ -415,14 +415,14 @@ export default function ActivityPage() {
                     value={gradeForm.comentario}
                     onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                     rows={2}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 resize-none"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 resize-none"
                     placeholder="Retroalimentación para el alumno…"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {saving ? <Spinner size="sm" /> : <Star size={16} />}
                   {saving ? 'Guardando…' : 'Guardar calificación'}
@@ -454,13 +454,13 @@ export default function ActivityPage() {
                       type="date"
                       value={extendDate}
                       onChange={(e) => setExtendDate(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                     />
                     <button
                       type="button"
                       onClick={saveExtension}
                       disabled={!extendDate || savingExtension}
-                      className="px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl disabled:opacity-50 transition-colors"
+                      className="px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-xl disabled:opacity-50 transition-colors"
                     >
                       {savingExtension ? '…' : 'Guardar'}
                     </button>
@@ -498,7 +498,7 @@ export default function ActivityPage() {
                   onChange={(e) => setEditForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
                   autoFocus
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                 />
               </div>
               <div>
@@ -510,7 +510,7 @@ export default function ActivityPage() {
                   required
                   min="1"
                   max="100"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                 />
               </div>
               <div>
@@ -521,7 +521,7 @@ export default function ActivityPage() {
                   value={editForm.instrucciones}
                   onChange={(e) => setEditForm((f) => ({ ...f, instrucciones: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 resize-none"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 resize-none"
                   placeholder="Instrucciones para los alumnos…"
                 />
               </div>
@@ -533,13 +533,13 @@ export default function ActivityPage() {
                   type="date"
                   value={editForm.fechaLimite}
                   onChange={(e) => setEditForm((f) => ({ ...f, fechaLimite: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                 />
               </div>
               <button
                 type="submit"
                 disabled={editSaving}
-                className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {editSaving ? <Spinner size="sm" /> : <Pencil size={16} />}
                 {editSaving ? 'Guardando…' : 'Guardar cambios'}

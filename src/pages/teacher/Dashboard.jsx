@@ -31,81 +31,100 @@ function getCicloInfo() {
 
 export default function TeacherDashboard() {
   const { currentUser, userProfile } = useAuth()
+  const [subjects, setSubjects] = useState([])
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [newGroup, setNewGroup] = useState({ nombre: '' })
-  const [cicloMode, setCicloMode] = useState('current') // 'current' | 'next' | 'custom'
-  const [customType, setCustomType] = useState('AGO')
-  const [customYear, setCustomYear] = useState(new Date().getFullYear())
-  const [creating, setCreating] = useState(false)
+
+  // Subject creation modal
+  const [showSubjectModal, setShowSubjectModal] = useState(false)
+  const [newSubjectName, setNewSubjectName] = useState('')
+  const [newSubjectParciales, setNewSubjectParciales] = useState(3)
+  const [inlineGroupName, setInlineGroupName] = useState('')
+  const [inlineCicloMode, setInlineCicloMode] = useState('current')
+  const [creatingSubject, setCreatingSubject] = useState(false)
 
   const cicloInfo = getCicloInfo()
-  const minYear = new Date().getFullYear()
-  const selectedCiclo =
-    cicloMode === 'current' ? cicloInfo.current
-    : cicloMode === 'next' ? cicloInfo.next
-    : customType === 'FEB' ? `FEB ${customYear}-JUL ${customYear}`
-    : `AGO ${customYear}-ENE ${customYear + 1}`
+  const inlineSelectedCiclo = inlineCicloMode === 'current' ? cicloInfo.current : cicloInfo.next
+
   const navigate = useNavigate()
   const toast = useToast()
 
   useEffect(() => {
     if (!currentUser) return
-    loadGroups()
+    loadAll()
   }, [currentUser])
 
-  async function loadGroups() {
+  async function loadAll() {
     setLoading(true)
     try {
-      const q = query(
-        collection(db, 'groups'),
-        where('docenteId', '==', currentUser.uid)
-      )
-      const snap = await getDocs(q)
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      // Fetch student and subject counts
-      const enriched = await Promise.all(
-        data.map(async (g) => {
-          const [sqSnap, studSnap] = await Promise.all([
-            getDocs(query(collection(db, 'subjects'), where('grupoId', '==', g.id))),
-            getDocs(query(collection(db, 'students'), where('grupoId', '==', g.id))),
-          ])
-          return { ...g, subjectCount: sqSnap.size, studentCount: studSnap.size }
+      const [subSnap, grpSnap] = await Promise.all([
+        getDocs(query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid))),
+        getDocs(query(collection(db, 'groups'), where('docenteId', '==', currentUser.uid))),
+      ])
+      const grpMap = {}
+      const grpList = grpSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      grpList.forEach((g) => { grpMap[g.id] = g })
+      setGroups(grpList)
+
+      const subList = subSnap.docs
+        .map((d) => ({ id: d.id, ...d.data(), group: grpMap[d.data().grupoId] || null }))
+        .sort((a, b) => {
+          const nc = a.nombre.localeCompare(b.nombre, 'es')
+          if (nc !== 0) return nc
+          return (a.group?.nombre || '').localeCompare(b.group?.nombre || '', 'es')
         })
-      )
-      setGroups(enriched)
+      setSubjects(subList)
     } catch (err) {
-      toast('Error al cargar grupos: ' + err.message, 'error')
+      toast('Error al cargar: ' + err.message, 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleCreateGroup(e) {
+  async function handleCreateSubject(e) {
     e.preventDefault()
-    if (!newGroup.nombre.trim()) return
-    setCreating(true)
+    if (!newSubjectName.trim() || !inlineGroupName.trim()) return
+    setCreatingSubject(true)
     try {
-      const ref = await addDoc(collection(db, 'groups'), {
-        nombre: newGroup.nombre.trim().toUpperCase(),
-        ciclo: selectedCiclo,
+      const grpRef = await addDoc(collection(db, 'groups'), {
+        nombre: inlineGroupName.trim().toUpperCase(),
+        ciclo: inlineSelectedCiclo,
         docenteId: currentUser.uid,
         escuelaId: userProfile.escuelaId,
         accessCode: generateAccessCode(),
         createdAt: serverTimestamp(),
       })
-      setShowModal(false)
-      setNewGroup({ nombre: '' })
-      setCicloMode('current')
-      setCustomType('AGO')
-      setCustomYear(new Date().getFullYear())
-      toast('Grupo creado exitosamente')
-      navigate(`/group/${ref.id}`)
+      const grp = { id: grpRef.id, nombre: inlineGroupName.trim().toUpperCase(), ciclo: inlineSelectedCiclo }
+      setGroups((prev) => [...prev, grp])
+
+      const ref = await addDoc(collection(db, 'subjects'), {
+        nombre: newSubjectName.trim(),
+        docenteId: currentUser.uid,
+        grupoId: grpRef.id,
+        escuelaId: userProfile.escuelaId,
+        parciales: newSubjectParciales,
+        archived: false,
+        createdAt: serverTimestamp(),
+      })
+      setSubjects((prev) =>
+        [...prev, { id: ref.id, nombre: newSubjectName.trim(), grupoId: grpRef.id, group: grp, parciales: newSubjectParciales, archived: false }]
+          .sort((a, b) => {
+            const nc = a.nombre.localeCompare(b.nombre, 'es')
+            if (nc !== 0) return nc
+            return (a.group?.nombre || '').localeCompare(b.group?.nombre || '', 'es')
+          })
+      )
+      setShowSubjectModal(false)
+      setNewSubjectName('')
+      setNewSubjectParciales(3)
+      setInlineGroupName('')
+      setInlineCicloMode('current')
+      toast('Asignatura creada')
+      navigate(`/subject/${ref.id}`)
     } catch (err) {
-      toast('Error al crear grupo: ' + err.message, 'error')
+      toast('Error: ' + err.message, 'error')
     } finally {
-      setCreating(false)
+      setCreatingSubject(false)
     }
   }
 
@@ -115,7 +134,7 @@ export default function TeacherDashboard() {
   return (
     <TeacherLayout>
       <div className="px-4 py-6 max-w-2xl mx-auto">
-        {/* Header */}
+        {/* Greeting */}
         <div className="mb-6">
           <p className="text-slate-500 text-sm">{saludo},</p>
           <h1 className="text-2xl font-bold text-slate-900">
@@ -129,185 +148,175 @@ export default function TeacherDashboard() {
           )}
         </div>
 
-        {/* Grupos */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-800">Mis grupos</h2>
-          <span className="text-xs text-slate-400">{groups.length} grupo{groups.length !== 1 ? 's' : ''}</span>
-        </div>
-
         {loading ? (
-          <div className="flex justify-center py-12">
-            <Spinner size="lg" />
-          </div>
-        ) : groups.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center">
-            <div className="w-14 h-14 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-3">
-              <BookOpen size={28} className="text-indigo-400" />
-            </div>
-            <p className="text-slate-600 font-medium mb-1">Aún no tienes grupos</p>
-            <p className="text-slate-400 text-sm mb-4">Crea tu primer grupo para comenzar</p>
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors"
-            >
-              Crear grupo
-            </button>
-          </div>
+          <div className="flex justify-center py-12"><Spinner size="lg" /></div>
         ) : (
-          <div className="space-y-3">
-            {groups.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => navigate(`/group/${g.id}`)}
-                className="w-full bg-white rounded-2xl border border-slate-100 p-4 text-left shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
-              >
-                <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                  <span className="text-indigo-700 font-bold text-sm">{g.nombre.slice(0, 2)}</span>
+          <>
+            {/* ── Mis asignaturas ── */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-800">Mis asignaturas</h2>
+              <span className="text-xs text-slate-400">
+                {subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {subjects.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center mb-6">
+                <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-3">
+                  <BookOpen size={28} className="text-blue-400" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-900">{g.nombre}</p>
-                  <p className="text-slate-400 text-xs mt-0.5">{g.ciclo}</p>
-                  <div className="flex gap-3 mt-1.5">
-                    <span className="text-xs text-slate-500 flex items-center gap-1">
-                      <Users size={11} /> {g.studentCount} alumnos
-                    </span>
-                    <span className="text-xs text-slate-500 flex items-center gap-1">
-                      <BookOpen size={11} /> {g.subjectCount} materias
-                    </span>
-                  </div>
-                </div>
-                <ChevronRight size={18} className="text-slate-300 flex-shrink-0" />
-              </button>
-            ))}
-          </div>
+                <p className="text-slate-600 font-medium mb-1">Aún no tienes asignaturas</p>
+                <p className="text-slate-400 text-sm">Toca el botón <strong>+</strong> para crear tu primera asignatura</p>
+              </div>
+            ) : (
+              <div className="space-y-2 mb-8">
+                {subjects.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => navigate(`/subject/${s.id}`)}
+                    className="w-full bg-white rounded-2xl border border-slate-100 p-4 text-left shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
+                  >
+                    <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                      <BookOpen size={19} className="text-blue-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-slate-900 truncate">
+                          {s.nombre}{s.group ? `: ${s.group.nombre}` : ''}
+                        </p>
+                        {s.archived && (
+                          <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                            archivada
+                          </span>
+                        )}
+                      </div>
+                      {s.group && (
+                        <p className="text-xs text-slate-400 mt-0.5">{s.group.ciclo}</p>
+                      )}
+                    </div>
+                    <ChevronRight size={18} className="text-slate-300 flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+          </>
         )}
       </div>
 
-      {/* FAB */}
+      {/* FAB — create subject (or group if no groups yet) */}
       <button
-        onClick={() => setShowModal(true)}
-        className="fixed bottom-20 right-4 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
+        onClick={() => setShowSubjectModal(true)}
+        className="fixed bottom-20 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
       >
         <Plus size={24} />
       </button>
 
-      {/* Create group modal */}
-      {showModal && (
+      {/* ── Nueva asignatura modal ── */}
+      {showSubjectModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowModal(false)} />
-          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowSubjectModal(false)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold text-slate-900">Nuevo grupo</h3>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-lg"
-              >
+              <h3 className="text-lg font-semibold text-slate-900">Nueva asignatura</h3>
+              <button onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleCreateGroup} className="space-y-4">
+            <form onSubmit={handleCreateSubject} className="space-y-4">
+              {/* Nombre de la asignatura */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Nombre del grupo
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de la asignatura</label>
                 <input
                   type="text"
-                  value={newGroup.nombre}
-                  onChange={(e) => setNewGroup((f) => ({ ...f, nombre: e.target.value }))}
+                  value={newSubjectName}
+                  onChange={(e) => setNewSubjectName(e.target.value)}
                   required
                   autoFocus
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  placeholder="Ej: Matemáticas, Física, Historia"
+                />
+              </div>
+
+              {/* Grupo (siempre nuevo — 1 grupo por asignatura) */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del grupo</label>
+                <input
+                  type="text"
+                  value={inlineGroupName}
+                  onChange={(e) => setInlineGroupName(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                   placeholder="Ej: 6A, 4B, 5C"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Ciclo escolar
-                </label>
 
-                {/* Opciones rápidas */}
+              {/* Período */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Período escolar</label>
                 <div className="flex rounded-xl overflow-hidden border border-slate-200">
                   {[
                     { label: 'Período actual', mode: 'current', value: cicloInfo.current },
-                    { label: 'Siguiente período', mode: 'next', value: cicloInfo.next },
+                    { label: 'Siguiente', mode: 'next', value: cicloInfo.next },
                   ].map(({ label, mode, value }, i) => (
                     <button
                       key={mode}
                       type="button"
-                      onClick={() => setCicloMode(mode)}
+                      onClick={() => setInlineCicloMode(mode)}
                       className={`flex-1 py-2.5 px-2 text-center transition-colors ${i > 0 ? 'border-l border-slate-200' : ''} ${
-                        cicloMode === mode
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                        inlineCicloMode === mode ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
-                      <span className={`block text-xs mb-0.5 ${cicloMode === mode ? 'text-indigo-200' : 'text-slate-400'}`}>{label}</span>
+                      <span className={`block text-xs mb-0.5 ${inlineCicloMode === mode ? 'text-blue-200' : 'text-slate-400'}`}>{label}</span>
                       <span className="block text-sm font-semibold">{value}</span>
                     </button>
                   ))}
                 </div>
-
-                {/* Otro período */}
-                <button
-                  type="button"
-                  onClick={() => setCicloMode(cicloMode === 'custom' ? 'current' : 'custom')}
-                  className="mt-1 w-full py-1.5 text-xs text-slate-400 hover:text-slate-500 transition-colors"
-                >
-                  {cicloMode === 'custom' ? `✓ ${selectedCiclo}` : 'Otro período'}
-                </button>
-
-                {cicloMode === 'custom' && (
-                  <div className="mt-2 p-3 rounded-xl border border-indigo-200 bg-indigo-50 flex items-center gap-3">
-                    {/* Tipo de período */}
-                    <div className="flex rounded-lg overflow-hidden border border-indigo-200 flex-1">
-                      {[{ label: 'FEB–JUL', value: 'FEB' }, { label: 'AGO–ENE', value: 'AGO' }].map(({ label, value }, i) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setCustomType(value)}
-                          className={`flex-1 py-2 text-xs font-semibold transition-colors ${i > 0 ? 'border-l border-indigo-200' : ''} ${
-                            customType === value ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-indigo-100'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Año */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        disabled={customYear <= minYear}
-                        onClick={() => setCustomYear((y) => y - 1)}
-                        className="p-1.5 rounded-lg border border-indigo-200 bg-white text-slate-600 hover:bg-indigo-100 disabled:opacity-30 transition-colors"
-                      >
-                        <ChevronLeft size={14} />
-                      </button>
-                      <span className="w-12 text-center text-sm font-bold text-slate-800">{customYear}</span>
-                      <button
-                        type="button"
-                        onClick={() => setCustomYear((y) => y + 1)}
-                        className="p-1.5 rounded-lg border border-indigo-200 bg-white text-slate-600 hover:bg-indigo-100 transition-colors"
-                      >
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
+
+              {/* Preview ASIGNATURA: GRUPO */}
+              {newSubjectName && inlineGroupName && (
+                <p className="text-xs text-slate-500 font-mono bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                  {newSubjectName.trim().toUpperCase()}: {inlineGroupName.trim().toUpperCase()}
+                </p>
+              )}
+
+              {/* Parciales */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Calificaciones parciales <span className="text-slate-400 font-normal text-xs">(por defecto 3)</span>
+                </label>
+                <div className="flex gap-1.5">
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setNewSubjectParciales(n)}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+                        newSubjectParciales === n
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <button
                 type="submit"
-                disabled={creating}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                disabled={creatingSubject}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {creating ? <Spinner size="sm" /> : <Plus size={16} />}
-                {creating ? 'Creando…' : 'Crear grupo'}
+                {creatingSubject ? <Spinner size="sm" /> : <Plus size={16} />}
+                {creatingSubject ? 'Creando…' : 'Crear asignatura'}
               </button>
             </form>
           </div>
         </div>
       )}
+
     </TeacherLayout>
   )
 }

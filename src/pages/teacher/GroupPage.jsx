@@ -20,9 +20,10 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import {
-  ArrowLeft, Plus, Search, Users, BookOpen, QrCode,
-  RotateCcw, Upload, Download, X, ChevronRight, ArrowUp, ArrowDown,
-  UserPlus, Trash2,
+  ArrowLeft, Plus, Search,
+  RotateCcw, Upload, Download, X,
+  ArrowUp, ArrowDown,
+  UserPlus, Trash2, QrCode,
 } from 'lucide-react'
 import { generateUsername, generateResetPassword } from '../../utils/generate'
 import { parseStudentExcel, exportStudentListExcel, downloadStudentTemplate } from '../../utils/excel'
@@ -32,28 +33,23 @@ export default function GroupPage() {
   const { currentUser, userProfile } = useAuth()
   const [group, setGroup] = useState(null)
   const [students, setStudents] = useState([])
-  const [subjects, setSubjects] = useState([])
-  const [tab, setTab] = useState('alumnos')
+  const [subjectId, setSubjectId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showAddStudent, setShowAddStudent] = useState(false)
-  const [showAddSubject, setShowAddSubject] = useState(false)
   const [showQR, setShowQR] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState(null)
   const [newStudent, setNewStudent] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
-  const [newSubject, setNewSubject] = useState('')
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
-  useEffect(() => {
-    loadAll()
-  }, [groupId])
+  useEffect(() => { loadAll() }, [groupId])
 
   async function loadAll() {
     setLoading(true)
     try {
-      const [gSnap, studs, subs] = await Promise.all([
+      const [gSnap, studs, subjSnap] = await Promise.all([
         getDoc(doc(db, 'groups', groupId)),
         getDocs(query(collection(db, 'students'), where('grupoId', '==', groupId))),
         getDocs(query(collection(db, 'subjects'), where('grupoId', '==', groupId))),
@@ -63,7 +59,7 @@ export default function GroupPage() {
         .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => a.orden - b.orden)
       setStudents(studList)
-      setSubjects(subs.docs.map((d) => ({ id: d.id, ...d.data() })))
+      if (!subjSnap.empty) setSubjectId(subjSnap.docs[0].id)
     } catch (err) {
       toast('Error al cargar: ' + err.message, 'error')
     } finally {
@@ -77,11 +73,7 @@ export default function GroupPage() {
     try {
       const taken = await fetchSchoolUsernames()
       const username = uniqueUsername(
-        generateUsername(
-          newStudent.apellidoPaterno,
-          newStudent.apellidoMaterno,
-          newStudent.nombre
-        ),
+        generateUsername(newStudent.apellidoPaterno, newStudent.apellidoMaterno, newStudent.nombre),
         taken
       )
       const passwordReset = generateResetPassword()
@@ -107,9 +99,6 @@ export default function GroupPage() {
     }
   }
 
-  // Fetch every username already used in this school with a single equality filter.
-  // A range query (>=, <=) would need a deployed composite index; this avoids that
-  // dependency entirely and lets us guarantee uniqueness client-side.
   async function fetchSchoolUsernames() {
     const snap = await getDocs(
       query(collection(db, 'students'), where('escuelaId', '==', userProfile.escuelaId))
@@ -142,7 +131,7 @@ export default function GroupPage() {
           generateUsername(row.apellidoPaterno, row.apellidoMaterno, row.nombre),
           taken
         )
-        taken.add(username) // reserve so the next row in this batch can't reuse it
+        taken.add(username)
         const ref = doc(collection(db, 'students'))
         batch.set(ref, {
           ...row,
@@ -181,7 +170,6 @@ export default function GroupPage() {
     setSaving(true)
     try {
       await deleteDoc(doc(db, 'students', studentToDelete.id))
-      // Keep "orden" contiguous (1..n) for the remaining students.
       const remaining = students.filter((s) => s.id !== studentToDelete.id)
       const batch = writeBatch(db)
       remaining.forEach((s, i) => batch.update(doc(db, 'students', s.id), { orden: i + 1 }))
@@ -202,42 +190,15 @@ export default function GroupPage() {
     if (targetIndex < 0 || targetIndex >= newList.length) return
     ;[newList[index], newList[targetIndex]] = [newList[targetIndex], newList[index]]
     const batch = writeBatch(db)
-    newList.forEach((s, i) => {
-      batch.update(doc(db, 'students', s.id), { orden: i + 1 })
-    })
+    newList.forEach((s, i) => batch.update(doc(db, 'students', s.id), { orden: i + 1 }))
     await batch.commit()
     setStudents(newList.map((s, i) => ({ ...s, orden: i + 1 })))
   }
 
-  async function addSubject(e) {
-    e.preventDefault()
-    if (!newSubject.trim()) return
-    setSaving(true)
-    try {
-      const ref = await addDoc(collection(db, 'subjects'), {
-        nombre: newSubject.trim(),
-        docenteId: currentUser.uid,
-        grupoId: groupId,
-        escuelaId: userProfile.escuelaId,
-        archived: false,
-        createdAt: serverTimestamp(),
-      })
-      setNewSubject('')
-      setShowAddSubject(false)
-      toast('Asignatura creada')
-      navigate(`/subject/${ref.id}`)
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const filtered = students.filter(
-    (s) =>
-      `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre} ${s.username}`
-        .toLowerCase()
-        .includes(search.toLowerCase())
+  const filtered = students.filter((s) =>
+    `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre} ${s.username}`
+      .toLowerCase()
+      .includes(search.toLowerCase())
   )
 
   const activationUrl = `${window.location.origin}/activate/${group?.accessCode}`
@@ -255,7 +216,7 @@ export default function GroupPage() {
         <div className="bg-white border-b border-slate-100 px-4 py-4">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(subjectId ? `/subject/${subjectId}` : '/dashboard')}
               className="p-2 -ml-2 text-slate-400 hover:text-slate-600 rounded-lg"
             >
               <ArrowLeft size={20} />
@@ -266,176 +227,121 @@ export default function GroupPage() {
             </div>
             <button
               onClick={() => setShowQR(true)}
-              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+              className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
             >
               <QrCode size={22} />
             </button>
           </div>
-
-          {/* Tabs */}
-          <div className="flex gap-1 mt-4 bg-slate-100 p-1 rounded-xl">
-            {['alumnos', 'asignaturas'].map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  tab === t
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {t === 'alumnos' ? `Alumnos (${students.length})` : `Asignaturas (${subjects.length})`}
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* Alumnos tab */}
-        {tab === 'alumnos' && (
-          <div className="px-4 py-4 space-y-3">
-            {/* Search + actions */}
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar alumno…"
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
-                />
-              </div>
-              <button
-                onClick={() => setShowAddStudent(true)}
-                className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
-              >
-                <UserPlus size={18} />
-              </button>
-            </div>
-
-            {/* Excel actions */}
-            <div className="flex gap-2">
-              <label className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors">
-                <Upload size={15} /> Importar Excel
-                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} />
-              </label>
-              <button
-                onClick={() => exportStudentListExcel(students)}
-                disabled={students.length === 0}
-                className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
-              >
-                <Download size={15} /> Exportar
-              </button>
+        {/* Alumnos */}
+        <div className="px-4 py-4 space-y-3">
+          {/* Search + add */}
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar alumno…"
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+              />
             </div>
             <button
-              type="button"
-              onClick={downloadStudentTemplate}
-              className="w-full flex items-center justify-center gap-2 py-2 border border-indigo-200 rounded-xl text-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
+              onClick={() => setShowAddStudent(true)}
+              className="p-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
             >
-              <Download size={15} /> Descargar plantilla de importación
+              <UserPlus size={18} />
             </button>
+          </div>
 
-            {/* Student list */}
-            {filtered.length === 0 ? (
-              <div className="text-center py-10 text-slate-400 text-sm">
-                {search ? 'Sin resultados' : 'No hay alumnos en este grupo'}
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-                {filtered.map((s, i) => (
-                  <div
-                    key={s.id}
-                    className={`flex items-center gap-3 px-3 py-2.5 ${i > 0 ? 'border-t border-slate-100' : ''}`}
-                  >
-                    <span className="w-5 text-xs text-slate-400 text-right flex-shrink-0">{s.orden}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
-                        {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs font-mono text-indigo-600 font-semibold">{s.username}</span>
-                        {s.activado ? (
-                          <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">activo</span>
-                        ) : (
-                          <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">sin activar</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {!search && (
-                        <>
-                          <button
-                            onClick={() => moveStudent(i, -1)}
-                            disabled={i === 0}
-                            className="p-1.5 text-slate-400 hover:text-slate-600 disabled:opacity-30 rounded"
-                          >
-                            <ArrowUp size={14} />
-                          </button>
-                          <button
-                            onClick={() => moveStudent(i, 1)}
-                            disabled={i === filtered.length - 1}
-                            className="p-1.5 text-slate-400 hover:text-slate-600 disabled:opacity-30 rounded"
-                          >
-                            <ArrowDown size={14} />
-                          </button>
-                        </>
+          {/* Excel actions */}
+          <div className="flex gap-2">
+            <label className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors">
+              <Upload size={15} /> Importar Excel
+              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} />
+            </label>
+            <button
+              onClick={() => exportStudentListExcel(students)}
+              disabled={students.length === 0}
+              className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
+            >
+              <Download size={15} /> Exportar
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={downloadStudentTemplate}
+            className="w-full flex items-center justify-center gap-2 py-2 border border-blue-200 rounded-xl text-sm text-blue-600 hover:bg-blue-50 transition-colors"
+          >
+            <Download size={15} /> Descargar plantilla de importación
+          </button>
+
+          {/* Student list */}
+          {filtered.length === 0 ? (
+            <div className="text-center py-10 text-slate-400 text-sm">
+              {search ? 'Sin resultados' : 'No hay alumnos en este grupo'}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+              {filtered.map((s, i) => (
+                <div
+                  key={s.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 ${i > 0 ? 'border-t border-slate-100' : ''}`}
+                >
+                  <span className="w-5 text-xs text-slate-400 text-right flex-shrink-0">{s.orden}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">
+                      {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs font-mono text-blue-600 font-semibold">{s.username}</span>
+                      {s.activado ? (
+                        <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">activo</span>
+                      ) : (
+                        <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">sin activar</span>
                       )}
-                      <button
-                        onClick={() => resetPassword(s)}
-                        className="p-1.5 text-amber-500 hover:text-amber-700 rounded"
-                        title="Resetear contraseña"
-                      >
-                        <RotateCcw size={14} />
-                      </button>
-                      <button
-                        onClick={() => setStudentToDelete(s)}
-                        className="p-1.5 text-slate-300 hover:text-red-500 rounded"
-                        title="Eliminar alumno"
-                      >
-                        <Trash2 size={14} />
-                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Asignaturas tab */}
-        {tab === 'asignaturas' && (
-          <div className="px-4 py-4 space-y-3">
-            <button
-              onClick={() => setShowAddSubject(true)}
-              className="w-full py-3 border-2 border-dashed border-indigo-200 rounded-xl text-indigo-600 text-sm font-medium hover:bg-indigo-50 transition-colors flex items-center justify-center gap-2"
-            >
-              <Plus size={16} /> Nueva asignatura
-            </button>
-            {subjects.length === 0 ? (
-              <div className="text-center py-10 text-slate-400 text-sm">
-                No hay asignaturas creadas
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {subjects.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => navigate(`/subject/${s.id}`)}
-                    className="w-full bg-white rounded-xl border border-slate-100 px-4 py-3.5 text-left shadow-sm hover:shadow-md transition-shadow flex items-center gap-3"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                      <BookOpen size={18} className="text-indigo-500" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-900">{s.nombre}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">3 parciales</p>
-                    </div>
-                    <ChevronRight size={16} className="text-slate-300" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {!search && (
+                      <>
+                        <button
+                          onClick={() => moveStudent(i, -1)}
+                          disabled={i === 0}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 disabled:opacity-30 rounded"
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          onClick={() => moveStudent(i, 1)}
+                          disabled={i === filtered.length - 1}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 disabled:opacity-30 rounded"
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => resetPassword(s)}
+                      className="p-1.5 text-amber-500 hover:text-amber-700 rounded"
+                      title="Resetear contraseña"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                    <button
+                      onClick={() => setStudentToDelete(s)}
+                      className="p-1.5 text-slate-300 hover:text-red-500 rounded"
+                      title="Eliminar alumno"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add student modal */}
@@ -455,7 +361,7 @@ export default function GroupPage() {
                   value={newStudent[field]}
                   onChange={(e) => setNewStudent((f) => ({ ...f, [field]: e.target.value }))}
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                   placeholder={
                     field === 'apellidoPaterno' ? 'Apellido paterno'
                       : field === 'apellidoMaterno' ? 'Apellido materno'
@@ -466,42 +372,10 @@ export default function GroupPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : <Plus size={16} />}
                 Agregar alumno
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add subject modal */}
-      {showAddSubject && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddSubject(false)} />
-          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold">Nueva asignatura</h3>
-              <button onClick={() => setShowAddSubject(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
-            </div>
-            <form onSubmit={addSubject} className="space-y-4">
-              <input
-                type="text"
-                value={newSubject}
-                onChange={(e) => setNewSubject(e.target.value)}
-                required
-                autoFocus
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
-                placeholder="Ej: Programación Web, Matemáticas"
-              />
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {saving ? <Spinner size="sm" /> : <Plus size={16} />}
-                Crear asignatura
               </button>
             </form>
           </div>

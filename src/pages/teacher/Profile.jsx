@@ -144,7 +144,7 @@ export default function Profile() {
   const initials = displayName.charAt(0).toUpperCase()
 
   const inputCls =
-    'w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-slate-50'
+    'w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-slate-50'
 
   return (
     <TeacherLayout>
@@ -152,7 +152,7 @@ export default function Profile() {
         {/* Photo + identity */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center gap-4">
           <div className="relative">
-            <div className="w-20 h-20 rounded-full bg-indigo-100 overflow-hidden flex items-center justify-center">
+            <div className="w-20 h-20 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center">
               {userProfile?.photoURL ? (
                 <img
                   src={userProfile.photoURL}
@@ -160,14 +160,14 @@ export default function Profile() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-2xl font-bold text-indigo-600">{initials}</span>
+                <span className="text-2xl font-bold text-blue-600">{initials}</span>
               )}
             </div>
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={photoUploading}
-              className="absolute -bottom-1 -right-1 w-7 h-7 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60"
+              className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60"
             >
               {photoUploading ? <Spinner size="sm" /> : <Camera size={13} />}
             </button>
@@ -227,7 +227,7 @@ export default function Profile() {
             <button
               type="submit"
               disabled={savingInfo}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {savingInfo ? <Spinner size="sm" /> : null}
               {savingInfo ? 'Guardando…' : 'Guardar cambios'}
@@ -272,7 +272,7 @@ export default function Profile() {
                 type="button"
                 onClick={handleResetPassword}
                 disabled={resetSent}
-                className="text-indigo-600 text-sm font-semibold hover:underline disabled:opacity-50 flex-shrink-0"
+                className="text-blue-600 text-sm font-semibold hover:underline disabled:opacity-50 flex-shrink-0"
               >
                 {resetSent ? 'Enviado ✓' : 'Cambiar'}
               </button>
@@ -298,7 +298,7 @@ export default function Profile() {
                 className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 text-sm font-mono transition-colors ${
                   cctMatch
                     ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50'
-                    : 'border-slate-200 focus:ring-indigo-500 bg-slate-50'
+                    : 'border-slate-200 focus:ring-blue-500 bg-slate-50'
                 }`}
                 placeholder="Ej. 11ECT0001X"
               />
@@ -320,7 +320,7 @@ export default function Profile() {
             <button
               type="submit"
               disabled={savingPlantel || !cctMatch}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {savingPlantel ? <Spinner size="sm" /> : null}
               {savingPlantel ? 'Guardando…' : 'Guardar plantel'}
