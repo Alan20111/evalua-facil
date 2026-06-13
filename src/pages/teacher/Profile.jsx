@@ -1,14 +1,30 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { signOut, sendPasswordResetEmail } from 'firebase/auth'
-import { doc, updateDoc, getDocs, query, collection, where, setDoc } from 'firebase/firestore'
+import {
+  signOut,
+  sendPasswordResetEmail,
+  GoogleAuthProvider,
+  linkWithPopup,
+  unlink,
+} from 'firebase/auth'
+import { doc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { Camera, Check, LogOut, Mail, Lock, School, User } from 'lucide-react'
-import { usePlanteles, findPlantel } from '../../data/usePlanteles'
+import { Camera, Check, LogOut, Lock, User, Link as LinkIcon, Unlink } from 'lucide-react'
+
+function GoogleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.859-3.048.859-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+      <path d="M3.964 10.705A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.705V4.963H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.037l3.007-2.332z" fill="#FBBC05"/>
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.963L3.964 7.295C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+    </svg>
+  )
+}
 
 async function uploadAvatar(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -31,18 +47,13 @@ export default function Profile() {
   const toast = useToast()
   const fileRef = useRef(null)
 
-  const [username, setUsername] = useState(
-    userProfile?.username || userProfile?.nombre || ''
-  )
   const [nombre, setNombre] = useState(userProfile?.nombreMostrar || '')
-  const [savingInfo, setSavingInfo] = useState(false)
+  const [savingNombre, setSavingNombre] = useState(false)
   const [photoUploading, setPhotoUploading] = useState(false)
   const [resetSent, setResetSent] = useState(false)
-  const [cct, setCct] = useState(userProfile?.claveSEP || '')
-  const [savingPlantel, setSavingPlantel] = useState(false)
-  const { planteles, loading: catalogLoading } = usePlanteles()
+  const [linkingGoogle, setLinkingGoogle] = useState(false)
 
-  const cctMatch = useMemo(() => findPlantel(planteles, cct), [planteles, cct])
+  const isGoogleLinked = currentUser?.providerData?.some((p) => p.providerId === 'google.com')
 
   async function handlePhotoChange(e) {
     const file = e.target.files?.[0]
@@ -60,26 +71,19 @@ export default function Profile() {
     }
   }
 
-  async function handleSaveInfo(e) {
+  async function handleSaveNombre(e) {
     e.preventDefault()
-    if (!username.trim()) {
-      toast('El nombre de usuario es requerido', 'error')
-      return
-    }
-    setSavingInfo(true)
+    setSavingNombre(true)
     try {
-      const updates = {
-        username: username.trim(),
-        nombre: username.trim(),
-      }
-      if (nombre.trim()) updates.nombreMostrar = nombre.trim()
-      await updateDoc(doc(db, 'users', currentUser.uid), updates)
-      setUserProfile((p) => ({ ...p, ...updates }))
-      toast('Perfil actualizado')
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        nombreMostrar: nombre.trim(),
+      })
+      setUserProfile((p) => ({ ...p, nombreMostrar: nombre.trim() }))
+      toast('Nombre actualizado')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
-      setSavingInfo(false)
+      setSavingNombre(false)
     }
   }
 
@@ -93,44 +97,35 @@ export default function Profile() {
     }
   }
 
-  async function handleSavePlantel(e) {
-    e.preventDefault()
-    if (!cctMatch) {
-      toast('CCT no encontrado en el catálogo', 'error')
+  async function handleLinkGoogle() {
+    setLinkingGoogle(true)
+    try {
+      await linkWithPopup(currentUser, new GoogleAuthProvider())
+      toast('Cuenta de Google vinculada correctamente')
+    } catch (err) {
+      if (err.code === 'auth/credential-already-in-use') {
+        toast('Esta cuenta de Google ya está vinculada a otro usuario', 'error')
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        // dismissed
+      } else {
+        toast('Error al vincular: ' + err.message, 'error')
+      }
+    } finally {
+      setLinkingGoogle(false)
+    }
+  }
+
+  async function handleUnlinkGoogle() {
+    const providers = currentUser?.providerData || []
+    if (providers.length <= 1) {
+      toast('No puedes desvincular el único método de acceso', 'error')
       return
     }
-    setSavingPlantel(true)
     try {
-      const schoolSnap = await getDocs(
-        query(collection(db, 'schools'), where('claveSEP', '==', cctMatch.cct))
-      )
-      let schoolId
-      if (!schoolSnap.empty) {
-        schoolId = schoolSnap.docs[0].id
-      } else {
-        const newRef = doc(collection(db, 'schools'))
-        await setDoc(newRef, {
-          claveSEP: cctMatch.cct,
-          nombre: cctMatch.nombre,
-          shortName: cctMatch.short,
-          subsistema: cctMatch.sub,
-          municipio: cctMatch.mun,
-          estado: cctMatch.edo,
-        })
-        schoolId = newRef.id
-      }
-      await updateDoc(doc(db, 'users', currentUser.uid), { escuelaId: schoolId })
-      setUserProfile((p) => ({
-        ...p,
-        escuelaId: schoolId,
-        schoolName: cctMatch.nombre,
-        claveSEP: cctMatch.cct,
-      }))
-      toast('Plantel actualizado')
+      await unlink(currentUser, 'google.com')
+      toast('Cuenta de Google desvinculada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
-    } finally {
-      setSavingPlantel(false)
     }
   }
 
@@ -140,7 +135,7 @@ export default function Profile() {
   }
 
   const displayName =
-    userProfile?.nombreMostrar || userProfile?.username || userProfile?.nombre || 'Docente'
+    userProfile?.nombreMostrar || userProfile?.username || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
 
   const inputCls =
@@ -154,11 +149,7 @@ export default function Profile() {
           <div className="relative">
             <div className="w-20 h-20 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center">
               {userProfile?.photoURL ? (
-                <img
-                  src={userProfile.photoURL}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                />
+                <img src={userProfile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-2xl font-bold text-blue-600">{initials}</span>
               )}
@@ -172,101 +163,88 @@ export default function Profile() {
               {photoUploading ? <Spinner size="sm" /> : <Camera size={13} />}
             </button>
           </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={handlePhotoChange}
-          />
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
           <div className="text-center">
             <p className="font-bold text-slate-900">{displayName}</p>
-            <p className="text-sm text-slate-400">{currentUser?.email}</p>
+            {userProfile?.username && (
+              <p className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded mt-1 inline-block">
+                {userProfile.username}
+              </p>
+            )}
             {userProfile?.schoolName && (
-              <p className="text-xs text-slate-400 mt-0.5">{userProfile.schoolName}</p>
+              <p className="text-xs text-slate-400 mt-1">{userProfile.schoolName}</p>
             )}
           </div>
         </div>
 
-        {/* Información personal */}
+        {/* Nombre visible */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
             <User size={17} className="text-slate-400" />
-            Información personal
+            Nombre
           </h2>
-          <form onSubmit={handleSaveInfo} className="space-y-4">
+          <form onSubmit={handleSaveNombre} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Nombre de usuario <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className={inputCls}
-                placeholder="Ej. García Pérez Juan"
-              />
-              <p className="text-xs text-slate-400 mt-1">
-                Así aparecerás para tus alumnos
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Nombre visible{' '}
-                <span className="text-slate-400 font-normal">(opcional)</span>
+                Nombre completo
               </label>
               <input
                 type="text"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 className={inputCls}
-                placeholder="Ej. Profa. García"
+                placeholder="Ej. Profa. García Pérez"
               />
+              <p className="text-xs text-slate-400 mt-1">Así te verán tus alumnos</p>
             </div>
             <button
               type="submit"
-              disabled={savingInfo}
+              disabled={savingNombre}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              {savingInfo ? <Spinner size="sm" /> : null}
-              {savingInfo ? 'Guardando…' : 'Guardar cambios'}
+              {savingNombre ? <Spinner size="sm" /> : null}
+              {savingNombre ? 'Guardando…' : 'Guardar nombre'}
             </button>
           </form>
         </div>
 
-        {/* Seguridad */}
+        {/* Acceso */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
             <Lock size={17} className="text-slate-400" />
-            Seguridad
+            Acceso
           </h2>
           <div className="space-y-4">
-            {/* Email */}
-            <div className="flex items-center gap-3">
-              <Mail size={18} className="text-slate-400 flex-shrink-0" />
+            {/* Username — read only */}
+            <div className="flex items-center gap-3 py-2 border-b border-slate-100">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">
-                  {currentUser?.email}
+                <p className="text-xs text-slate-400 mb-0.5">Usuario</p>
+                <p className="text-sm font-semibold font-mono text-slate-900">
+                  {userProfile?.username || '—'}
                 </p>
+              </div>
+            </div>
+
+            {/* Email + verification */}
+            <div className="flex items-center gap-3 py-2 border-b border-slate-100">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-slate-400 mb-0.5">Correo</p>
+                <p className="text-sm text-slate-900 truncate">{currentUser?.email}</p>
                 {currentUser?.emailVerified ? (
-                  <p className="text-xs text-emerald-500 flex items-center gap-1">
+                  <p className="text-xs text-emerald-500 flex items-center gap-1 mt-0.5">
                     <Check size={10} /> Verificado
                   </p>
                 ) : (
-                  <p className="text-xs text-amber-500">Sin verificar</p>
+                  <p className="text-xs text-amber-500 mt-0.5">Sin verificar</p>
                 )}
               </div>
             </div>
 
             {/* Password reset */}
-            <div className="border-t border-slate-100 pt-4 flex items-start gap-3">
-              <Lock size={18} className="text-slate-400 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 py-2 border-b border-slate-100">
               <div className="flex-1">
                 <p className="text-sm font-medium text-slate-900">Contraseña</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Recibirás un correo para crear una nueva contraseña
-                </p>
+                <p className="text-xs text-slate-400 mt-0.5">Recibirás un correo para cambiarla</p>
               </div>
               <button
                 type="button"
@@ -277,55 +255,39 @@ export default function Profile() {
                 {resetSent ? 'Enviado ✓' : 'Cambiar'}
               </button>
             </div>
-          </div>
-        </div>
 
-        {/* Plantel */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <School size={17} className="text-slate-400" />
-            Plantel
-          </h2>
-          <form onSubmit={handleSavePlantel} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                CCT del plantel
-              </label>
-              <input
-                type="text"
-                value={cct}
-                onChange={(e) => setCct(e.target.value.toUpperCase())}
-                className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 text-sm font-mono transition-colors ${
-                  cctMatch
-                    ? 'border-emerald-300 focus:ring-emerald-500 bg-emerald-50'
-                    : 'border-slate-200 focus:ring-blue-500 bg-slate-50'
-                }`}
-                placeholder="Ej. 11ECT0001X"
-              />
-              {cctMatch ? (
-                <p className="text-emerald-600 text-xs mt-1.5 flex items-start gap-1">
-                  <Check size={12} className="mt-0.5 flex-shrink-0" />
-                  <span>
-                    <strong>{cctMatch.short}</strong> · {cctMatch.nombre} — {cctMatch.mun}, {cctMatch.edo}
-                  </span>
+            {/* Google linking */}
+            <div className="flex items-center gap-3 py-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <GoogleIcon />
+                  <p className="text-sm font-medium text-slate-900">Google</p>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {isGoogleLinked ? 'Vinculado — puedes entrar con tu cuenta de Google' : 'No vinculado'}
                 </p>
-              ) : catalogLoading && cct.length >= 5 ? (
-                <p className="text-slate-400 text-xs mt-1.5">Cargando catálogo de planteles…</p>
-              ) : cct.length >= 5 ? (
-                <p className="text-amber-600 text-xs mt-1.5">
-                  CCT no encontrado en el catálogo
-                </p>
-              ) : null}
+              </div>
+              {isGoogleLinked ? (
+                <button
+                  type="button"
+                  onClick={handleUnlinkGoogle}
+                  className="flex items-center gap-1.5 text-slate-400 hover:text-red-500 text-xs font-medium transition-colors flex-shrink-0"
+                >
+                  <Unlink size={13} /> Desvincular
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleLinkGoogle}
+                  disabled={linkingGoogle}
+                  className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-xs font-semibold transition-colors disabled:opacity-60 flex-shrink-0"
+                >
+                  {linkingGoogle ? <Spinner size="sm" /> : <LinkIcon size={13} />}
+                  Vincular
+                </button>
+              )}
             </div>
-            <button
-              type="submit"
-              disabled={savingPlantel || !cctMatch}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {savingPlantel ? <Spinner size="sm" /> : null}
-              {savingPlantel ? 'Guardando…' : 'Guardar plantel'}
-            </button>
-          </form>
+          </div>
         </div>
 
         {/* Logout */}
