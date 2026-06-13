@@ -17,8 +17,6 @@ import {
   Clock, Circle, Star,
 } from 'lucide-react'
 
-const PARCIALES = [1, 2, 3]
-
 export default function StudentSubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
@@ -90,6 +88,8 @@ export default function StudentSubjectPage() {
     return grades.length ? (grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(1) : null
   }
 
+  const PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <Spinner size="lg" />
@@ -107,7 +107,7 @@ export default function StudentSubjectPage() {
         </button>
         <div>
           <h1 className="text-lg font-bold text-slate-900">{subject?.nombre}</h1>
-          <p className="text-slate-400 text-xs">3 parciales</p>
+          <p className="text-slate-400 text-xs">{subject?.parciales || 3} parciales</p>
         </div>
       </header>
 

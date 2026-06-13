@@ -166,7 +166,7 @@ export default function StudentActivityPage() {
         toast('Tarea entregada')
       }
       setFile(null)
-      loadAll()
+      loadOther()
     } catch (err) {
       toast('Error al subir: ' + err.message, 'error')
     } finally {
@@ -205,7 +205,7 @@ export default function StudentActivityPage() {
         })
         toast('Tarea marcada como completada')
       }
-      loadAll()
+      loadOther()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {

@@ -201,7 +201,7 @@ export default function SubjectPage() {
       ])
       const sessions = sessionsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => b.fecha.localeCompare(a.fecha))
+        .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
       setAttendanceSessions(sessions)
       setAttendanceLoaded(true)
     } catch (err) {
@@ -268,14 +268,14 @@ export default function SubjectPage() {
         await updateDoc(doc(db, 'attendance', editingSessionId), payload)
         setAttendanceSessions((prev) =>
           prev.map((s) => s.id === editingSessionId ? { ...s, ...payload } : s)
-            .sort((a, b) => b.fecha.localeCompare(a.fecha))
+            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
         )
         toast('Lista actualizada')
       } else {
         const ref = await addDoc(collection(db, 'attendance'), { ...payload, createdAt: serverTimestamp() })
         setAttendanceSessions((prev) =>
           [{ id: ref.id, ...payload }, ...prev]
-            .sort((a, b) => b.fecha.localeCompare(a.fecha))
+            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
         )
         toast('Asistencia registrada')
       }
@@ -516,7 +516,8 @@ export default function SubjectPage() {
                   </button>
 
                   {isOpen && (
-                    <div className="border-t border-slate-100 px-4 py-3 space-y-2">
+                    <div className="border-t border-slate-100 pr-4 py-3">
+                      <div className="ml-3 pl-3 border-l-2 border-blue-100 space-y-2">
                       {acts.length === 0 && (
                         <p className="text-slate-400 text-sm text-center py-3">Sin actividades</p>
                       )}
@@ -566,6 +567,7 @@ export default function SubjectPage() {
                         className="w-full py-2.5 border-2 border-dashed border-blue-200 rounded-xl text-blue-600 text-sm font-medium hover:bg-blue-50 transition-colors flex items-center justify-center gap-2">
                         <Plus size={15} /> Agregar actividad
                       </button>
+                      </div>
                     </div>
                   )}
                 </div>

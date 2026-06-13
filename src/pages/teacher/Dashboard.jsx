@@ -69,7 +69,7 @@ export default function TeacherDashboard() {
       const subList = subSnap.docs
         .map((d) => ({ id: d.id, ...d.data(), group: grpMap[d.data().grupoId] || null }))
         .sort((a, b) => {
-          const nc = a.nombre.localeCompare(b.nombre, 'es')
+          const nc = (a.nombre || '').localeCompare(b.nombre || '', 'es')
           if (nc !== 0) return nc
           return (a.group?.nombre || '').localeCompare(b.group?.nombre || '', 'es')
         })
@@ -109,7 +109,7 @@ export default function TeacherDashboard() {
       setSubjects((prev) =>
         [...prev, { id: ref.id, nombre: newSubjectName.trim(), grupoId: grpRef.id, group: grp, parciales: newSubjectParciales, archived: false }]
           .sort((a, b) => {
-            const nc = a.nombre.localeCompare(b.nombre, 'es')
+            const nc = (a.nombre || '').localeCompare(b.nombre || '', 'es')
             if (nc !== 0) return nc
             return (a.group?.nombre || '').localeCompare(b.group?.nombre || '', 'es')
           })
@@ -249,6 +249,7 @@ export default function TeacherDashboard() {
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                   placeholder="Ej: 6A, 4B, 5C"
                 />
+                <p className="text-xs text-slate-400 mt-1">Usa un nombre corto y fácil de reconocer (ej. 6A).</p>
               </div>
 
               {/* Período */}
@@ -277,7 +278,7 @@ export default function TeacherDashboard() {
               {/* Preview ASIGNATURA: GRUPO */}
               {newSubjectName && inlineGroupName && (
                 <p className="text-xs text-slate-500 font-mono bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-                  {newSubjectName.trim().toUpperCase()}: {inlineGroupName.trim().toUpperCase()}
+                  {newSubjectName.trim()}: {inlineGroupName.trim().toUpperCase()}
                 </p>
               )}
 

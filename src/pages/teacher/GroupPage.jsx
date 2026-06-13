@@ -57,7 +57,7 @@ export default function GroupPage() {
       setGroup({ id: gSnap.id, ...gSnap.data() })
       const studList = studs.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => a.orden - b.orden)
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       setStudents(studList)
       if (!subjSnap.empty) setSubjectId(subjSnap.docs[0].id)
     } catch (err) {

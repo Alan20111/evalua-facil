@@ -191,8 +191,11 @@ export default function TeacherRegister() {
                 <div>
                   <p className="font-semibold text-slate-900 mb-1">Registro con correo electrónico</p>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    ¿Utilizarás esta plataforma en <strong>diversos equipos</strong>? Regístrate aquí.{' '}
-                    Podrás entrar desde cualquier equipo con tu nombre de usuario y contraseña.
+                    ¿Utilizarás esta plataforma en <strong>diversos equipos de cómputo</strong>? Puede ser
+                    una cuenta de Google u otro correo, al cual te enviaremos tus datos de ingreso. Regístrate aquí.
+                  </p>
+                  <p className="text-xs text-blue-600 leading-relaxed mt-1.5">
+                    <strong>Ventaja:</strong> podrás entrar desde cualquier equipo con tu nombre de usuario y contraseña.
                   </p>
                 </div>
               </div>
@@ -212,9 +215,12 @@ export default function TeacherRegister() {
                 <div>
                   <p className="font-semibold text-slate-900 mb-1">Registro con Google</p>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    ¿Utilizarás esta plataforma en <strong>un solo equipo</strong> con una cuenta de Google?
-                    {' '}Se usará siempre tu acceso mediante tu cuenta de Google de forma directa,
-                    sin necesidad de recordar una contraseña.
+                    ¿Utilizarás esta plataforma en <strong>un solo equipo de cómputo</strong> con una cuenta de Google?
+                    {' '}Se usará siempre tu acceso mediante tu cuenta de Google de forma directa.
+                  </p>
+                  <p className="text-xs text-amber-600 leading-relaxed mt-1.5">
+                    Si entras desde diversos equipos podrías tener dificultades con la seguridad de Google;
+                    se recomienda solo si usarás siempre el mismo equipo.
                   </p>
                 </div>
               </div>

@@ -69,7 +69,7 @@ export default function ActivityPage() {
       ])
       const studList = studsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => a.orden - b.orden)
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       setStudents(studList)
       const subsMap = {}
       subsSnap.docs.forEach((d) => { subsMap[d.data().alumnoId] = { id: d.id, ...d.data() } })
