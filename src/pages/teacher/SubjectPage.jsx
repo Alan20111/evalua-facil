@@ -144,7 +144,12 @@ export default function SubjectPage() {
         getDoc(doc(db, 'subjects', subjectId)),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
       ])
-      const subData = { id: subSnap.id, ...subSnap.data() }
+      let subData = { id: subSnap.id, ...subSnap.data() }
+      if (!subData.accessCode) {
+        const newCode = Math.random().toString(36).slice(2, 8).toUpperCase()
+        await updateDoc(doc(db, 'subjects', subjectId), { accessCode: newCode })
+        subData = { ...subData, accessCode: newCode }
+      }
       setSubject(subData)
       const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       setActivities(acts)
