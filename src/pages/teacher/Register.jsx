@@ -23,8 +23,6 @@ export default function Register() {
   const [showPicker, setShowPicker] = useState(false)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
-  const [done, setDone] = useState(false)
-  const [createdUsername, setCreatedUsername] = useState('')
   const navigate = useNavigate()
   const toast = useToast()
   const { planteles, loading: catalogLoading } = usePlanteles()
@@ -96,8 +94,7 @@ export default function Register() {
         // email not configured or failed — continue anyway
       }
 
-      setCreatedUsername(username)
-      setDone(true)
+      navigate('/dashboard', { state: { newAccount: true, createdUsername: username } })
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
         toast('Este correo ya tiene cuenta. Inicia sesión.', 'error')
@@ -107,45 +104,6 @@ export default function Register() {
     } finally {
       setLoading(false)
     }
-  }
-
-  if (done) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
-        <div className="w-full max-w-sm">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-center space-y-4">
-            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-              <Check size={26} className="text-emerald-600" />
-            </div>
-            <h2 className="text-lg font-bold text-slate-900">¡Cuenta creada!</h2>
-
-            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-4">
-              <p className="text-xs text-blue-500 mb-1 font-semibold uppercase tracking-wide">Tu nombre de usuario</p>
-              <p className="text-3xl font-black font-mono text-blue-700 tracking-widest">{createdUsername}</p>
-              <p className="text-xs text-slate-500 mt-2">Úsalo cada vez que inicies sesión</p>
-            </div>
-
-            <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-left">
-              <span className="text-amber-500 mt-0.5">✉</span>
-              <p className="text-sm text-amber-700 leading-relaxed">
-                También enviamos tu usuario a <strong>{email}</strong> para que no lo pierdas.
-              </p>
-            </div>
-
-            <p className="text-sm text-slate-500 leading-relaxed">
-              Verifica tu correo — te enviamos un enlace de confirmación.
-            </p>
-
-            <button
-              onClick={() => navigate('/docente', { state: { showEmailReminder: true, email } })}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
-            >
-              Ir a iniciar sesión
-            </button>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   collection,
   query,
@@ -8,12 +8,13 @@ import {
   addDoc,
   serverTimestamp,
 } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { sendEmailVerification } from 'firebase/auth'
+import { db, auth } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { Plus, BookOpen, ChevronRight, X } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, AlertTriangle } from 'lucide-react'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -31,8 +32,17 @@ function getCicloInfo() {
 
 export default function TeacherDashboard() {
   const { currentUser, userProfile } = useAuth()
+  const location = useLocation()
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
+
+  // Welcome modal (shown once after registration)
+  const [showWelcomeModal, setShowWelcomeModal] = useState(location.state?.newAccount === true)
+  const welcomeUsername = location.state?.createdUsername ?? ''
+
+  // Unverified email banner
+  const [verifyLoading, setVerifyLoading] = useState(false)
+  const [verifySent, setVerifySent] = useState(false)
 
   // Subject creation modal
   const [showSubjectModal, setShowSubjectModal] = useState(false)
@@ -46,6 +56,19 @@ export default function TeacherDashboard() {
 
   const navigate = useNavigate()
   const toast = useToast()
+
+  async function handleResendVerification() {
+    if (!auth.currentUser) return
+    setVerifyLoading(true)
+    try {
+      await sendEmailVerification(auth.currentUser)
+      setVerifySent(true)
+    } catch {
+      toast('Error al enviar el correo de verificación', 'error')
+    } finally {
+      setVerifyLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!currentUser) return
@@ -116,6 +139,31 @@ export default function TeacherDashboard() {
   return (
     <TeacherLayout>
       <div className="px-4 py-6 max-w-2xl mx-auto">
+
+        {/* Unverified email banner */}
+        {currentUser && !currentUser.emailVerified && (
+          <div className="mb-5 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5">
+            <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800">Correo no verificado</p>
+              <p className="text-xs text-amber-700 leading-relaxed mt-0.5">
+                Verifica tu correo para proteger tu cuenta. Si olvidas tu contraseña sin verificarlo podrías perder el acceso.
+              </p>
+              {verifySent ? (
+                <p className="mt-2 text-xs font-semibold text-amber-700">Correo enviado — revisa tu bandeja ✓</p>
+              ) : (
+                <button
+                  onClick={handleResendVerification}
+                  disabled={verifyLoading}
+                  className="mt-2 text-xs font-semibold text-amber-700 underline underline-offset-2 disabled:opacity-50"
+                >
+                  {verifyLoading ? 'Enviando…' : 'Reenviar correo de verificación'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Greeting */}
         <div className="mb-6">
           <p className="text-slate-500 text-sm">{saludo},</p>
@@ -273,6 +321,36 @@ export default function TeacherDashboard() {
                 {creatingSubject ? 'Creando…' : 'Crear asignatura'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Welcome modal — shown once after registration */}
+      {showWelcomeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center space-y-4">
+            <h2 className="text-lg font-bold text-slate-900">¡Bienvenido/a!</h2>
+
+            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-4">
+              <p className="text-xs text-blue-500 mb-1 font-semibold uppercase tracking-wide">Tu nombre de usuario</p>
+              <p className="text-3xl font-black font-mono text-blue-700 tracking-widest">{welcomeUsername}</p>
+              <p className="text-xs text-slate-500 mt-2">Úsalo cada vez que inicies sesión</p>
+            </div>
+
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-left">
+              <span className="text-amber-500 mt-0.5 text-base">✉</span>
+              <p className="text-sm text-amber-700 leading-relaxed">
+                Enviamos tu usuario y un <strong>enlace de verificación</strong> a tu correo.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowWelcomeModal(false)}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+            >
+              Entrar al dashboard
+            </button>
           </div>
         </div>
       )}

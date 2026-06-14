@@ -4,14 +4,13 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
-  sendEmailVerification,
   signOut,
 } from 'firebase/auth'
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { GraduationCap, Mail } from 'lucide-react'
+import { GraduationCap } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
 
 function GoogleIcon() {
@@ -33,10 +32,6 @@ export default function TeacherLogin() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const [needsVerification, setNeedsVerification] = useState(false)
-  const [verifyEmail, setVerifyEmail] = useState('')
-  const [resendLoading, setResendLoading] = useState(false)
-  const [resendDone, setResendDone] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -53,15 +48,7 @@ export default function TeacherLogin() {
         return
       }
       const userEmail = snap.docs[0].data().email
-      const cred = await signInWithEmailAndPassword(auth, userEmail, password)
-      await cred.user.reload()
-      if (!cred.user.emailVerified) {
-        await signOut(auth)
-        setVerifyEmail(userEmail)
-        setResendDone(false)
-        setNeedsVerification(true)
-        return
-      }
+      await signInWithEmailAndPassword(auth, userEmail, password)
       navigate('/dashboard')
     } catch (err) {
       toast(
@@ -89,56 +76,6 @@ export default function TeacherLogin() {
     } finally {
       setGoogleLoading(false)
     }
-  }
-
-  const handleResend = async () => {
-    setResendLoading(true)
-    try {
-      const cred = await signInWithEmailAndPassword(auth, verifyEmail, password)
-      await sendEmailVerification(cred.user)
-      await signOut(auth)
-      setResendDone(true)
-      toast('Correo de verificación reenviado')
-    } catch {
-      toast('Error al reenviar el correo', 'error')
-    } finally {
-      setResendLoading(false)
-    }
-  }
-
-  if (needsVerification) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
-        <div className="w-full max-w-sm">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center mx-auto">
-              <Mail size={24} className="text-amber-500" />
-            </div>
-            <h2 className="text-lg font-bold text-slate-900">Verifica tu correo</h2>
-            <p className="text-sm text-slate-500">
-              Enviamos un enlace de verificación a <strong>{verifyEmail}</strong>.
-              Ábrelo y regresa aquí para iniciar sesión.
-            </p>
-            <button
-              type="button"
-              onClick={handleResend}
-              disabled={resendLoading || resendDone}
-              className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {resendLoading ? <Spinner size="sm" /> : null}
-              {resendDone ? 'Correo enviado ✓' : 'Reenviar correo de verificación'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setNeedsVerification(false)}
-              className="w-full py-3 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition-colors"
-            >
-              Volver
-            </button>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (

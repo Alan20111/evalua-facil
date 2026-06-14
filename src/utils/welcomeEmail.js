@@ -99,7 +99,7 @@ function buildHtml({ nombre, username, school }) {
                         <span style="color:#ffffff;font-size:13px;font-weight:800;line-height:32px;">3</span>
                       </td>
                       <td style="padding-left:14px;color:#334155;font-size:14px;line-height:1.5;">
-                        Ingresa tu contraseña y verifica tu correo
+                        Ingresa tu contraseña y empieza a trabajar
                       </td>
                     </tr>
                   </table>
@@ -108,13 +108,26 @@ function buildHtml({ nombre, username, school }) {
             </table>
 
             <!-- CTA BUTTON -->
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
               <tr>
                 <td align="center">
                   <a href="https://evalua-facil.vercel.app/docente"
                      style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:12px;letter-spacing:0.3px;">
                     Ir a Evalúa Fácil →
                   </a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- VERIFY NOTICE -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background:#fffbeb;border:1px solid #fcd34d;border-radius:12px;padding:16px 18px;">
+                  <p style="margin:0 0 5px;color:#92400e;font-size:13px;font-weight:700;">📧 Verifica tu cuenta</p>
+                  <p style="margin:0;color:#78350f;font-size:13px;line-height:1.6;">
+                    También te enviamos un <strong>correo de verificación</strong> separado de Firebase.
+                    Confírmalo para proteger tu cuenta — sin verificación no podrás recuperar tu contraseña si la olvidas.
+                  </p>
                 </td>
               </tr>
             </table>
