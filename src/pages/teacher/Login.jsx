@@ -51,6 +51,7 @@ export default function TeacherLogin() {
       }
       const userEmail = snap.docs[0].data().email
       const cred = await signInWithEmailAndPassword(auth, userEmail, password)
+      await cred.user.reload()
       if (!cred.user.emailVerified) {
         await signOut(auth)
         setVerifyEmail(userEmail)
