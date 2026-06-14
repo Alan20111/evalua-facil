@@ -16,7 +16,6 @@ function generateTeacherUsername(shortName, count) {
 }
 
 export default function Register() {
-  const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -80,7 +79,6 @@ export default function Register() {
       await setDoc(doc(db, 'users', cred.user.uid), {
         role: 'docente',
         username,
-        nombre: nombre.trim(),
         email: email.trim().toLowerCase(),
         escuelaId: schoolId,
         photoURL: null,
@@ -90,7 +88,7 @@ export default function Register() {
       try {
         await sendWelcomeEmail({
           email: email.trim().toLowerCase(),
-          nombre: nombre.trim(),
+          nombre: '',
           username,
           school: selectedPlantel.short || selectedPlantel.nombre,
         })
@@ -163,20 +161,6 @@ export default function Register() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Full name */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nombre completo</label>
-              <input
-                type="text"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                required
-                autoComplete="name"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
-                placeholder="Ej. María González López"
-              />
-            </div>
-
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Correo electrónico</label>
