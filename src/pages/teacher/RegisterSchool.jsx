@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { GraduationCap, Check, ChevronDown, Search, X } from 'lucide-react'
+import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
 
 function generateTeacherUsername(cct, count) {
@@ -164,8 +165,7 @@ export default function RegisterSchool() {
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Contraseña del sistema
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -180,8 +180,7 @@ export default function RegisterSchool() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar contraseña</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required

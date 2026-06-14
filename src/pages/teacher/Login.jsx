@@ -12,6 +12,7 @@ import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { GraduationCap, Mail } from 'lucide-react'
+import PasswordInput from '../../components/PasswordInput'
 
 function GoogleIcon() {
   return (
@@ -163,8 +164,7 @@ export default function TeacherLogin() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

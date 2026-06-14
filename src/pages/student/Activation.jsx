@@ -15,6 +15,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { studentEmail } from '../../utils/generate'
 import { GraduationCap, Check } from 'lucide-react'
+import PasswordInput from '../../components/PasswordInput'
 
 export default function StudentActivation() {
   const { accessCode } = useParams()
@@ -198,8 +199,7 @@ export default function StudentActivation() {
               <form onSubmit={handleActivate} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Elige tu contraseña</label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setPasswordError('') }}
                     required
@@ -210,8 +210,7 @@ export default function StudentActivation() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar contraseña</label>
-                  <input
-                    type="password"
+                  <PasswordInput
                     value={confirmPassword}
                     onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required

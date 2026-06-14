@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { studentEmail } from '../../utils/generate'
 import { GraduationCap } from 'lucide-react'
+import PasswordInput from '../../components/PasswordInput'
 
 export default function StudentLogin() {
   const [username, setUsername] = useState('')
@@ -82,8 +83,7 @@ export default function StudentLogin() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError('') }}
                 required

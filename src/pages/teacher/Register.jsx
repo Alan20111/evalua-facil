@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { GraduationCap, Mail, ChevronDown, Search, Check, X } from 'lucide-react'
 import { usePlanteles } from '../../data/usePlanteles'
+import PasswordInput from '../../components/PasswordInput'
 
 // cct "11DCT0010U" → prefix "110010"; first teacher → "110010-01"
 function generateTeacherUsername(cct, count) {
@@ -48,7 +49,11 @@ export default function Register() {
     if (password.length < 6) { toast('Mínimo 6 caracteres', 'error'); return }
     setLoading(true)
     try {
-      // 1. Find or create school doc
+      // 1. Create Firebase Auth first — subsequent Firestore reads require auth
+      const cred = await createUserWithEmailAndPassword(auth, email, password)
+      await sendEmailVerification(cred.user)
+
+      // 2. Find or create school doc (now authenticated)
       const schoolSnap = await getDocs(
         query(collection(db, 'schools'), where('claveSEP', '==', selectedPlantel.cct))
       )
@@ -68,15 +73,11 @@ export default function Register() {
         schoolId = newRef.id
       }
 
-      // 2. Count teachers in this school to generate username
+      // 3. Count teachers in this school to generate username
       const teacherSnap = await getDocs(
         query(collection(db, 'users'), where('escuelaId', '==', schoolId))
       )
       const username = generateTeacherUsername(selectedPlantel.cct, teacherSnap.size)
-
-      // 3. Create Firebase Auth + send verification
-      const cred = await createUserWithEmailAndPassword(auth, email, password)
-      await sendEmailVerification(cred.user)
 
       // 4. Create Firestore profile
       await setDoc(doc(db, 'users', cred.user.uid), {
@@ -181,8 +182,7 @@ export default function Register() {
             {/* Password */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -194,8 +194,7 @@ export default function Register() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar contraseña</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
