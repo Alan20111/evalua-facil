@@ -13,10 +13,9 @@ import { GraduationCap, Check, ChevronDown, Search, X } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
 
-function generateTeacherUsername(cct, count) {
-  const state = cct.slice(0, 2)
-  const school = cct.slice(5, 9)
-  return `${state}${school}-${String(count + 1).padStart(2, '0')}`
+function generateTeacherUsername(shortName, count) {
+  const prefix = (shortName || '').toUpperCase().replace(/\s+/g, '')
+  return `${prefix}-${String(count + 1).padStart(2, '0')}`
 }
 
 export default function RegisterSchool() {
@@ -78,7 +77,7 @@ export default function RegisterSchool() {
       const teacherSnap = await getDocs(
         query(collection(db, 'users'), where('escuelaId', '==', schoolId))
       )
-      const username = generateTeacherUsername(selectedPlantel.cct, teacherSnap.size)
+      const username = generateTeacherUsername(selectedPlantel.short || selectedPlantel.nombre, teacherSnap.size)
 
       // 3. Link email/password to Google account so teacher can log in either way
       try {

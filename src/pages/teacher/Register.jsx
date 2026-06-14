@@ -9,11 +9,9 @@ import { GraduationCap, Mail, ChevronDown, Search, Check, X } from 'lucide-react
 import { usePlanteles } from '../../data/usePlanteles'
 import PasswordInput from '../../components/PasswordInput'
 
-// cct "11DCT0010U" → prefix "110010"; first teacher → "110010-01"
-function generateTeacherUsername(cct, count) {
-  const state = cct.slice(0, 2)
-  const school = cct.slice(5, 9)
-  return `${state}${school}-${String(count + 1).padStart(2, '0')}`
+function generateTeacherUsername(shortName, count) {
+  const prefix = (shortName || '').toUpperCase().replace(/\s+/g, '')
+  return `${prefix}-${String(count + 1).padStart(2, '0')}`
 }
 
 export default function Register() {
@@ -78,7 +76,7 @@ export default function Register() {
       const teacherSnap = await getDocs(
         query(collection(db, 'users'), where('escuelaId', '==', schoolId))
       )
-      const username = generateTeacherUsername(selectedPlantel.cct, teacherSnap.size)
+      const username = generateTeacherUsername(selectedPlantel.short || selectedPlantel.nombre, teacherSnap.size)
 
       // 4. Create Firestore profile
       await setDoc(doc(db, 'users', cred.user.uid), {

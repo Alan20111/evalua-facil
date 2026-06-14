@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
 const AuthContext = createContext(null)
@@ -21,8 +21,22 @@ export function AuthProvider({ children }) {
             try {
               const schoolSnap = await getDoc(doc(db, 'schools', profile.escuelaId))
               if (schoolSnap.exists()) {
-                profile.schoolName = schoolSnap.data().nombre
-                profile.claveSEP = schoolSnap.data().claveSEP
+                const schoolData = schoolSnap.data()
+                profile.schoolName = schoolData.nombre
+                profile.claveSEP = schoolData.claveSEP
+
+                // Migrate old CCT-based usernames (e.g. "110020-05") to
+                // school-name format (e.g. "CBTIS255-05") on first login.
+                if (/^\d/.test(profile.username)) {
+                  const numPart = profile.username.split('-').pop()
+                  const prefix = (schoolData.shortName || schoolData.nombre || '')
+                    .toUpperCase().replace(/\s+/g, '')
+                  if (prefix) {
+                    const newUsername = `${prefix}-${numPart}`
+                    await updateDoc(doc(db, 'users', user.uid), { username: newUsername })
+                    profile.username = newUsername
+                  }
+                }
               }
             } catch {
               // best-effort
