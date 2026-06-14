@@ -15,7 +15,7 @@ import {
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet, Search, UserCheck, UserX, LayoutList,
   ArrowUp, ArrowDown, UserPlus, RotateCcw, Upload, Download, QrCode,
-  Link, Hash, Check as CheckIcon,
+  Link, Hash, Check as CheckIcon, KeyRound, Copy,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername, generateResetPassword } from '../../utils/generate'
@@ -107,6 +107,9 @@ export default function SubjectPage() {
   const [showAddStudent, setShowAddStudent] = useState(false)
   const [showQR, setShowQR] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState(null)
+  const [studentToReset, setStudentToReset] = useState(null)
+  const [resetPwdResult, setResetPwdResult] = useState(null) // { student, tempPwd }
+  const [copiedTempPwd, setCopiedTempPwd] = useState(false)
   const [newStudent, setNewStudent] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
   const [savingStudent, setSavingStudent] = useState(false)
   const [searchAlumnos, setSearchAlumnos] = useState('')
@@ -406,13 +409,27 @@ export default function SubjectPage() {
     }
   }
 
-  async function resetStudentPassword(student) {
+  function generateResetPassword() {
+    return Math.random().toString(36).slice(2, 8).toUpperCase() +
+      Math.random().toString(36).slice(2, 6).toUpperCase()
+  }
+
+  async function confirmResetStudentPassword() {
+    if (!studentToReset) return
+    const tempPwd = generateResetPassword()
     try {
-      await updateDoc(doc(db, 'students', student.id), { activado: false })
-      toast(`Contraseña de ${student.username} restablecida`)
-      setGroupStudents((prev) => prev.map((s) => s.id === student.id ? { ...s, activado: false } : s))
+      await updateDoc(doc(db, 'students', studentToReset.id), {
+        activado: false,
+        resetPassword: tempPwd,
+      })
+      setGroupStudents((prev) =>
+        prev.map((s) => s.id === studentToReset.id ? { ...s, activado: false, resetPassword: tempPwd } : s)
+      )
+      setResetPwdResult({ student: studentToReset, tempPwd })
     } catch (err) {
       toast('Error: ' + err.message, 'error')
+    } finally {
+      setStudentToReset(null)
     }
   }
 
@@ -1200,7 +1217,7 @@ export default function SubjectPage() {
                       </>
                     )}
                     <button
-                      onClick={() => resetStudentPassword(s)}
+                      onClick={() => setStudentToReset(s)}
                       className="p-1.5 text-amber-500 hover:text-amber-700 rounded"
                       title="Resetear contraseña"
                     >
@@ -1386,6 +1403,77 @@ export default function SubjectPage() {
                 {copiedCode ? 'Código copiado' : `Copiar código: ${subject.accessCode}`}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reset password confirmation ── */}
+      {studentToReset && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToReset(null)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
+              <RotateCcw size={22} className="text-amber-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-center text-slate-900">¿Restablecer contraseña?</h3>
+            <p className="text-sm text-slate-500 text-center mt-2">
+              Se generará una contraseña temporal para{' '}
+              <strong>{studentToReset.apellidoPaterno} {studentToReset.nombre}</strong>{' '}
+              ({studentToReset.username}). El alumno deberá activar su cuenta de nuevo con QR, link o código.
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setStudentToReset(null)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmResetStudentPassword}
+                className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                <RotateCcw size={16} />
+                Restablecer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reset password result (show temp password to teacher) ── */}
+      {resetPwdResult && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setResetPwdResult(null)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+              <KeyRound size={22} className="text-green-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-center text-slate-900">Contraseña restablecida</h3>
+            <p className="text-sm text-slate-500 text-center mt-1 mb-4">
+              Comparte esta contraseña temporal con{' '}
+              <strong>{resetPwdResult.student.nombre}</strong>. El alumno la usará al activar su cuenta para crear una nueva contraseña.
+            </p>
+            <div
+              onClick={() => {
+                navigator.clipboard.writeText(resetPwdResult.tempPwd)
+                setCopiedTempPwd(true)
+                setTimeout(() => setCopiedTempPwd(false), 2000)
+              }}
+              className="cursor-pointer flex items-center justify-between gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 mb-5 hover:bg-blue-50 hover:border-blue-200 transition-colors"
+            >
+              <span className="font-mono text-xl font-bold tracking-widest text-slate-800 select-all">
+                {resetPwdResult.tempPwd}
+              </span>
+              {copiedTempPwd
+                ? <CheckIcon size={18} className="text-emerald-500 flex-shrink-0 animate-bounce" />
+                : <Copy size={18} className="text-slate-400 flex-shrink-0" />}
+            </div>
+            <button
+              onClick={() => setResetPwdResult(null)}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+            >
+              Listo
+            </button>
           </div>
         </div>
       )}

@@ -9,7 +9,7 @@ import {
   setDoc,
   doc,
 } from 'firebase/firestore'
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updatePassword } from 'firebase/auth'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -111,11 +111,23 @@ export default function StudentActivation() {
       navigate('/alumno/dashboard')
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
-        try {
-          await signInWithEmailAndPassword(auth, studentEmail(student.username, student.escuelaId), password)
-          await updateDoc(doc(db, 'students', student.id), { activado: true })
-          navigate('/alumno/dashboard')
-        } catch {
+        // Re-activation flow: teacher reset the password, student gets a new one
+        if (student.resetPassword) {
+          try {
+            const email = studentEmail(student.username, student.escuelaId)
+            const cred = await signInWithEmailAndPassword(auth, email, student.resetPassword)
+            await updatePassword(cred.user, password)
+            await updateDoc(doc(db, 'students', student.id), {
+              activado: true,
+              uid: cred.user.uid,
+              resetPassword: null,
+            })
+            toast('¡Contraseña actualizada! Bienvenido/a de nuevo')
+            navigate('/alumno/dashboard')
+          } catch {
+            setPasswordError('Error al restablecer. Verifica que el código sea correcto o pide a tu maestro que vuelva a restablecerla.')
+          }
+        } else {
           setPasswordError('Esta cuenta ya existe. Usa el inicio de sesión de alumnos.')
         }
       } else {
