@@ -15,6 +15,7 @@ import {
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet, Search, UserCheck, UserX, LayoutList,
   ArrowUp, ArrowDown, UserPlus, RotateCcw, Upload, Download, QrCode,
+  Link, Hash, Check as CheckIcon,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername, generateResetPassword } from '../../utils/generate'
@@ -97,6 +98,10 @@ export default function SubjectPage() {
   // Shared students (used by calificaciones + asistencia + alumnos tab)
   const [groupStudents, setGroupStudents] = useState([])
   const [groupStudentsLoaded, setGroupStudentsLoaded] = useState(false)
+
+  // Copy feedback
+  const [copiedLink, setCopiedLink] = useState(false)
+  const [copiedCode, setCopiedCode] = useState(false)
 
   // Student management (Alumnos tab)
   const [showAddStudent, setShowAddStudent] = useState(false)
@@ -436,6 +441,21 @@ export default function SubjectPage() {
     setGroupStudents(newList.map((s, i) => ({ ...s, orden: i + 1 })))
   }
 
+  function copyActivationLink() {
+    navigator.clipboard.writeText(activationUrl).then(() => {
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), 2000)
+    })
+  }
+
+  function copyAccessCode() {
+    if (!subject?.accessCode) return
+    navigator.clipboard.writeText(subject.accessCode).then(() => {
+      setCopiedCode(true)
+      setTimeout(() => setCopiedCode(false), 2000)
+    })
+  }
+
   // ── Activity actions ───────────────────────────────────────────────
   function openAdd(parcial) {
     setModalMode('create'); setModalParcial(parcial); setEditActivityId(null)
@@ -617,6 +637,16 @@ export default function SubjectPage() {
               title="Código QR de acceso"
               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0">
               <QrCode size={19} />
+            </button>
+            <button type="button" onClick={copyActivationLink}
+              title="Copiar link de activación"
+              className={`p-2 rounded-lg transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 hover:bg-blue-50'}`}>
+              {copiedLink ? <CheckIcon size={19} /> : <Link size={19} />}
+            </button>
+            <button type="button" onClick={copyAccessCode}
+              title="Copiar código de acceso"
+              className={`p-2 rounded-lg transition-colors flex-shrink-0 ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 hover:bg-slate-100'}`}>
+              {copiedCode ? <CheckIcon size={19} /> : <Hash size={19} />}
             </button>
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
               title={subject?.archived ? 'Restaurar' : 'Archivar'}
@@ -1074,6 +1104,32 @@ export default function SubjectPage() {
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
         <div className="px-4 py-4 space-y-3">
+          {/* Access info */}
+          {subject?.accessCode && (
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-blue-500 mb-0.5">Código de acceso para alumnos</p>
+                <p className="text-xl font-bold font-mono text-blue-700 tracking-widest">{subject.accessCode}</p>
+              </div>
+              <div className="flex flex-col gap-1.5 flex-shrink-0">
+                <button
+                  onClick={copyAccessCode}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${copiedCode ? 'bg-emerald-100 text-emerald-700' : 'bg-white border border-blue-200 text-blue-700 hover:bg-blue-100'}`}
+                >
+                  {copiedCode ? <CheckIcon size={13} /> : <Hash size={13} />}
+                  {copiedCode ? 'Copiado' : 'Copiar código'}
+                </button>
+                <button
+                  onClick={copyActivationLink}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${copiedLink ? 'bg-emerald-100 text-emerald-700' : 'bg-white border border-blue-200 text-blue-700 hover:bg-blue-100'}`}
+                >
+                  {copiedLink ? <CheckIcon size={13} /> : <Link size={13} />}
+                  {copiedLink ? 'Copiado' : 'Copiar link'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Search + add */}
           <div className="flex gap-2">
             <div className="flex-1 relative">
@@ -1333,8 +1389,22 @@ export default function SubjectPage() {
             <div className="flex justify-center p-4 bg-white rounded-xl border border-slate-100 mb-3">
               <QRCode value={activationUrl} size={180} />
             </div>
-            <p className="text-xs text-slate-400 font-mono break-all">{activationUrl}</p>
-            <p className="text-xs text-slate-400 mt-1">Código: <strong>{subject.accessCode}</strong></p>
+            <div className="mt-3 space-y-2">
+              <button
+                onClick={copyActivationLink}
+                className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl border text-sm font-semibold transition-colors ${copiedLink ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+              >
+                {copiedLink ? <CheckIcon size={15} /> : <Link size={15} />}
+                {copiedLink ? 'Link copiado' : 'Copiar link de activación'}
+              </button>
+              <button
+                onClick={copyAccessCode}
+                className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl border text-sm font-semibold transition-colors ${copiedCode ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+              >
+                {copiedCode ? <CheckIcon size={15} /> : <Hash size={15} />}
+                {copiedCode ? 'Código copiado' : `Copiar código: ${subject.accessCode}`}
+              </button>
+            </div>
           </div>
         </div>
       )}
