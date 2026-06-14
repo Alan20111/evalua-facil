@@ -650,7 +650,7 @@ export default function SubjectPage() {
             </button>
             <button type="button" onClick={copyAccessCode}
               title="Copiar código de acceso"
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all duration-200 flex-shrink-0 font-mono font-bold text-xs ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-slate-600 bg-slate-100 hover:bg-slate-200'}`}>
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg transition-all duration-200 flex-shrink-0 font-mono font-bold text-xs ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 hover:bg-blue-50'}`}>
               {copiedCode
                 ? <><CheckIcon size={14} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
                 : <><Hash size={14} className="flex-shrink-0" /><span>{subject?.accessCode}</span></>}
@@ -1111,32 +1111,6 @@ export default function SubjectPage() {
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
         <div className="px-4 py-4 space-y-3">
-          {/* Access info */}
-          {subject?.accessCode && (
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-blue-500 mb-0.5">Código de acceso para alumnos</p>
-                <p className="text-xl font-bold font-mono text-blue-700 tracking-widest">{subject.accessCode}</p>
-              </div>
-              <div className="flex flex-col gap-1.5 flex-shrink-0">
-                <button
-                  onClick={copyAccessCode}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${copiedCode ? 'bg-emerald-100 text-emerald-700' : 'bg-white border border-blue-200 text-blue-700 hover:bg-blue-100'}`}
-                >
-                  {copiedCode ? <CheckIcon size={13} /> : <Hash size={13} />}
-                  {copiedCode ? 'Copiado' : 'Copiar código'}
-                </button>
-                <button
-                  onClick={copyActivationLink}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${copiedLink ? 'bg-emerald-100 text-emerald-700' : 'bg-white border border-blue-200 text-blue-700 hover:bg-blue-100'}`}
-                >
-                  {copiedLink ? <CheckIcon size={13} /> : <Link size={13} />}
-                  {copiedLink ? 'Copiado' : 'Copiar link'}
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Search + add */}
           <div className="flex gap-2">
             <div className="flex-1 relative">
