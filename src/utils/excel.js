@@ -56,7 +56,6 @@ export function exportStudentListExcel(students) {
 
 export function exportSubjectGrades({
   subject,
-  group,
   activities,
   students,
   submissions,
@@ -97,7 +96,7 @@ export function exportSubjectGrades({
 
   // Row 0: Title
   const titleRow = Array(totalCols).fill('')
-  titleRow[0] = `${subject.nombre}   ·   ${group.nombre}   (${group.ciclo})`
+  titleRow[0] = `${subject.nombre}   (${subject.ciclo})`
 
   // Row 2: Section headers
   const sectionRow = Array(totalCols).fill('')

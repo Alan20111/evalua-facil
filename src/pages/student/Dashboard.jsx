@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  getDoc,
+  doc,
   collection,
   query,
   where,
   getDocs,
-  getDoc,
-  doc,
 } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '../../firebase'
@@ -62,12 +62,11 @@ export default function StudentDashboard() {
       }
       setStudent(studData)
 
-      // Subjects for the student's group.
-      const subsSnap = await getDocs(
-        query(collection(db, 'subjects'), where('grupoId', '==', studData.grupoId))
-      )
-      const subs = subsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      if (subs.length === 0) { setSubjects([]); return }
+      // Get the student's subject directly by asignaturaId.
+      if (!studData.asignaturaId) { setSubjects([]); return }
+      const subSnap = await getDoc(doc(db, 'subjects', studData.asignaturaId))
+      if (!subSnap.exists()) { setSubjects([]); return }
+      const subs = [{ id: subSnap.id, ...subSnap.data() }]
 
       // Everything else in ONE parallel batch — a constant number of round trips no
       // matter how many subjects/activities there are (was O(subjects × activities)):
@@ -131,14 +130,14 @@ export default function StudentDashboard() {
       {/* Header */}
       <header className="bg-white border-b border-slate-100 px-4 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center">
             <GraduationCap size={18} className="text-white" />
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-900">
               {student?.nombre} {student?.apellidoPaterno}
             </p>
-            <p className="text-xs text-indigo-600 font-mono">{student?.username}</p>
+            <p className="text-xs text-blue-600 font-mono">{student?.username}</p>
           </div>
         </div>
         <button
@@ -166,8 +165,8 @@ export default function StudentDashboard() {
                 onClick={() => navigate(`/alumno/materia/${s.id}`)}
                 className="w-full bg-white rounded-2xl border border-slate-100 p-4 text-left shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
               >
-                <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-                  <BookOpen size={20} className="text-indigo-500" />
+                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <BookOpen size={20} className="text-blue-500" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-900">{s.nombre}</p>
@@ -176,7 +175,7 @@ export default function StudentDashboard() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {s.avg != null && (
                     <div className="text-right">
-                      <p className="text-lg font-bold text-indigo-600">{s.avg}</p>
+                      <p className="text-lg font-bold text-blue-600">{s.avg}</p>
                       <p className="text-xs text-slate-400">promedio</p>
                     </div>
                   )}

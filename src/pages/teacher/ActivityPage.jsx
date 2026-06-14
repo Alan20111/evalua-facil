@@ -64,7 +64,7 @@ export default function ActivityPage() {
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
       const [studsSnap, subsSnap] = await Promise.all([
-        getDocs(query(collection(db, 'students'), where('grupoId', '==', subData.grupoId))),
+        getDocs(query(collection(db, 'students'), where('asignaturaId', '==', actData.asignaturaId))),
         getDocs(query(collection(db, 'submissions'), where('actividadId', '==', activityId))),
       ])
       const studList = studsSnap.docs

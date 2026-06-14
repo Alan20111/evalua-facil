@@ -6,7 +6,6 @@ import TeacherLogin from './pages/teacher/Login'
 import TeacherRegister from './pages/teacher/Register'
 import RegisterSchool from './pages/teacher/RegisterSchool'
 import TeacherDashboard from './pages/teacher/Dashboard'
-import GroupPage from './pages/teacher/GroupPage'
 import SubjectPage from './pages/teacher/SubjectPage'
 import ActivityPage from './pages/teacher/ActivityPage'
 import Profile from './pages/teacher/Profile'
@@ -70,7 +69,6 @@ export default function App() {
 
             {/* Teacher protected */}
             <Route path="/dashboard" element={<ProtectedTeacher><TeacherDashboard /></ProtectedTeacher>} />
-            <Route path="/group/:groupId" element={<ProtectedTeacher><GroupPage /></ProtectedTeacher>} />
             <Route path="/subject/:subjectId" element={<ProtectedTeacher><SubjectPage /></ProtectedTeacher>} />
             <Route path="/activity/:activityId" element={<ProtectedTeacher><ActivityPage /></ProtectedTeacher>} />
             <Route path="/profile" element={<ProtectedTeacher><Profile /></ProtectedTeacher>} />

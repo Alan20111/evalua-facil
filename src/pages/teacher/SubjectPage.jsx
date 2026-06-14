@@ -2,19 +2,22 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
-  addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
+  addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { exportSubjectGrades } from '../../utils/excel'
+import { exportSubjectGrades, parseStudentExcel, exportStudentListExcel, downloadStudentTemplate } from '../../utils/excel'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet, Search, UserCheck, UserX, LayoutList,
+  ArrowUp, ArrowDown, UserPlus, RotateCcw, Upload, Download, QrCode,
 } from 'lucide-react'
+import { QRCodeSVG as QRCode } from 'qrcode.react'
+import { generateUsername, generateResetPassword } from '../../utils/generate'
 
 const PARCIAL_BADGE = {
   1: 'bg-blue-100 text-blue-700',
@@ -68,9 +71,8 @@ function attendanceColor(present, total) {
 
 export default function SubjectPage() {
   const { subjectId } = useParams()
-  const { currentUser } = useAuth()
+  const { currentUser, userProfile } = useAuth()
   const [subject, setSubject] = useState(null)
-  const [group, setGroup] = useState(null)
   const [activities, setActivities] = useState([])
   const [submissionCounts, setSubmissionCounts] = useState({})
   const [openParcial, setOpenParcial] = useState(1)
@@ -92,9 +94,17 @@ export default function SubjectPage() {
   // Tab
   const [activeTab, setActiveTab] = useState('actividades')
 
-  // Shared students (used by calificaciones + asistencia)
+  // Shared students (used by calificaciones + asistencia + alumnos tab)
   const [groupStudents, setGroupStudents] = useState([])
   const [groupStudentsLoaded, setGroupStudentsLoaded] = useState(false)
+
+  // Student management (Alumnos tab)
+  const [showAddStudent, setShowAddStudent] = useState(false)
+  const [showQR, setShowQR] = useState(false)
+  const [studentToDelete, setStudentToDelete] = useState(null)
+  const [newStudent, setNewStudent] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
+  const [savingStudent, setSavingStudent] = useState(false)
+  const [searchAlumnos, setSearchAlumnos] = useState('')
 
   // Calificaciones
   const [gradeSubMap, setGradeSubMap] = useState({})
@@ -134,11 +144,7 @@ export default function SubjectPage() {
       const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       setActivities(acts)
 
-      const [grpSnap, subDocs] = await Promise.all([
-        getDoc(doc(db, 'groups', subData.grupoId)),
-        fetchSubmissionsForActivities(acts.map((a) => a.id)),
-      ])
-      setGroup({ id: grpSnap.id, ...grpSnap.data() })
+      const subDocs = await fetchSubmissionsForActivities(acts.map((a) => a.id))
 
       const counts = {}
       acts.forEach((a) => { counts[a.id] = { delivered: 0, graded: 0 } })
@@ -158,10 +164,10 @@ export default function SubjectPage() {
   }
 
   // ── Students (shared) ──────────────────────────────────────────────
-  async function ensureGroupStudents(subjectData) {
+  async function ensureGroupStudents() {
     if (groupStudentsLoaded) return groupStudents
     const snap = await getDocs(
-      query(collection(db, 'students'), where('grupoId', '==', (subjectData || subject).grupoId))
+      query(collection(db, 'students'), where('asignaturaId', '==', subjectId))
     )
     const students = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
@@ -258,7 +264,6 @@ export default function SubjectPage() {
     try {
       const payload = {
         asignaturaId: subjectId,
-        grupoId: subject.grupoId,
         docenteId: currentUser.uid,
         fecha: recordDate,
         parcial: recordParcial,
@@ -301,6 +306,134 @@ export default function SubjectPage() {
     } finally {
       setDeletingSession(false)
     }
+  }
+
+  // ── Student management (Alumnos tab) ──────────────────────────────
+  async function fetchSchoolUsernames() {
+    const snap = await getDocs(
+      query(collection(db, 'students'), where('escuelaId', '==', userProfile.escuelaId))
+    )
+    return new Set(snap.docs.map((d) => d.data().username))
+  }
+
+  function uniqueUsername(base, taken) {
+    if (!taken.has(base)) return base
+    let i = 2
+    while (taken.has(`${base}${i}`)) i++
+    return `${base}${i}`
+  }
+
+  async function addStudent(e) {
+    e.preventDefault()
+    setSavingStudent(true)
+    try {
+      const taken = await fetchSchoolUsernames()
+      const username = uniqueUsername(
+        generateUsername(newStudent.apellidoPaterno, newStudent.apellidoMaterno, newStudent.nombre),
+        taken
+      )
+      await addDoc(collection(db, 'students'), {
+        apellidoPaterno: newStudent.apellidoPaterno.trim(),
+        apellidoMaterno: newStudent.apellidoMaterno.trim(),
+        nombre: newStudent.nombre.trim(),
+        username,
+        passwordReset: generateResetPassword(),
+        escuelaId: userProfile.escuelaId,
+        asignaturaId: subjectId,
+        activado: false,
+        orden: groupStudents.length + 1,
+        createdAt: serverTimestamp(),
+      })
+      setNewStudent({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
+      setShowAddStudent(false)
+      toast('Alumno agregado')
+      const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
+      setGroupStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)))
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingStudent(false)
+    }
+  }
+
+  async function handleExcelImport(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    setSavingStudent(true)
+    try {
+      const rows = await parseStudentExcel(file)
+      if (rows.length === 0) { toast('El archivo no tiene alumnos con los 3 campos requeridos', 'error'); return }
+      const taken = await fetchSchoolUsernames()
+      const batch = writeBatch(db)
+      let nextOrden = groupStudents.length + 1
+      for (const row of rows) {
+        const username = uniqueUsername(
+          generateUsername(row.apellidoPaterno, row.apellidoMaterno, row.nombre),
+          taken
+        )
+        taken.add(username)
+        const ref = doc(collection(db, 'students'))
+        batch.set(ref, {
+          ...row,
+          username,
+          passwordReset: generateResetPassword(),
+          escuelaId: userProfile.escuelaId,
+          asignaturaId: subjectId,
+          activado: false,
+          orden: nextOrden++,
+          createdAt: serverTimestamp(),
+        })
+      }
+      await batch.commit()
+      toast(`${rows.length} alumnos importados`)
+      const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
+      setGroupStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)))
+    } catch (err) {
+      toast('Error importando Excel: ' + err.message, 'error')
+    } finally {
+      setSavingStudent(false)
+      e.target.value = ''
+    }
+  }
+
+  async function resetStudentPassword(student) {
+    try {
+      await updateDoc(doc(db, 'students', student.id), { activado: false })
+      toast(`Contraseña de ${student.username} restablecida`)
+      setGroupStudents((prev) => prev.map((s) => s.id === student.id ? { ...s, activado: false } : s))
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  async function confirmDeleteStudent() {
+    if (!studentToDelete) return
+    setSavingStudent(true)
+    try {
+      await deleteDoc(doc(db, 'students', studentToDelete.id))
+      const remaining = groupStudents.filter((s) => s.id !== studentToDelete.id)
+      const batch = writeBatch(db)
+      remaining.forEach((s, i) => batch.update(doc(db, 'students', s.id), { orden: i + 1 }))
+      await batch.commit()
+      toast(`${studentToDelete.username} eliminado`)
+      setStudentToDelete(null)
+      setGroupStudents(remaining.map((s, i) => ({ ...s, orden: i + 1 })))
+    } catch (err) {
+      toast('Error al eliminar: ' + err.message, 'error')
+    } finally {
+      setSavingStudent(false)
+    }
+  }
+
+  async function moveStudent(index, direction) {
+    const newList = [...groupStudents]
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= newList.length) return
+    ;[newList[index], newList[targetIndex]] = [newList[targetIndex], newList[index]]
+    const batch = writeBatch(db)
+    newList.forEach((s, i) => batch.update(doc(db, 'students', s.id), { orden: i + 1 }))
+    await batch.commit()
+    setGroupStudents(newList.map((s, i) => ({ ...s, orden: i + 1 })))
   }
 
   // ── Activity actions ───────────────────────────────────────────────
@@ -368,12 +501,12 @@ export default function SubjectPage() {
   }
 
   async function handleExport() {
-    if (!subject || !group) return; setExporting(true)
+    if (!subject) return; setExporting(true)
     try {
       let students = groupStudents
       let subMap = gradeSubMap
       if (!groupStudentsLoaded) {
-        const snap = await getDocs(query(collection(db, 'students'), where('grupoId', '==', subject.grupoId)))
+        const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
         students = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         setGroupStudents(students); setGroupStudentsLoaded(true)
       }
@@ -384,7 +517,7 @@ export default function SubjectPage() {
         setGradeSubMap(subMap); setGradesLoaded(true)
       }
       exportSubjectGrades({
-        subject, group, activities, students,
+        subject, activities, students,
         submissions: Object.values(subMap),
         attendanceSessions: attendanceLoaded ? attendanceSessions : [],
       })
@@ -450,6 +583,13 @@ export default function SubjectPage() {
       .includes(searchRecord.trim().toLowerCase())
   })
 
+  const activationUrl = `${window.location.origin}/activate/${subject?.accessCode}`
+  const filteredAlumnos = groupStudents.filter((s) =>
+    `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre} ${s.username}`
+      .toLowerCase()
+      .includes(searchAlumnos.toLowerCase())
+  )
+
   if (loading) return (
     <TeacherLayout><div className="flex justify-center py-20"><Spinner size="lg" /></div></TeacherLayout>
   )
@@ -471,8 +611,13 @@ export default function SubjectPage() {
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">Archivada</span>
                 )}
               </div>
-              <p className="text-slate-400 text-xs">{group?.nombre} · {group?.ciclo}</p>
+              <p className="text-slate-400 text-xs">{subject?.ciclo}</p>
             </div>
+            <button type="button" onClick={() => setShowQR(true)}
+              title="Código QR de acceso"
+              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0">
+              <QrCode size={19} />
+            </button>
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
               title={subject?.archived ? 'Restaurar' : 'Archivar'}
               className="p-2 text-slate-400 hover:text-amber-600 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0">
@@ -928,47 +1073,114 @@ export default function SubjectPage() {
           TAB: ALUMNOS
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
-        <div className="px-4 py-4">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-              <p className="text-sm font-semibold text-slate-700">
-                {groupStudents.length} alumno{groupStudents.length !== 1 ? 's' : ''}
-              </p>
-              {subject?.grupoId && (
-                <button
-                  onClick={() => navigate(`/group/${subject.grupoId}`)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
-                >
-                  Gestionar alumnos
-                </button>
-              )}
+        <div className="px-4 py-4 space-y-3">
+          {/* Search + add */}
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={searchAlumnos}
+                onChange={(e) => setSearchAlumnos(e.target.value)}
+                placeholder="Buscar alumno…"
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+              />
             </div>
-            {groupStudentsLoaded && groupStudents.length === 0 ? (
-              <p className="text-center text-slate-400 text-sm py-10">Sin alumnos registrados</p>
-            ) : !groupStudentsLoaded ? (
-              <div className="flex justify-center py-10"><Spinner /></div>
-            ) : (
-              <ul>
-                {groupStudents.map((s, i) => (
-                  <li key={s.id}
-                    className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-slate-100' : ''}`}>
-                    <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                      {(s.nombre?.[0] || '?').toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-800 truncate">
-                        {s.apellidoPaterno} {s.apellidoMaterno}, {s.nombre}
-                      </p>
-                      <p className="text-xs text-slate-400">{s.username}</p>
-                    </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.activado ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      {s.activado ? 'Activo' : 'Pendiente'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <button
+              onClick={() => setShowAddStudent(true)}
+              className="p-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
+            >
+              <UserPlus size={18} />
+            </button>
           </div>
+
+          {/* Excel actions */}
+          <div className="flex gap-2">
+            <label className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors">
+              <Upload size={15} /> Importar Excel
+              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
+            </label>
+            <button
+              onClick={() => exportStudentListExcel(groupStudents)}
+              disabled={groupStudents.length === 0}
+              className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
+            >
+              <Download size={15} /> Exportar
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={downloadStudentTemplate}
+            className="w-full flex items-center justify-center gap-2 py-2 border border-blue-200 rounded-xl text-sm text-blue-600 hover:bg-blue-50 transition-colors"
+          >
+            <Download size={15} /> Descargar plantilla de importación
+          </button>
+
+          {/* Student list */}
+          {!groupStudentsLoaded ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
+          ) : filteredAlumnos.length === 0 ? (
+            <div className="text-center py-10 text-slate-400 text-sm">
+              {searchAlumnos ? 'Sin resultados' : 'No hay alumnos en esta asignatura'}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+              {filteredAlumnos.map((s, i) => (
+                <div
+                  key={s.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 ${i > 0 ? 'border-t border-slate-100' : ''}`}
+                >
+                  <span className="w-5 text-xs text-slate-400 text-right flex-shrink-0">{s.orden}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">
+                      {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs font-mono text-blue-600 font-semibold">{s.username}</span>
+                      {s.activado ? (
+                        <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">activo</span>
+                      ) : (
+                        <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">sin activar</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {!searchAlumnos && (
+                      <>
+                        <button
+                          onClick={() => moveStudent(i, -1)}
+                          disabled={i === 0}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 disabled:opacity-30 rounded"
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          onClick={() => moveStudent(i, 1)}
+                          disabled={i === filteredAlumnos.length - 1}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 disabled:opacity-30 rounded"
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => resetStudentPassword(s)}
+                      className="p-1.5 text-amber-500 hover:text-amber-700 rounded"
+                      title="Resetear contraseña"
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                    <button
+                      onClick={() => setStudentToDelete(s)}
+                      className="p-1.5 text-slate-300 hover:text-red-500 rounded"
+                      title="Eliminar alumno"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       </div>
@@ -1062,6 +1274,99 @@ export default function SubjectPage() {
                 className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deletingSession ? <Spinner size="sm" /> : <Trash2 size={14} />}
                 {deletingSession ? 'Eliminando…' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add student modal ── */}
+      {showAddStudent && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddStudent(false)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold">Agregar alumno</h3>
+              <button onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+            </div>
+            <form onSubmit={addStudent} className="space-y-3">
+              {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
+                <input
+                  key={field}
+                  type="text"
+                  value={newStudent[field]}
+                  onChange={(e) => setNewStudent((f) => ({ ...f, [field]: e.target.value }))}
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  placeholder={
+                    field === 'apellidoPaterno' ? 'Apellido paterno'
+                      : field === 'apellidoMaterno' ? 'Apellido materno'
+                      : 'Nombre(s)'
+                  }
+                />
+              ))}
+              <button
+                type="submit"
+                disabled={savingStudent}
+                className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {savingStudent ? <Spinner size="sm" /> : <Plus size={16} />}
+                Agregar alumno
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── QR modal ── */}
+      {showQR && subject && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowQR(false)} />
+          <div className="relative bg-white w-full max-w-xs rounded-2xl p-6 shadow-2xl text-center">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">QR de acceso</h3>
+              <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">
+              Proyecta este QR en clase para que tus alumnos activen su cuenta.
+            </p>
+            <div className="flex justify-center p-4 bg-white rounded-xl border border-slate-100 mb-3">
+              <QRCode value={activationUrl} size={180} />
+            </div>
+            <p className="text-xs text-slate-400 font-mono break-all">{activationUrl}</p>
+            <p className="text-xs text-slate-400 mt-1">Código: <strong>{subject.accessCode}</strong></p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete student confirmation ── */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToDelete(null)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={22} className="text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-center text-slate-900">¿Eliminar alumno?</h3>
+            <p className="text-sm text-slate-500 text-center mt-2">
+              Se eliminará a{' '}
+              <strong>{studentToDelete.apellidoPaterno} {studentToDelete.nombre}</strong>{' '}
+              ({studentToDelete.username}). Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setStudentToDelete(null)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeleteStudent}
+                disabled={savingStudent}
+                className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {savingStudent ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                Eliminar
               </button>
             </div>
           </div>

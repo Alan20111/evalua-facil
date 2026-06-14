@@ -31,7 +31,7 @@ export default function StudentLogin() {
       }
       const student = stuSnap.docs[0].data()
       if (!student.activado) {
-        setError('Cuenta no activada. Escanea el QR de tu grupo primero.')
+        setError('Cuenta no activada. Escanea el QR de tu asignatura primero.')
         return
       }
 

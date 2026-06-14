@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   collection,
   query,
   where,
   getDocs,
-  getDoc,
   updateDoc,
   setDoc,
   doc,
@@ -19,7 +18,7 @@ import { GraduationCap, Check } from 'lucide-react'
 
 export default function StudentActivation() {
   const { accessCode } = useParams()
-  const [group, setGroup] = useState(null)
+  const [subject, setSubject] = useState(null)
   const [student, setStudent] = useState(null)
   const [step, setStep] = useState('username') // 'username' | 'password'
   const [username, setUsername] = useState('')
@@ -32,18 +31,18 @@ export default function StudentActivation() {
   const toast = useToast()
 
   useEffect(() => {
-    loadGroup()
+    loadSubject()
   }, [accessCode])
 
-  async function loadGroup() {
+  async function loadSubject() {
     try {
-      const q = query(collection(db, 'groups'), where('accessCode', '==', accessCode))
+      const q = query(collection(db, 'subjects'), where('accessCode', '==', accessCode))
       const snap = await getDocs(q)
       if (snap.empty) {
         toast('Código de acceso inválido', 'error')
         return
       }
-      setGroup({ id: snap.docs[0].id, ...snap.docs[0].data() })
+      setSubject({ id: snap.docs[0].id, ...snap.docs[0].data() })
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -53,17 +52,17 @@ export default function StudentActivation() {
 
   async function handleFindStudent(e) {
     e.preventDefault()
-    if (!group) return
+    if (!subject) return
     setLoading(true)
     try {
       const q = query(
         collection(db, 'students'),
-        where('grupoId', '==', group.id),
+        where('asignaturaId', '==', subject.id),
         where('username', '==', username.trim().toUpperCase())
       )
       const snap = await getDocs(q)
       if (snap.empty) {
-        toast('Username no encontrado en este grupo', 'error')
+        toast('Username no encontrado en esta asignatura', 'error')
         return
       }
       const data = { id: snap.docs[0].id, ...snap.docs[0].data() }
@@ -136,12 +135,14 @@ export default function StudentActivation() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50 py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Activar cuenta</h1>
-          {group && (
-            <p className="text-slate-500 text-sm mt-1">Grupo: <strong>{group.nombre}</strong> · {group.ciclo}</p>
+          {subject && (
+            <p className="text-slate-500 text-sm mt-1">
+              <strong>{subject.nombre}</strong> · {subject.ciclo}
+            </p>
           )}
         </div>
 
@@ -164,7 +165,7 @@ export default function StudentActivation() {
                   autoCorrect="off"
                   autoCapitalize="characters"
                   spellCheck={false}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 font-mono tracking-widest text-center text-lg"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 font-mono tracking-widest text-center text-lg"
                   placeholder="Ej: MERK"
                   maxLength={8}
                 />
@@ -175,7 +176,7 @@ export default function StudentActivation() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={loading || !username.trim()}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? <Spinner size="sm" /> : null}
                 {loading ? 'Buscando…' : 'Continuar'}
@@ -203,7 +204,7 @@ export default function StudentActivation() {
                     onChange={(e) => { setPassword(e.target.value); setPasswordError('') }}
                     required
                     autoFocus
-                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 ${passwordError ? 'border-red-400' : 'border-slate-200'}`}
+                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 ${passwordError ? 'border-red-400' : 'border-slate-200'}`}
                     placeholder="Mínimo 6 caracteres"
                   />
                 </div>
@@ -214,7 +215,7 @@ export default function StudentActivation() {
                     value={confirmPassword}
                     onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required
-                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 ${passwordError ? 'border-red-400' : 'border-slate-200'}`}
+                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 ${passwordError ? 'border-red-400' : 'border-slate-200'}`}
                     placeholder="Repite tu contraseña"
                   />
                 </div>
@@ -229,7 +230,7 @@ export default function StudentActivation() {
                   onMouseDown={(e) => e.preventDefault()}
                   disabled={loading}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={16} />}
                   {loading ? 'Activando…' : 'Activar cuenta'}

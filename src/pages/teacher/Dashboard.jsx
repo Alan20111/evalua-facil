@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { Plus, Users, BookOpen, ChevronRight, ChevronLeft, X } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X } from 'lucide-react'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -32,14 +32,12 @@ function getCicloInfo() {
 export default function TeacherDashboard() {
   const { currentUser, userProfile } = useAuth()
   const [subjects, setSubjects] = useState([])
-  const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Subject creation modal
   const [showSubjectModal, setShowSubjectModal] = useState(false)
   const [newSubjectName, setNewSubjectName] = useState('')
   const [newSubjectParciales, setNewSubjectParciales] = useState(3)
-  const [inlineGroupName, setInlineGroupName] = useState('')
   const [inlineCicloMode, setInlineCicloMode] = useState('current')
   const [creatingSubject, setCreatingSubject] = useState(false)
 
@@ -57,21 +55,15 @@ export default function TeacherDashboard() {
   async function loadAll() {
     setLoading(true)
     try {
-      const [subSnap, grpSnap] = await Promise.all([
-        getDocs(query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid))),
-        getDocs(query(collection(db, 'groups'), where('docenteId', '==', currentUser.uid))),
-      ])
-      const grpMap = {}
-      const grpList = grpSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      grpList.forEach((g) => { grpMap[g.id] = g })
-      setGroups(grpList)
-
+      const subSnap = await getDocs(
+        query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid))
+      )
       const subList = subSnap.docs
-        .map((d) => ({ id: d.id, ...d.data(), group: grpMap[d.data().grupoId] || null }))
+        .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => {
           const nc = (a.nombre || '').localeCompare(b.nombre || '', 'es')
           if (nc !== 0) return nc
-          return (a.group?.nombre || '').localeCompare(b.group?.nombre || '', 'es')
+          return (a.ciclo || '').localeCompare(b.ciclo || '', 'es')
         })
       setSubjects(subList)
     } catch (err) {
@@ -83,41 +75,31 @@ export default function TeacherDashboard() {
 
   async function handleCreateSubject(e) {
     e.preventDefault()
-    if (!newSubjectName.trim() || !inlineGroupName.trim()) return
+    if (!newSubjectName.trim()) return
     setCreatingSubject(true)
     try {
-      const grpRef = await addDoc(collection(db, 'groups'), {
-        nombre: inlineGroupName.trim().toUpperCase(),
-        ciclo: inlineSelectedCiclo,
-        docenteId: currentUser.uid,
-        escuelaId: userProfile.escuelaId,
-        accessCode: generateAccessCode(),
-        createdAt: serverTimestamp(),
-      })
-      const grp = { id: grpRef.id, nombre: inlineGroupName.trim().toUpperCase(), ciclo: inlineSelectedCiclo }
-      setGroups((prev) => [...prev, grp])
-
-      const ref = await addDoc(collection(db, 'subjects'), {
+      const subData = {
         nombre: newSubjectName.trim(),
         docenteId: currentUser.uid,
-        grupoId: grpRef.id,
         escuelaId: userProfile.escuelaId,
         parciales: newSubjectParciales,
+        ciclo: inlineSelectedCiclo,
+        accessCode: generateAccessCode(),
         archived: false,
         createdAt: serverTimestamp(),
-      })
+      }
+      const ref = await addDoc(collection(db, 'subjects'), subData)
       setSubjects((prev) =>
-        [...prev, { id: ref.id, nombre: newSubjectName.trim(), grupoId: grpRef.id, group: grp, parciales: newSubjectParciales, archived: false }]
+        [...prev, { id: ref.id, ...subData }]
           .sort((a, b) => {
             const nc = (a.nombre || '').localeCompare(b.nombre || '', 'es')
             if (nc !== 0) return nc
-            return (a.group?.nombre || '').localeCompare(b.group?.nombre || '', 'es')
+            return (a.ciclo || '').localeCompare(b.ciclo || '', 'es')
           })
       )
       setShowSubjectModal(false)
       setNewSubjectName('')
       setNewSubjectParciales(3)
-      setInlineGroupName('')
       setInlineCicloMode('current')
       toast('Asignatura creada')
       navigate(`/subject/${ref.id}`)
@@ -181,17 +163,15 @@ export default function TeacherDashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-slate-900 truncate">
-                          {s.nombre}{s.group ? `: ${s.group.nombre}` : ''}
-                        </p>
+                        <p className="font-semibold text-slate-900 truncate">{s.nombre}</p>
                         {s.archived && (
                           <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
                             archivada
                           </span>
                         )}
                       </div>
-                      {s.group && (
-                        <p className="text-xs text-slate-400 mt-0.5">{s.group.ciclo}</p>
+                      {s.ciclo && (
+                        <p className="text-xs text-slate-400 mt-0.5">{s.ciclo}</p>
                       )}
                     </div>
                     <ChevronRight size={18} className="text-slate-300 flex-shrink-0" />
@@ -238,20 +218,6 @@ export default function TeacherDashboard() {
                 />
               </div>
 
-              {/* Grupo (siempre nuevo — 1 grupo por asignatura) */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre del grupo</label>
-                <input
-                  type="text"
-                  value={inlineGroupName}
-                  onChange={(e) => setInlineGroupName(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
-                  placeholder="Ej: 6A, 4B, 5C"
-                />
-                <p className="text-xs text-slate-400 mt-1">Usa un nombre corto y fácil de reconocer (ej. 6A).</p>
-              </div>
-
               {/* Período */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Período escolar</label>
@@ -274,13 +240,6 @@ export default function TeacherDashboard() {
                   ))}
                 </div>
               </div>
-
-              {/* Preview ASIGNATURA: GRUPO */}
-              {newSubjectName && inlineGroupName && (
-                <p className="text-xs text-slate-500 font-mono bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-                  {newSubjectName.trim()}: {inlineGroupName.trim().toUpperCase()}
-                </p>
-              )}
 
               {/* Parciales */}
               <div>
