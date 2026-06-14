@@ -410,8 +410,7 @@ export default function SubjectPage() {
   }
 
   function generateResetPassword() {
-    return Math.random().toString(36).slice(2, 8).toUpperCase() +
-      Math.random().toString(36).slice(2, 6).toUpperCase()
+    return Math.random().toString(36).slice(2, 6).toUpperCase()
   }
 
   async function confirmResetStudentPassword() {
