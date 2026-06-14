@@ -5,9 +5,10 @@ import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firesto
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { GraduationCap, Mail, ChevronDown, Search, Check, X } from 'lucide-react'
+import { GraduationCap, ChevronDown, Search, Check, X } from 'lucide-react'
 import { usePlanteles } from '../../data/usePlanteles'
 import PasswordInput from '../../components/PasswordInput'
+import { sendWelcomeEmail } from '../../utils/welcomeEmail'
 
 function generateTeacherUsername(shortName, count) {
   const prefix = (shortName || '').toUpperCase().replace(/\s+/g, '')
@@ -15,6 +16,7 @@ function generateTeacherUsername(shortName, count) {
 }
 
 export default function Register() {
+  const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -48,11 +50,9 @@ export default function Register() {
     if (password.length < 6) { toast('Mínimo 6 caracteres', 'error'); return }
     setLoading(true)
     try {
-      // 1. Create Firebase Auth first — subsequent Firestore reads require auth
       const cred = await createUserWithEmailAndPassword(auth, email, password)
       await sendEmailVerification(cred.user)
 
-      // 2. Find or create school doc (now authenticated)
       const schoolSnap = await getDocs(
         query(collection(db, 'schools'), where('claveSEP', '==', selectedPlantel.cct))
       )
@@ -72,20 +72,31 @@ export default function Register() {
         schoolId = newRef.id
       }
 
-      // 3. Count teachers in this school to generate username
       const teacherSnap = await getDocs(
         query(collection(db, 'users'), where('escuelaId', '==', schoolId))
       )
       const username = generateTeacherUsername(selectedPlantel.short || selectedPlantel.nombre, teacherSnap.size)
 
-      // 4. Create Firestore profile
       await setDoc(doc(db, 'users', cred.user.uid), {
         role: 'docente',
         username,
+        nombre: nombre.trim(),
         email: email.trim().toLowerCase(),
         escuelaId: schoolId,
         photoURL: null,
       })
+
+      // Send welcome email (best-effort — don't fail registration if email fails)
+      try {
+        await sendWelcomeEmail({
+          email: email.trim().toLowerCase(),
+          nombre: nombre.trim(),
+          username,
+          school: selectedPlantel.short || selectedPlantel.nombre,
+        })
+      } catch {
+        // email not configured or failed — continue anyway
+      }
 
       setCreatedUsername(username)
       setDone(true)
@@ -106,23 +117,29 @@ export default function Register() {
         <div className="w-full max-w-sm">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-center space-y-4">
             <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
-              <Mail size={26} className="text-emerald-600" />
+              <Check size={26} className="text-emerald-600" />
             </div>
             <h2 className="text-lg font-bold text-slate-900">¡Cuenta creada!</h2>
 
-            {/* Username — lo más importante, no puede perderse */}
-            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
-              <p className="text-xs text-blue-500 mb-1">Tu nombre de usuario</p>
-              <p className="text-2xl font-bold font-mono text-blue-700 tracking-widest">{createdUsername}</p>
-              <p className="text-xs text-slate-500 mt-1">Guárdalo — lo necesitas para iniciar sesión</p>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-4">
+              <p className="text-xs text-blue-500 mb-1 font-semibold uppercase tracking-wide">Tu nombre de usuario</p>
+              <p className="text-3xl font-black font-mono text-blue-700 tracking-widest">{createdUsername}</p>
+              <p className="text-xs text-slate-500 mt-2">Úsalo cada vez que inicies sesión</p>
+            </div>
+
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-left">
+              <span className="text-amber-500 mt-0.5">✉</span>
+              <p className="text-sm text-amber-700 leading-relaxed">
+                También enviamos tu usuario a <strong>{email}</strong> para que no lo pierdas.
+              </p>
             </div>
 
             <p className="text-sm text-slate-500 leading-relaxed">
-              Enviamos un enlace de verificación a{' '}
-              <strong>{email}</strong>. Ábrelo antes de iniciar sesión.
+              Verifica tu correo — te enviamos un enlace de confirmación.
             </p>
+
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/docente', { state: { showEmailReminder: true, email } })}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
             >
               Ir a iniciar sesión
@@ -146,6 +163,20 @@ export default function Register() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Full name */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nombre completo</label>
+              <input
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                required
+                autoComplete="name"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                placeholder="Ej. María González López"
+              />
+            </div>
+
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Correo electrónico</label>
@@ -225,7 +256,7 @@ export default function Register() {
 
         <p className="text-center text-sm text-slate-500 mt-6">
           ¿Ya tienes cuenta?{' '}
-          <Link to="/" className="text-blue-600 font-semibold hover:underline">Iniciar sesión</Link>
+          <Link to="/docente" className="text-blue-600 font-semibold hover:underline">Iniciar sesión</Link>
         </p>
       </div>
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
@@ -26,6 +26,9 @@ function GoogleIcon() {
 }
 
 export default function TeacherLogin() {
+  const location = useLocation()
+  const emailReminderEmail = location.state?.showEmailReminder ? location.state.email : null
+
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -148,6 +151,16 @@ export default function TeacherLogin() {
           <h1 className="text-2xl font-bold text-slate-900">Evalúa Fácil</h1>
           <p className="text-slate-500 text-sm mt-1">Evidencias y calificaciones. Sin complicaciones.</p>
         </div>
+
+        {emailReminderEmail && (
+          <div className="mb-4 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3">
+            <span className="text-blue-500 text-lg mt-0.5">✉</span>
+            <p className="text-sm text-blue-700 leading-relaxed">
+              Tu nombre de usuario fue enviado a <strong>{emailReminderEmail}</strong>.
+              Revisa tu bandeja de entrada.
+            </p>
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
           <form onSubmit={handleLogin} className="space-y-4">
