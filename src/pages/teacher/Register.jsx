@@ -25,6 +25,7 @@ export default function Register() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [createdUsername, setCreatedUsername] = useState('')
   const navigate = useNavigate()
   const toast = useToast()
   const { planteles, loading: catalogLoading } = usePlanteles()
@@ -88,6 +89,7 @@ export default function Register() {
         photoURL: null,
       })
 
+      setCreatedUsername(username)
       setDone(true)
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
@@ -109,9 +111,17 @@ export default function Register() {
               <Mail size={26} className="text-emerald-600" />
             </div>
             <h2 className="text-lg font-bold text-slate-900">¡Cuenta creada!</h2>
+
+            {/* Username — lo más importante, no puede perderse */}
+            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+              <p className="text-xs text-blue-500 mb-1">Tu nombre de usuario</p>
+              <p className="text-2xl font-bold font-mono text-blue-700 tracking-widest">{createdUsername}</p>
+              <p className="text-xs text-slate-500 mt-1">Guárdalo — lo necesitas para iniciar sesión</p>
+            </div>
+
             <p className="text-sm text-slate-500 leading-relaxed">
               Enviamos un enlace de verificación a{' '}
-              <strong>{email}</strong>. Ábrelo y regresa a iniciar sesión.
+              <strong>{email}</strong>. Ábrelo antes de iniciar sesión.
             </p>
             <button
               onClick={() => navigate('/')}
