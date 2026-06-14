@@ -650,10 +650,10 @@ export default function SubjectPage() {
             </button>
             <button type="button" onClick={copyAccessCode}
               title="Copiar código de acceso"
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg transition-all duration-200 flex-shrink-0 font-mono font-bold text-xs ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 hover:bg-blue-50'}`}>
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg transition-all duration-200 flex-shrink-0 font-mono font-bold text-sm ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600 hover:bg-blue-50'}`}>
               {copiedCode
-                ? <><CheckIcon size={14} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
-                : <><Hash size={14} className="flex-shrink-0" /><span>{subject?.accessCode}</span></>}
+                ? <><CheckIcon size={19} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
+                : <><Hash size={19} className="flex-shrink-0" /><span>{subject?.accessCode}</span></>}
             </button>
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
               title={subject?.archived ? 'Restaurar' : 'Archivar'}
