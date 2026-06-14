@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signInWithEmailAndPassword } from 'firebase/auth'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -36,6 +36,16 @@ export default function StudentLogin() {
       }
       const student = stuSnap.docs[0].data()
       if (!student.activado) {
+        if (student.resetPassword) {
+          // Teacher reset password — go straight to activation with username pre-filled
+          const subSnap = await getDoc(doc(db, 'subjects', student.asignaturaId))
+          if (subSnap.exists()) {
+            navigate(`/activate/${subSnap.data().accessCode}`, {
+              state: { prefillUsername: username.trim().toUpperCase() },
+            })
+            return
+          }
+        }
         setError('Cuenta no activada. Escanea el QR o ingresa el código de tu asignatura.')
         return
       }

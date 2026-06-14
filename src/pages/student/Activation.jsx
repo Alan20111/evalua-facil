@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection,
   query,
@@ -19,10 +19,11 @@ import PasswordInput from '../../components/PasswordInput'
 
 export default function StudentActivation() {
   const { accessCode } = useParams()
+  const location = useLocation()
   const [subject, setSubject] = useState(null)
   const [student, setStudent] = useState(null)
   const [step, setStep] = useState('username') // 'username' | 'password'
-  const [username, setUsername] = useState('')
+  const [username, setUsername] = useState(location.state?.prefillUsername ?? '')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
@@ -34,6 +35,29 @@ export default function StudentActivation() {
   useEffect(() => {
     loadSubject()
   }, [accessCode])
+
+  // Auto-advance to password step when prefillUsername is set (teacher reset flow)
+  useEffect(() => {
+    const pre = location.state?.prefillUsername
+    if (!pre || !subject) return
+    async function autoFind() {
+      try {
+        const q = query(
+          collection(db, 'students'),
+          where('asignaturaId', '==', subject.id),
+          where('username', '==', pre)
+        )
+        const snap = await getDocs(q)
+        if (!snap.empty) {
+          setStudent({ id: snap.docs[0].id, ...snap.docs[0].data() })
+          setStep('password')
+        }
+      } catch {
+        // fall through to manual entry
+      }
+    }
+    autoFind()
+  }, [subject])
 
   async function loadSubject() {
     try {
