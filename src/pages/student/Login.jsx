@@ -6,7 +6,7 @@ import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { studentEmail } from '../../utils/generate'
-import { GraduationCap } from 'lucide-react'
+import { GraduationCap, Hash, ChevronDown } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
 
 export default function StudentLogin() {
@@ -14,6 +14,11 @@ export default function StudentLogin() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Manual access-code entry for first-time activation
+  const [showCodeSection, setShowCodeSection] = useState(false)
+  const [codeInput, setCodeInput] = useState('')
+
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -22,7 +27,6 @@ export default function StudentLogin() {
     setError('')
     setLoading(true)
     try {
-      // Find student by username (single-field query, no composite index needed)
       const stuSnap = await getDocs(
         query(collection(db, 'students'), where('username', '==', username.trim().toUpperCase()))
       )
@@ -32,11 +36,9 @@ export default function StudentLogin() {
       }
       const student = stuSnap.docs[0].data()
       if (!student.activado) {
-        setError('Cuenta no activada. Escanea el QR de tu asignatura primero.')
+        setError('Cuenta no activada. Escanea el QR o ingresa el código de tu asignatura.')
         return
       }
-
-      // escuelaId comes from the student record — no need for the teacher to tell us
       const email = studentEmail(username.trim().toUpperCase(), student.escuelaId)
       await signInWithEmailAndPassword(auth, email, password)
       navigate('/alumno/dashboard')
@@ -51,17 +53,25 @@ export default function StudentLogin() {
     }
   }
 
+  const handleActivateWithCode = (e) => {
+    e.preventDefault()
+    const code = codeInput.trim().toUpperCase()
+    if (!code) return
+    navigate(`/activate/${code}`)
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Acceso Alumnos</h1>
           <p className="text-slate-500 text-sm mt-1">Evalúa Fácil</p>
         </div>
 
+        {/* ── Login form ── */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
@@ -76,7 +86,7 @@ export default function StudentLogin() {
                 autoCorrect="off"
                 autoCapitalize="characters"
                 spellCheck={false}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50 font-mono tracking-widest text-center text-lg"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 font-mono tracking-widest text-center text-lg"
                 placeholder="Ej: MERK"
                 maxLength={8}
               />
@@ -87,7 +97,7 @@ export default function StudentLogin() {
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError('') }}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-slate-50"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                 placeholder="••••••••"
               />
             </div>
@@ -99,7 +109,7 @@ export default function StudentLogin() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? 'Entrando…' : 'Iniciar sesión'}
@@ -107,12 +117,54 @@ export default function StudentLogin() {
           </form>
         </div>
 
+        {/* ── First-time activation ── */}
+        <div className="mt-4 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowCodeSection((v) => !v)}
+            className="w-full flex items-center justify-between px-5 py-4 text-left"
+          >
+            <span className="text-sm font-semibold text-slate-700">¿Primera vez? Activa tu cuenta</span>
+            <ChevronDown
+              size={17}
+              className={`text-slate-400 transition-transform duration-200 ${showCodeSection ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {showCodeSection && (
+            <div className="px-5 pb-5 border-t border-slate-100 pt-4">
+              <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+                Escanea el <strong>código QR</strong> de tu asignatura, abre el <strong>link</strong> que te compartió tu maestro, o ingresa el <strong>código de acceso</strong> de 6 caracteres:
+              </p>
+              <form onSubmit={handleActivateWithCode} className="flex gap-2">
+                <input
+                  type="text"
+                  value={codeInput}
+                  onChange={(e) => setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  maxLength={8}
+                  placeholder="Ej: A3B7K2"
+                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 font-mono tracking-widest text-center"
+                />
+                <button
+                  type="submit"
+                  disabled={!codeInput.trim()}
+                  className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                >
+                  <Hash size={16} />
+                  Ir
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+
         <p className="text-center text-sm text-slate-400 mt-4">
           ¿Eres docente?{' '}
-          <Link to="/" className="text-indigo-600 hover:underline">Acceso docentes</Link>
-        </p>
-        <p className="text-center text-xs text-slate-400 mt-2">
-          ¿Primera vez? Escanea el QR de tu grupo para activar tu cuenta.
+          <Link to="/" className="text-blue-600 hover:underline">Acceso docentes</Link>
         </p>
       </div>
     </div>

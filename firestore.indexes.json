@@ -12,8 +12,8 @@
       "collectionGroup": "students",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "grupoId", "order": "ASCENDING" },
-        { "fieldPath": "orden", "order": "ASCENDING" }
+        { "fieldPath": "asignaturaId", "order": "ASCENDING" },
+        { "fieldPath": "username", "order": "ASCENDING" }
       ]
     },
     {
