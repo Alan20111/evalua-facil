@@ -17,7 +17,18 @@ import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
-import { Camera, Check, LogOut, Lock, User, Link as LinkIcon, Unlink, X, Mail } from 'lucide-react'
+import { Camera, Check, LogOut, Lock, User, Link as LinkIcon, Unlink, X, Mail, CreditCard } from 'lucide-react'
+import { useSubscription } from '../../hooks/useSubscription'
+import PaymentSimulationModal from '../../components/PaymentSimulationModal'
+import {
+  calcDaysRemaining,
+  formatCurrency,
+  formatDate,
+  formatLimit,
+  getDaysLabel,
+  getPaymentStatusColor,
+  getSubscriptionStatusColor,
+} from '../../utils/subscriptionHelpers'
 
 function GoogleIcon() {
   return (
@@ -80,6 +91,8 @@ export default function Profile() {
 
   // Google linking
   const [linkingGoogle, setLinkingGoogle] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const { subscription, currentPlan, plans, recentPayments, loading: subLoading, refresh: refreshSub } = useSubscription()
   const isGoogleLinked = currentUser?.providerData?.some((p) => p.providerId === 'google.com')
   const hasEmailProvider = currentUser?.providerData?.some((p) => p.providerId === 'password')
 
@@ -241,10 +254,89 @@ export default function Profile() {
 
   const displayName = userProfile?.nombreMostrar || userProfile?.username || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
+  const daysRemaining = subscription ? calcDaysRemaining(subscription.fechaVencimiento) : null
+  const canRenew =
+    !subscription ||
+    subscription.status === 'vencida' ||
+    subscription.status === 'pendiente_pago' ||
+    (subscription.status === 'activa' && daysRemaining !== null && daysRemaining <= 7)
 
   return (
     <TeacherLayout>
       <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
+
+        {/* Mi plan */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <CreditCard size={17} className="text-slate-400" /> Mi plan
+          </h2>
+          {subLoading ? (
+            <div className="flex justify-center py-4"><Spinner /></div>
+          ) : subscription && currentPlan ? (
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-slate-900">{currentPlan.nombre}</p>
+                  <p className="text-sm text-slate-500">
+                    {formatCurrency(currentPlan.precio)}/{currentPlan.periodicidad === 'anual' ? 'año' : 'mes'}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {formatLimit(currentPlan.maxAsignaturas, 'asignaturas')} · {formatLimit(currentPlan.maxAlumnos, 'alumnos')}
+                  </p>
+                </div>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${getSubscriptionStatusColor(subscription.status)}`}>
+                  {subscription.status?.replace('_', ' ')}
+                </span>
+              </div>
+              {subscription.status === 'activa' && daysRemaining !== null && (
+                <p className={`text-sm font-medium ${daysRemaining <= 7 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                  {getDaysLabel(daysRemaining)}
+                </p>
+              )}
+              {subscription.status === 'vencida' && daysRemaining !== null && (
+                <p className="text-sm font-medium text-red-600">{getDaysLabel(daysRemaining)}</p>
+              )}
+              {subscription.status === 'pendiente_pago' && (
+                <p className="text-sm text-amber-600">Tu pago está en revisión por el administrador.</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">No tienes un plan activo.</p>
+          )}
+          {canRenew && plans.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowPaymentModal(true)}
+              className="mt-4 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors"
+            >
+              {subscription ? 'Contratar / Renovar' : 'Contratar plan'}
+            </button>
+          )}
+          {recentPayments.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Últimos pagos</p>
+              <ul className="space-y-2">
+                {recentPayments.map((p) => (
+                  <li key={p.id} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">{formatDate(p.createdAt)}</span>
+                    <span className="font-medium">{formatCurrency(p.monto)}</span>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getPaymentStatusColor(p.status)}`}>
+                      {p.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <PaymentSimulationModal
+          open={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          plans={plans}
+          subscription={subscription}
+          onSuccess={refreshSub}
+        />
 
         {/* Photo + identity */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center gap-4">

@@ -15,10 +15,21 @@ import StudentLogin from './pages/student/Login'
 import StudentDashboard from './pages/student/Dashboard'
 import StudentSubjectPage from './pages/student/SubjectPage'
 import StudentActivityPage from './pages/student/ActivityPage'
+import AdminDashboard from './pages/admin/Dashboard'
+
+function ProtectedAdmin({ children }) {
+  const { currentUser, userProfile, loading } = useAuth()
+  if (loading) return null
+  if (!currentUser) return <Navigate to="/" replace />
+  if (userProfile?.role !== 'admin') return <Navigate to="/" replace />
+  return children
+}
 
 function ProtectedTeacher({ children }) {
-  const { currentUser, userProfile } = useAuth()
+  const { currentUser, userProfile, loading } = useAuth()
+  if (loading) return null
   if (!currentUser) return <Navigate to="/" replace />
+  if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
   if (userProfile && userProfile.role !== 'docente') return <Navigate to="/alumno" replace />
   return children
 }
@@ -30,8 +41,10 @@ function ProtectedStudent({ children }) {
 }
 
 function RootRedirect() {
-  const { currentUser, userProfile } = useAuth()
+  const { currentUser, userProfile, loading } = useAuth()
+  if (loading) return null
   if (!currentUser) return <TeacherLogin />
+  if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
   if (userProfile?.role === 'docente') return <Navigate to="/dashboard" replace />
   // Student accounts use @evalua.local emails; a non-student with no profile is a
   // new Google sign-in waiting for handleGoogle to navigate to /register/school.
@@ -55,6 +68,9 @@ export default function App() {
             <Route path="/register/school" element={<RegisterSchool />} />
             <Route path="/alumno" element={<StudentLogin />} />
             <Route path="/activate/:accessCode" element={<StudentActivation />} />
+
+            {/* Admin protected */}
+            <Route path="/Admin" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
 
             {/* Teacher protected */}
             <Route path="/dashboard" element={<ProtectedTeacher><TeacherDashboard /></ProtectedTeacher>} />
