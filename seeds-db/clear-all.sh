@@ -2,7 +2,7 @@
 set -e
 
 PROJECT="evalua-facil-app"
-COLLECTIONS=("users" "students" "groups" "subjects" "activities" "submissions" "schools" "attendance")
+COLLECTIONS=("payments" "subscriptions" "plans" "users" "students" "groups" "subjects" "activities" "submissions" "schools" "attendance")
 
 echo ""
 echo "🔥 FORCE CLEAR ALL COLLECTIONS"

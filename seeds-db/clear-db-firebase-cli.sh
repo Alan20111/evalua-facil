@@ -6,7 +6,7 @@
 set -e
 
 PROJECT_ID="evalua-facil-app"
-COLLECTIONS=("users" "students" "groups" "subjects" "activities" "submissions" "schools")
+COLLECTIONS=("payments" "subscriptions" "plans" "users" "students" "groups" "subjects" "activities" "submissions" "schools")
 
 echo ""
 echo "🔥 FIRESTORE DATABASE CLEAR SCRIPT (Firebase CLI)"

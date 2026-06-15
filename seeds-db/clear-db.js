@@ -25,6 +25,9 @@ try {
 const db = admin.firestore();
 
 const COLLECTIONS_TO_DELETE = [
+  'payments',
+  'subscriptions',
+  'plans',
   'users',
   'students',
   'groups',
