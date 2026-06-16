@@ -9,6 +9,14 @@ import PaymentsTable from './components/PaymentsTable'
 import UsersTable from './components/UsersTable'
 import PlansManager from './components/PlansManager'
 
+const TAB_TITLES = {
+  resumen: 'Resumen',
+  suscripciones: 'Suscripciones',
+  pagos: 'Pagos',
+  usuarios: 'Usuarios',
+  planes: 'Planes',
+}
+
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('resumen')
   const { stats, loading, refresh } = useAdminStats()
@@ -25,11 +33,7 @@ export default function AdminDashboard() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">
-            {activeTab === 'resumen' && 'Resumen'}
-            {activeTab === 'suscripciones' && 'Suscripciones'}
-            {activeTab === 'pagos' && 'Pagos'}
-            {activeTab === 'usuarios' && 'Usuarios'}
-            {activeTab === 'planes' && 'Planes'}
+            {TAB_TITLES[activeTab]}
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">Panel de administración</p>
         </div>
@@ -59,13 +63,9 @@ export default function AdminDashboard() {
           {activeTab === 'suscripciones' && (
             <SubscriptionsTable stats={stats} onRefresh={refresh} />
           )}
-          {activeTab === 'pagos' && (
-            <PaymentsTable stats={stats} onRefresh={refresh} />
-          )}
+          {activeTab === 'pagos' && <PaymentsTable stats={stats} onRefresh={refresh} />}
           {activeTab === 'usuarios' && <UsersTable stats={stats} />}
-          {activeTab === 'planes' && (
-            <PlansManager stats={stats} onRefresh={refresh} />
-          )}
+          {activeTab === 'planes' && <PlansManager stats={stats} onRefresh={refresh} />}
         </>
       )}
     </AdminLayout>

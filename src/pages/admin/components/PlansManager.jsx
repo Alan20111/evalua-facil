@@ -21,8 +21,8 @@ const EMPTY_PLAN = {
   descripcion: '',
   precio: 199,
   periodicidad: 'mensual',
-  maxAsignaturas: 3,
-  maxAlumnos: 50,
+  maxAsignaturas: -1,
+  maxAlumnos: -1,
   activo: true,
   orden: 1,
 }
@@ -49,8 +49,8 @@ export default function PlansManager({ stats, onRefresh }) {
         descripcion: plan.descripcion || '',
         precio: plan.precio || 0,
         periodicidad: plan.periodicidad || 'mensual',
-        maxAsignaturas: plan.maxAsignaturas ?? 3,
-        maxAlumnos: plan.maxAlumnos ?? 50,
+        maxAsignaturas: plan.maxAsignaturas ?? -1,
+        maxAlumnos: plan.maxAlumnos ?? -1,
         activo: plan.activo !== false,
         orden: plan.orden || 1,
       },
@@ -126,7 +126,9 @@ export default function PlansManager({ stats, onRefresh }) {
             {plans.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                  Sin planes. Ejecuta <code className="text-xs bg-slate-100 px-1 rounded">seed-plans.js</code> o crea uno.
+                  Sin planes. Ejecuta{' '}
+                  <code className="text-xs bg-slate-100 px-1 rounded">seed-plans.js</code> o crea
+                  uno.
                 </td>
               </tr>
             ) : (
@@ -134,10 +136,13 @@ export default function PlansManager({ stats, onRefresh }) {
                 <tr key={plan.id} className="hover:bg-slate-50/50">
                   <td className="px-4 py-3">
                     <p className="font-medium text-slate-800">{plan.nombre}</p>
-                    <p className="text-xs text-slate-400 truncate max-w-[200px]">{plan.descripcion}</p>
+                    <p className="text-xs text-slate-400 truncate max-w-[200px]">
+                      {plan.descripcion}
+                    </p>
                   </td>
                   <td className="px-4 py-3">
-                    {formatCurrency(plan.precio)}/{plan.periodicidad === 'anual' ? 'año' : 'mes'}
+                    {formatCurrency(plan.precio)}/
+                    {plan.periodicidad === 'anual' ? 'año' : 'mes'}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-600">
                     {plan.maxAsignaturas === -1 ? '∞' : plan.maxAsignaturas} asig. /{' '}
@@ -146,7 +151,9 @@ export default function PlansManager({ stats, onRefresh }) {
                   <td className="px-4 py-3">
                     <span
                       className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                        plan.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                        plan.activo
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-slate-100 text-slate-500'
                       }`}
                     >
                       {plan.activo ? 'Sí' : 'No'}
@@ -194,7 +201,9 @@ export default function PlansManager({ stats, onRefresh }) {
                 <label className="block text-xs font-medium text-slate-600 mb-1">Nombre</label>
                 <input
                   value={modal.form.nombre}
-                  onChange={(e) => setModal({ ...modal, form: { ...modal.form, nombre: e.target.value } })}
+                  onChange={(e) =>
+                    setModal({ ...modal, form: { ...modal.form, nombre: e.target.value } })
+                  }
                   required
                   className={inputCls}
                 />
@@ -203,27 +212,37 @@ export default function PlansManager({ stats, onRefresh }) {
                 <label className="block text-xs font-medium text-slate-600 mb-1">Descripción</label>
                 <textarea
                   value={modal.form.descripcion}
-                  onChange={(e) => setModal({ ...modal, form: { ...modal.form, descripcion: e.target.value } })}
+                  onChange={(e) =>
+                    setModal({ ...modal, form: { ...modal.form, descripcion: e.target.value } })
+                  }
                   className={`${inputCls} h-16 resize-none`}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Precio (MXN)</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Precio (MXN)
+                  </label>
                   <input
                     type="number"
                     min="0"
                     value={modal.form.precio}
-                    onChange={(e) => setModal({ ...modal, form: { ...modal.form, precio: e.target.value } })}
+                    onChange={(e) =>
+                      setModal({ ...modal, form: { ...modal.form, precio: e.target.value } })
+                    }
                     required
                     className={inputCls}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Periodicidad</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Periodicidad
+                  </label>
                   <select
                     value={modal.form.periodicidad}
-                    onChange={(e) => setModal({ ...modal, form: { ...modal.form, periodicidad: e.target.value } })}
+                    onChange={(e) =>
+                      setModal({ ...modal, form: { ...modal.form, periodicidad: e.target.value } })
+                    }
                     className={inputCls}
                   >
                     <option value="mensual">Mensual</option>
@@ -233,20 +252,34 @@ export default function PlansManager({ stats, onRefresh }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Máx. asignaturas (-1 = ∞)</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Máx. asignaturas (-1 = ∞)
+                  </label>
                   <input
                     type="number"
                     value={modal.form.maxAsignaturas}
-                    onChange={(e) => setModal({ ...modal, form: { ...modal.form, maxAsignaturas: e.target.value } })}
+                    onChange={(e) =>
+                      setModal({
+                        ...modal,
+                        form: { ...modal.form, maxAsignaturas: e.target.value },
+                      })
+                    }
                     className={inputCls}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Máx. alumnos (-1 = ∞)</label>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Máx. alumnos (-1 = ∞)
+                  </label>
                   <input
                     type="number"
                     value={modal.form.maxAlumnos}
-                    onChange={(e) => setModal({ ...modal, form: { ...modal.form, maxAlumnos: e.target.value } })}
+                    onChange={(e) =>
+                      setModal({
+                        ...modal,
+                        form: { ...modal.form, maxAlumnos: e.target.value },
+                      })
+                    }
                     className={inputCls}
                   />
                 </div>
@@ -257,7 +290,9 @@ export default function PlansManager({ stats, onRefresh }) {
                   <input
                     type="number"
                     value={modal.form.orden}
-                    onChange={(e) => setModal({ ...modal, form: { ...modal.form, orden: e.target.value } })}
+                    onChange={(e) =>
+                      setModal({ ...modal, form: { ...modal.form, orden: e.target.value } })
+                    }
                     className={inputCls}
                   />
                 </div>
@@ -266,7 +301,9 @@ export default function PlansManager({ stats, onRefresh }) {
                     <input
                       type="checkbox"
                       checked={modal.form.activo}
-                      onChange={(e) => setModal({ ...modal, form: { ...modal.form, activo: e.target.checked } })}
+                      onChange={(e) =>
+                        setModal({ ...modal, form: { ...modal.form, activo: e.target.checked } })
+                      }
                       className="rounded"
                     />
                     Visible para compra

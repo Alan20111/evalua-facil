@@ -25,37 +25,15 @@ const db = admin.firestore()
 
 const DEFAULT_PLANS = [
   {
-    id: 'basico',
-    nombre: 'Básico',
-    descripcion: 'Ideal para docentes que inician con pocas asignaturas.',
-    precio: 199,
-    periodicidad: 'mensual',
-    maxAsignaturas: 3,
-    maxAlumnos: 50,
-    activo: true,
-    orden: 1,
-  },
-  {
     id: 'pro',
-    nombre: 'Pro',
-    descripcion: 'Para docentes con varias materias y grupos más grandes.',
-    precio: 399,
-    periodicidad: 'mensual',
-    maxAsignaturas: 10,
-    maxAlumnos: 200,
-    activo: true,
-    orden: 2,
-  },
-  {
-    id: 'institucional',
-    nombre: 'Institucional',
-    descripcion: 'Sin límites de asignaturas ni alumnos.',
-    precio: 799,
+    nombre: 'Plan Pro',
+    descripcion: 'Acceso completo a Evalúa Fácil sin límites de asignaturas ni alumnos.',
+    precio: 199,
     periodicidad: 'mensual',
     maxAsignaturas: -1,
     maxAlumnos: -1,
     activo: true,
-    orden: 3,
+    orden: 1,
   },
 ]
 

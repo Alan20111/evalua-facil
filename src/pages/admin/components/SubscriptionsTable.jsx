@@ -24,7 +24,9 @@ const inputCls =
 
 function StatusBadge({ status }) {
   return (
-    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getSubscriptionStatusColor(status)}`}>
+    <span
+      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getSubscriptionStatusColor(status)}`}
+    >
       {status?.replace('_', ' ')}
     </span>
   )
@@ -68,7 +70,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       id: sub.id,
       form: {
         docenteId: sub.docenteId,
-        planId: sub.planId,
+        planId: sub.planId || '',
         status: sub.status,
         fechaInicio: fi ? fi.toISOString().slice(0, 10) : '',
         fechaVencimiento: fv ? fv.toISOString().slice(0, 10) : '',
@@ -186,14 +188,12 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     <td className="px-4 py-3 text-slate-600 truncate max-w-[140px]">
                       {sub.schoolName || '—'}
                     </td>
-                    <td className="px-4 py-3">{plan?.nombre || sub.planId}</td>
+                    <td className="px-4 py-3">{plan?.nombre || (sub.status === 'trial' ? 'Trial' : '—')}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={sub.status} />
                     </td>
                     <td className="px-4 py-3 text-slate-600">{formatDate(sub.fechaVencimiento)}</td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {days !== null ? days : '—'}
-                    </td>
+                    <td className="px-4 py-3 text-slate-600">{days !== null ? days : '—'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <button
@@ -248,7 +248,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 <label className="block text-xs font-medium text-slate-600 mb-1">Docente</label>
                 <select
                   value={modal.form.docenteId}
-                  onChange={(e) => setModal({ ...modal, form: { ...modal.form, docenteId: e.target.value } })}
+                  onChange={(e) =>
+                    setModal({ ...modal, form: { ...modal.form, docenteId: e.target.value } })
+                  }
                   required
                   className={inputCls}
                 >
@@ -263,12 +265,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 <label className="block text-xs font-medium text-slate-600 mb-1">Plan</label>
                 <select
                   value={modal.form.planId}
-                  onChange={(e) => setModal({ ...modal, form: { ...modal.form, planId: e.target.value } })}
-                  required
+                  onChange={(e) =>
+                    setModal({ ...modal, form: { ...modal.form, planId: e.target.value } })
+                  }
                   className={inputCls}
                 >
+                  <option value="">— Sin plan (trial) —</option>
                   {plans.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.nombre}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -276,11 +282,15 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 <label className="block text-xs font-medium text-slate-600 mb-1">Estado</label>
                 <select
                   value={modal.form.status}
-                  onChange={(e) => setModal({ ...modal, form: { ...modal.form, status: e.target.value } })}
+                  onChange={(e) =>
+                    setModal({ ...modal, form: { ...modal.form, status: e.target.value } })
+                  }
                   className={inputCls}
                 >
                   {SUBSCRIPTION_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -290,7 +300,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <input
                     type="date"
                     value={modal.form.fechaInicio}
-                    onChange={(e) => setModal({ ...modal, form: { ...modal.form, fechaInicio: e.target.value } })}
+                    onChange={(e) =>
+                      setModal({ ...modal, form: { ...modal.form, fechaInicio: e.target.value } })
+                    }
                     className={inputCls}
                   />
                 </div>
@@ -299,7 +311,12 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <input
                     type="date"
                     value={modal.form.fechaVencimiento}
-                    onChange={(e) => setModal({ ...modal, form: { ...modal.form, fechaVencimiento: e.target.value } })}
+                    onChange={(e) =>
+                      setModal({
+                        ...modal,
+                        form: { ...modal.form, fechaVencimiento: e.target.value },
+                      })
+                    }
                     className={inputCls}
                   />
                 </div>

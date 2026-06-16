@@ -15,6 +15,7 @@ import StudentLogin from './pages/student/Login'
 import StudentDashboard from './pages/student/Dashboard'
 import StudentSubjectPage from './pages/student/SubjectPage'
 import StudentActivityPage from './pages/student/ActivityPage'
+
 import AdminDashboard from './pages/admin/Dashboard'
 
 function ProtectedAdmin({ children }) {
@@ -35,7 +36,7 @@ function ProtectedTeacher({ children }) {
 }
 
 function ProtectedStudent({ children }) {
-  const { currentUser, userProfile } = useAuth()
+  const { currentUser } = useAuth()
   if (!currentUser) return <Navigate to="/alumno" replace />
   return children
 }
@@ -46,8 +47,6 @@ function RootRedirect() {
   if (!currentUser) return <TeacherLogin />
   if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
   if (userProfile?.role === 'docente') return <Navigate to="/dashboard" replace />
-  // Student accounts use @evalua.local emails; a non-student with no profile is a
-  // new Google sign-in waiting for handleGoogle to navigate to /register/school.
   if (!userProfile) {
     if (currentUser.email?.endsWith('@evalua.local')) return <Navigate to="/alumno/dashboard" replace />
     return null

@@ -1,11 +1,5 @@
 import { useState } from 'react'
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  serverTimestamp,
-} from 'firebase/firestore'
+import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { X } from 'lucide-react'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
@@ -17,13 +11,7 @@ import { formatCurrency } from '../utils/subscriptionHelpers'
 const inputCls =
   'w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50'
 
-export default function PaymentSimulationModal({
-  open,
-  onClose,
-  plans,
-  subscription,
-  onSuccess,
-}) {
+export default function PaymentSimulationModal({ open, onClose, plans, subscription, onSuccess }) {
   const { currentUser, userProfile } = useAuth()
   const toast = useToast()
   const [selectedPlanId, setSelectedPlanId] = useState(plans[0]?.id || '')

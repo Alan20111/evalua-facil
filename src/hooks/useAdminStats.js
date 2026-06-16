@@ -1,10 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from 'firebase/firestore'
+import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import { calcDaysRemaining, toDate } from '../utils/subscriptionHelpers'
 
@@ -81,7 +76,6 @@ export function useAdminStats() {
         (s) => isWithinDays(s.fechaVencimiento, 7) && calcDaysRemaining(s.fechaVencimiento) >= 0
       )
 
-      const teachersWithSub = new Set(subscriptions.map((s) => s.docenteId))
       const conversionRate =
         teachers.length > 0 ? (activeSubs.length / teachers.length) * 100 : 0
 
@@ -96,10 +90,7 @@ export function useAdminStats() {
       })
       const schoolsMap = Object.fromEntries(schools.map((s) => [s.id, s]))
       const teachersBySchool = Object.entries(schoolCounts)
-        .map(([id, count]) => ({
-          school: schoolsMap[id]?.nombre || id,
-          count,
-        }))
+        .map(([id, count]) => ({ school: schoolsMap[id]?.nombre || id, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
 
@@ -133,6 +124,7 @@ export function useAdminStats() {
       const newTeachersThisMonth = teachers.filter((t) => isThisMonth(t.createdAt)).length
       const expiredCount = subscriptions.filter((s) => s.status === 'vencida').length
       const cancelledCount = subscriptions.filter((s) => s.status === 'cancelada').length
+      const trialCount = subscriptions.filter((s) => s.status === 'trial').length
       const churnCount = subscriptions.filter(
         (s) => s.status === 'cancelada' && isWithinLastDays(s.updatedAt, 30)
       ).length
@@ -155,6 +147,7 @@ export function useAdminStats() {
           teacherCount: teachers.length,
           activeStudentCount: activeStudents.length,
           activeSubCount: activeSubs.length,
+          trialCount,
           totalRevenue,
           monthRevenue,
           pendingPaymentCount: pendingPayments.length,

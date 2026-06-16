@@ -92,6 +92,7 @@ export default function Profile() {
   // Google linking
   const [linkingGoogle, setLinkingGoogle] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+
   const { subscription, currentPlan, plans, recentPayments, loading: subLoading, refresh: refreshSub } = useSubscription()
   const isGoogleLinked = currentUser?.providerData?.some((p) => p.providerId === 'google.com')
   const hasEmailProvider = currentUser?.providerData?.some((p) => p.providerId === 'password')
@@ -259,6 +260,7 @@ export default function Profile() {
     !subscription ||
     subscription.status === 'vencida' ||
     subscription.status === 'pendiente_pago' ||
+    subscription.status === 'trial' ||
     (subscription.status === 'activa' && daysRemaining !== null && daysRemaining <= 7)
 
   return (
@@ -272,29 +274,49 @@ export default function Profile() {
           </h2>
           {subLoading ? (
             <div className="flex justify-center py-4"><Spinner /></div>
-          ) : subscription && currentPlan ? (
+          ) : subscription ? (
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-bold text-slate-900">{currentPlan.nombre}</p>
-                  <p className="text-sm text-slate-500">
-                    {formatCurrency(currentPlan.precio)}/{currentPlan.periodicidad === 'anual' ? 'año' : 'mes'}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {formatLimit(currentPlan.maxAsignaturas, 'asignaturas')} · {formatLimit(currentPlan.maxAlumnos, 'alumnos')}
-                  </p>
+                  {subscription.status === 'trial' ? (
+                    <>
+                      <p className="font-bold text-slate-900">Período de prueba</p>
+                      <p className="text-sm text-slate-500">60 días gratuitos</p>
+                    </>
+                  ) : currentPlan ? (
+                    <>
+                      <p className="font-bold text-slate-900">{currentPlan.nombre}</p>
+                      <p className="text-sm text-slate-500">
+                        {formatCurrency(currentPlan.precio)}/
+                        {currentPlan.periodicidad === 'anual' ? 'año' : 'mes'}
+                      </p>
+                      {(currentPlan.maxAsignaturas !== undefined || currentPlan.maxAlumnos !== undefined) && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          {formatLimit(currentPlan.maxAsignaturas, 'asignaturas')} ·{' '}
+                          {formatLimit(currentPlan.maxAlumnos, 'alumnos')}
+                        </p>
+                      )}
+                    </>
+                  ) : null}
                 </div>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${getSubscriptionStatusColor(subscription.status)}`}>
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${getSubscriptionStatusColor(subscription.status)}`}
+                >
                   {subscription.status?.replace('_', ' ')}
                 </span>
               </div>
-              {subscription.status === 'activa' && daysRemaining !== null && (
-                <p className={`text-sm font-medium ${daysRemaining <= 7 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {daysRemaining !== null && subscription.status !== 'cancelada' && (
+                <p
+                  className={`text-sm font-medium ${
+                    daysRemaining <= 7
+                      ? 'text-amber-600'
+                      : subscription.status === 'vencida'
+                      ? 'text-red-600'
+                      : 'text-emerald-600'
+                  }`}
+                >
                   {getDaysLabel(daysRemaining)}
                 </p>
-              )}
-              {subscription.status === 'vencida' && daysRemaining !== null && (
-                <p className="text-sm font-medium text-red-600">{getDaysLabel(daysRemaining)}</p>
               )}
               {subscription.status === 'pendiente_pago' && (
                 <p className="text-sm text-amber-600">Tu pago está en revisión por el administrador.</p>
@@ -309,7 +331,7 @@ export default function Profile() {
               onClick={() => setShowPaymentModal(true)}
               className="mt-4 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors"
             >
-              {subscription ? 'Contratar / Renovar' : 'Contratar plan'}
+              {subscription && subscription.status !== 'trial' ? 'Contratar / Renovar' : 'Contratar Plan Pro'}
             </button>
           )}
           {recentPayments.length > 0 && (
@@ -320,7 +342,9 @@ export default function Profile() {
                   <li key={p.id} className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">{formatDate(p.createdAt)}</span>
                     <span className="font-medium">{formatCurrency(p.monto)}</span>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getPaymentStatusColor(p.status)}`}>
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getPaymentStatusColor(p.status)}`}
+                    >
                       {p.status}
                     </span>
                   </li>

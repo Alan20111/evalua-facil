@@ -73,7 +73,7 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
 
-    // Subscriptions: read own or admin; create docente (pendiente_pago) or admin; update/delete admin
+    // Subscriptions: read own or admin; docente can create trial or pendiente_pago; admin full control
     match /subscriptions/{subId} {
       allow read: if request.auth != null && (
         isAdmin() || resource.data.docenteId == request.auth.uid
@@ -81,7 +81,7 @@ service cloud.firestore {
       allow create: if isAdmin() || (
         isDocente() &&
         request.resource.data.docenteId == request.auth.uid &&
-        request.resource.data.status == 'pendiente_pago'
+        request.resource.data.status in ['pendiente_pago', 'trial']
       );
       allow update: if isAdmin() || (
         isDocente() &&
@@ -92,7 +92,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Payments: read own or admin; create docente (pendiente) or admin; update/delete admin
+    // Payments: read own or admin; docente can create pending; admin can update/delete
     match /payments/{paymentId} {
       allow read: if request.auth != null && (
         isAdmin() || resource.data.docenteId == request.auth.uid

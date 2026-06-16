@@ -4,9 +4,7 @@
   "description": "Database seeding and clearing scripts for Evalúa Fácil",
   "main": "clear-db.js",
   "scripts": {
-    "clear": "node clear-db.js",
-    "seed-plans": "node seed-plans.js",
-    "create-admin": "node create-admin.js"
+    "clear": "node clear-db.js"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0"

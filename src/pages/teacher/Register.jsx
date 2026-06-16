@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth'
-import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
+import { Timestamp, addDoc, collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -80,6 +80,22 @@ export default function Register() {
         email: email.trim().toLowerCase(),
         escuelaId: schoolId,
         photoURL: null,
+      })
+
+      // Create 60-day trial subscription
+      const trialStart = new Date()
+      const trialEnd = new Date(trialStart)
+      trialEnd.setDate(trialEnd.getDate() + 60)
+      await addDoc(collection(db, 'subscriptions'), {
+        docenteId: cred.user.uid,
+        planId: '',
+        escuelaId: schoolId,
+        schoolName: selectedPlantel.short || selectedPlantel.nombre,
+        status: 'trial',
+        fechaInicio: Timestamp.fromDate(trialStart),
+        fechaVencimiento: Timestamp.fromDate(trialEnd),
+        createdAt: Timestamp.fromDate(trialStart),
+        updatedAt: Timestamp.fromDate(trialStart),
       })
 
       // Send welcome email (best-effort — don't fail registration if email fails)

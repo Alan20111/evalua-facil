@@ -35,38 +35,21 @@ export default function TeacherLogin() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  async function navigateAfterAuth(uid) {
-    const snap = await getDoc(doc(db, 'users', uid))
-    if (!snap.exists()) {
-      navigate('/register/school')
-      return
-    }
-    const role = snap.data().role
-    if (role === 'admin') navigate('/Admin')
-    else if (role === 'docente') navigate('/dashboard')
-    else navigate('/alumno/dashboard')
-  }
-
   const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
-      const input = username.trim()
-      let userEmail
-      if (input.includes('@')) {
-        userEmail = input.toLowerCase()
-      } else {
-        const snap = await getDocs(
-          query(collection(db, 'users'), where('username', '==', input))
-        )
-        if (snap.empty) {
-          toast('Usuario o contraseña incorrectos', 'error')
-          return
-        }
-        userEmail = snap.docs[0].data().email
+      // Lookup email by username
+      const snap = await getDocs(
+        query(collection(db, 'users'), where('username', '==', username.trim()))
+      )
+      if (snap.empty) {
+        toast('Usuario o contraseña incorrectos', 'error')
+        return
       }
-      const cred = await signInWithEmailAndPassword(auth, userEmail, password)
-      await navigateAfterAuth(cred.user.uid)
+      const userEmail = snap.docs[0].data().email
+      await signInWithEmailAndPassword(auth, userEmail, password)
+      navigate('/dashboard')
     } catch (err) {
       toast(
         err.code === 'auth/invalid-credential'
@@ -83,7 +66,8 @@ export default function TeacherLogin() {
     setGoogleLoading(true)
     try {
       const result = await signInWithPopup(auth, new GoogleAuthProvider())
-      await navigateAfterAuth(result.user.uid)
+      const snap = await getDoc(doc(db, 'users', result.user.uid))
+      navigate(snap.exists() ? '/dashboard' : '/register/school')
     } catch (err) {
       if (err.code !== 'auth/popup-closed-by-user') {
         if (auth.currentUser) await signOut(auth).catch(() => {})
@@ -118,7 +102,7 @@ export default function TeacherLogin() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Usuario o correo</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
               <input
                 type="text"
                 value={username}
@@ -126,7 +110,7 @@ export default function TeacherLogin() {
                 required
                 autoComplete="username"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-slate-50"
-                placeholder="Ej. 110010-01 o admin@correo.com"
+                placeholder="Ej. 110010-01"
               />
             </div>
             <div>

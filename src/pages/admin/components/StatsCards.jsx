@@ -6,6 +6,7 @@ import {
   Clock,
   AlertTriangle,
   TrendingUp,
+  Timer,
 } from 'lucide-react'
 import { formatCurrency } from '../../../utils/subscriptionHelpers'
 
@@ -13,10 +14,10 @@ const KPI_CONFIG = [
   { key: 'teacherCount', label: 'Docentes', icon: Users, format: (v) => v },
   { key: 'activeStudentCount', label: 'Alumnos activos', icon: GraduationCap, format: (v) => v },
   { key: 'activeSubCount', label: 'Suscripciones activas', icon: CreditCard, format: (v) => v },
+  { key: 'trialCount', label: 'En periodo trial', icon: Timer, format: (v) => v },
   { key: 'totalRevenue', label: 'Ingresos totales', icon: DollarSign, format: formatCurrency },
   { key: 'monthRevenue', label: 'Ingresos del mes', icon: DollarSign, format: formatCurrency },
   { key: 'pendingPaymentCount', label: 'Pagos pendientes', icon: Clock, format: (v) => v },
-  { key: 'expiringSoonCount', label: 'Por vencer (7 días)', icon: AlertTriangle, format: (v) => v },
   { key: 'conversionRate', label: 'Tasa conversión', icon: TrendingUp, format: (v) => `${v.toFixed(1)}%` },
 ]
 
@@ -26,10 +27,7 @@ export default function StatsCards({ kpis }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       {KPI_CONFIG.map(({ key, label, icon: Icon, format }) => (
-        <div
-          key={key}
-          className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5"
-        >
+        <div key={key} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5">
           <div className="flex items-center gap-2 text-slate-400 mb-2">
             <Icon size={16} />
             <span className="text-xs font-medium">{label}</span>
@@ -61,7 +59,9 @@ function BarChart({ items, labelKey, valueKey, maxBars = 10 }) {
                 style={{ width: `${(item[valueKey] / max) * 100}%` }}
               />
             </div>
-            <span className="text-xs font-semibold text-slate-700 w-6 text-right">{item[valueKey]}</span>
+            <span className="text-xs font-semibold text-slate-700 w-6 text-right">
+              {item[valueKey]}
+            </span>
           </div>
         ))
       )}
@@ -107,6 +107,10 @@ export function ResumenCharts({ stats }) {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <h3 className="font-semibold text-slate-900 mb-4">Estadísticas adicionales</h3>
         <dl className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-slate-500">En trial</dt>
+            <dd className="font-semibold">{kpis.trialCount}</dd>
+          </div>
           <div className="flex justify-between">
             <dt className="text-slate-500">Vencidas</dt>
             <dd className="font-semibold">{kpis.expiredCount}</dd>

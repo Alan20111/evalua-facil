@@ -13,7 +13,10 @@ export default function UsersTable({ stats }) {
   const subsByTeacher = {}
   subscriptions.forEach((s) => {
     const existing = subsByTeacher[s.docenteId]
-    if (!existing || (s.updatedAt?.toMillis?.() || 0) > (existing.updatedAt?.toMillis?.() || 0)) {
+    if (
+      !existing ||
+      (s.updatedAt?.toMillis?.() || 0) > (existing.updatedAt?.toMillis?.() || 0)
+    ) {
       subsByTeacher[s.docenteId] = s
     }
   })
@@ -21,7 +24,10 @@ export default function UsersTable({ stats }) {
   const lastPaymentByTeacher = {}
   payments.forEach((p) => {
     const existing = lastPaymentByTeacher[p.docenteId]
-    if (!existing || (p.createdAt?.toMillis?.() || 0) > (existing.createdAt?.toMillis?.() || 0)) {
+    if (
+      !existing ||
+      (p.createdAt?.toMillis?.() || 0) > (existing.createdAt?.toMillis?.() || 0)
+    ) {
       lastPaymentByTeacher[p.docenteId] = p
     }
   })
@@ -73,7 +79,15 @@ export default function UsersTable({ stats }) {
                     <td className="px-4 py-3 text-slate-600 truncate max-w-[140px]">
                       {school?.nombre || teacher.schoolName || '—'}
                     </td>
-                    <td className="px-4 py-3">{plan?.nombre || '—'}</td>
+                    <td className="px-4 py-3">
+                      {sub?.status === 'trial' ? (
+                        <span className="text-xs text-blue-600 font-medium">Trial</span>
+                      ) : plan ? (
+                        plan.nombre
+                      ) : (
+                        '—'
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       {sub ? (
                         <span

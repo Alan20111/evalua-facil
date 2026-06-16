@@ -122,7 +122,6 @@ export default function PaymentsTable({ stats, onRefresh }) {
                       <p className="font-medium text-slate-800">
                         {teacher?.username || teacher?.email || '—'}
                       </p>
-                      <p className="text-xs text-slate-400">{payment.schoolName || ''}</p>
                     </td>
                     <td className="px-4 py-3 font-semibold">{formatCurrency(payment.monto)}</td>
                     <td className="px-4 py-3 font-mono text-xs">{payment.referencia || '—'}</td>
@@ -180,7 +179,10 @@ export default function PaymentsTable({ stats, onRefresh }) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => { setRejectModal(null); setNotasAdmin('') }}
+                onClick={() => {
+                  setRejectModal(null)
+                  setNotasAdmin('')
+                }}
                 className="flex-1 py-2 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600"
               >
                 Cancelar
@@ -188,7 +190,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
               <button
                 type="button"
                 onClick={handleReject}
-                disabled={processing}
+                disabled={!!processing}
                 className="flex-1 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold disabled:opacity-60"
               >
                 Rechazar

@@ -86,7 +86,7 @@ async function main() {
 
   if (userRecord) {
     const snap = await db.collection('users').doc(userRecord.uid).get()
-    const existing = snap.exists() ? snap.data() : {}
+    const existing = snap.exists ? snap.data() : {}
 
     if (existing.role === 'admin') {
       console.log(`✓ ${email} ya es administrador (uid: ${userRecord.uid}).\n`)
