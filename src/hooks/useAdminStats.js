@@ -90,7 +90,7 @@ export function useAdminStats() {
       })
       const schoolsMap = Object.fromEntries(schools.map((s) => [s.id, s]))
       const teachersBySchool = Object.entries(schoolCounts)
-        .map(([id, count]) => ({ school: schoolsMap[id]?.nombre || id, count }))
+        .map(([id, count]) => ({ school: schoolsMap[id]?.shortName || schoolsMap[id]?.claveSEP || id, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
 

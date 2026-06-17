@@ -55,7 +55,7 @@ function BarChart({ items, labelKey, valueKey, maxBars = 10 }) {
             </span>
             <div className="flex-1 h-6 bg-slate-100 rounded-lg overflow-hidden">
               <div
-                className="h-full bg-violet-500 rounded-lg transition-all"
+                className="h-full bg-blue-500 rounded-lg transition-all"
                 style={{ width: `${(item[valueKey] / max) * 100}%` }}
               />
             </div>

@@ -14,7 +14,7 @@ import Spinner from '../../../components/Spinner'
 import { formatCurrency } from '../../../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm bg-slate-50'
+  'w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50'
 
 const EMPTY_PLAN = {
   nombre: '',
@@ -104,7 +104,7 @@ export default function PlansManager({ stats, onRefresh }) {
         <button
           type="button"
           onClick={openCreate}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white text-sm font-semibold rounded-xl hover:bg-violet-700"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700"
         >
           <Plus size={14} /> Nuevo plan
         </button>
@@ -165,7 +165,7 @@ export default function PlansManager({ stats, onRefresh }) {
                       <button
                         type="button"
                         onClick={() => openEdit(plan)}
-                        className="p-1.5 text-slate-400 hover:text-violet-600 rounded-lg"
+                        className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg"
                       >
                         <Pencil size={14} />
                       </button>
@@ -313,7 +313,7 @@ export default function PlansManager({ stats, onRefresh }) {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-2.5 bg-violet-600 text-white font-semibold rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-blue-600 text-white font-semibold rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}
                 Guardar

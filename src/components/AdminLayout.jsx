@@ -38,7 +38,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
     <div className="min-h-screen bg-slate-50">
       <header className="md:hidden sticky top-0 z-30 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white text-xs font-bold">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
             AD
           </div>
           <span className="font-semibold text-slate-800 text-sm">Admin</span>
@@ -59,12 +59,12 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
           } md:flex flex-col w-64 h-screen fixed md:sticky top-0 bg-white border-r border-slate-200 flex-shrink-0 z-20`}
         >
           <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white text-xs font-bold">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
               AD
             </div>
             <div>
               <span className="font-bold text-slate-800 block">Evalúa Fácil</span>
-              <span className="text-xs text-violet-600 font-medium">Panel Admin</span>
+              <span className="text-xs text-blue-600 font-medium">Panel Admin</span>
             </div>
           </div>
 
@@ -83,7 +83,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
                 }}
                 className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-sm transition-colors ${
                   activeTab === id
-                    ? 'bg-violet-50 text-violet-700 font-semibold'
+                    ? 'bg-blue-50 text-blue-700 font-semibold'
                     : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
