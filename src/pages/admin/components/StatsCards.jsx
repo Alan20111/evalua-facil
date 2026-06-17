@@ -72,76 +72,29 @@ function BarChart({ items, labelKey, valueKey, maxBars = 10 }) {
 export function ResumenCharts({ stats }) {
   if (!stats) return null
 
-  const { subsByPlan, teachersBySchool, kpis, revenueByPlan, subsistemaDist } = stats
+  const { teachersBySchool, subscriptions } = stats
 
-  const subsistemaItems = Object.entries(subsistemaDist || {}).map(([name, count]) => ({
-    name,
-    count,
+  const statusItems = [
+    { status: 'trial', label: 'Trial' },
+    { status: 'activa', label: 'Activa' },
+    { status: 'vencida', label: 'Vencida' },
+    { status: 'pendiente_pago', label: 'Pendiente pago' },
+    { status: 'cancelada', label: 'Cancelada' },
+  ].map(({ status, label }) => ({
+    name: label,
+    count: (subscriptions || []).filter((s) => s.status === status).length,
   }))
 
   return (
     <div className="grid md:grid-cols-2 gap-4 mt-6">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <h3 className="font-semibold text-slate-900 mb-4">Suscripciones activas por plan</h3>
-        <BarChart
-          items={subsByPlan.map((s) => ({ name: s.plan.nombre, count: s.count }))}
-          labelKey="name"
-          valueKey="count"
-        />
-      </div>
-
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
         <h3 className="font-semibold text-slate-900 mb-4">Docentes por escuela (top 10)</h3>
         <BarChart items={teachersBySchool} labelKey="school" valueKey="count" />
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <h3 className="font-semibold text-slate-900 mb-4">Ingresos por plan</h3>
-        <BarChart
-          items={revenueByPlan.map((r) => ({ name: r.plan.nombre, total: r.total }))}
-          labelKey="name"
-          valueKey="total"
-        />
-      </div>
-
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <h3 className="font-semibold text-slate-900 mb-4">Estadísticas adicionales</h3>
-        <dl className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-slate-500">En trial</dt>
-            <dd className="font-semibold">{kpis.trialCount}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-slate-500">Vencidas</dt>
-            <dd className="font-semibold">{kpis.expiredCount}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-slate-500">Canceladas</dt>
-            <dd className="font-semibold">{kpis.cancelledCount}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-slate-500">Nuevos docentes (mes)</dt>
-            <dd className="font-semibold">{kpis.newTeachersThisMonth}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-slate-500">Prom. asignaturas/docente</dt>
-            <dd className="font-semibold">{kpis.avgSubjects.toFixed(1)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-slate-500">Prom. alumnos/docente</dt>
-            <dd className="font-semibold">{kpis.avgStudents.toFixed(1)}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt className="text-slate-500">Churn (30 días)</dt>
-            <dd className="font-semibold">{kpis.churnCount}</dd>
-          </div>
-        </dl>
-        {subsistemaItems.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Por subsistema</p>
-            <BarChart items={subsistemaItems} labelKey="name" valueKey="count" />
-          </div>
-        )}
+        <h3 className="font-semibold text-slate-900 mb-4">Estado de suscripciones</h3>
+        <BarChart items={statusItems} labelKey="name" valueKey="count" />
       </div>
     </div>
   )

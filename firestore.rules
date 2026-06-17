@@ -19,13 +19,14 @@ service cloud.firestore {
       allow update: if request.auth != null;
     }
 
-    // Users: readable by auth'd users; owner can write but not change role
+    // Users: readable by auth'd users; owner can update (role preserved); admin full control
     match /users/{userId} {
       allow read: if request.auth != null;
       allow create: if request.auth.uid == userId &&
         request.resource.data.role == 'docente';
-      allow update: if request.auth.uid == userId &&
-        request.resource.data.role == resource.data.role;
+      allow update: if isAdmin() ||
+        (request.auth.uid == userId && request.resource.data.role == resource.data.role);
+      allow delete: if isAdmin();
     }
 
     // Students: public read needed for activation username lookup

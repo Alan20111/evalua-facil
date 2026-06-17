@@ -60,6 +60,25 @@ function buildHtml({ nombre, username, school }) {
               </tr>
             </table>
 
+            <!-- TRIAL BADGE -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+              <tr>
+                <td style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);border:1px solid #bfdbfe;border-radius:16px;padding:20px 24px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="width:40px;height:40px;background:#2563eb;border-radius:10px;text-align:center;vertical-align:middle;">
+                        <span style="color:#ffffff;font-size:18px;line-height:40px;">★</span>
+                      </td>
+                      <td style="padding-left:14px;">
+                        <p style="margin:0 0 2px;color:#1e40af;font-size:14px;font-weight:800;">60 días de prueba gratuita</p>
+                        <p style="margin:0;color:#3b82f6;font-size:13px;">Acceso completo a todas las funciones. Sin tarjeta de crédito.</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
             <!-- STEPS -->
             <p style="margin:0 0 16px;color:#1e293b;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Cómo ingresar</p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">

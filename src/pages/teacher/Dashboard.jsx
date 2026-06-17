@@ -14,7 +14,9 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { Plus, BookOpen, ChevronRight, X, AlertTriangle } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, AlertTriangle, CreditCard } from 'lucide-react'
+import { useSubscription } from '../../hooks/useSubscription'
+import { calcDaysRemaining } from '../../utils/subscriptionHelpers'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -39,6 +41,12 @@ export default function TeacherDashboard() {
   // Welcome modal (shown once after registration)
   const [showWelcomeModal, setShowWelcomeModal] = useState(location.state?.newAccount === true)
   const welcomeUsername = location.state?.createdUsername ?? ''
+
+  // Trial period modal
+  const [trialDismissed, setTrialDismissed] = useState(() => sessionStorage.getItem('trialDismissed') === '1')
+  const { subscription, loading: subLoading } = useSubscription()
+  const isTrial = subscription?.status === 'trial'
+  const daysLeft = isTrial ? calcDaysRemaining(subscription.fechaVencimiento) : 0
 
   // Unverified email banner
   const [verifyLoading, setVerifyLoading] = useState(false)
@@ -351,6 +359,47 @@ export default function TeacherDashboard() {
             >
               Entrar al dashboard
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Trial period modal */}
+      {isTrial && !trialDismissed && !subLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                <CreditCard size={20} className="text-blue-600" />
+              </div>
+              <button onClick={() => { sessionStorage.setItem('trialDismissed','1'); setTrialDismissed(true) }}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X size={18} />
+              </button>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Período de prueba</h3>
+              <p className="text-sm text-slate-500 mt-1">
+                {daysLeft > 0
+                  ? <>Te quedan <strong className="text-blue-600">{daysLeft} días</strong> de prueba gratuita.</>
+                  : 'Tu período de prueba ha terminado.'}
+              </p>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-4">
+              <p className="text-xs font-semibold text-blue-700 mb-0.5">Plan Pro</p>
+              <p className="text-2xl font-black text-blue-800">$100 <span className="text-sm font-normal text-blue-500">/mes</span></p>
+              <p className="text-xs text-blue-600 mt-1">Acceso completo sin límites</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button onClick={() => { navigate('/profile'); sessionStorage.setItem('trialDismissed','1'); setTrialDismissed(true) }}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-sm">
+                Contratar Plan Pro →
+              </button>
+              <button onClick={() => { sessionStorage.setItem('trialDismissed','1'); setTrialDismissed(true) }}
+                className="w-full py-2 text-slate-400 hover:text-slate-600 text-sm transition-colors">
+                Recordármelo después
+              </button>
+            </div>
           </div>
         </div>
       )}
