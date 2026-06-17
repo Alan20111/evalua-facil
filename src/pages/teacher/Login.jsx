@@ -22,15 +22,20 @@ export default function TeacherLogin() {
     e.preventDefault()
     setLoading(true)
     try {
-      // Lookup email by username
-      const snap = await getDocs(
-        query(collection(db, 'users'), where('username', '==', username.trim()))
-      )
-      if (snap.empty) {
-        toast('Usuario o contraseña incorrectos', 'error')
-        return
+      const input = username.trim()
+      let userEmail
+      if (input.includes('@')) {
+        userEmail = input
+      } else {
+        const snap = await getDocs(
+          query(collection(db, 'users'), where('username', '==', input))
+        )
+        if (snap.empty) {
+          toast('Usuario o contraseña incorrectos', 'error')
+          return
+        }
+        userEmail = snap.docs[0].data().email
       }
-      const userEmail = snap.docs[0].data().email
       await signInWithEmailAndPassword(auth, userEmail, password)
       navigate('/dashboard')
     } catch (err) {

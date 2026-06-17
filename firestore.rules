@@ -12,16 +12,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'docente';
     }
 
-    // Schools: any authenticated user can read; write to create or update
     match /schools/{schoolId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update: if request.auth != null;
     }
 
-    // Users: readable by auth'd users; owner can update (role preserved); admin full control
     match /users/{userId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow create: if request.auth.uid == userId &&
         request.resource.data.role == 'docente';
       allow update: if isAdmin() ||
@@ -29,7 +27,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Students: public read needed for activation username lookup
     match /students/{studentId} {
       allow read: if true;
       allow create: if request.auth != null;
@@ -37,7 +34,6 @@ service cloud.firestore {
       allow delete: if request.auth != null;
     }
 
-    // Subjects: public read needed for QR activation (unauthenticated students lookup by accessCode)
     match /subjects/{subjectId} {
       allow read: if true;
       allow create: if request.auth != null;
@@ -45,7 +41,6 @@ service cloud.firestore {
         request.auth.uid == resource.data.docenteId;
     }
 
-    // Activities: teacher CRUD, auth'd read
     match /activities/{activityId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
@@ -53,14 +48,12 @@ service cloud.firestore {
         request.auth.uid == resource.data.docenteId;
     }
 
-    // Submissions: student creates own, teacher grades (update), auth'd reads
     match /submissions/{submissionId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update: if request.auth != null;
     }
 
-    // Attendance: teacher CRUD, auth'd read
     match /attendance/{attendanceId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
@@ -68,13 +61,11 @@ service cloud.firestore {
         request.auth.uid == resource.data.docenteId;
     }
 
-    // Plans: read by authenticated users; CRUD admin only
     match /plans/{planId} {
       allow read: if request.auth != null;
       allow create, update, delete: if isAdmin();
     }
 
-    // Subscriptions: read own or admin; docente can create trial or pendiente_pago; admin full control
     match /subscriptions/{subId} {
       allow read: if request.auth != null && (
         isAdmin() || resource.data.docenteId == request.auth.uid
@@ -93,7 +84,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Payments: read own or admin; docente can create pending; admin can update/delete
     match /payments/{paymentId} {
       allow read: if request.auth != null && (
         isAdmin() || resource.data.docenteId == request.auth.uid
