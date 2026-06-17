@@ -71,8 +71,12 @@ export default function TeacherDashboard() {
     try {
       await sendEmailVerification(auth.currentUser)
       setVerifySent(true)
-    } catch {
-      toast('Error al reenviar el correo de verificación', 'error')
+    } catch (err) {
+      if (err.code === 'auth/too-many-requests') {
+        toast('Espera un minuto antes de reenviar el correo', 'error')
+      } else {
+        toast('No se pudo enviar el correo. Intenta más tarde.', 'error')
+      }
     } finally {
       setVerifyLoading(false)
     }
