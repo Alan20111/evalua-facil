@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { Timestamp, addDoc, collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
@@ -48,7 +48,6 @@ export default function Register() {
     setLoading(true)
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password)
-      await sendEmailVerification(cred.user)
 
       const schoolSnap = await getDocs(
         query(collection(db, 'schools'), where('claveSEP', '==', selectedPlantel.cct))
@@ -102,7 +101,6 @@ export default function Register() {
       try {
         await sendWelcomeEmail({
           email: email.trim().toLowerCase(),
-          nombre: '',
           username,
           school: selectedPlantel.short || selectedPlantel.nombre,
         })
