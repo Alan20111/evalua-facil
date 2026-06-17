@@ -8,7 +8,8 @@ import {
   addDoc,
   serverTimestamp,
 } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { sendEmailVerification } from 'firebase/auth'
+import { db, auth } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
@@ -16,7 +17,6 @@ import Spinner from '../../components/Spinner'
 import { Plus, BookOpen, ChevronRight, X, AlertTriangle, CreditCard } from 'lucide-react'
 import { useSubscription } from '../../hooks/useSubscription'
 import { calcDaysRemaining } from '../../utils/subscriptionHelpers'
-import { sendWelcomeEmail } from '../../utils/welcomeEmail'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -66,17 +66,13 @@ export default function TeacherDashboard() {
   const toast = useToast()
 
   async function handleResendVerification() {
-    if (!currentUser) return
+    if (!auth.currentUser) return
     setVerifyLoading(true)
     try {
-      await sendWelcomeEmail({
-        email: currentUser.email,
-        username: userProfile?.username || '',
-        school: userProfile?.schoolName || '',
-      })
+      await sendEmailVerification(auth.currentUser)
       setVerifySent(true)
     } catch {
-      toast('Error al enviar el correo. Verifica la configuración de EmailJS.', 'error')
+      toast('Error al reenviar el correo de verificación', 'error')
     } finally {
       setVerifyLoading(false)
     }
@@ -152,24 +148,24 @@ export default function TeacherDashboard() {
     <TeacherLayout>
       <div className="px-4 py-6 max-w-2xl mx-auto">
 
-        {/* Welcome email banner */}
+        {/* Unverified email banner */}
         {currentUser && !currentUser.emailVerified && (
-          <div className="mb-5 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3.5">
-            <AlertTriangle size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
+          <div className="mb-5 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5">
+            <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-blue-800">¿No recibiste tu correo de bienvenida?</p>
-              <p className="text-xs text-blue-700 leading-relaxed mt-0.5">
-                Te enviamos tu nombre de usuario al registrarte. Revisa spam o reenvíalo.
+              <p className="text-sm font-semibold text-amber-800">Verifica tu correo</p>
+              <p className="text-xs text-amber-700 leading-relaxed mt-0.5">
+                Revisa tu bandeja de entrada y confirma tu cuenta para proteger tu acceso.
               </p>
               {verifySent ? (
-                <p className="mt-2 text-xs font-semibold text-blue-700">Correo enviado — revisa tu bandeja ✓</p>
+                <p className="mt-2 text-xs font-semibold text-amber-700">Correo enviado — revisa tu bandeja ✓</p>
               ) : (
                 <button
                   onClick={handleResendVerification}
                   disabled={verifyLoading}
-                  className="mt-2 text-xs font-semibold text-blue-700 underline underline-offset-2 disabled:opacity-50"
+                  className="mt-2 text-xs font-semibold text-amber-700 underline underline-offset-2 disabled:opacity-50"
                 >
-                  {verifyLoading ? 'Enviando…' : 'Reenviar correo de bienvenida'}
+                  {verifyLoading ? 'Enviando…' : 'Reenviar correo de verificación'}
                 </button>
               )}
             </div>

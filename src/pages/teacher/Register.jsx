@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth'
 import { Timestamp, addDoc, collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
@@ -8,7 +8,6 @@ import Spinner from '../../components/Spinner'
 import { GraduationCap, ChevronDown, Search, Check, X } from 'lucide-react'
 import { usePlanteles } from '../../data/usePlanteles'
 import PasswordInput from '../../components/PasswordInput'
-import { sendWelcomeEmail } from '../../utils/welcomeEmail'
 
 function generateTeacherUsername(shortName, count) {
   const prefix = (shortName || '').toUpperCase().replace(/\s+/g, '')
@@ -48,6 +47,8 @@ export default function Register() {
     setLoading(true)
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password)
+      await updateProfile(cred.user, { displayName: username })
+      await sendEmailVerification(cred.user)
 
       const schoolSnap = await getDocs(
         query(collection(db, 'schools'), where('claveSEP', '==', selectedPlantel.cct))
@@ -96,17 +97,6 @@ export default function Register() {
         createdAt: Timestamp.fromDate(trialStart),
         updatedAt: Timestamp.fromDate(trialStart),
       })
-
-      // Send welcome email (best-effort — don't fail registration if email fails)
-      try {
-        await sendWelcomeEmail({
-          email: email.trim().toLowerCase(),
-          username,
-          school: selectedPlantel.short || selectedPlantel.nombre,
-        })
-      } catch {
-        // email not configured or failed — continue anyway
-      }
 
       navigate('/dashboard', { state: { newAccount: true, createdUsername: username } })
     } catch (err) {
