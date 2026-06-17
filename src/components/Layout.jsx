@@ -9,6 +9,7 @@ import {
   Archive,
   ChevronRight,
   X,
+  Timer,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -23,6 +24,8 @@ import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
+import { useSubscription } from '../hooks/useSubscription'
+import { calcDaysRemaining } from '../utils/subscriptionHelpers'
 
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
@@ -100,6 +103,11 @@ export default function TeacherLayout({ children }) {
     }
   }
 
+  const { subscription } = useSubscription()
+  const trialDays = subscription?.status === 'trial'
+    ? calcDaysRemaining(subscription.fechaVencimiento)
+    : null
+
   const displayName =
     userProfile?.nombreMostrar || userProfile?.username || userProfile?.nombre || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
@@ -159,6 +167,23 @@ export default function TeacherLayout({ children }) {
             </div>
             <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
           </NavLink>
+
+          {/* Trial banner */}
+          {trialDays !== null && trialDays > 0 && (
+            <NavLink
+              to="/profile"
+              className={`mx-2 mt-1 px-3 py-2 rounded-xl flex items-center gap-2 transition-colors ${
+                trialDays <= 7
+                  ? 'bg-red-50 hover:bg-red-100 border border-red-200'
+                  : 'bg-amber-50 hover:bg-amber-100 border border-amber-200'
+              }`}
+            >
+              <Timer size={13} className={trialDays <= 7 ? 'text-red-500 flex-shrink-0' : 'text-amber-500 flex-shrink-0'} />
+              <p className={`text-xs font-medium leading-tight ${trialDays <= 7 ? 'text-red-700' : 'text-amber-700'}`}>
+                Te quedan <strong>{trialDays} día{trialDays !== 1 ? 's' : ''}</strong> de prueba
+              </p>
+            </NavLink>
+          )}
 
           {/* Subjects header */}
           <div className="px-4 pt-5 pb-1">
