@@ -48,8 +48,10 @@ export default function TeacherDashboard() {
   const isTrial = subscription?.status === 'trial'
   const daysLeft = isTrial ? calcDaysRemaining(subscription.fechaVencimiento) : 0
 
-  // Email banner (shown after registration, dismissible)
-  const [showEmailBanner, setShowEmailBanner] = useState(location.state?.newAccount === true)
+  // Email banner (shown while email unverified, dismissible per session)
+  const [showEmailBanner, setShowEmailBanner] = useState(
+    () => !currentUser?.emailVerified && sessionStorage.getItem('emailBannerDismissed') !== '1'
+  )
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [verifySent, setVerifySent] = useState(false)
 
@@ -173,7 +175,7 @@ export default function TeacherDashboard() {
                 </button>
               )}
             </div>
-            <button onClick={() => setShowEmailBanner(false)} className="text-amber-400 hover:text-amber-600 flex-shrink-0">
+            <button onClick={() => { sessionStorage.setItem('emailBannerDismissed', '1'); setShowEmailBanner(false) }} className="text-amber-400 hover:text-amber-600 flex-shrink-0">
               <X size={16} />
             </button>
           </div>
