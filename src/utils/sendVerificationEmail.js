@@ -1,3 +1,5 @@
+import emailjs from '@emailjs/browser'
+
 const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID
 const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID
 const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY
@@ -78,19 +80,10 @@ function buildHtml(username) {
 
 export async function sendVerificationEmail({ email, username }) {
   if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY) return
-  const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      service_id: SERVICE_ID,
-      template_id: TEMPLATE_ID,
-      user_id: PUBLIC_KEY,
-      template_params: {
-        to_email: email,
-        to_name: username,
-        html_content: buildHtml(username),
-      },
-    }),
-  })
-  if (!res.ok) throw new Error(`Email error ${res.status}`)
+  await emailjs.send(
+    SERVICE_ID,
+    TEMPLATE_ID,
+    { to_email: email, to_name: username, html_content: buildHtml(username) },
+    PUBLIC_KEY
+  )
 }
