@@ -4,6 +4,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
 import { Timestamp, addDoc, collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
+import { sendVerificationEmail } from '../../utils/sendVerificationEmail'
 import Spinner from '../../components/Spinner'
 import { GraduationCap, ChevronDown, Search, Check, X } from 'lucide-react'
 import { usePlanteles } from '../../data/usePlanteles'
@@ -47,7 +48,6 @@ export default function Register() {
     setLoading(true)
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password)
-      await updateProfile(cred.user, { displayName: username })
 
       const schoolSnap = await getDocs(
         query(collection(db, 'schools'), where('claveSEP', '==', selectedPlantel.cct))
@@ -72,6 +72,8 @@ export default function Register() {
         query(collection(db, 'users'), where('escuelaId', '==', schoolId))
       )
       const username = generateTeacherUsername(selectedPlantel.short || selectedPlantel.nombre, teacherSnap.size)
+      await updateProfile(cred.user, { displayName: username })
+      sendVerificationEmail({ email: email.trim().toLowerCase(), username }).catch(() => {})
 
       await setDoc(doc(db, 'users', cred.user.uid), {
         role: 'docente',
