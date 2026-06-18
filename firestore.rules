@@ -95,5 +95,12 @@ service cloud.firestore {
       );
       allow update, delete: if isAdmin();
     }
+
+    // Public payment configuration (display data only: public keys, bank info).
+    // Secrets (access tokens / client secrets) live in server env vars, never here.
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

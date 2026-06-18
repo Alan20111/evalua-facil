@@ -7,6 +7,7 @@ import {
   Receipt,
   Users,
   Package,
+  Wallet,
   LogOut,
   Menu,
   X,
@@ -18,6 +19,7 @@ const TABS = [
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
   { id: 'suscripciones', label: 'Suscripciones', icon: CreditCard },
   { id: 'pagos', label: 'Pagos', icon: Receipt },
+  { id: 'cobros', label: 'Cobros', icon: Wallet },
   { id: 'usuarios', label: 'Usuarios', icon: Users },
   { id: 'planes', label: 'Planes', icon: Package },
 ]

@@ -16,7 +16,7 @@ import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
 import { Camera, Check, LogOut, Lock, User, X, Mail, CreditCard } from 'lucide-react'
 import { useSubscription } from '../../hooks/useSubscription'
-import PaymentSimulationModal from '../../components/PaymentSimulationModal'
+import CheckoutModal from '../../components/CheckoutModal'
 import {
   calcDaysRemaining,
   formatCurrency,
@@ -307,7 +307,7 @@ export default function Profile() {
           )}
         </div>
 
-        <PaymentSimulationModal
+        <CheckoutModal
           open={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
           plans={plans}

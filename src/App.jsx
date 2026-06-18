@@ -10,6 +10,7 @@ import SubjectPage from './pages/teacher/SubjectPage'
 import ActivityPage from './pages/teacher/ActivityPage'
 import Profile from './pages/teacher/Profile'
 import VerifyEmail from './pages/teacher/VerifyEmail'
+import PagoResultado from './pages/teacher/PagoResultado'
 
 import StudentActivation from './pages/student/Activation'
 import StudentLogin from './pages/student/Login'
@@ -69,6 +70,7 @@ export default function App() {
             <Route path="/alumno" element={<StudentLogin />} />
             <Route path="/activate/:accessCode" element={<StudentActivation />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/pago-resultado" element={<PagoResultado />} />
 
             {/* Admin protected */}
             <Route path="/Admin" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
