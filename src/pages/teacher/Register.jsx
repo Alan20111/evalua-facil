@@ -73,7 +73,6 @@ export default function Register() {
       )
       const username = generateTeacherUsername(selectedPlantel.short || selectedPlantel.nombre, teacherSnap.size)
       await updateProfile(cred.user, { displayName: username })
-      sendVerificationEmail({ email: email.trim().toLowerCase(), username }).catch(() => {})
 
       await setDoc(doc(db, 'users', cred.user.uid), {
         role: 'docente',
@@ -99,6 +98,7 @@ export default function Register() {
         updatedAt: Timestamp.fromDate(trialStart),
       })
 
+      sendVerificationEmail({ email: email.trim().toLowerCase(), username, uid: cred.user.uid }).catch(() => {})
       navigate('/dashboard', { state: { newAccount: true, createdUsername: username } })
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {

@@ -1,10 +1,18 @@
 import emailjs from '@emailjs/browser'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 
 const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID
 const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID
 const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY
 
-function buildHtml(username) {
+function generateToken() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+function buildHtml(username, verifyUrl) {
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -48,7 +56,7 @@ function buildHtml(username) {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
             <tr>
               <td align="center">
-                <a href="https://evalua-facil.vercel.app/dashboard"
+                <a href="${verifyUrl}"
                    style="display:inline-block;background:#2563eb;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:12px;">
                   Activar cuenta
                 </a>
@@ -78,12 +86,20 @@ function buildHtml(username) {
 </html>`
 }
 
-export async function sendVerificationEmail({ email, username }) {
+export async function sendVerificationEmail({ email, username, uid }) {
+  let verifyUrl = 'https://evalua-facil.vercel.app/dashboard'
+
+  if (uid) {
+    const token = generateToken()
+    verifyUrl = `https://evalua-facil.vercel.app/verify-email?uid=${uid}&token=${token}`
+    await updateDoc(doc(db, 'users', uid), { verifyToken: token })
+  }
+
   if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY) return
   await emailjs.send(
     SERVICE_ID,
     TEMPLATE_ID,
-    { to_email: email, to_name: username, html_content: buildHtml(username) },
+    { to_email: email, to_name: username, html_content: buildHtml(username, verifyUrl) },
     PUBLIC_KEY
   )
 }

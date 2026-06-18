@@ -6,6 +6,9 @@ import {
   where,
   getDocs,
   addDoc,
+  doc,
+  getDoc,
+  updateDoc,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
@@ -33,7 +36,7 @@ function getCicloInfo() {
 }
 
 export default function TeacherDashboard() {
-  const { currentUser, userProfile } = useAuth()
+  const { currentUser, userProfile, setUserProfile } = useAuth()
   const location = useLocation()
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -48,10 +51,11 @@ export default function TeacherDashboard() {
   const isTrial = subscription?.status === 'trial'
   const daysLeft = isTrial ? calcDaysRemaining(subscription.fechaVencimiento) : 0
 
-  // Email banner (shown while email unverified, dismissible per session)
-  const [showEmailBanner, setShowEmailBanner] = useState(
-    () => !currentUser?.emailVerified && sessionStorage.getItem('emailBannerDismissed') !== '1'
+  // Email banner (shown while account not activated, dismissible per session)
+  const [emailBannerDismissed, setEmailBannerDismissed] = useState(
+    () => sessionStorage.getItem('emailBannerDismissed') === '1'
   )
+  const showEmailBanner = !userProfile?.cuentaActivada && !emailBannerDismissed
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [verifySent, setVerifySent] = useState(false)
 
@@ -75,6 +79,7 @@ export default function TeacherDashboard() {
       await sendVerificationEmail({
         email: currentUser.email,
         username: userProfile?.username || currentUser.displayName || '',
+        uid: currentUser.uid,
       })
       setVerifySent(true)
     } catch {
@@ -87,7 +92,25 @@ export default function TeacherDashboard() {
   useEffect(() => {
     if (!currentUser) return
     loadAll()
+    checkPendingVerify()
   }, [currentUser])
+
+  async function checkPendingVerify() {
+    const raw = localStorage.getItem('pendingVerify')
+    if (!raw) return
+    try {
+      const { uid, token } = JSON.parse(raw)
+      if (uid !== currentUser.uid) return
+      localStorage.removeItem('pendingVerify')
+      const snap = await getDoc(doc(db, 'users', uid))
+      if (!snap.exists()) return
+      if (snap.data().verifyToken !== token) return
+      await updateDoc(doc(db, 'users', uid), { cuentaActivada: true, verifyToken: null })
+      setUserProfile(prev => ({ ...prev, cuentaActivada: true, verifyToken: null }))
+    } catch {
+      // silently ignore
+    }
+  }
 
   async function loadAll() {
     setLoading(true)
@@ -175,7 +198,7 @@ export default function TeacherDashboard() {
                 </button>
               )}
             </div>
-            <button onClick={() => { sessionStorage.setItem('emailBannerDismissed', '1'); setShowEmailBanner(false) }} className="text-amber-400 hover:text-amber-600 flex-shrink-0">
+            <button onClick={() => { sessionStorage.setItem('emailBannerDismissed', '1'); setEmailBannerDismissed(true) }} className="text-amber-400 hover:text-amber-600 flex-shrink-0">
               <X size={16} />
             </button>
           </div>
