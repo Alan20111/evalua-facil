@@ -77,9 +77,8 @@ export default function TeacherDashboard() {
         username: userProfile?.username || currentUser.displayName || '',
       })
       setVerifySent(true)
-    } catch (err) {
-      const msg = err?.text || err?.message || err?.status || String(err)
-      toast('Error: ' + msg, 'error')
+    } catch {
+      toast('No se pudo enviar el correo. Intenta más tarde.', 'error')
     } finally {
       setVerifyLoading(false)
     }
