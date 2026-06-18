@@ -385,7 +385,7 @@ export default function Profile() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-slate-400 mb-0.5">Correo electrónico</p>
                   <p className="text-sm text-slate-900 truncate">{currentUser?.email}</p>
-                  {currentUser?.emailVerified
+                  {userProfile?.cuentaActivada
                     ? <p className="text-xs text-emerald-500 flex items-center gap-1 mt-0.5"><Check size={10} /> Verificado</p>
                     : <p className="text-xs text-amber-500 mt-0.5">Sin verificar</p>}
                 </div>
