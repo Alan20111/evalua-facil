@@ -22,11 +22,12 @@ export default function StudentActivation() {
   const location = useLocation()
   const [subject, setSubject] = useState(null)
   const [student, setStudent] = useState(null)
-  const [step, setStep] = useState('username') // 'username' | 'password'
+  const [step, setStep] = useState('username') // 'username' | 'password' | 'link_existing'
   const [username, setUsername] = useState(location.state?.prefillUsername ?? '')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [linkPassword, setLinkPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [initLoading, setInitLoading] = useState(true)
   const navigate = useNavigate()
@@ -92,7 +93,8 @@ export default function StudentActivation() {
       }
       const data = { id: snap.docs[0].id, ...snap.docs[0].data() }
       if (data.activado) {
-        toast('Esta cuenta ya fue activada. Usa el acceso de alumnos.', 'error')
+        toast('Esta materia ya está en tu cuenta. Inicia sesión.')
+        navigate('/alumno')
         return
       }
       setStudent(data)
@@ -152,10 +154,36 @@ export default function StudentActivation() {
             setPasswordError('Error al restablecer. Verifica que el código sea correcto o pide a tu maestro que vuelva a restablecerla.')
           }
         } else {
-          setPasswordError('Esta cuenta ya existe. Usa el inicio de sesión de alumnos.')
+          // Account exists from another subject — ask them to link with their current password
+          setStep('link_existing')
+          setPassword('')
+          setConfirmPassword('')
+          setPasswordError('')
         }
       } else {
         setPasswordError('Error al activar. Intenta de nuevo.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleLinkExisting(e) {
+    e.preventDefault()
+    setPasswordError('')
+    if (!linkPassword) return
+    setLoading(true)
+    try {
+      const email = studentEmail(student.username, student.escuelaId)
+      const cred = await signInWithEmailAndPassword(auth, email, linkPassword)
+      await updateDoc(doc(db, 'students', student.id), { activado: true, uid: cred.user.uid })
+      toast('¡Materia agregada a tu cuenta!')
+      navigate('/alumno/dashboard')
+    } catch (err) {
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setPasswordError('Contraseña incorrecta. Intenta de nuevo.')
+      } else {
+        setPasswordError('Error al conectar. Intenta de nuevo.')
       }
     } finally {
       setLoading(false)
@@ -184,7 +212,48 @@ export default function StudentActivation() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          {step === 'username' ? (
+          {step === 'link_existing' ? (
+            <div>
+              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl mb-4">
+                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Check size={16} className="text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Ya tienes cuenta</p>
+                  <p className="text-xs text-slate-500">Escribe tu contraseña para agregar esta materia</p>
+                </div>
+              </div>
+              <form onSubmit={handleLinkExisting} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tu contraseña actual</label>
+                  <PasswordInput
+                    value={linkPassword}
+                    onChange={(e) => { setLinkPassword(e.target.value); setPasswordError('') }}
+                    required
+                    autoFocus
+                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 ${passwordError ? 'border-red-400' : 'border-slate-200'}`}
+                    placeholder="Tu contraseña de Evalúa Fácil"
+                  />
+                </div>
+                {passwordError && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                    {passwordError}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleLinkExisting}
+                  onMouseDown={(e) => e.preventDefault()}
+                  disabled={loading || !linkPassword}
+                  style={{ touchAction: 'manipulation' }}
+                  className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {loading ? <Spinner size="sm" /> : <Check size={16} />}
+                  {loading ? 'Vinculando…' : 'Agregar materia'}
+                </button>
+              </form>
+            </div>
+          ) : step === 'username' ? (
             <form onSubmit={handleFindStudent} className="space-y-4">
               <div>
                 <p className="text-sm text-slate-600 mb-4">
@@ -274,6 +343,17 @@ export default function StudentActivation() {
             </div>
           )}
         </div>
+
+        <p className="text-center text-xs text-slate-400 mt-5">
+          ¿Ya tienes cuenta?{' '}
+          <button
+            type="button"
+            onClick={() => navigate('/alumno')}
+            className="underline hover:text-slate-600 transition-colors"
+          >
+            Accede por aquí
+          </button>
+        </p>
       </div>
     </div>
   )
