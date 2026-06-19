@@ -21,16 +21,7 @@ import {
   ArrowLeft, Upload, CheckCircle, Clock, FileText, Star,
   MessageSquare, Download,
 } from 'lucide-react'
-
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'image/jpeg',
-  'image/png',
-  'image/jpg',
-]
-const ALLOWED_EXT = '.doc, .docx, .pdf, .jpg, .jpeg, .png'
+import { getFileType, isFileAllowed } from '../../config/fileTypes'
 
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -132,7 +123,9 @@ export default function StudentActivityPage() {
   async function handleUpload() {
     if (!file) return
     if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
-    if (!ALLOWED_TYPES.includes(file.type)) { toast('Tipo de archivo no permitido', 'error'); return }
+    if (!isFileAllowed(file, activity?.tiposArchivo || 'todos')) {
+      toast(`Solo se permiten: ${getFileType(activity?.tiposArchivo || 'todos').accept}`, 'error'); return
+    }
     if (file.size > 5 * 1024 * 1024) { toast('El archivo no puede superar 5 MB', 'error'); return }
     setUploading(true)
     try {
@@ -351,7 +344,7 @@ export default function StudentActivityPage() {
               }`}>
                 <input
                   type="file"
-                  accept={ALLOWED_EXT}
+                  accept={getFileType(activity?.tiposArchivo || 'todos').accept}
                   className="hidden"
                   onChange={(e) => setFile(e.target.files[0] || null)}
                 />
@@ -359,7 +352,7 @@ export default function StudentActivityPage() {
                 <p className="text-sm mt-2 font-medium text-slate-700">
                   {file ? file.name : 'Toca para seleccionar archivo'}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">{ALLOWED_EXT} · máx 5 MB</p>
+                <p className="text-xs text-slate-400 mt-1">{getFileType(activity?.tiposArchivo || 'todos').accept} · máx 5 MB</p>
               </label>
               <button
                 type="button"

@@ -16,7 +16,15 @@ import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, FileText, CheckCircle, Clock, Circle, X,
   Download, Star, Pencil, CalendarDays, Search, ArrowDownAZ,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react'
+import FileTypeSelect from '../../components/FileTypeSelect'
+import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
+
+function isImageFile(name, url) {
+  const s = `${name || ''} ${url || ''}`.toLowerCase()
+  return /\.(jpg|jpeg|png|gif|webp)(\?|$|\s)/.test(s) || /\.(jpg|jpeg|png|gif|webp)$/.test((name || '').toLowerCase())
+}
 
 const STATUS_COLORS = {
   pendiente: 'bg-slate-100 text-slate-500',
@@ -41,7 +49,7 @@ export default function ActivityPage() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showEditModal, setShowEditModal] = useState(false)
-  const [editForm, setEditForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '' })
+  const [editForm, setEditForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: DEFAULT_FILE_TYPE })
   const [editSaving, setEditSaving] = useState(false)
   const [searchStudents, setSearchStudents] = useState('')
   const [sortAlpha, setSortAlpha] = useState(false)
@@ -87,6 +95,7 @@ export default function ActivityPage() {
       maxCalif: String(activity?.maxCalif ?? '10'),
       instrucciones: activity?.instrucciones || '',
       fechaLimite: activity?.fechaLimite || '',
+      tiposArchivo: activity?.tiposArchivo || DEFAULT_FILE_TYPE,
     })
     setShowEditModal(true)
   }
@@ -100,6 +109,7 @@ export default function ActivityPage() {
         maxCalif: parseFloat(editForm.maxCalif) || 10,
         instrucciones: editForm.instrucciones.trim(),
         fechaLimite: editForm.fechaLimite || null,
+        tiposArchivo: editForm.tiposArchivo || DEFAULT_FILE_TYPE,
       })
       toast('Actividad actualizada')
       setShowEditModal(false)
@@ -193,6 +203,27 @@ export default function ActivityPage() {
       `${a.apellidoPaterno} ${a.nombre}`.localeCompare(`${b.apellidoPaterno} ${b.nombre}`, 'es')
     )
   }
+
+  const curIdx = selected ? filtered.findIndex((s) => s.id === selected.student.id) : -1
+  function goToOffset(off) {
+    const next = filtered[curIdx + off]
+    if (next) openGrade(next)
+  }
+
+  // Navigate submissions with the keyboard arrows while the modal is open.
+  useEffect(() => {
+    if (!selected) return
+    function onKey(e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      const idx = filtered.findIndex((s) => s.id === selected.student.id)
+      if (idx === -1) return
+      const next = filtered[idx + (e.key === 'ArrowRight' ? 1 : -1)]
+      if (next) openGrade(next)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, filtered])
 
   if (loading) return (
     <TeacherLayout>
@@ -348,6 +379,41 @@ export default function ActivityPage() {
               </div>
               <button onClick={closeModal} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
             </div>
+
+            {/* Prev / next navigation across the student row */}
+            {filtered.length > 1 && (
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  type="button"
+                  onClick={() => goToOffset(-1)}
+                  disabled={curIdx <= 0}
+                  className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-blue-600 disabled:opacity-30 disabled:hover:text-slate-500 transition-colors"
+                >
+                  <ChevronLeft size={16} /> Anterior
+                </button>
+                <span className="text-xs text-slate-400">{curIdx + 1} / {filtered.length}</span>
+                <button
+                  type="button"
+                  onClick={() => goToOffset(1)}
+                  disabled={curIdx >= filtered.length - 1}
+                  className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-blue-600 disabled:opacity-30 disabled:hover:text-slate-500 transition-colors"
+                >
+                  Siguiente <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* Image preview (when the submission is an image) */}
+            {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL &&
+              isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) && (
+              <a href={selected.sub.archivoURL} target="_blank" rel="noopener noreferrer" className="block mb-3">
+                <img
+                  src={selected.sub.archivoURL}
+                  alt="Entrega del alumno"
+                  className="w-full max-h-72 object-contain rounded-xl border border-slate-200 bg-slate-50"
+                />
+              </a>
+            )}
 
             {/* Current submission */}
             {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
@@ -535,6 +601,9 @@ export default function ActivityPage() {
                   onChange={(e) => setEditForm((f) => ({ ...f, fechaLimite: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                 />
+              </div>
+              <div className="pt-1">
+                <FileTypeSelect value={editForm.tiposArchivo} onChange={(v) => setEditForm((f) => ({ ...f, tiposArchivo: v }))} />
               </div>
               <button
                 type="submit"

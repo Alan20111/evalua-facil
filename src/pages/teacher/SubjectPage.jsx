@@ -10,6 +10,9 @@ import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { exportSubjectGrades, parseStudentExcel, exportStudentListExcel, downloadStudentTemplate } from '../../utils/excel'
+import { exportStudentListPDF } from '../../utils/pdf'
+import FileTypeSelect from '../../components/FileTypeSelect'
+import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
@@ -41,7 +44,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '' }
+const EMPTY_FORM = { nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: DEFAULT_FILE_TYPE }
 
 function gradeColor(norm) {
   if (norm === null) return 'text-slate-300'
@@ -91,6 +94,7 @@ export default function SubjectPage() {
 
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   // Tab
   const [activeTab, setActiveTab] = useState('actividades')
@@ -489,6 +493,7 @@ export default function SubjectPage() {
       maxCalif: String(activity.maxCalif ?? '10'),
       instrucciones: activity.instrucciones || '',
       fechaLimite: activity.fechaLimite || '',
+      tiposArchivo: activity.tiposArchivo || DEFAULT_FILE_TYPE,
     })
     setShowModal(true)
   }
@@ -500,6 +505,7 @@ export default function SubjectPage() {
       maxCalif: parseFloat(form.maxCalif) || 10,
       instrucciones: form.instrucciones.trim(),
       fechaLimite: form.fechaLimite || null,
+      tiposArchivo: form.tiposArchivo || DEFAULT_FILE_TYPE,
     }
     try {
       if (modalMode === 'create') {
@@ -564,6 +570,24 @@ export default function SubjectPage() {
       })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExporting(false) }
+  }
+
+  async function handleExportListPDF() {
+    if (!subject) return
+    setExportingPdf(true)
+    try {
+      let students = groupStudents
+      if (!groupStudentsLoaded) {
+        const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
+        students = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        setGroupStudents(students); setGroupStudentsLoaded(true)
+      }
+      await exportStudentListPDF({ subject, students, activationUrl })
+    } catch (err) {
+      toast('Error al exportar PDF: ' + err.message, 'error')
+    } finally {
+      setExportingPdf(false)
+    }
   }
 
   // ── Computed ───────────────────────────────────────────────────────
@@ -1157,7 +1181,14 @@ export default function SubjectPage() {
               disabled={groupStudents.length === 0}
               className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-40"
             >
-              <Download size={15} /> Exportar
+              <Download size={15} /> Excel
+            </button>
+            <button
+              onClick={handleExportListPDF}
+              disabled={groupStudents.length === 0 || exportingPdf}
+              className="flex-1 flex items-center justify-center gap-2 py-2 border border-blue-200 text-blue-700 rounded-xl text-sm hover:bg-blue-50 transition-colors disabled:opacity-40"
+            >
+              {exportingPdf ? <Spinner size="sm" /> : <Download size={15} />} PDF
             </button>
           </div>
           <button
@@ -1278,6 +1309,9 @@ export default function SubjectPage() {
                 </label>
                 <input type="date" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50" />
+              </div>
+              <div className="pt-1">
+                <FileTypeSelect value={form.tiposArchivo} onChange={(v) => setForm((f) => ({ ...f, tiposArchivo: v }))} />
               </div>
               <button type="submit" disabled={saving}
                 className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
@@ -1400,6 +1434,14 @@ export default function SubjectPage() {
               >
                 {copiedCode ? <CheckIcon size={15} /> : <Hash size={15} />}
                 {copiedCode ? 'Código copiado' : `Copiar código: ${subject.accessCode}`}
+              </button>
+              <button
+                onClick={handleExportListPDF}
+                disabled={exportingPdf}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-blue-200 text-blue-700 text-sm font-semibold hover:bg-blue-50 transition-colors disabled:opacity-50"
+              >
+                {exportingPdf ? <Spinner size="sm" /> : <Download size={15} />}
+                {exportingPdf ? 'Generando PDF…' : 'Descargar lista en PDF'}
               </button>
             </div>
           </div>
