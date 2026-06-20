@@ -15,6 +15,7 @@ import { buildJobsForParcial, buildJobsForSubject, downloadSubmissionsZip } from
 import { deleteSubjectCascade, deleteSubjectStudents } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatPublishAt } from '../../utils/activityVisibility'
+import { subjectDisplayName } from '../../utils/subjectName'
 import FileTypeSelect from '../../components/FileTypeSelect'
 import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
 import {
@@ -120,7 +121,7 @@ export default function SubjectPage() {
 
   // Subject CRUD
   const [showEditSubjectModal, setShowEditSubjectModal] = useState(false)
-  const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', ciclo: '', parciales: '3' })
+  const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', grupo: '', ciclo: '', parciales: '3' })
   const [editingSubject, setEditingSubject] = useState(false)
   const [showDeleteSubjectConfirm, setShowDeleteSubjectConfirm] = useState(false)
   const [deleteSubjectConfirmText, setDeleteSubjectConfirmText] = useState('')
@@ -655,6 +656,7 @@ export default function SubjectPage() {
   function openEditSubject() {
     setEditSubjectForm({
       nombre: subject?.nombre || '',
+      grupo: subject?.grupo || '',
       ciclo: subject?.ciclo || '',
       parciales: String(subject?.parciales || 3),
     })
@@ -673,10 +675,11 @@ export default function SubjectPage() {
     try {
       await updateDoc(doc(db, 'subjects', subjectId), {
         nombre: editSubjectForm.nombre.trim(),
+        grupo: editSubjectForm.grupo.trim(),
         ciclo: editSubjectForm.ciclo.trim(),
         parciales: newParciales,
       })
-      setSubject((s) => ({ ...s, nombre: editSubjectForm.nombre.trim(), ciclo: editSubjectForm.ciclo.trim(), parciales: newParciales }))
+      setSubject((s) => ({ ...s, nombre: editSubjectForm.nombre.trim(), grupo: editSubjectForm.grupo.trim(), ciclo: editSubjectForm.ciclo.trim(), parciales: newParciales }))
       toast('Asignatura actualizada')
       setShowEditSubjectModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -697,7 +700,7 @@ export default function SubjectPage() {
   }
 
   function openCopyModal() {
-    setCopyForm({ nombre: `${subject?.nombre || ''} (copia)`, keepStudents: false })
+    setCopyForm({ nombre: subject?.nombre || '', grupo: subject?.grupo || '', keepStudents: false })
     setCopyCicloMode('current')
     setShowCopyModal(true)
   }
@@ -711,6 +714,7 @@ export default function SubjectPage() {
       const newId = await copySubject({
         sourceSubjectId: subjectId,
         nombre: copyForm.nombre.trim(),
+        grupo: copyForm.grupo.trim(),
         ciclo,
         parciales: subject?.parciales || 3,
         keepStudents: copyForm.keepStudents,
@@ -882,7 +886,7 @@ export default function SubjectPage() {
             </button>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-slate-900 truncate">{subject?.nombre}</h1>
+                <h1 className="text-xl font-bold text-slate-900 truncate">{subjectDisplayName(subject)}</h1>
                 {subject?.archived && (
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">Archivada</span>
                 )}
@@ -1937,11 +1941,17 @@ export default function SubjectPage() {
             </div>
             <form onSubmit={handleEditSubject} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Materia</label>
                 <input type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                   placeholder="Ej: Matemáticas I" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Grupo <span className="text-slate-400 font-normal">(opcional)</span></label>
+                <input type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Ciclo escolar</label>
@@ -1977,11 +1987,17 @@ export default function SubjectPage() {
             </div>
             <form onSubmit={handleCopySubject} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de la nueva materia</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Materia</label>
                 <input type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                   placeholder="Ej: Matemáticas II" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Grupo <span className="text-slate-400 font-normal">(opcional)</span></label>
+                <input type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Período escolar</label>

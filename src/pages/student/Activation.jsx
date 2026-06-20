@@ -16,6 +16,7 @@ import Spinner from '../../components/Spinner'
 import { studentEmail } from '../../utils/generate'
 import { GraduationCap, Check } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
+import { subjectDisplayName } from '../../utils/subjectName'
 
 export default function StudentActivation() {
   const { accessCode } = useParams()
@@ -206,7 +207,7 @@ export default function StudentActivation() {
           <h1 className="text-2xl font-bold text-slate-900">Activar cuenta</h1>
           {subject && (
             <p className="text-slate-500 text-sm mt-1">
-              <strong>{subject.nombre}</strong> · {subject.ciclo}
+              <strong>{subjectDisplayName(subject)}</strong> · {subject.ciclo}
             </p>
           )}
         </div>

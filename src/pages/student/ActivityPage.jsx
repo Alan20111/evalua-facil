@@ -22,6 +22,7 @@ import {
   MessageSquare, Download,
 } from 'lucide-react'
 import { getFileType, isFileAllowed } from '../../config/fileTypes'
+import { subjectDisplayName } from '../../utils/subjectName'
 
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -233,7 +234,7 @@ export default function StudentActivityPage() {
         </button>
         <div>
           <h1 className="text-lg font-bold text-slate-900">{activity?.nombre}</h1>
-          <p className="text-slate-400 text-xs">{subject?.nombre} · Parcial {activity?.parcial}</p>
+          <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
         </div>
       </header>
 

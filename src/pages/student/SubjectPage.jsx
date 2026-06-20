@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { isActivityPublished } from '../../utils/activityVisibility'
+import { subjectDisplayName } from '../../utils/subjectName'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
   Clock, Circle, Star,
@@ -107,7 +108,7 @@ export default function StudentSubjectPage() {
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-lg font-bold text-slate-900">{subject?.nombre}</h1>
+          <h1 className="text-lg font-bold text-slate-900">{subjectDisplayName(subject)}</h1>
           <p className="text-slate-400 text-xs">{subject?.parciales || 3} parciales</p>
         </div>
       </header>

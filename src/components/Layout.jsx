@@ -26,6 +26,7 @@ import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { useSubscription } from '../hooks/useSubscription'
 import { calcDaysRemaining } from '../utils/subscriptionHelpers'
+import { subjectDisplayName } from '../utils/subjectName'
 
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
@@ -38,6 +39,7 @@ export default function TeacherLayout({ children }) {
   const [showArchived, setShowArchived] = useState(false)
   const [showNewModal, setShowNewModal] = useState(false)
   const [newSubjectName, setNewSubjectName] = useState('')
+  const [newSubjectGrupo, setNewSubjectGrupo] = useState('')
   const [selectedGroupId, setSelectedGroupId] = useState('')
   const [creating, setCreating] = useState(false)
 
@@ -73,9 +75,12 @@ export default function TeacherLayout({ children }) {
     e.preventDefault()
     if (!newSubjectName.trim() || !selectedGroupId) return
     setCreating(true)
+    const selectedGroup = groups.find((g) => g.id === selectedGroupId)
+    const grupoText = newSubjectGrupo.trim() || selectedGroup?.nombre || ''
     try {
       const ref = await addDoc(collection(db, 'subjects'), {
         nombre: newSubjectName.trim(),
+        grupo: grupoText,
         docenteId: currentUser.uid,
         grupoId: selectedGroupId,
         escuelaId: userProfile?.escuelaId,
@@ -87,12 +92,14 @@ export default function TeacherLayout({ children }) {
         {
           id: ref.id,
           nombre: newSubjectName.trim(),
+          grupo: grupoText,
           docenteId: currentUser.uid,
           grupoId: selectedGroupId,
           archived: false,
         },
       ])
       setNewSubjectName('')
+      setNewSubjectGrupo('')
       setShowNewModal(false)
       toast('Asignatura creada')
       navigate(`/subject/${ref.id}`)
@@ -214,7 +221,7 @@ export default function TeacherLayout({ children }) {
                   }
                 >
                   <BookOpen size={14} className="flex-shrink-0" />
-                  <span className="truncate">{s.nombre}</span>
+                  <span className="truncate">{subjectDisplayName(s)}</span>
                 </NavLink>
               ))
             )}
@@ -254,7 +261,7 @@ export default function TeacherLayout({ children }) {
                       }
                     >
                       <BookOpen size={13} className="flex-shrink-0" />
-                      <span className="truncate">{s.nombre}</span>
+                      <span className="truncate">{subjectDisplayName(s)}</span>
                     </NavLink>
                   ))}
               </>
@@ -364,7 +371,7 @@ export default function TeacherLayout({ children }) {
               <form onSubmit={handleCreateSubject} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Nombre de la asignatura
+                    Materia
                   </label>
                   <input
                     type="text"
@@ -378,7 +385,19 @@ export default function TeacherLayout({ children }) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Grupo
+                    Grupo <span className="text-slate-400 font-normal text-xs">(opcional, ej: 1A)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newSubjectGrupo}
+                    onChange={(e) => setNewSubjectGrupo(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                    placeholder="Ej: 1A, 2B, 3C"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Clase
                   </label>
                   <select
                     value={selectedGroupId}

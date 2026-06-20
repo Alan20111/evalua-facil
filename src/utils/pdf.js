@@ -1,5 +1,6 @@
 // Lazy-loads jsPDF + autotable + qrcode only when the teacher actually exports,
 // so these heavy libs stay out of the main bundle.
+import { subjectDisplayName } from './subjectName'
 
 function fullName(s) {
   return [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ').trim()
@@ -22,7 +23,7 @@ export async function exportStudentListPDF({ subject, students, activationUrl })
   // ── Header ──
   doc.setFontSize(16)
   doc.setFont(undefined, 'bold')
-  doc.text(subject.nombre || 'Asignatura', 14, 20)
+  doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 20)
 
   doc.setFont(undefined, 'normal')
   doc.setFontSize(10)
@@ -53,7 +54,7 @@ export async function exportStudentListPDF({ subject, students, activationUrl })
     columnStyles: { 1: { font: 'courier', fontStyle: 'bold' } },
   })
 
-  const safe = (subject.nombre || 'asignatura')
+  const safe = (subjectDisplayName(subject) || 'asignatura')
     .replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '')
     .trim()
     .replace(/\s+/g, '_')

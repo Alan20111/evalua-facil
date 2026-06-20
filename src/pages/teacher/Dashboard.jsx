@@ -17,7 +17,8 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { Plus, BookOpen, ChevronRight, X, AlertTriangle, CreditCard } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, AlertTriangle, CreditCard, ArrowUpDown } from 'lucide-react'
+import { subjectDisplayName } from '../../utils/subjectName'
 import { useSubscription } from '../../hooks/useSubscription'
 import { calcDaysRemaining } from '../../utils/subscriptionHelpers'
 
@@ -62,9 +63,18 @@ export default function TeacherDashboard() {
   // Subject creation modal
   const [showSubjectModal, setShowSubjectModal] = useState(false)
   const [newSubjectName, setNewSubjectName] = useState('')
+  const [newSubjectGrupo, setNewSubjectGrupo] = useState('')
   const [newSubjectParciales, setNewSubjectParciales] = useState(3)
   const [inlineCicloMode, setInlineCicloMode] = useState('current')
   const [creatingSubject, setCreatingSubject] = useState(false)
+
+  // Subject list display order toggle (persists across sessions)
+  const [nameOrder, setNameOrder] = useState(() => localStorage.getItem('subjectNameOrder') || 'normal')
+  function toggleNameOrder() {
+    const next = nameOrder === 'normal' ? 'reverse' : 'normal'
+    setNameOrder(next)
+    localStorage.setItem('subjectNameOrder', next)
+  }
 
   const cicloInfo = getCicloInfo()
   const inlineSelectedCiclo = inlineCicloMode === 'current' ? cicloInfo.current : cicloInfo.next
@@ -140,6 +150,7 @@ export default function TeacherDashboard() {
     try {
       const subData = {
         nombre: newSubjectName.trim(),
+        grupo: newSubjectGrupo.trim(),
         docenteId: currentUser.uid,
         escuelaId: userProfile.escuelaId,
         parciales: newSubjectParciales,
@@ -159,6 +170,7 @@ export default function TeacherDashboard() {
       )
       setShowSubjectModal(false)
       setNewSubjectName('')
+      setNewSubjectGrupo('')
       setNewSubjectParciales(3)
       setInlineCicloMode('current')
       toast('Asignatura creada')
@@ -225,9 +237,18 @@ export default function TeacherDashboard() {
             {/* ── Mis asignaturas ── */}
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-800">Mis asignaturas</h2>
-              <span className="text-xs text-slate-400">
-                {subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleNameOrder}
+                  title={nameOrder === 'normal' ? 'Mostrar Grupo + Materia' : 'Mostrar Materia + Grupo'}
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors px-2 py-1 rounded-lg hover:bg-blue-50"
+                >
+                  <ArrowUpDown size={13} />
+                  {nameOrder === 'normal' ? 'Materia · Grupo' : 'Grupo · Materia'}
+                </button>
+                <span className="text-xs text-slate-300">·</span>
+                <span className="text-xs text-slate-400">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
+              </div>
             </div>
 
             {subjects.length === 0 ? (
@@ -251,7 +272,7 @@ export default function TeacherDashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-slate-900 truncate">{s.nombre}</p>
+                        <p className="font-semibold text-slate-900 truncate">{subjectDisplayName(s, nameOrder === 'reverse')}</p>
                         {s.archived && (
                           <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
                             archivada
@@ -292,9 +313,9 @@ export default function TeacherDashboard() {
               </button>
             </div>
             <form onSubmit={handleCreateSubject} className="space-y-4">
-              {/* Nombre de la asignatura */}
+              {/* Nombre de la materia */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de la asignatura</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Materia</label>
                 <input
                   type="text"
                   value={newSubjectName}
@@ -303,6 +324,17 @@ export default function TeacherDashboard() {
                   autoFocus
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                   placeholder="Ej: Matemáticas, Física, Historia"
+                />
+              </div>
+              {/* Grupo */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Grupo <span className="text-slate-400 font-normal">(opcional)</span></label>
+                <input
+                  type="text"
+                  value={newSubjectGrupo}
+                  onChange={(e) => setNewSubjectGrupo(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  placeholder="Ej: 1A, 2B, 3C"
                 />
               </div>
 

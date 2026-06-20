@@ -1,5 +1,6 @@
 // Lazy-loads JSZip only when the teacher actually exports,
 // keeping it out of the main bundle.
+import { subjectDisplayName } from './subjectName'
 
 function fullName(s) {
   return [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ').trim()
@@ -13,7 +14,7 @@ function sanitize(name) {
 
 // submissions: flat array of submission objects { alumnoId, archivoURL, nombreArchivo, completadoSinArchivo }
 export function buildJobsForActivity({ subject, activity, students, submissions }) {
-  const folder = sanitize(`${subject.nombre} - ${activity.nombre}`)
+  const folder = sanitize(`${subjectDisplayName(subject)} - ${activity.nombre}`)
   const studentMap = Object.fromEntries(students.map((s) => [s.id, s]))
   const usedNames = new Set()
   const jobs = []
@@ -32,7 +33,7 @@ export function buildJobsForActivity({ subject, activity, students, submissions 
 
 // submissions: flat array of ALL submissions for this parcial's activities
 export function buildJobsForParcial({ subject, parcial, activities, submissions, students }) {
-  const folderBase = sanitize(`${subject.nombre} - Parcial ${parcial}`)
+  const folderBase = sanitize(`${subjectDisplayName(subject)} - Parcial ${parcial}`)
   const studentMap = Object.fromEntries(students.map((s) => [s.id, s]))
   // group submissions by activityId for fast lookup
   const byAct = {}
@@ -61,7 +62,7 @@ export function buildJobsForParcial({ subject, parcial, activities, submissions,
 
 // submissions: flat array of ALL submissions for all activities in the subject
 export function buildJobsForSubject({ subject, activities, submissions, students }) {
-  const folderBase = sanitize(subject.nombre)
+  const folderBase = sanitize(subjectDisplayName(subject))
   const studentMap = Object.fromEntries(students.map((s) => [s.id, s]))
   const byAct = {}
   submissions.forEach((sub) => {

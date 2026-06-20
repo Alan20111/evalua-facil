@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx'
+import { subjectDisplayName } from './subjectName'
 
 export function downloadStudentTemplate() {
   const ws = XLSX.utils.aoa_to_sheet([
@@ -96,7 +97,7 @@ export function exportSubjectGrades({
 
   // Row 0: Title
   const titleRow = Array(totalCols).fill('')
-  titleRow[0] = `${subject.nombre}   (${subject.ciclo})`
+  titleRow[0] = `${subjectDisplayName(subject)}   (${subject.ciclo})`
 
   // Row 2: Section headers
   const sectionRow = Array(totalCols).fill('')
@@ -203,6 +204,6 @@ export function exportSubjectGrades({
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Calificaciones')
-  const safeName = subject.nombre.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
+  const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
   XLSX.writeFile(wb, `calificaciones_${safeName}.xlsx`)
 }
