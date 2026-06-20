@@ -31,6 +31,7 @@ export default function StudentActivation() {
   const [linkPassword, setLinkPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [initLoading, setInitLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const submitting = useRef(false) // guards against double-submit (rapid taps)
   const navigate = useNavigate()
   const toast = useToast()
@@ -67,12 +68,12 @@ export default function StudentActivation() {
       const q = query(collection(db, 'subjects'), where('accessCode', '==', accessCode))
       const snap = await getDocs(q)
       if (snap.empty) {
-        toast('Código de acceso inválido', 'error')
+        setLoadError('No encontramos ninguna materia con ese código de acceso. Revisa el código o el QR con tu maestro.')
         return
       }
       setSubject({ id: snap.docs[0].id, ...snap.docs[0].data() })
     } catch (err) {
-      toast('Error: ' + err.message, 'error')
+      setLoadError('No pudimos cargar la materia. Revisa tu conexión e intenta de nuevo.')
     } finally {
       setInitLoading(false)
     }
@@ -216,6 +217,26 @@ export default function StudentActivation() {
   if (initLoading) return (
     <div className="min-h-screen flex items-center justify-center">
       <Spinner size="lg" />
+    </div>
+  )
+
+  if (!subject) return (
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
+      <div className="w-full max-w-sm text-center">
+        <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4">
+          <GraduationCap size={32} className="text-red-500" />
+        </div>
+        <h1 className="text-xl font-bold text-slate-900 mb-2">Código no válido</h1>
+        <p className="text-slate-500 text-sm mb-6">
+          {loadError || 'No encontramos una materia con ese código de acceso.'}
+        </p>
+        <button
+          onClick={() => navigate('/alumno')}
+          className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+        >
+          Volver al inicio
+        </button>
+      </div>
     </div>
   )
 

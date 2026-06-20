@@ -18,11 +18,17 @@ export async function getEnrollments(currentUser, userProfile) {
     const s = await getDoc(doc(db, 'students', userProfile.studentId))
     if (s.exists()) return [{ id: s.id, ...s.data() }]
   }
-  // Last resort: by username parsed from the fake email (legacy accounts).
+  // Last resort: parse the fake email `username.escuelaId@evalua.local` and look up by
+  // username SCOPED to that school, so identical usernames across schools never collide.
   if (currentUser?.email) {
-    const username = currentUser.email.split('@')[0].split('.')[0].toUpperCase()
+    const local = currentUser.email.split('@')[0]
+    const dot = local.indexOf('.')
+    const username = (dot >= 0 ? local.slice(0, dot) : local).toUpperCase()
+    const escuelaId = dot >= 0 ? local.slice(dot + 1) : null
     const snap = await getDocs(query(collection(db, 'students'), where('username', '==', username)))
-    if (!snap.empty) return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    let docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    if (escuelaId) docs = docs.filter((s) => s.escuelaId === escuelaId)
+    if (docs.length) return docs
   }
   return []
 }
