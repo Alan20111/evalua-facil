@@ -1,0 +1,64 @@
+import {
+  collection, query, where, getDocs, deleteDoc, doc, writeBatch,
+} from 'firebase/firestore'
+import { db } from '../firebase'
+
+async function fetchSubmissionsForActivities(actIds) {
+  if (actIds.length === 0) return []
+  const chunks = []
+  for (let i = 0; i < actIds.length; i += 30) chunks.push(actIds.slice(i, i + 30))
+  const snaps = await Promise.all(
+    chunks.map((ids) => getDocs(query(collection(db, 'submissions'), where('actividadId', 'in', ids))))
+  )
+  return snaps.flatMap((s) => s.docs)
+}
+
+// Deletes in writeBatch chunks of ≤500 ops to stay within Firestore limits.
+async function batchDeleteDocs(refs) {
+  const LIMIT = 490
+  for (let i = 0; i < refs.length; i += LIMIT) {
+    const batch = writeBatch(db)
+    refs.slice(i, i + LIMIT).forEach((r) => batch.delete(r))
+    await batch.commit()
+  }
+}
+
+// Fully deletes a subject and all related data in cascade:
+// activities → submissions → students → attendance → subject doc.
+// NOTE: Firebase Auth accounts of students are NOT deleted (same as per-student delete today).
+export async function deleteSubjectCascade(subjectId) {
+  const [actsSnap, studsSnap, attSnap] = await Promise.all([
+    getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
+    getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
+    getDocs(query(collection(db, 'attendance'), where('asignaturaId', '==', subjectId))),
+  ])
+
+  const actIds = actsSnap.docs.map((d) => d.id)
+  const subsDocs = await fetchSubmissionsForActivities(actIds)
+
+  const refs = [
+    ...subsDocs.map((d) => doc(db, 'submissions', d.id)),
+    ...actsSnap.docs.map((d) => doc(db, 'activities', d.id)),
+    ...studsSnap.docs.map((d) => doc(db, 'students', d.id)),
+    ...attSnap.docs.map((d) => doc(db, 'attendance', d.id)),
+  ]
+  await batchDeleteDocs(refs)
+  await deleteDoc(doc(db, 'subjects', subjectId))
+}
+
+// Deletes only the students of a subject and their submissions.
+// Used in the "start from 0" unarchive flow.
+export async function deleteSubjectStudents(subjectId) {
+  const [actsSnap, studsSnap] = await Promise.all([
+    getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
+    getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
+  ])
+  const actIds = actsSnap.docs.map((d) => d.id)
+  const subsDocs = await fetchSubmissionsForActivities(actIds)
+
+  const refs = [
+    ...subsDocs.map((d) => doc(db, 'submissions', d.id)),
+    ...studsSnap.docs.map((d) => doc(db, 'students', d.id)),
+  ]
+  await batchDeleteDocs(refs)
+}

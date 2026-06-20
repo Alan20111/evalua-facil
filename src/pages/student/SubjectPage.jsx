@@ -12,6 +12,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
+import { isActivityPublished } from '../../utils/activityVisibility'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
   Clock, Circle, Star,
@@ -49,7 +50,7 @@ export default function StudentSubjectPage() {
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
       ])
       setSubject({ id: subSnap.id, ...subSnap.data() })
-      const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter(isActivityPublished)
       setActivities(acts)
       if (!studentResult) return
       const studData = userProfile?.studentId

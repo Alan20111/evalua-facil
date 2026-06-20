@@ -12,6 +12,9 @@ import Spinner from '../../components/Spinner'
 import { exportSubjectGrades, parseStudentExcel, exportStudentListExcel, downloadStudentTemplate } from '../../utils/excel'
 import { exportStudentListPDF } from '../../utils/pdf'
 import { buildJobsForParcial, buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
+import { deleteSubjectCascade, deleteSubjectStudents } from '../../utils/deleteSubjectCascade'
+import { copySubject } from '../../utils/copySubject'
+import { activityVisibilityState, formatPublishAt } from '../../utils/activityVisibility'
 import FileTypeSelect from '../../components/FileTypeSelect'
 import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
 import {
@@ -20,6 +23,7 @@ import {
   FileSpreadsheet, Search, UserCheck, UserX, LayoutList,
   ArrowUp, ArrowDown, UserPlus, RotateCcw, Upload, Download, QrCode,
   Link, Hash, Check as CheckIcon, KeyRound, Copy, FolderDown,
+  Eye, EyeOff,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername, generateResetPassword } from '../../utils/generate'
@@ -45,7 +49,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: DEFAULT_FILE_TYPE }
+const EMPTY_FORM = { nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: DEFAULT_FILE_TYPE, oculta: false, publishAt: '' }
 
 function gradeColor(norm) {
   if (norm === null) return 'text-slate-300'
@@ -98,6 +102,28 @@ export default function SubjectPage() {
   const [exportingPdf, setExportingPdf] = useState(false)
   const [zipDownloading, setZipDownloading] = useState(false)
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
+
+  // Activity visibility
+  const [activateModal, setActivateModal] = useState(null) // activity | null
+  const [activateMode, setActivateMode] = useState('now') // 'now' | 'schedule'
+  const [activateDate, setActivateDate] = useState('')
+
+  // Subject CRUD
+  const [showEditSubjectModal, setShowEditSubjectModal] = useState(false)
+  const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', ciclo: '', parciales: '3' })
+  const [editingSubject, setEditingSubject] = useState(false)
+  const [showDeleteSubjectConfirm, setShowDeleteSubjectConfirm] = useState(false)
+  const [deleteSubjectConfirmText, setDeleteSubjectConfirmText] = useState('')
+  const [deletingSubject, setDeletingSubject] = useState(false)
+  const [showCopyModal, setShowCopyModal] = useState(false)
+  const [copyForm, setCopyForm] = useState({ nombre: '', ciclo: '', parciales: '3', keepStudents: false })
+  const [copyingSubject, setCopyingSubject] = useState(false)
+
+  // Unarchive modal
+  const [showUnarchiveModal, setShowUnarchiveModal] = useState(false)
+  const [unarchiveStudents, setUnarchiveStudents] = useState('keep') // 'keep' | 'reset'
+  const [unarchiveActivities, setUnarchiveActivities] = useState('keep') // 'keep' | 'show' | 'hide'
+  const [unarchivedSaving, setUnarchivedSaving] = useState(false)
 
   // Tab
   const [activeTab, setActiveTab] = useState('actividades')
@@ -497,6 +523,8 @@ export default function SubjectPage() {
       instrucciones: activity.instrucciones || '',
       fechaLimite: activity.fechaLimite || '',
       tiposArchivo: activity.tiposArchivo || DEFAULT_FILE_TYPE,
+      oculta: activity.oculta || false,
+      publishAt: activity.publishAt || '',
     })
     setShowModal(true)
   }
@@ -509,6 +537,8 @@ export default function SubjectPage() {
       instrucciones: form.instrucciones.trim(),
       fechaLimite: form.fechaLimite || null,
       tiposArchivo: form.tiposArchivo || DEFAULT_FILE_TYPE,
+      oculta: form.oculta || !!form.publishAt,
+      publishAt: form.publishAt || null,
     }
     try {
       if (modalMode === 'create') {
@@ -540,14 +570,149 @@ export default function SubjectPage() {
   }
 
   async function handleToggleArchive() {
-    if (!subject) return; setArchiving(true)
-    const next = !subject.archived
+    if (!subject) return
+    if (subject.archived) {
+      // Unarchiving → open modal to ask options
+      setUnarchiveStudents('keep')
+      setUnarchiveActivities('keep')
+      setShowUnarchiveModal(true)
+      return
+    }
+    setArchiving(true)
     try {
-      await updateDoc(doc(db, 'subjects', subjectId), { archived: next })
-      setSubject((s) => ({ ...s, archived: next }))
-      toast(next ? 'Asignatura archivada' : 'Asignatura restaurada')
+      await updateDoc(doc(db, 'subjects', subjectId), { archived: true })
+      setSubject((s) => ({ ...s, archived: true }))
+      toast('Asignatura archivada')
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setArchiving(false) }
+  }
+
+  async function handleUnarchiveConfirm() {
+    setUnarchivedSaving(true)
+    try {
+      if (unarchiveStudents === 'reset') {
+        await deleteSubjectStudents(subjectId)
+        setGroupStudents([])
+        setGroupStudentsLoaded(false)
+        setGradesLoaded(false)
+        setGradeSubMap({})
+      }
+      const updates = { archived: false }
+      if (unarchiveActivities !== 'keep') {
+        const batch = writeBatch(db)
+        activities.forEach((a) => batch.update(doc(db, 'activities', a.id), {
+          oculta: unarchiveActivities === 'hide',
+          publishAt: null,
+        }))
+        await batch.commit()
+        setActivities((prev) => prev.map((a) => ({ ...a, oculta: unarchiveActivities === 'hide', publishAt: null })))
+      }
+      await updateDoc(doc(db, 'subjects', subjectId), updates)
+      setSubject((s) => ({ ...s, archived: false }))
+      toast('Asignatura restaurada')
+      setShowUnarchiveModal(false)
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setUnarchivedSaving(false) }
+  }
+
+  // ── Activity visibility ────────────────────────────────────────────
+  async function hideActivity(a) {
+    try {
+      await updateDoc(doc(db, 'activities', a.id), { oculta: true, publishAt: null })
+      setActivities((prev) => prev.map((act) => act.id === a.id ? { ...act, oculta: true, publishAt: null } : act))
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
+  async function handleActivateConfirm() {
+    if (!activateModal) return
+    try {
+      if (activateMode === 'now') {
+        await updateDoc(doc(db, 'activities', activateModal.id), { oculta: false, publishAt: null })
+        setActivities((prev) => prev.map((a) => a.id === activateModal.id ? { ...a, oculta: false, publishAt: null } : a))
+        toast('Actividad visible para alumnos')
+      } else {
+        if (!activateDate) { toast('Elige una fecha', 'error'); return }
+        await updateDoc(doc(db, 'activities', activateModal.id), { oculta: true, publishAt: activateDate })
+        setActivities((prev) => prev.map((a) => a.id === activateModal.id ? { ...a, oculta: true, publishAt: activateDate } : a))
+        toast('Activación programada')
+      }
+      setActivateModal(null)
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
+  // ── Subject CRUD ───────────────────────────────────────────────────
+  function openEditSubject() {
+    setEditSubjectForm({
+      nombre: subject?.nombre || '',
+      ciclo: subject?.ciclo || '',
+      parciales: String(subject?.parciales || 3),
+    })
+    setShowEditSubjectModal(true)
+  }
+
+  async function handleEditSubject(e) {
+    e.preventDefault()
+    const newParciales = parseInt(editSubjectForm.parciales) || 3
+    const hasActsAbove = activities.some((a) => a.parcial > newParciales)
+    if (hasActsAbove) {
+      toast(`Hay actividades en parciales superiores a ${newParciales}. Elimínalas primero.`, 'error')
+      return
+    }
+    setEditingSubject(true)
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), {
+        nombre: editSubjectForm.nombre.trim(),
+        ciclo: editSubjectForm.ciclo.trim(),
+        parciales: newParciales,
+      })
+      setSubject((s) => ({ ...s, nombre: editSubjectForm.nombre.trim(), ciclo: editSubjectForm.ciclo.trim(), parciales: newParciales }))
+      toast('Asignatura actualizada')
+      setShowEditSubjectModal(false)
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setEditingSubject(false) }
+  }
+
+  async function handleDeleteSubject() {
+    if (deleteSubjectConfirmText !== subject?.nombre) {
+      toast('El nombre no coincide', 'error'); return
+    }
+    setDeletingSubject(true)
+    try {
+      await deleteSubjectCascade(subjectId)
+      toast('Asignatura eliminada')
+      navigate('/dashboard')
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setDeletingSubject(false) }
+  }
+
+  function openCopyModal() {
+    setCopyForm({
+      nombre: `${subject?.nombre || ''} (copia)`,
+      ciclo: subject?.ciclo || '',
+      parciales: String(subject?.parciales || 3),
+      keepStudents: false,
+    })
+    setShowCopyModal(true)
+  }
+
+  async function handleCopySubject(e) {
+    e.preventDefault()
+    setCopyingSubject(true)
+    try {
+      const newId = await copySubject({
+        sourceSubjectId: subjectId,
+        nombre: copyForm.nombre.trim(),
+        ciclo: copyForm.ciclo.trim(),
+        parciales: parseInt(copyForm.parciales) || 3,
+        keepStudents: copyForm.keepStudents,
+        docenteId: currentUser.uid,
+        escuelaId: userProfile?.escuelaId,
+      })
+      toast('Asignatura copiada')
+      setShowCopyModal(false)
+      navigate(`/subject/${newId}`)
+    } catch (err) { toast('Error al copiar: ' + err.message, 'error') }
+    finally { setCopyingSubject(false) }
   }
 
   async function handleExport() {
@@ -732,10 +897,25 @@ export default function SubjectPage() {
                 ? <><CheckIcon size={19} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
                 : <><Hash size={19} className="flex-shrink-0" /><span>{subject?.accessCode}</span></>}
             </button>
+            <button type="button" onClick={openEditSubject}
+              title="Editar asignatura"
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0">
+              <Pencil size={19} />
+            </button>
+            <button type="button" onClick={openCopyModal}
+              title="Copiar asignatura"
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0">
+              <Copy size={19} />
+            </button>
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
               title={subject?.archived ? 'Restaurar' : 'Archivar'}
               className="p-2 text-slate-400 hover:text-amber-600 rounded-lg transition-colors disabled:opacity-50 flex-shrink-0">
               {subject?.archived ? <ArchiveRestore size={19} /> : <Archive size={19} />}
+            </button>
+            <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
+              title="Eliminar asignatura"
+              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0">
+              <Trash2 size={19} />
             </button>
           </div>
 
@@ -782,18 +962,30 @@ export default function SubjectPage() {
                       )}
                       {acts.map((a) => {
                         const counts = submissionCounts[a.id] || {}
+                        const visState = activityVisibilityState(a)
+                        const isHidden = visState !== 'visible'
                         return (
-                          <div key={a.id} className="flex items-center gap-1 rounded-xl border border-slate-100 bg-white hover:border-blue-100 transition-colors">
+                          <div key={a.id} className={`flex items-center gap-1 rounded-xl border bg-white transition-colors ${isHidden ? 'border-slate-100 opacity-60' : 'border-slate-100 hover:border-blue-100'}`}>
                             <button onClick={() => navigate(`/activity/${a.id}`)}
                               className="flex items-center gap-3 flex-1 min-w-0 px-3 py-3 text-left">
-                              <FileText size={18} className="text-slate-400 flex-shrink-0" />
+                              <FileText size={18} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-900 truncate">{a.nombre}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
+                                <p className={`text-sm font-medium truncate ${isHidden ? 'text-slate-400' : 'text-slate-900'}`}>{a.nombre}</p>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                   <span className="text-xs text-slate-400">Máx: {a.maxCalif}</span>
                                   {a.fechaLimite && (
                                     <span className="text-xs text-amber-600 flex items-center gap-0.5">
                                       <Clock size={10} /> {new Date(a.fechaLimite).toLocaleDateString('es-MX')}
+                                    </span>
+                                  )}
+                                  {visState === 'hidden' && (
+                                    <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                      <EyeOff size={9} /> Oculta
+                                    </span>
+                                  )}
+                                  {visState === 'scheduled' && (
+                                    <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                      <Clock size={9} /> {formatPublishAt(a.publishAt)}
                                     </span>
                                   )}
                                 </div>
@@ -811,6 +1003,24 @@ export default function SubjectPage() {
                                 )}
                               </div>
                             </button>
+                            {/* Visibility toggle */}
+                            {isHidden ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setActivateMode('now'); setActivateDate(''); setActivateModal(a) }}
+                                title="Activar para alumnos"
+                                className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
+                              >
+                                <EyeOff size={14} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
+                                title="Ocultar para alumnos"
+                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors flex-shrink-0"
+                              >
+                                <Eye size={14} />
+                              </button>
+                            )}
                             <button onClick={() => openEdit(a)} title="Editar"
                               className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={14} />
@@ -1376,6 +1586,52 @@ export default function SubjectPage() {
               <div className="pt-1">
                 <FileTypeSelect value={form.tiposArchivo} onChange={(v) => setForm((f) => ({ ...f, tiposArchivo: v }))} />
               </div>
+
+              {/* Visibilidad */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Visibilidad</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-slate-50"
+                    style={{ borderColor: !form.oculta ? '#3b82f6' : '#e2e8f0', background: !form.oculta ? '#eff6ff' : '' }}>
+                    <input type="radio" name="visibilidad" checked={!form.oculta}
+                      onChange={() => setForm((f) => ({ ...f, oculta: false, publishAt: '' }))}
+                      className="accent-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">Mostrar ahora</p>
+                      <p className="text-xs text-slate-500">Visible para alumnos de inmediato</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-slate-50"
+                    style={{ borderColor: form.oculta && !form.publishAt ? '#3b82f6' : '#e2e8f0', background: form.oculta && !form.publishAt ? '#eff6ff' : '' }}>
+                    <input type="radio" name="visibilidad" checked={!!(form.oculta && !form.publishAt)}
+                      onChange={() => setForm((f) => ({ ...f, oculta: true, publishAt: '' }))}
+                      className="accent-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">Ocultar</p>
+                      <p className="text-xs text-slate-500">Solo tú la ves; alumnos no</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-slate-50"
+                    style={{ borderColor: form.oculta && form.publishAt ? '#3b82f6' : '#e2e8f0', background: form.oculta && form.publishAt ? '#eff6ff' : '' }}>
+                    <input type="radio" name="visibilidad" checked={!!(form.oculta && form.publishAt)}
+                      onChange={() => setForm((f) => ({ ...f, oculta: true, publishAt: f.publishAt || '' }))}
+                      className="accent-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">Programar</p>
+                      <p className="text-xs text-slate-500">Se activa automáticamente en una fecha</p>
+                    </div>
+                  </label>
+                  {form.oculta && (
+                    <input
+                      type="datetime-local"
+                      value={form.publishAt}
+                      onChange={(e) => setForm((f) => ({ ...f, publishAt: e.target.value, oculta: true }))}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                    />
+                  )}
+                </div>
+              </div>
+
               <button type="submit" disabled={saving}
                 className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {saving ? <Spinner size="sm" /> : modalMode === 'create' ? <Plus size={16} /> : <Pencil size={16} />}
@@ -1610,6 +1866,235 @@ export default function SubjectPage() {
               >
                 {savingStudent ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Activate activity modal ── */}
+      {activateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setActivateModal(null)} />
+          <div className="relative bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-slate-900 mb-1">Activar actividad</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              "<strong>{activateModal.nombre}</strong>" está oculta. ¿Cómo quieres activarla?
+            </p>
+            <div className="space-y-2 mb-4">
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-slate-50 ${activateMode === 'now' ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}>
+                <input type="radio" name="activateMode" value="now" checked={activateMode === 'now'} onChange={() => setActivateMode('now')} className="accent-blue-600" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Mostrar ahora</p>
+                  <p className="text-xs text-slate-400">Visible de inmediato para alumnos</p>
+                </div>
+              </label>
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-slate-50 ${activateMode === 'schedule' ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}>
+                <input type="radio" name="activateMode" value="schedule" checked={activateMode === 'schedule'} onChange={() => setActivateMode('schedule')} className="accent-blue-600" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Programar</p>
+                  <p className="text-xs text-slate-400">Se activa en fecha y hora específicas</p>
+                </div>
+              </label>
+              {activateMode === 'schedule' && (
+                <input
+                  type="datetime-local"
+                  value={activateDate}
+                  onChange={(e) => setActivateDate(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                />
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setActivateModal(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50">Cancelar</button>
+              <button onClick={handleActivateConfirm}
+                disabled={activateMode === 'schedule' && !activateDate}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                <Eye size={14} /> Activar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit subject modal ── */}
+      {showEditSubjectModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowEditSubjectModal(false)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold">Editar materia</h3>
+              <button onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+            </div>
+            <form onSubmit={handleEditSubject} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+                <input type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
+                  required autoFocus
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  placeholder="Ej: Matemáticas I" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Ciclo escolar</label>
+                <input type="text" value={editSubjectForm.ciclo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, ciclo: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  placeholder="Ej: 2024-2025" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Número de parciales</label>
+                <select value={editSubjectForm.parciales} onChange={(e) => setEditSubjectForm((f) => ({ ...f, parciales: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50">
+                  {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
+                </select>
+              </div>
+              <button type="submit" disabled={editingSubject}
+                className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2">
+                {editingSubject ? <Spinner size="sm" /> : <Pencil size={16} />}
+                {editingSubject ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Copy subject modal ── */}
+      {showCopyModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowCopyModal(false)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold">Copiar materia</h3>
+              <button onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">Se copiarán todas las actividades. Las calificaciones y entregas no se copian.</p>
+            <form onSubmit={handleCopySubject} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de la nueva materia</label>
+                <input type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
+                  required autoFocus
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  placeholder="Ej: Matemáticas II" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Ciclo escolar</label>
+                <input type="text" value={copyForm.ciclo} onChange={(e) => setCopyForm((f) => ({ ...f, ciclo: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  placeholder="Ej: 2025-2026" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Número de parciales</label>
+                <select value={copyForm.parciales} onChange={(e) => setCopyForm((f) => ({ ...f, parciales: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50">
+                  {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
+                </select>
+              </div>
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
+                <input type="checkbox" checked={copyForm.keepStudents} onChange={(e) => setCopyForm((f) => ({ ...f, keepStudents: e.target.checked }))}
+                  className="accent-blue-600 w-4 h-4" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Copiar lista de alumnos</p>
+                  <p className="text-xs text-slate-400">Se generan nuevas credenciales; alumnos deberán reactivar su cuenta</p>
+                </div>
+              </label>
+              <button type="submit" disabled={copyingSubject}
+                className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2">
+                {copyingSubject ? <Spinner size="sm" /> : <Copy size={16} />}
+                {copyingSubject ? 'Copiando…' : 'Crear copia'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete subject confirm modal ── */}
+      {showDeleteSubjectConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} />
+          <div className="relative bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={22} className="text-red-500" />
+            </div>
+            <h3 className="text-base font-semibold text-slate-900 text-center mb-1">¿Eliminar materia?</h3>
+            <p className="text-sm text-slate-500 text-center mb-4">
+              Se borrarán permanentemente todas las actividades, entregas, alumnos y asistencias de{' '}
+              <strong>{subject?.nombre}</strong>. Esta acción <strong>no se puede deshacer</strong>.
+            </p>
+            <p className="text-xs text-slate-500 mb-2">Escribe <strong>{subject?.nombre}</strong> para confirmar:</p>
+            <input
+              type="text"
+              value={deleteSubjectConfirmText}
+              onChange={(e) => setDeleteSubjectConfirmText(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-red-400 text-sm bg-slate-50 mb-4"
+              placeholder={subject?.nombre}
+            />
+            <div className="flex gap-3">
+              <button onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50">Cancelar</button>
+              <button onClick={handleDeleteSubject}
+                disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 flex items-center justify-center gap-2">
+                {deletingSubject ? <Spinner size="sm" /> : <Trash2 size={14} />}
+                {deletingSubject ? 'Eliminando…' : 'Eliminar todo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Unarchive modal ── */}
+      {showUnarchiveModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowUnarchiveModal(false)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold">Desarchivar materia</h3>
+              <button onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">Elige cómo quieres restaurar la materia:</p>
+
+            <div className="space-y-3 mb-5">
+              <div>
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Lista de alumnos</p>
+                <div className="space-y-1.5">
+                  {[
+                    { val: 'keep', label: 'Conservar lista', desc: 'Alumnos y calificaciones se mantienen' },
+                    { val: 'reset', label: 'Borrar y empezar de cero', desc: 'Se eliminan alumnos y sus entregas' },
+                  ].map(({ val, label, desc }) => (
+                    <label key={val} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-slate-50 ${unarchiveStudents === val ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}>
+                      <input type="radio" name="unarchiveStudents" value={val} checked={unarchiveStudents === val} onChange={() => setUnarchiveStudents(val)} className="accent-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{label}</p>
+                        <p className="text-xs text-slate-400">{desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Actividades</p>
+                <div className="space-y-1.5">
+                  {[
+                    { val: 'keep', label: 'Conservar visibilidad actual' },
+                    { val: 'show', label: 'Mostrar todas' },
+                    { val: 'hide', label: 'Ocultar todas' },
+                  ].map(({ val, label }) => (
+                    <label key={val} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-slate-50 ${unarchiveActivities === val ? 'border-blue-400 bg-blue-50' : 'border-slate-200'}`}>
+                      <input type="radio" name="unarchiveActivities" value={val} checked={unarchiveActivities === val} onChange={() => setUnarchiveActivities(val)} className="accent-blue-600" />
+                      <p className="text-sm font-medium text-slate-800">{label}</p>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowUnarchiveModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50">Cancelar</button>
+              <button onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                {unarchivedSaving ? <Spinner size="sm" /> : null}
+                {unarchivedSaving ? 'Guardando…' : 'Desarchivar'}
               </button>
             </div>
           </div>

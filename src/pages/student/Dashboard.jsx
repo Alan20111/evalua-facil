@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { BookOpen, ChevronRight, LogOut, GraduationCap } from 'lucide-react'
+import { isActivityPublished } from '../../utils/activityVisibility'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -86,6 +87,7 @@ export default function StudentDashboard() {
       const actsBySubject = {}
       actDocs.forEach((d) => {
         const a = { id: d.id, ...d.data() }
+        if (!isActivityPublished(a)) return
         if (!actsBySubject[a.asignaturaId]) actsBySubject[a.asignaturaId] = []
         actsBySubject[a.asignaturaId].push(a)
       })
