@@ -16,10 +16,11 @@ import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, FileText, CheckCircle, Clock, Circle, X,
   Download, Star, Pencil, CalendarDays, Search, ArrowDownAZ,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, FolderDown,
 } from 'lucide-react'
 import FileTypeSelect from '../../components/FileTypeSelect'
 import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
+import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
@@ -57,6 +58,9 @@ export default function ActivityPage() {
   const [extendMode, setExtendMode] = useState(false)
   const [extendDate, setExtendDate] = useState('')
   const [savingExtension, setSavingExtension] = useState(false)
+  // ZIP download
+  const [zipDownloading, setZipDownloading] = useState(false)
+  const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -204,6 +208,29 @@ export default function ActivityPage() {
     )
   }
 
+  async function handleZipDownload() {
+    setZipDownloading(true)
+    setZipProgress({ done: 0, total: 0 })
+    try {
+      const submissionsArr = Object.values(submissions)
+      const jobs = buildJobsForActivity({ subject, activity, students, submissions: submissionsArr })
+      if (jobs.length === 0) { toast('No hay archivos entregados para descargar'); return }
+      const { escritos, errores } = await downloadSubmissionsZip({
+        zipName: `${subject?.nombre} - ${activity?.nombre}`,
+        jobs,
+        onProgress: (done, total) => setZipProgress({ done, total }),
+      })
+      toast(errores > 0
+        ? `Descargadas ${escritos} de ${escritos + errores} entregas (${errores} con error)`
+        : `${escritos} entrega${escritos !== 1 ? 's' : ''} en ZIP`)
+    } catch (err) {
+      toast('Error al generar ZIP: ' + err.message, 'error')
+    } finally {
+      setZipDownloading(false)
+      setZipProgress({ done: 0, total: 0 })
+    }
+  }
+
   const curIdx = selected ? filtered.findIndex((s) => s.id === selected.student.id) : -1
   function goToOffset(off) {
     const next = filtered[curIdx + off]
@@ -308,6 +335,22 @@ export default function ActivityPage() {
             <ArrowDownAZ size={18} />
           </button>
         </div>
+
+        {/* ZIP download */}
+        {Object.values(submissions).some((s) => s.archivoURL && !s.completadoSinArchivo) && (
+          <div className="px-4 pb-2">
+            <button
+              onClick={handleZipDownload}
+              disabled={zipDownloading}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-blue-200 text-blue-700 text-sm font-medium hover:bg-blue-50 transition-colors disabled:opacity-40"
+            >
+              {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={16} />}
+              {zipDownloading
+                ? `Comprimiendo ${zipProgress.done}/${zipProgress.total}…`
+                : 'Descargar entregas como ZIP'}
+            </button>
+          </div>
+        )}
 
         {/* Student list */}
         <div className="px-4 pb-4">
