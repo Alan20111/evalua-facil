@@ -28,6 +28,16 @@ import {
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername, generateResetPassword } from '../../utils/generate'
 
+function getCicloInfo() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  if (month >= 8) {
+    return { current: `AGO ${year}-ENE ${year + 1}`, next: `FEB ${year + 1}-JUL ${year + 1}` }
+  }
+  return { current: `FEB ${year}-JUL ${year}`, next: `AGO ${year}-ENE ${year + 1}` }
+}
+
 const PARCIAL_BADGE = {
   1: 'bg-blue-100 text-blue-700',
   2: 'bg-violet-100 text-violet-700',
@@ -116,7 +126,8 @@ export default function SubjectPage() {
   const [deleteSubjectConfirmText, setDeleteSubjectConfirmText] = useState('')
   const [deletingSubject, setDeletingSubject] = useState(false)
   const [showCopyModal, setShowCopyModal] = useState(false)
-  const [copyForm, setCopyForm] = useState({ nombre: '', ciclo: '', parciales: '3', keepStudents: false })
+  const [copyForm, setCopyForm] = useState({ nombre: '', keepStudents: false })
+  const [copyCicloMode, setCopyCicloMode] = useState('current')
   const [copyingSubject, setCopyingSubject] = useState(false)
 
   // Unarchive modal
@@ -686,24 +697,22 @@ export default function SubjectPage() {
   }
 
   function openCopyModal() {
-    setCopyForm({
-      nombre: `${subject?.nombre || ''} (copia)`,
-      ciclo: subject?.ciclo || '',
-      parciales: String(subject?.parciales || 3),
-      keepStudents: false,
-    })
+    setCopyForm({ nombre: `${subject?.nombre || ''} (copia)`, keepStudents: false })
+    setCopyCicloMode('current')
     setShowCopyModal(true)
   }
 
   async function handleCopySubject(e) {
     e.preventDefault()
+    const cicloInfo = getCicloInfo()
+    const ciclo = copyCicloMode === 'current' ? cicloInfo.current : cicloInfo.next
     setCopyingSubject(true)
     try {
       const newId = await copySubject({
         sourceSubjectId: subjectId,
         nombre: copyForm.nombre.trim(),
-        ciclo: copyForm.ciclo.trim(),
-        parciales: parseInt(copyForm.parciales) || 3,
+        ciclo,
+        parciales: subject?.parciales || 3,
         keepStudents: copyForm.keepStudents,
         docenteId: currentUser.uid,
         escuelaId: userProfile?.escuelaId,
@@ -1966,7 +1975,6 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">Copiar materia</h3>
               <button onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
             </div>
-            <p className="text-xs text-slate-500 mb-4">Se copiarán todas las actividades. Las calificaciones y entregas no se copian.</p>
             <form onSubmit={handleCopySubject} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de la nueva materia</label>
@@ -1976,17 +1984,19 @@ export default function SubjectPage() {
                   placeholder="Ej: Matemáticas II" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Ciclo escolar</label>
-                <input type="text" value={copyForm.ciclo} onChange={(e) => setCopyForm((f) => ({ ...f, ciclo: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
-                  placeholder="Ej: 2025-2026" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Número de parciales</label>
-                <select value={copyForm.parciales} onChange={(e) => setCopyForm((f) => ({ ...f, parciales: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50">
-                  {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
-                </select>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Período escolar</label>
+                <div className="flex rounded-xl overflow-hidden border border-slate-200">
+                  {[
+                    { label: 'Período actual', mode: 'current', value: getCicloInfo().current },
+                    { label: 'Siguiente', mode: 'next', value: getCicloInfo().next },
+                  ].map(({ label, mode, value }, i) => (
+                    <button key={mode} type="button" onClick={() => setCopyCicloMode(mode)}
+                      className={`flex-1 py-2.5 px-2 text-center transition-colors ${i > 0 ? 'border-l border-slate-200' : ''} ${copyCicloMode === mode ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}>
+                      <span className={`block text-xs mb-0.5 ${copyCicloMode === mode ? 'text-blue-200' : 'text-slate-400'}`}>{label}</span>
+                      <span className="block text-sm font-semibold">{value}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
               <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
                 <input type="checkbox" checked={copyForm.keepStudents} onChange={(e) => setCopyForm((f) => ({ ...f, keepStudents: e.target.checked }))}
@@ -1996,6 +2006,7 @@ export default function SubjectPage() {
                   <p className="text-xs text-slate-400">Se generan nuevas credenciales; alumnos deberán reactivar su cuenta</p>
                 </div>
               </label>
+              <p className="text-xs text-slate-400">Se copiarán todas las actividades. Las calificaciones y entregas no se copian.</p>
               <button type="submit" disabled={copyingSubject}
                 className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2">
                 {copyingSubject ? <Spinner size="sm" /> : <Copy size={16} />}
