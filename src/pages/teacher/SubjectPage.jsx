@@ -1948,8 +1948,9 @@ export default function SubjectPage() {
                   placeholder="Ej: Matemáticas I" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Grupo <span className="text-slate-400 font-normal">(opcional)</span></label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Grupo</label>
                 <input type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
+                  required
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
@@ -1994,8 +1995,9 @@ export default function SubjectPage() {
                   placeholder="Ej: Matemáticas II" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Grupo <span className="text-slate-400 font-normal">(opcional)</span></label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Grupo</label>
                 <input type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
+                  required
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
