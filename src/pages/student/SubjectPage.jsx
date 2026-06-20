@@ -14,6 +14,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
   Clock, Circle, Star,
@@ -36,27 +37,16 @@ export default function StudentSubjectPage() {
   async function loadAll() {
     setLoading(true)
     try {
-      // Resolve student via userProfile.studentId to avoid Firebase email-lowercasing bug
-      const getStudentPromise = userProfile?.studentId
-        ? getDoc(doc(db, 'students', userProfile.studentId))
-        : (async () => {
-            const username = currentUser.email.split('@')[0].split('.')[0].toUpperCase()
-            const snap = await getDocs(query(collection(db, 'students'), where('username', '==', username)))
-            return snap.empty ? null : snap.docs[0]
-          })()
-
-      const [subSnap, studentResult, actsSnap] = await Promise.all([
+      // Resolve THIS student's enrollment record for the subject being viewed.
+      const [subSnap, studData, actsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
-        getStudentPromise,
+        getEnrollmentForSubject(currentUser, userProfile, subjectId),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
       ])
       setSubject({ id: subSnap.id, ...subSnap.data() })
       const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter(isActivityPublished)
       setActivities(acts)
-      if (!studentResult) return
-      const studData = userProfile?.studentId
-        ? { id: studentResult.id, ...studentResult.data() }
-        : { id: studentResult.id, ...studentResult.data() }
+      if (!studData) return
       setStudent(studData)
 
       // One query for ALL of this student's submissions, then map to activities in memory

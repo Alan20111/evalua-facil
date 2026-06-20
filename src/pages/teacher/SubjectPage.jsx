@@ -395,7 +395,7 @@ export default function SubjectPage() {
         apellidoMaterno: newStudent.apellidoMaterno.trim(),
         nombre: newStudent.nombre.trim(),
         username,
-        passwordReset: generateResetPassword(),
+        resetPassword: generateResetPassword(),
         escuelaId: userProfile.escuelaId,
         asignaturaId: subjectId,
         activado: false,
@@ -434,7 +434,7 @@ export default function SubjectPage() {
         batch.set(ref, {
           ...row,
           username,
-          passwordReset: generateResetPassword(),
+          resetPassword: generateResetPassword(),
           escuelaId: userProfile.escuelaId,
           asignaturaId: subjectId,
           activado: false,
@@ -769,8 +769,8 @@ export default function SubjectPage() {
         : buildJobsForSubject({ subject, activities: targetActs, submissions, students })
       if (jobs.length === 0) { toast('No hay archivos entregados para descargar'); return }
       const zipName = level === 'parcial'
-        ? `${subject.nombre} - Parcial ${parcial}`
-        : subject.nombre
+        ? `${subjectDisplayName(subject)} - Parcial ${parcial}`
+        : subjectDisplayName(subject)
       const { escritos, errores } = await downloadSubmissionsZip({
         zipName,
         jobs,

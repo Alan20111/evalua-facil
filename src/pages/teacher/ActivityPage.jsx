@@ -21,6 +21,7 @@ import {
 import FileTypeSelect from '../../components/FileTypeSelect'
 import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
+import { subjectDisplayName } from '../../utils/subjectName'
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
@@ -216,7 +217,7 @@ export default function ActivityPage() {
       const jobs = buildJobsForActivity({ subject, activity, students, submissions: submissionsArr })
       if (jobs.length === 0) { toast('No hay archivos entregados para descargar'); return }
       const { escritos, errores } = await downloadSubmissionsZip({
-        zipName: `${subject?.nombre} - ${activity?.nombre}`,
+        zipName: `${subjectDisplayName(subject)} - ${activity?.nombre}`,
         jobs,
         onProgress: (done, total) => setZipProgress({ done, total }),
       })
@@ -272,7 +273,7 @@ export default function ActivityPage() {
             </button>
             <div className="flex-1">
               <h1 className="text-xl font-bold text-slate-900">{activity?.nombre}</h1>
-              <p className="text-slate-400 text-xs">{subject?.nombre} · Parcial {activity?.parcial}</p>
+              <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
             </div>
             <button
               onClick={openEditModal}

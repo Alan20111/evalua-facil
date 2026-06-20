@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection,
@@ -31,6 +31,7 @@ export default function StudentActivation() {
   const [linkPassword, setLinkPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [initLoading, setInitLoading] = useState(true)
+  const submitting = useRef(false) // guards against double-submit (rapid taps)
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -107,8 +108,30 @@ export default function StudentActivation() {
     }
   }
 
+  // Links a student record to an auth account and routes to the dashboard.
+  async function finishActivation(authUser) {
+    await Promise.all([
+      setDoc(doc(db, 'users', authUser.uid), {
+        role: 'alumno',
+        username: student.username,
+        escuelaId: student.escuelaId,
+        studentId: student.id,
+        nombre: student.nombre,
+        apellidoPaterno: student.apellidoPaterno,
+        apellidoMaterno: student.apellidoMaterno,
+      }, { merge: true }),
+      updateDoc(doc(db, 'students', student.id), {
+        activado: true,
+        uid: authUser.uid,
+        resetPassword: null,
+      }),
+    ])
+    navigate('/alumno/dashboard')
+  }
+
   async function handleActivate(e) {
     e.preventDefault()
+    if (submitting.current) return
     setPasswordError('')
     if (password.length < 6) {
       setPasswordError('La contraseña debe tener al menos 6 caracteres')
@@ -118,68 +141,66 @@ export default function StudentActivation() {
       setPasswordError('Las contraseñas no coinciden')
       return
     }
+    submitting.current = true
     setLoading(true)
+    const email = studentEmail(student.username, student.escuelaId)
     try {
-      const email = studentEmail(student.username, student.escuelaId)
       const cred = await createUserWithEmailAndPassword(auth, email, password)
-      await Promise.all([
-        setDoc(doc(db, 'users', cred.user.uid), {
-          role: 'alumno',
-          username: student.username,
-          escuelaId: student.escuelaId,
-          studentId: student.id,
-          nombre: student.nombre,
-          apellidoPaterno: student.apellidoPaterno,
-          apellidoMaterno: student.apellidoMaterno,
-        }),
-        updateDoc(doc(db, 'students', student.id), { activado: true, uid: cred.user.uid }),
-      ])
+      await finishActivation(cred.user)
       toast('¡Cuenta activada! Bienvenido/a')
-      navigate('/alumno/dashboard')
     } catch (err) {
-      if (err.code === 'auth/email-already-in-use') {
-        // Re-activation flow: teacher reset the password, student gets a new one
-        if (student.resetPassword) {
-          try {
-            const email = studentEmail(student.username, student.escuelaId)
-            const cred = await signInWithEmailAndPassword(auth, email, student.resetPassword)
-            await updatePassword(cred.user, password)
-            await updateDoc(doc(db, 'students', student.id), {
-              activado: true,
-              uid: cred.user.uid,
-              resetPassword: null,
-            })
-            toast('¡Contraseña actualizada! Bienvenido/a de nuevo')
-            navigate('/alumno/dashboard')
-          } catch {
-            setPasswordError('Error al restablecer. Verifica que el código sea correcto o pide a tu maestro que vuelva a restablecerla.')
-          }
-        } else {
-          // Account exists from another subject — ask them to link with their current password
-          setStep('link_existing')
-          setPassword('')
-          setConfirmPassword('')
-          setPasswordError('')
-        }
-      } else {
+      if (err.code !== 'auth/email-already-in-use') {
         setPasswordError('Error al activar. Intenta de nuevo.')
+        return
       }
+      // An auth account with this email already exists. Decide if it belongs to THIS
+      // student (double-submit, re-activation, or returning student) and log in directly
+      // when possible — only fall back to the "ya tienes cuenta" screen as a last resort.
+      let cred = null
+      // 1) Try the password they just typed (covers a double-tap that already created the
+      //    account, and a returning student who reused their real password).
+      try {
+        cred = await signInWithEmailAndPassword(auth, email, password)
+      } catch { /* not their current password */ }
+      // 2) Try the teacher-issued temporary password, if any, and adopt the new one.
+      if (!cred && student.resetPassword) {
+        try {
+          cred = await signInWithEmailAndPassword(auth, email, student.resetPassword)
+          await updatePassword(cred.user, password)
+        } catch { cred = null }
+      }
+      if (cred) {
+        try {
+          await finishActivation(cred.user)
+          toast('¡Listo! Bienvenido/a')
+        } catch {
+          setPasswordError('Error al activar. Intenta de nuevo.')
+        }
+        return
+      }
+      // 3) The account exists with a different password → returning student. Ask for it.
+      setStep('link_existing')
+      setPassword('')
+      setConfirmPassword('')
+      setPasswordError('')
     } finally {
+      submitting.current = false
       setLoading(false)
     }
   }
 
   async function handleLinkExisting(e) {
     e.preventDefault()
+    if (submitting.current) return
     setPasswordError('')
     if (!linkPassword) return
+    submitting.current = true
     setLoading(true)
     try {
       const email = studentEmail(student.username, student.escuelaId)
       const cred = await signInWithEmailAndPassword(auth, email, linkPassword)
-      await updateDoc(doc(db, 'students', student.id), { activado: true, uid: cred.user.uid })
+      await finishActivation(cred.user)
       toast('¡Materia agregada a tu cuenta!')
-      navigate('/alumno/dashboard')
     } catch (err) {
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setPasswordError('Contraseña incorrecta. Intenta de nuevo.')
@@ -187,6 +208,7 @@ export default function StudentActivation() {
         setPasswordError('Error al conectar. Intenta de nuevo.')
       }
     } finally {
+      submitting.current = false
       setLoading(false)
     }
   }

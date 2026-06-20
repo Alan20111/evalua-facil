@@ -23,6 +23,8 @@ import {
 } from 'lucide-react'
 import { getFileType, isFileAllowed } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { isActivityPublished } from '../../utils/activityVisibility'
+import { getEnrollmentForSubject } from '../../utils/studentLookup'
 
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -75,29 +77,32 @@ export default function StudentActivityPage() {
   async function loadOther() {
     setLoading(true)
     try {
-      let studentId = userProfile?.studentId
-      if (!studentId) {
-        const username = currentUser.email.split('@')[0].split('.')[0].toUpperCase()
-        const snap = await getDocs(query(collection(db, 'students'), where('username', '==', username)))
-        studentId = snap.empty ? null : snap.docs[0].id
+      const actSnap = await getDoc(doc(db, 'activities', activityId))
+      if (!actSnap.exists()) {
+        toast('Actividad no encontrada', 'error')
+        navigate('/alumno/dashboard')
+        return
       }
-
-      const [actSnap, studSnap] = await Promise.all([
-        getDoc(doc(db, 'activities', activityId)),
-        studentId ? getDoc(doc(db, 'students', studentId)) : Promise.resolve(null),
-      ])
       const actData = { id: actSnap.id, ...actSnap.data() }
+      // Students must never reach a hidden/scheduled activity, even via a direct URL.
+      if (!isActivityPublished(actData)) {
+        toast('Esta actividad no está disponible', 'error')
+        navigate('/alumno/dashboard')
+        return
+      }
       setActivity(actData)
-      const studData = studSnap?.exists() ? { id: studSnap.id, ...studSnap.data() } : null
+
+      // Resolve this student's enrollment record for the activity's subject.
+      const studData = await getEnrollmentForSubject(currentUser, userProfile, actData.asignaturaId)
       setStudent(studData)
 
       const [subSnap, subsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', actData.asignaturaId)),
-        studentId
+        studData
           ? getDocs(query(
               collection(db, 'submissions'),
               where('actividadId', '==', activityId),
-              where('alumnoId', '==', studentId)
+              where('alumnoId', '==', studData.id)
             ))
           : Promise.resolve(null),
       ])

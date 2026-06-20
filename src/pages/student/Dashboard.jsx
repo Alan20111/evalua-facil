@@ -13,9 +13,10 @@ import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { BookOpen, ChevronRight, LogOut, GraduationCap } from 'lucide-react'
+import { BookOpen, ChevronRight, LogOut, GraduationCap, Plus, X, Hash } from 'lucide-react'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { getEnrollments } from '../../utils/studentLookup'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -31,13 +32,35 @@ async function fetchActivitiesForSubjects(subjectIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
+// All submissions belonging to a set of student enrollment docs (chunked `in`).
+async function fetchSubmissionsForStudents(studentDocIds) {
+  if (studentDocIds.length === 0) return []
+  const chunks = []
+  for (let i = 0; i < studentDocIds.length; i += 30) chunks.push(studentDocIds.slice(i, i + 30))
+  const snaps = await Promise.all(
+    chunks.map((ids) =>
+      getDocs(query(collection(db, 'submissions'), where('alumnoId', 'in', ids)))
+    )
+  )
+  return snaps.flatMap((s) => s.docs)
+}
+
 export default function StudentDashboard() {
   const { currentUser, userProfile } = useAuth()
   const [student, setStudent] = useState(null)
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showJoin, setShowJoin] = useState(false)
+  const [joinCode, setJoinCode] = useState('')
   const navigate = useNavigate()
   const toast = useToast()
+
+  function handleJoinSubject(e) {
+    e.preventDefault()
+    const code = joinCode.trim().toUpperCase()
+    if (!code) return
+    navigate(`/activate/${code}`)
+  }
 
   useEffect(() => {
     if (currentUser) loadData()
@@ -46,45 +69,42 @@ export default function StudentDashboard() {
   async function loadData() {
     setLoading(true)
     try {
-      // Resolve student record via userProfile.studentId (set by AuthContext for all accounts)
-      // This avoids the Firebase Auth email-lowercasing bug that broke the old escuelaId query.
-      let studData
-      if (userProfile?.studentId) {
-        const snap = await getDoc(doc(db, 'students', userProfile.studentId))
-        if (!snap.exists()) { toast('No se encontró tu perfil de alumno', 'error'); return }
-        studData = { id: snap.id, ...snap.data() }
-      } else {
-        // Legacy fallback: query by username only (single-field, no case issue)
-        const username = currentUser.email.split('@')[0].split('.')[0].toUpperCase()
-        const studs = await getDocs(
-          query(collection(db, 'students'), where('username', '==', username))
-        )
-        if (studs.empty) { toast('No se encontró tu perfil de alumno', 'error'); return }
-        studData = { id: studs.docs[0].id, ...studs.docs[0].data() }
+      // A student account can be enrolled in several subjects (one `students` doc per
+      // subject, all sharing the same auth uid). Load every enrollment.
+      const enrollments = await getEnrollments(currentUser, userProfile)
+      if (enrollments.length === 0) {
+        toast('No se encontró tu perfil de alumno', 'error')
+        setSubjects([])
+        return
       }
-      setStudent(studData)
+      setStudent(enrollments[0]) // identity (name/username) is shared across enrollments
 
-      // Get the student's subject directly by asignaturaId.
-      if (!studData.asignaturaId) { setSubjects([]); return }
-      const subSnap = await getDoc(doc(db, 'subjects', studData.asignaturaId))
-      if (!subSnap.exists()) { setSubjects([]); return }
-      const subs = [{ id: subSnap.id, ...subSnap.data() }]
+      // Map each subject → the enrollment doc id (used as alumnoId for submissions).
+      const docIdBySubject = {}
+      enrollments.forEach((s) => { if (s.asignaturaId) docIdBySubject[s.asignaturaId] = s.id })
+      const asignaturaIds = Object.keys(docIdBySubject)
+      if (asignaturaIds.length === 0) { setSubjects([]); return }
 
-      // Everything else in ONE parallel batch — a constant number of round trips no
-      // matter how many subjects/activities there are (was O(subjects × activities)):
-      //  · teacher names  · all activities (chunked `in`)  · all my submissions (1 query)
-      const teacherIds = [...new Set(subs.map((s) => s.docenteId))]
+      const subjSnaps = await Promise.all(asignaturaIds.map((id) => getDoc(doc(db, 'subjects', id))))
+      const subs = subjSnaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() }))
+      if (subs.length === 0) { setSubjects([]); return }
+
+      // Everything else in ONE parallel batch — a constant number of round trips:
+      //  · teacher names  · all activities (chunked `in`)  · all my submissions (chunked `in`)
+      const teacherIds = [...new Set(subs.map((s) => s.docenteId).filter(Boolean))]
       const subjectIds = subs.map((s) => s.id)
-      const [teacherSnaps, actDocs, mySubsSnap] = await Promise.all([
+      const myDocIds = Object.values(docIdBySubject)
+      const [teacherSnaps, actDocs, mySubmissions] = await Promise.all([
         Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'users', tid)))),
         fetchActivitiesForSubjects(subjectIds),
-        getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', studData.id))),
+        fetchSubmissionsForStudents(myDocIds),
       ])
 
       const teachers = {}
       teacherSnaps.forEach((t) => { if (t.exists()) teachers[t.id] = t.data().nombre })
 
-      // Group activities by subject and index this student's grade per activity.
+      // Group activities by subject and index this student's grade per activity
+      // (activities are subject-unique, so keying by activity id never collides).
       const actsBySubject = {}
       actDocs.forEach((d) => {
         const a = { id: d.id, ...d.data() }
@@ -93,7 +113,7 @@ export default function StudentDashboard() {
         actsBySubject[a.asignaturaId].push(a)
       })
       const gradeByActivity = {}
-      mySubsSnap.docs.forEach((d) => {
+      mySubmissions.forEach((d) => {
         const data = d.data()
         if (data.calificacion != null) gradeByActivity[data.actividadId] = data.calificacion
       })
@@ -158,7 +178,8 @@ export default function StudentDashboard() {
         {subjects.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 p-10 text-center">
             <BookOpen size={32} className="text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500">Aún no hay asignaturas en tu grupo</p>
+            <p className="text-slate-500 mb-1">Aún no tienes materias</p>
+            <p className="text-slate-400 text-sm">Usa el botón de abajo para unirte a una.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -188,7 +209,53 @@ export default function StudentDashboard() {
             ))}
           </div>
         )}
+
+        {/* Join another subject */}
+        <button
+          onClick={() => { setJoinCode(''); setShowJoin(true) }}
+          className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-dashed border-blue-300 text-blue-600 text-sm font-semibold hover:bg-blue-50 transition-colors"
+        >
+          <Plus size={16} /> Unirme a otra materia
+        </button>
       </div>
+
+      {/* ── Join-subject modal ── */}
+      {showJoin && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowJoin(false)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-slate-900">Unirme a otra materia</h3>
+              <button onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">
+              Ingresa el <strong>código de acceso</strong> de tu nueva materia (o escanea su QR). Como ya tienes cuenta, solo confirmarás tu contraseña.
+            </p>
+            <form onSubmit={handleJoinSubject} className="flex gap-2">
+              <input
+                type="text"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+                autoFocus
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                maxLength={8}
+                placeholder="Ej: A3B7K2"
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 font-mono tracking-widest text-center"
+              />
+              <button
+                type="submit"
+                disabled={!joinCode.trim()}
+                className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+              >
+                <Hash size={16} /> Ir
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
