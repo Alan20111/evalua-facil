@@ -24,7 +24,6 @@ export default function StudentSubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
   const [subject, setSubject] = useState(null)
-  const [student, setStudent] = useState(null)
   const [activities, setActivities] = useState([])
   const [submissions, setSubmissions] = useState({})
   const [openParcial, setOpenParcial] = useState(1)
@@ -47,7 +46,6 @@ export default function StudentSubjectPage() {
       const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter(isActivityPublished)
       setActivities(acts)
       if (!studData) return
-      setStudent(studData)
 
       // One query for ALL of this student's submissions, then map to activities in memory
       // (was one query per activity).
@@ -89,7 +87,7 @@ export default function StudentSubjectPage() {
   )
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50" data-subject-palette={subject?.colorPalette || 'default'}>
       <header className="bg-white border-b border-slate-100 px-4 py-4 flex items-center gap-3 shadow-sm">
         <button
           onClick={() => navigate('/alumno/dashboard')}

@@ -229,7 +229,7 @@ export default function StudentActivityPage() {
   const canResubmit = !!extendedDate && !isGraded && !!submission
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50" data-subject-palette={subject?.colorPalette || 'default'}>
       <header className="bg-white border-b border-slate-100 px-4 py-4 flex items-center gap-3 shadow-sm">
         <button
           onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}

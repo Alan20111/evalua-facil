@@ -14,7 +14,7 @@ import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import {
-  ArrowLeft, FileText, CheckCircle, Clock, Circle, X,
+  ArrowLeft, CheckCircle, Clock, Circle, X,
   Download, Star, Pencil, CalendarDays, Search, ArrowDownAZ,
   ChevronLeft, ChevronRight, FolderDown,
 } from 'lucide-react'
@@ -261,6 +261,7 @@ export default function ActivityPage() {
 
   return (
     <TeacherLayout>
+      <div data-subject-palette={subject?.colorPalette || 'default'}>
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="bg-white border-b border-slate-100 px-4 py-4">
@@ -661,6 +662,7 @@ export default function ActivityPage() {
           </div>
         </div>
       )}
+      </div>
     </TeacherLayout>
   )
 }

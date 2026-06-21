@@ -15,6 +15,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { Plus, BookOpen, ChevronRight, X, CreditCard, ArrowUpDown } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
+import PaletteSelect from '../../components/PaletteSelect'
 import { useSubscription } from '../../hooks/useSubscription'
 import { calcDaysRemaining } from '../../utils/subscriptionHelpers'
 
@@ -53,6 +54,7 @@ export default function TeacherDashboard() {
   const [newSubjectName, setNewSubjectName] = useState('')
   const [newSubjectGrupo, setNewSubjectGrupo] = useState('')
   const [newSubjectParciales, setNewSubjectParciales] = useState(3)
+  const [newSubjectPalette, setNewSubjectPalette] = useState('default')
   const [inlineCicloMode, setInlineCicloMode] = useState('current')
   const [creatingSubject, setCreatingSubject] = useState(false)
 
@@ -108,6 +110,7 @@ export default function TeacherDashboard() {
         escuelaId: userProfile.escuelaId,
         parciales: newSubjectParciales,
         ciclo: inlineSelectedCiclo,
+        colorPalette: newSubjectPalette,
         accessCode: generateAccessCode(),
         archived: false,
         createdAt: serverTimestamp(),
@@ -125,6 +128,7 @@ export default function TeacherDashboard() {
       setNewSubjectName('')
       setNewSubjectGrupo('')
       setNewSubjectParciales(3)
+      setNewSubjectPalette('default')
       setInlineCicloMode('current')
       toast('Asignatura creada')
       navigate(`/subject/${ref.id}`)
@@ -309,6 +313,14 @@ export default function TeacherDashboard() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Paleta de color */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Color de la asignatura
+                </label>
+                <PaletteSelect value={newSubjectPalette} onChange={setNewSubjectPalette} />
               </div>
 
               <button

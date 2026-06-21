@@ -16,6 +16,7 @@ import { deleteSubjectCascade, deleteSubjectStudents } from '../../utils/deleteS
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatPublishAt } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
+import PaletteSelect from '../../components/PaletteSelect'
 import FileTypeSelect from '../../components/FileTypeSelect'
 import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
 import {
@@ -92,13 +93,13 @@ export default function SubjectPage() {
 
   // Subject CRUD
   const [showEditSubjectModal, setShowEditSubjectModal] = useState(false)
-  const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', grupo: '', ciclo: '', parciales: '3' })
+  const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', grupo: '', ciclo: '', parciales: '3', colorPalette: 'default' })
   const [editingSubject, setEditingSubject] = useState(false)
   const [showDeleteSubjectConfirm, setShowDeleteSubjectConfirm] = useState(false)
   const [deleteSubjectConfirmText, setDeleteSubjectConfirmText] = useState('')
   const [deletingSubject, setDeletingSubject] = useState(false)
   const [showCopyModal, setShowCopyModal] = useState(false)
-  const [copyForm, setCopyForm] = useState({ nombre: '', keepStudents: false })
+  const [copyForm, setCopyForm] = useState({ nombre: '', grupo: '', keepStudents: false, colorPalette: 'default' })
   const [copyCicloMode, setCopyCicloMode] = useState('current')
   const [copyingSubject, setCopyingSubject] = useState(false)
 
@@ -510,6 +511,7 @@ export default function SubjectPage() {
       grupo: subject?.grupo || '',
       ciclo: subject?.ciclo || '',
       parciales: String(subject?.parciales || 3),
+      colorPalette: subject?.colorPalette || 'default',
     })
     setShowEditSubjectModal(true)
   }
@@ -529,8 +531,9 @@ export default function SubjectPage() {
         grupo: editSubjectForm.grupo.trim(),
         ciclo: editSubjectForm.ciclo.trim(),
         parciales: newParciales,
+        colorPalette: editSubjectForm.colorPalette || 'default',
       })
-      setSubject((s) => ({ ...s, nombre: editSubjectForm.nombre.trim(), grupo: editSubjectForm.grupo.trim(), ciclo: editSubjectForm.ciclo.trim(), parciales: newParciales }))
+      setSubject((s) => ({ ...s, nombre: editSubjectForm.nombre.trim(), grupo: editSubjectForm.grupo.trim(), ciclo: editSubjectForm.ciclo.trim(), parciales: newParciales, colorPalette: editSubjectForm.colorPalette || 'default' }))
       toast('Asignatura actualizada')
       setShowEditSubjectModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -551,7 +554,7 @@ export default function SubjectPage() {
   }
 
   function openCopyModal() {
-    setCopyForm({ nombre: subject?.nombre || '', grupo: subject?.grupo || '', keepStudents: false })
+    setCopyForm({ nombre: subject?.nombre || '', grupo: subject?.grupo || '', keepStudents: false, colorPalette: subject?.colorPalette || 'default' })
     setCopyCicloMode('current')
     setShowCopyModal(true)
   }
@@ -568,6 +571,7 @@ export default function SubjectPage() {
         grupo: copyForm.grupo.trim(),
         ciclo,
         parciales: subject?.parciales || 3,
+        colorPalette: copyForm.colorPalette || 'default',
         keepStudents: copyForm.keepStudents,
         docenteId: currentUser.uid,
         escuelaId: userProfile?.escuelaId,
@@ -701,6 +705,7 @@ export default function SubjectPage() {
 
   return (
     <TeacherLayout>
+      <div data-subject-palette={subject?.colorPalette || 'default'}>
       <div className="max-w-2xl mx-auto">
 
         {/* ── Header ── */}
@@ -1515,6 +1520,10 @@ export default function SubjectPage() {
                   {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Color de la asignatura</label>
+                <PaletteSelect value={editSubjectForm.colorPalette} onChange={(p) => setEditSubjectForm((f) => ({ ...f, colorPalette: p }))} />
+              </div>
               <button type="submit" disabled={editingSubject}
                 className="w-full py-3 bg-accent text-white font-semibold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2">
                 {editingSubject ? <Spinner size="sm" /> : <Pencil size={16} />}
@@ -1563,6 +1572,10 @@ export default function SubjectPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Color de la asignatura</label>
+                <PaletteSelect value={copyForm.colorPalette} onChange={(p) => setCopyForm((f) => ({ ...f, colorPalette: p }))} />
               </div>
               <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
                 <input type="checkbox" checked={copyForm.keepStudents} onChange={(e) => setCopyForm((f) => ({ ...f, keepStudents: e.target.checked }))}
@@ -1677,6 +1690,7 @@ export default function SubjectPage() {
           </div>
         </div>
       )}
+      </div>
     </TeacherLayout>
   )
 }
