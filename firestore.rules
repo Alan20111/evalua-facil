@@ -52,7 +52,12 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update: if request.auth != null;
-      allow delete: if request.auth != null;
+      // Only the owning teacher (of the activity) or the student who made the
+      // submission may delete it.
+      allow delete: if request.auth != null && (
+        request.auth.uid == get(/databases/$(database)/documents/activities/$(resource.data.actividadId)).data.docenteId
+        || resource.data.alumnoId == request.auth.uid
+      );
     }
 
     match /plans/{planId} {
