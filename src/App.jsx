@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './components/Toast'
 
+import Landing from './pages/Landing'
 import TeacherLogin from './pages/teacher/Login'
 import TeacherRegister from './pages/teacher/Register'
 import RegisterSchool from './pages/teacher/RegisterSchool'
@@ -43,10 +44,11 @@ function ProtectedStudent({ children }) {
   return children
 }
 
-function RootRedirect() {
+// Redirects an authenticated user to their dashboard; otherwise renders `guest`.
+function RootRedirect({ guest = <TeacherLogin /> }) {
   const { currentUser, userProfile, loading } = useAuth()
   if (loading) return null
-  if (!currentUser) return <TeacherLogin />
+  if (!currentUser) return guest
   if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
   if (userProfile?.role === 'docente') return <Navigate to="/dashboard" replace />
   if (!userProfile) {
@@ -74,7 +76,7 @@ export default function App() {
           <RoleWrapper>
           <Routes>
             {/* Public */}
-            <Route path="/" element={<RootRedirect />} />
+            <Route path="/" element={<RootRedirect guest={<Landing />} />} />
             <Route path="/docente" element={<RootRedirect />} />
             <Route path="/register" element={<TeacherRegister />} />
             <Route path="/register/school" element={<RegisterSchool />} />
