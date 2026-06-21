@@ -20,6 +20,7 @@ export default function Register() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [selectedPlantel, setSelectedPlantel] = useState(null)
+  const [skipSchool, setSkipSchool] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
@@ -42,36 +43,48 @@ export default function Register() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!selectedPlantel) { toast('Selecciona tu escuela', 'error'); return }
+    if (!skipSchool && !selectedPlantel) { toast('Selecciona tu escuela', 'error'); return }
     if (password !== confirmPassword) { toast('Las contraseñas no coinciden', 'error'); return }
     if (password.length < 6) { toast('Mínimo 6 caracteres', 'error'); return }
     setLoading(true)
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password)
 
-      const schoolSnap = await getDocs(
-        query(collection(db, 'schools'), where('claveSEP', '==', selectedPlantel.cct))
-      )
-      let schoolId
-      if (!schoolSnap.empty) {
-        schoolId = schoolSnap.docs[0].id
+      let schoolId, shortForUsername, schoolNombre
+      if (skipSchool) {
+        // "Sin escuela": shared sentinel escuela so teacher usernames stay unique
+        // (EF-01, EF-02…) and student emails get a stable escuelaId. The teacher can
+        // pick a real school later in Perfil (only affects new subjects/students).
+        schoolId = 'sin-escuela'
+        shortForUsername = 'EF'
+        schoolNombre = 'Sin escuela'
+        await setDoc(doc(db, 'schools', 'sin-escuela'), { nombre: 'Sin escuela', shortName: 'EF', sinEscuela: true }, { merge: true })
       } else {
-        const newRef = doc(collection(db, 'schools'))
-        await setDoc(newRef, {
-          claveSEP: selectedPlantel.cct,
-          nombre: selectedPlantel.nombre,
-          shortName: selectedPlantel.short,
-          subsistema: selectedPlantel.sub,
-          municipio: selectedPlantel.mun,
-          estado: selectedPlantel.edo,
-        })
-        schoolId = newRef.id
+        const schoolSnap = await getDocs(
+          query(collection(db, 'schools'), where('claveSEP', '==', selectedPlantel.cct))
+        )
+        if (!schoolSnap.empty) {
+          schoolId = schoolSnap.docs[0].id
+        } else {
+          const newRef = doc(collection(db, 'schools'))
+          await setDoc(newRef, {
+            claveSEP: selectedPlantel.cct,
+            nombre: selectedPlantel.nombre,
+            shortName: selectedPlantel.short,
+            subsistema: selectedPlantel.sub,
+            municipio: selectedPlantel.mun,
+            estado: selectedPlantel.edo,
+          })
+          schoolId = newRef.id
+        }
+        shortForUsername = selectedPlantel.short || selectedPlantel.nombre
+        schoolNombre = selectedPlantel.short || selectedPlantel.nombre
       }
 
       const teacherSnap = await getDocs(
         query(collection(db, 'users'), where('escuelaId', '==', schoolId))
       )
-      const username = generateTeacherUsername(selectedPlantel.short || selectedPlantel.nombre, teacherSnap.size)
+      const username = generateTeacherUsername(shortForUsername, teacherSnap.size)
       await updateProfile(cred.user, { displayName: username })
 
       await setDoc(doc(db, 'users', cred.user.uid), {
@@ -79,6 +92,7 @@ export default function Register() {
         username,
         email: email.trim().toLowerCase(),
         escuelaId: schoolId,
+        schoolName: schoolNombre,
         photoURL: null,
       })
 
@@ -90,7 +104,7 @@ export default function Register() {
         docenteId: cred.user.uid,
         planId: '',
         escuelaId: schoolId,
-        schoolName: selectedPlantel.short || selectedPlantel.nombre,
+        schoolName: schoolNombre,
         status: 'trial',
         fechaInicio: Timestamp.fromDate(trialStart),
         fechaVencimiento: Timestamp.fromDate(trialEnd),
@@ -98,7 +112,7 @@ export default function Register() {
         updatedAt: Timestamp.fromDate(trialStart),
       })
 
-      sendWelcomeEmail({ email: email.trim().toLowerCase(), username, school: selectedPlantel.short || selectedPlantel.nombre }).catch(() => {})
+      sendWelcomeEmail({ email: email.trim().toLowerCase(), username, school: schoolNombre }).catch(() => {})
       navigate('/dashboard', { state: { newAccount: true, createdUsername: username } })
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
@@ -143,8 +157,9 @@ export default function Register() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Escuela</label>
               <button
                 type="button"
+                disabled={skipSchool}
                 onClick={() => { setShowPicker(true); setSearch('') }}
-                className={`w-full px-4 py-3 rounded-xl border text-sm text-left flex items-center justify-between gap-2 transition-colors ${
+                className={`w-full px-4 py-3 rounded-xl border text-sm text-left flex items-center justify-between gap-2 transition-colors disabled:opacity-50 ${
                   selectedPlantel
                     ? 'border-emerald-300 bg-emerald-50'
                     : 'border-slate-200 bg-slate-50 hover:border-blue-400'
@@ -158,11 +173,20 @@ export default function Register() {
                   : <ChevronDown size={16} className="text-slate-400 flex-shrink-0" />
                 }
               </button>
-              {selectedPlantel && (
+              {selectedPlantel && !skipSchool && (
                 <p className="text-xs text-emerald-700 mt-1 ml-1 truncate">
                   {selectedPlantel.cct} · {selectedPlantel.mun}, {selectedPlantel.edo}
                 </p>
               )}
+              <label className="flex items-center gap-2 mt-2 ml-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={skipSchool}
+                  onChange={(e) => { setSkipSchool(e.target.checked); if (e.target.checked) setSelectedPlantel(null) }}
+                  className="accent-blue-600 w-4 h-4"
+                />
+                <span className="text-xs text-slate-500">Prefiero no elegir en este momento (podré asignarla luego en mi perfil)</span>
+              </label>
             </div>
 
             {/* Password */}

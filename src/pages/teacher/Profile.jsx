@@ -1,17 +1,18 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth'
-import { doc, updateDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
-import { Camera, Lock, User, X, CreditCard } from 'lucide-react'
+import { usePlanteles } from '../../data/usePlanteles'
+import { Camera, Lock, User, X, CreditCard, School, Search, ChevronDown } from 'lucide-react'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
 import {
@@ -53,6 +54,45 @@ export default function Profile() {
 
   // Photo
   const [photoUploading, setPhotoUploading] = useState(false)
+
+  // School
+  const [showSchoolPicker, setShowSchoolPicker] = useState(false)
+  const [schoolSearch, setSchoolSearch] = useState('')
+  const [savingSchool, setSavingSchool] = useState(false)
+  const { planteles, loading: catalogLoading } = usePlanteles()
+  const filteredPlanteles = useMemo(() => {
+    const q = schoolSearch.trim().toLowerCase()
+    if (!q) return planteles.slice(0, 60)
+    return planteles.filter((p) =>
+      p.nombre?.toLowerCase().includes(q) || p.short?.toLowerCase().includes(q) ||
+      p.cct?.toLowerCase().includes(q) || p.mun?.toLowerCase().includes(q)
+    ).slice(0, 80)
+  }, [planteles, schoolSearch])
+
+  async function updateSchool(plantel) {
+    setSavingSchool(true)
+    try {
+      let escuelaId, schoolNombre
+      if (!plantel) {
+        escuelaId = 'sin-escuela'; schoolNombre = 'Sin escuela'
+        await setDoc(doc(db, 'schools', 'sin-escuela'), { nombre: 'Sin escuela', shortName: 'EF', sinEscuela: true }, { merge: true })
+      } else {
+        const snap = await getDocs(query(collection(db, 'schools'), where('claveSEP', '==', plantel.cct)))
+        if (!snap.empty) escuelaId = snap.docs[0].id
+        else {
+          const ref = doc(collection(db, 'schools'))
+          await setDoc(ref, { claveSEP: plantel.cct, nombre: plantel.nombre, shortName: plantel.short, subsistema: plantel.sub, municipio: plantel.mun, estado: plantel.edo })
+          escuelaId = ref.id
+        }
+        schoolNombre = plantel.short || plantel.nombre
+      }
+      await updateDoc(doc(db, 'users', currentUser.uid), { escuelaId, schoolName: schoolNombre })
+      setUserProfile((p) => ({ ...p, escuelaId, schoolName: schoolNombre }))
+      toast('Escuela actualizada — solo aplica a asignaturas y alumnos nuevos')
+      setShowSchoolPicker(false)
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setSavingSchool(false) }
+  }
 
   // Password change
   const [showPwdForm, setShowPwdForm] = useState(false)
@@ -309,6 +349,21 @@ export default function Profile() {
           </form>
         </div>
 
+        {/* Escuela */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <School size={17} className="text-slate-400" /> Escuela
+          </h2>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-900 truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
+              <p className="text-xs text-slate-400 mt-0.5">Cambiarla solo afecta a las asignaturas y alumnos nuevos.</p>
+            </div>
+            <button type="button" onClick={() => { setSchoolSearch(''); setShowSchoolPicker(true) }}
+              className="text-blue-600 text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
+          </div>
+        </div>
+
         {/* Acceso */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
@@ -400,6 +455,47 @@ export default function Profile() {
                 {confirming ? 'Procesando…' : 'Confirmar'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* School picker overlay */}
+      {showSchoolPicker && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !savingSchool && setShowSchoolPicker(false)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col" style={{ maxHeight: '80vh' }}>
+            <div className="flex items-center gap-2 p-3 border-b border-slate-100">
+              <div className="flex-1 relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input autoFocus type="text" value={schoolSearch} onChange={(e) => setSchoolSearch(e.target.value)}
+                  placeholder="Nombre, CCT o municipio…"
+                  className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg"><X size={17} /></button>
+            </div>
+            <button type="button" onClick={() => updateSchool(null)} disabled={savingSchool}
+              className="flex items-center gap-2 px-4 py-3 text-left border-b border-slate-100 hover:bg-slate-50 disabled:opacity-60">
+              <ChevronDown size={15} className="text-slate-400 rotate-0" />
+              <span className="text-sm font-medium text-slate-700">Sin escuela</span>
+            </button>
+            {catalogLoading ? (
+              <div className="flex justify-center py-10"><Spinner /></div>
+            ) : (
+              <ul className="overflow-y-auto flex-1 divide-y divide-slate-100">
+                {filteredPlanteles.length === 0 && (
+                  <li className="text-center text-slate-400 text-sm py-10">Sin resultados</li>
+                )}
+                {filteredPlanteles.map((p) => (
+                  <li key={p.cct}>
+                    <button type="button" onClick={() => updateSchool(p)} disabled={savingSchool}
+                      className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors disabled:opacity-60">
+                      <p className="text-sm font-medium text-slate-900 leading-tight">{p.short || p.nombre}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}
