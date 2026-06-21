@@ -214,10 +214,10 @@ export default function ActivityPage() {
     setZipProgress({ done: 0, total: 0 })
     try {
       const submissionsArr = Object.values(submissions)
-      const jobs = buildJobsForActivity({ subject, activity, students, submissions: submissionsArr })
+      const jobs = buildJobsForActivity({ students, submissions: submissionsArr })
       if (jobs.length === 0) { toast('No hay archivos entregados para descargar'); return }
       const { escritos, errores } = await downloadSubmissionsZip({
-        zipName: `${subjectDisplayName(subject)} - ${activity?.nombre}`,
+        zipName: activity?.nombre || 'Entregas',
         jobs,
         onProgress: (done, total) => setZipProgress({ done, total }),
       })

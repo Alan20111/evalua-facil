@@ -12,50 +12,23 @@ function sanitize(name) {
 
 // ── Job builders (pure functions, no Firestore) ──────────────────────────
 
+// Per-activity ZIP: one folder per student (named with their full name), and
+// inside it the student's submitted file(s) keeping the ORIGINAL filename.
 // submissions: flat array of submission objects { alumnoId, archivoURL, nombreArchivo, completadoSinArchivo }
-export function buildJobsForActivity({ subject, activity, students, submissions }) {
-  const folder = sanitize(`${subjectDisplayName(subject)} - ${activity.nombre}`)
+export function buildJobsForActivity({ students, submissions }) {
   const studentMap = Object.fromEntries(students.map((s) => [s.id, s]))
-  const usedNames = new Set()
   const jobs = []
 
   for (const sub of submissions) {
     if (!sub.archivoURL || sub.completadoSinArchivo) continue
     const student = studentMap[sub.alumnoId]
     if (!student) continue
-    let baseName = sanitize(fullName(student))
-    if (usedNames.has(baseName)) baseName = `${baseName} (${student.username || student.id})`
-    usedNames.add(baseName)
-    jobs.push({ path: [folder], fileBaseName: baseName, url: sub.archivoURL, nombreArchivo: sub.nombreArchivo })
-  }
-  return jobs
-}
-
-// submissions: flat array of ALL submissions for this parcial's activities
-export function buildJobsForParcial({ subject, parcial, activities, submissions, students }) {
-  const folderBase = sanitize(`${subjectDisplayName(subject)} - Parcial ${parcial}`)
-  const studentMap = Object.fromEntries(students.map((s) => [s.id, s]))
-  // group submissions by activityId for fast lookup
-  const byAct = {}
-  submissions.forEach((sub) => {
-    if (!byAct[sub.actividadId]) byAct[sub.actividadId] = []
-    byAct[sub.actividadId].push(sub)
-  })
-
-  const jobs = []
-  for (const act of activities) {
-    const subs = byAct[act.id] || []
-    const folderAct = sanitize(act.nombre)
-    const usedNames = new Set()
-    for (const sub of subs) {
-      if (!sub.archivoURL || sub.completadoSinArchivo) continue
-      const student = studentMap[sub.alumnoId]
-      if (!student) continue
-      let baseName = sanitize(fullName(student))
-      if (usedNames.has(baseName)) baseName = `${baseName} (${student.username || student.id})`
-      usedNames.add(baseName)
-      jobs.push({ path: [folderBase, folderAct], fileBaseName: baseName, url: sub.archivoURL, nombreArchivo: sub.nombreArchivo })
-    }
+    const folder = sanitize(fullName(student)) || (student.username || student.id)
+    // Keep the original filename the student gave (resolvePath re-adds the extension).
+    const original = sub.nombreArchivo || 'entrega'
+    const dot = original.lastIndexOf('.')
+    const base = dot > 0 ? original.slice(0, dot) : original
+    jobs.push({ path: [folder], fileBaseName: sanitize(base) || 'entrega', url: sub.archivoURL, nombreArchivo: sub.nombreArchivo })
   }
   return jobs
 }

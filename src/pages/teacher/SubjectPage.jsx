@@ -11,7 +11,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { exportSubjectGrades, parseStudentExcel, exportStudentListExcel, downloadStudentTemplate } from '../../utils/excel'
 import { exportStudentListPDF } from '../../utils/pdf'
-import { buildJobsForParcial, buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
+import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatPublishAt } from '../../utils/activityVisibility'
@@ -24,7 +24,7 @@ import {
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet, Search,
   ArrowUp, ArrowDown, UserPlus, RotateCcw, Upload, Download, QrCode,
-  Link, Hash, Check as CheckIcon, KeyRound, Copy, FolderDown,
+  Link, Hash, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
@@ -664,40 +664,6 @@ export default function SubjectPage() {
     finally { setExporting(false) }
   }
 
-  async function handleZip(level, parcial) {
-    setZipDownloading(true)
-    setZipProgress({ done: 0, total: 0 })
-    try {
-      const students = await ensureGroupStudents()
-      const targetActs = level === 'parcial'
-        ? activities.filter((a) => a.parcial === parcial)
-        : activities
-      if (targetActs.length === 0) { toast('No hay actividades en este parcial'); return }
-      const rawDocs = await fetchSubmissionsForActivities(targetActs.map((a) => a.id))
-      const submissions = rawDocs.map((d) => ({ id: d.id, ...d.data() }))
-      const jobs = level === 'parcial'
-        ? buildJobsForParcial({ subject, parcial, activities: targetActs, submissions, students })
-        : buildJobsForSubject({ subject, activities: targetActs, submissions, students })
-      if (jobs.length === 0) { toast('No hay archivos entregados para descargar'); return }
-      const zipName = level === 'parcial'
-        ? `${subjectDisplayName(subject)} - Parcial ${parcial}`
-        : subjectDisplayName(subject)
-      const { escritos, errores } = await downloadSubmissionsZip({
-        zipName,
-        jobs,
-        onProgress: (done, total) => setZipProgress({ done, total }),
-      })
-      toast(errores > 0
-        ? `Descargadas ${escritos} de ${escritos + errores} entregas (${errores} con error)`
-        : `${escritos} entrega${escritos !== 1 ? 's' : ''} descargada${escritos !== 1 ? 's' : ''} en ZIP`)
-    } catch (err) {
-      toast('Error al generar ZIP: ' + err.message, 'error')
-    } finally {
-      setZipDownloading(false)
-      setZipProgress({ done: 0, total: 0 })
-    }
-  }
-
   async function handleExportListPDF() {
     if (!subject) return
     setExportingPdf(true)
@@ -936,38 +902,12 @@ export default function SubjectPage() {
                         className="w-full py-2.5 border-2 border-dashed border-accent rounded-xl text-accent text-sm font-medium hover:bg-accent-light transition-colors flex items-center justify-center gap-2">
                         <Plus size={15} /> Agregar actividad
                       </button>
-                      {acts.length > 0 && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleZip('parcial', p) }}
-                          disabled={zipDownloading}
-                          className="w-full py-2 border border-accent rounded-xl text-accent text-xs font-medium hover:bg-accent-light transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
-                        >
-                          {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={13} />}
-                          {zipDownloading
-                            ? `Comprimiendo ${zipProgress.done}/${zipProgress.total}…`
-                            : `Descargar Parcial ${p} como ZIP`}
-                        </button>
-                      )}
                       </div>
                     </div>
                   )}
                 </div>
               )
             })}
-
-            {/* Subject-level ZIP */}
-            {activities.length > 0 && (
-              <button
-                onClick={() => handleZip('subject')}
-                disabled={zipDownloading}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-accent text-accent text-sm font-medium hover:bg-accent-light transition-colors disabled:opacity-40"
-              >
-                {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={17} />}
-                {zipDownloading
-                  ? `Comprimiendo ${zipProgress.done}/${zipProgress.total}…`
-                  : 'Descargar toda la asignatura como ZIP'}
-              </button>
-            )}
           </div>
         )}
 
@@ -1721,7 +1661,11 @@ export default function SubjectPage() {
               <button onClick={handleArchiveConfirm} disabled={archiving}
                 className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {archiving ? <Spinner size="sm" /> : <Archive size={14} />}
-                {archiving ? (zipDownloading ? 'Descargando…' : 'Archivando…') : 'Archivar'}
+                {archiving
+                  ? (zipDownloading
+                      ? `Descargando ${zipProgress.done}/${zipProgress.total}…`
+                      : 'Archivando…')
+                  : 'Archivar'}
               </button>
             </div>
           </div>
