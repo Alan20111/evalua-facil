@@ -44,6 +44,17 @@ export async function deleteSubjectCascade(subjectId) {
   await deleteDoc(doc(db, 'subjects', subjectId))
 }
 
+// Deletes ONLY the submissions of a subject, keeping activities + students.
+// Used when archiving: the archived subject keeps the course "skeleton" but not
+// the entregas (which are optionally exported as a ZIP first).
+export async function deleteSubjectSubmissions(subjectId) {
+  const actsSnap = await getDocs(
+    query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))
+  )
+  const subsDocs = await fetchSubmissionsForActivities(actsSnap.docs.map((d) => d.id))
+  await batchDeleteDocs(subsDocs.map((d) => doc(db, 'submissions', d.id)))
+}
+
 // Deletes only the students of a subject and their submissions.
 // Used in the "start from 0" unarchive flow.
 export async function deleteSubjectStudents(subjectId) {

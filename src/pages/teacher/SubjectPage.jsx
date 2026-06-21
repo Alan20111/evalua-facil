@@ -12,7 +12,7 @@ import Spinner from '../../components/Spinner'
 import { exportSubjectGrades, parseStudentExcel, exportStudentListExcel, downloadStudentTemplate } from '../../utils/excel'
 import { exportStudentListPDF } from '../../utils/pdf'
 import { buildJobsForParcial, buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
-import { deleteSubjectCascade, deleteSubjectStudents } from '../../utils/deleteSubjectCascade'
+import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatPublishAt } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -107,7 +107,11 @@ export default function SubjectPage() {
   const [showUnarchiveModal, setShowUnarchiveModal] = useState(false)
   const [unarchiveStudents, setUnarchiveStudents] = useState('keep') // 'keep' | 'reset'
   const [unarchiveActivities, setUnarchiveActivities] = useState('keep') // 'keep' | 'show' | 'hide'
+  const [unarchiveEdits, setUnarchiveEdits] = useState({ nombre: '', grupo: '', ciclo: '', parciales: '3', colorPalette: 'default' })
   const [unarchivedSaving, setUnarchivedSaving] = useState(false)
+  // Archive flow
+  const [showArchiveModal, setShowArchiveModal] = useState(false)
+  const [archiveExportChoice, setArchiveExportChoice] = useState('save') // 'save' | 'skip'
 
   // Tab
   const [activeTab, setActiveTab] = useState('actividades')
@@ -433,25 +437,71 @@ export default function SubjectPage() {
     finally { setDeleting(false) }
   }
 
-  async function handleToggleArchive() {
+  function handleToggleArchive() {
     if (!subject) return
     if (subject.archived) {
-      // Unarchiving → open modal to ask options
+      // Unarchiving → open restore modal (edit data + palette + options)
       setUnarchiveStudents('keep')
       setUnarchiveActivities('keep')
+      setUnarchiveEdits({
+        nombre: subject.nombre || '',
+        grupo: subject.grupo || '',
+        ciclo: subject.ciclo || '',
+        parciales: String(subject.parciales || 3),
+        colorPalette: subject.colorPalette || 'default',
+      })
       setShowUnarchiveModal(true)
-      return
+    } else {
+      // Archiving → ask whether to export the entregas as a ZIP first
+      setArchiveExportChoice('save')
+      setShowArchiveModal(true)
     }
+  }
+
+  // Archives the subject. Archived subjects keep only the course "skeleton"
+  // (subject + activities + students), NOT the entregas, which are optionally
+  // exported as a ZIP first.
+  async function handleArchiveConfirm() {
     setArchiving(true)
     try {
+      if (archiveExportChoice === 'save') {
+        setZipDownloading(true)
+        setZipProgress({ done: 0, total: 0 })
+        try {
+          const students = await ensureGroupStudents()
+          const rawDocs = await fetchSubmissionsForActivities(activities.map((a) => a.id))
+          const submissions = rawDocs.map((d) => ({ id: d.id, ...d.data() }))
+          const jobs = buildJobsForSubject({ subject, activities, submissions, students })
+          if (jobs.length > 0) {
+            await downloadSubmissionsZip({
+              zipName: subjectDisplayName(subject),
+              jobs,
+              onProgress: (done, total) => setZipProgress({ done, total }),
+            })
+          }
+        } finally {
+          setZipDownloading(false)
+          setZipProgress({ done: 0, total: 0 })
+        }
+      }
+      // Delete the entregas (keep the skeleton), then archive.
+      await deleteSubjectSubmissions(subjectId)
       await updateDoc(doc(db, 'subjects', subjectId), { archived: true })
       setSubject((s) => ({ ...s, archived: true }))
-      toast('Asignatura archivada')
+      setGradeSubMap({})
+      setGradesLoaded(false)
+      setShowArchiveModal(false)
+      toast(archiveExportChoice === 'save' ? 'Asignatura archivada (entregas descargadas)' : 'Asignatura archivada')
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setArchiving(false) }
   }
 
   async function handleUnarchiveConfirm() {
+    const newParciales = parseInt(unarchiveEdits.parciales) || 3
+    if (activities.some((a) => a.parcial > newParciales)) {
+      toast(`Hay actividades en parciales superiores a ${newParciales}. Elimínalas primero.`, 'error')
+      return
+    }
     setUnarchivedSaving(true)
     try {
       if (unarchiveStudents === 'reset') {
@@ -461,7 +511,14 @@ export default function SubjectPage() {
         setGradesLoaded(false)
         setGradeSubMap({})
       }
-      const updates = { archived: false }
+      const updates = {
+        archived: false,
+        nombre: unarchiveEdits.nombre.trim() || subject.nombre,
+        grupo: unarchiveEdits.grupo.trim(),
+        ciclo: unarchiveEdits.ciclo.trim(),
+        parciales: newParciales,
+        colorPalette: unarchiveEdits.colorPalette || 'default',
+      }
       if (unarchiveActivities !== 'keep') {
         const batch = writeBatch(db)
         activities.forEach((a) => batch.update(doc(db, 'activities', a.id), {
@@ -472,7 +529,7 @@ export default function SubjectPage() {
         setActivities((prev) => prev.map((a) => ({ ...a, oculta: unarchiveActivities === 'hide', publishAt: null })))
       }
       await updateDoc(doc(db, 'subjects', subjectId), updates)
-      setSubject((s) => ({ ...s, archived: false }))
+      setSubject((s) => ({ ...s, ...updates }))
       toast('Asignatura restaurada')
       setShowUnarchiveModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -1632,17 +1689,78 @@ export default function SubjectPage() {
       )}
 
       {/* ── Unarchive modal ── */}
+      {/* ── Archive modal ── */}
+      {showArchiveModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !archiving && setShowArchiveModal(false)} />
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Archivar asignatura</h3>
+              <button onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">
+              Al archivar se conservan las actividades y la lista de alumnos, pero <strong>se eliminan las entregas</strong>. ¿Qué hacemos con ellas?
+            </p>
+            <div className="space-y-2 mb-5">
+              {[
+                { val: 'save', label: 'Guardar entregas como ZIP', desc: 'Se descargan antes de eliminarlas' },
+                { val: 'skip', label: 'Archivar sin guardar', desc: 'Las entregas se eliminan sin descargar' },
+              ].map(({ val, label, desc }) => (
+                <label key={val} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors hover:bg-slate-50 ${archiveExportChoice === val ? 'border-accent bg-accent-light' : 'border-slate-200'}`}>
+                  <input type="radio" name="archiveExport" value={val} checked={archiveExportChoice === val} onChange={() => setArchiveExportChoice(val)} className="accent-[var(--accent)]" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-800">{label}</p>
+                    <p className="text-xs text-slate-400">{desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowArchiveModal(false)} disabled={archiving}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">Cancelar</button>
+              <button onClick={handleArchiveConfirm} disabled={archiving}
+                className="flex-1 py-2.5 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
+                {archiving ? <Spinner size="sm" /> : <Archive size={14} />}
+                {archiving ? (zipDownloading ? 'Descargando…' : 'Archivando…') : 'Archivar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Unarchive (restore) modal ── */}
       {showUnarchiveModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowUnarchiveModal(false)} />
-          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
+          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
               <button onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
             </div>
-            <p className="text-sm text-slate-500 mb-4">Elige cómo quieres restaurar la asignatura:</p>
+            <p className="text-sm text-slate-500 mb-4">Puedes editar los datos y elegir cómo restaurar:</p>
 
             <div className="space-y-3 mb-5">
+              <div>
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Datos</p>
+                <div className="space-y-2">
+                  <input type="text" value={unarchiveEdits.nombre} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, nombre: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50" placeholder="Asignatura" />
+                  <input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50" placeholder="Grupo (ej: 1A)" />
+                  <input type="text" value={unarchiveEdits.ciclo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, ciclo: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50" placeholder="Ciclo escolar" />
+                  <select value={unarchiveEdits.parciales} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, parciales: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50">
+                    {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Color de la asignatura</p>
+                <PaletteSelect value={unarchiveEdits.colorPalette} onChange={(p) => setUnarchiveEdits((f) => ({ ...f, colorPalette: p }))} />
+              </div>
+
               <div>
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Lista de alumnos</p>
                 <div className="space-y-1.5">
