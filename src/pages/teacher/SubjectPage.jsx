@@ -21,13 +21,13 @@ import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
-  FileSpreadsheet, Search, UserCheck, UserX, LayoutList,
+  FileSpreadsheet, Search,
   ArrowUp, ArrowDown, UserPlus, RotateCcw, Upload, Download, QrCode,
   Link, Hash, Check as CheckIcon, KeyRound, Copy, FolderDown,
   Eye, EyeOff,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
-import { generateUsername, generateResetPassword } from '../../utils/generate'
+import { generateUsername } from '../../utils/generate'
 
 function getCicloInfo() {
   const now = new Date()
@@ -37,15 +37,6 @@ function getCicloInfo() {
     return { current: `AGO ${year}-ENE ${year + 1}`, next: `FEB ${year + 1}-JUL ${year + 1}` }
   }
   return { current: `FEB ${year}-JUL ${year}`, next: `AGO ${year}-ENE ${year + 1}` }
-}
-
-const PARCIAL_BADGE = {
-  1: 'bg-blue-100 text-blue-700',
-  2: 'bg-violet-100 text-violet-700',
-  3: 'bg-orange-100 text-orange-700',
-  4: 'bg-emerald-100 text-emerald-700',
-  5: 'bg-amber-100 text-amber-700',
-  6: 'bg-rose-100 text-rose-700',
 }
 
 async function fetchSubmissionsForActivities(actIds) {
@@ -66,26 +57,6 @@ function gradeColor(norm) {
   if (norm === null) return 'text-slate-300'
   if (norm >= 8) return 'text-emerald-700'
   if (norm >= 6) return 'text-amber-600'
-  return 'text-red-500'
-}
-
-function todayStr() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function fmtAttDate(dateStr) {
-  if (!dateStr) return ''
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-MX', {
-    weekday: 'short', day: 'numeric', month: 'short',
-  })
-}
-
-function attendanceColor(present, total) {
-  if (!total) return 'text-slate-400'
-  const p = present / total
-  if (p >= 0.8) return 'text-emerald-700'
-  if (p >= 0.6) return 'text-amber-600'
   return 'text-red-500'
 }
 
@@ -140,7 +111,7 @@ export default function SubjectPage() {
   // Tab
   const [activeTab, setActiveTab] = useState('actividades')
 
-  // Shared students (used by calificaciones + asistencia + alumnos tab)
+  // Shared students (used by calificaciones + alumnos tab)
   const [groupStudents, setGroupStudents] = useState([])
   const [groupStudentsLoaded, setGroupStudentsLoaded] = useState(false)
 
@@ -164,21 +135,6 @@ export default function SubjectPage() {
   const [gradesLoaded, setGradesLoaded] = useState(false)
   const [loadingGrades, setLoadingGrades] = useState(false)
   const [searchGrade, setSearchGrade] = useState('')
-
-  // Asistencia
-  const [attendanceSessions, setAttendanceSessions] = useState([])
-  const [attendanceLoaded, setAttendanceLoaded] = useState(false)
-  const [loadingAttendance, setLoadingAttendance] = useState(false)
-  const [attendanceView, setAttendanceView] = useState('list') // 'list' | 'record'
-  const [showSummary, setShowSummary] = useState(false)
-  const [recordDate, setRecordDate] = useState(todayStr())
-  const [recordParcial, setRecordParcial] = useState(1)
-  const [recordPresence, setRecordPresence] = useState({})
-  const [editingSessionId, setEditingSessionId] = useState(null)
-  const [savingSession, setSavingSession] = useState(false)
-  const [deleteSessionConfirm, setDeleteSessionConfirm] = useState(null)
-  const [deletingSession, setDeletingSession] = useState(false)
-  const [searchRecord, setSearchRecord] = useState('')
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -239,7 +195,7 @@ export default function SubjectPage() {
   async function loadGrades() {
     setLoadingGrades(true)
     try {
-      const students = await ensureGroupStudents()
+      await ensureGroupStudents()
       const subDocs = await fetchSubmissionsForActivities(activities.map((a) => a.id))
       const map = {}
       subDocs.forEach((d) => {
@@ -255,115 +211,10 @@ export default function SubjectPage() {
     }
   }
 
-  // ── Asistencia ─────────────────────────────────────────────────────
-  async function loadAttendance() {
-    setLoadingAttendance(true)
-    try {
-      const [students, sessionsSnap] = await Promise.all([
-        ensureGroupStudents(),
-        getDocs(query(collection(db, 'attendance'), where('asignaturaId', '==', subjectId))),
-      ])
-      const sessions = sessionsSnap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
-      setAttendanceSessions(sessions)
-      setAttendanceLoaded(true)
-    } catch (err) {
-      toast('Error al cargar asistencia: ' + err.message, 'error')
-    } finally {
-      setLoadingAttendance(false)
-    }
-  }
-
   function switchTab(tab) {
     setActiveTab(tab)
     if (tab === 'calificaciones' && !gradesLoaded) loadGrades()
-    if (tab === 'asistencia' && !attendanceLoaded) loadAttendance()
     if (tab === 'alumnos' && !groupStudentsLoaded) ensureGroupStudents()
-  }
-
-  // ── Attendance actions ─────────────────────────────────────────────
-  function startNewSession() {
-    const presence = {}
-    groupStudents.forEach((s) => { presence[s.id] = true })
-    setRecordPresence(presence)
-    setRecordDate(todayStr())
-    setRecordParcial(1)
-    setEditingSessionId(null)
-    setSearchRecord('')
-    setAttendanceView('record')
-  }
-
-  function startEditSession(session) {
-    // Fill in all students; those not in session.asistencias default to false
-    const presence = {}
-    groupStudents.forEach((s) => { presence[s.id] = false })
-    Object.entries(session.asistencias || {}).forEach(([id, val]) => { presence[id] = val })
-    setRecordPresence(presence)
-    setRecordDate(session.fecha)
-    setRecordParcial(session.parcial)
-    setEditingSessionId(session.id)
-    setSearchRecord('')
-    setAttendanceView('record')
-  }
-
-  function togglePresence(studentId) {
-    setRecordPresence((prev) => ({ ...prev, [studentId]: !prev[studentId] }))
-  }
-
-  function setAllPresent(val) {
-    const presence = {}
-    groupStudents.forEach((s) => { presence[s.id] = val })
-    setRecordPresence(presence)
-  }
-
-  async function saveSession() {
-    setSavingSession(true)
-    try {
-      const payload = {
-        asignaturaId: subjectId,
-        docenteId: currentUser.uid,
-        fecha: recordDate,
-        parcial: recordParcial,
-        asistencias: recordPresence,
-      }
-      if (editingSessionId) {
-        await updateDoc(doc(db, 'attendance', editingSessionId), payload)
-        setAttendanceSessions((prev) =>
-          prev.map((s) => s.id === editingSessionId ? { ...s, ...payload } : s)
-            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
-        )
-        toast('Lista actualizada')
-      } else {
-        const ref = await addDoc(collection(db, 'attendance'), { ...payload, createdAt: serverTimestamp() })
-        setAttendanceSessions((prev) =>
-          [{ id: ref.id, ...payload }, ...prev]
-            .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''))
-        )
-        toast('Asistencia registrada')
-      }
-      setAttendanceView('list')
-      setEditingSessionId(null)
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setSavingSession(false)
-    }
-  }
-
-  async function confirmDeleteSession() {
-    if (!deleteSessionConfirm) return
-    setDeletingSession(true)
-    try {
-      await deleteDoc(doc(db, 'attendance', deleteSessionConfirm.id))
-      setAttendanceSessions((prev) => prev.filter((s) => s.id !== deleteSessionConfirm.id))
-      toast('Sesión eliminada')
-      setDeleteSessionConfirm(null)
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setDeletingSession(false)
-    }
   }
 
   // ── Student management (Alumnos tab) ──────────────────────────────
@@ -747,7 +598,6 @@ export default function SubjectPage() {
       exportSubjectGrades({
         subject, activities, students,
         submissions: Object.values(subMap),
-        attendanceSessions: attendanceLoaded ? attendanceSessions : [],
       })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExporting(false) }
@@ -838,31 +688,6 @@ export default function SubjectPage() {
     return { s, parcialData, finalAvg }
   })
 
-  // Attendance summary
-  const sessionCounts = {}
-  PARCIALES.forEach((p) => { sessionCounts[p] = 0 })
-  attendanceSessions.forEach((s) => { if (s.parcial && sessionCounts[s.parcial] !== undefined) sessionCounts[s.parcial]++ })
-
-  const attendanceSummary = {}
-  groupStudents.forEach((s) => {
-    attendanceSummary[s.id] = {}
-    PARCIALES.forEach((p) => { attendanceSummary[s.id][p] = 0 })
-  })
-  attendanceSessions.forEach((session) => {
-    Object.entries(session.asistencias || {}).forEach(([sId, present]) => {
-      if (present && attendanceSummary[sId] && attendanceSummary[sId][session.parcial] !== undefined) {
-        attendanceSummary[sId][session.parcial]++
-      }
-    })
-  })
-
-  const presentCount = Object.values(recordPresence).filter(Boolean).length
-  const filteredRecordStudents = groupStudents.filter((s) => {
-    if (!searchRecord.trim()) return true
-    return `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre}`.toLowerCase()
-      .includes(searchRecord.trim().toLowerCase())
-  })
-
   const activationUrl = `${window.location.origin}/activate/${subject?.accessCode}`
   const filteredAlumnos = groupStudents.filter((s) =>
     `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre} ${s.username}`
@@ -934,12 +759,12 @@ export default function SubjectPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 mt-4 bg-slate-100 p-1 rounded-xl">
-            {['actividades', 'calificaciones', 'asistencia', 'alumnos'].map((t) => (
+            {['actividades', 'calificaciones', 'alumnos'].map((t) => (
               <button key={t} onClick={() => switchTab(t)}
                 className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
                   activeTab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                 }`}>
-                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calif.' : t === 'asistencia' ? 'Asistencia' : 'Alumnos'}
+                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calif.' : 'Alumnos'}
               </button>
             ))}
           </div>
@@ -1177,261 +1002,6 @@ export default function SubjectPage() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════
-            TAB: ASISTENCIA — RECORD VIEW
-        ══════════════════════════════════════════════════════════ */}
-        {activeTab === 'asistencia' && attendanceView === 'record' && (
-          <div className="px-4 py-4 space-y-3">
-            {/* Record header */}
-            <div className="flex items-center justify-between">
-              <button onClick={() => { setAttendanceView('list'); setEditingSessionId(null) }}
-                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors">
-                <X size={16} /> Cancelar
-              </button>
-              <span className="text-sm font-semibold text-slate-700">
-                {presentCount} / {groupStudents.length} presentes
-              </span>
-              <button onClick={saveSession} disabled={savingSession}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center gap-2">
-                {savingSession ? <Spinner size="sm" /> : null}
-                Guardar
-              </button>
-            </div>
-
-            {/* Date + parcial */}
-            <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex flex-wrap gap-3 items-center">
-              <div className="flex-1 min-w-[140px]">
-                <label className="block text-xs text-slate-500 mb-1">Fecha</label>
-                <input type="date" value={recordDate}
-                  onChange={(e) => setRecordDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50" />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-500 mb-1">Parcial</label>
-                <div className="flex gap-1.5">
-                  {PARCIALES.map((p) => (
-                    <button key={p} type="button" onClick={() => setRecordParcial(p)}
-                      className={`w-10 h-10 rounded-xl text-sm font-bold transition-colors ${
-                        recordParcial === p ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}>
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Quick actions + search */}
-            <div className="flex gap-2">
-              <button onClick={() => setAllPresent(true)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium rounded-xl hover:bg-emerald-100 transition-colors">
-                <UserCheck size={14} /> Todos presentes
-              </button>
-              <button onClick={() => setAllPresent(false)}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-red-50 border border-red-200 text-red-600 text-xs font-medium rounded-xl hover:bg-red-100 transition-colors">
-                <UserX size={14} /> Marcar ausentes
-              </button>
-            </div>
-
-            <div className="relative">
-              <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={searchRecord} onChange={(e) => setSearchRecord(e.target.value)}
-                placeholder="Buscar alumno…"
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white" />
-            </div>
-
-            {/* Student toggle list */}
-            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-              {filteredRecordStudents.map((s, i) => {
-                const isPresent = !!recordPresence[s.id]
-                return (
-                  <button key={s.id} type="button" onClick={() => togglePresence(s.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${
-                      i > 0 ? 'border-t border-slate-100' : ''
-                    } ${isPresent ? 'hover:bg-emerald-50/60' : 'bg-red-50/40 hover:bg-red-50'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      isPresent ? 'bg-emerald-100' : 'bg-red-100'
-                    }`}>
-                      {isPresent
-                        ? <UserCheck size={16} className="text-emerald-600" />
-                        : <UserX size={16} className="text-red-500" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${isPresent ? 'text-slate-900' : 'text-red-700'}`}>
-                        {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
-                      </p>
-                      <p className="text-xs text-slate-400 font-mono">{s.username}</p>
-                    </div>
-                    <span className={`text-xs font-semibold flex-shrink-0 ${isPresent ? 'text-emerald-600' : 'text-red-500'}`}>
-                      {isPresent ? 'Presente' : 'Ausente'}
-                    </span>
-                  </button>
-                )
-              })}
-              {filteredRecordStudents.length === 0 && (
-                <p className="text-center py-8 text-slate-400 text-sm">Sin resultados</p>
-              )}
-            </div>
-
-            {/* Bottom save */}
-            <button onClick={saveSession} disabled={savingSession}
-              className="w-full py-3.5 bg-blue-600 text-white text-sm font-semibold rounded-2xl hover:bg-blue-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-              {savingSession ? <Spinner size="sm" /> : <CheckCircle size={16} />}
-              {savingSession ? 'Guardando…' : `Guardar — ${presentCount}/${groupStudents.length} presentes`}
-            </button>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════
-            TAB: ASISTENCIA — LIST VIEW
-        ══════════════════════════════════════════════════════════ */}
-        {activeTab === 'asistencia' && attendanceView === 'list' && (
-          <div className="px-4 py-4 space-y-3">
-            {loadingAttendance ? (
-              <div className="flex justify-center py-12"><Spinner size="lg" /></div>
-            ) : (
-              <>
-                {/* Actions */}
-                <div className="flex gap-2">
-                  <button onClick={startNewSession}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors">
-                    <Plus size={16} /> Nueva lista de asistencia
-                  </button>
-                  <button onClick={() => setShowSummary(!showSummary)}
-                    className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-                      showSummary
-                        ? 'bg-slate-900 border-slate-900 text-white'
-                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}>
-                    <LayoutList size={16} />
-                    Resumen
-                  </button>
-                </div>
-
-                {/* Stats chips */}
-                <div className="flex gap-2 flex-wrap">
-                  {PARCIALES.map((p) => (
-                    <span key={p} className={`text-xs px-2.5 py-1 rounded-full font-medium ${PARCIAL_BADGE[p]}`}>
-                      P{p}: {sessionCounts[p]} clase{sessionCounts[p] !== 1 ? 's' : ''}
-                    </span>
-                  ))}
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">
-                    {attendanceSessions.length} total
-                  </span>
-                </div>
-
-                {/* ── Summary table ── */}
-                {showSummary && (
-                  <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm bg-white">
-                    <table className="text-sm border-collapse min-w-full">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100">
-                          <th className="sticky left-0 bg-slate-50 px-3 py-2.5 text-left text-xs font-medium text-slate-500 whitespace-nowrap min-w-[150px] border-r border-slate-100">Alumno</th>
-                          {PARCIALES.map((p) => (
-                            <th key={p} className={`px-4 py-2.5 text-xs font-semibold text-center border-l border-slate-100 whitespace-nowrap ${
-                              sessionCounts[p] === 0 ? 'text-slate-300' : 'text-slate-700'
-                            }`}>
-                              P{p} /{sessionCounts[p]}
-                            </th>
-                          ))}
-                          <th className="px-4 py-2.5 text-xs font-semibold text-slate-700 text-center border-l border-slate-200 whitespace-nowrap">
-                            Total /{attendanceSessions.length}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {groupStudents.map((s, i) => {
-                          const aSum = attendanceSummary[s.id] || {}
-                          const totalPresent = PARCIALES.reduce((sum, p) => sum + (aSum[p] || 0), 0)
-                          const totalSessions = attendanceSessions.length
-                          return (
-                            <tr key={s.id} className={`border-t border-slate-100 ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                              <td className={`sticky left-0 px-3 py-2.5 text-xs font-medium text-slate-900 whitespace-nowrap border-r border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
-                                {s.apellidoPaterno} {s.nombre}
-                              </td>
-                              {PARCIALES.map((p) => (
-                                <td key={p} className={`px-4 py-2.5 text-center text-xs font-semibold border-l border-slate-100 ${
-                                  sessionCounts[p] === 0 ? 'text-slate-300' : attendanceColor(aSum[p], sessionCounts[p])
-                                }`}>
-                                  {sessionCounts[p] === 0 ? '—' : aSum[p]}
-                                </td>
-                              ))}
-                              <td className={`px-4 py-2.5 text-center text-xs font-bold border-l border-slate-200 ${attendanceColor(totalPresent, totalSessions)}`}>
-                                {totalSessions === 0 ? '—' : totalPresent}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {/* ── Sessions list ── */}
-                {attendanceSessions.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-slate-100 p-10 text-center">
-                    <p className="text-slate-600 font-medium mb-1">Sin listas de asistencia</p>
-                    <p className="text-slate-400 text-sm">Registra la primera lista con el botón de arriba</p>
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
-                    {attendanceSessions.map((session, i) => {
-                      const asistencias = session.asistencias || {}
-                      const present = Object.values(asistencias).filter(Boolean).length
-                      const total = groupStudents.length
-                      const absent = total - present
-                      return (
-                        <div key={session.id}
-                          className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-slate-100' : ''}`}>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm font-semibold text-slate-900">{fmtAttDate(session.fecha)}</p>
-                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${PARCIAL_BADGE[session.parcial]}`}>
-                                P{session.parcial}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 mt-0.5">
-                              <span className="text-xs text-emerald-600 flex items-center gap-0.5">
-                                <UserCheck size={11} /> {present} presentes
-                              </span>
-                              {absent > 0 && (
-                                <span className="text-xs text-red-500 flex items-center gap-0.5">
-                                  <UserX size={11} /> {absent} ausentes
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <span className={`text-sm font-bold ${attendanceColor(present, total)}`}>
-                              {present}/{total}
-                            </span>
-                            <button onClick={() => startEditSession(session)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors ml-1">
-                              <Pencil size={14} />
-                            </button>
-                            <button onClick={() => setDeleteSessionConfirm(session)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* Export with attendance */}
-                {attendanceSessions.length > 0 && (
-                  <button onClick={handleExport} disabled={exporting}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-emerald-200 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-40">
-                    {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />}
-                    {exporting ? 'Generando Excel…' : 'Exportar calificaciones + asistencias a Excel'}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        )}
       {/* ══════════════════════════════════════════════════════════
           TAB: ALUMNOS
       ══════════════════════════════════════════════════════════ */}
@@ -1671,28 +1241,6 @@ export default function SubjectPage() {
                 className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deleting ? <Spinner size="sm" /> : <Trash2 size={14} />}
                 {deleting ? 'Eliminando…' : 'Eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Delete session confirmation ── */}
-      {deleteSessionConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteSessionConfirm(null)} />
-          <div className="relative bg-white rounded-2xl p-6 shadow-2xl w-full max-w-sm">
-            <h3 className="text-base font-semibold text-slate-900 mb-1">¿Eliminar lista?</h3>
-            <p className="text-sm text-slate-500 mb-5">
-              La asistencia del <strong>{fmtAttDate(deleteSessionConfirm.fecha)}</strong> (Parcial {deleteSessionConfirm.parcial}) se eliminará permanentemente.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteSessionConfirm(null)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50">Cancelar</button>
-              <button onClick={confirmDeleteSession} disabled={deletingSession}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-                {deletingSession ? <Spinner size="sm" /> : <Trash2 size={14} />}
-                {deletingSession ? 'Eliminando…' : 'Eliminar'}
               </button>
             </div>
           </div>
@@ -2045,7 +1593,7 @@ export default function SubjectPage() {
             </div>
             <h3 className="text-base font-semibold text-slate-900 text-center mb-1">¿Eliminar asignatura?</h3>
             <p className="text-sm text-slate-500 text-center mb-4">
-              Se borrarán permanentemente todas las actividades, entregas, alumnos y asistencias de{' '}
+              Se borrarán permanentemente todas las actividades, entregas y alumnos de{' '}
               <strong>{subject?.nombre}</strong>. Esta acción <strong>no se puede deshacer</strong>.
             </p>
             <p className="text-xs text-slate-500 mb-2">Escribe <strong>{subject?.nombre}</strong> para confirmar:</p>

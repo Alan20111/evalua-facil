@@ -60,7 +60,6 @@ export function exportSubjectGrades({
   activities,
   students,
   submissions,
-  attendanceSessions = [],
 }) {
   const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
 
@@ -70,30 +69,8 @@ export function exportSubjectGrades({
     return { p, acts, cols: acts.length + 1 }
   })
 
-  const hasAttendance = attendanceSessions.length > 0
   const gradeCols = FIXED + parcialMeta.reduce((s, m) => s + m.cols, 0) + 1
-  const attColCount = PARCIALES.length + 1  // one col per parcial + total
-  const totalCols = hasAttendance ? gradeCols + attColCount : gradeCols
-
-  // Attendance counts per student per parcial
-  const sessionCounts = {}
-  PARCIALES.forEach((p) => { sessionCounts[p] = 0 })
-  attendanceSessions.forEach((s) => {
-    if (s.parcial && sessionCounts[s.parcial] !== undefined) sessionCounts[s.parcial]++
-  })
-
-  const attMap = {}
-  students.forEach((s) => {
-    attMap[s.id] = {}
-    PARCIALES.forEach((p) => { attMap[s.id][p] = 0 })
-  })
-  attendanceSessions.forEach((session) => {
-    Object.entries(session.asistencias || {}).forEach(([sId, present]) => {
-      if (present && attMap[sId] && attMap[sId][session.parcial] !== undefined) {
-        attMap[sId][session.parcial]++
-      }
-    })
-  })
+  const totalCols = gradeCols
 
   // Row 0: Title
   const titleRow = Array(totalCols).fill('')
@@ -110,7 +87,6 @@ export function exportSubjectGrades({
     col += cols
   })
   sectionRow[col] = 'FINAL'
-  if (hasAttendance) sectionRow[col + 1] = 'ASISTENCIAS'
 
   // Row 3: Column names
   const nameRow = ['#', 'Apellido Paterno', 'Apellido Materno', 'Nombre(s)']
@@ -120,10 +96,6 @@ export function exportSubjectGrades({
     nameRow.push(`Prom. P${p}`)
   })
   nameRow.push('Promedio Final')
-  if (hasAttendance) {
-    PARCIALES.forEach((p) => nameRow.push(`Asist. P${p}`))
-    nameRow.push('Total Asist.')
-  }
 
   // Data rows
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
@@ -158,28 +130,13 @@ export function exportSubjectGrades({
       : ''
     row.push(final)
 
-    if (hasAttendance) {
-      const att = attMap[s.id] || {}
-      PARCIALES.forEach((p) => { row.push(sessionCounts[p] ? (att[p] || 0) : '') })
-      row.push(PARCIALES.reduce((sum, p) => sum + (att[p] || 0), 0))
-    }
-
     return row
   })
 
-  // Footer row with total session counts
-  const footerRow = Array(totalCols).fill('')
-  if (hasAttendance) {
-    footerRow[0] = 'Total de clases por parcial:'
-    PARCIALES.forEach((p, i) => { footerRow[gradeCols + i] = sessionCounts[p] || '' })
-    footerRow[gradeCols + PARCIALES.length] = attendanceSessions.length
-  }
-
   const allRows = [titleRow, [], sectionRow, nameRow, ...dataRows]
-  if (hasAttendance) allRows.push([], footerRow)
   const ws = XLSX.utils.aoa_to_sheet(allRows)
 
-  // Merges: title spans all + each parcial header + attendance header
+  // Merges: title spans all + each parcial header
   const merges = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
     ...PARCIALES.map((p) => ({
@@ -187,9 +144,6 @@ export function exportSubjectGrades({
       e: { r: 2, c: parcialRanges[p].end },
     })),
   ]
-  if (hasAttendance) {
-    merges.push({ s: { r: 2, c: gradeCols }, e: { r: 2, c: totalCols - 1 } })
-  }
   ws['!merges'] = merges
 
   ws['!cols'] = [
@@ -198,7 +152,6 @@ export function exportSubjectGrades({
     { wch: 20 },
     { wch: 22 },
     ...Array(gradeCols - FIXED).fill({ wch: 13 }),
-    ...(hasAttendance ? Array(attColCount).fill({ wch: 10 }) : []),
   ]
   ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }, { hpt: 18 }]
 
