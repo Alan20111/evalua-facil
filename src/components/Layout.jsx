@@ -8,7 +8,6 @@ import {
   Plus,
   Archive,
   ChevronRight,
-  X,
   Timer,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
@@ -17,12 +16,9 @@ import {
   query,
   where,
   getDocs,
-  addDoc,
-  serverTimestamp,
 } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { useSubscription } from '../hooks/useSubscription'
 import { calcDaysRemaining } from '../utils/subscriptionHelpers'
@@ -31,17 +27,10 @@ import { subjectDisplayName } from '../utils/subjectName'
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
-  const toast = useToast()
 
   const [subjects, setSubjects] = useState([])
-  const [groups, setGroups] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
-  const [showNewModal, setShowNewModal] = useState(false)
-  const [newSubjectName, setNewSubjectName] = useState('')
-  const [newSubjectGrupo, setNewSubjectGrupo] = useState('')
-  const [selectedGroupId, setSelectedGroupId] = useState('')
-  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     if (!currentUser) return
@@ -50,14 +39,10 @@ export default function TeacherLayout({ children }) {
 
   async function loadSidebarData() {
     try {
-      const [subSnap, grpSnap] = await Promise.all([
-        getDocs(query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid))),
-        getDocs(query(collection(db, 'groups'), where('docenteId', '==', currentUser.uid))),
-      ])
+      const subSnap = await getDocs(
+        query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid))
+      )
       setSubjects(subSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-      const grps = grpSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      setGroups(grps)
-      if (grps.length > 0) setSelectedGroupId(grps[0].id)
     } finally {
       setLoadingSidebar(false)
     }
@@ -70,45 +55,6 @@ export default function TeacherLayout({ children }) {
 
   const activeSubjects = subjects.filter((s) => !s.archived)
   const archivedSubjects = subjects.filter((s) => s.archived)
-
-  async function handleCreateSubject(e) {
-    e.preventDefault()
-    if (!newSubjectName.trim() || !selectedGroupId) return
-    setCreating(true)
-    const selectedGroup = groups.find((g) => g.id === selectedGroupId)
-    const grupoText = newSubjectGrupo.trim() || selectedGroup?.nombre || ''
-    try {
-      const ref = await addDoc(collection(db, 'subjects'), {
-        nombre: newSubjectName.trim(),
-        grupo: grupoText,
-        docenteId: currentUser.uid,
-        grupoId: selectedGroupId,
-        escuelaId: userProfile?.escuelaId,
-        createdAt: serverTimestamp(),
-        archived: false,
-      })
-      setSubjects((s) => [
-        ...s,
-        {
-          id: ref.id,
-          nombre: newSubjectName.trim(),
-          grupo: grupoText,
-          docenteId: currentUser.uid,
-          grupoId: selectedGroupId,
-          archived: false,
-        },
-      ])
-      setNewSubjectName('')
-      setNewSubjectGrupo('')
-      setShowNewModal(false)
-      toast('Asignatura creada')
-      navigate(`/subject/${ref.id}`)
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setCreating(false)
-    }
-  }
 
   const { subscription } = useSubscription()
   const trialDays = subscription?.status === 'trial'
@@ -229,7 +175,7 @@ export default function TeacherLayout({ children }) {
             {/* Nueva asignatura */}
             <button
               type="button"
-              onClick={() => setShowNewModal(true)}
+              onClick={() => navigate('/dashboard', { state: { openCreate: true } })}
               className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-blue-600 hover:bg-blue-50 transition-colors mt-1"
             >
               <Plus size={14} />
@@ -281,7 +227,7 @@ export default function TeacherLayout({ children }) {
               }
             >
               <LayoutDashboard size={14} />
-              Grupos
+              Asignaturas
             </NavLink>
           </div>
 
@@ -314,7 +260,7 @@ export default function TeacherLayout({ children }) {
             }
           >
             <LayoutDashboard size={22} />
-            <span>Grupos</span>
+            <span>Asignaturas</span>
           </NavLink>
           <NavLink
             to="/profile"
@@ -329,103 +275,6 @@ export default function TeacherLayout({ children }) {
           </NavLink>
         </div>
       </nav>
-
-      {/* New subject modal */}
-      {showNewModal && (
-        <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4"
-          onClick={() => setShowNewModal(false)}
-        >
-          <div
-            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-bold text-slate-900">Nueva asignatura</h3>
-              <button
-                type="button"
-                onClick={() => setShowNewModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {groups.length === 0 ? (
-              <div className="text-center py-2">
-                <p className="text-sm text-slate-500 mb-4">
-                  Primero crea un grupo en el panel principal para poder añadir asignaturas.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNewModal(false)
-                    navigate('/dashboard')
-                  }}
-                  className="py-2.5 px-5 bg-blue-600 text-white font-semibold rounded-xl text-sm"
-                >
-                  Ir al panel
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleCreateSubject} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Asignatura
-                  </label>
-                  <input
-                    type="text"
-                    value={newSubjectName}
-                    onChange={(e) => setNewSubjectName(e.target.value)}
-                    required
-                    autoFocus
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
-                    placeholder="Ej. Matemáticas I"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Grupo
-                  </label>
-                  <input
-                    type="text"
-                    value={newSubjectGrupo}
-                    onChange={(e) => setNewSubjectGrupo(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
-                    placeholder="Ej: 1A, 2B, 3C"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Clase
-                  </label>
-                  <select
-                    value={selectedGroupId}
-                    onChange={(e) => setSelectedGroupId(e.target.value)}
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
-                  >
-                    {groups.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.nombre} — {g.ciclo}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <button
-                  type="submit"
-                  disabled={creating || !newSubjectName.trim()}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {creating ? <Spinner size="sm" /> : null}
-                  {creating ? 'Creando…' : 'Crear asignatura'}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

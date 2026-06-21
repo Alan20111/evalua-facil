@@ -27,7 +27,6 @@ const db = admin.firestore();
 const COLLECTIONS_TO_DELETE = [
   'users',
   'students',
-  'groups',
   'subjects',
   'activities',
   'submissions',

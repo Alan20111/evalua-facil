@@ -101,7 +101,11 @@ export default function StudentDashboard() {
       ])
 
       const teachers = {}
-      teacherSnaps.forEach((t) => { if (t.exists()) teachers[t.id] = t.data().nombre })
+      teacherSnaps.forEach((t) => {
+        if (!t.exists()) return
+        const td = t.data()
+        teachers[t.id] = td.nombreMostrar || td.username || td.nombre || '—'
+      })
 
       // Group activities by subject and index this student's grade per activity
       // (activities are subject-unique, so keying by activity id never collides).

@@ -49,7 +49,7 @@ export default function TeacherDashboard() {
   const daysLeft = isTrial ? calcDaysRemaining(subscription.fechaVencimiento) : 0
 
   // Subject creation modal
-  const [showSubjectModal, setShowSubjectModal] = useState(false)
+  const [showSubjectModal, setShowSubjectModal] = useState(location.state?.openCreate === true)
   const [newSubjectName, setNewSubjectName] = useState('')
   const [newSubjectGrupo, setNewSubjectGrupo] = useState('')
   const [newSubjectParciales, setNewSubjectParciales] = useState(3)

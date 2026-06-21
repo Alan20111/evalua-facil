@@ -5,7 +5,7 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const COLLECTIONS = ['users', 'students', 'groups', 'subjects', 'activities', 'submissions', 'schools'];
+const COLLECTIONS = ['users', 'students', 'subjects', 'activities', 'submissions', 'schools'];
 
 async function verify() {
   console.log('\n📋 Verifying Firestore collections...\n');
