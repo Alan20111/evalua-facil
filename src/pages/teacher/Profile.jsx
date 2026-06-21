@@ -1,20 +1,17 @@
 import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
-  signOut,
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
-  verifyBeforeUpdateEmail,
 } from 'firebase/auth'
 import { doc, updateDoc } from 'firebase/firestore'
-import { auth, db } from '../../firebase'
+import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
-import { Camera, Check, LogOut, Lock, User, X, Mail, CreditCard } from 'lucide-react'
+import { Camera, Lock, User, X, CreditCard } from 'lucide-react'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
 import {
@@ -47,7 +44,6 @@ const inputCls =
 
 export default function Profile() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
-  const navigate = useNavigate()
   const toast = useToast()
   const fileRef = useRef(null)
 
@@ -65,12 +61,6 @@ export default function Profile() {
   const [confirmPwd, setConfirmPwd] = useState('')
   const [savingPwd, setSavingPwd] = useState(false)
 
-  // Email change
-  const [showEmailForm, setShowEmailForm] = useState(false)
-  const [newEmail, setNewEmail] = useState('')
-  const [emailPwd, setEmailPwd] = useState('')
-  const [savingEmail, setSavingEmail] = useState(false)
-
   // Confirmation modal
   const [confirm, setConfirm] = useState(null) // { title, message, onConfirm }
   const [confirming, setConfirming] = useState(false)
@@ -85,11 +75,6 @@ export default function Profile() {
     setCurrentPwd(''); setNewPwd(''); setConfirmPwd('')
     setShowPwdForm(false)
   }
-  function resetEmailForm() {
-    setNewEmail(''); setEmailPwd('')
-    setShowEmailForm(false)
-  }
-
   async function reauth(password) {
     const credential = EmailAuthProvider.credential(currentUser.email, password)
     await reauthenticateWithCredential(currentUser, credential)
@@ -156,41 +141,6 @@ export default function Profile() {
     }
   }
 
-  function requestEmailChange(e) {
-    e.preventDefault()
-    if (!newEmail.trim()) { toast('Ingresa el nuevo correo', 'error'); return }
-    if (!emailPwd) { toast('Ingresa tu contraseña actual', 'error'); return }
-    if (newEmail.trim().toLowerCase() === currentUser.email) {
-      toast('El nuevo correo es igual al actual', 'error'); return
-    }
-    setConfirm({
-      title: 'Cambiar correo',
-      message: `¿Está seguro de cambiar el correo a "${newEmail.trim()}"? Se enviará un enlace de verificación a ese correo.`,
-      onConfirm: executeEmailChange,
-    })
-  }
-
-  async function executeEmailChange() {
-    setSavingEmail(true)
-    try {
-      await reauth(emailPwd)
-      await verifyBeforeUpdateEmail(currentUser, newEmail.trim().toLowerCase())
-      await updateDoc(doc(db, 'users', currentUser.uid), { email: newEmail.trim().toLowerCase() })
-      toast('Correo de verificación enviado a ' + newEmail.trim())
-      resetEmailForm()
-    } catch (err) {
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
-        toast('Contraseña incorrecta', 'error')
-      } else if (err.code === 'auth/email-already-in-use') {
-        toast('Ese correo ya está registrado', 'error')
-      } else {
-        toast('Error: ' + err.message, 'error')
-      }
-    } finally {
-      setSavingEmail(false)
-    }
-  }
-
   async function handleConfirm() {
     setConfirming(true)
     try {
@@ -199,11 +149,6 @@ export default function Profile() {
       setConfirming(false)
       setConfirm(null)
     }
-  }
-
-  const handleLogout = async () => {
-    await signOut(auth)
-    navigate('/')
   }
 
   const displayName = userProfile?.nombreMostrar || userProfile?.username || 'Docente'
@@ -354,7 +299,7 @@ export default function Profile() {
               <label className="block text-sm font-medium text-slate-700 mb-1">Nombre completo</label>
               <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
                 className={inputCls} placeholder="Ej. Profa. García Pérez" />
-              <p className="text-xs text-slate-400 mt-1">Así te verán tus alumnos</p>
+              <p className="text-sm text-slate-600 mt-1">Así te verán tus alumnos</p>
             </div>
             <button type="submit" disabled={savingNombre}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
@@ -379,43 +324,10 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* ── Correo ── */}
+            {/* ── Correo (solo lectura) ── */}
             <div className="py-3 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-400 mb-0.5">Correo electrónico</p>
-                  <p className="text-sm text-slate-900 truncate">{currentUser?.email}</p>
-                  {userProfile?.cuentaActivada
-                    ? <p className="text-xs text-emerald-500 flex items-center gap-1 mt-0.5"><Check size={10} /> Verificado</p>
-                    : <p className="text-xs text-amber-500 mt-0.5">Sin verificar</p>}
-                </div>
-                {hasEmailProvider && (
-                  <button type="button" onClick={() => { setShowEmailForm((v) => !v); resetPwdForm() }}
-                    className="text-blue-600 text-sm font-semibold hover:underline flex-shrink-0">
-                    {showEmailForm ? 'Cancelar' : 'Cambiar'}
-                  </button>
-                )}
-              </div>
-
-              {showEmailForm && (
-                <form onSubmit={requestEmailChange} className="mt-4 space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Nuevo correo</label>
-                    <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
-                      required autoComplete="off" className={inputCls} placeholder="nuevo@correo.com" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Contraseña actual</label>
-                    <PasswordInput value={emailPwd} onChange={(e) => setEmailPwd(e.target.value)}
-                      required autoComplete="current-password" className={inputCls} placeholder="Tu contraseña actual" />
-                  </div>
-                  <button type="submit" disabled={savingEmail}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                    {savingEmail ? <Spinner size="sm" /> : <Mail size={15} />}
-                    {savingEmail ? 'Procesando…' : 'Cambiar correo'}
-                  </button>
-                </form>
-              )}
+              <p className="text-xs text-slate-400 mb-0.5">Correo electrónico</p>
+              <p className="text-sm text-slate-900 truncate">{currentUser?.email}</p>
             </div>
 
             {/* ── Contraseña ── */}
@@ -428,7 +340,7 @@ export default function Profile() {
                   )}
                 </div>
                 {hasEmailProvider && (
-                  <button type="button" onClick={() => { setShowPwdForm((v) => !v); resetEmailForm() }}
+                  <button type="button" onClick={() => setShowPwdForm((v) => !v)}
                     className="text-blue-600 text-sm font-semibold hover:underline flex-shrink-0">
                     {showPwdForm ? 'Cancelar' : 'Cambiar'}
                   </button>
@@ -464,11 +376,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Logout */}
-        <button type="button" onClick={handleLogout}
-          className="w-full py-3 border border-red-200 text-red-500 rounded-xl font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
-          <LogOut size={18} /> Cerrar sesión
-        </button>
       </div>
 
       {/* ── Confirmation modal ── */}

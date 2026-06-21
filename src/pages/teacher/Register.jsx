@@ -4,7 +4,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
 import { Timestamp, addDoc, collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
-import { sendVerificationEmail } from '../../utils/sendVerificationEmail'
+import { sendWelcomeEmail } from '../../utils/welcomeEmail'
 import Spinner from '../../components/Spinner'
 import { GraduationCap, ChevronDown, Search, Check, X } from 'lucide-react'
 import { usePlanteles } from '../../data/usePlanteles'
@@ -98,7 +98,7 @@ export default function Register() {
         updatedAt: Timestamp.fromDate(trialStart),
       })
 
-      sendVerificationEmail({ email: email.trim().toLowerCase(), username, uid: cred.user.uid }).catch(() => {})
+      sendWelcomeEmail({ email: email.trim().toLowerCase(), username, school: selectedPlantel.short || selectedPlantel.nombre }).catch(() => {})
       navigate('/dashboard', { state: { newAccount: true, createdUsername: username } })
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {

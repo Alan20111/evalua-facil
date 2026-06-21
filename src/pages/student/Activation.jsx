@@ -68,12 +68,12 @@ export default function StudentActivation() {
       const q = query(collection(db, 'subjects'), where('accessCode', '==', accessCode))
       const snap = await getDocs(q)
       if (snap.empty) {
-        setLoadError('No encontramos ninguna materia con ese código de acceso. Revisa el código o el QR con tu maestro.')
+        setLoadError('No encontramos ninguna asignatura con ese código de acceso. Revisa el código o el QR con tu maestro.')
         return
       }
       setSubject({ id: snap.docs[0].id, ...snap.docs[0].data() })
     } catch (err) {
-      setLoadError('No pudimos cargar la materia. Revisa tu conexión e intenta de nuevo.')
+      setLoadError('No pudimos cargar la asignatura. Revisa tu conexión e intenta de nuevo.')
     } finally {
       setInitLoading(false)
     }
@@ -96,7 +96,7 @@ export default function StudentActivation() {
       }
       const data = { id: snap.docs[0].id, ...snap.docs[0].data() }
       if (data.activado) {
-        toast('Esta materia ya está en tu cuenta. Inicia sesión.')
+        toast('Esta asignatura ya está en tu cuenta. Inicia sesión.')
         navigate('/alumno')
         return
       }
@@ -201,7 +201,7 @@ export default function StudentActivation() {
       const email = studentEmail(student.username, student.escuelaId)
       const cred = await signInWithEmailAndPassword(auth, email, linkPassword)
       await finishActivation(cred.user)
-      toast('¡Materia agregada a tu cuenta!')
+      toast('¡Asignatura agregada a tu cuenta!')
     } catch (err) {
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         setPasswordError('Contraseña incorrecta. Intenta de nuevo.')
@@ -228,7 +228,7 @@ export default function StudentActivation() {
         </div>
         <h1 className="text-xl font-bold text-slate-900 mb-2">Código no válido</h1>
         <p className="text-slate-500 text-sm mb-6">
-          {loadError || 'No encontramos una materia con ese código de acceso.'}
+          {loadError || 'No encontramos una asignatura con ese código de acceso.'}
         </p>
         <button
           onClick={() => navigate('/alumno')}
@@ -264,7 +264,7 @@ export default function StudentActivation() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-900">Ya tienes cuenta</p>
-                  <p className="text-xs text-slate-500">Escribe tu contraseña para agregar esta materia</p>
+                  <p className="text-xs text-slate-500">Escribe tu contraseña para agregar esta asignatura</p>
                 </div>
               </div>
               <form onSubmit={handleLinkExisting} className="space-y-4">
@@ -293,7 +293,7 @@ export default function StudentActivation() {
                   className="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={16} />}
-                  {loading ? 'Vinculando…' : 'Agregar materia'}
+                  {loading ? 'Vinculando…' : 'Agregar asignatura'}
                 </button>
               </form>
             </div>

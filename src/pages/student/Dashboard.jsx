@@ -172,13 +172,13 @@ export default function StudentDashboard() {
       </header>
 
       <div className="px-4 py-6 max-w-2xl mx-auto">
-        <h1 className="text-xl font-bold text-slate-900 mb-1">Mis materias</h1>
+        <h1 className="text-xl font-bold text-slate-900 mb-1">Mis asignaturas</h1>
         <p className="text-slate-400 text-sm mb-5">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''} activas</p>
 
         {subjects.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 p-10 text-center">
             <BookOpen size={32} className="text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 mb-1">Aún no tienes materias</p>
+            <p className="text-slate-500 mb-1">Aún no tienes asignaturas</p>
             <p className="text-slate-400 text-sm">Usa el botón de abajo para unirte a una.</p>
           </div>
         ) : (
@@ -215,7 +215,7 @@ export default function StudentDashboard() {
           onClick={() => { setJoinCode(''); setShowJoin(true) }}
           className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-dashed border-blue-300 text-blue-600 text-sm font-semibold hover:bg-blue-50 transition-colors"
         >
-          <Plus size={16} /> Unirme a otra materia
+          <Plus size={16} /> Unirme a otra asignatura
         </button>
       </div>
 
@@ -225,11 +225,11 @@ export default function StudentDashboard() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowJoin(false)} />
           <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-slate-900">Unirme a otra materia</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Unirme a otra asignatura</h3>
               <button onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
             </div>
             <p className="text-sm text-slate-500 mb-4">
-              Ingresa el <strong>código de acceso</strong> de tu nueva materia (o escanea su QR). Como ya tienes cuenta, solo confirmarás tu contraseña.
+              Ingresa el <strong>código de acceso</strong> de tu nueva asignatura (o escanea su QR). Como ya tienes cuenta, solo confirmarás tu contraseña.
             </p>
             <form onSubmit={handleJoinSubject} className="flex gap-2">
               <input

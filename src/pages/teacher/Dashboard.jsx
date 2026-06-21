@@ -6,18 +6,14 @@ import {
   where,
   getDocs,
   addDoc,
-  doc,
-  getDoc,
-  updateDoc,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
-import { sendVerificationEmail } from '../../utils/sendVerificationEmail'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { Plus, BookOpen, ChevronRight, X, AlertTriangle, CreditCard, ArrowUpDown } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, CreditCard, ArrowUpDown } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { useSubscription } from '../../hooks/useSubscription'
 import { calcDaysRemaining } from '../../utils/subscriptionHelpers'
@@ -37,7 +33,7 @@ function getCicloInfo() {
 }
 
 export default function TeacherDashboard() {
-  const { currentUser, userProfile, setUserProfile } = useAuth()
+  const { currentUser, userProfile } = useAuth()
   const location = useLocation()
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -51,14 +47,6 @@ export default function TeacherDashboard() {
   const { subscription, loading: subLoading } = useSubscription()
   const isTrial = subscription?.status === 'trial'
   const daysLeft = isTrial ? calcDaysRemaining(subscription.fechaVencimiento) : 0
-
-  // Email banner (shown while account not activated, dismissible per session)
-  const [emailBannerDismissed, setEmailBannerDismissed] = useState(
-    () => sessionStorage.getItem('emailBannerDismissed') === '1'
-  )
-  const showEmailBanner = !userProfile?.cuentaActivada && !emailBannerDismissed
-  const [verifyLoading, setVerifyLoading] = useState(false)
-  const [verifySent, setVerifySent] = useState(false)
 
   // Subject creation modal
   const [showSubjectModal, setShowSubjectModal] = useState(false)
@@ -82,45 +70,10 @@ export default function TeacherDashboard() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  async function handleResendVerification() {
-    if (!currentUser) return
-    setVerifyLoading(true)
-    try {
-      await sendVerificationEmail({
-        email: currentUser.email,
-        username: userProfile?.username || currentUser.displayName || '',
-        uid: currentUser.uid,
-      })
-      setVerifySent(true)
-    } catch {
-      toast('No se pudo enviar el correo. Intenta más tarde.', 'error')
-    } finally {
-      setVerifyLoading(false)
-    }
-  }
-
   useEffect(() => {
     if (!currentUser) return
     loadAll()
-    checkPendingVerify()
   }, [currentUser])
-
-  async function checkPendingVerify() {
-    const raw = localStorage.getItem('pendingVerify')
-    if (!raw) return
-    try {
-      const { uid, token } = JSON.parse(raw)
-      if (uid !== currentUser.uid) return
-      localStorage.removeItem('pendingVerify')
-      const snap = await getDoc(doc(db, 'users', uid))
-      if (!snap.exists()) return
-      if (snap.data().verifyToken !== token) return
-      await updateDoc(doc(db, 'users', uid), { cuentaActivada: true, verifyToken: null })
-      setUserProfile(prev => ({ ...prev, cuentaActivada: true, verifyToken: null }))
-    } catch {
-      // silently ignore
-    }
-  }
 
   async function loadAll() {
     setLoading(true)
@@ -189,33 +142,6 @@ export default function TeacherDashboard() {
     <TeacherLayout>
       <div className="px-4 py-6 max-w-2xl mx-auto">
 
-        {/* Email sent banner (shown only after registration) */}
-        {showEmailBanner && (
-          <div className="mb-5 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5">
-            <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800">Revisa tu correo</p>
-              <p className="text-xs text-amber-700 leading-relaxed mt-0.5">
-                Te enviamos un correo a <strong>{currentUser?.email}</strong> con tu nombre de usuario y el botón para activar tu cuenta.
-              </p>
-              {verifySent ? (
-                <p className="mt-2 text-xs font-semibold text-amber-700">Correo reenviado — revisa tu bandeja ✓</p>
-              ) : (
-                <button
-                  onClick={handleResendVerification}
-                  disabled={verifyLoading}
-                  className="mt-2 text-xs font-semibold text-amber-700 underline underline-offset-2 disabled:opacity-50"
-                >
-                  {verifyLoading ? 'Enviando…' : 'Reenviar correo'}
-                </button>
-              )}
-            </div>
-            <button onClick={() => { sessionStorage.setItem('emailBannerDismissed', '1'); setEmailBannerDismissed(true) }} className="text-amber-400 hover:text-amber-600 flex-shrink-0">
-              <X size={16} />
-            </button>
-          </div>
-        )}
-
         {/* Greeting */}
         <div className="mb-6">
           <p className="text-slate-500 text-sm">{saludo},</p>
@@ -240,11 +166,11 @@ export default function TeacherDashboard() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={toggleNameOrder}
-                  title={nameOrder === 'normal' ? 'Mostrar Grupo + Materia' : 'Mostrar Materia + Grupo'}
+                  title={nameOrder === 'normal' ? 'Mostrar Grupo + Asignatura' : 'Mostrar Asignatura + Grupo'}
                   className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors px-2 py-1 rounded-lg hover:bg-blue-50"
                 >
                   <ArrowUpDown size={13} />
-                  {nameOrder === 'normal' ? 'Materia · Grupo' : 'Grupo · Materia'}
+                  {nameOrder === 'normal' ? 'Asignatura · Grupo' : 'Grupo · Asignatura'}
                 </button>
                 <span className="text-xs text-slate-300">·</span>
                 <span className="text-xs text-slate-400">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
@@ -313,9 +239,9 @@ export default function TeacherDashboard() {
               </button>
             </div>
             <form onSubmit={handleCreateSubject} className="space-y-4">
-              {/* Nombre de la materia */}
+              {/* Nombre de la asignatura */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Materia</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Asignatura</label>
                 <input
                   type="text"
                   value={newSubjectName}

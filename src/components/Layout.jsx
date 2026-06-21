@@ -371,7 +371,7 @@ export default function TeacherLayout({ children }) {
               <form onSubmit={handleCreateSubject} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Materia
+                    Asignatura
                   </label>
                   <input
                     type="text"

@@ -1936,12 +1936,12 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowEditSubjectModal(false)} />
           <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold">Editar materia</h3>
+              <h3 className="text-lg font-semibold">Editar asignatura</h3>
               <button onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
             </div>
             <form onSubmit={handleEditSubject} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Materia</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Asignatura</label>
                 <input type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
@@ -1983,12 +1983,12 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowCopyModal(false)} />
           <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold">Copiar materia</h3>
+              <h3 className="text-lg font-semibold">Copiar asignatura</h3>
               <button onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
             </div>
             <form onSubmit={handleCopySubject} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Materia</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Asignatura</label>
                 <input type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
                   className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
@@ -2043,7 +2043,7 @@ export default function SubjectPage() {
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
               <Trash2 size={22} className="text-red-500" />
             </div>
-            <h3 className="text-base font-semibold text-slate-900 text-center mb-1">¿Eliminar materia?</h3>
+            <h3 className="text-base font-semibold text-slate-900 text-center mb-1">¿Eliminar asignatura?</h3>
             <p className="text-sm text-slate-500 text-center mb-4">
               Se borrarán permanentemente todas las actividades, entregas, alumnos y asistencias de{' '}
               <strong>{subject?.nombre}</strong>. Esta acción <strong>no se puede deshacer</strong>.
@@ -2076,10 +2076,10 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowUnarchiveModal(false)} />
           <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold">Desarchivar materia</h3>
+              <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
               <button onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
             </div>
-            <p className="text-sm text-slate-500 mb-4">Elige cómo quieres restaurar la materia:</p>
+            <p className="text-sm text-slate-500 mb-4">Elige cómo quieres restaurar la asignatura:</p>
 
             <div className="space-y-3 mb-5">
               <div>

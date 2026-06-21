@@ -82,7 +82,7 @@ function buildHtml({ username, school }) {
                    style="display:inline-block;background:#2563eb;color:#ffffff;
                           font-size:15px;font-weight:700;text-decoration:none;
                           padding:15px 40px;border-radius:12px;letter-spacing:0.3px;">
-                  Verificar correo electrónico →
+                  Ir a la plataforma →
                 </a>
               </td>
             </tr>
