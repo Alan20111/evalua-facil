@@ -74,7 +74,7 @@ export default function StudentLogin() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mx-auto mb-4">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Acceso Alumnos</h1>
@@ -96,7 +96,7 @@ export default function StudentLogin() {
                 autoCorrect="off"
                 autoCapitalize="characters"
                 spellCheck={false}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 font-mono tracking-widest text-center text-lg"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 font-mono tracking-widest text-center text-lg"
                 placeholder="Ej: MERK"
                 maxLength={8}
               />
@@ -107,7 +107,7 @@ export default function StudentLogin() {
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError('') }}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50"
                 placeholder="••••••••"
               />
             </div>
@@ -119,7 +119,7 @@ export default function StudentLogin() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? 'Entrando…' : 'Iniciar sesión'}
@@ -157,12 +157,12 @@ export default function StudentLogin() {
                   spellCheck={false}
                   maxLength={8}
                   placeholder="Ej: A3B7K2"
-                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 font-mono tracking-widest text-center"
+                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 font-mono tracking-widest text-center"
                 />
                 <button
                   type="submit"
                   disabled={!codeInput.trim()}
-                  className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                  className="px-4 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
                 >
                   <Hash size={16} />
                   Ir
@@ -174,7 +174,7 @@ export default function StudentLogin() {
 
         <p className="text-center text-sm text-slate-400 mt-4">
           ¿Eres docente?{' '}
-          <Link to="/docente" className="text-blue-600 hover:underline">Acceso docentes</Link>
+          <Link to="/docente" className="text-accent hover:underline">Acceso docentes</Link>
         </p>
 
         <p className="text-center text-xs text-slate-400 mt-5 px-2">

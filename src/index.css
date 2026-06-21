@@ -10,6 +10,34 @@
   #root {
     @apply min-h-screen;
   }
+
+  /* ── Accent theming ──────────────────────────────────────────────
+     One shared UI; only the accent color changes by role, and per
+     subject inside that subject's pages. Identity elements use the
+     `accent` / `accent-hover` / `accent-light` Tailwind classes. */
+  :root {
+    --accent: #2563eb;        /* blue-600 (docente / default) */
+    --accent-hover: #1d4ed8;  /* blue-700 */
+    --accent-light: #dbeafe;  /* blue-100 */
+  }
+  [data-role='docente'] {
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-light: #dbeafe;
+  }
+  [data-role='alumno'] {
+    --accent: #f97316;        /* orange-500 */
+    --accent-hover: #ea580c;  /* orange-600 */
+    --accent-light: #ffedd5;  /* orange-100 */
+  }
+
+  /* Per-subject palette overrides (applied on a wrapper inside a subject) */
+  [data-subject-palette='default'] { --accent: #2563eb; --accent-hover: #1d4ed8; --accent-light: #dbeafe; }
+  [data-subject-palette='orange']  { --accent: #f97316; --accent-hover: #ea580c; --accent-light: #ffedd5; }
+  [data-subject-palette='purple']  { --accent: #9333ea; --accent-hover: #7e22ce; --accent-light: #f3e8ff; }
+  [data-subject-palette='green']   { --accent: #16a34a; --accent-hover: #15803d; --accent-light: #dcfce7; }
+  [data-subject-palette='rose']    { --accent: #e11d48; --accent-hover: #be123c; --accent-light: #ffe4e6; }
+  [data-subject-palette='teal']    { --accent: #14b8a6; --accent-hover: #0d9488; --accent-light: #ccfbf1; }
 }
 
 @layer utilities {

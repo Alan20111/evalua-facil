@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './components/Toast'
 
@@ -56,11 +56,22 @@ function RootRedirect() {
   return <Navigate to="/alumno/dashboard" replace />
 }
 
+// Sets the accent theme by role: orange for students (incl. pre-auth /alumno and
+// /activate routes), blue for everyone else. Identity elements read --accent.
+function RoleWrapper({ children }) {
+  const { userProfile } = useAuth()
+  const { pathname } = useLocation()
+  const isStudentRoute = pathname.startsWith('/alumno') || pathname.startsWith('/activate')
+  const role = userProfile?.role === 'alumno' || isStudentRoute ? 'alumno' : 'docente'
+  return <div data-role={role}>{children}</div>
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
+          <RoleWrapper>
           <Routes>
             {/* Public */}
             <Route path="/" element={<RootRedirect />} />
@@ -89,6 +100,7 @@ export default function App() {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </RoleWrapper>
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

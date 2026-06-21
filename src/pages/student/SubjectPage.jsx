@@ -114,8 +114,8 @@ export default function StudentSubjectPage() {
                 onClick={() => setOpenParcial(isOpen ? 0 : p)}
                 className="w-full px-4 py-4 flex items-center gap-3 hover:bg-slate-50 transition-colors"
               >
-                <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-indigo-700 font-bold text-sm">{p}</span>
+                <div className="w-9 h-9 rounded-xl bg-accent-light flex items-center justify-center flex-shrink-0">
+                  <span className="text-accent font-bold text-sm">{p}</span>
                 </div>
                 <div className="flex-1 text-left">
                   <p className="font-semibold text-slate-900">Parcial {p}</p>
@@ -124,7 +124,7 @@ export default function StudentSubjectPage() {
                 <div className="flex items-center gap-2">
                   {avg != null && (
                     <div className="text-right">
-                      <span className="text-lg font-bold text-indigo-600">{avg}</span>
+                      <span className="text-lg font-bold text-accent">{avg}</span>
                     </div>
                   )}
                   {isOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
@@ -150,7 +150,7 @@ export default function StudentSubjectPage() {
                           {graded ? (
                             <CheckCircle size={18} className="text-emerald-500" />
                           ) : delivered ? (
-                            <Clock size={18} className="text-blue-400" />
+                            <Clock size={18} className="text-accent" />
                           ) : (
                             <Circle size={18} className="text-slate-300" />
                           )}
@@ -170,7 +170,7 @@ export default function StudentSubjectPage() {
                               <p className="text-xs text-slate-400">/{a.maxCalif}</p>
                             </div>
                           ) : delivered ? (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Entregado</span>
+                            <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregado</span>
                           ) : (
                             <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full">Pendiente</span>
                           )}

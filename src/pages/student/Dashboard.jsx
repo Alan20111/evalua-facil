@@ -157,14 +157,14 @@ export default function StudentDashboard() {
       {/* Header */}
       <header className="bg-white border-b border-slate-100 px-4 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
             <GraduationCap size={18} className="text-white" />
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-900">
               {student?.nombre} {student?.apellidoPaterno}
             </p>
-            <p className="text-xs text-blue-600 font-mono">{student?.username}</p>
+            <p className="text-xs text-accent font-mono">{student?.username}</p>
           </div>
         </div>
         <button
@@ -193,8 +193,8 @@ export default function StudentDashboard() {
                 onClick={() => navigate(`/alumno/materia/${s.id}`)}
                 className="w-full bg-white rounded-2xl border border-slate-100 p-4 text-left shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
               >
-                <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-                  <BookOpen size={20} className="text-blue-500" />
+                <div className="w-12 h-12 rounded-xl bg-accent-light flex items-center justify-center flex-shrink-0">
+                  <BookOpen size={20} className="text-accent" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-900">{subjectDisplayName(s)}</p>
@@ -203,7 +203,7 @@ export default function StudentDashboard() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {s.avg != null && (
                     <div className="text-right">
-                      <p className="text-lg font-bold text-blue-600">{s.avg}</p>
+                      <p className="text-lg font-bold text-accent">{s.avg}</p>
                       <p className="text-xs text-slate-400">promedio</p>
                     </div>
                   )}
@@ -217,7 +217,7 @@ export default function StudentDashboard() {
         {/* Join another subject */}
         <button
           onClick={() => { setJoinCode(''); setShowJoin(true) }}
-          className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-dashed border-blue-300 text-blue-600 text-sm font-semibold hover:bg-blue-50 transition-colors"
+          className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
         >
           <Plus size={16} /> Unirme a otra asignatura
         </button>
@@ -247,12 +247,12 @@ export default function StudentDashboard() {
                 spellCheck={false}
                 maxLength={8}
                 placeholder="Ej: A3B7K2"
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50 font-mono tracking-widest text-center"
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 font-mono tracking-widest text-center"
               />
               <button
                 type="submit"
                 disabled={!joinCode.trim()}
-                className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                className="px-4 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
               >
                 <Hash size={16} /> Ir
               </button>

@@ -247,11 +247,11 @@ export default function StudentActivityPage() {
         {/* Status */}
         <div className={`rounded-2xl p-4 flex items-center gap-3 ${
           isGraded ? 'bg-emerald-50 border border-emerald-200' :
-          isDelivered ? 'bg-blue-50 border border-blue-200' :
+          isDelivered ? 'bg-accent-light border border-accent' :
           'bg-slate-50 border border-slate-200'
         }`}>
           {isGraded ? <CheckCircle size={24} className="text-emerald-500 flex-shrink-0" />
-            : isDelivered ? <Clock size={24} className="text-blue-500 flex-shrink-0" />
+            : isDelivered ? <Clock size={24} className="text-accent flex-shrink-0" />
             : <FileText size={24} className="text-slate-400 flex-shrink-0" />}
           <div>
             <p className="font-semibold text-slate-900 text-sm">
@@ -277,9 +277,9 @@ export default function StudentActivityPage() {
               href={submission.archivoURL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 hover:bg-accent-light hover:border-accent transition-colors"
             >
-              <Download size={15} className="text-indigo-500 flex-shrink-0" />
+              <Download size={15} className="text-accent flex-shrink-0" />
               <span className="truncate">{submission.nombreArchivo}</span>
             </a>
           </div>
@@ -293,7 +293,7 @@ export default function StudentActivityPage() {
               <h2 className="font-semibold text-slate-900">Tu calificación</h2>
             </div>
             <div className="flex items-end gap-2 mb-3">
-              <span className="text-5xl font-bold text-indigo-600">{submission.calificacion}</span>
+              <span className="text-5xl font-bold text-accent">{submission.calificacion}</span>
               <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
             </div>
             {submission.comentario && (
@@ -346,7 +346,7 @@ export default function StudentActivityPage() {
             )}
             <div className="space-y-3">
               <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
-                file ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
+                file ? 'border-accent bg-accent-light' : 'border-slate-200 hover:border-accent hover:bg-slate-50'
               }`}>
                 <input
                   type="file"
@@ -354,7 +354,7 @@ export default function StudentActivityPage() {
                   className="hidden"
                   onChange={(e) => setFile(e.target.files[0] || null)}
                 />
-                <Upload size={24} className={file ? 'text-indigo-500' : 'text-slate-400'} />
+                <Upload size={24} className={file ? 'text-accent' : 'text-slate-400'} />
                 <p className="text-sm mt-2 font-medium text-slate-700">
                   {file ? file.name : 'Toca para seleccionar archivo'}
                 </p>
@@ -366,7 +366,7 @@ export default function StudentActivityPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={!file || uploading}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-accent text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {uploading ? <Spinner size="sm" /> : <Upload size={16} />}
                 {uploading ? 'Subiendo…' : 'Entregar'}
