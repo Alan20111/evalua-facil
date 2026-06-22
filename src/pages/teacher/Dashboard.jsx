@@ -139,20 +139,16 @@ export default function TeacherDashboard() {
     }
   }
 
-  const hora = new Date().getHours()
-  const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
-
   return (
     <TeacherLayout>
       <div className="px-4 py-6 max-w-2xl mx-auto">
 
         {/* Greeting */}
         <div className="mb-6">
-          <p className="text-slate-500 text-sm">{saludo},</p>
+          <p className="text-slate-500 text-sm">Bienvenido,</p>
           <h1 className="text-2xl font-bold text-slate-900">
-            {userProfile?.nombrePropio?.split(' ')[0] ||
+            {userProfile?.nombreMostrar ||
               userProfile?.username ||
-              userProfile?.nombre ||
               'Docente'}
           </h1>
           {userProfile?.schoolName && (
