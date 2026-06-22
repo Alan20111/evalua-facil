@@ -14,6 +14,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { BookOpen, ChevronRight, LogOut, GraduationCap, Plus, X, Hash } from 'lucide-react'
+import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollments } from '../../utils/studentLookup'
@@ -190,11 +191,12 @@ export default function StudentDashboard() {
             {subjects.map((s) => (
               <button
                 key={s.id}
+                data-subject-palette={s.colorPalette || 'default'}
                 onClick={() => navigate(`/alumno/materia/${s.id}`)}
                 className="w-full bg-white rounded-2xl border border-slate-100 p-4 text-left shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
               >
                 <div className="w-12 h-12 rounded-xl bg-accent-light flex items-center justify-center flex-shrink-0">
-                  <BookOpen size={20} className="text-accent" />
+                  <SubjectIcon iconKey={s.icon} size={20} className="text-accent" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-900">{subjectDisplayName(s)}</p>

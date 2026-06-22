@@ -15,6 +15,7 @@ import Spinner from '../../components/Spinner'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
+import SubjectIcon from '../../components/SubjectIcon'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
   Clock, Circle, Star,
@@ -95,6 +96,9 @@ export default function StudentSubjectPage() {
         >
           <ArrowLeft size={20} />
         </button>
+        <div className="w-9 h-9 rounded-xl bg-accent-light flex items-center justify-center flex-shrink-0">
+          <SubjectIcon iconKey={subject?.icon} size={18} className="text-accent" />
+        </div>
         <div>
           <h1 className="text-lg font-bold text-slate-900">{subjectDisplayName(subject)}</h1>
           <p className="text-slate-400 text-xs">{subject?.parciales || 3} parciales</p>

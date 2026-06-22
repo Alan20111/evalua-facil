@@ -17,6 +17,8 @@ import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatPublishAt } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
+import IconSelect from '../../components/IconSelect'
+import SubjectIcon from '../../components/SubjectIcon'
 import FileTypeSelect from '../../components/FileTypeSelect'
 import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
 import {
@@ -93,13 +95,13 @@ export default function SubjectPage() {
 
   // Subject CRUD
   const [showEditSubjectModal, setShowEditSubjectModal] = useState(false)
-  const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', grupo: '', ciclo: '', parciales: '3', colorPalette: 'default' })
+  const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', grupo: '', ciclo: '', parciales: '3', colorPalette: 'default', icon: 'book' })
   const [editingSubject, setEditingSubject] = useState(false)
   const [showDeleteSubjectConfirm, setShowDeleteSubjectConfirm] = useState(false)
   const [deleteSubjectConfirmText, setDeleteSubjectConfirmText] = useState('')
   const [deletingSubject, setDeletingSubject] = useState(false)
   const [showCopyModal, setShowCopyModal] = useState(false)
-  const [copyForm, setCopyForm] = useState({ nombre: '', grupo: '', keepStudents: false, colorPalette: 'default' })
+  const [copyForm, setCopyForm] = useState({ nombre: '', grupo: '', keepStudents: false, colorPalette: 'default', icon: 'book' })
   const [copyCicloMode, setCopyCicloMode] = useState('current')
   const [copyingSubject, setCopyingSubject] = useState(false)
 
@@ -107,7 +109,7 @@ export default function SubjectPage() {
   const [showUnarchiveModal, setShowUnarchiveModal] = useState(false)
   const [unarchiveStudents, setUnarchiveStudents] = useState('keep') // 'keep' | 'reset'
   const [unarchiveActivities, setUnarchiveActivities] = useState('keep') // 'keep' | 'show' | 'hide'
-  const [unarchiveEdits, setUnarchiveEdits] = useState({ nombre: '', grupo: '', ciclo: '', parciales: '3', colorPalette: 'default' })
+  const [unarchiveEdits, setUnarchiveEdits] = useState({ nombre: '', grupo: '', ciclo: '', parciales: '3', colorPalette: 'default', icon: 'book' })
   const [unarchivedSaving, setUnarchivedSaving] = useState(false)
   // Archive flow
   const [showArchiveModal, setShowArchiveModal] = useState(false)
@@ -449,6 +451,7 @@ export default function SubjectPage() {
         ciclo: subject.ciclo || '',
         parciales: String(subject.parciales || 3),
         colorPalette: subject.colorPalette || 'default',
+        icon: subject.icon || 'book',
       })
       setShowUnarchiveModal(true)
     } else {
@@ -518,6 +521,7 @@ export default function SubjectPage() {
         ciclo: unarchiveEdits.ciclo.trim(),
         parciales: newParciales,
         colorPalette: unarchiveEdits.colorPalette || 'default',
+        icon: unarchiveEdits.icon || 'book',
       }
       if (unarchiveActivities !== 'keep') {
         const batch = writeBatch(db)
@@ -569,6 +573,7 @@ export default function SubjectPage() {
       ciclo: subject?.ciclo || '',
       parciales: String(subject?.parciales || 3),
       colorPalette: subject?.colorPalette || 'default',
+      icon: subject?.icon || 'book',
     })
     setShowEditSubjectModal(true)
   }
@@ -589,8 +594,9 @@ export default function SubjectPage() {
         ciclo: editSubjectForm.ciclo.trim(),
         parciales: newParciales,
         colorPalette: editSubjectForm.colorPalette || 'default',
+        icon: editSubjectForm.icon || 'book',
       })
-      setSubject((s) => ({ ...s, nombre: editSubjectForm.nombre.trim(), grupo: editSubjectForm.grupo.trim(), ciclo: editSubjectForm.ciclo.trim(), parciales: newParciales, colorPalette: editSubjectForm.colorPalette || 'default' }))
+      setSubject((s) => ({ ...s, nombre: editSubjectForm.nombre.trim(), grupo: editSubjectForm.grupo.trim(), ciclo: editSubjectForm.ciclo.trim(), parciales: newParciales, colorPalette: editSubjectForm.colorPalette || 'default', icon: editSubjectForm.icon || 'book' }))
       toast('Asignatura actualizada')
       setShowEditSubjectModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -611,7 +617,7 @@ export default function SubjectPage() {
   }
 
   function openCopyModal() {
-    setCopyForm({ nombre: subject?.nombre || '', grupo: subject?.grupo || '', keepStudents: false, colorPalette: subject?.colorPalette || 'default' })
+    setCopyForm({ nombre: subject?.nombre || '', grupo: subject?.grupo || '', keepStudents: false, colorPalette: subject?.colorPalette || 'default', icon: subject?.icon || 'book' })
     setCopyCicloMode('current')
     setShowCopyModal(true)
   }
@@ -629,6 +635,7 @@ export default function SubjectPage() {
         ciclo,
         parciales: subject?.parciales || 3,
         colorPalette: copyForm.colorPalette || 'default',
+        icon: copyForm.icon || 'book',
         keepStudents: copyForm.keepStudents,
         docenteId: currentUser.uid,
         escuelaId: userProfile?.escuelaId,
@@ -737,6 +744,9 @@ export default function SubjectPage() {
             <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-slate-600 rounded-lg">
               <ArrowLeft size={20} />
             </button>
+            <div className="w-9 h-9 rounded-xl bg-accent-light flex items-center justify-center flex-shrink-0">
+              <SubjectIcon iconKey={subject?.icon} size={18} className="text-accent" />
+            </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-slate-900 truncate">{subjectDisplayName(subject)}</h1>
@@ -1521,6 +1531,10 @@ export default function SubjectPage() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">Color de la asignatura</label>
                 <PaletteSelect value={editSubjectForm.colorPalette} onChange={(p) => setEditSubjectForm((f) => ({ ...f, colorPalette: p }))} />
               </div>
+              <div data-subject-palette={editSubjectForm.colorPalette || 'default'}>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Icono de la asignatura</label>
+                <IconSelect value={editSubjectForm.icon} onChange={(ic) => setEditSubjectForm((f) => ({ ...f, icon: ic }))} />
+              </div>
               <button type="submit" disabled={editingSubject}
                 className="w-full py-3 bg-accent text-white font-semibold rounded-xl disabled:opacity-60 flex items-center justify-center gap-2">
                 {editingSubject ? <Spinner size="sm" /> : <Pencil size={16} />}
@@ -1573,6 +1587,10 @@ export default function SubjectPage() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Color de la asignatura</label>
                 <PaletteSelect value={copyForm.colorPalette} onChange={(p) => setCopyForm((f) => ({ ...f, colorPalette: p }))} />
+              </div>
+              <div data-subject-palette={copyForm.colorPalette || 'default'}>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Icono de la asignatura</label>
+                <IconSelect value={copyForm.icon} onChange={(ic) => setCopyForm((f) => ({ ...f, icon: ic }))} />
               </div>
               <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors">
                 <input type="checkbox" checked={copyForm.keepStudents} onChange={(e) => setCopyForm((f) => ({ ...f, keepStudents: e.target.checked }))}
@@ -1703,6 +1721,11 @@ export default function SubjectPage() {
               <div>
                 <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Color de la asignatura</p>
                 <PaletteSelect value={unarchiveEdits.colorPalette} onChange={(p) => setUnarchiveEdits((f) => ({ ...f, colorPalette: p }))} />
+              </div>
+
+              <div data-subject-palette={unarchiveEdits.colorPalette || 'default'}>
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Icono de la asignatura</p>
+                <IconSelect value={unarchiveEdits.icon} onChange={(ic) => setUnarchiveEdits((f) => ({ ...f, icon: ic }))} />
               </div>
 
               <div>

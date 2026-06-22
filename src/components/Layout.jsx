@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   LogOut,
   User,
-  BookOpen,
   Plus,
   Archive,
   ChevronRight,
@@ -23,6 +22,7 @@ import Spinner from './Spinner'
 import { useSubscription } from '../hooks/useSubscription'
 import { calcDaysRemaining } from '../utils/subscriptionHelpers'
 import { subjectDisplayName } from '../utils/subjectName'
+import SubjectIcon from './SubjectIcon'
 
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
@@ -165,7 +165,9 @@ export default function TeacherLayout({ children }) {
                     }`
                   }
                 >
-                  <BookOpen size={14} className="flex-shrink-0" />
+                  <span data-subject-palette={s.colorPalette || 'default'} className="flex-shrink-0 text-accent">
+                    <SubjectIcon iconKey={s.icon} size={14} />
+                  </span>
                   <span className="truncate">{subjectDisplayName(s)}</span>
                 </NavLink>
               ))
@@ -205,7 +207,7 @@ export default function TeacherLayout({ children }) {
                         }`
                       }
                     >
-                      <BookOpen size={13} className="flex-shrink-0" />
+                      <SubjectIcon iconKey={s.icon} size={13} className="flex-shrink-0" />
                       <span className="truncate">{subjectDisplayName(s)}</span>
                     </NavLink>
                   ))}

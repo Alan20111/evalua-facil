@@ -16,6 +16,8 @@ import Spinner from '../../components/Spinner'
 import { Plus, BookOpen, ChevronRight, X, CreditCard, ArrowUpDown } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
+import IconSelect from '../../components/IconSelect'
+import SubjectIcon from '../../components/SubjectIcon'
 import { useSubscription } from '../../hooks/useSubscription'
 import { calcDaysRemaining } from '../../utils/subscriptionHelpers'
 
@@ -55,6 +57,7 @@ export default function TeacherDashboard() {
   const [newSubjectGrupo, setNewSubjectGrupo] = useState('')
   const [newSubjectParciales, setNewSubjectParciales] = useState(3)
   const [newSubjectPalette, setNewSubjectPalette] = useState('default')
+  const [newSubjectIcon, setNewSubjectIcon] = useState('book')
   const [inlineCicloMode, setInlineCicloMode] = useState('current')
   const [creatingSubject, setCreatingSubject] = useState(false)
 
@@ -111,6 +114,7 @@ export default function TeacherDashboard() {
         parciales: newSubjectParciales,
         ciclo: inlineSelectedCiclo,
         colorPalette: newSubjectPalette,
+        icon: newSubjectIcon,
         accessCode: generateAccessCode(),
         archived: false,
         createdAt: serverTimestamp(),
@@ -129,6 +133,7 @@ export default function TeacherDashboard() {
       setNewSubjectGrupo('')
       setNewSubjectParciales(3)
       setNewSubjectPalette('default')
+      setNewSubjectIcon('book')
       setInlineCicloMode('current')
       toast('Asignatura creada')
       navigate(`/subject/${ref.id}`)
@@ -190,11 +195,12 @@ export default function TeacherDashboard() {
                 {subjects.map((s) => (
                   <button
                     key={s.id}
+                    data-subject-palette={s.colorPalette || 'default'}
                     onClick={() => navigate(`/subject/${s.id}`)}
                     className="w-full bg-white rounded-2xl border border-slate-100 p-4 text-left shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
                   >
-                    <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-                      <BookOpen size={19} className="text-blue-500" />
+                    <div className="w-11 h-11 rounded-xl bg-accent-light flex items-center justify-center flex-shrink-0">
+                      <SubjectIcon iconKey={s.icon} size={19} className="text-accent" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -317,6 +323,14 @@ export default function TeacherDashboard() {
                   Color de la asignatura
                 </label>
                 <PaletteSelect value={newSubjectPalette} onChange={setNewSubjectPalette} />
+              </div>
+
+              {/* Icono */}
+              <div data-subject-palette={newSubjectPalette}>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Icono de la asignatura
+                </label>
+                <IconSelect value={newSubjectIcon} onChange={setNewSubjectIcon} />
               </div>
 
               <button
