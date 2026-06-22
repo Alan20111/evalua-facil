@@ -121,29 +121,28 @@ export default function TeacherLayout({ children }) {
             <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
           </NavLink>
 
-          {/* Trial banner */}
+          {/* Trial banner — subtle, blue, no background */}
           {trialDays !== null && trialDays > 0 && (
-            <NavLink
-              to="/profile"
-              className={`mx-2 mt-1 px-3 py-2 rounded-xl flex items-center gap-2 transition-colors ${
-                trialDays <= 7
-                  ? 'bg-red-50 hover:bg-red-100 border border-red-200'
-                  : 'bg-amber-50 hover:bg-amber-100 border border-amber-200'
-              }`}
-            >
-              <Timer size={13} className={trialDays <= 7 ? 'text-red-500 flex-shrink-0' : 'text-amber-500 flex-shrink-0'} />
-              <p className={`text-xs font-medium leading-tight ${trialDays <= 7 ? 'text-red-700' : 'text-amber-700'}`}>
+            <NavLink to="/profile" className="mx-2 mt-1 px-3 py-1.5 flex items-center gap-2 rounded-xl hover:bg-blue-50 transition-colors">
+              <Timer size={13} className="text-blue-600 flex-shrink-0" />
+              <p className="text-xs text-blue-600 leading-tight">
                 Te quedan <strong>{trialDays} día{trialDays !== 1 ? 's' : ''}</strong> de prueba
               </p>
             </NavLink>
           )}
 
-          {/* Subjects header */}
-          <div className="px-4 pt-5 pb-1">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          {/* Subjects header → goes to the full subjects list */}
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) =>
+              `mx-2 px-2 pt-5 pb-1 flex items-center justify-between rounded-lg group ${isActive ? '' : ''}`
+            }
+          >
+            <span className="text-xs font-semibold text-slate-400 group-hover:text-blue-600 uppercase tracking-wider transition-colors">
               Asignaturas
-            </p>
-          </div>
+            </span>
+            <ChevronRight size={13} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
+          </NavLink>
 
           {/* Subject list */}
           <div className="flex-1 overflow-y-auto px-2 pb-2">
@@ -212,23 +211,6 @@ export default function TeacherLayout({ children }) {
                   ))}
               </>
             )}
-          </div>
-
-          {/* Dashboard link */}
-          <div className="px-2 py-1 border-t border-slate-100">
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) =>
-                `flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-700 font-semibold'
-                    : 'text-slate-500 hover:bg-slate-50'
-                }`
-              }
-            >
-              <LayoutDashboard size={14} />
-              Asignaturas
-            </NavLink>
           </div>
 
           {/* Logout */}

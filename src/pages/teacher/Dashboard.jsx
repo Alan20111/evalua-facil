@@ -219,10 +219,10 @@ export default function TeacherDashboard() {
         )}
       </div>
 
-      {/* FAB — create subject (or group if no groups yet) */}
+      {/* FAB — create subject (mobile only; on web use the sidebar's "Nueva asignatura") */}
       <button
         onClick={() => setShowSubjectModal(true)}
-        className="fixed bottom-20 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
+        className="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
       >
         <Plus size={24} />
       </button>
