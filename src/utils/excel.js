@@ -2,14 +2,27 @@ import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
 
 export function downloadStudentTemplate() {
+  // Column 1: list number. Column 2: full name in a SINGLE cell, in the order
+  // Apellido Paterno · Apellido Materno · Nombre(s) (separated by spaces).
   const ws = XLSX.utils.aoa_to_sheet([
-    ['Apellido Paterno', 'Apellido Materno', 'Nombre(s)'],
-    ['García', 'López', 'Juan Carlos'],
+    ['#', 'Nombre completo (Apellido Paterno  Apellido Materno  Nombre)'],
+    [1, 'García López Juan Carlos'],
+    [2, 'Hernández Ruiz María Fernanda'],
   ])
-  ws['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 25 }]
+  ws['!cols'] = [{ wch: 6 }, { wch: 46 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Alumnos')
   XLSX.writeFile(wb, 'plantilla-alumnos.xlsx')
+}
+
+// Splits a natural full-name string by spaces: 1st word = apellido paterno,
+// 2nd = apellido materno, the rest = nombre(s).
+function splitFullName(full) {
+  const parts = String(full).trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return null
+  if (parts.length === 1) return { apellidoPaterno: parts[0], apellidoMaterno: '', nombre: '' }
+  if (parts.length === 2) return { apellidoPaterno: parts[0], apellidoMaterno: parts[1], nombre: '' }
+  return { apellidoPaterno: parts[0], apellidoMaterno: parts[1], nombre: parts.slice(2).join(' ') }
 }
 
 export function parseStudentExcel(file) {
@@ -22,12 +35,21 @@ export function parseStudentExcel(file) {
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1 })
         const students = rows
           .slice(1)
-          .filter((r) => r[0] && r[1] && r[2])
-          .map((r) => ({
-            apellidoPaterno: String(r[0]).trim(),
-            apellidoMaterno: String(r[1]).trim(),
-            nombre: String(r[2]).trim(),
-          }))
+          .map((r) => {
+            const c0 = String(r[0] ?? '').trim()
+            const c1 = String(r[1] ?? '').trim()
+            const c2 = String(r[2] ?? '').trim()
+            // Backward-compat: old 3-column template (Paterno | Materno | Nombre),
+            // where the first cell is a surname (not a list number).
+            if (c0 && c1 && c2 && Number.isNaN(Number(c0))) {
+              return { apellidoPaterno: c0, apellidoMaterno: c1, nombre: c2 }
+            }
+            // New template: [#, "Apellido Paterno Apellido Materno Nombre(s)"].
+            // The full name is the first cell that has text beyond a plain number.
+            const full = c1 || (Number.isNaN(Number(c0)) ? c0 : '')
+            return splitFullName(full)
+          })
+          .filter((s) => s && (s.apellidoPaterno || s.nombre))
         resolve(students)
       } catch (err) {
         reject(err)
