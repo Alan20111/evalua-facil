@@ -1150,17 +1150,11 @@ export default function SubjectPage() {
             </div>
             <form onSubmit={handleSaveActivity} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Nombre</label>
+                <label className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
                 <input type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
                   className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: Tarea 1, Examen parcial" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">Calificación máxima</label>
-                <input type="number" value={form.maxCalif} onChange={(e) => setForm((f) => ({ ...f, maxCalif: e.target.value }))}
-                  required min="1" max="100"
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">
@@ -1172,10 +1166,9 @@ export default function SubjectPage() {
                   placeholder="Describe la tarea para tus alumnos…" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">
-                  Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
-                </label>
-                <input type="date" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
+                <label className="block text-sm font-medium text-muted mb-1">Calificación máxima</label>
+                <input type="number" value={form.maxCalif} onChange={(e) => setForm((f) => ({ ...f, maxCalif: e.target.value }))}
+                  required min="1" max="100"
                   className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
               </div>
               <div className="pt-1">
@@ -1225,6 +1218,15 @@ export default function SubjectPage() {
                     />
                   )}
                 </div>
+              </div>
+
+              {/* Fecha límite — hasta abajo */}
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">
+                  Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <input type="date" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
               </div>
 
               <button type="submit" disabled={saving}
@@ -1495,7 +1497,7 @@ export default function SubjectPage() {
       {showEditSubjectModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowEditSubjectModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
               <button onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
