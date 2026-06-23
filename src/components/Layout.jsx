@@ -15,7 +15,7 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
 } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
@@ -33,21 +33,21 @@ export default function TeacherLayout({ children }) {
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
 
+  // Real-time subjects: any create/edit/archive/duplicate/delete reflects instantly
+  // in the sidebar (no manual refresh).
   useEffect(() => {
     if (!currentUser) return
-    loadSidebarData()
+    const q = query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid))
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setSubjects(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        setLoadingSidebar(false)
+      },
+      () => setLoadingSidebar(false)
+    )
+    return () => unsub()
   }, [currentUser])
-
-  async function loadSidebarData() {
-    try {
-      const subSnap = await getDocs(
-        query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid))
-      )
-      setSubjects(subSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    } finally {
-      setLoadingSidebar(false)
-    }
-  }
 
   const handleLogout = async () => {
     await signOut(auth)
@@ -170,36 +170,36 @@ export default function TeacherLayout({ children }) {
               <Plus size={15} />
               Nueva asignatura…
             </button>
-
-            {/* Archivadas */}
-            {archivedSubjects.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setShowArchived((a) => !a)}
-                  className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors mt-1"
-                >
-                  <Archive size={13} />
-                  Archivadas ({archivedSubjects.length})
-                </button>
-                {showArchived &&
-                  archivedSubjects.map((s) => (
-                    <NavLink
-                      key={s.id}
-                      to={`/subject/${s.id}`}
-                      className={({ isActive }) =>
-                        `flex items-center gap-2 px-3 py-2 rounded text-body-sm transition-colors ${
-                          isActive ? 'bg-white text-accent' : 'text-white/70 hover:bg-white/10'
-                        }`
-                      }
-                    >
-                      <SubjectIcon iconKey={s.icon} size={13} className="flex-shrink-0" />
-                      <span className="truncate">{subjectDisplayName(s)}</span>
-                    </NavLink>
-                  ))}
-              </>
-            )}
           </div>
+
+          {/* Archivadas — fixed at the bottom, above logout */}
+          {archivedSubjects.length > 0 && (
+            <div className="px-2 pt-2 border-t border-white/15 max-h-48 overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => setShowArchived((a) => !a)}
+                className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors"
+              >
+                <Archive size={13} />
+                Archivadas ({archivedSubjects.length})
+              </button>
+              {showArchived &&
+                archivedSubjects.map((s) => (
+                  <NavLink
+                    key={s.id}
+                    to={`/subject/${s.id}`}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2 rounded text-body-sm transition-colors ${
+                        isActive ? 'bg-white text-accent' : 'text-white/70 hover:bg-white/10'
+                      }`
+                    }
+                  >
+                    <SubjectIcon iconKey={s.icon} size={13} className="flex-shrink-0" />
+                    <span className="truncate">{subjectDisplayName(s)}</span>
+                  </NavLink>
+                ))}
+            </div>
+          )}
 
           {/* Logout */}
           <div className="px-2 py-3 border-t border-white/15">
