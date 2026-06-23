@@ -6,7 +6,7 @@ import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import { sendWelcomeEmail } from '../../utils/welcomeEmail'
 import Spinner from '../../components/Spinner'
-import { GraduationCap, ChevronDown, Search, Check, X } from 'lucide-react'
+import { GraduationCap, ChevronDown, Search, Check, X, Plus } from 'lucide-react'
 import { usePlanteles } from '../../data/usePlanteles'
 import PasswordInput from '../../components/PasswordInput'
 
@@ -59,6 +59,19 @@ export default function Register() {
         shortForUsername = 'EF'
         schoolNombre = 'Sin escuela'
         await setDoc(doc(db, 'schools', 'sin-escuela'), { nombre: 'Sin escuela', shortName: 'EF', sinEscuela: true }, { merge: true })
+      } else if (selectedPlantel.custom) {
+        // Manually-added school (not in the catalog, e.g. a Telesecundaria).
+        const name = selectedPlantel.nombre.trim()
+        const existing = await getDocs(query(collection(db, 'schools'), where('nombre', '==', name)))
+        if (!existing.empty) {
+          schoolId = existing.docs[0].id
+        } else {
+          const newRef = doc(collection(db, 'schools'))
+          await setDoc(newRef, { nombre: name, shortName: name, custom: true })
+          schoolId = newRef.id
+        }
+        shortForUsername = name.split(/\s+/)[0].slice(0, 8) || 'ESC'
+        schoolNombre = name
       } else {
         const schoolSnap = await getDocs(
           query(collection(db, 'schools'), where('claveSEP', '==', selectedPlantel.cct))
@@ -175,7 +188,9 @@ export default function Register() {
               </button>
               {selectedPlantel && !skipSchool && (
                 <p className="text-xs text-emerald-700 mt-1 ml-1 truncate">
-                  {selectedPlantel.cct} · {selectedPlantel.mun}, {selectedPlantel.edo}
+                  {selectedPlantel.custom
+                    ? 'Escuela agregada por ti'
+                    : `${selectedPlantel.cct} · ${selectedPlantel.mun}, ${selectedPlantel.edo}`}
                 </p>
               )}
               <label className="flex items-center gap-2 mt-2 ml-1 cursor-pointer">
@@ -277,6 +292,19 @@ export default function Register() {
                   </li>
                 )}
               </ul>
+            )}
+            {/* Add own school (e.g. a Telesecundaria not in the catalog) */}
+            {search.trim() && (
+              <div className="border-t border-outline-variant p-2">
+                <button
+                  type="button"
+                  onClick={() => { setSelectedPlantel({ custom: true, nombre: search.trim(), short: search.trim() }); setShowPicker(false) }}
+                  className="w-full flex items-center gap-2 px-4 py-3 rounded text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  <Plus size={16} className="flex-shrink-0" />
+                  <span className="truncate">¿No la encuentras? Agregar «{search.trim()}»</span>
+                </button>
+              </div>
             )}
           </div>
         </div>

@@ -12,7 +12,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
-import { Camera, Lock, User, X, CreditCard, School, Search, ChevronDown } from 'lucide-react'
+import { Camera, Lock, User, X, CreditCard, School, Search, ChevronDown, Plus } from 'lucide-react'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
 import {
@@ -76,6 +76,16 @@ export default function Profile() {
       if (!plantel) {
         escuelaId = 'sin-escuela'; schoolNombre = 'Sin escuela'
         await setDoc(doc(db, 'schools', 'sin-escuela'), { nombre: 'Sin escuela', shortName: 'EF', sinEscuela: true }, { merge: true })
+      } else if (plantel.custom) {
+        const name = plantel.nombre.trim()
+        const existing = await getDocs(query(collection(db, 'schools'), where('nombre', '==', name)))
+        if (!existing.empty) escuelaId = existing.docs[0].id
+        else {
+          const ref = doc(collection(db, 'schools'))
+          await setDoc(ref, { nombre: name, shortName: name, custom: true })
+          escuelaId = ref.id
+        }
+        schoolNombre = name
       } else {
         const snap = await getDocs(query(collection(db, 'schools'), where('claveSEP', '==', plantel.cct)))
         if (!snap.empty) escuelaId = snap.docs[0].id
@@ -495,6 +505,19 @@ export default function Profile() {
                   </li>
                 ))}
               </ul>
+            )}
+            {schoolSearch.trim() && (
+              <div className="border-t border-outline-variant p-2">
+                <button
+                  type="button"
+                  disabled={savingSchool}
+                  onClick={() => updateSchool({ custom: true, nombre: schoolSearch.trim(), short: schoolSearch.trim() })}
+                  className="w-full flex items-center gap-2 px-4 py-3 rounded text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-60"
+                >
+                  <Plus size={16} className="flex-shrink-0" />
+                  <span className="truncate">¿No la encuentras? Agregar «{schoolSearch.trim()}»</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
