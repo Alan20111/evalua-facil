@@ -19,7 +19,7 @@ import {
   ChevronLeft, ChevronRight, FolderDown,
 } from 'lucide-react'
 import FileTypeSelect from '../../components/FileTypeSelect'
-import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
+import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE } from '../../config/fileTypes'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
 
@@ -51,7 +51,7 @@ export default function ActivityPage() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showEditModal, setShowEditModal] = useState(false)
-  const [editForm, setEditForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: DEFAULT_FILE_TYPE })
+  const [editForm, setEditForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: DEFAULT_FILE_TYPE, extensionesCustom: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [searchStudents, setSearchStudents] = useState('')
   const [sortAlpha, setSortAlpha] = useState(false)
@@ -101,6 +101,7 @@ export default function ActivityPage() {
       instrucciones: activity?.instrucciones || '',
       fechaLimite: activity?.fechaLimite || '',
       tiposArchivo: activity?.tiposArchivo || DEFAULT_FILE_TYPE,
+      extensionesCustom: activity?.extensionesCustom || '',
     })
     setShowEditModal(true)
   }
@@ -115,6 +116,7 @@ export default function ActivityPage() {
         instrucciones: editForm.instrucciones.trim(),
         fechaLimite: editForm.fechaLimite || null,
         tiposArchivo: editForm.tiposArchivo || DEFAULT_FILE_TYPE,
+        extensionesCustom: editForm.tiposArchivo === CUSTOM_FILE_TYPE ? (editForm.extensionesCustom || '').trim() : '',
       })
       toast('Actividad actualizada')
       setShowEditModal(false)
@@ -648,7 +650,12 @@ export default function ActivityPage() {
                 />
               </div>
               <div className="pt-1">
-                <FileTypeSelect value={editForm.tiposArchivo} onChange={(v) => setEditForm((f) => ({ ...f, tiposArchivo: v }))} />
+                <FileTypeSelect
+                  value={editForm.tiposArchivo}
+                  onChange={(v) => setEditForm((f) => ({ ...f, tiposArchivo: v }))}
+                  customExts={editForm.extensionesCustom}
+                  onCustomChange={(v) => setEditForm((f) => ({ ...f, extensionesCustom: v }))}
+                />
               </div>
               <button
                 type="submit"

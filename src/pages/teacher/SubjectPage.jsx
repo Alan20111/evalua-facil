@@ -21,7 +21,7 @@ import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import FileTypeSelect from '../../components/FileTypeSelect'
-import { DEFAULT_FILE_TYPE } from '../../config/fileTypes'
+import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE } from '../../config/fileTypes'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
@@ -45,7 +45,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: DEFAULT_FILE_TYPE, oculta: false, publishAt: '' }
+const EMPTY_FORM = { nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: DEFAULT_FILE_TYPE, extensionesCustom: '', oculta: false, publishAt: '' }
 
 function gradeColor(norm) {
   if (norm === null) return 'text-slate-300'
@@ -387,6 +387,7 @@ export default function SubjectPage() {
       instrucciones: activity.instrucciones || '',
       fechaLimite: activity.fechaLimite || '',
       tiposArchivo: activity.tiposArchivo || DEFAULT_FILE_TYPE,
+      extensionesCustom: activity.extensionesCustom || '',
       oculta: activity.oculta || false,
       publishAt: activity.publishAt || '',
     })
@@ -401,6 +402,7 @@ export default function SubjectPage() {
       instrucciones: form.instrucciones.trim(),
       fechaLimite: form.fechaLimite || null,
       tiposArchivo: form.tiposArchivo || DEFAULT_FILE_TYPE,
+      extensionesCustom: form.tiposArchivo === CUSTOM_FILE_TYPE ? (form.extensionesCustom || '').trim() : '',
       oculta: form.oculta || !!form.publishAt,
       publishAt: form.publishAt || null,
     }
@@ -1260,7 +1262,12 @@ export default function SubjectPage() {
                   className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
               </div>
               <div className="pt-1">
-                <FileTypeSelect value={form.tiposArchivo} onChange={(v) => setForm((f) => ({ ...f, tiposArchivo: v }))} />
+                <FileTypeSelect
+                  value={form.tiposArchivo}
+                  onChange={(v) => setForm((f) => ({ ...f, tiposArchivo: v }))}
+                  customExts={form.extensionesCustom}
+                  onCustomChange={(v) => setForm((f) => ({ ...f, extensionesCustom: v }))}
+                />
               </div>
 
               {/* Visibilidad */}

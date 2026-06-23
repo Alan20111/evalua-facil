@@ -129,8 +129,8 @@ export default function StudentActivityPage() {
   async function handleUpload() {
     if (!file) return
     if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
-    if (!isFileAllowed(file, activity?.tiposArchivo || 'todos')) {
-      toast(`Solo se permiten: ${getFileType(activity?.tiposArchivo || 'todos').accept}`, 'error'); return
+    if (!isFileAllowed(file, activity?.tiposArchivo || 'todos', activity?.extensionesCustom)) {
+      toast(`Solo se permiten: ${getFileType(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}`, 'error'); return
     }
     if (file.size > 5 * 1024 * 1024) { toast('El archivo no puede superar 5 MB', 'error'); return }
     setUploading(true)
@@ -350,7 +350,7 @@ export default function StudentActivityPage() {
               }`}>
                 <input
                   type="file"
-                  accept={getFileType(activity?.tiposArchivo || 'todos').accept}
+                  accept={getFileType(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}
                   className="hidden"
                   onChange={(e) => setFile(e.target.files[0] || null)}
                 />
@@ -358,7 +358,7 @@ export default function StudentActivityPage() {
                 <p className="text-sm mt-2 font-medium text-muted">
                   {file ? file.name : 'Toca para seleccionar archivo'}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">{getFileType(activity?.tiposArchivo || 'todos').accept} · máx 5 MB</p>
+                <p className="text-xs text-slate-400 mt-1">{getFileType(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept} · máx 5 MB</p>
               </label>
               <button
                 type="button"
