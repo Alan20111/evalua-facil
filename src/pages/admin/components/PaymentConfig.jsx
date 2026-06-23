@@ -7,7 +7,7 @@ import Spinner from '../../../components/Spinner'
 import { usePaymentConfig, DEFAULT_PAYMENT_CONFIG } from '../../../hooks/usePaymentConfig'
 
 const inputCls =
-  'w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm'
+  'w-full px-3.5 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm'
 
 function Toggle({ checked, onChange }) {
   return (
@@ -19,7 +19,7 @@ function Toggle({ checked, onChange }) {
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+        className={`inline-block h-4 w-4 transform rounded-full bg-surface-card transition-transform ${
           checked ? 'translate-x-6' : 'translate-x-1'
         }`}
       />
@@ -30,7 +30,7 @@ function Toggle({ checked, onChange }) {
 function Field({ label, value, onChange, placeholder, hint }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-muted mb-1">{label}</label>
       <input
         type="text"
         value={value}
@@ -103,7 +103,7 @@ export default function PaymentConfig() {
   return (
     <div className="space-y-5 max-w-2xl">
       {/* Security notice */}
-      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3.5">
+      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-card px-4 py-3.5">
         <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-amber-800 leading-relaxed">
           <p className="font-semibold mb-0.5">Las llaves secretas NO van aquí</p>
@@ -114,14 +114,14 @@ export default function PaymentConfig() {
       </div>
 
       {/* Mercado Pago */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-sky-50 flex items-center justify-center">
+            <div className="w-9 h-9 rounded bg-sky-50 flex items-center justify-center">
               <Wallet size={18} className="text-sky-500" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900">Mercado Pago</h3>
+              <h3 className="font-semibold text-on-surface">Mercado Pago</h3>
               <p className="text-xs text-slate-400">Tarjeta, SPEI y OXXO</p>
             </div>
           </div>
@@ -148,14 +148,14 @@ export default function PaymentConfig() {
       </div>
 
       {/* PayPal */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
+            <div className="w-9 h-9 rounded bg-blue-50 flex items-center justify-center">
               <Wallet size={18} className="text-blue-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900">PayPal</h3>
+              <h3 className="font-semibold text-on-surface">PayPal</h3>
               <p className="text-xs text-slate-400">Tarjeta y saldo PayPal</p>
             </div>
           </div>
@@ -179,14 +179,14 @@ export default function PaymentConfig() {
       </div>
 
       {/* Bank transfer */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
+            <div className="w-9 h-9 rounded bg-emerald-50 flex items-center justify-center">
               <Landmark size={18} className="text-emerald-500" />
             </div>
             <div>
-              <h3 className="font-semibold text-slate-900">Transferencia bancaria</h3>
+              <h3 className="font-semibold text-on-surface">Transferencia bancaria</h3>
               <p className="text-xs text-slate-400">Manual, con aprobación tuya</p>
             </div>
           </div>
@@ -238,7 +238,7 @@ export default function PaymentConfig() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60"
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 disabled:opacity-60"
         >
           {saving ? <Spinner size="sm" /> : <Save size={15} />}
           Guardar configuración

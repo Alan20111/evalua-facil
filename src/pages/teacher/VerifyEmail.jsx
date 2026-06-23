@@ -54,13 +54,13 @@ export default function VerifyEmail() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 max-w-sm w-full text-center">
+    <div className="min-h-screen flex items-center justify-center bg-surface px-4">
+      <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-8 max-w-sm w-full text-center">
 
         {status === 'loading' && (
           <div className="flex flex-col items-center gap-4">
             <Spinner size="lg" />
-            <p className="text-slate-500 text-sm">Verificando tu enlace…</p>
+            <p className="text-muted text-sm">Verificando tu enlace…</p>
           </div>
         )}
 
@@ -71,8 +71,8 @@ export default function VerifyEmail() {
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 mb-2">¡Cuenta activada!</h2>
-            <p className="text-slate-500 text-sm">Tu cuenta está verificada. Redirigiendo…</p>
+            <h2 className="text-xl font-bold text-on-surface mb-2">¡Cuenta activada!</h2>
+            <p className="text-muted text-sm">Tu cuenta está verificada. Redirigiendo…</p>
           </>
         )}
 
@@ -85,14 +85,14 @@ export default function VerifyEmail() {
                 <line x1="9" y1="9" x2="15" y2="15"/>
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Enlace no válido</h2>
-            <p className="text-slate-500 text-sm mb-5">
+            <h2 className="text-xl font-bold text-on-surface mb-2">Enlace no válido</h2>
+            <p className="text-muted text-sm mb-5">
               El enlace ya fue utilizado o expiró.<br/>
               Puedes pedir uno nuevo desde el dashboard.
             </p>
             <button
               onClick={() => navigate('/dashboard', { replace: true })}
-              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors"
             >
               Ir al dashboard
             </button>
@@ -108,14 +108,14 @@ export default function VerifyEmail() {
                 <line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Cuenta incorrecta</h2>
-            <p className="text-slate-500 text-sm mb-5">
+            <h2 className="text-xl font-bold text-on-surface mb-2">Cuenta incorrecta</h2>
+            <p className="text-muted text-sm mb-5">
               Este enlace es para otra cuenta.<br/>
               Inicia sesión con la cuenta correcta.
             </p>
             <button
               onClick={() => navigate('/docente', { replace: true })}
-              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors"
             >
               Iniciar sesión
             </button>

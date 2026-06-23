@@ -9,7 +9,7 @@ import { BANK_TRANSFER } from '../config/billing'
 import { formatCurrency } from '../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50'
+  'w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
 
 export default function PaymentSimulationModal({ open, onClose, plans, subscription, onSuccess }) {
   const { currentUser, userProfile } = useAuth()
@@ -80,19 +80,19 @@ export default function PaymentSimulationModal({ open, onClose, plans, subscript
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
+        className="bg-surface-card rounded-card p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold text-slate-900">Registrar pago</h3>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <h3 className="font-bold text-on-surface">Registrar pago</h3>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-muted">
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Plan</label>
+            <label className="block text-sm font-medium text-muted mb-1">Plan</label>
             <select
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -107,23 +107,23 @@ export default function PaymentSimulationModal({ open, onClose, plans, subscript
             </select>
           </div>
 
-          <div className="bg-slate-50 rounded-xl p-4 text-sm space-y-2 border border-slate-100">
-            <p className="font-semibold text-slate-700">Datos para transferencia</p>
-            <p><span className="text-slate-500">Banco:</span> {BANK_TRANSFER.banco}</p>
-            <p><span className="text-slate-500">Titular:</span> {BANK_TRANSFER.titular}</p>
-            <p><span className="text-slate-500">Cuenta:</span> {BANK_TRANSFER.cuenta}</p>
-            <p><span className="text-slate-500">CLABE:</span> {BANK_TRANSFER.clabe}</p>
+          <div className="bg-surface rounded p-4 text-sm space-y-2 border border-outline-variant">
+            <p className="font-semibold text-muted">Datos para transferencia</p>
+            <p><span className="text-muted">Banco:</span> {BANK_TRANSFER.banco}</p>
+            <p><span className="text-muted">Titular:</span> {BANK_TRANSFER.titular}</p>
+            <p><span className="text-muted">Cuenta:</span> {BANK_TRANSFER.cuenta}</p>
+            <p><span className="text-muted">CLABE:</span> {BANK_TRANSFER.clabe}</p>
             <p className="text-xs text-slate-400 pt-1">{BANK_TRANSFER.nota}</p>
           </div>
 
           {selectedPlan && (
-            <p className="text-sm font-semibold text-slate-800">
+            <p className="text-sm font-semibold text-on-surface">
               Monto a transferir: {formatCurrency(selectedPlan.precio)}
             </p>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-muted mb-1">
               Referencia / folio bancario
             </label>
             <input
@@ -139,7 +139,7 @@ export default function PaymentSimulationModal({ open, onClose, plans, subscript
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {submitting ? <Spinner size="sm" /> : null}
             {submitting ? 'Registrando…' : 'Registrar pago'}

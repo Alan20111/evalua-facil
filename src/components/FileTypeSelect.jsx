@@ -22,14 +22,14 @@ export default function FileTypeSelect({ value, onChange }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+        className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-muted transition-colors"
       >
         Archivos permitidos:&nbsp;
-        <span className="font-medium text-slate-600">{current.label}</span>
+        <span className="font-medium text-muted">{current.label}</span>
         <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute z-10 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-lg py-1">
+        <div className="absolute z-10 mt-1 w-56 bg-surface-card border border-outline-variant rounded shadow-lg py-1">
           {FILE_TYPE_OPTIONS.map((o) => (
             <button
               key={o.key}
@@ -38,8 +38,8 @@ export default function FileTypeSelect({ value, onChange }) {
                 onChange(o.key)
                 setOpen(false)
               }}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors ${
-                o.key === value ? 'text-blue-600 font-medium' : 'text-slate-600'
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-surface transition-colors ${
+                o.key === value ? 'text-blue-600 font-medium' : 'text-muted'
               }`}
             >
               {o.label}

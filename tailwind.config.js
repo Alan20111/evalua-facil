@@ -29,13 +29,12 @@ export default {
         error: '#ba1a1a',
         'error-container': '#ffdad6',
       },
+      // Only DEFAULT is overridden (standard pill radius) + semantic card/pill.
+      // Existing lg/xl/2xl keep Tailwind defaults so legacy usages don't balloon.
       borderRadius: {
-        sm: '0.5rem',
-        DEFAULT: '1rem',
-        md: '1.5rem',
-        lg: '2rem',
-        xl: '3rem',
-        full: '9999px',
+        DEFAULT: '1rem', // standard elements: buttons, inputs, sidebar items, medium containers
+        card: '2rem',    // large cards / dashboard containers
+        pill: '9999px',
       },
       boxShadow: {
         card: '0 4px 20px rgba(0,0,0,0.04)',

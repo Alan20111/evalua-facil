@@ -29,7 +29,7 @@ function isImageFile(name, url) {
 }
 
 const STATUS_COLORS = {
-  pendiente: 'bg-slate-100 text-slate-500',
+  pendiente: 'bg-surface-container text-muted',
   entregado: 'bg-blue-100 text-blue-700',
   calificado: 'bg-emerald-100 text-emerald-700',
 }
@@ -264,21 +264,21 @@ export default function ActivityPage() {
       <div data-subject-palette={subject?.colorPalette || 'default'}>
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="bg-white border-b border-slate-100 px-4 py-4">
+        <div className="bg-surface-card border-b border-outline-variant px-4 py-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(`/subject/${activity?.asignaturaId}`)}
-              className="p-2 -ml-2 text-slate-400 hover:text-slate-600 rounded-lg"
+              className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
             >
               <ArrowLeft size={20} />
             </button>
             <div className="flex-1">
-              <h1 className="text-xl font-bold text-slate-900">{activity?.nombre}</h1>
+              <h1 className="text-xl font-bold text-on-surface">{activity?.nombre}</h1>
               <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
             </div>
             <button
               onClick={openEditModal}
-              className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded-lg transition-colors flex-shrink-0"
+              className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0"
               title="Editar actividad"
             >
               <Pencil size={18} />
@@ -288,26 +288,26 @@ export default function ActivityPage() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2 mt-4">
             {[
-              { key: 'pendiente', label: 'Pendientes', icon: Circle, color: 'text-slate-500', bg: 'bg-slate-50' },
+              { key: 'pendiente', label: 'Pendientes', icon: Circle, color: 'text-muted', bg: 'bg-surface' },
               { key: 'entregado', label: 'Entregados', icon: Clock, color: 'text-accent', bg: 'bg-accent-light' },
               { key: 'calificado', label: 'Calificados', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
             ].map(({ key, label, icon: Icon, color, bg }) => (
-              <div key={key} className={`${bg} rounded-xl p-3 text-center`}>
+              <div key={key} className={`${bg} rounded p-3 text-center`}>
                 <Icon size={18} className={`${color} mx-auto mb-1`} />
-                <p className="text-2xl font-bold text-slate-800">{counts[key]}</p>
-                <p className="text-xs text-slate-500">{label}</p>
+                <p className="text-2xl font-bold text-on-surface">{counts[key]}</p>
+                <p className="text-xs text-muted">{label}</p>
               </div>
             ))}
           </div>
 
           {/* Filter tabs */}
-          <div className="flex gap-1 mt-3 bg-slate-100 p-1 rounded-xl">
+          <div className="flex gap-1 mt-3 bg-surface-container p-1 rounded">
             {['todos', 'pendiente', 'entregado', 'calificado'].map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                  filter === f ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
+                  filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted'
                 }`}
               >
                 {f === 'todos' ? 'Todos' : STATUS_LABELS[f]}
@@ -324,14 +324,14 @@ export default function ActivityPage() {
               value={searchStudents}
               onChange={(e) => setSearchStudents(e.target.value)}
               placeholder="Buscar alumno…"
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-white"
+              className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card"
             />
           </div>
           <button
             onClick={() => setSortAlpha((v) => !v)}
             title="Ordenar por nombre"
-            className={`p-2 rounded-xl border transition-colors ${
-              sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-slate-200 text-slate-400 hover:text-slate-600'
+            className={`p-2 rounded border transition-colors ${
+              sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-slate-400 hover:text-muted'
             }`}
           >
             <ArrowDownAZ size={18} />
@@ -344,7 +344,7 @@ export default function ActivityPage() {
             <button
               onClick={handleZipDownload}
               disabled={zipDownloading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-accent text-accent text-sm font-medium hover:bg-accent-light transition-colors disabled:opacity-40"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-accent-light transition-colors disabled:opacity-40"
             >
               {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={16} />}
               {zipDownloading
@@ -359,7 +359,7 @@ export default function ActivityPage() {
           {filtered.length === 0 ? (
             <p className="text-center text-slate-400 text-sm py-8">Sin alumnos en esta categoría</p>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+            <div className="bg-surface-card rounded-card border border-outline-variant overflow-hidden shadow-card">
               {filtered.map((s, i) => {
                 const status = getStatus(s.id)
                 const sub = submissions[s.id]
@@ -368,13 +368,13 @@ export default function ActivityPage() {
                   <button
                     key={s.id}
                     onClick={() => openGrade(s)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors cursor-pointer ${
-                      i > 0 ? 'border-t border-slate-100' : ''
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface transition-colors cursor-pointer ${
+                      i > 0 ? 'border-t border-outline-variant' : ''
                     }`}
                   >
                     <span className="w-5 text-xs text-slate-400 text-right flex-shrink-0">{s.orden}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
+                      <p className="text-sm font-medium text-on-surface truncate">
                         {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
                       </p>
                       {sub?.fechaEntrega?.seconds && (
@@ -408,10 +408,10 @@ export default function ActivityPage() {
       {selected && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-semibold text-slate-900">
+                <h3 className="text-base font-semibold text-on-surface">
                   {selected.student.apellidoPaterno} {selected.student.nombre}
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -422,7 +422,7 @@ export default function ActivityPage() {
                     : 'Sin entrega aún'}
                 </p>
               </div>
-              <button onClick={closeModal} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+              <button onClick={closeModal} className="p-2 text-slate-400 rounded"><X size={18} /></button>
             </div>
 
             {/* Prev / next navigation across the student row */}
@@ -432,7 +432,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => goToOffset(-1)}
                   disabled={curIdx <= 0}
-                  className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-accent disabled:opacity-30 disabled:hover:text-slate-500 transition-colors"
+                  className="flex items-center gap-1 text-xs font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
                 >
                   <ChevronLeft size={16} /> Anterior
                 </button>
@@ -441,7 +441,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => goToOffset(1)}
                   disabled={curIdx >= filtered.length - 1}
-                  className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-accent disabled:opacity-30 disabled:hover:text-slate-500 transition-colors"
+                  className="flex items-center gap-1 text-xs font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
                 >
                   Siguiente <ChevronRight size={16} />
                 </button>
@@ -455,7 +455,7 @@ export default function ActivityPage() {
                 <img
                   src={selected.sub.archivoURL}
                   alt="Entrega del alumno"
-                  className="w-full max-h-72 object-contain rounded-xl border border-slate-200 bg-slate-50"
+                  className="w-full max-h-72 object-contain rounded border border-outline-variant bg-surface"
                 />
               </a>
             )}
@@ -466,7 +466,7 @@ export default function ActivityPage() {
                 href={selected.sub.archivoURL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 hover:bg-slate-100 transition-colors mb-4"
+                className="flex items-center gap-2 px-4 py-3 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors mb-4"
               >
                 <Download size={16} className="text-accent" />
                 Ver / Descargar entrega
@@ -479,7 +479,7 @@ export default function ActivityPage() {
                 <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
                 <div className="space-y-1.5">
                   {[...selected.sub.historial].reverse().map((v, i) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                    <div key={i} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
                       <span className="text-slate-400 flex-shrink-0">
                         {v.fechaEntrega?.seconds
                           ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -503,7 +503,7 @@ export default function ActivityPage() {
             {selected.sub ? (
               <form onSubmit={saveGrade} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-muted mb-1">
                     Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                   </label>
                   <input
@@ -515,25 +515,25 @@ export default function ActivityPage() {
                     max={activity?.maxCalif}
                     step="0.1"
                     autoFocus
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50"
+                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="block text-sm font-medium text-muted mb-1">
                     Comentario <span className="text-slate-400">(opcional)</span>
                   </label>
                   <textarea
                     value={gradeForm.comentario}
                     onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                     rows={2}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 resize-none"
+                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
                     placeholder="Retroalimentación para el alumno…"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full py-3 bg-accent text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {saving ? <Spinner size="sm" /> : <Star size={16} />}
                   {saving ? 'Guardando…' : 'Guardar calificación'}
@@ -546,32 +546,32 @@ export default function ActivityPage() {
             )}
 
             {/* Bottom actions — extend date */}
-            <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+            <div className="mt-4 pt-3 border-t border-outline-variant space-y-2">
 
               {/* Extend deadline */}
               {!extendMode ? (
                 <button
                   type="button"
                   onClick={() => setExtendMode(true)}
-                  className="text-xs text-slate-400 hover:text-slate-500 transition-colors"
+                  className="text-xs text-slate-400 hover:text-muted transition-colors"
                 >
                   Modificar fecha de entrega
                 </button>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-slate-600">Nueva fecha límite para este alumno</p>
+                  <p className="text-xs font-medium text-muted">Nueva fecha límite para este alumno</p>
                   <div className="flex gap-2">
                     <input
                       type="date"
                       value={extendDate}
                       onChange={(e) => setExtendDate(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50"
+                      className="flex-1 px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                     />
                     <button
                       type="button"
                       onClick={saveExtension}
                       disabled={!extendDate || savingExtension}
-                      className="px-4 py-2 bg-accent text-white text-xs font-semibold rounded-xl disabled:opacity-50 transition-colors"
+                      className="px-4 py-2 bg-accent text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors"
                     >
                       {savingExtension ? '…' : 'Guardar'}
                     </button>
@@ -595,25 +595,25 @@ export default function ActivityPage() {
       {showEditModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowEditModal(false)} />
-          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Editar actividad</h3>
-              <button onClick={() => setShowEditModal(false)} className="p-2 text-slate-400 rounded-lg"><X size={18} /></button>
+              <button onClick={() => setShowEditModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
             </div>
             <form onSubmit={handleEditActivity} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+                <label className="block text-sm font-medium text-muted mb-1">Nombre</label>
                 <input
                   type="text"
                   value={editForm.nombre}
                   onChange={(e) => setEditForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
                   autoFocus
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50"
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Calificación máxima</label>
+                <label className="block text-sm font-medium text-muted mb-1">Calificación máxima</label>
                 <input
                   type="number"
                   value={editForm.maxCalif}
@@ -621,30 +621,30 @@ export default function ActivityPage() {
                   required
                   min="1"
                   max="100"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50"
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-muted mb-1">
                   Instrucciones <span className="text-slate-400 font-normal">(opcional)</span>
                 </label>
                 <textarea
                   value={editForm.instrucciones}
                   onChange={(e) => setEditForm((f) => ({ ...f, instrucciones: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 resize-none"
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
                   placeholder="Instrucciones para los alumnos…"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-muted mb-1">
                   Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
                 </label>
                 <input
                   type="date"
                   value={editForm.fechaLimite}
                   onChange={(e) => setEditForm((f) => ({ ...f, fechaLimite: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50"
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                 />
               </div>
               <div className="pt-1">
@@ -653,7 +653,7 @@ export default function ActivityPage() {
               <button
                 type="submit"
                 disabled={editSaving}
-                className="w-full py-3 bg-accent text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {editSaving ? <Spinner size="sm" /> : <Pencil size={16} />}
                 {editSaving ? 'Guardando…' : 'Guardar cambios'}

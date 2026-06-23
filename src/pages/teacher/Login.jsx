@@ -51,18 +51,18 @@ export default function TeacherLogin() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-4">
             <GraduationCap size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Evalúa Fácil</h1>
-          <p className="text-slate-500 text-sm mt-1">Evidencias y calificaciones. Sin complicaciones.</p>
+          <h1 className="text-2xl font-bold text-on-surface">Evalúa Fácil</h1>
+          <p className="text-muted text-sm mt-1">Evidencias y calificaciones. Sin complicaciones.</p>
         </div>
 
         {emailReminderEmail && (
-          <div className="mb-4 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3">
+          <div className="mb-4 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-card px-4 py-3">
             <span className="text-blue-500 text-lg mt-0.5">✉</span>
             <p className="text-sm text-blue-700 leading-relaxed">
               Tu nombre de usuario fue enviado a <strong>{emailReminderEmail}</strong>.
@@ -71,35 +71,35 @@ export default function TeacherLogin() {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
+        <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-6 space-y-4">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
+              <label className="block text-sm font-medium text-muted mb-1">Usuario</label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-slate-50"
+                className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-surface"
                 placeholder="Ej. 110010-01"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
+              <label className="block text-sm font-medium text-muted mb-1">Contraseña</label>
               <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-slate-50"
+                className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-surface"
                 placeholder="••••••••"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? 'Entrando…' : 'Entrar'}
@@ -107,13 +107,13 @@ export default function TeacherLogin() {
           </form>
         </div>
 
-        <p className="text-center text-sm text-slate-500 mt-6">
+        <p className="text-center text-sm text-muted mt-6">
           ¿No tienes cuenta?{' '}
           <Link to="/register" className="text-blue-600 font-semibold hover:underline">Crear cuenta</Link>
         </p>
         <p className="text-center text-sm text-slate-400 mt-3">
           ¿Eres alumno?{' '}
-          <Link to="/alumno" className="text-slate-500 hover:underline">Acceso de alumnos</Link>
+          <Link to="/alumno" className="text-muted hover:underline">Acceso de alumnos</Link>
         </p>
       </div>
     </div>

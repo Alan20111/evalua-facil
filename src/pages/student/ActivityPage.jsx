@@ -213,7 +213,7 @@ export default function StudentActivityPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div className="min-h-screen flex items-center justify-center bg-surface">
       <Spinner size="lg" />
     </div>
   )
@@ -229,38 +229,38 @@ export default function StudentActivityPage() {
   const canResubmit = !!extendedDate && !isGraded && !!submission
 
   return (
-    <div className="min-h-screen bg-slate-50" data-subject-palette={subject?.colorPalette || 'default'}>
-      <header className="bg-white border-b border-slate-100 px-4 py-4 flex items-center gap-3 shadow-sm">
+    <div className="min-h-screen bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
+      <header className="bg-surface-card border-b border-outline-variant px-4 py-4 flex items-center gap-3 shadow-card">
         <button
           onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}
-          className="p-2 -ml-2 text-slate-400 hover:text-slate-600 rounded-lg"
+          className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
         >
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-lg font-bold text-slate-900">{activity?.nombre}</h1>
+          <h1 className="text-lg font-bold text-on-surface">{activity?.nombre}</h1>
           <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
         </div>
       </header>
 
       <div className="px-4 py-5 max-w-xl mx-auto space-y-4">
         {/* Status */}
-        <div className={`rounded-2xl p-4 flex items-center gap-3 ${
+        <div className={`rounded-card p-4 flex items-center gap-3 ${
           isGraded ? 'bg-emerald-50 border border-emerald-200' :
           isDelivered ? 'bg-accent-light border border-accent' :
-          'bg-slate-50 border border-slate-200'
+          'bg-surface border border-outline-variant'
         }`}>
           {isGraded ? <CheckCircle size={24} className="text-emerald-500 flex-shrink-0" />
             : isDelivered ? <Clock size={24} className="text-accent flex-shrink-0" />
             : <FileText size={24} className="text-slate-400 flex-shrink-0" />}
           <div>
-            <p className="font-semibold text-slate-900 text-sm">
+            <p className="font-semibold text-on-surface text-sm">
               {isGraded ? 'Calificado'
                 : isDelivered ? 'Entregado — pendiente de calificación'
                 : 'Pendiente de entrega'}
             </p>
             {isDelivered && (
-              <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+              <p className="text-xs text-muted mt-0.5 flex items-center gap-1">
                 {noFile
                   ? <><CheckCircle size={10} /> Completada sin archivo</>
                   : <><FileText size={10} /> {submission.nombreArchivo}</>}
@@ -271,13 +271,13 @@ export default function StudentActivityPage() {
 
         {/* View submitted file */}
         {submission && !submission.completadoSinArchivo && submission.archivoURL && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
-            <p className="text-xs font-medium text-slate-500 mb-2">Tu entrega</p>
+          <div className="bg-surface-card rounded-card border border-outline-variant p-4 shadow-card">
+            <p className="text-xs font-medium text-muted mb-2">Tu entrega</p>
             <a
               href={submission.archivoURL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 hover:bg-accent-light hover:border-accent transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
             >
               <Download size={15} className="text-accent flex-shrink-0" />
               <span className="truncate">{submission.nombreArchivo}</span>
@@ -287,19 +287,19 @@ export default function StudentActivityPage() {
 
         {/* Grade */}
         {isGraded && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="bg-surface-card rounded-card border border-outline-variant p-5 shadow-card">
             <div className="flex items-center gap-3 mb-3">
               <Star size={20} className="text-amber-400" />
-              <h2 className="font-semibold text-slate-900">Tu calificación</h2>
+              <h2 className="font-semibold text-on-surface">Tu calificación</h2>
             </div>
             <div className="flex items-end gap-2 mb-3">
               <span className="text-5xl font-bold text-accent">{submission.calificacion}</span>
               <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
             </div>
             {submission.comentario && (
-              <div className="bg-slate-50 rounded-xl p-3 flex gap-2">
+              <div className="bg-surface rounded p-3 flex gap-2">
                 <MessageSquare size={15} className="text-slate-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-slate-600 italic">"{submission.comentario}"</p>
+                <p className="text-sm text-muted italic">"{submission.comentario}"</p>
               </div>
             )}
           </div>
@@ -307,26 +307,26 @@ export default function StudentActivityPage() {
 
         {/* Instructions */}
         {activity?.instrucciones && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-900 mb-2">Instrucciones</h2>
-            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+          <div className="bg-surface-card rounded-card border border-outline-variant p-5 shadow-card">
+            <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
+            <p className="text-sm text-muted leading-relaxed whitespace-pre-wrap">
               {activity.instrucciones}
             </p>
           </div>
         )}
 
         {/* Info */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+        <div className="bg-surface-card rounded-card border border-outline-variant p-4 shadow-card">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-500">Calificación máxima</span>
-            <span className="font-semibold text-slate-900">{activity?.maxCalif} pts</span>
+            <span className="text-muted">Calificación máxima</span>
+            <span className="font-semibold text-on-surface">{activity?.maxCalif} pts</span>
           </div>
           {displayDate && (
             <div className="flex items-center justify-between text-sm mt-2">
-              <span className="text-slate-500">
+              <span className="text-muted">
                 {extendedDate ? 'Fecha límite (extendida)' : 'Fecha límite'}
               </span>
-              <span className={`font-semibold ${extendedDate ? 'text-orange-600' : 'text-slate-900'}`}>
+              <span className={`font-semibold ${extendedDate ? 'text-orange-600' : 'text-on-surface'}`}>
                 {fmtDate(displayDate)}
               </span>
             </div>
@@ -335,8 +335,8 @@ export default function StudentActivityPage() {
 
         {/* Upload */}
         {(!submission || canResubmit) && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-            <h2 className="font-semibold text-slate-900 mb-1">
+          <div className="bg-surface-card rounded-card border border-outline-variant p-5 shadow-card">
+            <h2 className="font-semibold text-on-surface mb-1">
               {canResubmit ? 'Subir versión corregida' : 'Subir entrega'}
             </h2>
             {canResubmit && (
@@ -345,8 +345,8 @@ export default function StudentActivityPage() {
               </p>
             )}
             <div className="space-y-3">
-              <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${
-                file ? 'border-accent bg-accent-light' : 'border-slate-200 hover:border-accent hover:bg-slate-50'
+              <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded cursor-pointer transition-colors ${
+                file ? 'border-accent bg-accent-light' : 'border-outline-variant hover:border-accent hover:bg-surface'
               }`}>
                 <input
                   type="file"
@@ -355,7 +355,7 @@ export default function StudentActivityPage() {
                   onChange={(e) => setFile(e.target.files[0] || null)}
                 />
                 <Upload size={24} className={file ? 'text-accent' : 'text-slate-400'} />
-                <p className="text-sm mt-2 font-medium text-slate-700">
+                <p className="text-sm mt-2 font-medium text-muted">
                   {file ? file.name : 'Toca para seleccionar archivo'}
                 </p>
                 <p className="text-xs text-slate-400 mt-1">{getFileType(activity?.tiposArchivo || 'todos').accept} · máx 5 MB</p>
@@ -366,7 +366,7 @@ export default function StudentActivityPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={!file || uploading}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-3 bg-accent text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {uploading ? <Spinner size="sm" /> : <Upload size={16} />}
                 {uploading ? 'Subiendo…' : 'Entregar'}
@@ -377,7 +377,7 @@ export default function StudentActivityPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={uploading}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-1.5 text-xs text-slate-400 hover:text-slate-500 transition-colors"
+                className="w-full py-1.5 text-xs text-slate-400 hover:text-muted transition-colors"
               >
                 Marcar como completada sin archivo
               </button>

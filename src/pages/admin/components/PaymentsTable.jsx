@@ -89,15 +89,15 @@ export default function PaymentsTable({ stats, onRefresh }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100">
-        <h2 className="font-semibold text-slate-900">Pagos</h2>
+    <div className="bg-surface-card rounded-card border border-outline-variant shadow-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-outline-variant">
+        <h2 className="font-semibold text-on-surface">Pagos</h2>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 text-left text-xs text-slate-500 uppercase">
+            <tr className="bg-surface text-left text-xs text-muted uppercase">
               <th className="px-4 py-3">Docente</th>
               <th className="px-4 py-3">Monto</th>
               <th className="px-4 py-3">Referencia</th>
@@ -119,7 +119,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                 return (
                   <tr key={payment.id} className="hover:bg-slate-50/50">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-slate-800">
+                      <p className="font-medium text-on-surface">
                         {teacher?.username || teacher?.email || '—'}
                       </p>
                     </td>
@@ -128,7 +128,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                     <td className="px-4 py-3">
                       <StatusBadge status={payment.status} />
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{formatDate(payment.createdAt)}</td>
+                    <td className="px-4 py-3 text-muted">{formatDate(payment.createdAt)}</td>
                     <td className="px-4 py-3">
                       {payment.status === 'pendiente' && (
                         <div className="flex items-center gap-1">
@@ -136,7 +136,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                             type="button"
                             onClick={() => handleApprove(payment)}
                             disabled={processing === payment.id}
-                            className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold hover:bg-emerald-200 disabled:opacity-60"
+                            className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold hover:bg-emerald-200 disabled:opacity-60"
                           >
                             {processing === payment.id ? <Spinner size="sm" /> : <Check size={12} />}
                             Aprobar
@@ -145,7 +145,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                             type="button"
                             onClick={() => setRejectModal(payment)}
                             disabled={processing === payment.id}
-                            className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-semibold hover:bg-red-200 disabled:opacity-60"
+                            className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold hover:bg-red-200 disabled:opacity-60"
                           >
                             <X size={12} /> Rechazar
                           </button>
@@ -165,16 +165,16 @@ export default function PaymentsTable({ stats, onRefresh }) {
 
       {rejectModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-            <h3 className="font-bold text-slate-900 mb-2">Rechazar pago</h3>
-            <p className="text-sm text-slate-500 mb-4">
+          <div className="bg-surface-card rounded-card p-6 w-full max-w-sm shadow-xl">
+            <h3 className="font-bold text-on-surface mb-2">Rechazar pago</h3>
+            <p className="text-sm text-muted mb-4">
               Referencia: {rejectModal.referencia} — {formatCurrency(rejectModal.monto)}
             </p>
             <textarea
               value={notasAdmin}
               onChange={(e) => setNotasAdmin(e.target.value)}
               placeholder="Notas para el docente (opcional)"
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm mb-4 h-20 resize-none"
+              className="w-full px-3 py-2 rounded border border-outline-variant text-sm mb-4 h-20 resize-none"
             />
             <div className="flex gap-2">
               <button
@@ -183,7 +183,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                   setRejectModal(null)
                   setNotasAdmin('')
                 }}
-                className="flex-1 py-2 border border-slate-200 rounded-xl text-sm font-semibold text-slate-600"
+                className="flex-1 py-2 border border-outline-variant rounded text-sm font-semibold text-muted"
               >
                 Cancelar
               </button>
@@ -191,7 +191,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                 type="button"
                 onClick={handleReject}
                 disabled={!!processing}
-                className="flex-1 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold disabled:opacity-60"
+                className="flex-1 py-2 bg-red-600 text-white rounded text-sm font-semibold disabled:opacity-60"
               >
                 Rechazar
               </button>

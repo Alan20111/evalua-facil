@@ -34,16 +34,16 @@ export default function AdminDashboard() {
     <AdminLayout activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900">
+          <h1 className="text-xl md:text-2xl font-bold text-on-surface">
             {TAB_TITLES[activeTab]}
           </h1>
-          <p className="text-sm text-slate-500 mt-0.5">Panel de administración</p>
+          <p className="text-sm text-muted mt-0.5">Panel de administración</p>
         </div>
         <button
           type="button"
           onClick={handleRefresh}
           disabled={refreshing || loading}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 border border-slate-200 rounded-xl hover:bg-white disabled:opacity-60"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm text-muted border border-outline-variant rounded hover:bg-surface-card disabled:opacity-60"
         >
           <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
           Actualizar

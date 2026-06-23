@@ -150,8 +150,8 @@ export default function TeacherDashboard() {
 
         {/* Greeting */}
         <div className="mb-6">
-          <p className="text-slate-500 text-sm">Bienvenido,</p>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <p className="text-muted text-sm">Bienvenido,</p>
+          <h1 className="text-2xl font-bold text-on-surface">
             {userProfile?.nombreMostrar ||
               userProfile?.username ||
               'Docente'}
@@ -167,12 +167,12 @@ export default function TeacherDashboard() {
           <>
             {/* ── Mis asignaturas ── */}
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-800">Mis asignaturas</h2>
+              <h2 className="text-lg font-semibold text-on-surface">Mis asignaturas</h2>
               <div className="flex items-center gap-2">
                 <button
                   onClick={toggleNameOrder}
                   title={nameOrder === 'normal' ? 'Mostrar Grupo + Asignatura' : 'Mostrar Asignatura + Grupo'}
-                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors px-2 py-1 rounded-lg hover:bg-blue-50"
+                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors px-2 py-1 rounded hover:bg-blue-50"
                 >
                   <ArrowUpDown size={13} />
                   {nameOrder === 'normal' ? 'Asignatura · Grupo' : 'Grupo · Asignatura'}
@@ -183,11 +183,11 @@ export default function TeacherDashboard() {
             </div>
 
             {subjects.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center mb-6">
+              <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center mb-6">
                 <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-3">
                   <BookOpen size={28} className="text-blue-400" />
                 </div>
-                <p className="text-slate-600 font-medium mb-1">Aún no tienes asignaturas</p>
+                <p className="text-muted font-medium mb-1">Aún no tienes asignaturas</p>
                 <p className="text-slate-400 text-sm">Toca el botón <strong>+</strong> para crear tu primera asignatura</p>
               </div>
             ) : (
@@ -197,14 +197,14 @@ export default function TeacherDashboard() {
                     key={s.id}
                     data-subject-palette={s.colorPalette || 'default'}
                     onClick={() => navigate(`/subject/${s.id}`)}
-                    className="w-full bg-white rounded-2xl border border-slate-100 p-4 text-left shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
+                    className="w-full bg-surface-card rounded-card border border-outline-variant p-4 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-4"
                   >
-                    <div className="w-11 h-11 rounded-xl bg-accent-light flex items-center justify-center flex-shrink-0">
+                    <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                       <SubjectIcon iconKey={s.icon} size={19} className="text-accent" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-slate-900 truncate">{subjectDisplayName(s, nameOrder === 'reverse')}</p>
+                        <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s, nameOrder === 'reverse')}</p>
                         {s.archived && (
                           <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
                             archivada
@@ -237,44 +237,44 @@ export default function TeacherDashboard() {
       {showSubjectModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowSubjectModal(false)} />
-          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold text-slate-900">Nueva asignatura</h3>
-              <button onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
+              <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
+              <button onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-muted rounded">
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={handleCreateSubject} className="space-y-4">
               {/* Nombre de la asignatura */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Asignatura</label>
+                <label className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input
                   type="text"
                   value={newSubjectName}
                   onChange={(e) => setNewSubjectName(e.target.value)}
                   required
                   autoFocus
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
                   placeholder="Ej: Matemáticas, Física, Historia"
                 />
               </div>
               {/* Grupo */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Grupo</label>
+                <label className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input
                   type="text"
                   value={newSubjectGrupo}
                   onChange={(e) => setNewSubjectGrupo(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50"
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C"
                 />
               </div>
 
               {/* Período */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Período escolar</label>
-                <div className="flex rounded-xl overflow-hidden border border-slate-200">
+                <label className="block text-sm font-medium text-muted mb-1">Período escolar</label>
+                <div className="flex rounded overflow-hidden border border-outline-variant">
                   {[
                     { label: 'Período actual', mode: 'current', value: cicloInfo.current },
                     { label: 'Siguiente', mode: 'next', value: cicloInfo.next },
@@ -283,8 +283,8 @@ export default function TeacherDashboard() {
                       key={mode}
                       type="button"
                       onClick={() => setInlineCicloMode(mode)}
-                      className={`flex-1 py-2.5 px-2 text-center transition-colors ${i > 0 ? 'border-l border-slate-200' : ''} ${
-                        inlineCicloMode === mode ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                      className={`flex-1 py-2.5 px-2 text-center transition-colors ${i > 0 ? 'border-l border-outline-variant' : ''} ${
+                        inlineCicloMode === mode ? 'bg-blue-600 text-white' : 'bg-surface text-muted hover:bg-surface-container'
                       }`}
                     >
                       <span className={`block text-xs mb-0.5 ${inlineCicloMode === mode ? 'text-blue-200' : 'text-slate-400'}`}>{label}</span>
@@ -296,7 +296,7 @@ export default function TeacherDashboard() {
 
               {/* Parciales */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-muted mb-1">
                   Calificaciones parciales <span className="text-slate-400 font-normal text-xs">(por defecto 3)</span>
                 </label>
                 <div className="flex gap-1.5">
@@ -305,10 +305,10 @@ export default function TeacherDashboard() {
                       key={n}
                       type="button"
                       onClick={() => setNewSubjectParciales(n)}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+                      className={`flex-1 py-2.5 rounded text-sm font-bold transition-colors ${
                         newSubjectParciales === n
                           ? 'bg-blue-600 text-white'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          : 'bg-surface-container text-muted hover:bg-surface-dim'
                       }`}
                     >
                       {n}
@@ -319,7 +319,7 @@ export default function TeacherDashboard() {
 
               {/* Paleta de color */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-muted mb-2">
                   Color de la asignatura
                 </label>
                 <PaletteSelect value={newSubjectPalette} onChange={setNewSubjectPalette} />
@@ -327,7 +327,7 @@ export default function TeacherDashboard() {
 
               {/* Icono */}
               <div data-subject-palette={newSubjectPalette}>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-muted mb-2">
                   Icono de la asignatura
                 </label>
                 <IconSelect value={newSubjectIcon} onChange={setNewSubjectIcon} />
@@ -336,7 +336,7 @@ export default function TeacherDashboard() {
               <button
                 type="submit"
                 disabled={creatingSubject}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {creatingSubject ? <Spinner size="sm" /> : <Plus size={16} />}
                 {creatingSubject ? 'Creando…' : 'Crear asignatura'}
@@ -350,16 +350,16 @@ export default function TeacherDashboard() {
       {showWelcomeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/50" />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center space-y-4">
-            <h2 className="text-lg font-bold text-slate-900">¡Bienvenido/a!</h2>
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-6 text-center space-y-4">
+            <h2 className="text-lg font-bold text-on-surface">¡Bienvenido/a!</h2>
 
-            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-4">
+            <div className="bg-blue-50 border border-blue-100 rounded px-4 py-4">
               <p className="text-xs text-blue-500 mb-1 font-semibold uppercase tracking-wide">Tu nombre de usuario</p>
               <p className="text-3xl font-black font-mono text-blue-700 tracking-widest">{welcomeUsername}</p>
-              <p className="text-xs text-slate-500 mt-2">Úsalo cada vez que inicies sesión</p>
+              <p className="text-xs text-muted mt-2">Úsalo cada vez que inicies sesión</p>
             </div>
 
-            <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-left">
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded px-4 py-3 text-left">
               <span className="text-amber-500 mt-0.5 text-base">✉</span>
               <p className="text-sm text-amber-700 leading-relaxed">
                 Enviamos tu usuario y un <strong>enlace de verificación</strong> a tu correo.
@@ -368,7 +368,7 @@ export default function TeacherDashboard() {
 
             <button
               onClick={() => setShowWelcomeModal(false)}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors"
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors"
             >
               Entrar al dashboard
             </button>
@@ -380,36 +380,36 @@ export default function TeacherDashboard() {
       {isTrial && !trialDismissed && !subLoading && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/50" />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+              <div className="w-10 h-10 rounded bg-blue-50 flex items-center justify-center">
                 <CreditCard size={20} className="text-blue-600" />
               </div>
               <button onClick={() => { sessionStorage.setItem('trialDismissed','1'); setTrialDismissed(true) }}
-                className="p-2 text-slate-400 hover:text-slate-600 rounded-lg">
+                className="p-2 text-slate-400 hover:text-muted rounded">
                 <X size={18} />
               </button>
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Período de prueba</h3>
-              <p className="text-sm text-slate-500 mt-1">
+              <h3 className="text-lg font-bold text-on-surface">Período de prueba</h3>
+              <p className="text-sm text-muted mt-1">
                 {daysLeft > 0
                   ? <>Te quedan <strong className="text-blue-600">{daysLeft} días</strong> de prueba gratuita.</>
                   : 'Tu período de prueba ha terminado.'}
               </p>
             </div>
-            <div className="bg-blue-50 rounded-xl p-4">
+            <div className="bg-blue-50 rounded p-4">
               <p className="text-xs font-semibold text-blue-700 mb-0.5">Plan Pro</p>
               <p className="text-2xl font-black text-blue-800">$100 <span className="text-sm font-normal text-blue-500">/mes</span></p>
               <p className="text-xs text-blue-600 mt-1">Acceso completo sin límites</p>
             </div>
             <div className="flex flex-col gap-2">
               <button onClick={() => { navigate('/profile'); sessionStorage.setItem('trialDismissed','1'); setTrialDismissed(true) }}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors text-sm">
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors text-sm">
                 Contratar Plan Pro →
               </button>
               <button onClick={() => { sessionStorage.setItem('trialDismissed','1'); setTrialDismissed(true) }}
-                className="w-full py-2 text-slate-400 hover:text-slate-600 text-sm transition-colors">
+                className="w-full py-2 text-slate-400 hover:text-muted text-sm transition-colors">
                 Recordármelo después
               </button>
             </div>

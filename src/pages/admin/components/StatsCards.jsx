@@ -27,12 +27,12 @@ export default function StatsCards({ kpis }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       {KPI_CONFIG.map(({ key, label, icon: Icon, format }) => (
-        <div key={key} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 md:p-5">
+        <div key={key} className="bg-surface-card rounded-card border border-outline-variant shadow-card p-4 md:p-5">
           <div className="flex items-center gap-2 text-slate-400 mb-2">
             <Icon size={16} />
             <span className="text-xs font-medium">{label}</span>
           </div>
-          <p className="text-xl md:text-2xl font-bold text-slate-900">{format(kpis[key] ?? 0)}</p>
+          <p className="text-xl md:text-2xl font-bold text-on-surface">{format(kpis[key] ?? 0)}</p>
         </div>
       ))}
     </div>
@@ -50,16 +50,16 @@ function BarChart({ items, labelKey, valueKey, maxBars = 10 }) {
       ) : (
         data.map((item, i) => (
           <div key={i} className="flex items-center gap-3">
-            <span className="text-xs text-slate-600 w-28 md:w-40 truncate flex-shrink-0">
+            <span className="text-xs text-muted w-28 md:w-40 truncate flex-shrink-0">
               {item[labelKey]}
             </span>
-            <div className="flex-1 h-6 bg-slate-100 rounded-lg overflow-hidden">
+            <div className="flex-1 h-6 bg-surface-container rounded overflow-hidden">
               <div
-                className="h-full bg-blue-500 rounded-lg transition-all"
+                className="h-full bg-blue-500 rounded transition-all"
                 style={{ width: `${(item[valueKey] / max) * 100}%` }}
               />
             </div>
-            <span className="text-xs font-semibold text-slate-700 w-6 text-right">
+            <span className="text-xs font-semibold text-muted w-6 text-right">
               {item[valueKey]}
             </span>
           </div>
@@ -87,13 +87,13 @@ export function ResumenCharts({ stats }) {
 
   return (
     <div className="grid md:grid-cols-2 gap-4 mt-6">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <h3 className="font-semibold text-slate-900 mb-4">Docentes por escuela (top 10)</h3>
+      <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+        <h3 className="font-semibold text-on-surface mb-4">Docentes por escuela (top 10)</h3>
         <BarChart items={teachersBySchool} labelKey="school" valueKey="count" />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-        <h3 className="font-semibold text-slate-900 mb-4">Estado de suscripciones</h3>
+      <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+        <h3 className="font-semibold text-on-surface mb-4">Estado de suscripciones</h3>
         <BarChart items={statusItems} labelKey="name" valueKey="count" />
       </div>
     </div>

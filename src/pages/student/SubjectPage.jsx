@@ -82,25 +82,25 @@ export default function StudentSubjectPage() {
   const PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div className="min-h-screen flex items-center justify-center bg-surface">
       <Spinner size="lg" />
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-slate-50" data-subject-palette={subject?.colorPalette || 'default'}>
-      <header className="bg-white border-b border-slate-100 px-4 py-4 flex items-center gap-3 shadow-sm">
+    <div className="min-h-screen bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
+      <header className="bg-surface-card border-b border-outline-variant px-4 py-4 flex items-center gap-3 shadow-card">
         <button
           onClick={() => navigate('/alumno/dashboard')}
-          className="p-2 -ml-2 text-slate-400 hover:text-slate-600 rounded-lg"
+          className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="w-9 h-9 rounded-xl bg-accent-light flex items-center justify-center flex-shrink-0">
+        <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
           <SubjectIcon iconKey={subject?.icon} size={18} className="text-accent" />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-slate-900">{subjectDisplayName(subject)}</h1>
+          <h1 className="text-lg font-bold text-on-surface">{subjectDisplayName(subject)}</h1>
           <p className="text-slate-400 text-xs">{subject?.parciales || 3} parciales</p>
         </div>
       </header>
@@ -111,16 +111,16 @@ export default function StudentSubjectPage() {
           const avg = calcParcialAvg(p)
           const isOpen = openParcial === p
           return (
-            <div key={p} className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+            <div key={p} className="bg-surface-card rounded-card border border-outline-variant overflow-hidden shadow-card">
               <button
                 onClick={() => setOpenParcial(isOpen ? 0 : p)}
-                className="w-full px-4 py-4 flex items-center gap-3 hover:bg-slate-50 transition-colors"
+                className="w-full px-4 py-4 flex items-center gap-3 hover:bg-surface transition-colors"
               >
-                <div className="w-9 h-9 rounded-xl bg-accent-light flex items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                   <span className="text-accent font-bold text-sm">{p}</span>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="font-semibold text-slate-900">Parcial {p}</p>
+                  <p className="font-semibold text-on-surface">Parcial {p}</p>
                   <p className="text-xs text-slate-400">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -134,7 +134,7 @@ export default function StudentSubjectPage() {
               </button>
 
               {isOpen && (
-                <div className="border-t border-slate-100 px-4 py-3 space-y-2">
+                <div className="border-t border-outline-variant px-4 py-3 space-y-2">
                   {acts.length === 0 && (
                     <p className="text-slate-400 text-sm text-center py-3">Sin actividades</p>
                   )}
@@ -146,7 +146,7 @@ export default function StudentSubjectPage() {
                       <button
                         key={a.id}
                         onClick={() => navigate(`/alumno/actividad/${a.id}`)}
-                        className="w-full flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-slate-50 transition-colors border border-slate-100 text-left"
+                        className="w-full flex items-center gap-3 px-3 py-3.5 rounded hover:bg-surface transition-colors border border-outline-variant text-left"
                       >
                         <div className="flex-shrink-0">
                           {graded ? (
@@ -158,7 +158,7 @@ export default function StudentSubjectPage() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 truncate">{a.nombre}</p>
+                          <p className="text-sm font-medium text-on-surface truncate">{a.nombre}</p>
                           {sub?.comentario && (
                             <p className="text-xs text-slate-400 truncate mt-0.5">"{sub.comentario}"</p>
                           )}
@@ -174,7 +174,7 @@ export default function StudentSubjectPage() {
                           ) : delivered ? (
                             <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregado</span>
                           ) : (
-                            <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full">Pendiente</span>
+                            <span className="text-xs bg-surface-container text-muted px-2 py-1 rounded-full">Pendiente</span>
                           )}
                         </div>
                       </button>

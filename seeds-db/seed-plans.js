@@ -28,7 +28,7 @@ const DEFAULT_PLANS = [
     id: 'pro',
     nombre: 'Plan Pro',
     descripcion: 'Acceso completo a Evalúa Fácil sin límites de asignaturas ni alumnos.',
-    precio: 199,
+    precio: 100,
     periodicidad: 'mensual',
     maxAsignaturas: -1,
     maxAlumnos: -1,

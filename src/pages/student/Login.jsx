@@ -71,21 +71,21 @@ export default function StudentLogin() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-4">
             <GraduationCap size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Acceso Alumnos</h1>
-          <p className="text-slate-500 text-sm mt-1">Evalúa Fácil</p>
+          <h1 className="text-2xl font-bold text-on-surface">Acceso Alumnos</h1>
+          <p className="text-muted text-sm mt-1">Evalúa Fácil</p>
         </div>
 
         {/* ── Login form ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-6">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+              <label className="block text-sm font-medium text-muted mb-1">Username</label>
               <input
                 type="text"
                 value={username}
@@ -96,30 +96,30 @@ export default function StudentLogin() {
                 autoCorrect="off"
                 autoCapitalize="characters"
                 spellCheck={false}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 font-mono tracking-widest text-center text-lg"
+                className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
                 placeholder="Ej: MERK"
                 maxLength={8}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
+              <label className="block text-sm font-medium text-muted mb-1">Contraseña</label>
               <PasswordInput
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError('') }}
                 required
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50"
+                className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                 placeholder="••••••••"
               />
             </div>
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
                 {error}
               </p>
             )}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? 'Entrando…' : 'Iniciar sesión'}
@@ -128,13 +128,13 @@ export default function StudentLogin() {
         </div>
 
         {/* ── First-time activation ── */}
-        <div className="mt-4 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="mt-4 bg-surface-card rounded-card shadow-card border border-outline-variant overflow-hidden">
           <button
             type="button"
             onClick={() => setShowCodeSection((v) => !v)}
             className="w-full flex items-center justify-between px-5 py-4 text-left"
           >
-            <span className="text-sm font-semibold text-slate-700">¿Primera vez? Activa tu cuenta</span>
+            <span className="text-sm font-semibold text-muted">¿Primera vez? Activa tu cuenta</span>
             <ChevronDown
               size={17}
               className={`text-slate-400 transition-transform duration-200 ${showCodeSection ? 'rotate-180' : ''}`}
@@ -142,8 +142,8 @@ export default function StudentLogin() {
           </button>
 
           {showCodeSection && (
-            <div className="px-5 pb-5 border-t border-slate-100 pt-4">
-              <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+            <div className="px-5 pb-5 border-t border-outline-variant pt-4">
+              <p className="text-xs text-muted mb-3 leading-relaxed">
                 Escanea el <strong>código QR</strong> de tu asignatura, abre el <strong>link</strong> que te compartió tu maestro, o ingresa el <strong>código de acceso</strong> de 6 caracteres:
               </p>
               <form onSubmit={handleActivateWithCode} className="flex gap-2">
@@ -157,12 +157,12 @@ export default function StudentLogin() {
                   spellCheck={false}
                   maxLength={8}
                   placeholder="Ej: A3B7K2"
-                  className="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 font-mono tracking-widest text-center"
+                  className="flex-1 px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
                 />
                 <button
                   type="submit"
                   disabled={!codeInput.trim()}
-                  className="px-4 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                  className="px-4 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
                 >
                   <Hash size={16} />
                   Ir

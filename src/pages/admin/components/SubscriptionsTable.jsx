@@ -20,7 +20,7 @@ import {
 } from '../../../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50'
+  'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
 
 function StatusBadge({ status }) {
   return (
@@ -141,13 +141,13 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h2 className="font-semibold text-slate-900">Suscripciones</h2>
+    <div className="bg-surface-card rounded-card border border-outline-variant shadow-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-outline-variant flex items-center justify-between">
+        <h2 className="font-semibold text-on-surface">Suscripciones</h2>
         <button
           type="button"
           onClick={openCreate}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700"
         >
           <Plus size={14} /> Nueva
         </button>
@@ -156,7 +156,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 text-left text-xs text-slate-500 uppercase">
+            <tr className="bg-surface text-left text-xs text-muted uppercase">
               <th className="px-4 py-3">Docente</th>
               <th className="px-4 py-3">Escuela</th>
               <th className="px-4 py-3">Plan</th>
@@ -181,25 +181,25 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 return (
                   <tr key={sub.id} className="hover:bg-slate-50/50">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-slate-800">
+                      <p className="font-medium text-on-surface">
                         {teacher?.username || teacher?.email || sub.docenteId.slice(0, 8)}
                       </p>
                     </td>
-                    <td className="px-4 py-3 text-slate-600 truncate max-w-[140px]">
+                    <td className="px-4 py-3 text-muted truncate max-w-[140px]">
                       {sub.schoolName || '—'}
                     </td>
                     <td className="px-4 py-3">{plan?.nombre || (sub.status === 'trial' ? 'Trial' : '—')}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={sub.status} />
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{formatDate(sub.fechaVencimiento)}</td>
-                    <td className="px-4 py-3 text-slate-600">{days !== null ? days : '—'}</td>
+                    <td className="px-4 py-3 text-muted">{formatDate(sub.fechaVencimiento)}</td>
+                    <td className="px-4 py-3 text-muted">{days !== null ? days : '—'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => openEdit(sub)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg"
+                          className="p-1.5 text-slate-400 hover:text-blue-600 rounded"
                           title="Editar"
                         >
                           <Pencil size={14} />
@@ -208,7 +208,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                           <button
                             type="button"
                             onClick={() => handleCancel(sub)}
-                            className="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg"
+                            className="p-1.5 text-slate-400 hover:text-amber-600 rounded"
                             title="Cancelar"
                           >
                             <Ban size={14} />
@@ -217,7 +217,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                         <button
                           type="button"
                           onClick={() => handleDelete(sub)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg"
+                          className="p-1.5 text-slate-400 hover:text-red-600 rounded"
                           title="Eliminar"
                         >
                           <Trash2 size={14} />
@@ -234,9 +234,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
 
       {modal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+          <div className="bg-surface-card rounded-card p-6 w-full max-w-md shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-900">
+              <h3 className="font-bold text-on-surface">
                 {modal.mode === 'create' ? 'Nueva suscripción' : 'Editar suscripción'}
               </h3>
               <button type="button" onClick={() => setModal(null)}>
@@ -245,7 +245,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             </div>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Docente</label>
+                <label className="block text-xs font-medium text-muted mb-1">Docente</label>
                 <select
                   value={modal.form.docenteId}
                   onChange={(e) =>
@@ -262,7 +262,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Plan</label>
+                <label className="block text-xs font-medium text-muted mb-1">Plan</label>
                 <select
                   value={modal.form.planId}
                   onChange={(e) =>
@@ -279,7 +279,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Estado</label>
+                <label className="block text-xs font-medium text-muted mb-1">Estado</label>
                 <select
                   value={modal.form.status}
                   onChange={(e) =>
@@ -296,7 +296,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Inicio</label>
+                  <label className="block text-xs font-medium text-muted mb-1">Inicio</label>
                   <input
                     type="date"
                     value={modal.form.fechaInicio}
@@ -307,7 +307,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Vencimiento</label>
+                  <label className="block text-xs font-medium text-muted mb-1">Vencimiento</label>
                   <input
                     type="date"
                     value={modal.form.fechaVencimiento}
@@ -324,7 +324,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-2.5 bg-blue-600 text-white font-semibold rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-blue-600 text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}
                 Guardar

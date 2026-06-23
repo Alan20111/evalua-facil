@@ -221,18 +221,18 @@ export default function StudentActivation() {
   )
 
   if (!subject) return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-sm text-center">
-        <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center mx-auto mb-4">
+        <div className="w-16 h-16 rounded-card bg-red-100 flex items-center justify-center mx-auto mb-4">
           <GraduationCap size={32} className="text-red-500" />
         </div>
-        <h1 className="text-xl font-bold text-slate-900 mb-2">Código no válido</h1>
-        <p className="text-slate-500 text-sm mb-6">
+        <h1 className="text-xl font-bold text-on-surface mb-2">Código no válido</h1>
+        <p className="text-muted text-sm mb-6">
           {loadError || 'No encontramos una asignatura con ese código de acceso.'}
         </p>
         <button
           onClick={() => navigate('/alumno')}
-          className="px-5 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl transition-colors"
+          className="px-5 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
         >
           Volver al inicio
         </button>
@@ -241,46 +241,46 @@ export default function StudentActivation() {
   )
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-slate-50 py-8">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-4">
             <GraduationCap size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Activar cuenta</h1>
+          <h1 className="text-2xl font-bold text-on-surface">Activar cuenta</h1>
           {subject && (
-            <p className="text-slate-500 text-sm mt-1">
+            <p className="text-muted text-sm mt-1">
               <strong>{subjectDisplayName(subject)}</strong> · {subject.ciclo}
             </p>
           )}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-6">
           {step === 'link_existing' ? (
             <div>
-              <div className="flex items-center gap-3 p-3 bg-accent-light rounded-xl mb-4">
+              <div className="flex items-center gap-3 p-3 bg-accent-light rounded mb-4">
                 <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center">
                   <Check size={16} className="text-accent" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Ya tienes cuenta</p>
-                  <p className="text-xs text-slate-500">Escribe tu contraseña para agregar esta asignatura</p>
+                  <p className="text-sm font-semibold text-on-surface">Ya tienes cuenta</p>
+                  <p className="text-xs text-muted">Escribe tu contraseña para agregar esta asignatura</p>
                 </div>
               </div>
               <form onSubmit={handleLinkExisting} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tu contraseña actual</label>
+                  <label className="block text-sm font-medium text-muted mb-1">Tu contraseña actual</label>
                   <PasswordInput
                     value={linkPassword}
                     onChange={(e) => { setLinkPassword(e.target.value); setPasswordError('') }}
                     required
                     autoFocus
-                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 ${passwordError ? 'border-red-400' : 'border-slate-200'}`}
+                    className={`w-full px-4 py-3 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Tu contraseña de Evalúa Fácil"
                   />
                 </div>
                 {passwordError && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
                     {passwordError}
                   </p>
                 )}
@@ -290,7 +290,7 @@ export default function StudentActivation() {
                   onMouseDown={(e) => e.preventDefault()}
                   disabled={loading || !linkPassword}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-3 bg-accent text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={16} />}
                   {loading ? 'Vinculando…' : 'Agregar asignatura'}
@@ -300,10 +300,10 @@ export default function StudentActivation() {
           ) : step === 'username' ? (
             <form onSubmit={handleFindStudent} className="space-y-4">
               <div>
-                <p className="text-sm text-slate-600 mb-4">
+                <p className="text-sm text-muted mb-4">
                   Introduce tu <strong>username</strong> (tu maestro te lo proporcionó).
                 </p>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                <label className="block text-sm font-medium text-muted mb-1">Username</label>
                 <input
                   type="text"
                   value={username}
@@ -315,7 +315,7 @@ export default function StudentActivation() {
                   autoCorrect="off"
                   autoCapitalize="characters"
                   spellCheck={false}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 font-mono tracking-widest text-center text-lg"
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
                   placeholder="Ej: MERK"
                   maxLength={8}
                 />
@@ -326,7 +326,7 @@ export default function StudentActivation() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={loading || !username.trim()}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-3 bg-accent text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? <Spinner size="sm" /> : null}
                 {loading ? 'Buscando…' : 'Continuar'}
@@ -334,41 +334,41 @@ export default function StudentActivation() {
             </form>
           ) : (
             <div>
-              <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl mb-4">
+              <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded mb-4">
                 <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center">
                   <Check size={16} className="text-emerald-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-semibold text-on-surface">
                     {student?.apellidoPaterno} {student?.apellidoMaterno} {student?.nombre}
                   </p>
-                  <p className="text-xs text-slate-500 font-mono">{student?.username}</p>
+                  <p className="text-xs text-muted font-mono">{student?.username}</p>
                 </div>
               </div>
               <form onSubmit={handleActivate} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Elige tu contraseña</label>
+                  <label className="block text-sm font-medium text-muted mb-1">Elige tu contraseña</label>
                   <PasswordInput
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setPasswordError('') }}
                     required
                     autoFocus
-                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 ${passwordError ? 'border-red-400' : 'border-slate-200'}`}
+                    className={`w-full px-4 py-3 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Mínimo 6 caracteres"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Confirmar contraseña</label>
+                  <label className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
                   <PasswordInput
                     value={confirmPassword}
                     onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required
-                    className={`w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-slate-50 ${passwordError ? 'border-red-400' : 'border-slate-200'}`}
+                    className={`w-full px-4 py-3 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Repite tu contraseña"
                   />
                 </div>
                 {passwordError && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">
                     {passwordError}
                   </p>
                 )}
@@ -378,7 +378,7 @@ export default function StudentActivation() {
                   onMouseDown={(e) => e.preventDefault()}
                   disabled={loading}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-3 bg-accent text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={16} />}
                   {loading ? 'Activando…' : 'Activar cuenta'}
@@ -393,7 +393,7 @@ export default function StudentActivation() {
           <button
             type="button"
             onClick={() => navigate('/alumno')}
-            className="underline hover:text-slate-600 transition-colors"
+            className="underline hover:text-muted transition-colors"
           >
             Accede por aquí
           </button>

@@ -9,7 +9,7 @@ import { usePaymentConfig } from '../hooks/usePaymentConfig'
 import { formatCurrency } from '../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50'
+  'w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
 
 function loadPaypalSdk(clientId) {
   return new Promise((resolve, reject) => {
@@ -197,12 +197,12 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
+        className="bg-surface-card rounded-card p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold text-slate-900">Contratar plan</h3>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <h3 className="font-bold text-on-surface">Contratar plan</h3>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-muted">
             <X size={18} />
           </button>
         </div>
@@ -210,14 +210,14 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
         {configLoading ? (
           <div className="flex justify-center py-10"><Spinner /></div>
         ) : methods.length === 0 ? (
-          <div className="text-center py-8 text-sm text-slate-500">
+          <div className="text-center py-8 text-sm text-muted">
             No hay métodos de pago disponibles por el momento. Contacta al administrador.
           </div>
         ) : (
           <div className="space-y-4">
             {/* Plan selector */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Plan</label>
+              <label className="block text-sm font-medium text-muted mb-1">Plan</label>
               <select
                 value={selectedPlanId}
                 onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -238,10 +238,10 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
                   key={m.id}
                   type="button"
                   onClick={() => setMethod(m.id)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold border transition-colors ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold border transition-colors ${
                     method === m.id
                       ? 'bg-blue-50 border-blue-300 text-blue-700'
-                      : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                      : 'border-outline-variant text-muted hover:bg-surface'
                   }`}
                 >
                   <m.icon size={14} />
@@ -251,7 +251,7 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
             </div>
 
             {selectedPlan && (
-              <p className="text-sm font-semibold text-slate-800">
+              <p className="text-sm font-semibold text-on-surface">
                 Total: {formatCurrency(selectedPlan.precio)}
               </p>
             )}
@@ -262,7 +262,7 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
                 type="button"
                 onClick={payWithMercadoPago}
                 disabled={submitting}
-                className="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <Wallet size={16} />}
                 {submitting ? 'Redirigiendo…' : 'Pagar con Mercado Pago'}
@@ -280,12 +280,12 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
 
             {method === 'transferencia' && (
               <form onSubmit={submitTransfer} className="space-y-3">
-                <div className="bg-slate-50 rounded-xl p-4 text-sm space-y-1.5 border border-slate-100">
-                  <p className="font-semibold text-slate-700 mb-1">Datos para transferencia</p>
-                  {t?.banco && <p><span className="text-slate-500">Banco:</span> {t.banco}</p>}
-                  {t?.titular && <p><span className="text-slate-500">Titular:</span> {t.titular}</p>}
-                  {t?.cuenta && <p><span className="text-slate-500">Cuenta:</span> {t.cuenta}</p>}
-                  {t?.clabe && <p><span className="text-slate-500">CLABE:</span> {t.clabe}</p>}
+                <div className="bg-surface rounded p-4 text-sm space-y-1.5 border border-outline-variant">
+                  <p className="font-semibold text-muted mb-1">Datos para transferencia</p>
+                  {t?.banco && <p><span className="text-muted">Banco:</span> {t.banco}</p>}
+                  {t?.titular && <p><span className="text-muted">Titular:</span> {t.titular}</p>}
+                  {t?.cuenta && <p><span className="text-muted">Cuenta:</span> {t.cuenta}</p>}
+                  {t?.clabe && <p><span className="text-muted">CLABE:</span> {t.clabe}</p>}
                   {t?.nota && <p className="text-xs text-slate-400 pt-1">{t.nota}</p>}
                 </div>
                 <input
@@ -299,7 +299,7 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {submitting ? <Spinner size="sm" /> : null}
                   {submitting ? 'Registrando…' : 'Registrar pago'}

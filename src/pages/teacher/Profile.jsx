@@ -41,7 +41,7 @@ async function uploadAvatar(file) {
 }
 
 const inputCls =
-  'w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50'
+  'w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
 
 export default function Profile() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
@@ -206,8 +206,8 @@ export default function Profile() {
       <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
 
         {/* Mi plan */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+          <h2 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
             <CreditCard size={17} className="text-slate-400" /> Mi plan
           </h2>
           {subLoading ? (
@@ -218,13 +218,13 @@ export default function Profile() {
                 <div>
                   {subscription.status === 'trial' ? (
                     <>
-                      <p className="font-bold text-slate-900">Período de prueba</p>
-                      <p className="text-sm text-slate-500">60 días gratuitos</p>
+                      <p className="font-bold text-on-surface">Período de prueba</p>
+                      <p className="text-sm text-muted">60 días gratuitos</p>
                     </>
                   ) : currentPlan ? (
                     <>
-                      <p className="font-bold text-slate-900">{currentPlan.nombre}</p>
-                      <p className="text-sm text-slate-500">
+                      <p className="font-bold text-on-surface">{currentPlan.nombre}</p>
+                      <p className="text-sm text-muted">
                         {formatCurrency(currentPlan.precio)}/
                         {currentPlan.periodicidad === 'anual' ? 'año' : 'mes'}
                       </p>
@@ -261,24 +261,24 @@ export default function Profile() {
               )}
             </div>
           ) : (
-            <p className="text-sm text-slate-500">No tienes un plan activo.</p>
+            <p className="text-sm text-muted">No tienes un plan activo.</p>
           )}
           {canRenew && plans.length > 0 && (
             <button
               type="button"
               onClick={() => setShowPaymentModal(true)}
-              className="mt-4 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors"
+              className="mt-4 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors"
             >
               {subscription && subscription.status !== 'trial' ? 'Contratar / Renovar' : 'Contratar Plan Pro'}
             </button>
           )}
           {recentPayments.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-100">
+            <div className="mt-4 pt-4 border-t border-outline-variant">
               <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Últimos pagos</p>
               <ul className="space-y-2">
                 {recentPayments.map((p) => (
                   <li key={p.id} className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">{formatDate(p.createdAt)}</span>
+                    <span className="text-muted">{formatDate(p.createdAt)}</span>
                     <span className="font-medium">{formatCurrency(p.monto)}</span>
                     <span
                       className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getPaymentStatusColor(p.status)}`}
@@ -301,7 +301,7 @@ export default function Profile() {
         />
 
         {/* Photo + identity */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center gap-4">
+        <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-6 flex flex-col items-center gap-4">
           <div className="relative">
             <div className="w-20 h-20 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center">
               {userProfile?.photoURL ? (
@@ -317,7 +317,7 @@ export default function Profile() {
           </div>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
           <div className="text-center">
-            <p className="font-bold text-slate-900">{displayName}</p>
+            <p className="font-bold text-on-surface">{displayName}</p>
             {userProfile?.username && (
               <p className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded mt-1 inline-block">
                 {userProfile.username}
@@ -330,19 +330,19 @@ export default function Profile() {
         </div>
 
         {/* Nombre visible */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+          <h2 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
             <User size={17} className="text-slate-400" /> Nombre
           </h2>
           <form onSubmit={handleSaveNombre} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nombre completo</label>
+              <label className="block text-sm font-medium text-muted mb-1">Nombre completo</label>
               <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
                 className={inputCls} placeholder="Ej. Profa. García Pérez" />
-              <p className="text-sm text-slate-600 mt-1">Así te verán tus alumnos</p>
+              <p className="text-sm text-muted mt-1">Así te verán tus alumnos</p>
             </div>
             <button type="submit" disabled={savingNombre}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {savingNombre ? <Spinner size="sm" /> : null}
               {savingNombre ? 'Guardando…' : 'Guardar nombre'}
             </button>
@@ -350,13 +350,13 @@ export default function Profile() {
         </div>
 
         {/* Escuela */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+          <h2 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
             <School size={17} className="text-slate-400" /> Escuela
           </h2>
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
+              <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
               <p className="text-xs text-slate-400 mt-0.5">Cambiarla solo afecta a las asignaturas y alumnos nuevos.</p>
             </div>
             <button type="button" onClick={() => { setSchoolSearch(''); setShowSchoolPicker(true) }}
@@ -365,31 +365,31 @@ export default function Profile() {
         </div>
 
         {/* Acceso */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <h2 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+          <h2 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
             <Lock size={17} className="text-slate-400" /> Acceso
           </h2>
           <div className="space-y-1">
 
             {/* Username — read only */}
-            <div className="flex items-center gap-3 py-3 border-b border-slate-100">
+            <div className="flex items-center gap-3 py-3 border-b border-outline-variant">
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-slate-400 mb-0.5">Usuario</p>
-                <p className="text-sm font-semibold font-mono text-slate-900">{userProfile?.username || '—'}</p>
+                <p className="text-sm font-semibold font-mono text-on-surface">{userProfile?.username || '—'}</p>
               </div>
             </div>
 
             {/* ── Correo (solo lectura) ── */}
-            <div className="py-3 border-b border-slate-100">
+            <div className="py-3 border-b border-outline-variant">
               <p className="text-xs text-slate-400 mb-0.5">Correo electrónico</p>
-              <p className="text-sm text-slate-900 truncate">{currentUser?.email}</p>
+              <p className="text-sm text-on-surface truncate">{currentUser?.email}</p>
             </div>
 
             {/* ── Contraseña ── */}
-            <div className="py-3 border-b border-slate-100">
+            <div className="py-3 border-b border-outline-variant">
               <div className="flex items-center gap-3">
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">Contraseña</p>
+                  <p className="text-sm font-medium text-on-surface">Contraseña</p>
                   {!hasEmailProvider && (
                     <p className="text-xs text-slate-400 mt-0.5">Solo disponible con acceso por usuario/contraseña</p>
                   )}
@@ -405,22 +405,22 @@ export default function Profile() {
               {showPwdForm && (
                 <form onSubmit={requestPwdChange} className="mt-4 space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Contraseña actual</label>
+                    <label className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
                     <PasswordInput value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
                       required autoComplete="current-password" className={inputCls} placeholder="••••••••" />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Nueva contraseña</label>
+                    <label className="block text-xs font-medium text-muted mb-1">Nueva contraseña</label>
                     <PasswordInput value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
                       required autoComplete="new-password" className={inputCls} placeholder="Mínimo 6 caracteres" />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Confirmar nueva contraseña</label>
+                    <label className="block text-xs font-medium text-muted mb-1">Confirmar nueva contraseña</label>
                     <PasswordInput value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
                       required autoComplete="new-password" className={inputCls} placeholder="Repite la contraseña" />
                   </div>
                   <button type="submit" disabled={savingPwd}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                     {savingPwd ? <Spinner size="sm" /> : <Lock size={15} />}
                     {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}
                   </button>
@@ -437,20 +437,20 @@ export default function Profile() {
       {confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => !confirming && setConfirm(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-6">
             <button onClick={() => !confirming && setConfirm(null)}
-              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-muted rounded">
               <X size={18} />
             </button>
-            <h3 className="text-base font-semibold text-slate-900 mb-2 pr-6">{confirm.title}</h3>
-            <p className="text-sm text-slate-500 mb-5 leading-relaxed">{confirm.message}</p>
+            <h3 className="text-base font-semibold text-on-surface mb-2 pr-6">{confirm.title}</h3>
+            <p className="text-sm text-muted mb-5 leading-relaxed">{confirm.message}</p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setConfirm(null)} disabled={confirming}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-60">
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
                 Cancelar
               </button>
               <button type="button" onClick={handleConfirm} disabled={confirming}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {confirming ? <Spinner size="sm" /> : null}
                 {confirming ? 'Procesando…' : 'Confirmar'}
               </button>
@@ -463,20 +463,20 @@ export default function Profile() {
       {showSchoolPicker && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !savingSchool && setShowSchoolPicker(false)} />
-          <div className="relative bg-white w-full max-w-sm rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col" style={{ maxHeight: '80vh' }}>
-            <div className="flex items-center gap-2 p-3 border-b border-slate-100">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card shadow-2xl flex flex-col" style={{ maxHeight: '80vh' }}>
+            <div className="flex items-center gap-2 p-3 border-b border-outline-variant">
               <div className="flex-1 relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input autoFocus type="text" value={schoolSearch} onChange={(e) => setSchoolSearch(e.target.value)}
                   placeholder="Nombre, CCT o municipio…"
-                  className="w-full pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  className="w-full pl-8 pr-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
-              <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg"><X size={17} /></button>
+              <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={17} /></button>
             </div>
             <button type="button" onClick={() => updateSchool(null)} disabled={savingSchool}
-              className="flex items-center gap-2 px-4 py-3 text-left border-b border-slate-100 hover:bg-slate-50 disabled:opacity-60">
+              className="flex items-center gap-2 px-4 py-3 text-left border-b border-outline-variant hover:bg-surface disabled:opacity-60">
               <ChevronDown size={15} className="text-slate-400 rotate-0" />
-              <span className="text-sm font-medium text-slate-700">Sin escuela</span>
+              <span className="text-sm font-medium text-muted">Sin escuela</span>
             </button>
             {catalogLoading ? (
               <div className="flex justify-center py-10"><Spinner /></div>
@@ -489,7 +489,7 @@ export default function Profile() {
                   <li key={p.cct}>
                     <button type="button" onClick={() => updateSchool(p)} disabled={savingSchool}
                       className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors disabled:opacity-60">
-                      <p className="text-sm font-medium text-slate-900 leading-tight">{p.short || p.nombre}</p>
+                      <p className="text-sm font-medium text-on-surface leading-tight">{p.short || p.nombre}</p>
                       <p className="text-xs text-slate-400 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
                     </button>
                   </li>

@@ -14,7 +14,7 @@ import Spinner from '../../../components/Spinner'
 import { formatCurrency } from '../../../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-50'
+  'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
 
 const EMPTY_PLAN = {
   nombre: '',
@@ -98,13 +98,13 @@ export default function PlansManager({ stats, onRefresh }) {
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h2 className="font-semibold text-slate-900">Catálogo de planes</h2>
+    <div className="bg-surface-card rounded-card border border-outline-variant shadow-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-outline-variant flex items-center justify-between">
+        <h2 className="font-semibold text-on-surface">Catálogo de planes</h2>
         <button
           type="button"
           onClick={openCreate}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700"
         >
           <Plus size={14} /> Nuevo plan
         </button>
@@ -113,7 +113,7 @@ export default function PlansManager({ stats, onRefresh }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 text-left text-xs text-slate-500 uppercase">
+            <tr className="bg-surface text-left text-xs text-muted uppercase">
               <th className="px-4 py-3">Nombre</th>
               <th className="px-4 py-3">Precio</th>
               <th className="px-4 py-3">Límites</th>
@@ -127,7 +127,7 @@ export default function PlansManager({ stats, onRefresh }) {
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
                   Sin planes. Ejecuta{' '}
-                  <code className="text-xs bg-slate-100 px-1 rounded">seed-plans.js</code> o crea
+                  <code className="text-xs bg-surface-container px-1 rounded">seed-plans.js</code> o crea
                   uno.
                 </td>
               </tr>
@@ -135,7 +135,7 @@ export default function PlansManager({ stats, onRefresh }) {
               plans.map((plan) => (
                 <tr key={plan.id} className="hover:bg-slate-50/50">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-slate-800">{plan.nombre}</p>
+                    <p className="font-medium text-on-surface">{plan.nombre}</p>
                     <p className="text-xs text-slate-400 truncate max-w-[200px]">
                       {plan.descripcion}
                     </p>
@@ -144,7 +144,7 @@ export default function PlansManager({ stats, onRefresh }) {
                     {formatCurrency(plan.precio)}/
                     {plan.periodicidad === 'anual' ? 'año' : 'mes'}
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">
+                  <td className="px-4 py-3 text-xs text-muted">
                     {plan.maxAsignaturas === -1 ? '∞' : plan.maxAsignaturas} asig. /{' '}
                     {plan.maxAlumnos === -1 ? '∞' : plan.maxAlumnos} alumnos
                   </td>
@@ -153,7 +153,7 @@ export default function PlansManager({ stats, onRefresh }) {
                       className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                         plan.activo
                           ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-slate-100 text-slate-500'
+                          : 'bg-surface-container text-muted'
                       }`}
                     >
                       {plan.activo ? 'Sí' : 'No'}
@@ -165,14 +165,14 @@ export default function PlansManager({ stats, onRefresh }) {
                       <button
                         type="button"
                         onClick={() => openEdit(plan)}
-                        className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg"
+                        className="p-1.5 text-slate-400 hover:text-blue-600 rounded"
                       >
                         <Pencil size={14} />
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(plan)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg"
+                        className="p-1.5 text-slate-400 hover:text-red-600 rounded"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -187,9 +187,9 @@ export default function PlansManager({ stats, onRefresh }) {
 
       {modal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface-card rounded-card p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-slate-900">
+              <h3 className="font-bold text-on-surface">
                 {modal.mode === 'create' ? 'Nuevo plan' : 'Editar plan'}
               </h3>
               <button type="button" onClick={() => setModal(null)}>
@@ -198,7 +198,7 @@ export default function PlansManager({ stats, onRefresh }) {
             </div>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Nombre</label>
+                <label className="block text-xs font-medium text-muted mb-1">Nombre</label>
                 <input
                   value={modal.form.nombre}
                   onChange={(e) =>
@@ -209,7 +209,7 @@ export default function PlansManager({ stats, onRefresh }) {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Descripción</label>
+                <label className="block text-xs font-medium text-muted mb-1">Descripción</label>
                 <textarea
                   value={modal.form.descripcion}
                   onChange={(e) =>
@@ -220,7 +220,7 @@ export default function PlansManager({ stats, onRefresh }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-muted mb-1">
                     Precio (MXN)
                   </label>
                   <input
@@ -235,7 +235,7 @@ export default function PlansManager({ stats, onRefresh }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-muted mb-1">
                     Periodicidad
                   </label>
                   <select
@@ -252,7 +252,7 @@ export default function PlansManager({ stats, onRefresh }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-muted mb-1">
                     Máx. asignaturas (-1 = ∞)
                   </label>
                   <input
@@ -268,7 +268,7 @@ export default function PlansManager({ stats, onRefresh }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-muted mb-1">
                     Máx. alumnos (-1 = ∞)
                   </label>
                   <input
@@ -286,7 +286,7 @@ export default function PlansManager({ stats, onRefresh }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Orden</label>
+                  <label className="block text-xs font-medium text-muted mb-1">Orden</label>
                   <input
                     type="number"
                     value={modal.form.orden}
@@ -297,7 +297,7 @@ export default function PlansManager({ stats, onRefresh }) {
                   />
                 </div>
                 <div className="flex items-end pb-2">
-                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
                     <input
                       type="checkbox"
                       checked={modal.form.activo}
@@ -313,7 +313,7 @@ export default function PlansManager({ stats, onRefresh }) {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-2.5 bg-blue-600 text-white font-semibold rounded-xl text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-blue-600 text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}
                 Guardar

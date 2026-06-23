@@ -33,16 +33,16 @@ export default function PagoResultado() {
   const Icon = v.icon
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 max-w-sm w-full text-center">
+    <div className="min-h-screen flex items-center justify-center bg-surface px-4">
+      <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-8 max-w-sm w-full text-center">
         <div className={`w-16 h-16 ${v.bg} rounded-full flex items-center justify-center mx-auto mb-4`}>
           <Icon size={32} className={v.color} />
         </div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">{v.title}</h2>
-        <p className="text-slate-500 text-sm mb-6">{v.text}</p>
+        <h2 className="text-xl font-bold text-on-surface mb-2">{v.title}</h2>
+        <p className="text-muted text-sm mb-6">{v.text}</p>
         <button
           onClick={() => navigate('/profile', { replace: true })}
-          className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+          className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors"
         >
           Ir a mi perfil
         </button>
