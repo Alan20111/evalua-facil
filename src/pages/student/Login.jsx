@@ -82,7 +82,7 @@ export default function StudentLogin() {
         </div>
 
         {/* ── Login form ── */}
-        <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-6">
+        <div className="bg-surface-card rounded-card shadow-card p-6">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-muted mb-1">Username</label>
@@ -128,7 +128,7 @@ export default function StudentLogin() {
         </div>
 
         {/* ── First-time activation ── */}
-        <div className="mt-4 bg-surface-card rounded-card shadow-card border border-outline-variant overflow-hidden">
+        <div className="mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
           <button
             type="button"
             onClick={() => setShowCodeSection((v) => !v)}

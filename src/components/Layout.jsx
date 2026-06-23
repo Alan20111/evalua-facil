@@ -8,6 +8,7 @@ import {
   Archive,
   ChevronRight,
   Timer,
+  GraduationCap,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -70,8 +71,8 @@ export default function TeacherLayout({ children }) {
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between shadow-card">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold">
-            EF
+          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white">
+            <GraduationCap size={18} />
           </div>
           <span className="font-semibold text-on-surface text-body-sm">Evalúa Fácil</span>
         </div>
@@ -90,8 +91,8 @@ export default function TeacherLayout({ children }) {
         <aside className="hidden md:flex flex-col w-[280px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
           {/* Logo */}
           <div className="px-5 py-4 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded bg-white/15 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-              EF
+            <div className="w-9 h-9 rounded bg-white flex items-center justify-center flex-shrink-0">
+              <GraduationCap size={20} className="text-accent" />
             </div>
             <span className="font-bold text-white">Evalúa Fácil</span>
           </div>
@@ -101,11 +102,11 @@ export default function TeacherLayout({ children }) {
             to="/profile"
             className="flex items-center gap-3 px-3 py-3 mx-2 mt-1 rounded hover:bg-white/10 transition-colors group"
           >
-            <div className="w-9 h-9 rounded-full bg-white/20 overflow-hidden flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
               {userProfile?.photoURL ? (
                 <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-sm font-bold text-white">{initials}</span>
+                <span className="text-sm font-bold text-accent">{initials}</span>
               )}
             </div>
             <div className="min-w-0 flex-1">

@@ -136,7 +136,7 @@ export default function Register() {
           <p className="text-muted text-sm mt-1">Evalúa Fácil — Docente</p>
         </div>
 
-        <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-6">
+        <div className="bg-surface-card rounded-card shadow-card p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Email */}
             <div>

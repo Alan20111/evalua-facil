@@ -197,7 +197,7 @@ export default function TeacherDashboard() {
                     key={s.id}
                     data-subject-palette={s.colorPalette || 'default'}
                     onClick={() => navigate(`/subject/${s.id}`)}
-                    className="w-full bg-surface-card rounded-card border border-outline-variant p-4 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-4"
+                    className="w-full bg-surface-card rounded-card p-4 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-4"
                   >
                     <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                       <SubjectIcon iconKey={s.icon} size={19} className="text-accent" />

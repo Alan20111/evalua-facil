@@ -114,7 +114,7 @@ export default function PaymentConfig() {
       </div>
 
       {/* Mercado Pago */}
-      <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+      <div className="bg-surface-card rounded-card shadow-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded bg-sky-50 flex items-center justify-center">
@@ -148,7 +148,7 @@ export default function PaymentConfig() {
       </div>
 
       {/* PayPal */}
-      <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+      <div className="bg-surface-card rounded-card shadow-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded bg-blue-50 flex items-center justify-center">
@@ -179,7 +179,7 @@ export default function PaymentConfig() {
       </div>
 
       {/* Bank transfer */}
-      <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+      <div className="bg-surface-card rounded-card shadow-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded bg-emerald-50 flex items-center justify-center">

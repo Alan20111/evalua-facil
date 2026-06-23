@@ -141,7 +141,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   }
 
   return (
-    <div className="bg-surface-card rounded-card border border-outline-variant shadow-card overflow-hidden">
+    <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
       <div className="px-5 py-4 border-b border-outline-variant flex items-center justify-between">
         <h2 className="font-semibold text-on-surface">Suscripciones</h2>
         <button

@@ -15,7 +15,7 @@ export default function Landing() {
           {/* Docente */}
           <Link
             to="/docente"
-            className="group bg-surface-card rounded-card border border-outline-variant shadow-card hover:shadow-md transition-shadow p-6 text-center"
+            className="group bg-surface-card rounded-card shadow-card hover:shadow-md transition-shadow p-6 text-center"
           >
             <div className="w-14 h-14 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-4">
               <GraduationCap size={28} className="text-white" />
@@ -30,7 +30,7 @@ export default function Landing() {
           {/* Alumno */}
           <Link
             to="/alumno"
-            className="group bg-surface-card rounded-card border border-outline-variant shadow-card hover:shadow-md transition-shadow p-6 text-center"
+            className="group bg-surface-card rounded-card shadow-card hover:shadow-md transition-shadow p-6 text-center"
           >
             <div className="w-14 h-14 rounded-card bg-orange-500 flex items-center justify-center mx-auto mb-4">
               <BookOpen size={28} className="text-white" />

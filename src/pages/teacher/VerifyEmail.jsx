@@ -55,7 +55,7 @@ export default function VerifyEmail() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface px-4">
-      <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-8 max-w-sm w-full text-center">
+      <div className="bg-surface-card rounded-card shadow-card p-8 max-w-sm w-full text-center">
 
         {status === 'loading' && (
           <div className="flex flex-col items-center gap-4">

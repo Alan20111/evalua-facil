@@ -37,7 +37,7 @@ export default function UsersTable({ stats }) {
   )
 
   return (
-    <div className="bg-surface-card rounded-card border border-outline-variant shadow-card overflow-hidden">
+    <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
       <div className="px-5 py-4 border-b border-outline-variant">
         <h2 className="font-semibold text-on-surface">Docentes</h2>
       </div>

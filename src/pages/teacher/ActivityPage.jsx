@@ -359,7 +359,7 @@ export default function ActivityPage() {
           {filtered.length === 0 ? (
             <p className="text-center text-slate-400 text-sm py-8">Sin alumnos en esta categoría</p>
           ) : (
-            <div className="bg-surface-card rounded-card border border-outline-variant overflow-hidden shadow-card">
+            <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
               {filtered.map((s, i) => {
                 const status = getStatus(s.id)
                 const sub = submissions[s.id]

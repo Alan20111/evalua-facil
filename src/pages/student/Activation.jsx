@@ -255,7 +255,7 @@ export default function StudentActivation() {
           )}
         </div>
 
-        <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-6">
+        <div className="bg-surface-card rounded-card shadow-card p-6">
           {step === 'link_existing' ? (
             <div>
               <div className="flex items-center gap-3 p-3 bg-accent-light rounded mb-4">

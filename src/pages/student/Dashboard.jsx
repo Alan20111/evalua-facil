@@ -193,7 +193,7 @@ export default function StudentDashboard() {
                 key={s.id}
                 data-subject-palette={s.colorPalette || 'default'}
                 onClick={() => navigate(`/alumno/materia/${s.id}`)}
-                className="w-full bg-surface-card rounded-card border border-outline-variant p-4 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-4"
+                className="w-full bg-surface-card rounded-card p-4 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-4"
               >
                 <div className="w-12 h-12 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                   <SubjectIcon iconKey={s.icon} size={20} className="text-accent" />

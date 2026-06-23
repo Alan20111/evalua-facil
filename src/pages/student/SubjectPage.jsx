@@ -111,7 +111,7 @@ export default function StudentSubjectPage() {
           const avg = calcParcialAvg(p)
           const isOpen = openParcial === p
           return (
-            <div key={p} className="bg-surface-card rounded-card border border-outline-variant overflow-hidden shadow-card">
+            <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
               <button
                 onClick={() => setOpenParcial(isOpen ? 0 : p)}
                 className="w-full px-4 py-4 flex items-center gap-3 hover:bg-surface transition-colors"

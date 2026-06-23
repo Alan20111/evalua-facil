@@ -271,7 +271,7 @@ export default function StudentActivityPage() {
 
         {/* View submitted file */}
         {submission && !submission.completadoSinArchivo && submission.archivoURL && (
-          <div className="bg-surface-card rounded-card border border-outline-variant p-4 shadow-card">
+          <div className="bg-surface-card rounded-card p-4 shadow-card">
             <p className="text-xs font-medium text-muted mb-2">Tu entrega</p>
             <a
               href={submission.archivoURL}
@@ -287,7 +287,7 @@ export default function StudentActivityPage() {
 
         {/* Grade */}
         {isGraded && (
-          <div className="bg-surface-card rounded-card border border-outline-variant p-5 shadow-card">
+          <div className="bg-surface-card rounded-card p-5 shadow-card">
             <div className="flex items-center gap-3 mb-3">
               <Star size={20} className="text-amber-400" />
               <h2 className="font-semibold text-on-surface">Tu calificación</h2>
@@ -307,7 +307,7 @@ export default function StudentActivityPage() {
 
         {/* Instructions */}
         {activity?.instrucciones && (
-          <div className="bg-surface-card rounded-card border border-outline-variant p-5 shadow-card">
+          <div className="bg-surface-card rounded-card p-5 shadow-card">
             <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
             <p className="text-sm text-muted leading-relaxed whitespace-pre-wrap">
               {activity.instrucciones}
@@ -316,7 +316,7 @@ export default function StudentActivityPage() {
         )}
 
         {/* Info */}
-        <div className="bg-surface-card rounded-card border border-outline-variant p-4 shadow-card">
+        <div className="bg-surface-card rounded-card p-4 shadow-card">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted">Calificación máxima</span>
             <span className="font-semibold text-on-surface">{activity?.maxCalif} pts</span>
@@ -335,7 +335,7 @@ export default function StudentActivityPage() {
 
         {/* Upload */}
         {(!submission || canResubmit) && (
-          <div className="bg-surface-card rounded-card border border-outline-variant p-5 shadow-card">
+          <div className="bg-surface-card rounded-card p-5 shadow-card">
             <h2 className="font-semibold text-on-surface mb-1">
               {canResubmit ? 'Subir versión corregida' : 'Subir entrega'}
             </h2>

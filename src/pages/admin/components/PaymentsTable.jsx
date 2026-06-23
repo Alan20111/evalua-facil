@@ -89,7 +89,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
   }
 
   return (
-    <div className="bg-surface-card rounded-card border border-outline-variant shadow-card overflow-hidden">
+    <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
       <div className="px-5 py-4 border-b border-outline-variant">
         <h2 className="font-semibold text-on-surface">Pagos</h2>
       </div>

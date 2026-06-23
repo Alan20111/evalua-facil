@@ -123,7 +123,7 @@ export default function RegisterSchool() {
           <p className="text-muted text-sm mt-1">Indica tu plantel y crea una contraseña</p>
         </div>
 
-        <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-6">
+        <div className="bg-surface-card rounded-card shadow-card p-6">
           {/* Google account info */}
           <div className="bg-surface rounded px-4 py-3 mb-4">
             <p className="text-xs text-slate-400 mb-0.5">Cuenta de Google</p>

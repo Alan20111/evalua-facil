@@ -206,7 +206,7 @@ export default function Profile() {
       <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
 
         {/* Mi plan */}
-        <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+        <div className="bg-surface-card rounded-card shadow-card p-5">
           <h2 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
             <CreditCard size={17} className="text-slate-400" /> Mi plan
           </h2>
@@ -301,7 +301,7 @@ export default function Profile() {
         />
 
         {/* Photo + identity */}
-        <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-6 flex flex-col items-center gap-4">
+        <div className="bg-surface-card rounded-card shadow-card p-6 flex flex-col items-center gap-4">
           <div className="relative">
             <div className="w-20 h-20 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center">
               {userProfile?.photoURL ? (
@@ -330,7 +330,7 @@ export default function Profile() {
         </div>
 
         {/* Nombre visible */}
-        <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+        <div className="bg-surface-card rounded-card shadow-card p-5">
           <h2 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
             <User size={17} className="text-slate-400" /> Nombre
           </h2>
@@ -350,7 +350,7 @@ export default function Profile() {
         </div>
 
         {/* Escuela */}
-        <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+        <div className="bg-surface-card rounded-card shadow-card p-5">
           <h2 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
             <School size={17} className="text-slate-400" /> Escuela
           </h2>
@@ -365,7 +365,7 @@ export default function Profile() {
         </div>
 
         {/* Acceso */}
-        <div className="bg-surface-card rounded-card border border-outline-variant shadow-card p-5">
+        <div className="bg-surface-card rounded-card shadow-card p-5">
           <h2 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
             <Lock size={17} className="text-slate-400" /> Acceso
           </h2>

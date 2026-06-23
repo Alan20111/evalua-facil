@@ -71,7 +71,7 @@ export default function TeacherLogin() {
           </div>
         )}
 
-        <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-6 space-y-4">
+        <div className="bg-surface-card rounded-card shadow-card p-6 space-y-4">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-muted mb-1">Usuario</label>

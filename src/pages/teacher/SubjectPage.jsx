@@ -817,7 +817,7 @@ export default function SubjectPage() {
               const acts = activities.filter((a) => a.parcial === p)
               const isOpen = openParcial === p
               return (
-                <div key={p} className="bg-surface-card rounded-card border border-outline-variant overflow-hidden shadow-card">
+                <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                   <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
                     className="w-full px-4 py-4 flex items-center gap-3 hover:bg-surface transition-colors">
                     <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
@@ -941,7 +941,7 @@ export default function SubjectPage() {
               <p className="text-center text-slate-400 text-sm py-12">No hay alumnos en este grupo</p>
             ) : (
               <>
-                <div className="overflow-x-auto rounded-card border border-outline-variant shadow-card bg-surface-card">
+                <div className="overflow-x-auto rounded-card shadow-card bg-surface-card">
                   <table className="text-sm border-collapse min-w-full">
                     <thead>
                       <tr className="bg-surface border-b border-outline-variant">
@@ -1075,7 +1075,7 @@ export default function SubjectPage() {
               {searchAlumnos ? 'Sin resultados' : 'No hay alumnos en esta asignatura'}
             </div>
           ) : (
-            <div className="bg-surface-card rounded-card border border-outline-variant overflow-hidden shadow-card">
+            <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
               {filteredAlumnos.map((s, i) => (
                 <div
                   key={s.id}
