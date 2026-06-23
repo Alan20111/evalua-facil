@@ -13,7 +13,7 @@ function generateAccessCode() {
 // If keepStudents=true, copies student list with new activation state.
 // Activities are copied as visible (oculta:false), without submissions/grades.
 // Returns the new subject's Firestore ID.
-export async function copySubject({ sourceSubjectId, nombre, grupo = '', ciclo, parciales, colorPalette = 'default', icon = 'book', keepStudents, docenteId, escuelaId }) {
+export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaInicio = '', fechaFin = '', parciales, colorPalette = 'default', icon = 'book', keepStudents, docenteId, escuelaId }) {
   // 1. Create new subject doc
   const newSubRef = await addDoc(collection(db, 'subjects'), {
     nombre,
@@ -21,7 +21,8 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', ciclo, 
     docenteId,
     escuelaId,
     parciales: Number(parciales) || 3,
-    ciclo,
+    fechaInicio,
+    fechaFin,
     colorPalette,
     icon,
     accessCode: generateAccessCode(),

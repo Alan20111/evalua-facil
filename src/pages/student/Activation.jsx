@@ -17,6 +17,7 @@ import { studentEmail } from '../../utils/generate'
 import { GraduationCap, Check } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { subjectPeriodLabel } from '../../utils/dateRange'
 
 export default function StudentActivation() {
   const { accessCode } = useParams()
@@ -250,7 +251,8 @@ export default function StudentActivation() {
           <h1 className="text-2xl font-bold text-on-surface">Activar cuenta</h1>
           {subject && (
             <p className="text-muted text-sm mt-1">
-              <strong>{subjectDisplayName(subject)}</strong> · {subject.ciclo}
+              <strong>{subjectDisplayName(subject)}</strong>
+              {subjectPeriodLabel(subject) && ` · ${subjectPeriodLabel(subject)}`}
             </p>
           )}
         </div>

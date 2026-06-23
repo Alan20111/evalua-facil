@@ -16,6 +16,7 @@ import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions }
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatPublishAt } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
@@ -31,16 +32,6 @@ import {
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
-
-function getCicloInfo() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
-  if (month >= 8) {
-    return { current: `AGO ${year}-ENE ${year + 1}`, next: `FEB ${year + 1}-JUL ${year + 1}` }
-  }
-  return { current: `FEB ${year}-JUL ${year}`, next: `AGO ${year}-ENE ${year + 1}` }
-}
 
 async function fetchSubmissionsForActivities(actIds) {
   if (actIds.length === 0) return []
@@ -95,21 +86,21 @@ export default function SubjectPage() {
 
   // Subject CRUD
   const [showEditSubjectModal, setShowEditSubjectModal] = useState(false)
-  const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', grupo: '', ciclo: '', parciales: '3', colorPalette: 'default', icon: 'book' })
+  const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', grupo: '', fechaInicio: '', fechaFin: '', parciales: '3', colorPalette: 'default', icon: 'book' })
   const [editingSubject, setEditingSubject] = useState(false)
   const [showDeleteSubjectConfirm, setShowDeleteSubjectConfirm] = useState(false)
   const [deleteSubjectConfirmText, setDeleteSubjectConfirmText] = useState('')
   const [deletingSubject, setDeletingSubject] = useState(false)
   const [showCopyModal, setShowCopyModal] = useState(false)
   const [copyForm, setCopyForm] = useState({ nombre: '', grupo: '', keepStudents: false, colorPalette: 'default', icon: 'book' })
-  const [copyCicloMode, setCopyCicloMode] = useState('current')
+  const [copyFechas, setCopyFechas] = useState({ fechaInicio: '', fechaFin: '' })
   const [copyingSubject, setCopyingSubject] = useState(false)
 
   // Unarchive modal
   const [showUnarchiveModal, setShowUnarchiveModal] = useState(false)
   const [unarchiveStudents, setUnarchiveStudents] = useState('keep') // 'keep' | 'reset'
   const [unarchiveActivities, setUnarchiveActivities] = useState('keep') // 'keep' | 'show' | 'hide'
-  const [unarchiveEdits, setUnarchiveEdits] = useState({ nombre: '', grupo: '', ciclo: '', parciales: '3', colorPalette: 'default', icon: 'book' })
+  const [unarchiveEdits, setUnarchiveEdits] = useState({ nombre: '', grupo: '', fechaInicio: '', fechaFin: '', parciales: '3', colorPalette: 'default', icon: 'book' })
   const [unarchivedSaving, setUnarchivedSaving] = useState(false)
   // Archive flow
   const [showArchiveModal, setShowArchiveModal] = useState(false)
@@ -448,7 +439,8 @@ export default function SubjectPage() {
       setUnarchiveEdits({
         nombre: subject.nombre || '',
         grupo: subject.grupo || '',
-        ciclo: subject.ciclo || '',
+        fechaInicio: subject.fechaInicio || '',
+        fechaFin: subject.fechaFin || '',
         parciales: String(subject.parciales || 3),
         colorPalette: subject.colorPalette || 'default',
         icon: subject.icon || 'book',
@@ -518,7 +510,8 @@ export default function SubjectPage() {
         archived: false,
         nombre: unarchiveEdits.nombre.trim() || subject.nombre,
         grupo: unarchiveEdits.grupo.trim(),
-        ciclo: unarchiveEdits.ciclo.trim(),
+        fechaInicio: unarchiveEdits.fechaInicio || '',
+        fechaFin: unarchiveEdits.fechaFin || '',
         parciales: newParciales,
         colorPalette: unarchiveEdits.colorPalette || 'default',
         icon: unarchiveEdits.icon || 'book',
@@ -570,7 +563,8 @@ export default function SubjectPage() {
     setEditSubjectForm({
       nombre: subject?.nombre || '',
       grupo: subject?.grupo || '',
-      ciclo: subject?.ciclo || '',
+      fechaInicio: subject?.fechaInicio || '',
+      fechaFin: subject?.fechaFin || '',
       parciales: String(subject?.parciales || 3),
       colorPalette: subject?.colorPalette || 'default',
       icon: subject?.icon || 'book',
@@ -588,15 +582,17 @@ export default function SubjectPage() {
     }
     setEditingSubject(true)
     try {
-      await updateDoc(doc(db, 'subjects', subjectId), {
+      const subjUpdates = {
         nombre: editSubjectForm.nombre.trim(),
         grupo: editSubjectForm.grupo.trim(),
-        ciclo: editSubjectForm.ciclo.trim(),
+        fechaInicio: editSubjectForm.fechaInicio || '',
+        fechaFin: editSubjectForm.fechaFin || '',
         parciales: newParciales,
         colorPalette: editSubjectForm.colorPalette || 'default',
         icon: editSubjectForm.icon || 'book',
-      })
-      setSubject((s) => ({ ...s, nombre: editSubjectForm.nombre.trim(), grupo: editSubjectForm.grupo.trim(), ciclo: editSubjectForm.ciclo.trim(), parciales: newParciales, colorPalette: editSubjectForm.colorPalette || 'default', icon: editSubjectForm.icon || 'book' }))
+      }
+      await updateDoc(doc(db, 'subjects', subjectId), subjUpdates)
+      setSubject((s) => ({ ...s, ...subjUpdates }))
       toast('Asignatura actualizada')
       setShowEditSubjectModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -618,21 +614,20 @@ export default function SubjectPage() {
 
   function openCopyModal() {
     setCopyForm({ nombre: subject?.nombre || '', grupo: subject?.grupo || '', keepStudents: false, colorPalette: subject?.colorPalette || 'default', icon: subject?.icon || 'book' })
-    setCopyCicloMode('current')
+    setCopyFechas({ fechaInicio: subject?.fechaInicio || '', fechaFin: subject?.fechaFin || '' })
     setShowCopyModal(true)
   }
 
   async function handleCopySubject(e) {
     e.preventDefault()
-    const cicloInfo = getCicloInfo()
-    const ciclo = copyCicloMode === 'current' ? cicloInfo.current : cicloInfo.next
     setCopyingSubject(true)
     try {
       const newId = await copySubject({
         sourceSubjectId: subjectId,
         nombre: copyForm.nombre.trim(),
         grupo: copyForm.grupo.trim(),
-        ciclo,
+        fechaInicio: copyFechas.fechaInicio || '',
+        fechaFin: copyFechas.fechaFin || '',
         parciales: subject?.parciales || 3,
         colorPalette: copyForm.colorPalette || 'default',
         icon: copyForm.icon || 'book',
@@ -754,7 +749,7 @@ export default function SubjectPage() {
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">Archivada</span>
                 )}
               </div>
-              <p className="text-slate-400 text-xs">{subject?.ciclo}</p>
+              <p className="text-slate-400 text-xs">{subjectPeriodLabel(subject)}</p>
             </div>
             <button type="button" onClick={() => setShowQR(true)}
               title="Código QR de acceso"
@@ -1518,10 +1513,21 @@ export default function SubjectPage() {
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Ciclo escolar</label>
-                <input type="text" value={editSubjectForm.ciclo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, ciclo: e.target.value }))}
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
-                  placeholder="Ej: 2024-2025" />
+                <label className="block text-sm font-medium text-muted mb-1">
+                  Fechas <span className="text-slate-400 font-normal text-xs">(opcional)</span>
+                </label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <span className="block text-xs text-slate-400 mb-1">Inicio</span>
+                    <input type="date" value={editSubjectForm.fechaInicio} onChange={(e) => setEditSubjectForm((f) => ({ ...f, fechaInicio: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                  </div>
+                  <div className="flex-1">
+                    <span className="block text-xs text-slate-400 mb-1">Fin</span>
+                    <input type="date" value={editSubjectForm.fechaFin} onChange={(e) => setEditSubjectForm((f) => ({ ...f, fechaFin: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Número de parciales</label>
@@ -1573,18 +1579,20 @@ export default function SubjectPage() {
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Período escolar</label>
-                <div className="flex rounded overflow-hidden border border-outline-variant">
-                  {[
-                    { label: 'Período actual', mode: 'current', value: getCicloInfo().current },
-                    { label: 'Siguiente', mode: 'next', value: getCicloInfo().next },
-                  ].map(({ label, mode, value }, i) => (
-                    <button key={mode} type="button" onClick={() => setCopyCicloMode(mode)}
-                      className={`flex-1 py-2.5 px-2 text-center transition-colors ${i > 0 ? 'border-l border-outline-variant' : ''} ${copyCicloMode === mode ? 'bg-accent text-white' : 'bg-surface text-muted hover:bg-surface-container'}`}>
-                      <span className={`block text-xs mb-0.5 ${copyCicloMode === mode ? 'text-accent-light' : 'text-slate-400'}`}>{label}</span>
-                      <span className="block text-sm font-semibold">{value}</span>
-                    </button>
-                  ))}
+                <label className="block text-sm font-medium text-muted mb-1">
+                  Fechas <span className="text-slate-400 font-normal text-xs">(opcional)</span>
+                </label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <span className="block text-xs text-slate-400 mb-1">Inicio</span>
+                    <input type="date" value={copyFechas.fechaInicio} onChange={(e) => setCopyFechas((f) => ({ ...f, fechaInicio: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                  </div>
+                  <div className="flex-1">
+                    <span className="block text-xs text-slate-400 mb-1">Fin</span>
+                    <input type="date" value={copyFechas.fechaFin} onChange={(e) => setCopyFechas((f) => ({ ...f, fechaFin: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                  </div>
                 </div>
               </div>
               <div>
@@ -1712,8 +1720,18 @@ export default function SubjectPage() {
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Asignatura" />
                   <input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))}
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
-                  <input type="text" value={unarchiveEdits.ciclo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, ciclo: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Ciclo escolar" />
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <span className="block text-xs text-slate-400 mb-1">Inicio</span>
+                      <input type="date" value={unarchiveEdits.fechaInicio} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, fechaInicio: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    </div>
+                    <div className="flex-1">
+                      <span className="block text-xs text-slate-400 mb-1">Fin</span>
+                      <input type="date" value={unarchiveEdits.fechaFin} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, fechaFin: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    </div>
+                  </div>
                   <select value={unarchiveEdits.parciales} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, parciales: e.target.value }))}
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface">
                     {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}

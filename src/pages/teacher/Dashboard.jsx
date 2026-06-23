@@ -15,6 +15,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { Plus, BookOpen, ChevronRight, X, CreditCard, ArrowUpDown } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
@@ -23,16 +24,6 @@ import { calcDaysRemaining } from '../../utils/subscriptionHelpers'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
-}
-
-function getCicloInfo() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
-  if (month >= 8) {
-    return { current: `AGO ${year}-ENE ${year + 1}`, next: `FEB ${year + 1}-JUL ${year + 1}` }
-  }
-  return { current: `FEB ${year}-JUL ${year}`, next: `AGO ${year}-ENE ${year + 1}` }
 }
 
 export default function TeacherDashboard() {
@@ -58,7 +49,8 @@ export default function TeacherDashboard() {
   const [newSubjectParciales, setNewSubjectParciales] = useState(3)
   const [newSubjectPalette, setNewSubjectPalette] = useState('default')
   const [newSubjectIcon, setNewSubjectIcon] = useState('book')
-  const [inlineCicloMode, setInlineCicloMode] = useState('current')
+  const [newSubjectFechaInicio, setNewSubjectFechaInicio] = useState('')
+  const [newSubjectFechaFin, setNewSubjectFechaFin] = useState('')
   const [creatingSubject, setCreatingSubject] = useState(false)
 
   // Subject list display order toggle (persists across sessions)
@@ -68,9 +60,6 @@ export default function TeacherDashboard() {
     setNameOrder(next)
     localStorage.setItem('subjectNameOrder', next)
   }
-
-  const cicloInfo = getCicloInfo()
-  const inlineSelectedCiclo = inlineCicloMode === 'current' ? cicloInfo.current : cicloInfo.next
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -91,7 +80,7 @@ export default function TeacherDashboard() {
         .sort((a, b) => {
           const nc = (a.nombre || '').localeCompare(b.nombre || '', 'es')
           if (nc !== 0) return nc
-          return (a.ciclo || '').localeCompare(b.ciclo || '', 'es')
+          return (a.grupo || '').localeCompare(b.grupo || '', 'es')
         })
       setSubjects(subList)
     } catch (err) {
@@ -112,7 +101,8 @@ export default function TeacherDashboard() {
         docenteId: currentUser.uid,
         escuelaId: userProfile.escuelaId,
         parciales: newSubjectParciales,
-        ciclo: inlineSelectedCiclo,
+        fechaInicio: newSubjectFechaInicio || '',
+        fechaFin: newSubjectFechaFin || '',
         colorPalette: newSubjectPalette,
         icon: newSubjectIcon,
         accessCode: generateAccessCode(),
@@ -125,7 +115,7 @@ export default function TeacherDashboard() {
           .sort((a, b) => {
             const nc = (a.nombre || '').localeCompare(b.nombre || '', 'es')
             if (nc !== 0) return nc
-            return (a.ciclo || '').localeCompare(b.ciclo || '', 'es')
+            return (a.grupo || '').localeCompare(b.grupo || '', 'es')
           })
       )
       setShowSubjectModal(false)
@@ -134,7 +124,8 @@ export default function TeacherDashboard() {
       setNewSubjectParciales(3)
       setNewSubjectPalette('default')
       setNewSubjectIcon('book')
-      setInlineCicloMode('current')
+      setNewSubjectFechaInicio('')
+      setNewSubjectFechaFin('')
       toast('Asignatura creada')
       navigate(`/subject/${ref.id}`)
     } catch (err) {
@@ -211,8 +202,8 @@ export default function TeacherDashboard() {
                           </span>
                         )}
                       </div>
-                      {s.ciclo && (
-                        <p className="text-xs text-slate-400 mt-0.5">{s.ciclo}</p>
+                      {subjectPeriodLabel(s) && (
+                        <p className="text-xs text-slate-400 mt-0.5">{subjectPeriodLabel(s)}</p>
                       )}
                     </div>
                     <ChevronRight size={18} className="text-slate-300 flex-shrink-0" />
@@ -271,26 +262,30 @@ export default function TeacherDashboard() {
                 />
               </div>
 
-              {/* Período */}
+              {/* Fechas (opcionales) */}
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Período escolar</label>
-                <div className="flex rounded overflow-hidden border border-outline-variant">
-                  {[
-                    { label: 'Período actual', mode: 'current', value: cicloInfo.current },
-                    { label: 'Siguiente', mode: 'next', value: cicloInfo.next },
-                  ].map(({ label, mode, value }, i) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setInlineCicloMode(mode)}
-                      className={`flex-1 py-2.5 px-2 text-center transition-colors ${i > 0 ? 'border-l border-outline-variant' : ''} ${
-                        inlineCicloMode === mode ? 'bg-blue-600 text-white' : 'bg-surface text-muted hover:bg-surface-container'
-                      }`}
-                    >
-                      <span className={`block text-xs mb-0.5 ${inlineCicloMode === mode ? 'text-blue-200' : 'text-slate-400'}`}>{label}</span>
-                      <span className="block text-sm font-semibold">{value}</span>
-                    </button>
-                  ))}
+                <label className="block text-sm font-medium text-muted mb-1">
+                  Fechas <span className="text-slate-400 font-normal text-xs">(opcional)</span>
+                </label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <span className="block text-xs text-slate-400 mb-1">Inicio</span>
+                    <input
+                      type="date"
+                      value={newSubjectFechaInicio}
+                      onChange={(e) => setNewSubjectFechaInicio(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <span className="block text-xs text-slate-400 mb-1">Fin</span>
+                    <input
+                      type="date"
+                      value={newSubjectFechaFin}
+                      onChange={(e) => setNewSubjectFechaFin(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                    />
+                  </div>
                 </div>
               </div>
 

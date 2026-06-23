@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
+import { subjectPeriodLabel } from './dateRange'
 
 export function downloadStudentTemplate() {
   // Column 1: list number. Column 2: full name in a SINGLE cell, in the order
@@ -96,7 +97,8 @@ export function exportSubjectGrades({
 
   // Row 0: Title
   const titleRow = Array(totalCols).fill('')
-  titleRow[0] = `${subjectDisplayName(subject)}   (${subject.ciclo})`
+  const periodo = subjectPeriodLabel(subject)
+  titleRow[0] = periodo ? `${subjectDisplayName(subject)}   (${periodo})` : subjectDisplayName(subject)
 
   // Row 2: Section headers
   const sectionRow = Array(totalCols).fill('')

@@ -1,6 +1,7 @@
 // Lazy-loads jsPDF + autotable + qrcode only when the teacher actually exports,
 // so these heavy libs stay out of the main bundle.
 import { subjectDisplayName } from './subjectName'
+import { subjectPeriodLabel } from './dateRange'
 
 function fullName(s) {
   return [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ').trim()
@@ -28,7 +29,8 @@ export async function exportStudentListPDF({ subject, students, activationUrl })
   doc.setFont(undefined, 'normal')
   doc.setFontSize(10)
   doc.setTextColor(110)
-  if (subject.ciclo) doc.text(`Ciclo: ${subject.ciclo}`, 14, 27)
+  const periodo = subjectPeriodLabel(subject)
+  if (periodo) doc.text(`Periodo: ${periodo}`, 14, 27)
 
   doc.setFontSize(13)
   doc.setTextColor(20)
