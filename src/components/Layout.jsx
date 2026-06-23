@@ -24,6 +24,7 @@ import { useSubscription } from '../hooks/useSubscription'
 import { calcDaysRemaining } from '../utils/subscriptionHelpers'
 import { subjectDisplayName } from '../utils/subjectName'
 import SubjectIcon from './SubjectIcon'
+import PlanCompareModal from './PlanCompareModal'
 
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
@@ -32,6 +33,7 @@ export default function TeacherLayout({ children }) {
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
+  const [showPlanCompare, setShowPlanCompare] = useState(false)
 
   // Real-time subjects: any create/edit/archive/duplicate/delete reflects instantly
   // in the sidebar (no manual refresh).
@@ -57,7 +59,7 @@ export default function TeacherLayout({ children }) {
   const activeSubjects = subjects.filter((s) => !s.archived)
   const archivedSubjects = subjects.filter((s) => s.archived)
 
-  const { subscription } = useSubscription()
+  const { subscription, plans } = useSubscription()
   const trialDays = subscription?.status === 'trial'
     ? calcDaysRemaining(subscription.fechaVencimiento)
     : null
@@ -118,14 +120,18 @@ export default function TeacherLayout({ children }) {
             <ChevronRight size={14} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
           </NavLink>
 
-          {/* Trial banner — subtle, translucent over the blue */}
+          {/* Trial banner — subtle, translucent over the blue. Opens plan comparison. */}
           {trialDays !== null && trialDays > 0 && (
-            <NavLink to="/profile" className="mx-2 mt-1 px-3 py-1.5 flex items-center gap-2 rounded hover:bg-white/10 transition-colors">
+            <button
+              type="button"
+              onClick={() => setShowPlanCompare(true)}
+              className="mx-2 mt-1 px-3 py-1.5 flex items-center gap-2 rounded hover:bg-white/10 transition-colors text-left w-[calc(100%-1rem)]"
+            >
               <Timer size={13} className="text-white/80 flex-shrink-0" />
               <p className="text-metadata text-white/80 leading-tight">
                 Te quedan <strong className="text-white">{trialDays} día{trialDays !== 1 ? 's' : ''}</strong> de prueba
               </p>
-            </NavLink>
+            </button>
           )}
 
           {/* Subjects header → goes to the full subjects list */}
@@ -245,6 +251,14 @@ export default function TeacherLayout({ children }) {
           </NavLink>
         </div>
       </nav>
+
+      {showPlanCompare && (
+        <PlanCompareModal
+          plans={plans}
+          trialDays={trialDays ?? 0}
+          onClose={() => setShowPlanCompare(false)}
+        />
+      )}
     </div>
   )
 }
