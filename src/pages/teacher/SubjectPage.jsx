@@ -9,8 +9,8 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { exportSubjectGrades, parseStudentExcel, exportStudentListExcel, downloadStudentTemplate } from '../../utils/excel'
-import { exportStudentListPDF } from '../../utils/pdf'
+import { exportSubjectGrades, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
+import { exportStudentListPDF, exportSubjectGradesPDF, exportCredentialsPDF } from '../../utils/pdf'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
@@ -76,6 +76,9 @@ export default function SubjectPage() {
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportingGradesPdf, setExportingGradesPdf] = useState(false)
+  const [generatingCredentials, setGeneratingCredentials] = useState(false)
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false)
   const [zipDownloading, setZipDownloading] = useState(false)
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
 
@@ -684,6 +687,69 @@ export default function SubjectPage() {
     }
   }
 
+  // R12: grades as PDF (same data as the Excel export).
+  async function handleExportGradesPDF() {
+    if (!subject) return; setExportingGradesPdf(true)
+    try {
+      let students = groupStudents
+      let subMap = gradeSubMap
+      if (!groupStudentsLoaded) {
+        const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
+        students = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        setGroupStudents(students); setGroupStudentsLoaded(true)
+      }
+      if (!gradesLoaded) {
+        const subDocs = await fetchSubmissionsForActivities(activities.map((a) => a.id))
+        subMap = {}
+        subDocs.forEach((d) => { const data = d.data(); subMap[`${data.alumnoId}-${data.actividadId}`] = data })
+        setGradeSubMap(subMap); setGradesLoaded(true)
+      }
+      await exportSubjectGradesPDF({ subject, activities, students, submissions: Object.values(subMap) })
+    } catch (err) { toast('Error al exportar PDF: ' + err.message, 'error') }
+    finally { setExportingGradesPdf(false) }
+  }
+
+  // R16: generate a temp access code for every student who lacks one, then download
+  // the credentials list (#, name, username, temp password).
+  async function handleGenerateCredentials() {
+    if (!subject) return
+    setGeneratingCredentials(true)
+    try {
+      let students = groupStudents
+      if (!groupStudentsLoaded) {
+        const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
+        students = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        setGroupStudents(students); setGroupStudentsLoaded(true)
+      }
+      if (students.length === 0) { toast('No hay alumnos en esta asignatura', 'error'); return }
+
+      // Students without a current temp code (e.g. they already activated → resetPassword:null).
+      const needCode = students.filter((s) => !s.resetPassword)
+      if (needCode.length > 0) {
+        const updated = {}
+        const LIMIT = 490
+        for (let i = 0; i < needCode.length; i += LIMIT) {
+          const batch = writeBatch(db)
+          needCode.slice(i, i + LIMIT).forEach((s) => {
+            const tempPwd = generateResetPassword()
+            updated[s.id] = tempPwd
+            batch.update(doc(db, 'students', s.id), { activado: false, resetPassword: tempPwd })
+          })
+          await batch.commit()
+        }
+        students = students.map((s) => updated[s.id] ? { ...s, activado: false, resetPassword: updated[s.id] } : s)
+        setGroupStudents(students)
+      }
+
+      await exportCredentialsPDF({ subject, students, activationUrl })
+      toast(needCode.length > 0
+        ? `${needCode.length} clave(s) generada(s) · credenciales descargadas`
+        : 'Credenciales descargadas')
+      setShowCredentialsModal(false)
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setGeneratingCredentials(false) }
+  }
+
   // ── Computed ───────────────────────────────────────────────────────
   const PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
 
@@ -1014,8 +1080,63 @@ export default function SubjectPage() {
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
         <div className="px-4 py-4 space-y-3">
-          {/* Search + add */}
-          <div className="flex gap-2">
+          {/* 1 — Agregar alumnos con la plantilla de Excel (paso 1: descargar, paso 2: subir) */}
+          <div>
+            <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar alumnos con Excel</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={downloadStudentTemplate}
+                title="Descarga un Excel vacío con el formato correcto para pegar la lista de tus alumnos"
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
+              >
+                <Download size={15} /> Descargar plantilla en Excel para pegar datos de alumnos
+              </button>
+              <label
+                title="Sube la plantilla de Excel ya llena para registrar a todos los alumnos de una vez"
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded text-sm font-medium text-white transition-colors cursor-pointer ${savingStudent ? 'bg-accent/60' : 'bg-accent hover:bg-accent-hover'}`}
+              >
+                {savingStudent ? <Spinner size="sm" /> : <Upload size={15} />} Subir la plantilla de Excel con los datos de los alumnos
+                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
+              </label>
+            </div>
+          </div>
+
+          {/* 2 — Descargar calificaciones (Excel / PDF) */}
+          <div>
+            <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                title="Descarga las calificaciones de todos los alumnos en una hoja de Excel"
+                className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
+              >
+                {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={15} />} Excel
+              </button>
+              <button
+                onClick={handleExportGradesPDF}
+                disabled={exportingGradesPdf}
+                title="Descarga las calificaciones de todos los alumnos en un PDF imprimible"
+                className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
+              >
+                {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={15} />} PDF
+              </button>
+            </div>
+          </div>
+
+          {/* 3 — Generar credenciales de acceso (R16) */}
+          <button
+            type="button"
+            onClick={() => setShowCredentialsModal(true)}
+            title="Genera y descarga un listado con el usuario y la clave de acceso de cada alumno"
+            className="w-full flex items-center justify-center gap-2 py-2.5 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
+          >
+            <KeyRound size={15} /> Generar credenciales de acceso
+          </button>
+
+          {/* 4 — Buscar alumno + agregar manualmente */}
+          <div className="flex gap-2 pt-1">
             <div className="flex-1 relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -1027,40 +1148,12 @@ export default function SubjectPage() {
             </div>
             <button
               onClick={() => setShowAddStudent(true)}
+              title="Agregar un alumno manualmente"
               className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
             >
               <UserPlus size={18} />
             </button>
           </div>
-
-          {/* Excel actions */}
-          <div className="flex gap-2">
-            <label className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface cursor-pointer transition-colors">
-              <Upload size={15} /> Importar Excel
-              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
-            </label>
-            <button
-              onClick={() => exportStudentListExcel(groupStudents)}
-              disabled={groupStudents.length === 0}
-              className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
-            >
-              <Download size={15} /> Excel
-            </button>
-            <button
-              onClick={handleExportListPDF}
-              disabled={groupStudents.length === 0 || exportingPdf}
-              className="flex-1 flex items-center justify-center gap-2 py-2 border border-accent text-accent rounded text-sm hover:bg-accent-light transition-colors disabled:opacity-40"
-            >
-              {exportingPdf ? <Spinner size="sm" /> : <Download size={15} />} PDF
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={downloadStudentTemplate}
-            className="w-full flex items-center justify-center gap-2 py-2 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
-          >
-            <Download size={15} /> Descargar plantilla de importación
-          </button>
 
           {/* Student list */}
           {!groupStudentsLoaded ? (
@@ -1365,6 +1458,43 @@ export default function SubjectPage() {
               >
                 <RotateCcw size={16} />
                 Restablecer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Generate credentials modal (R16) ── */}
+      {showCredentialsModal && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !generatingCredentials && setShowCredentialsModal(false)} />
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-4">
+              <KeyRound size={22} className="text-accent" />
+            </div>
+            <h3 className="text-lg font-semibold text-center text-on-surface">Generar credenciales de acceso</h3>
+            <p className="text-sm text-muted text-center mt-2">
+              Se descargará un PDF con el <strong>usuario</strong> y la <strong>clave temporal</strong> de cada alumno
+              para que puedan entrar por primera vez.
+            </p>
+            <p className="text-xs text-muted text-center mt-2">
+              A los alumnos que ya entraron se les generará una nueva clave temporal y deberán activar su cuenta de nuevo.
+            </p>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowCredentialsModal(false)}
+                disabled={generatingCredentials}
+                className="flex-1 py-3 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGenerateCredentials}
+                disabled={generatingCredentials}
+                className="flex-1 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {generatingCredentials ? <Spinner size="sm" /> : <Download size={16} />}
+                {generatingCredentials ? 'Generando…' : 'Generar y descargar'}
               </button>
             </div>
           </div>
