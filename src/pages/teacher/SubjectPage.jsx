@@ -640,10 +640,10 @@ export default function SubjectPage() {
         docenteId: currentUser.uid,
         escuelaId: userProfile?.escuelaId,
       })
-      toast('Asignatura copiada')
+      toast('Asignatura duplicada')
       setShowCopyModal(false)
       navigate(`/subject/${newId}`)
-    } catch (err) { toast('Error al copiar: ' + err.message, 'error') }
+    } catch (err) { toast('Error al duplicar: ' + err.message, 'error') }
     finally { setCopyingSubject(false) }
   }
 
@@ -774,22 +774,22 @@ export default function SubjectPage() {
                 : <><Hash size={19} className="flex-shrink-0" /><span>{subject?.accessCode}</span></>}
             </button>
             <button type="button" onClick={openEditSubject}
-              title="Editar asignatura"
+              title="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
               <Pencil size={19} />
             </button>
             <button type="button" onClick={openCopyModal}
-              title="Copiar asignatura"
+              title="Duplicar esta asignatura (con o sin la lista de alumnos)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
               <Copy size={19} />
             </button>
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
-              title={subject?.archived ? 'Restaurar' : 'Archivar'}
+              title={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
               className="p-2 text-slate-400 hover:text-amber-600 rounded transition-colors disabled:opacity-50 flex-shrink-0">
               {subject?.archived ? <ArchiveRestore size={19} /> : <Archive size={19} />}
             </button>
             <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
-              title="Eliminar asignatura"
+              title="Eliminar la asignatura permanentemente (no se puede deshacer)"
               className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
               <Trash2 size={19} />
             </button>
@@ -797,12 +797,12 @@ export default function SubjectPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 mt-4 bg-surface-container p-1 rounded">
-            {['actividades', 'alumnos', 'calificaciones'].map((t) => (
+            {['actividades', 'calificaciones', 'alumnos'].map((t) => (
               <button key={t} onClick={() => switchTab(t)}
                 className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
-                  activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:text-muted'
+                  activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:text-on-surface'
                 }`}>
-                {t === 'actividades' ? 'Actividades' : t === 'alumnos' ? 'Alumnos' : 'Calificaciones'}
+                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : 'Alumnos'}
               </button>
             ))}
           </div>
@@ -1203,7 +1203,7 @@ export default function SubjectPage() {
                       className="accent-[var(--accent)]" />
                     <div>
                       <p className="text-sm font-medium text-on-surface">Ocultar</p>
-                      <p className="text-xs text-muted">Solo tú la ves; alumnos no</p>
+                      <p className="text-xs text-muted">Solo tú lo ves, hasta que lo muestres o programes</p>
                     </div>
                   </label>
                   <label className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface"
@@ -1302,13 +1302,14 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowQR(false)} />
           <div className="relative bg-surface-card w-full max-w-xs rounded-card p-6 shadow-2xl text-center">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">QR de acceso</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold">Acceso de alumnos</h3>
               <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
             </div>
-            <p className="text-sm text-muted mb-4">
-              Proyecta este QR en clase para que tus alumnos activen su cuenta.
+            <p className="text-sm text-muted mb-4 text-left">
+              Estas son <strong>3 formas de acceso para tus alumnos</strong>. No necesitas usar las tres: comparte <strong>la que prefieras</strong> y todas llevan a lo mismo. QR para proyectar en clase, link para enviar por chat, o el código para dictarlo.
             </p>
+            <p className="text-label-caps text-muted uppercase mb-1 text-left">Código QR de acceso para alumnos</p>
             <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-3">
               <QRCode value={activationUrl} size={180} />
             </div>
@@ -1318,14 +1319,14 @@ export default function SubjectPage() {
                 className={`w-full flex items-center justify-center gap-2 py-2 rounded border text-sm font-semibold transition-colors ${copiedLink ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'border-outline-variant text-muted hover:bg-surface'}`}
               >
                 {copiedLink ? <CheckIcon size={15} /> : <Link size={15} />}
-                {copiedLink ? 'Link copiado' : 'Copiar link de activación'}
+                {copiedLink ? 'Link copiado' : 'Copiar link de activación para alumnos'}
               </button>
               <button
                 onClick={copyAccessCode}
                 className={`w-full flex items-center justify-center gap-2 py-2 rounded border text-sm font-semibold transition-colors ${copiedCode ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'border-outline-variant text-muted hover:bg-surface'}`}
               >
                 {copiedCode ? <CheckIcon size={15} /> : <Hash size={15} />}
-                {copiedCode ? 'Código copiado' : `Copiar código: ${subject.accessCode}`}
+                {copiedCode ? 'Código copiado' : `Código de acceso para alumnos: ${subject.accessCode}`}
               </button>
               <button
                 onClick={handleExportListPDF}
@@ -1551,7 +1552,7 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowCopyModal(false)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold">Copiar asignatura</h3>
+              <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
               <button onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
             </div>
             <form onSubmit={handleCopySubject} className="space-y-4">
@@ -1600,11 +1601,11 @@ export default function SubjectPage() {
                   <p className="text-xs text-slate-400">Se generan nuevas credenciales; alumnos deberán reactivar su cuenta</p>
                 </div>
               </label>
-              <p className="text-xs text-slate-400">Se copiarán todas las actividades. Las calificaciones y entregas no se copian.</p>
+              <p className="text-xs text-slate-400">Se duplicarán todas las actividades. Las calificaciones y entregas no se copian.</p>
               <button type="submit" disabled={copyingSubject}
                 className="w-full py-3 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
                 {copyingSubject ? <Spinner size="sm" /> : <Copy size={16} />}
-                {copyingSubject ? 'Copiando…' : 'Crear copia'}
+                {copyingSubject ? 'Duplicando…' : 'Duplicar asignatura'}
               </button>
             </form>
           </div>

@@ -99,7 +99,7 @@ export default function Register() {
       // Create 60-day trial subscription
       const trialStart = new Date()
       const trialEnd = new Date(trialStart)
-      trialEnd.setDate(trialEnd.getDate() + 60)
+      trialEnd.setDate(trialEnd.getDate() + 45)
       await addDoc(collection(db, 'subscriptions'), {
         docenteId: cred.user.uid,
         planId: '',
