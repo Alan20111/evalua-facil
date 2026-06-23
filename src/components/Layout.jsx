@@ -66,19 +66,19 @@ export default function TeacherLayout({ children }) {
   const initials = displayName.charAt(0).toUpperCase()
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface">
       {/* Mobile top bar */}
-      <header className="md:hidden sticky top-0 z-30 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-sm">
+      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between shadow-card">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold">
             EF
           </div>
-          <span className="font-semibold text-slate-800 text-sm">Evalúa Fácil</span>
+          <span className="font-semibold text-on-surface text-body-sm">Evalúa Fácil</span>
         </div>
         <button
           type="button"
           onClick={handleLogout}
-          className="p-2 text-slate-400 hover:text-red-500 rounded-lg transition-colors"
+          className="p-2 text-muted hover:text-error rounded transition-colors"
         >
           <LogOut size={18} />
         </button>
@@ -86,62 +86,53 @@ export default function TeacherLayout({ children }) {
 
       {/* Desktop: sidebar + content */}
       <div className="flex">
-        {/* Sidebar — desktop only */}
-        <aside className="hidden md:flex flex-col w-64 h-screen sticky top-0 bg-white border-r border-slate-200 flex-shrink-0 z-20">
+        {/* Sidebar — desktop only (solid accent plane) */}
+        <aside className="hidden md:flex flex-col w-[280px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
           {/* Logo */}
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          <div className="px-5 py-4 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded bg-white/15 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
               EF
             </div>
-            <span className="font-bold text-slate-800">Evalúa Fácil</span>
+            <span className="font-bold text-white">Evalúa Fácil</span>
           </div>
 
           {/* Profile button */}
           <NavLink
             to="/profile"
-            className="flex items-center gap-3 px-3 py-3 mx-2 mt-2 rounded-xl hover:bg-slate-50 transition-colors group"
+            className="flex items-center gap-3 px-3 py-3 mx-2 mt-1 rounded hover:bg-white/10 transition-colors group"
           >
-            <div className="w-9 h-9 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-white/20 overflow-hidden flex items-center justify-center flex-shrink-0">
               {userProfile?.photoURL ? (
-                <img
-                  src={userProfile.photoURL}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
+                <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-sm font-bold text-blue-600">{initials}</span>
+                <span className="text-sm font-bold text-white">{initials}</span>
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-slate-900 truncate">{displayName}</p>
-              <p className="text-xs text-slate-400 truncate">
+              <p className="text-body-sm font-semibold text-white truncate">{displayName}</p>
+              <p className="text-metadata text-white/70 truncate">
                 {userProfile?.schoolName || 'Mi perfil'}
               </p>
             </div>
-            <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-500 flex-shrink-0" />
+            <ChevronRight size={14} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
           </NavLink>
 
-          {/* Trial banner — subtle, blue, no background */}
+          {/* Trial banner — subtle, translucent over the blue */}
           {trialDays !== null && trialDays > 0 && (
-            <NavLink to="/profile" className="mx-2 mt-1 px-3 py-1.5 flex items-center gap-2 rounded-xl hover:bg-blue-50 transition-colors">
-              <Timer size={13} className="text-blue-600 flex-shrink-0" />
-              <p className="text-xs text-blue-600 leading-tight">
-                Te quedan <strong>{trialDays} día{trialDays !== 1 ? 's' : ''}</strong> de prueba
+            <NavLink to="/profile" className="mx-2 mt-1 px-3 py-1.5 flex items-center gap-2 rounded hover:bg-white/10 transition-colors">
+              <Timer size={13} className="text-white/80 flex-shrink-0" />
+              <p className="text-metadata text-white/80 leading-tight">
+                Te quedan <strong className="text-white">{trialDays} día{trialDays !== 1 ? 's' : ''}</strong> de prueba
               </p>
             </NavLink>
           )}
 
           {/* Subjects header → goes to the full subjects list */}
-          <NavLink
-            to="/dashboard"
-            className={({ isActive }) =>
-              `mx-2 px-2 pt-5 pb-1 flex items-center justify-between rounded-lg group ${isActive ? '' : ''}`
-            }
-          >
-            <span className="text-xs font-semibold text-slate-400 group-hover:text-blue-600 uppercase tracking-wider transition-colors">
+          <NavLink to="/dashboard" className="mx-2 px-2 pt-5 pb-1 flex items-center justify-between rounded group">
+            <span className="text-label-caps text-white/70 group-hover:text-white uppercase transition-colors">
               Asignaturas
             </span>
-            <ChevronRight size={13} className="text-slate-300 group-hover:text-blue-500 transition-colors" />
+            <ChevronRight size={13} className="text-white/50 group-hover:text-white transition-colors" />
           </NavLink>
 
           {/* Subject list */}
@@ -151,23 +142,19 @@ export default function TeacherLayout({ children }) {
                 <Spinner size="sm" />
               </div>
             ) : activeSubjects.length === 0 ? (
-              <p className="text-xs text-slate-400 px-3 py-2">Sin asignaturas aún</p>
+              <p className="text-body-sm text-white/70 px-3 py-2">Sin asignaturas aún</p>
             ) : (
               activeSubjects.map((s) => (
                 <NavLink
                   key={s.id}
                   to={`/subject/${s.id}`}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors ${
-                      isActive
-                        ? 'bg-blue-50 text-blue-700 font-semibold'
-                        : 'text-slate-700 hover:bg-slate-50'
+                    `flex items-center gap-2 px-3 py-2 rounded text-body-sm transition-colors ${
+                      isActive ? 'bg-white text-accent font-semibold' : 'text-white/90 hover:bg-white/10'
                     }`
                   }
                 >
-                  <span data-subject-palette={s.colorPalette || 'default'} className="flex-shrink-0 text-accent">
-                    <SubjectIcon iconKey={s.icon} size={14} />
-                  </span>
+                  <SubjectIcon iconKey={s.icon} size={15} className="flex-shrink-0" />
                   <span className="truncate">{subjectDisplayName(s)}</span>
                 </NavLink>
               ))
@@ -177,9 +164,9 @@ export default function TeacherLayout({ children }) {
             <button
               type="button"
               onClick={() => navigate('/dashboard', { state: { openCreate: true } })}
-              className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-blue-600 hover:bg-blue-50 transition-colors mt-1"
+              className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
             >
-              <Plus size={14} />
+              <Plus size={15} />
               Nueva asignatura…
             </button>
 
@@ -189,7 +176,7 @@ export default function TeacherLayout({ children }) {
                 <button
                   type="button"
                   onClick={() => setShowArchived((a) => !a)}
-                  className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-slate-400 hover:bg-slate-50 transition-colors mt-1"
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors mt-1"
                 >
                   <Archive size={13} />
                   Archivadas ({archivedSubjects.length})
@@ -200,10 +187,8 @@ export default function TeacherLayout({ children }) {
                       key={s.id}
                       to={`/subject/${s.id}`}
                       className={({ isActive }) =>
-                        `flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors opacity-60 ${
-                          isActive
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'text-slate-500 hover:bg-slate-50'
+                        `flex items-center gap-2 px-3 py-2 rounded text-body-sm transition-colors ${
+                          isActive ? 'bg-white text-accent' : 'text-white/70 hover:bg-white/10'
                         }`
                       }
                     >
@@ -216,13 +201,13 @@ export default function TeacherLayout({ children }) {
           </div>
 
           {/* Logout */}
-          <div className="px-2 py-3 border-t border-slate-100">
+          <div className="px-2 py-3 border-t border-white/15">
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
             >
-              <LogOut size={14} />
+              <LogOut size={15} />
               Cerrar sesión
             </button>
           </div>
@@ -233,13 +218,13 @@ export default function TeacherLayout({ children }) {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-100 safe-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom">
         <div className="flex">
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
-                isActive ? 'text-blue-600' : 'text-slate-400'
+              `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
+                isActive ? 'text-accent' : 'text-muted'
               }`
             }
           >
@@ -249,8 +234,8 @@ export default function TeacherLayout({ children }) {
           <NavLink
             to="/profile"
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2 gap-0.5 text-xs transition-colors ${
-                isActive ? 'text-blue-600' : 'text-slate-400'
+              `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
+                isActive ? 'text-accent' : 'text-muted'
               }`
             }
           >
