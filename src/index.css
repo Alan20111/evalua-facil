@@ -4,11 +4,22 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
-    font-family: system-ui, -apple-system, sans-serif;
+    @apply bg-surface text-on-surface font-sans antialiased;
   }
   #root {
     @apply min-h-screen;
+  }
+
+  /* ── Luminous neutral / surface tokens ─────────────────────────── */
+  :root {
+    --surface: #faf8ff;
+    --surface-dim: #d2d9f4;
+    --surface-container: #eaedff;
+    --surface-card: #ffffff;       /* surface-container-lowest */
+    --on-surface: #131b2e;
+    --on-surface-variant: #414753;
+    --outline: #717785;
+    --outline-variant: #c0c6d5;
   }
 
   /* ── Accent theming ──────────────────────────────────────────────
@@ -16,9 +27,9 @@
      subject inside that subject's pages. Identity elements use the
      `accent` / `accent-hover` / `accent-light` Tailwind classes. */
   :root {
-    --accent: #2563eb;        /* blue-600 (docente / default) */
-    --accent-hover: #1d4ed8;  /* blue-700 */
-    --accent-light: #dbeafe;  /* blue-100 */
+    --accent: #2563eb;        /* electric blue (docente / default) */
+    --accent-hover: #1d4ed8;
+    --accent-light: #dbeafe;
   }
   [data-role='docente'] {
     --accent: #2563eb;
