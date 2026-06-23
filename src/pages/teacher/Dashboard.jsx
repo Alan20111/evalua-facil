@@ -69,6 +69,17 @@ export default function TeacherDashboard() {
     loadAll()
   }, [currentUser])
 
+  // Open the "Nueva asignatura" modal when navigated here with openCreate — including
+  // when ALREADY on /dashboard (sidebar button), where the useState initializer above
+  // does not re-run. location.key changes on every navigation, so this fires each time.
+  useEffect(() => {
+    if (location.state?.openCreate) {
+      setShowSubjectModal(true)
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key])
+
   async function loadAll() {
     setLoading(true)
     try {
