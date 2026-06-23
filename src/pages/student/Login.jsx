@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { signInWithEmailAndPassword } from 'firebase/auth'
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore'
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
+import { collection, query, where, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
-import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { studentEmail } from '../../utils/generate'
 import { GraduationCap, Hash, ChevronDown } from 'lucide-react'
@@ -20,38 +19,66 @@ export default function StudentLogin() {
   const [codeInput, setCodeInput] = useState('')
 
   const navigate = useNavigate()
-  const toast = useToast()
+
+  // Marks the student doc + users doc as activated and routes in.
+  async function finishAccess(docId, student, authUser) {
+    await Promise.all([
+      setDoc(doc(db, 'users', authUser.uid), {
+        role: 'alumno',
+        username: student.username,
+        escuelaId: student.escuelaId,
+        studentId: docId,
+        nombre: student.nombre,
+        apellidoPaterno: student.apellidoPaterno,
+        apellidoMaterno: student.apellidoMaterno,
+      }, { merge: true }),
+      updateDoc(doc(db, 'students', docId), { activado: true, uid: authUser.uid, resetPassword: null }),
+    ])
+    navigate('/alumno/dashboard')
+  }
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
+      const uname = username.trim().toUpperCase()
       const stuSnap = await getDocs(
-        query(collection(db, 'students'), where('username', '==', username.trim().toUpperCase()))
+        query(collection(db, 'students'), where('username', '==', uname))
       )
       if (stuSnap.empty) {
-        setError('Usuario no encontrado. Verifica tu username.')
+        setError('Usuario no encontrado. Verifica tu username o activa tu cuenta con el código.')
         return
       }
+      const docId = stuSnap.docs[0].id
       const student = stuSnap.docs[0].data()
-      if (!student.activado) {
-        if (student.resetPassword) {
-          // Teacher reset password — go straight to activation with username pre-filled
-          const subSnap = await getDoc(doc(db, 'subjects', student.asignaturaId))
-          if (subSnap.exists()) {
-            navigate(`/activate/${subSnap.data().accessCode}`, {
-              state: { prefillUsername: username.trim().toUpperCase() },
-            })
-            return
-          }
-        }
-        setError('Cuenta no activada. Escanea el QR o ingresa el código de tu asignatura.')
+      const email = studentEmail(uname, student.escuelaId)
+
+      // Already activated → normal sign-in.
+      if (student.activado) {
+        await signInWithEmailAndPassword(auth, email, password)
+        navigate('/alumno/dashboard')
         return
       }
-      const email = studentEmail(username.trim().toUpperCase(), student.escuelaId)
-      await signInWithEmailAndPassword(auth, email, password)
-      navigate('/alumno/dashboard')
+
+      // First-time access from the login screen: no separate activation step, no
+      // re-typing. The password they enter here becomes their password.
+      if (password.length < 6) {
+        setError('Tu contraseña debe tener al menos 6 caracteres.')
+        return
+      }
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password)
+        await finishAccess(docId, student, cred.user)
+      } catch (err2) {
+        if (err2.code === 'auth/email-already-in-use') {
+          // Account already exists (e.g. enrolled in another subject) → sign in.
+          const cred = await signInWithEmailAndPassword(auth, email, password)
+          await finishAccess(docId, student, cred.user)
+        } else {
+          throw err2
+        }
+      }
     } catch (err) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
         setError('Contraseña incorrecta.')
