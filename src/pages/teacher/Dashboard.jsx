@@ -80,6 +80,11 @@ export default function TeacherDashboard() {
       toast('Activa tu suscripción mensual para crear nuevas asignaturas — toda tu información sigue disponible')
       return
     }
+    if (!userProfile?.escuelaId) {
+      toast('Configura tu escuela en tu perfil antes de crear una asignatura', 'error')
+      navigate('/profile')
+      return
+    }
     setShowSubjectModal(true)
   }
 
@@ -109,6 +114,10 @@ export default function TeacherDashboard() {
     if (!newSubjectName.trim() || !newSubjectGrupo.trim()) return
     if (!canCreate) {
       toast('Activa tu suscripción mensual para crear nuevas asignaturas — toda tu información sigue disponible')
+      return
+    }
+    if (!userProfile?.escuelaId) {
+      toast('Configura tu escuela en tu perfil antes de crear una asignatura', 'error')
       return
     }
     setCreatingSubject(true)
