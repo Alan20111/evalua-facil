@@ -10,7 +10,7 @@ import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { exportSubjectGrades, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
-import { exportStudentListPDF, exportSubjectGradesPDF, exportCredentialsPDF } from '../../utils/pdf'
+import { exportSubjectGradesPDF, exportCredentialsPDF, exportQRPDF } from '../../utils/pdf'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
@@ -776,17 +776,11 @@ export default function SubjectPage() {
     finally { setExporting(false) }
   }
 
-  async function handleExportListPDF() {
+  async function handleExportQRPDF() {
     if (!subject) return
     setExportingPdf(true)
     try {
-      let students = groupStudents
-      if (!groupStudentsLoaded) {
-        const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
-        students = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-        setGroupStudents(students); setGroupStudentsLoaded(true)
-      }
-      await exportStudentListPDF({ subject, students, activationUrl })
+      await exportQRPDF({ subject, activationUrl })
     } catch (err) {
       toast('Error al exportar PDF: ' + err.message, 'error')
     } finally {
@@ -1499,40 +1493,23 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowQR(false)} />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-xs rounded-card p-6 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">Acceso de alumnos</h3>
-              <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+              <div className="text-left">
+                <h3 className="text-lg font-semibold leading-tight">{subject.nombre}</h3>
+                {subject.grupo && <p className="text-sm text-muted">Grupo: {subject.grupo}</p>}
+              </div>
+              <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={18} /></button>
             </div>
-            <p className="text-sm text-muted mb-4 text-left">
-              Estas son <strong>3 formas de acceso para tus alumnos</strong>. No necesitas usar las tres: comparte <strong>la que prefieras</strong> y todas llevan a lo mismo. QR para proyectar en clase, link para enviar por chat, o el código para dictarlo.
-            </p>
-            <p className="text-label-caps text-muted uppercase mb-1 text-left">Código QR de acceso para alumnos</p>
-            <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-3">
-              <QRCode value={activationUrl} size={160} className="max-w-full h-auto" />
+            <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-4">
+              <QRCode value={activationUrl} size={200} className="max-w-full h-auto" />
             </div>
-            <div className="mt-3 space-y-2">
-              <button
-                onClick={copyActivationLink}
-                className={`w-full flex items-center justify-center gap-2 py-2 rounded border text-sm font-semibold transition-colors ${copiedLink ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'border-outline-variant text-muted hover:bg-surface'}`}
-              >
-                {copiedLink ? <CheckIcon size={15} /> : <Link size={15} />}
-                {copiedLink ? 'Link copiado' : 'Copiar link de activación para alumnos'}
-              </button>
-              <button
-                onClick={copyAccessCode}
-                className={`w-full flex items-center justify-center gap-2 py-2 rounded border text-sm font-semibold transition-colors ${copiedCode ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'border-outline-variant text-muted hover:bg-surface'}`}
-              >
-                {copiedCode ? <CheckIcon size={15} /> : <Hash size={15} />}
-                {copiedCode ? 'Código copiado' : `Código de acceso para alumnos: ${subject.accessCode}`}
-              </button>
-              <button
-                onClick={handleExportListPDF}
-                disabled={exportingPdf}
-                className="w-full flex items-center justify-center gap-2 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-50"
-              >
-                {exportingPdf ? <Spinner size="sm" /> : <Download size={15} />}
-                {exportingPdf ? 'Generando PDF…' : 'Descargar lista en PDF'}
-              </button>
-            </div>
+            <button
+              onClick={handleExportQRPDF}
+              disabled={exportingPdf}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-50"
+            >
+              {exportingPdf ? <Spinner size="sm" /> : <Download size={15} />}
+              {exportingPdf ? 'Generando PDF…' : 'Descargar QR en PDF'}
+            </button>
           </div>
         </div>
       )}
