@@ -194,8 +194,15 @@ export default function TeacherDashboard() {
                 <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-3">
                   <BookOpen size={28} className="text-blue-400" />
                 </div>
-                <p className="text-muted font-medium mb-1">Aún no tienes asignaturas</p>
-                <p className="text-slate-400 text-sm">Toca el botón <strong>+</strong> para crear tu primera asignatura</p>
+                <p className="text-muted font-medium mb-3">Aún no tienes asignaturas</p>
+                <button
+                  type="button"
+                  onClick={openSubjectModal}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded transition-colors"
+                >
+                  <Plus size={16} />
+                  Crear mi primera asignatura
+                </button>
               </div>
             ) : (
               <div className="space-y-2 mb-8">
