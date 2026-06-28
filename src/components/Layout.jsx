@@ -24,7 +24,6 @@ import { useSubscription } from '../hooks/useSubscription'
 import { getTrialBannerMessage } from '../utils/subscriptionHelpers'
 import { subjectDisplayName } from '../utils/subjectName'
 import SubjectIcon from './SubjectIcon'
-import PlanCompareModal from './PlanCompareModal'
 
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
@@ -33,7 +32,6 @@ export default function TeacherLayout({ children }) {
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
-  const [showPlanCompare, setShowPlanCompare] = useState(false)
 
   // Real-time subjects: any create/edit/archive/duplicate/delete reflects instantly
   // in the sidebar (no manual refresh).
@@ -59,7 +57,7 @@ export default function TeacherLayout({ children }) {
   const activeSubjects = subjects.filter((s) => !s.archived)
   const archivedSubjects = subjects.filter((s) => s.archived)
 
-  const { subscription, plans } = useSubscription()
+  const { subscription } = useSubscription()
   const trialBanner = getTrialBannerMessage(subscription)
 
   const displayName =
@@ -118,18 +116,26 @@ export default function TeacherLayout({ children }) {
             <ChevronRight size={14} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
           </NavLink>
 
-          {/* Trial banner — silent until TRIAL_WARNING_DAYS are left, then a subtle
-              row (urgent/expired get a warmer tone). Never a popup. Opens plan compare. */}
+          {/* Trial status — the day counter is always visible from day 1; an amber
+              notice is added only for the last stretch. Never a popup. Clicking
+              goes to /profile, where the real subscription-activation flow lives. */}
           {trialBanner && (
             <button
               type="button"
-              onClick={() => setShowPlanCompare(true)}
-              className={`mx-2 mt-1 px-3 py-1.5 flex items-center gap-2 rounded transition-colors text-left w-[calc(100%-1rem)] ${
-                trialBanner.urgent ? 'bg-amber-400/20 hover:bg-amber-400/30' : 'hover:bg-white/10'
+              onClick={() => navigate('/profile')}
+              className={`mx-2 mt-1 px-3 py-1.5 flex items-start gap-2 rounded transition-colors text-left w-[calc(100%-1rem)] ${
+                trialBanner.tone !== 'neutral' ? 'bg-amber-400/20 hover:bg-amber-400/30' : 'hover:bg-white/10'
               }`}
             >
               <Timer size={13} className="text-white/80 flex-shrink-0 mt-0.5" />
-              <p className="text-metadata text-white/90 leading-tight">{trialBanner.text}</p>
+              <div className="leading-tight">
+                {trialBanner.counter && (
+                  <p className="text-metadata text-white/90">{trialBanner.counter}</p>
+                )}
+                {trialBanner.notice && (
+                  <p className="text-metadata text-white/90">{trialBanner.notice}</p>
+                )}
+              </div>
             </button>
           )}
 
@@ -251,13 +257,6 @@ export default function TeacherLayout({ children }) {
         </div>
       </nav>
 
-      {showPlanCompare && (
-        <PlanCompareModal
-          plans={plans}
-          trialDays={trialDays ?? 0}
-          onClose={() => setShowPlanCompare(false)}
-        />
-      )}
     </div>
   )
 }

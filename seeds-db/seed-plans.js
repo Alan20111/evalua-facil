@@ -23,12 +23,16 @@ try {
 
 const db = admin.firestore()
 
+// Single commercial offering: a $116 MXN/month subscription. The id ('pro')
+// is kept unchanged from the legacy multi-plan setup so it doesn't break any
+// subscription already pointing at this planId — it's never user-facing.
+// Keep `precio` in sync with MONTHLY_PRICE_MXN in src/utils/subscriptionHelpers.js.
 const DEFAULT_PLANS = [
   {
     id: 'pro',
-    nombre: 'Plan Pro',
+    nombre: 'Suscripción mensual',
     descripcion: 'Acceso completo a Evalúa Fácil sin límites de asignaturas ni alumnos.',
-    precio: 100,
+    precio: 116,
     periodicidad: 'mensual',
     maxAsignaturas: -1,
     maxAlumnos: -1,

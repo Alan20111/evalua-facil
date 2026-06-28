@@ -79,11 +79,6 @@ export function useAdminStats() {
       const conversionRate =
         teachers.length > 0 ? (activeSubs.length / teachers.length) * 100 : 0
 
-      const subsByPlan = plans.map((plan) => ({
-        plan,
-        count: subscriptions.filter((s) => s.planId === plan.id && s.status === 'activa').length,
-      }))
-
       const schoolCounts = {}
       teachers.forEach((t) => {
         if (t.escuelaId) schoolCounts[t.escuelaId] = (schoolCounts[t.escuelaId] || 0) + 1
@@ -93,13 +88,6 @@ export function useAdminStats() {
         .map(([id, count]) => ({ school: schoolsMap[id]?.shortName || schoolsMap[id]?.claveSEP || id, count }))
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
-
-      const revenueByPlan = plans.map((plan) => ({
-        plan,
-        total: completedPayments
-          .filter((p) => p.planId === plan.id)
-          .reduce((sum, p) => sum + (p.monto || 0), 0),
-      }))
 
       const subjectsByTeacher = {}
       subjects.forEach((s) => {
@@ -160,9 +148,7 @@ export function useAdminStats() {
           avgStudents,
           churnCount,
         },
-        subsByPlan,
         teachersBySchool,
-        revenueByPlan,
         subsistemaDist,
         pendingPayments,
       })

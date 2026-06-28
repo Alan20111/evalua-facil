@@ -8,7 +8,6 @@ import SubscriptionsTable from './components/SubscriptionsTable'
 import PaymentsTable from './components/PaymentsTable'
 import PaymentConfig from './components/PaymentConfig'
 import UsersTable from './components/UsersTable'
-import PlansManager from './components/PlansManager'
 
 const TAB_TITLES = {
   resumen: 'Resumen',
@@ -16,7 +15,6 @@ const TAB_TITLES = {
   pagos: 'Pagos',
   cobros: 'Configuración de cobros',
   usuarios: 'Usuarios',
-  planes: 'Planes',
 }
 
 export default function AdminDashboard() {
@@ -68,7 +66,6 @@ export default function AdminDashboard() {
           {activeTab === 'pagos' && <PaymentsTable stats={stats} onRefresh={refresh} />}
           {activeTab === 'cobros' && <PaymentConfig />}
           {activeTab === 'usuarios' && <UsersTable stats={stats} />}
-          {activeTab === 'planes' && <PlansManager stats={stats} onRefresh={refresh} />}
         </>
       )}
     </AdminLayout>

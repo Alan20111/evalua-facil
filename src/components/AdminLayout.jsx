@@ -6,7 +6,6 @@ import {
   CreditCard,
   Receipt,
   Users,
-  Package,
   Wallet,
   LogOut,
   Menu,
@@ -21,7 +20,6 @@ const TABS = [
   { id: 'pagos', label: 'Pagos', icon: Receipt },
   { id: 'cobros', label: 'Cobros', icon: Wallet },
   { id: 'usuarios', label: 'Usuarios', icon: Users },
-  { id: 'planes', label: 'Planes', icon: Package },
 ]
 
 export default function AdminLayout({ activeTab, onTabChange, children }) {

@@ -160,7 +160,7 @@ export default function ActivityPage() {
     e.preventDefault()
     if (!selected?.sub) return
     if (!canCreate) {
-      toast('Activa tu suscripción para registrar calificaciones — toda tu información sigue disponible')
+      toast('Activa tu suscripción mensual para registrar calificaciones — toda tu información sigue disponible')
       return
     }
     setSaving(true)
@@ -542,7 +542,7 @@ export default function ActivityPage() {
                 </div>
                 {!canCreate && (
                   <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
-                    Activa tu suscripción para registrar calificaciones nuevas — toda la información de este alumno sigue disponible.
+                    Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este alumno sigue disponible.
                   </p>
                 )}
                 <button

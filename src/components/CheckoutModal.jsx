@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { usePaymentConfig } from '../hooks/usePaymentConfig'
-import { formatCurrency } from '../utils/subscriptionHelpers'
+import { MONTHLY_PLAN_ID, MONTHLY_PRICE_MXN, SUBSCRIPTION_NAME, formatCurrency } from '../utils/subscriptionHelpers'
 
 const inputCls =
   'w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
@@ -29,23 +29,15 @@ function loadPaypalSdk(clientId) {
   })
 }
 
-export default function CheckoutModal({ open, onClose, plans, subscription, onSuccess }) {
+export default function CheckoutModal({ open, onClose, subscription, onSuccess }) {
   const { currentUser, userProfile } = useAuth()
   const toast = useToast()
   const { config, loading: configLoading } = usePaymentConfig()
 
-  const [selectedPlanId, setSelectedPlanId] = useState('')
   const [method, setMethod] = useState(null)
   const [referencia, setReferencia] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const paypalRef = useRef(null)
-
-  const selectedPlan = plans.find((p) => p.id === selectedPlanId)
-
-  // Default selected plan.
-  useEffect(() => {
-    if (open && !selectedPlanId && plans.length) setSelectedPlanId(plans[0].id)
-  }, [open, plans, selectedPlanId])
 
   // Default method = first enabled one.
   useEffect(() => {
@@ -61,14 +53,13 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
   }
 
   const planPayload = () => ({
-    planId: selectedPlanId,
+    planId: MONTHLY_PLAN_ID,
     escuelaId: userProfile?.escuelaId || '',
     schoolName: userProfile?.schoolName || '',
   })
 
   // ── Mercado Pago: create preference then redirect to checkout ──
   async function payWithMercadoPago() {
-    if (!selectedPlanId) return toast('Selecciona un plan', 'error')
     setSubmitting(true)
     try {
       const res = await fetch('/api/mp/create-preference', {
@@ -89,7 +80,7 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
 
   // ── PayPal: render SDK buttons ──
   useEffect(() => {
-    if (!open || method !== 'paypal' || !config?.paypal?.clientId || !selectedPlanId) return
+    if (!open || method !== 'paypal' || !config?.paypal?.clientId) return
     let cancelled = false
 
     loadPaypalSdk(config.paypal.clientId)
@@ -134,19 +125,19 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, method, config?.paypal?.clientId, selectedPlanId])
+  }, [open, method, config?.paypal?.clientId])
 
   // ── Bank transfer: manual, creates a pending payment for admin approval ──
   async function submitTransfer(e) {
     e.preventDefault()
-    if (!selectedPlanId || !referencia.trim()) {
-      return toast('Selecciona un plan e ingresa la referencia', 'error')
+    if (!referencia.trim()) {
+      return toast('Ingresa la referencia', 'error')
     }
     setSubmitting(true)
     try {
       const subData = {
         docenteId: currentUser.uid,
-        planId: selectedPlanId,
+        planId: MONTHLY_PLAN_ID,
         escuelaId: userProfile?.escuelaId || '',
         schoolName: userProfile?.schoolName || '',
         status: 'pendiente_pago',
@@ -166,9 +157,9 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
       await addDoc(collection(db, 'payments'), {
         docenteId: currentUser.uid,
         subscriptionId,
-        planId: selectedPlanId,
+        planId: MONTHLY_PLAN_ID,
         escuelaId: userProfile?.escuelaId || '',
-        monto: selectedPlan?.precio || 0,
+        monto: MONTHLY_PRICE_MXN,
         metodo: 'transferencia',
         referencia: referencia.trim(),
         status: 'pendiente',
@@ -201,7 +192,7 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold text-on-surface">Contratar plan</h3>
+          <h3 className="font-bold text-on-surface">Activar suscripción mensual</h3>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-muted">
             <X size={18} />
           </button>
@@ -215,20 +206,9 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Plan selector */}
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Plan</label>
-              <select
-                value={selectedPlanId}
-                onChange={(e) => setSelectedPlanId(e.target.value)}
-                className={inputCls}
-              >
-                {plans.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} — {formatCurrency(p.precio)}/{p.periodicidad === 'anual' ? 'año' : 'mes'}
-                  </option>
-                ))}
-              </select>
+              <p className="font-semibold text-on-surface">{SUBSCRIPTION_NAME}</p>
+              <p className="text-sm text-muted">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
             </div>
 
             {/* Method tabs */}
@@ -249,12 +229,6 @@ export default function CheckoutModal({ open, onClose, plans, subscription, onSu
                 </button>
               ))}
             </div>
-
-            {selectedPlan && (
-              <p className="text-sm font-semibold text-on-surface">
-                Total: {formatCurrency(selectedPlan.precio)}
-              </p>
-            )}
 
             {/* Method body */}
             {method === 'mercadopago' && (

@@ -5,10 +5,21 @@ import { Timestamp } from 'firebase/firestore'
 // else. Built so future paid plans plug into the same `isSubscriptionExpired`
 // / `canCreateContent` checks instead of each page inventing its own rule.
 export const TRIAL_DURATION_DAYS = 30
-// No mention of expiration before this many days are left (day 25 of 30).
-export const TRIAL_WARNING_DAYS = 5
-// Last stretch of the trial — same banner slot, just more visible styling.
-export const TRIAL_URGENT_DAYS = 2
+// Warning notice starts when this many days (or fewer) are left — day 25 of 30.
+export const TRIAL_WARNING_DAYS = 6
+
+// ── Commercial model — single source of truth ──────────────────────────────
+// Exactly one paid offering exists: a monthly subscription. No tiers, no
+// plan names ("Pro"/"Básico"/"Premium"/"Enterprise") anywhere in the product.
+export const CURRENCY = 'MXN'
+export const MONTHLY_PRICE_MXN = 116
+export const MONTHLY_PRICE_LABEL = '$116 MXN al mes'
+export const SUBSCRIPTION_NAME = 'Suscripción mensual'
+// Must match the id of the single Firestore `plans/{id}` doc that
+// api/_lib/billing.js reads server-side to charge via Mercado Pago/PayPal —
+// the price always comes from there, never from the client. Keep that
+// document's `precio` in sync with MONTHLY_PRICE_MXN via seeds-db/seed-plans.js.
+export const MONTHLY_PLAN_ID = 'pro'
 
 export function toDate(value) {
   if (!value) return null
@@ -72,9 +83,16 @@ export function canCreateContent(subscription) {
   return !isSubscriptionExpired(subscription)
 }
 
-// Trial banner copy — null means "say nothing" (days 1-24 of the trial).
-// Continuity-first wording throughout: never implies lost work, always a
-// clear next step (activate a plan) instead of an alarm.
+// Trial banner copy — the day counter is always visible from day 1 of the
+// trial; a warning notice is added only for the last stretch. Continuity-first
+// wording throughout: never implies lost work, always a clear next step
+// (activate the subscription) instead of an alarm.
+//
+// Returns { counter, notice, tone } or null when there's no trial to report.
+//   - days 1-24 (days >= 7): counter only, tone 'neutral', no notice.
+//   - days 25-29 (2-6 días restantes): counter + amber notice, tone 'warning'.
+//   - day 30 (1 día restante): notice only ("Último día…"), tone 'warning'.
+//   - expired (days <= 0): notice only, tone 'expired'.
 export function getTrialBannerMessage(subscription) {
   if (subscription?.status !== 'trial') return null
   const days = calcDaysRemaining(subscription.fechaVencimiento)
@@ -82,35 +100,27 @@ export function getTrialBannerMessage(subscription) {
 
   if (days <= 0) {
     return {
-      text: 'Tu período de prueba terminó. Tu información sigue segura — activa tu suscripción para seguir creando.',
-      urgent: true,
-      expired: true,
+      counter: null,
+      notice: 'Tu período de prueba terminó. Tu información sigue segura — activa tu suscripción mensual para seguir creando.',
+      tone: 'expired',
     }
   }
-  if (days > TRIAL_WARNING_DAYS) return null
-  if (days <= TRIAL_URGENT_DAYS) {
+  if (days === 1) {
     return {
-      text: 'Tu período de prueba está por terminar. Conserva tus grupos, alumnos, actividades y calificaciones activando tu suscripción.',
-      urgent: true,
-      expired: false,
+      counter: null,
+      notice: 'Último día de tu período de prueba.',
+      tone: 'warning',
     }
   }
-  return {
-    text: days === 1 ? 'Te queda 1 día de prueba' : `Te quedan ${days} días de prueba`,
-    urgent: false,
-    expired: false,
+  const counter = `Período de prueba · Te quedan ${days} días`
+  if (days <= TRIAL_WARNING_DAYS) {
+    return {
+      counter,
+      notice: `Tu período de prueba está por terminar. Conserva tus grupos, alumnos, actividades y calificaciones activando tu suscripción mensual por solo $${MONTHLY_PRICE_MXN} MXN.`,
+      tone: 'warning',
+    }
   }
-}
-
-export function formatPlanLabel(plan) {
-  if (!plan) return '—'
-  const period = plan.periodicidad === 'anual' ? 'año' : 'mes'
-  return `${plan.nombre} — $${plan.precio}/${period}`
-}
-
-export function formatLimit(value, label) {
-  if (value === -1) return `${label} ilimitados`
-  return `${value} ${label}`
+  return { counter, notice: null, tone: 'neutral' }
 }
 
 export function formatCurrency(amount) {

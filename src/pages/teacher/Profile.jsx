@@ -18,10 +18,11 @@ import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
 import {
   TRIAL_DURATION_DAYS,
+  MONTHLY_PRICE_MXN,
+  SUBSCRIPTION_NAME,
   calcDaysRemaining,
   formatCurrency,
   formatDate,
-  formatLimit,
   getDaysLabel,
   getPaymentStatusColor,
   getSubscriptionStatusColor,
@@ -96,7 +97,7 @@ export default function Profile() {
 
   const [showPaymentModal, setShowPaymentModal] = useState(false)
 
-  const { subscription, currentPlan, plans, recentPayments, loading: subLoading, refresh: refreshSub } = useSubscription()
+  const { subscription, recentPayments, loading: subLoading, refresh: refreshSub } = useSubscription()
   const hasEmailProvider = currentUser?.providerData?.some((p) => p.providerId === 'password')
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -210,21 +211,12 @@ export default function Profile() {
                       <p className="font-bold text-on-surface">Período de prueba</p>
                       <p className="text-sm text-muted">{TRIAL_DURATION_DAYS} días gratuitos</p>
                     </>
-                  ) : currentPlan ? (
+                  ) : (
                     <>
-                      <p className="font-bold text-on-surface">{currentPlan.nombre}</p>
-                      <p className="text-sm text-muted">
-                        {formatCurrency(currentPlan.precio)}/
-                        {currentPlan.periodicidad === 'anual' ? 'año' : 'mes'}
-                      </p>
-                      {(currentPlan.maxAsignaturas !== undefined || currentPlan.maxAlumnos !== undefined) && (
-                        <p className="text-xs text-slate-400 mt-1">
-                          {formatLimit(currentPlan.maxAsignaturas, 'asignaturas')} ·{' '}
-                          {formatLimit(currentPlan.maxAlumnos, 'alumnos')}
-                        </p>
-                      )}
+                      <p className="font-bold text-on-surface">{SUBSCRIPTION_NAME}</p>
+                      <p className="text-sm text-muted">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
                     </>
-                  ) : null}
+                  )}
                 </div>
                 <span
                   className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${getSubscriptionStatusColor(subscription.status)}`}
@@ -252,13 +244,13 @@ export default function Profile() {
           ) : (
             <p className="text-sm text-muted">No tienes un plan activo.</p>
           )}
-          {canRenew && plans.length > 0 && (
+          {canRenew && (
             <button
               type="button"
               onClick={() => setShowPaymentModal(true)}
               className="mt-4 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors"
             >
-              {subscription && subscription.status !== 'trial' ? 'Contratar / Renovar' : 'Contratar Plan Pro'}
+              {subscription && subscription.status !== 'trial' ? 'Renovar suscripción mensual' : 'Activar suscripción mensual'}
             </button>
           )}
           {recentPayments.length > 0 && (
@@ -284,7 +276,6 @@ export default function Profile() {
         <CheckoutModal
           open={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
-          plans={plans}
           subscription={subscription}
           onSuccess={refreshSub}
         />

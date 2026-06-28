@@ -448,7 +448,7 @@ export default function SubjectPage() {
   // ── Activity actions ───────────────────────────────────────────────
   function openAdd(parcial) {
     if (!canCreate) {
-      toast('Activa tu suscripción para crear nuevas actividades — toda tu información sigue disponible')
+      toast('Activa tu suscripción mensual para crear nuevas actividades — toda tu información sigue disponible')
       return
     }
     setModalMode('create'); setModalParcial(parcial); setEditActivityId(null)
@@ -472,7 +472,7 @@ export default function SubjectPage() {
   async function handleSaveActivity(e) {
     e.preventDefault()
     if (modalMode === 'create' && !canCreate) {
-      toast('Activa tu suscripción para crear nuevas actividades — toda tu información sigue disponible')
+      toast('Activa tu suscripción mensual para crear nuevas actividades — toda tu información sigue disponible')
       return
     }
     setSaving(true)
@@ -701,7 +701,7 @@ export default function SubjectPage() {
 
   function openCopyModal() {
     if (!canCreate) {
-      toast('Activa tu suscripción para crear nuevas asignaturas — toda tu información sigue disponible')
+      toast('Activa tu suscripción mensual para crear nuevas asignaturas — toda tu información sigue disponible')
       return
     }
     setCopyForm({ nombre: subject?.nombre || '', grupo: subject?.grupo || '', keepStudents: false, colorPalette: subject?.colorPalette || 'default', icon: subject?.icon || 'book' })
@@ -1042,7 +1042,7 @@ export default function SubjectPage() {
                         )
                       })}
                       <button onClick={() => openAdd(p)}
-                        title={canCreate ? undefined : 'Activa tu suscripción para crear nuevas actividades'}
+                        title={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevas actividades'}
                         className={`w-full py-2.5 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-accent-light' : 'border-outline-variant text-slate-400 hover:bg-surface'
                         }`}>
