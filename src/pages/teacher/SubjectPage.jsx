@@ -1044,6 +1044,51 @@ export default function SubjectPage() {
         ══════════════════════════════════════════════════════════ */}
         {activeTab === 'calificaciones' && (
           <div className="px-4 py-4 space-y-3">
+            {/* 1 — Agregar alumnos con la plantilla de Excel (paso 1: descargar, paso 2: subir) */}
+            <div>
+              <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar alumnos con Excel</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  type="button"
+                  onClick={downloadStudentTemplate}
+                  title="Descarga un Excel vacío con el formato correcto para pegar la lista de tus alumnos"
+                  className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
+                >
+                  <Download size={15} className="flex-shrink-0" /> Descargar plantilla en Excel para pegar datos de alumnos
+                </button>
+                <label
+                  title="Sube la plantilla de Excel ya llena para registrar a todos los alumnos de una vez"
+                  className={`flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 rounded text-sm font-medium text-white transition-colors cursor-pointer ${savingStudent ? 'bg-accent/60' : 'bg-accent hover:bg-accent-hover'}`}
+                >
+                  {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />} Subir la plantilla de Excel con los datos de los alumnos
+                  <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
+                </label>
+              </div>
+            </div>
+
+            {/* 2 — Descargar calificaciones (Excel / PDF) */}
+            <div>
+              <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleExport}
+                  disabled={exporting}
+                  title="Descarga las calificaciones de todos los alumnos en una hoja de Excel"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
+                >
+                  {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={15} />} Excel
+                </button>
+                <button
+                  onClick={handleExportGradesPDF}
+                  disabled={exportingGradesPdf}
+                  title="Descarga las calificaciones de todos los alumnos en un PDF imprimible"
+                  className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
+                >
+                  {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={15} />} PDF
+                </button>
+              </div>
+            </div>
+
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={searchGrade} onChange={(e) => setSearchGrade(e.target.value)}
@@ -1121,12 +1166,6 @@ export default function SubjectPage() {
                 {filteredGradeStudents.length === 0 && searchGrade && (
                   <p className="text-center text-sm text-slate-400">Sin resultados para "{searchGrade}"</p>
                 )}
-
-                <button onClick={handleExport} disabled={exporting}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-card border border-emerald-200 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-40">
-                  {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />}
-                  {exporting ? 'Generando Excel…' : 'Exportar calificaciones a Excel'}
-                </button>
               </>
             )}
           </div>
@@ -1137,52 +1176,7 @@ export default function SubjectPage() {
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
         <div className="px-4 py-4 space-y-3">
-          {/* 1 — Agregar alumnos con la plantilla de Excel (paso 1: descargar, paso 2: subir) */}
-          <div>
-            <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar alumnos con Excel</p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <button
-                type="button"
-                onClick={downloadStudentTemplate}
-                title="Descarga un Excel vacío con el formato correcto para pegar la lista de tus alumnos"
-                className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
-              >
-                <Download size={15} className="flex-shrink-0" /> Descargar plantilla en Excel para pegar datos de alumnos
-              </button>
-              <label
-                title="Sube la plantilla de Excel ya llena para registrar a todos los alumnos de una vez"
-                className={`flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 rounded text-sm font-medium text-white transition-colors cursor-pointer ${savingStudent ? 'bg-accent/60' : 'bg-accent hover:bg-accent-hover'}`}
-              >
-                {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />} Subir la plantilla de Excel con los datos de los alumnos
-                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
-              </label>
-            </div>
-          </div>
-
-          {/* 2 — Descargar calificaciones (Excel / PDF) */}
-          <div>
-            <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleExport}
-                disabled={exporting}
-                title="Descarga las calificaciones de todos los alumnos en una hoja de Excel"
-                className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
-              >
-                {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={15} />} Excel
-              </button>
-              <button
-                onClick={handleExportGradesPDF}
-                disabled={exportingGradesPdf}
-                title="Descarga las calificaciones de todos los alumnos en un PDF imprimible"
-                className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
-              >
-                {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={15} />} PDF
-              </button>
-            </div>
-          </div>
-
-          {/* 3 — Descargar lista de acceso (R16) */}
+          {/* 1 — Descargar lista de acceso (R16) */}
           <button
             type="button"
             onClick={() => setShowCredentialsModal(true)}
@@ -1192,7 +1186,7 @@ export default function SubjectPage() {
             <KeyRound size={15} /> Descargar lista de acceso (usuarios + código)
           </button>
 
-          {/* 4 — Buscar alumno + agregar manualmente */}
+          {/* 2 — Buscar alumno + agregar manualmente */}
           <div className="flex gap-2 pt-1">
             <div className="flex-1 relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
