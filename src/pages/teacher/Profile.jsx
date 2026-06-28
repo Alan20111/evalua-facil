@@ -333,7 +333,7 @@ export default function Profile() {
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
-              <p className="text-xs text-slate-400 mt-0.5">Cambiarla solo afecta a las asignaturas y alumnos nuevos.</p>
+              <p className="text-xs text-slate-400 mt-0.5">Las escuelas con el mismo nombre pueden tener grupos en común.</p>
             </div>
             <button type="button" onClick={() => { setSchoolSearch(''); setShowSchoolPicker(true) }}
               className="text-blue-600 text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
