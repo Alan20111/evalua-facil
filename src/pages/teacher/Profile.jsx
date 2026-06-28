@@ -565,7 +565,7 @@ export default function Profile() {
                       )}
                       {filteredCustomSchools.map((s) => (
                         <li key={s.id}>
-                          <button type="button" onClick={() => updateSchool({ custom: true, nombre: s.nombre })} disabled={savingSchool}
+                          <button type="button" onClick={() => updateSchool({ existingId: s.id, nombre: s.nombre })} disabled={savingSchool}
                             className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors disabled:opacity-60">
                             <p className="text-sm font-medium text-on-surface leading-tight">{s.nombre}</p>
                             {(s.claveSEP || s.municipio || s.estado) && (

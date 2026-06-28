@@ -29,35 +29,65 @@ export async function resolveSchoolSelection(plantel) {
     return { escuelaId: 'sin-escuela', schoolName: 'Sin escuela' }
   }
 
+  // Re-selecting a custom school already shown in the suggestion list (its
+  // Firestore id is already known) — skip matching entirely, it IS that school.
+  if (plantel.existingId) {
+    return { escuelaId: plantel.existingId, schoolName: plantel.nombre }
+  }
+
   if (plantel.custom) {
     const name = plantel.nombre.trim()
     const nombreNormalizado = normalizeName(name)
-    // CCT/municipio/estado are only present when adding a brand-new custom
-    // school (the form that collects them); re-selecting an existing one from
-    // the suggestion list omits them, so an empty `extra` never overwrites
-    // data the school already has.
-    const extra = {}
-    if (plantel.cct?.trim()) extra.claveSEP = plantel.cct.trim()
-    if (plantel.mun?.trim()) extra.municipio = plantel.mun.trim()
-    if (plantel.edo?.trim()) extra.estado = plantel.edo.trim()
+    const cct = plantel.cct?.trim() || ''
+    const mun = plantel.mun?.trim() || ''
+    const edo = plantel.edo?.trim() || ''
+    const municipioNormalizado = mun ? normalizeName(mun) : ''
 
-    const existing = await getDocs(
-      query(collection(db, 'schools'), where('nombreNormalizado', '==', nombreNormalizado))
-    )
-    if (!existing.empty) {
-      const match = existing.docs[0]
-      if (Object.keys(extra).length) await setDoc(doc(db, 'schools', match.id), extra, { merge: true })
-      return { escuelaId: match.id, schoolName: match.data().nombre || name }
+    const extra = {}
+    if (cct) extra.claveSEP = cct
+    if (mun) { extra.municipio = mun; extra.municipioNormalizado = municipioNormalizado }
+    if (edo) extra.estado = edo
+
+    // Same CCT always means the same school, regardless of what name/city was typed.
+    if (cct) {
+      const byCCT = await getDocs(query(collection(db, 'schools'), where('claveSEP', '==', cct)))
+      if (!byCCT.empty) {
+        const match = byCCT.docs[0]
+        if (Object.keys(extra).length) await setDoc(doc(db, 'schools', match.id), extra, { merge: true })
+        return { escuelaId: match.id, schoolName: match.data().nombre || name }
+      }
     }
-    // Fallback for custom schools created before nombreNormalizado existed —
-    // match by the exact old field and self-heal it so future lookups (even
-    // with different casing/accents) find it via nombreNormalizado too.
+
+    // No CCT match (or none given) — same name is only the same school if the
+    // city matches too, so two unrelated "Escuela Primaria Juárez" in
+    // different towns don't get merged into one.
+    const sameName = await getDocs(query(collection(db, 'schools'), where('nombreNormalizado', '==', nombreNormalizado)))
+    const cityMatch = sameName.docs.find((d) => {
+      const data = d.data()
+      if (data.municipioNormalizado) return data.municipioNormalizado === municipioNormalizado
+      // Created before municipio was collected — no city on record to
+      // conflict with, treat as the same school and backfill it below.
+      return !data.municipio
+    })
+    if (cityMatch) {
+      if (Object.keys(extra).length) await setDoc(doc(db, 'schools', cityMatch.id), extra, { merge: true })
+      return { escuelaId: cityMatch.id, schoolName: cityMatch.data().nombre || name }
+    }
+
+    // Fallback for schools created before nombreNormalizado existed at all —
+    // match by the exact old field (only when it has no city or it matches)
+    // and self-heal it so future lookups go through the checks above.
     const legacy = await getDocs(query(collection(db, 'schools'), where('nombre', '==', name)))
-    if (!legacy.empty) {
-      const match = legacy.docs[0]
-      await setDoc(doc(db, 'schools', match.id), { nombreNormalizado, ...extra }, { merge: true })
-      return { escuelaId: match.id, schoolName: match.data().nombre || name }
+    const legacyMatch = legacy.docs.find((d) => {
+      const data = d.data()
+      if (data.municipioNormalizado) return data.municipioNormalizado === municipioNormalizado
+      return !data.municipio
+    })
+    if (legacyMatch) {
+      await setDoc(doc(db, 'schools', legacyMatch.id), { nombreNormalizado, ...extra }, { merge: true })
+      return { escuelaId: legacyMatch.id, schoolName: legacyMatch.data().nombre || name }
     }
+
     const ref = doc(collection(db, 'schools'))
     await setDoc(ref, { nombre: name, nombreNormalizado, shortName: name, custom: true, ...extra })
     return { escuelaId: ref.id, schoolName: name }
