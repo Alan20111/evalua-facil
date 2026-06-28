@@ -206,7 +206,7 @@ export default function StudentDashboard() {
                   {s.avg != null && (
                     <div className="text-right">
                       <p className="text-lg font-bold text-accent">{s.avg}</p>
-                      <p className="text-xs text-slate-400">promedio</p>
+                      <p className="text-sm text-slate-500">promedio</p>
                     </div>
                   )}
                   <ChevronRight size={16} className="text-slate-300" />

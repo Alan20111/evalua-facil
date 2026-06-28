@@ -382,13 +382,13 @@ export default function ActivityPage() {
                       i > 0 ? 'border-t border-outline-variant' : ''
                     }`}
                   >
-                    <span className="w-5 text-xs text-slate-400 text-right flex-shrink-0">{s.orden}</span>
+                    <span className="w-5 text-sm text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-on-surface truncate">
                         {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
                       </p>
                       {sub?.fechaEntrega?.seconds && (
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-sm text-slate-500 mt-0.5">
                           {new Date(sub.fechaEntrega.seconds * 1000).toLocaleString('es-MX', {
                             day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                           })}
@@ -424,7 +424,7 @@ export default function ActivityPage() {
                 <h3 className="text-base font-semibold text-on-surface truncate">
                   {selected.student.apellidoPaterno} {selected.student.nombre}
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5 truncate">
+                <p className="text-sm text-slate-500 mt-0.5 truncate">
                   {selected.sub
                     ? selected.sub.completadoSinArchivo
                       ? 'Completada sin archivo'
@@ -446,7 +446,7 @@ export default function ActivityPage() {
                 >
                   <ChevronLeft size={16} /> Anterior
                 </button>
-                <span className="text-xs text-slate-400">{curIdx + 1} / {filtered.length}</span>
+                <span className="text-sm text-slate-500">{curIdx + 1} / {filtered.length}</span>
                 <button
                   type="button"
                   onClick={() => goToOffset(1)}
@@ -568,7 +568,7 @@ export default function ActivityPage() {
                 <button
                   type="button"
                   onClick={() => setExtendMode(true)}
-                  className="text-xs text-slate-400 hover:text-muted transition-colors"
+                  className="text-sm text-slate-500 hover:text-muted transition-colors"
                 >
                   Modificar fecha de entrega
                 </button>
@@ -594,7 +594,7 @@ export default function ActivityPage() {
                   <button
                     type="button"
                     onClick={() => setExtendMode(false)}
-                    className="text-xs text-slate-400"
+                    className="text-sm text-slate-500"
                   >
                     Cancelar
                   </button>

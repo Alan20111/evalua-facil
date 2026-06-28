@@ -958,7 +958,7 @@ export default function SubjectPage() {
                     </div>
                     <div className="flex-1 text-left">
                       <p className="font-semibold text-on-surface">Parcial {p}</p>
-                      <p className="text-xs text-slate-400">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
+                      <p className="text-sm text-slate-500">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                     </div>
                     {isOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
                   </button>
@@ -981,7 +981,7 @@ export default function SubjectPage() {
                               <div className="flex-1 min-w-0">
                                 <p className={`text-sm font-medium truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>{a.nombre}</p>
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                  <span className="text-xs text-slate-400">Máx: {a.maxCalif}</span>
+                                  <span className="text-sm text-slate-500">Máx: {a.maxCalif}</span>
                                   {a.fechaLimite && (
                                     <span className="text-xs text-amber-600 flex items-center gap-0.5">
                                       <Clock size={10} /> {new Date(a.fechaLimite).toLocaleDateString('es-MX')}
@@ -1238,7 +1238,7 @@ export default function SubjectPage() {
                   key={s.id}
                   className={`flex items-center gap-3 px-3 py-2.5 ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
-                  <span className="w-5 text-xs text-slate-400 text-right flex-shrink-0">{s.orden}</span>
+                  <span className="w-5 text-sm text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-on-surface truncate">
                       {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
@@ -1696,14 +1696,14 @@ export default function SubjectPage() {
                 <input type="radio" name="activateMode" value="now" checked={activateMode === 'now'} onChange={() => setActivateMode('now')} className="accent-[var(--accent)]" />
                 <div>
                   <p className="text-sm font-medium text-on-surface">Mostrar ahora</p>
-                  <p className="text-xs text-slate-400">Visible de inmediato para alumnos</p>
+                  <p className="text-sm text-slate-500">Visible de inmediato para alumnos</p>
                 </div>
               </label>
               <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${activateMode === 'schedule' ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
                 <input type="radio" name="activateMode" value="schedule" checked={activateMode === 'schedule'} onChange={() => setActivateMode('schedule')} className="accent-[var(--accent)]" />
                 <div>
                   <p className="text-sm font-medium text-on-surface">Programar</p>
-                  <p className="text-xs text-slate-400">Se activa en fecha y hora específicas</p>
+                  <p className="text-sm text-slate-500">Se activa en fecha y hora específicas</p>
                 </div>
               </label>
               {activateMode === 'schedule' && (
@@ -1758,12 +1758,12 @@ export default function SubjectPage() {
                 </label>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <span className="block text-xs text-slate-400 mb-1">Inicio</span>
+                    <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                     <input type="date" value={editSubjectForm.fechaInicio} onChange={(e) => setEditSubjectForm((f) => ({ ...f, fechaInicio: e.target.value }))}
                       className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                   </div>
                   <div className="flex-1">
-                    <span className="block text-xs text-slate-400 mb-1">Fin</span>
+                    <span className="block text-sm text-slate-500 mb-1">Fin</span>
                     <input type="date" value={editSubjectForm.fechaFin} onChange={(e) => setEditSubjectForm((f) => ({ ...f, fechaFin: e.target.value }))}
                       className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                   </div>
@@ -1824,12 +1824,12 @@ export default function SubjectPage() {
                 </label>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <span className="block text-xs text-slate-400 mb-1">Inicio</span>
+                    <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                     <input type="date" value={copyFechas.fechaInicio} onChange={(e) => setCopyFechas((f) => ({ ...f, fechaInicio: e.target.value }))}
                       className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                   </div>
                   <div className="flex-1">
-                    <span className="block text-xs text-slate-400 mb-1">Fin</span>
+                    <span className="block text-sm text-slate-500 mb-1">Fin</span>
                     <input type="date" value={copyFechas.fechaFin} onChange={(e) => setCopyFechas((f) => ({ ...f, fechaFin: e.target.value }))}
                       className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                   </div>
@@ -1848,10 +1848,10 @@ export default function SubjectPage() {
                   className="accent-[var(--accent)] w-4 h-4" />
                 <div>
                   <p className="text-sm font-medium text-on-surface">Copiar lista de alumnos</p>
-                  <p className="text-xs text-slate-400">Conservan su mismo usuario y cuenta; quienes ya activaron verán esta asignatura al instante</p>
+                  <p className="text-sm text-slate-500">Conservan su mismo usuario y cuenta; quienes ya activaron verán esta asignatura al instante</p>
                 </div>
               </label>
-              <p className="text-xs text-slate-400">Se duplicarán todas las actividades. Las calificaciones y entregas no se copian.</p>
+              <p className="text-sm text-slate-500">Se duplicarán todas las actividades. Las calificaciones y entregas no se copian.</p>
               <button type="submit" disabled={copyingSubject}
                 className="w-full py-3 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
                 {copyingSubject ? <Spinner size="sm" /> : <Copy size={16} />}
@@ -1919,7 +1919,7 @@ export default function SubjectPage() {
                   <input type="radio" name="archiveExport" value={val} checked={archiveExportChoice === val} onChange={() => setArchiveExportChoice(val)} className="accent-[var(--accent)]" />
                   <div>
                     <p className="text-sm font-medium text-on-surface">{label}</p>
-                    <p className="text-xs text-slate-400">{desc}</p>
+                    <p className="text-sm text-slate-500">{desc}</p>
                   </div>
                 </label>
               ))}
@@ -1962,12 +1962,12 @@ export default function SubjectPage() {
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <span className="block text-xs text-slate-400 mb-1">Inicio</span>
+                      <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                       <input type="date" value={unarchiveEdits.fechaInicio} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, fechaInicio: e.target.value }))}
                         className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                     </div>
                     <div className="flex-1">
-                      <span className="block text-xs text-slate-400 mb-1">Fin</span>
+                      <span className="block text-sm text-slate-500 mb-1">Fin</span>
                       <input type="date" value={unarchiveEdits.fechaFin} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, fechaFin: e.target.value }))}
                         className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                     </div>
@@ -2000,7 +2000,7 @@ export default function SubjectPage() {
                       <input type="radio" name="unarchiveStudents" value={val} checked={unarchiveStudents === val} onChange={() => setUnarchiveStudents(val)} className="accent-[var(--accent)]" />
                       <div>
                         <p className="text-sm font-medium text-on-surface">{label}</p>
-                        <p className="text-xs text-slate-400">{desc}</p>
+                        <p className="text-sm text-slate-500">{desc}</p>
                       </div>
                     </label>
                   ))}

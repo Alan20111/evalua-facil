@@ -427,7 +427,7 @@ export default function StudentLogin() {
               <Link to="/docente" className="text-accent hover:underline">Acceso docentes</Link>
             </p>
 
-            <p className="text-center text-xs text-slate-400 mt-5 px-2">
+            <p className="text-center text-sm text-slate-500 mt-5 px-2">
               Tu maestro te otorgará tus datos de acceso.
             </p>
           </>

@@ -246,7 +246,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
             {method === 'paypal' && (
               <div>
                 <div ref={paypalRef} />
-                <p className="text-xs text-slate-400 mt-2 text-center">
+                <p className="text-sm text-slate-500 mt-2 text-center">
                   Serás cobrado de forma segura por PayPal.
                 </p>
               </div>
@@ -260,7 +260,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                   {t?.titular && <p><span className="text-muted">Titular:</span> {t.titular}</p>}
                   {t?.cuenta && <p><span className="text-muted">Cuenta:</span> {t.cuenta}</p>}
                   {t?.clabe && <p><span className="text-muted">CLABE:</span> {t.clabe}</p>}
-                  {t?.nota && <p className="text-xs text-slate-400 pt-1">{t.nota}</p>}
+                  {t?.nota && <p className="text-sm text-slate-500 pt-1">{t.nota}</p>}
                 </div>
                 <input
                   type="text"

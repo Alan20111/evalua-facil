@@ -179,13 +179,13 @@ export default function TeacherDashboard() {
                 <button
                   onClick={toggleNameOrder}
                   title={nameOrder === 'normal' ? 'Mostrar Grupo + Asignatura' : 'Mostrar Asignatura + Grupo'}
-                  className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-600 transition-colors px-2 py-1 rounded hover:bg-blue-50"
+                  className="flex items-center gap-1 text-sm text-slate-500 hover:text-blue-600 transition-colors px-2 py-1 rounded hover:bg-blue-50"
                 >
                   <ArrowUpDown size={13} />
                   {nameOrder === 'normal' ? 'Asignatura · Grupo' : 'Grupo · Asignatura'}
                 </button>
                 <span className="text-xs text-slate-300">·</span>
-                <span className="text-xs text-slate-400">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
+                <span className="text-sm text-slate-500">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
               </div>
             </div>
 
@@ -219,7 +219,7 @@ export default function TeacherDashboard() {
                         )}
                       </div>
                       {subjectPeriodLabel(s) && (
-                        <p className="text-xs text-slate-400 mt-0.5">{subjectPeriodLabel(s)}</p>
+                        <p className="text-sm text-slate-500 mt-0.5">{subjectPeriodLabel(s)}</p>
                       )}
                     </div>
                     <ChevronRight size={18} className="text-slate-300 flex-shrink-0" />
@@ -285,7 +285,7 @@ export default function TeacherDashboard() {
                 </label>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <span className="block text-xs text-slate-400 mb-1">Inicio</span>
+                    <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                     <input
                       type="date"
                       value={newSubjectFechaInicio}
@@ -294,7 +294,7 @@ export default function TeacherDashboard() {
                     />
                   </div>
                   <div className="flex-1">
-                    <span className="block text-xs text-slate-400 mb-1">Fin</span>
+                    <span className="block text-sm text-slate-500 mb-1">Fin</span>
                     <input
                       type="date"
                       value={newSubjectFechaFin}

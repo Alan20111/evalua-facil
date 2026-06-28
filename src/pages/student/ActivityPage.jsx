@@ -358,7 +358,7 @@ export default function StudentActivityPage() {
                 <p className="text-sm mt-2 font-medium text-muted text-center break-words line-clamp-2 max-w-full">
                   {file ? file.name : 'Toca para seleccionar archivo'}
                 </p>
-                <p className="text-xs text-slate-400 mt-1 text-center break-words max-w-full">{getFileType(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept} · máx 5 MB</p>
+                <p className="text-sm text-slate-500 mt-1 text-center break-words max-w-full">{getFileType(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept} · máx 5 MB</p>
               </label>
               <button
                 type="button"
@@ -377,7 +377,7 @@ export default function StudentActivityPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={uploading}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-1.5 text-xs text-slate-400 hover:text-muted transition-colors"
+                className="w-full py-1.5 text-sm text-slate-500 hover:text-muted transition-colors"
               >
                 Marcar como completada sin archivo
               </button>

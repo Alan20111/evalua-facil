@@ -121,7 +121,7 @@ export default function StudentSubjectPage() {
                 </div>
                 <div className="flex-1 text-left min-w-0">
                   <p className="font-semibold text-on-surface truncate">Parcial {p}</p>
-                  <p className="text-xs text-slate-400">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
+                  <p className="text-sm text-slate-500">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {avg != null && (
@@ -160,7 +160,7 @@ export default function StudentSubjectPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-on-surface truncate">{a.nombre}</p>
                           {sub?.comentario && (
-                            <p className="text-xs text-slate-400 truncate mt-0.5">"{sub.comentario}"</p>
+                            <p className="text-sm text-slate-500 truncate mt-0.5">"{sub.comentario}"</p>
                           )}
                         </div>
                         <div className="flex-shrink-0 text-right">
@@ -169,7 +169,7 @@ export default function StudentSubjectPage() {
                               <p className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
                                 <Star size={11} /> {sub.calificacion}
                               </p>
-                              <p className="text-xs text-slate-400">/{a.maxCalif}</p>
+                              <p className="text-sm text-slate-500">/{a.maxCalif}</p>
                             </div>
                           ) : delivered ? (
                             <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregado</span>

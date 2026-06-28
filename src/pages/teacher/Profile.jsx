@@ -300,7 +300,7 @@ export default function Profile() {
           <div className="text-center">
             <p className="font-bold text-on-surface">{displayName}</p>
             {userProfile?.schoolName && (
-              <p className="text-xs text-slate-400 mt-1">{userProfile.schoolName}</p>
+              <p className="text-sm text-slate-500 mt-1">{userProfile.schoolName}</p>
             )}
           </div>
         </div>
@@ -332,7 +332,7 @@ export default function Profile() {
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
-              <p className="text-xs text-slate-400 mt-0.5">Las escuelas con el mismo nombre pueden tener grupos en común.</p>
+              <p className="text-sm text-slate-500 mt-0.5">Las escuelas con el mismo nombre pueden tener grupos en común.</p>
             </div>
             <button type="button" onClick={() => { setSchoolSearch(''); setShowSchoolPicker(true) }}
               className="text-blue-600 text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
@@ -348,7 +348,7 @@ export default function Profile() {
 
             {/* ── Correo (solo lectura) ── */}
             <div className="py-3 border-b border-outline-variant">
-              <p className="text-xs text-slate-400 mb-0.5">Correo electrónico</p>
+              <p className="text-sm text-slate-500 mb-0.5">Correo electrónico</p>
               <p className="text-sm text-on-surface truncate">{currentUser?.email}</p>
             </div>
 
@@ -358,7 +358,7 @@ export default function Profile() {
                 <div className="flex-1">
                   <p className="text-sm font-medium text-on-surface">Contraseña</p>
                   {!hasEmailProvider && (
-                    <p className="text-xs text-slate-400 mt-0.5">Solo disponible si tu cuenta usa correo y contraseña</p>
+                    <p className="text-sm text-slate-500 mt-0.5">Solo disponible si tu cuenta usa correo y contraseña</p>
                   )}
                 </div>
                 {hasEmailProvider && (
@@ -457,7 +457,7 @@ export default function Profile() {
                     <button type="button" onClick={() => updateSchool(p)} disabled={savingSchool}
                       className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors disabled:opacity-60">
                       <p className="text-sm font-medium text-on-surface leading-tight">{p.short || p.nombre}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
+                      <p className="text-sm text-slate-500 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
                     </button>
                   </li>
                 ))}
