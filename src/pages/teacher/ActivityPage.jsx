@@ -411,12 +411,12 @@ export default function ActivityPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-base font-semibold text-on-surface">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-semibold text-on-surface truncate">
                   {selected.student.apellidoPaterno} {selected.student.nombre}
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5 truncate">
                   {selected.sub
                     ? selected.sub.completadoSinArchivo
                       ? 'Completada sin archivo'
@@ -424,7 +424,7 @@ export default function ActivityPage() {
                     : 'Sin entrega aún'}
                 </p>
               </div>
-              <button onClick={closeModal} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+              <button onClick={closeModal} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={18} /></button>
             </div>
 
             {/* Prev / next navigation across the student row */}

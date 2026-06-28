@@ -4,7 +4,6 @@ import {
   CreditCard,
   DollarSign,
   Clock,
-  AlertTriangle,
   TrendingUp,
   Timer,
 } from 'lucide-react'
@@ -25,14 +24,14 @@ export default function StatsCards({ kpis }) {
   if (!kpis) return null
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       {KPI_CONFIG.map(({ key, label, icon: Icon, format }) => (
         <div key={key} className="bg-surface-card rounded-card shadow-card p-4 md:p-5">
-          <div className="flex items-center gap-2 text-slate-400 mb-2">
-            <Icon size={16} />
-            <span className="text-xs font-medium">{label}</span>
+          <div className="flex items-center gap-2 text-slate-400 mb-2 min-w-0">
+            <Icon size={16} className="flex-shrink-0" />
+            <span className="text-xs font-medium truncate">{label}</span>
           </div>
-          <p className="text-xl md:text-2xl font-bold text-on-surface">{format(kpis[key] ?? 0)}</p>
+          <p className="text-xl md:text-2xl font-bold text-on-surface truncate">{format(kpis[key] ?? 0)}</p>
         </div>
       ))}
     </div>

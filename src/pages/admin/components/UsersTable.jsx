@@ -43,7 +43,7 @@ export default function UsersTable({ stats }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
               <th className="px-4 py-3">Usuario</th>

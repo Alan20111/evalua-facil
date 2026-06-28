@@ -61,12 +61,16 @@ export default function PlansManager({ stats, onRefresh }) {
     e.preventDefault()
     setSaving(true)
     try {
+      const toNum = (v, fallback = 0) => {
+        const n = Number(v)
+        return Number.isFinite(n) ? n : fallback
+      }
       const data = {
         ...modal.form,
-        precio: Number(modal.form.precio),
-        maxAsignaturas: Number(modal.form.maxAsignaturas),
-        maxAlumnos: Number(modal.form.maxAlumnos),
-        orden: Number(modal.form.orden),
+        precio: toNum(modal.form.precio, 0),
+        maxAsignaturas: toNum(modal.form.maxAsignaturas, -1),
+        maxAlumnos: toNum(modal.form.maxAlumnos, -1),
+        orden: toNum(modal.form.orden, 1),
         updatedAt: serverTimestamp(),
       }
 
@@ -111,7 +115,7 @@ export default function PlansManager({ stats, onRefresh }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
               <th className="px-4 py-3">Nombre</th>
@@ -187,7 +191,7 @@ export default function PlansManager({ stats, onRefresh }) {
 
       {modal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-surface-card rounded-card p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface-card rounded-card p-6 w-[calc(100%-2rem)] max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-on-surface">
                 {modal.mode === 'create' ? 'Nuevo plan' : 'Editar plan'}
@@ -218,7 +222,7 @@ export default function PlansManager({ stats, onRefresh }) {
                   className={`${inputCls} h-16 resize-none`}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1">
                     Precio (MXN)
@@ -250,7 +254,7 @@ export default function PlansManager({ stats, onRefresh }) {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1">
                     Máx. asignaturas (-1 = ∞)
@@ -284,7 +288,7 @@ export default function PlansManager({ stats, onRefresh }) {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1">Orden</label>
                   <input

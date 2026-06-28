@@ -153,13 +153,13 @@ export default function TeacherDashboard() {
         {/* Greeting */}
         <div className="mb-6">
           <p className="text-muted text-sm">Bienvenido,</p>
-          <h1 className="text-2xl font-bold text-on-surface">
+          <h1 className="text-2xl font-bold text-on-surface truncate">
             {userProfile?.nombreMostrar ||
               userProfile?.username ||
               'Docente'}
           </h1>
           {userProfile?.schoolName && (
-            <p className="text-slate-400 text-xs mt-0.5">{userProfile.schoolName}</p>
+            <p className="text-slate-400 text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
           )}
         </div>
 
@@ -168,7 +168,7 @@ export default function TeacherDashboard() {
         ) : (
           <>
             {/* ── Mis asignaturas ── */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
               <h2 className="text-lg font-semibold text-on-surface">Mis asignaturas</h2>
               <div className="flex items-center gap-2">
                 <button
@@ -230,7 +230,7 @@ export default function TeacherDashboard() {
       {/* FAB — create subject (mobile only; on web use the sidebar's "Nueva asignatura") */}
       <button
         onClick={() => setShowSubjectModal(true)}
-        className="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
+        className="md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
       >
         <Plus size={24} />
       </button>
@@ -239,7 +239,7 @@ export default function TeacherDashboard() {
       {showSubjectModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowSubjectModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
               <button onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-muted rounded">
@@ -305,13 +305,13 @@ export default function TeacherDashboard() {
                 <label className="block text-sm font-medium text-muted mb-1">
                   Calificaciones parciales <span className="text-slate-400 font-normal text-xs">(por defecto 3)</span>
                 </label>
-                <div className="flex gap-1.5">
+                <div className="grid grid-cols-6 gap-1.5">
                   {[1, 2, 3, 4, 5, 6].map((n) => (
                     <button
                       key={n}
                       type="button"
                       onClick={() => setNewSubjectParciales(n)}
-                      className={`flex-1 py-2.5 rounded text-sm font-bold transition-colors ${
+                      className={`py-2.5 rounded text-sm font-bold transition-colors ${
                         newSubjectParciales === n
                           ? 'bg-blue-600 text-white'
                           : 'bg-surface-container text-muted hover:bg-surface-dim'

@@ -221,7 +221,7 @@ export default function TeacherLayout({ children }) {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 min-h-screen pb-20 md:pb-0">{children}</main>
+        <main className="flex-1 min-w-0 min-h-screen pb-20 md:pb-0">{children}</main>
       </div>
 
       {/* Mobile bottom nav */}

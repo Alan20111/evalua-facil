@@ -473,7 +473,7 @@ export default function Profile() {
       {showSchoolPicker && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !savingSchool && setShowSchoolPicker(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card shadow-2xl flex flex-col" style={{ maxHeight: '80vh' }}>
+          <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card shadow-2xl flex flex-col max-h-[90vh]">
             <div className="flex items-center gap-2 p-3 border-b border-outline-variant">
               <div className="flex-1 relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

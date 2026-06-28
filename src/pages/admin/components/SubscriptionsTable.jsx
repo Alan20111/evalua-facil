@@ -92,12 +92,15 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         status: modal.form.status,
         updatedAt: serverTimestamp(),
       }
-      if (modal.form.fechaInicio) {
-        data.fechaInicio = Timestamp.fromDate(new Date(modal.form.fechaInicio))
+      const toTimestamp = (val) => {
+        if (!val) return null
+        const d = new Date(val)
+        return Number.isNaN(d.getTime()) ? null : Timestamp.fromDate(d)
       }
-      if (modal.form.fechaVencimiento) {
-        data.fechaVencimiento = Timestamp.fromDate(new Date(modal.form.fechaVencimiento))
-      }
+      const tsInicio = toTimestamp(modal.form.fechaInicio)
+      const tsVencimiento = toTimestamp(modal.form.fechaVencimiento)
+      if (tsInicio) data.fechaInicio = tsInicio
+      if (tsVencimiento) data.fechaVencimiento = tsVencimiento
 
       if (modal.mode === 'create') {
         await addDoc(collection(db, 'subscriptions'), { ...data, createdAt: serverTimestamp() })
@@ -154,7 +157,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
               <th className="px-4 py-3">Docente</th>
@@ -234,7 +237,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
 
       {modal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-surface-card rounded-card p-6 w-full max-w-md shadow-xl">
+          <div className="bg-surface-card rounded-card p-6 w-[calc(100%-2rem)] max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-on-surface">
                 {modal.mode === 'create' ? 'Nueva suscripción' : 'Editar suscripción'}
@@ -294,7 +297,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1">Inicio</label>
                   <input

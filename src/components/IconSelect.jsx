@@ -3,7 +3,7 @@ import { SUBJECT_ICON_KEYS, getSubjectIcon } from '../utils/subjectIcons'
 // Grid of subject icons. `value` is an icon key, `onChange(key)`.
 export default function IconSelect({ value = 'book', onChange }) {
   return (
-    <div className="grid grid-cols-8 gap-1.5">
+    <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
       {SUBJECT_ICON_KEYS.map((key) => {
         const Icon = getSubjectIcon(key)
         const selected = (value || 'book') === key

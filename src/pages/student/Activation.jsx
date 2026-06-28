@@ -101,6 +101,7 @@ export default function StudentActivation() {
         return
       }
       setStudent(data)
+      setPasswordError('')
       setStep('password')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -243,7 +244,7 @@ export default function StudentActivation() {
           </div>
           <h1 className="text-2xl font-bold text-on-surface">Activar cuenta</h1>
           {subject && (
-            <p className="text-muted text-sm mt-1">
+            <p className="text-muted text-sm mt-1 break-words">
               <strong>{subjectDisplayName(subject)}</strong>
               {subjectPeriodLabel(subject) && ` · ${subjectPeriodLabel(subject)}`}
             </p>
@@ -254,10 +255,10 @@ export default function StudentActivation() {
           {step === 'link_existing' ? (
             <div>
               <div className="flex items-center gap-3 p-3 bg-accent-light rounded mb-4">
-                <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center">
+                <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                   <Check size={16} className="text-accent" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-semibold text-on-surface">Ya tienes cuenta</p>
                   <p className="text-xs text-muted">Escribe tu contraseña para agregar esta asignatura</p>
                 </div>
@@ -303,7 +304,6 @@ export default function StudentActivation() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toUpperCase())}
-                  onInput={(e) => setUsername(e.target.value.toUpperCase())}
                   required
                   autoFocus
                   autoComplete="off"
@@ -330,11 +330,11 @@ export default function StudentActivation() {
           ) : (
             <div>
               <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded mb-4">
-                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
                   <Check size={16} className="text-emerald-600" />
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-on-surface">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-on-surface break-words">
                     {student?.apellidoPaterno} {student?.apellidoMaterno} {student?.nombre}
                   </p>
                   <p className="text-xs text-muted font-mono">{student?.username}</p>

@@ -792,7 +792,7 @@ export default function SubjectPage() {
         {/* ── Header ── */}
         <div className="bg-surface-card border-b border-outline-variant px-4 py-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
+            <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={20} />
             </button>
             <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
@@ -805,8 +805,12 @@ export default function SubjectPage() {
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">Archivada</span>
                 )}
               </div>
-              <p className="text-slate-400 text-xs">{subjectPeriodLabel(subject)}</p>
+              <p className="text-slate-400 text-xs truncate">{subjectPeriodLabel(subject)}</p>
             </div>
+          </div>
+
+          {/* Action buttons — wrap on mobile so they never overflow */}
+          <div className="flex flex-wrap items-center gap-1 mt-3">
             <button type="button" onClick={() => setShowQR(true)}
               title="Código QR de acceso"
               className="p-2 text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
@@ -824,6 +828,7 @@ export default function SubjectPage() {
                 ? <><CheckIcon size={19} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
                 : <><Hash size={19} className="flex-shrink-0" /><span>{subject?.accessCode}</span></>}
             </button>
+            <div className="flex-1" />
             <button type="button" onClick={openEditSubject}
               title="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
@@ -992,8 +997,8 @@ export default function SubjectPage() {
               <p className="text-center text-slate-400 text-sm py-12">No hay alumnos en este grupo</p>
             ) : (
               <>
-                <div className="overflow-x-auto rounded-card shadow-card bg-surface-card">
-                  <table className="text-sm border-collapse min-w-full">
+                <div className="overflow-x-auto rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
+                  <table className="text-sm border-collapse min-w-[640px]">
                     <thead>
                       <tr className="bg-surface border-b border-outline-variant">
                         <th className="sticky left-0 z-10 bg-surface px-3 py-2.5 text-left text-xs font-medium text-muted whitespace-nowrap min-w-[150px] border-r border-outline-variant">
@@ -1073,20 +1078,20 @@ export default function SubjectPage() {
           {/* 1 — Agregar alumnos con la plantilla de Excel (paso 1: descargar, paso 2: subir) */}
           <div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar alumnos con Excel</p>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <button
                 type="button"
                 onClick={downloadStudentTemplate}
                 title="Descarga un Excel vacío con el formato correcto para pegar la lista de tus alumnos"
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
+                className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
               >
-                <Download size={15} /> Descargar plantilla en Excel para pegar datos de alumnos
+                <Download size={15} className="flex-shrink-0" /> Descargar plantilla en Excel para pegar datos de alumnos
               </button>
               <label
                 title="Sube la plantilla de Excel ya llena para registrar a todos los alumnos de una vez"
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded text-sm font-medium text-white transition-colors cursor-pointer ${savingStudent ? 'bg-accent/60' : 'bg-accent hover:bg-accent-hover'}`}
+                className={`flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 rounded text-sm font-medium text-white transition-colors cursor-pointer ${savingStudent ? 'bg-accent/60' : 'bg-accent hover:bg-accent-hover'}`}
               >
-                {savingStudent ? <Spinner size="sm" /> : <Upload size={15} />} Subir la plantilla de Excel con los datos de los alumnos
+                {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />} Subir la plantilla de Excel con los datos de los alumnos
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
               </label>
             </div>
@@ -1348,7 +1353,7 @@ export default function SubjectPage() {
       {showAddStudent && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddStudent(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Agregar alumno</h3>
               <button onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
@@ -1386,7 +1391,7 @@ export default function SubjectPage() {
       {showQR && subject && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowQR(false)} />
-          <div className="relative bg-surface-card w-full max-w-xs rounded-card p-6 shadow-2xl text-center">
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-xs rounded-card p-6 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Acceso de alumnos</h3>
               <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
@@ -1396,7 +1401,7 @@ export default function SubjectPage() {
             </p>
             <p className="text-label-caps text-muted uppercase mb-1 text-left">Código QR de acceso para alumnos</p>
             <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-3">
-              <QRCode value={activationUrl} size={180} />
+              <QRCode value={activationUrl} size={160} className="max-w-full h-auto" />
             </div>
             <div className="mt-3 space-y-2">
               <button
@@ -1430,7 +1435,7 @@ export default function SubjectPage() {
       {studentToReset && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToReset(null)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
               <KeyRound size={22} className="text-amber-500" />
             </div>
@@ -1463,7 +1468,7 @@ export default function SubjectPage() {
       {showCredentialsModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !generatingCredentials && setShowCredentialsModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-4">
               <KeyRound size={22} className="text-accent" />
             </div>
@@ -1500,7 +1505,7 @@ export default function SubjectPage() {
       {resetPwdResult && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setResetPwdResult(null)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
               <KeyRound size={22} className="text-green-600" />
             </div>
@@ -1524,7 +1529,7 @@ export default function SubjectPage() {
       {studentToDelete && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToDelete(null)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
               <Trash2 size={22} className="text-red-500" />
             </div>
@@ -1557,7 +1562,7 @@ export default function SubjectPage() {
       {activateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setActivateModal(null)} />
-          <div className="relative bg-surface-card rounded-card p-6 shadow-2xl w-full max-w-sm">
+          <div className="relative bg-surface-card rounded-card p-6 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-semibold text-on-surface mb-1">Activar actividad</h3>
             <p className="text-sm text-muted mb-4">
               "<strong>{activateModal.nombre}</strong>" está oculta. ¿Cómo quieres activarla?
@@ -1737,7 +1742,7 @@ export default function SubjectPage() {
       {showDeleteSubjectConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} />
-          <div className="relative bg-surface-card rounded-card p-6 shadow-2xl w-full max-w-sm">
+          <div className="relative bg-surface-card rounded-card p-6 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
               <Trash2 size={22} className="text-red-500" />
             </div>
@@ -1773,7 +1778,7 @@ export default function SubjectPage() {
       {showArchiveModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !archiving && setShowArchiveModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
               <button onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>

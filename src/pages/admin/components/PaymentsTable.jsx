@@ -95,7 +95,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
               <th className="px-4 py-3">Docente</th>
@@ -165,7 +165,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
 
       {rejectModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-surface-card rounded-card p-6 w-full max-w-sm shadow-xl">
+          <div className="bg-surface-card rounded-card p-6 w-[calc(100%-2rem)] max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="font-bold text-on-surface mb-2">Rechazar pago</h3>
             <p className="text-sm text-muted mb-4">
               Referencia: {rejectModal.referencia} — {formatCurrency(rejectModal.monto)}

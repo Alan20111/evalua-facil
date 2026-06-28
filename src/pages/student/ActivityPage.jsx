@@ -233,13 +233,13 @@ export default function StudentActivityPage() {
       <header className="bg-surface-card border-b border-outline-variant px-4 py-4 flex items-center gap-3 shadow-card">
         <button
           onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}
-          className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
+          className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >
           <ArrowLeft size={20} />
         </button>
-        <div>
-          <h1 className="text-lg font-bold text-on-surface">{activity?.nombre}</h1>
-          <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold text-on-surface truncate">{activity?.nombre}</h1>
+          <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
         </div>
       </header>
 
@@ -253,17 +253,17 @@ export default function StudentActivityPage() {
           {isGraded ? <CheckCircle size={24} className="text-emerald-500 flex-shrink-0" />
             : isDelivered ? <Clock size={24} className="text-accent flex-shrink-0" />
             : <FileText size={24} className="text-slate-400 flex-shrink-0" />}
-          <div>
+          <div className="min-w-0">
             <p className="font-semibold text-on-surface text-sm">
               {isGraded ? 'Calificado'
                 : isDelivered ? 'Entregado — pendiente de calificación'
                 : 'Pendiente de entrega'}
             </p>
             {isDelivered && (
-              <p className="text-xs text-muted mt-0.5 flex items-center gap-1">
+              <p className="text-xs text-muted mt-0.5 flex items-center gap-1 min-w-0">
                 {noFile
-                  ? <><CheckCircle size={10} /> Completada sin archivo</>
-                  : <><FileText size={10} /> {submission.nombreArchivo}</>}
+                  ? <><CheckCircle size={10} className="flex-shrink-0" /> Completada sin archivo</>
+                  : <><FileText size={10} className="flex-shrink-0" /> <span className="truncate">{submission.nombreArchivo}</span></>}
               </p>
             )}
           </div>
@@ -309,7 +309,7 @@ export default function StudentActivityPage() {
         {activity?.instrucciones && (
           <div className="bg-surface-card rounded-card p-5 shadow-card">
             <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
-            <p className="text-sm text-muted leading-relaxed whitespace-pre-wrap">
+            <p className="text-sm text-muted leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
               {activity.instrucciones}
             </p>
           </div>
@@ -345,7 +345,7 @@ export default function StudentActivityPage() {
               </p>
             )}
             <div className="space-y-3">
-              <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded cursor-pointer transition-colors ${
+              <label className={`flex flex-col items-center justify-center w-full h-28 sm:h-32 px-3 border-2 border-dashed rounded cursor-pointer transition-colors ${
                 file ? 'border-accent bg-accent-light' : 'border-outline-variant hover:border-accent hover:bg-surface'
               }`}>
                 <input
@@ -354,11 +354,11 @@ export default function StudentActivityPage() {
                   className="hidden"
                   onChange={(e) => setFile(e.target.files[0] || null)}
                 />
-                <Upload size={24} className={file ? 'text-accent' : 'text-slate-400'} />
-                <p className="text-sm mt-2 font-medium text-muted">
+                <Upload size={24} className={`flex-shrink-0 ${file ? 'text-accent' : 'text-slate-400'}`} />
+                <p className="text-sm mt-2 font-medium text-muted text-center break-words line-clamp-2 max-w-full">
                   {file ? file.name : 'Toca para seleccionar archivo'}
                 </p>
-                <p className="text-xs text-slate-400 mt-1">{getFileType(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept} · máx 5 MB</p>
+                <p className="text-xs text-slate-400 mt-1 text-center break-words max-w-full">{getFileType(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept} · máx 5 MB</p>
               </label>
               <button
                 type="button"

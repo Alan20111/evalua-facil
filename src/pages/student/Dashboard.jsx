@@ -156,21 +156,21 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen bg-surface">
       {/* Header */}
-      <header className="bg-surface-card border-b border-outline-variant px-4 py-4 flex items-center justify-between shadow-card">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
+      <header className="bg-surface-card border-b border-outline-variant px-4 py-4 flex items-center justify-between gap-3 shadow-card">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
             <GraduationCap size={18} className="text-white" />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-on-surface">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-on-surface truncate">
               {student?.nombre} {student?.apellidoPaterno}
             </p>
-            <p className="text-xs text-accent font-mono">{student?.username}</p>
+            <p className="text-xs text-accent font-mono truncate">{student?.username}</p>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="p-2 text-slate-400 hover:text-red-500 rounded transition-colors"
+          className="p-2 text-slate-400 hover:text-red-500 rounded transition-colors flex-shrink-0"
         >
           <LogOut size={18} />
         </button>
@@ -199,8 +199,8 @@ export default function StudentDashboard() {
                   <SubjectIcon iconKey={s.icon} size={20} className="text-accent" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-on-surface">{subjectDisplayName(s)}</p>
-                  <p className="text-slate-400 text-xs mt-0.5">{s.teacherName}</p>
+                  <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
+                  <p className="text-slate-400 text-xs mt-0.5 truncate">{s.teacherName}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {s.avg != null && (
@@ -230,9 +230,9 @@ export default function StudentDashboard() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowJoin(false)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-on-surface">Unirme a otra asignatura</h3>
-              <button onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-lg font-semibold text-on-surface truncate">Unirme a otra asignatura</h3>
+              <button onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={18} /></button>
             </div>
             <p className="text-sm text-muted mb-4">
               Ingresa el <strong>código de acceso</strong> de tu nueva asignatura (o escanea su QR). Como ya tienes cuenta, solo confirmarás tu contraseña.

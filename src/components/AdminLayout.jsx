@@ -58,7 +58,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
         <aside
           className={`${
             mobileOpen ? 'flex' : 'hidden'
-          } md:flex flex-col w-64 h-screen fixed md:sticky top-0 bg-surface-card border-r border-outline-variant flex-shrink-0 z-20`}
+          } md:flex flex-col w-64 h-screen fixed md:sticky top-0 bg-surface-card border-r border-outline-variant flex-shrink-0 overflow-y-auto z-40 md:z-20`}
         >
           <div className="px-5 py-4 border-b border-outline-variant flex items-center gap-2.5">
             <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
@@ -109,12 +109,12 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
 
         {mobileOpen && (
           <div
-            className="fixed inset-0 bg-black/30 z-10 md:hidden"
+            className="fixed inset-0 bg-black/30 z-30 md:hidden"
             onClick={() => setMobileOpen(false)}
           />
         )}
 
-        <main className="flex-1 min-h-screen p-4 md:p-6 lg:p-8 max-w-7xl">{children}</main>
+        <main className="flex-1 min-w-0 min-h-screen p-4 md:p-6 lg:p-8 max-w-7xl">{children}</main>
       </div>
     </div>
   )

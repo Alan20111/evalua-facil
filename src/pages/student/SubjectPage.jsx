@@ -92,15 +92,15 @@ export default function StudentSubjectPage() {
       <header className="bg-surface-card border-b border-outline-variant px-4 py-4 flex items-center gap-3 shadow-card">
         <button
           onClick={() => navigate('/alumno/dashboard')}
-          className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
+          className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >
           <ArrowLeft size={20} />
         </button>
         <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
           <SubjectIcon iconKey={subject?.icon} size={18} className="text-accent" />
         </div>
-        <div>
-          <h1 className="text-lg font-bold text-on-surface">{subjectDisplayName(subject)}</h1>
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold text-on-surface truncate">{subjectDisplayName(subject)}</h1>
           <p className="text-slate-400 text-xs">{subject?.parciales || 3} parciales</p>
         </div>
       </header>
@@ -119,11 +119,11 @@ export default function StudentSubjectPage() {
                 <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                   <span className="text-accent font-bold text-sm">{p}</span>
                 </div>
-                <div className="flex-1 text-left">
-                  <p className="font-semibold text-on-surface">Parcial {p}</p>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="font-semibold text-on-surface truncate">Parcial {p}</p>
                   <p className="text-xs text-slate-400">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {avg != null && (
                     <div className="text-right">
                       <span className="text-lg font-bold text-accent">{avg}</span>
