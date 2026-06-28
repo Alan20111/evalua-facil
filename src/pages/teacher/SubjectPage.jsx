@@ -1198,13 +1198,12 @@ export default function SubjectPage() {
               <button
                 type="button"
                 onClick={downloadStudentTemplate}
-                title="Descarga un Excel vacío con el formato correcto para pegar la lista de tus alumnos"
                 className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
               >
                 <Download size={15} className="flex-shrink-0" /> <strong>Paso 1</strong> · Descargar plantilla en Excel para pegar datos de alumnos
               </button>
               <label
-                title="Sube la plantilla de Excel ya llena para registrar a todos los alumnos de una vez"
+                title="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
                 className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors cursor-pointer"
               >
                 {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />} <strong>Paso 2</strong> · Subir la plantilla de Excel con los datos de los alumnos
@@ -1217,7 +1216,7 @@ export default function SubjectPage() {
           <button
             type="button"
             onClick={() => setShowCredentialsModal(true)}
-            title="Genera el código de acceso de cada alumno y descarga un PDF con sus usuarios"
+            title="Genera tu lista actualizada cada vez que agregues usuarios"
             className="w-full flex items-center justify-center gap-2 py-2.5 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
           >
             <KeyRound size={15} /> <strong>Paso 3</strong> · Generar códigos para alumnos y descargar lista de acceso (usuarios + códigos)
