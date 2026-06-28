@@ -32,6 +32,8 @@ import {
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity } from '../../utils/studentIdentity'
+import { useSubscription } from '../../hooks/useSubscription'
+import { canCreateContent } from '../../utils/subscriptionHelpers'
 
 async function fetchSubmissionsForActivities(actIds) {
   if (actIds.length === 0) return []
@@ -57,6 +59,8 @@ function gradeColor(norm) {
 export default function SubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
+  const { subscription } = useSubscription()
+  const canCreate = canCreateContent(subscription)
   const [subject, setSubject] = useState(null)
   const [activities, setActivities] = useState([])
   const [submissionCounts, setSubmissionCounts] = useState({})
@@ -443,6 +447,10 @@ export default function SubjectPage() {
 
   // ── Activity actions ───────────────────────────────────────────────
   function openAdd(parcial) {
+    if (!canCreate) {
+      toast('Activa tu suscripción para crear nuevas actividades — toda tu información sigue disponible')
+      return
+    }
     setModalMode('create'); setModalParcial(parcial); setEditActivityId(null)
     setForm(EMPTY_FORM); setShowModal(true)
   }
@@ -462,7 +470,12 @@ export default function SubjectPage() {
   }
 
   async function handleSaveActivity(e) {
-    e.preventDefault(); setSaving(true)
+    e.preventDefault()
+    if (modalMode === 'create' && !canCreate) {
+      toast('Activa tu suscripción para crear nuevas actividades — toda tu información sigue disponible')
+      return
+    }
+    setSaving(true)
     const payload = {
       nombre: form.nombre.trim(),
       maxCalif: parseFloat(form.maxCalif) || 10,
@@ -687,6 +700,10 @@ export default function SubjectPage() {
   }
 
   function openCopyModal() {
+    if (!canCreate) {
+      toast('Activa tu suscripción para crear nuevas asignaturas — toda tu información sigue disponible')
+      return
+    }
     setCopyForm({ nombre: subject?.nombre || '', grupo: subject?.grupo || '', keepStudents: false, colorPalette: subject?.colorPalette || 'default', icon: subject?.icon || 'book' })
     setCopyFechas({ fechaInicio: subject?.fechaInicio || '', fechaFin: subject?.fechaFin || '' })
     setShowCopyModal(true)
@@ -1025,7 +1042,10 @@ export default function SubjectPage() {
                         )
                       })}
                       <button onClick={() => openAdd(p)}
-                        className="w-full py-2.5 border-2 border-dashed border-accent rounded text-accent text-sm font-medium hover:bg-accent-light transition-colors flex items-center justify-center gap-2">
+                        title={canCreate ? undefined : 'Activa tu suscripción para crear nuevas actividades'}
+                        className={`w-full py-2.5 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                          canCreate ? 'border-accent text-accent hover:bg-accent-light' : 'border-outline-variant text-slate-400 hover:bg-surface'
+                        }`}>
                         <Plus size={15} /> Agregar actividad
                       </button>
                       </div>

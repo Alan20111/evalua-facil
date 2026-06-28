@@ -1,6 +1,7 @@
 import { Timestamp, addDoc, collection, doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { sendWelcomeEmail } from './welcomeEmail'
+import { calcTrialEnd } from './subscriptionHelpers'
 
 // Creates the minimal Firestore profile + trial subscription for a brand-new
 // docente account (email/password or Google). Profile starts incomplete —
@@ -14,8 +15,7 @@ export async function createTeacherAccount(uid, email, photoURL = null) {
   })
 
   const trialStart = new Date()
-  const trialEnd = new Date(trialStart)
-  trialEnd.setDate(trialEnd.getDate() + 45)
+  const trialEnd = calcTrialEnd(trialStart)
   await addDoc(collection(db, 'subscriptions'), {
     docenteId: uid,
     planId: '',

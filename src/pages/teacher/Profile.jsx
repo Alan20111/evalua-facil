@@ -17,6 +17,7 @@ import { Camera, Lock, User, X, CreditCard, School, Search, ChevronDown, Plus } 
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
 import {
+  TRIAL_DURATION_DAYS,
   calcDaysRemaining,
   formatCurrency,
   formatDate,
@@ -207,7 +208,7 @@ export default function Profile() {
                   {subscription.status === 'trial' ? (
                     <>
                       <p className="font-bold text-on-surface">Período de prueba</p>
-                      <p className="text-sm text-muted">60 días gratuitos</p>
+                      <p className="text-sm text-muted">{TRIAL_DURATION_DAYS} días gratuitos</p>
                     </>
                   ) : currentPlan ? (
                     <>

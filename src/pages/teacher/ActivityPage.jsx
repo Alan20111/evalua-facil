@@ -22,6 +22,8 @@ import FileTypeSelect from '../../components/FileTypeSelect'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE } from '../../config/fileTypes'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { useSubscription } from '../../hooks/useSubscription'
+import { canCreateContent } from '../../utils/subscriptionHelpers'
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
@@ -64,6 +66,8 @@ export default function ActivityPage() {
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
   const navigate = useNavigate()
   const toast = useToast()
+  const { subscription } = useSubscription()
+  const canCreate = canCreateContent(subscription)
 
   useEffect(() => { loadAll() }, [activityId])
 
@@ -155,6 +159,10 @@ export default function ActivityPage() {
   async function saveGrade(e) {
     e.preventDefault()
     if (!selected?.sub) return
+    if (!canCreate) {
+      toast('Activa tu suscripción para registrar calificaciones — toda tu información sigue disponible')
+      return
+    }
     setSaving(true)
     try {
       await updateDoc(doc(db, 'submissions', selected.sub.id), {
@@ -532,9 +540,14 @@ export default function ActivityPage() {
                     placeholder="Retroalimentación para el alumno…"
                   />
                 </div>
+                {!canCreate && (
+                  <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
+                    Activa tu suscripción para registrar calificaciones nuevas — toda la información de este alumno sigue disponible.
+                  </p>
+                )}
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || !canCreate}
                   className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {saving ? <Spinner size="sm" /> : <Star size={16} />}

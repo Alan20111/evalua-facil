@@ -1,5 +1,15 @@
 import { Timestamp } from 'firebase/firestore'
 
+// ── Trial policy — single source of truth ──────────────────────────────────
+// Any change to the trial's length or warning windows happens here, nowhere
+// else. Built so future paid plans plug into the same `isSubscriptionExpired`
+// / `canCreateContent` checks instead of each page inventing its own rule.
+export const TRIAL_DURATION_DAYS = 30
+// No mention of expiration before this many days are left (day 25 of 30).
+export const TRIAL_WARNING_DAYS = 5
+// Last stretch of the trial — same banner slot, just more visible styling.
+export const TRIAL_URGENT_DAYS = 2
+
 export function toDate(value) {
   if (!value) return null
   if (value instanceof Date) return value
@@ -29,6 +39,67 @@ export function calcVencimiento(fechaInicio, periodicidad) {
 
 export function calcVencimientoTimestamp(fechaInicio, periodicidad) {
   return Timestamp.fromDate(calcVencimiento(fechaInicio, periodicidad))
+}
+
+export function calcTrialEnd(fechaInicio) {
+  const start = toDate(fechaInicio) || new Date()
+  const end = new Date(start)
+  end.setDate(end.getDate() + TRIAL_DURATION_DAYS)
+  return end
+}
+
+export function calcTrialEndTimestamp(fechaInicio) {
+  return Timestamp.fromDate(calcTrialEnd(fechaInicio))
+}
+
+// A subscription stops allowing new content the moment it's expired — a
+// trial past its `fechaVencimiento`, or a paid plan marked `vencida`. This is
+// the one place that decides "expired"; everything else (banners, create
+// buttons) reads from here instead of re-deriving the rule.
+export function isSubscriptionExpired(subscription) {
+  if (!subscription) return false
+  if (subscription.status === 'vencida') return true
+  if (subscription.status === 'trial') {
+    const days = calcDaysRemaining(subscription.fechaVencimiento)
+    return days !== null && days <= 0
+  }
+  return false
+}
+
+// Viewing, exporting and everything already created stays available forever.
+// Only NEW content (subjects, activities, grades) is gated by this check.
+export function canCreateContent(subscription) {
+  return !isSubscriptionExpired(subscription)
+}
+
+// Trial banner copy — null means "say nothing" (days 1-24 of the trial).
+// Continuity-first wording throughout: never implies lost work, always a
+// clear next step (activate a plan) instead of an alarm.
+export function getTrialBannerMessage(subscription) {
+  if (subscription?.status !== 'trial') return null
+  const days = calcDaysRemaining(subscription.fechaVencimiento)
+  if (days === null) return null
+
+  if (days <= 0) {
+    return {
+      text: 'Tu período de prueba terminó. Tu información sigue segura — activa tu suscripción para seguir creando.',
+      urgent: true,
+      expired: true,
+    }
+  }
+  if (days > TRIAL_WARNING_DAYS) return null
+  if (days <= TRIAL_URGENT_DAYS) {
+    return {
+      text: 'Tu período de prueba está por terminar. Conserva tus grupos, alumnos, actividades y calificaciones activando tu suscripción.',
+      urgent: true,
+      expired: false,
+    }
+  }
+  return {
+    text: days === 1 ? 'Te queda 1 día de prueba' : `Te quedan ${days} días de prueba`,
+    urgent: false,
+    expired: false,
+  }
 }
 
 export function formatPlanLabel(plan) {

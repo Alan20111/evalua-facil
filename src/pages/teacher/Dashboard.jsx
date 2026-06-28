@@ -13,14 +13,14 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { Plus, BookOpen, ChevronRight, X, CreditCard, ArrowUpDown } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUpDown } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import { useSubscription } from '../../hooks/useSubscription'
-import { calcDaysRemaining } from '../../utils/subscriptionHelpers'
+import { canCreateContent } from '../../utils/subscriptionHelpers'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -32,11 +32,10 @@ export default function TeacherDashboard() {
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // Trial period modal
-  const [trialDismissed, setTrialDismissed] = useState(() => sessionStorage.getItem('trialDismissed') === '1')
-  const { subscription, loading: subLoading } = useSubscription()
-  const isTrial = subscription?.status === 'trial'
-  const daysLeft = isTrial ? calcDaysRemaining(subscription.fechaVencimiento) : 0
+  // Whether the trial (or subscription) is expired — only gates NEW creation;
+  // everything already in the account stays fully visible/exportable.
+  const { subscription } = useSubscription()
+  const canCreate = canCreateContent(subscription)
 
   // Subject creation modal
   const [showSubjectModal, setShowSubjectModal] = useState(location.state?.openCreate === true)
@@ -70,11 +69,19 @@ export default function TeacherDashboard() {
   // does not re-run. location.key changes on every navigation, so this fires each time.
   useEffect(() => {
     if (location.state?.openCreate) {
-      setShowSubjectModal(true)
+      openSubjectModal()
       navigate(location.pathname, { replace: true, state: {} })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.key])
+
+  function openSubjectModal() {
+    if (!canCreate) {
+      toast('Activa tu suscripción para crear nuevas asignaturas — toda tu información sigue disponible')
+      return
+    }
+    setShowSubjectModal(true)
+  }
 
   async function loadAll() {
     setLoading(true)
@@ -100,6 +107,10 @@ export default function TeacherDashboard() {
   async function handleCreateSubject(e) {
     e.preventDefault()
     if (!newSubjectName.trim() || !newSubjectGrupo.trim()) return
+    if (!canCreate) {
+      toast('Activa tu suscripción para crear nuevas asignaturas — toda tu información sigue disponible')
+      return
+    }
     setCreatingSubject(true)
     try {
       const subData = {
@@ -223,7 +234,7 @@ export default function TeacherDashboard() {
 
       {/* FAB — create subject (mobile only; on web use the sidebar's "Nueva asignatura") */}
       <button
-        onClick={() => setShowSubjectModal(true)}
+        onClick={openSubjectModal}
         className="md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
       >
         <Plus size={24} />
@@ -342,47 +353,6 @@ export default function TeacherDashboard() {
                 {creatingSubject ? 'Creando…' : 'Crear asignatura'}
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Trial period modal */}
-      {isTrial && !trialDismissed && !subLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/50" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded bg-blue-50 flex items-center justify-center">
-                <CreditCard size={20} className="text-blue-600" />
-              </div>
-              <button onClick={() => { sessionStorage.setItem('trialDismissed','1'); setTrialDismissed(true) }}
-                className="p-2 text-slate-400 hover:text-muted rounded">
-                <X size={18} />
-              </button>
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-on-surface">Período de prueba</h3>
-              <p className="text-sm text-muted mt-1">
-                {daysLeft > 0
-                  ? <>Te quedan <strong className="text-blue-600">{daysLeft} días</strong> de prueba gratuita.</>
-                  : 'Tu período de prueba ha terminado.'}
-              </p>
-            </div>
-            <div className="bg-blue-50 rounded p-4">
-              <p className="text-xs font-semibold text-blue-700 mb-0.5">Plan Pro</p>
-              <p className="text-2xl font-black text-blue-800">$100 <span className="text-sm font-normal text-blue-500">/mes</span></p>
-              <p className="text-xs text-blue-600 mt-1">Acceso completo sin límites</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <button onClick={() => { navigate('/profile'); sessionStorage.setItem('trialDismissed','1'); setTrialDismissed(true) }}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors text-sm">
-                Contratar Plan Pro →
-              </button>
-              <button onClick={() => { sessionStorage.setItem('trialDismissed','1'); setTrialDismissed(true) }}
-                className="w-full py-2 text-slate-400 hover:text-muted text-sm transition-colors">
-                Recordármelo después
-              </button>
-            </div>
           </div>
         </div>
       )}
