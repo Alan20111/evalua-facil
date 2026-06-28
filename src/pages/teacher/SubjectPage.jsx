@@ -126,7 +126,6 @@ export default function SubjectPage() {
   const [studentToDelete, setStudentToDelete] = useState(null)
   const [studentToReset, setStudentToReset] = useState(null)
   const [resetPwdResult, setResetPwdResult] = useState(null) // { student, tempPwd }
-  const [copiedTempPwd, setCopiedTempPwd] = useState(false)
   const [newStudent, setNewStudent] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
   const [savingStudent, setSavingStudent] = useState(false)
   const [searchAlumnos, setSearchAlumnos] = useState('')
@@ -247,7 +246,9 @@ export default function SubjectPage() {
         apellidoMaterno: newStudent.apellidoMaterno.trim(),
         nombre: newStudent.nombre.trim(),
         username,
-        resetPassword: generateResetPassword(),
+        // Sin contraseña temporal: el alumno define su propia contraseña en el primer
+        // ingreso. resetPassword solo se setea cuando el docente habilita la recuperación.
+        resetPassword: null,
         escuelaId: userProfile.escuelaId,
         asignaturaId: subjectId,
         activado: false,
@@ -286,7 +287,8 @@ export default function SubjectPage() {
         batch.set(ref, {
           ...row,
           username,
-          resetPassword: generateResetPassword(),
+          // Sin contraseña temporal: el alumno define su contraseña en el primer ingreso.
+          resetPassword: null,
           escuelaId: userProfile.escuelaId,
           asignaturaId: subjectId,
           activado: false,
@@ -310,18 +312,20 @@ export default function SubjectPage() {
     return Math.random().toString(36).slice(2, 6).toUpperCase()
   }
 
+  // Enables password recovery for a student: sets a non-empty `resetPassword` marker that
+  // the student-side "Recuperar contraseña" flow checks. The student then chooses a new
+  // password (the actual reset runs server-side via Admin SDK). We do NOT dictate a temp
+  // password to the teacher anymore.
   async function confirmResetStudentPassword() {
     if (!studentToReset) return
-    const tempPwd = generateResetPassword()
     try {
       await updateDoc(doc(db, 'students', studentToReset.id), {
-        activado: false,
-        resetPassword: tempPwd,
+        resetPassword: generateResetPassword(),
       })
       setGroupStudents((prev) =>
-        prev.map((s) => s.id === studentToReset.id ? { ...s, activado: false, resetPassword: tempPwd } : s)
+        prev.map((s) => s.id === studentToReset.id ? { ...s, resetPassword: 'enabled' } : s)
       )
-      setResetPwdResult({ student: studentToReset, tempPwd })
+      setResetPwdResult({ student: studentToReset })
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -711,8 +715,8 @@ export default function SubjectPage() {
     finally { setExportingGradesPdf(false) }
   }
 
-  // R16: generate a temp access code for every student who lacks one, then download
-  // the credentials list (#, name, username, temp password).
+  // R16: download the access list (#, name, username + the class access code). No temp
+  // passwords — each student sets their own password on first sign-in.
   async function handleGenerateCredentials() {
     if (!subject) return
     setGeneratingCredentials(true)
@@ -725,28 +729,8 @@ export default function SubjectPage() {
       }
       if (students.length === 0) { toast('No hay alumnos en esta asignatura', 'error'); return }
 
-      // Students without a current temp code (e.g. they already activated → resetPassword:null).
-      const needCode = students.filter((s) => !s.resetPassword)
-      if (needCode.length > 0) {
-        const updated = {}
-        const LIMIT = 490
-        for (let i = 0; i < needCode.length; i += LIMIT) {
-          const batch = writeBatch(db)
-          needCode.slice(i, i + LIMIT).forEach((s) => {
-            const tempPwd = generateResetPassword()
-            updated[s.id] = tempPwd
-            batch.update(doc(db, 'students', s.id), { activado: false, resetPassword: tempPwd })
-          })
-          await batch.commit()
-        }
-        students = students.map((s) => updated[s.id] ? { ...s, activado: false, resetPassword: updated[s.id] } : s)
-        setGroupStudents(students)
-      }
-
       await exportCredentialsPDF({ subject, students, activationUrl })
-      toast(needCode.length > 0
-        ? `${needCode.length} clave(s) generada(s) · credenciales descargadas`
-        : 'Credenciales descargadas')
+      toast('Lista de acceso descargada')
       setShowCredentialsModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setGeneratingCredentials(false) }
@@ -1127,14 +1111,14 @@ export default function SubjectPage() {
             </div>
           </div>
 
-          {/* 3 — Generar credenciales de acceso (R16) */}
+          {/* 3 — Descargar lista de acceso (R16) */}
           <button
             type="button"
             onClick={() => setShowCredentialsModal(true)}
-            title="Genera y descarga un listado con el usuario y la clave de acceso de cada alumno"
+            title="Descarga un PDF con el usuario de cada alumno y el código de la clase"
             className="w-full flex items-center justify-center gap-2 py-2.5 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
           >
-            <KeyRound size={15} /> Generar credenciales de acceso
+            <KeyRound size={15} /> Descargar lista de acceso (usuarios + código)
           </button>
 
           {/* 4 — Buscar alumno + agregar manualmente */}
@@ -1207,7 +1191,7 @@ export default function SubjectPage() {
                     <button
                       onClick={() => setStudentToReset(s)}
                       className="p-1.5 text-amber-500 hover:text-amber-700 rounded"
-                      title="Resetear contraseña"
+                      title="Habilitar recuperación de contraseña"
                     >
                       <RotateCcw size={14} />
                     </button>
@@ -1444,13 +1428,13 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToReset(null)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
             <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
-              <RotateCcw size={22} className="text-amber-500" />
+              <KeyRound size={22} className="text-amber-500" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Restablecer contraseña?</h3>
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Habilitar recuperación de contraseña?</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Se generará una contraseña temporal para{' '}
               <strong>{studentToReset.apellidoPaterno} {studentToReset.nombre}</strong>{' '}
-              ({studentToReset.username}). El alumno deberá activar su cuenta de nuevo con QR, link o código.
+              ({studentToReset.username}) podrá elegir una <strong>nueva contraseña</strong> desde
+              «Recuperar contraseña» en su pantalla de acceso. No necesitas darle ninguna clave.
             </p>
             <div className="flex gap-3 mt-6">
               <button
@@ -1463,8 +1447,8 @@ export default function SubjectPage() {
                 onClick={confirmResetStudentPassword}
                 className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded transition-colors flex items-center justify-center gap-2"
               >
-                <RotateCcw size={16} />
-                Restablecer
+                <KeyRound size={16} />
+                Habilitar
               </button>
             </div>
           </div>
@@ -1479,13 +1463,13 @@ export default function SubjectPage() {
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-4">
               <KeyRound size={22} className="text-accent" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">Generar credenciales de acceso</h3>
+            <h3 className="text-lg font-semibold text-center text-on-surface">Descargar lista de acceso</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Se descargará un PDF con el <strong>usuario</strong> y la <strong>clave temporal</strong> de cada alumno
-              para que puedan entrar por primera vez.
+              Se descargará un PDF con el <strong>usuario</strong> de cada alumno y el
+              <strong> código de la clase</strong> para que puedan entrar por primera vez.
             </p>
             <p className="text-xs text-muted text-center mt-2">
-              A los alumnos que ya entraron se les generará una nueva clave temporal y deberán activar su cuenta de nuevo.
+              Cada alumno elige su propia contraseña la primera vez que entra. No se generan claves temporales.
             </p>
             <div className="flex gap-3 mt-6">
               <button
@@ -1501,14 +1485,14 @@ export default function SubjectPage() {
                 className="flex-1 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {generatingCredentials ? <Spinner size="sm" /> : <Download size={16} />}
-                {generatingCredentials ? 'Generando…' : 'Generar y descargar'}
+                {generatingCredentials ? 'Descargando…' : 'Descargar lista'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Reset password result (show temp password to teacher) ── */}
+      {/* ── Recovery enabled confirmation ── */}
       {resetPwdResult && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setResetPwdResult(null)} />
@@ -1516,31 +1500,17 @@ export default function SubjectPage() {
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
               <KeyRound size={22} className="text-green-600" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">Contraseña restablecida</h3>
-            <p className="text-sm text-muted text-center mt-1 mb-4">
-              Comparte esta contraseña temporal con{' '}
-              <strong>{resetPwdResult.student.nombre}</strong>. El alumno la usará al activar su cuenta para crear una nueva contraseña.
+            <h3 className="text-lg font-semibold text-center text-on-surface">Recuperación habilitada</h3>
+            <p className="text-sm text-muted text-center mt-2 mb-5">
+              <strong>{resetPwdResult.student.nombre}</strong> ya puede entrar a la pantalla de acceso
+              de alumnos, tocar <strong>«Recuperar contraseña»</strong>, escribir su usuario y elegir una
+              nueva contraseña.
             </p>
-            <div
-              onClick={() => {
-                navigator.clipboard.writeText(resetPwdResult.tempPwd)
-                setCopiedTempPwd(true)
-                setTimeout(() => setCopiedTempPwd(false), 2000)
-              }}
-              className="cursor-pointer flex items-center justify-between gap-3 bg-surface border border-outline-variant rounded px-4 py-3 mb-5 hover:bg-accent-light hover:border-accent transition-colors"
-            >
-              <span className="font-mono text-xl font-bold tracking-widest text-on-surface select-all">
-                {resetPwdResult.tempPwd}
-              </span>
-              {copiedTempPwd
-                ? <CheckIcon size={18} className="text-emerald-500 flex-shrink-0 animate-bounce" />
-                : <Copy size={18} className="text-slate-400 flex-shrink-0" />}
-            </div>
             <button
               onClick={() => setResetPwdResult(null)}
               className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
             >
-              Listo
+              Entendido
             </button>
           </div>
         </div>

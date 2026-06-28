@@ -6,7 +6,6 @@ import {
   where,
   getDocs,
   updateDoc,
-  setDoc,
   doc,
 } from 'firebase/firestore'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updatePassword } from 'firebase/auth'
@@ -73,7 +72,7 @@ export default function StudentActivation() {
         return
       }
       setSubject({ id: snap.docs[0].id, ...snap.docs[0].data() })
-    } catch (err) {
+    } catch {
       setLoadError('No pudimos cargar la asignatura. Revisa tu conexión e intenta de nuevo.')
     } finally {
       setInitLoading(false)
@@ -111,23 +110,17 @@ export default function StudentActivation() {
   }
 
   // Links a student record to an auth account and routes to the dashboard.
+  // NOTE: students live in the `students` collection, NOT `users`. We do NOT create a
+  // users/{uid} doc for alumnos — the firestore rules only allow creating users docs with
+  // role 'docente', and AuthContext already resolves the student profile from the
+  // `students` collection via the @evalua.local email. Writing users/{uid} here used to
+  // throw AFTER the auth account was created, showing a spurious error on first activation.
   async function finishActivation(authUser) {
-    await Promise.all([
-      setDoc(doc(db, 'users', authUser.uid), {
-        role: 'alumno',
-        username: student.username,
-        escuelaId: student.escuelaId,
-        studentId: student.id,
-        nombre: student.nombre,
-        apellidoPaterno: student.apellidoPaterno,
-        apellidoMaterno: student.apellidoMaterno,
-      }, { merge: true }),
-      updateDoc(doc(db, 'students', student.id), {
-        activado: true,
-        uid: authUser.uid,
-        resetPassword: null,
-      }),
-    ])
+    await updateDoc(doc(db, 'students', student.id), {
+      activado: true,
+      uid: authUser.uid,
+      resetPassword: null,
+    })
     navigate('/alumno/dashboard')
   }
 

@@ -60,24 +60,6 @@ export function parseStudentExcel(file) {
   })
 }
 
-export function exportStudentListExcel(students) {
-  const rows = [
-    ['#', 'Apellido Paterno', 'Apellido Materno', 'Nombre', 'Username', 'Contraseña Reset'],
-    ...students.map((s) => [
-      s.orden,
-      s.apellidoPaterno,
-      s.apellidoMaterno,
-      s.nombre,
-      s.username,
-      s.passwordReset,
-    ]),
-  ]
-  const ws = XLSX.utils.aoa_to_sheet(rows)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Lista')
-  XLSX.writeFile(wb, 'lista_alumnos.xlsx')
-}
-
 export function exportSubjectGrades({
   subject,
   activities,

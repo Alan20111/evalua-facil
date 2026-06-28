@@ -148,9 +148,9 @@ export async function exportCredentialsPDF({ subject, students, activationUrl })
   doc.setFontSize(16); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
   doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 20)
   doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-  doc.text('Credenciales de acceso de los alumnos', 14, 27)
+  doc.text('Lista de acceso de los alumnos', 14, 27)
   doc.setFontSize(13); doc.setTextColor(20); doc.setFont(undefined, 'bold')
-  doc.text(`Código de clase: ${subject.accessCode || '—'}`, 14, 37)
+  doc.text(`Código de la clase: ${subject.accessCode || '—'}`, 14, 37)
 
   if (activationUrl) {
     const qrDataUrl = await QRCode.toDataURL(activationUrl, { width: 240, margin: 1 })
@@ -164,12 +164,11 @@ export async function exportCredentialsPDF({ subject, students, activationUrl })
     s.orden ?? '',
     fullName(s),
     s.username || '',
-    s.resetPassword || (s.activado ? '(ya activó)' : '—'),
   ])
 
   autoTable(doc, {
     startY: 62,
-    head: [['#', 'Nombre completo', 'Usuario', 'Clave temporal']],
+    head: [['#', 'Nombre completo', 'Usuario']],
     body,
     styles: { fontSize: 10, cellPadding: 3, textColor: 30 },
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
@@ -177,13 +176,12 @@ export async function exportCredentialsPDF({ subject, students, activationUrl })
     columnStyles: {
       0: { halign: 'center', cellWidth: 12 },
       2: { font: 'courier', fontStyle: 'bold' },
-      3: { font: 'courier', fontStyle: 'bold', textColor: [180, 83, 9] },
     },
   })
 
   const y = doc.lastAutoTable.finalY + 8
   doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(130)
-  doc.text('La clave temporal se usa solo en el primer ingreso; el alumno define su contraseña al entrar.', 14, y)
+  doc.text('Cada alumno entra con su usuario y el código de la clase, y elige su propia contraseña la primera vez.', 14, y)
 
-  doc.save(`credenciales_${safeFile(subject)}.pdf`)
+  doc.save(`lista_acceso_${safeFile(subject)}.pdf`)
 }

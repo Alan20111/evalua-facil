@@ -3,7 +3,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import { generateUsername, generateResetPassword } from './generate'
+import { generateUsername } from './generate'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -81,7 +81,8 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       .map((d) => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
 
-    sorted.forEach((s, i) => {
+    for (let i = 0; i < sorted.length; i++) {
+      const s = sorted[i]
       let username = generateUsername(s.apellidoPaterno, s.apellidoMaterno, s.nombre)
       let suffix = 2
       while (taken.has(username)) {
@@ -96,7 +97,8 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
         apellidoMaterno: s.apellidoMaterno || '',
         nombre: s.nombre || '',
         username,
-        resetPassword: generateResetPassword(),
+        // Sin contraseña temporal: el alumno define su contraseña en el primer ingreso.
+        resetPassword: null,
         escuelaId,
         asignaturaId: newSubjectId,
         activado: false,
@@ -104,8 +106,8 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
         createdAt: serverTimestamp(),
       })
       ops++
-      if (ops >= LIMIT) { flush(); }
-    })
+      if (ops >= LIMIT) await flush()
+    }
   }
 
   await flush()
