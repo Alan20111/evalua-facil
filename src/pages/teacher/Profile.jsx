@@ -1,10 +1,10 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth'
-import { doc, updateDoc } from 'firebase/firestore'
+import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -65,7 +65,20 @@ export default function Profile() {
   const [savingSchool, setSavingSchool] = useState(false)
   const [addingCustomSchool, setAddingCustomSchool] = useState(false)
   const [customSchoolName, setCustomSchoolName] = useState('')
+  const [customSchools, setCustomSchools] = useState([])
+  const [customSchoolsLoaded, setCustomSchoolsLoaded] = useState(false)
   const { planteles, loading: catalogLoading } = usePlanteles()
+
+  // Schools added by hand (not in the static catalog) live in Firestore — load
+  // them once the picker opens so they're searchable too, not just the catalog.
+  useEffect(() => {
+    if (!showSchoolPicker || customSchoolsLoaded) return
+    getDocs(query(collection(db, 'schools'), where('custom', '==', true)))
+      .then((snap) => setCustomSchools(snap.docs.map((d) => ({ id: d.id, ...d.data() }))))
+      .catch(() => {})
+      .finally(() => setCustomSchoolsLoaded(true))
+  }, [showSchoolPicker, customSchoolsLoaded])
+
   const filteredPlanteles = useMemo(() => {
     const q = schoolSearch.trim().toLowerCase()
     if (!q) return []
@@ -74,6 +87,12 @@ export default function Profile() {
       p.cct?.toLowerCase().includes(q) || p.mun?.toLowerCase().includes(q)
     ).slice(0, 80)
   }, [planteles, schoolSearch])
+
+  const filteredCustomSchools = useMemo(() => {
+    const q = schoolSearch.trim().toLowerCase()
+    if (!q) return []
+    return customSchools.filter((s) => s.nombre?.toLowerCase().includes(q))
+  }, [customSchools, schoolSearch])
 
   function openCustomSchoolForm() {
     setCustomSchoolName(schoolSearch.trim())
@@ -492,9 +511,17 @@ export default function Profile() {
                     <div className="flex justify-center py-10"><Spinner /></div>
                   ) : (
                     <ul className="overflow-y-auto flex-1 divide-y divide-slate-100">
-                      {filteredPlanteles.length === 0 && (
+                      {filteredPlanteles.length === 0 && filteredCustomSchools.length === 0 && (
                         <li className="text-center text-slate-500 text-sm py-10">Sin resultados</li>
                       )}
+                      {filteredCustomSchools.map((s) => (
+                        <li key={s.id}>
+                          <button type="button" onClick={() => updateSchool({ custom: true, nombre: s.nombre })} disabled={savingSchool}
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors disabled:opacity-60">
+                            <p className="text-sm font-medium text-on-surface leading-tight">{s.nombre}</p>
+                          </button>
+                        </li>
+                      ))}
                       {filteredPlanteles.map((p) => (
                         <li key={p.cct}>
                           <button type="button" onClick={() => updateSchool(p)} disabled={savingSchool}
