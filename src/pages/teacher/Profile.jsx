@@ -63,15 +63,29 @@ export default function Profile() {
   const [showSchoolPicker, setShowSchoolPicker] = useState(false)
   const [schoolSearch, setSchoolSearch] = useState('')
   const [savingSchool, setSavingSchool] = useState(false)
+  const [addingCustomSchool, setAddingCustomSchool] = useState(false)
+  const [customSchoolName, setCustomSchoolName] = useState('')
   const { planteles, loading: catalogLoading } = usePlanteles()
   const filteredPlanteles = useMemo(() => {
     const q = schoolSearch.trim().toLowerCase()
-    if (!q) return planteles.slice(0, 60)
+    if (!q) return []
     return planteles.filter((p) =>
       p.nombre?.toLowerCase().includes(q) || p.short?.toLowerCase().includes(q) ||
       p.cct?.toLowerCase().includes(q) || p.mun?.toLowerCase().includes(q)
     ).slice(0, 80)
   }, [planteles, schoolSearch])
+
+  function openCustomSchoolForm() {
+    setCustomSchoolName(schoolSearch.trim())
+    setAddingCustomSchool(true)
+  }
+
+  async function submitCustomSchool(e) {
+    e.preventDefault()
+    if (!customSchoolName.trim()) return
+    await updateSchool({ custom: true, nombre: customSchoolName.trim(), short: customSchoolName.trim() })
+    setAddingCustomSchool(false)
+  }
 
   async function updateSchool(plantel) {
     setSavingSchool(true)
@@ -334,7 +348,7 @@ export default function Profile() {
               <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
               <p className="text-sm text-slate-500 mt-0.5">Las escuelas con el mismo nombre pueden tener grupos en común.</p>
             </div>
-            <button type="button" onClick={() => { setSchoolSearch(''); setShowSchoolPicker(true) }}
+            <button type="button" onClick={() => { setSchoolSearch(''); setAddingCustomSchool(false); setShowSchoolPicker(true) }}
               className="text-blue-600 text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
           </div>
         </div>
@@ -440,41 +454,73 @@ export default function Profile() {
               </div>
               <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={17} /></button>
             </div>
-            <button type="button" onClick={() => updateSchool(null)} disabled={savingSchool}
-              className="flex items-center gap-2 px-4 py-3 text-left border-b border-outline-variant hover:bg-surface disabled:opacity-60">
-              <ChevronDown size={15} className="text-slate-400 rotate-0" />
-              <span className="text-sm font-medium text-muted">Sin escuela</span>
-            </button>
-            {catalogLoading ? (
-              <div className="flex justify-center py-10"><Spinner /></div>
+            {addingCustomSchool ? (
+              <form onSubmit={submitCustomSchool} className="p-4 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={customSchoolName}
+                    onChange={(e) => setCustomSchoolName(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                    placeholder="Ej. Escuela Secundaria Técnica N.° 12"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setAddingCustomSchool(false)} disabled={savingSchool}
+                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={savingSchool || !customSchoolName.trim()}
+                    className="flex-1 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    {savingSchool ? <Spinner size="sm" /> : null}
+                    {savingSchool ? 'Guardando…' : 'Agregar escuela'}
+                  </button>
+                </div>
+              </form>
             ) : (
-              <ul className="overflow-y-auto flex-1 divide-y divide-slate-100">
-                {filteredPlanteles.length === 0 && (
-                  <li className="text-center text-slate-400 text-sm py-10">Sin resultados</li>
-                )}
-                {filteredPlanteles.map((p) => (
-                  <li key={p.cct}>
-                    <button type="button" onClick={() => updateSchool(p)} disabled={savingSchool}
-                      className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors disabled:opacity-60">
-                      <p className="text-sm font-medium text-on-surface leading-tight">{p.short || p.nombre}</p>
-                      <p className="text-sm text-slate-500 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {schoolSearch.trim() && (
-              <div className="border-t border-outline-variant p-2">
-                <button
-                  type="button"
-                  disabled={savingSchool}
-                  onClick={() => updateSchool({ custom: true, nombre: schoolSearch.trim(), short: schoolSearch.trim() })}
-                  className="w-full flex items-center gap-2 px-4 py-3 rounded text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-60"
-                >
-                  <Plus size={16} className="flex-shrink-0" />
-                  <span className="truncate">¿No la encuentras? Agregar «{schoolSearch.trim()}»</span>
+              <>
+                <button type="button" onClick={() => updateSchool(null)} disabled={savingSchool}
+                  className="flex items-center gap-2 px-4 py-3 text-left border-b border-outline-variant hover:bg-surface disabled:opacity-60">
+                  <ChevronDown size={15} className="text-slate-400 rotate-0" />
+                  <span className="text-sm font-medium text-muted">Sin escuela</span>
                 </button>
-              </div>
+                {schoolSearch.trim() && (
+                  catalogLoading ? (
+                    <div className="flex justify-center py-10"><Spinner /></div>
+                  ) : (
+                    <ul className="overflow-y-auto flex-1 divide-y divide-slate-100">
+                      {filteredPlanteles.length === 0 && (
+                        <li className="text-center text-slate-500 text-sm py-10">Sin resultados</li>
+                      )}
+                      {filteredPlanteles.map((p) => (
+                        <li key={p.cct}>
+                          <button type="button" onClick={() => updateSchool(p)} disabled={savingSchool}
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors disabled:opacity-60">
+                            <p className="text-sm font-medium text-on-surface leading-tight">{p.short || p.nombre}</p>
+                            <p className="text-sm text-slate-500 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                )}
+                {schoolSearch.trim() && (
+                  <div className="border-t border-outline-variant p-2">
+                    <button
+                      type="button"
+                      disabled={savingSchool}
+                      onClick={openCustomSchoolForm}
+                      className="w-full flex items-center gap-2 px-4 py-3 rounded text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-60"
+                    >
+                      <Plus size={16} className="flex-shrink-0" />
+                      <span className="truncate">¿No la encuentras? Agregar «{schoolSearch.trim()}»</span>
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
