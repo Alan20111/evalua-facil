@@ -2,18 +2,46 @@ import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
 import { subjectPeriodLabel } from './dateRange'
 
-export function downloadStudentTemplate() {
+// Loaded dynamically (only when actually downloading the template) because
+// it's needed for one feature `xlsx` can't do: writing real sheet protection
+// so Excel itself blocks editing outside columns A/B — `xlsx` (the free
+// SheetJS build used elsewhere in this file for reading/exporting) can only
+// read protection, not write it.
+export async function downloadStudentTemplate() {
+  const ExcelJS = (await import('exceljs')).default
+  const workbook = new ExcelJS.Workbook()
+  const sheet = workbook.addWorksheet('Alumnos')
+
   // Column 1: list number. Column 2: full name in a SINGLE cell, in the order
   // Apellido Paterno · Apellido Materno · Nombre(s) (separated by spaces).
-  const ws = XLSX.utils.aoa_to_sheet([
-    ['#', 'Nombre completo (Apellido Paterno  Apellido Materno  Nombre)'],
-    [1, 'García López Juan Carlos'],
-    [2, 'Hernández Ruiz María Fernanda'],
-  ])
-  ws['!cols'] = [{ wch: 6 }, { wch: 46 }]
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Alumnos')
-  XLSX.writeFile(wb, 'plantilla-alumnos.xlsx')
+  sheet.getColumn(1).width = 6
+  sheet.getColumn(2).width = 46
+  sheet.addRow(['#', 'Nombre completo (Apellido Paterno  Apellido Materno  Nombre)'])
+  sheet.addRow([1, 'García López Juan Carlos'])
+  sheet.addRow([2, 'Hernández Ruiz María Fernanda'])
+
+  // Protect the sheet but leave columns A/B unlocked for a generous number of
+  // rows, so teachers can paste a full class list but can't add stray
+  // columns the importer would silently ignore.
+  const EDITABLE_ROWS = 500
+  for (let r = 1; r <= EDITABLE_ROWS; r++) {
+    sheet.getCell(r, 1).protection = { locked: false }
+    sheet.getCell(r, 2).protection = { locked: false }
+  }
+  await sheet.protect('', { selectLockedCells: true, selectUnlockedCells: true })
+
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'plantilla-alumnos.xlsx'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 // Splits a natural full-name string by spaces: 1st word = apellido paterno,
