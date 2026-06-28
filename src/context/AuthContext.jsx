@@ -44,16 +44,22 @@ export function AuthProvider({ children }) {
           }
           setUserProfile(profile)
         } else if (user.email?.endsWith('@evalua.local')) {
-          // Legacy student account: no users/{uid} doc yet — look up by username
+          // Student account: no users/{uid} doc. Resolve from `students` using the fake email
+          // `username.escuelaId@evalua.local`, SCOPED to that school so identical usernames
+          // across schools never collide. Prefer the enrollment that already carries this uid.
           try {
             const emailPart = user.email.split('@')[0]
-            const username = emailPart.slice(0, emailPart.indexOf('.')).toUpperCase()
+            const dot = emailPart.indexOf('.')
+            const username = (dot >= 0 ? emailPart.slice(0, dot) : emailPart).toUpperCase()
+            const escuelaId = dot >= 0 ? emailPart.slice(dot + 1) : null
             const studs = await getDocs(
               query(collection(db, 'students'), where('username', '==', username))
             )
-            if (!studs.empty) {
-              const s = studs.docs[0]
-              setUserProfile({ role: 'alumno', studentId: s.id, ...s.data() })
+            let docs = studs.docs.map((d) => ({ id: d.id, ...d.data() }))
+            if (escuelaId) docs = docs.filter((d) => d.escuelaId === escuelaId)
+            const s = docs.find((d) => d.uid === user.uid) || docs[0]
+            if (s) {
+              setUserProfile({ role: 'alumno', studentId: s.id, ...s })
             } else {
               setUserProfile(null)
             }

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, writeBatch } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import Spinner from '../../components/Spinner'
 import { studentEmail } from '../../utils/generate'
@@ -28,21 +28,32 @@ export default function StudentLogin() {
   const [recoverError, setRecoverError] = useState('')
 
   const navigate = useNavigate()
+  const submitting = useRef(false) // guards against double-submit (rapid taps)
 
-  // Marks the student enrollment doc as activated and routes in. NOTE: students live in
-  // the `students` collection, NOT `users`; AuthContext resolves the student profile from
-  // the @evalua.local email. We do NOT write users/{uid} for alumnos — the rules only allow
-  // creating users docs with role 'docente', and doing so threw AFTER creating the auth
-  // account, producing a spurious error on first sign-in.
-  async function finishAccess(docId, authUser) {
-    await updateDoc(doc(db, 'students', docId), { activado: true, uid: authUser.uid, resetPassword: null })
+  // Marks ALL of this account's enrollments (same username + school) as activated and writes
+  // the uid, so every subject the student belongs to shows up — not just the one used to log
+  // in. NOTE: students live in `students`, NOT `users`; AuthContext resolves the profile from
+  // the @evalua.local email. We never create users/{uid} for alumnos (rules forbid it).
+  async function finishAccess(uname, escuelaId, authUser) {
+    const snap = await getDocs(query(
+      collection(db, 'students'),
+      where('username', '==', uname),
+      where('escuelaId', '==', escuelaId),
+    ))
+    const batch = writeBatch(db)
+    snap.forEach((d) => batch.update(doc(db, 'students', d.id), {
+      activado: true,
+      uid: authUser.uid,
+      resetPassword: null,
+    }))
+    await batch.commit()
     navigate('/alumno/dashboard')
   }
 
   const handleLogin = async (e) => {
     e.preventDefault()
-    setError('')
-    setLoading(true)
+    if (submitting.current) return
+    setError(''); submitting.current = true; setLoading(true)
     try {
       const uname = username.trim().toUpperCase()
       const stuSnap = await getDocs(
@@ -52,31 +63,44 @@ export default function StudentLogin() {
         setError('Usuario no encontrado. Verifica tu username o activa tu cuenta con el código.')
         return
       }
-      const docId = stuSnap.docs[0].id
-      const student = stuSnap.docs[0].data()
-      const email = studentEmail(uname, student.escuelaId)
+      const docs = stuSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
 
-      // Already activated → normal sign-in.
-      if (student.activado) {
-        await signInWithEmailAndPassword(auth, email, password)
-        navigate('/alumno/dashboard')
+      // A username can repeat across schools, so each school is a different account/email.
+      // For already-activated accounts, try sign-in against each school's email — the correct
+      // password authenticates exactly one of them.
+      const activatedSchools = [...new Set(docs.filter((d) => d.activado).map((d) => d.escuelaId))]
+      if (activatedSchools.length > 0) {
+        for (const esc of activatedSchools) {
+          try {
+            await signInWithEmailAndPassword(auth, studentEmail(uname, esc), password)
+            navigate('/alumno/dashboard')
+            return
+          } catch { /* wrong password for this school — try the next */ }
+        }
+        setError('Contraseña incorrecta. Si la olvidaste, usa “Recuperar contraseña”.')
         return
       }
 
-      // First-time access from the login screen: no separate activation step, no
-      // re-typing. The password they enter here becomes their password.
+      // No activated account yet → first-time access. Password they enter becomes theirs.
+      const pendingSchools = [...new Set(docs.map((d) => d.escuelaId))]
+      if (pendingSchools.length > 1) {
+        setError('Tu usuario existe en varias escuelas. Activa tu cuenta con el código o QR de tu asignatura.')
+        return
+      }
       if (password.length < 6) {
         setError('Tu contraseña debe tener al menos 6 caracteres.')
         return
       }
+      const escuelaId = pendingSchools[0]
+      const email = studentEmail(uname, escuelaId)
       try {
         const cred = await createUserWithEmailAndPassword(auth, email, password)
-        await finishAccess(docId, cred.user)
+        await finishAccess(uname, escuelaId, cred.user)
       } catch (err2) {
         if (err2.code === 'auth/email-already-in-use') {
-          // Account already exists (e.g. enrolled in another subject) → sign in.
+          // Account exists (e.g. activated elsewhere first) → sign in with their password.
           const cred = await signInWithEmailAndPassword(auth, email, password)
-          await finishAccess(docId, cred.user)
+          await finishAccess(uname, escuelaId, cred.user)
         } else {
           throw err2
         }
@@ -88,6 +112,7 @@ export default function StudentLogin() {
         setError('Error al iniciar sesión. Intenta de nuevo.')
       }
     } finally {
+      submitting.current = false
       setLoading(false)
     }
   }
@@ -163,6 +188,14 @@ export default function StudentLogin() {
         }),
       })
       if (!resp.ok) {
+        // The endpoint changes the Auth password BEFORE the Firestore cleanup; if the cleanup
+        // failed (non-atomic) the password may already be the new one. Try signing in before
+        // giving up so the student isn't stuck after a partial success.
+        try {
+          await signInWithEmailAndPassword(auth, email, newPassword)
+          navigate('/alumno/dashboard')
+          return
+        } catch { /* genuinely failed — show the server message */ }
         let msg = 'No pudimos recuperar tu contraseña. Pídele a tu maestro que vuelva a habilitar la recuperación.'
         try { const data = await resp.json(); if (data?.error) msg = data.error } catch { /* ignore */ }
         setRecoverError(msg)

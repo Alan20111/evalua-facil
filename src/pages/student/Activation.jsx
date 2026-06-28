@@ -5,7 +5,7 @@ import {
   query,
   where,
   getDocs,
-  updateDoc,
+  writeBatch,
   doc,
 } from 'firebase/firestore'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
@@ -117,11 +117,24 @@ export default function StudentActivation() {
   // `students` collection via the @evalua.local email. Writing users/{uid} here used to
   // throw AFTER the auth account was created, showing a spurious error on first activation.
   async function finishActivation(authUser) {
-    await updateDoc(doc(db, 'students', student.id), {
+    // Propagate the uid + activated flag to ALL of this student's enrollments (same username
+    // + school) so every subject they belong to shows up, not just the one activated here.
+    const snap = await getDocs(query(
+      collection(db, 'students'),
+      where('username', '==', student.username),
+      where('escuelaId', '==', student.escuelaId),
+    ))
+    const batch = writeBatch(db)
+    snap.forEach((d) => batch.update(doc(db, 'students', d.id), {
       activado: true,
       uid: authUser.uid,
       resetPassword: null,
-    })
+    }))
+    // Safety: ensure the matched doc is updated even if the query is momentarily stale.
+    if (!snap.docs.some((d) => d.id === student.id)) {
+      batch.update(doc(db, 'students', student.id), { activado: true, uid: authUser.uid, resetPassword: null })
+    }
+    await batch.commit()
     navigate('/alumno/dashboard')
   }
 

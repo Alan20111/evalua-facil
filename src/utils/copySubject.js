@@ -3,7 +3,6 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import { generateUsername } from './generate'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -70,12 +69,14 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
     if (ops >= LIMIT) await flush()
   }
 
-  // 4. Optionally copy students (new docs, activado:false, new resetPassword)
+  // 4. Optionally copy students. Duplicating a subject = the SAME people in a new subject,
+  //    so we PRESERVE their identity (username + uid + activado). That keeps the multi-subject
+  //    model intact: an already-activated student gets the copied subject in their dashboard
+  //    instantly, and others keep the same username they already know. No new credentials.
   if (keepStudents) {
     const studsSnap = await getDocs(
       query(collection(db, 'students'), where('asignaturaId', '==', sourceSubjectId))
     )
-    const taken = new Set()
 
     const sorted = studsSnap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
@@ -83,25 +84,17 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
 
     for (let i = 0; i < sorted.length; i++) {
       const s = sorted[i]
-      let username = generateUsername(s.apellidoPaterno, s.apellidoMaterno, s.nombre)
-      let suffix = 2
-      while (taken.has(username)) {
-        const base = generateUsername(s.apellidoPaterno, s.apellidoMaterno, s.nombre).slice(0, 3)
-        username = base + suffix; suffix++
-      }
-      taken.add(username)
-
       const ref = doc(collection(db, 'students'))
       batch.set(ref, {
         apellidoPaterno: s.apellidoPaterno || '',
         apellidoMaterno: s.apellidoMaterno || '',
         nombre: s.nombre || '',
-        username,
-        // Sin contraseña temporal: el alumno define su contraseña en el primer ingreso.
+        username: s.username, // keep the same identity (same Auth account / email)
         resetPassword: null,
+        uid: s.uid || null, // inherit the account if the student already activated
         escuelaId,
         asignaturaId: newSubjectId,
-        activado: false,
+        activado: !!s.activado,
         orden: i + 1,
         createdAt: serverTimestamp(),
       })

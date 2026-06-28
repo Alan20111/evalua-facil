@@ -55,6 +55,19 @@ export async function deleteSubjectSubmissions(subjectId) {
   await batchDeleteDocs(subsDocs.map((d) => doc(db, 'submissions', d.id)))
 }
 
+// Deletes the submissions of a single student enrollment (submissions are keyed by the
+// per-subject `students` doc id). Call before deleting the student doc to avoid orphans.
+export async function deleteSubmissionsByStudent(studentDocId) {
+  const snap = await getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', studentDocId)))
+  await batchDeleteDocs(snap.docs.map((d) => doc(db, 'submissions', d.id)))
+}
+
+// Deletes the submissions of a single activity. Call before deleting the activity doc.
+export async function deleteSubmissionsByActivity(activityId) {
+  const snap = await getDocs(query(collection(db, 'submissions'), where('actividadId', '==', activityId)))
+  await batchDeleteDocs(snap.docs.map((d) => doc(db, 'submissions', d.id)))
+}
+
 // Deletes only the students of a subject and their submissions.
 // Used in the "start from 0" unarchive flow.
 export async function deleteSubjectStudents(subjectId) {

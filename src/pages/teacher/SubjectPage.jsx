@@ -12,7 +12,7 @@ import Spinner from '../../components/Spinner'
 import { exportSubjectGrades, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
 import { exportStudentListPDF, exportSubjectGradesPDF, exportCredentialsPDF } from '../../utils/pdf'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
-import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions } from '../../utils/deleteSubjectCascade'
+import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatPublishAt } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
+import { findStudentIdentity } from '../../utils/studentIdentity'
 
 async function fetchSubmissionsForActivities(actIds) {
   if (actIds.length === 0) return []
@@ -125,7 +126,8 @@ export default function SubjectPage() {
   const [showQR, setShowQR] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState(null)
   const [studentToReset, setStudentToReset] = useState(null)
-  const [resetPwdResult, setResetPwdResult] = useState(null) // { student, tempPwd }
+  const [resetPwdResult, setResetPwdResult] = useState(null) // { student }
+  const [linkCandidate, setLinkCandidate] = useState(null) // { person, identity, schoolDocs }
   const [newStudent, setNewStudent] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
   const [savingStudent, setSavingStudent] = useState(false)
   const [searchAlumnos, setSearchAlumnos] = useState('')
@@ -218,11 +220,47 @@ export default function SubjectPage() {
   }
 
   // ── Student management (Alumnos tab) ──────────────────────────────
-  async function fetchSchoolUsernames() {
+  // All `students` docs of the school (every enrollment of every person). Used both to
+  // dedupe usernames for brand-new people and to detect existing identities (same person
+  // re-enrolled) so we can reuse their username/uid instead of forking a second account.
+  async function fetchSchoolStudents() {
     const snap = await getDocs(
       query(collection(db, 'students'), where('escuelaId', '==', userProfile.escuelaId))
     )
-    return new Set(snap.docs.map((d) => d.data().username))
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  }
+
+  function uniqueFrom(person, schoolDocs) {
+    const taken = new Set(schoolDocs.map((d) => d.username))
+    return uniqueUsername(
+      generateUsername(person.apellidoPaterno, person.apellidoMaterno, person.nombre),
+      taken
+    )
+  }
+
+  async function refreshGroupStudents() {
+    const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
+    setGroupStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)))
+  }
+
+  // Creates one enrollment doc. If `identity` is given (re-enrolling an existing person),
+  // the new doc inherits that person's username/uid/activado so all their subjects share a
+  // single account — and an already-activated student gets the new subject instantly.
+  async function createEnrollment(person, identity, schoolDocs) {
+    const username = identity ? identity.username : uniqueFrom(person, schoolDocs)
+    await addDoc(collection(db, 'students'), {
+      apellidoPaterno: person.apellidoPaterno.trim(),
+      apellidoMaterno: person.apellidoMaterno.trim(),
+      nombre: person.nombre.trim(),
+      username,
+      resetPassword: null,
+      escuelaId: userProfile.escuelaId,
+      asignaturaId: subjectId,
+      activado: identity ? identity.activado : false,
+      uid: identity ? (identity.uid || null) : null,
+      orden: groupStudents.length + 1,
+      createdAt: serverTimestamp(),
+    })
   }
 
   function uniqueUsername(base, taken) {
@@ -236,34 +274,47 @@ export default function SubjectPage() {
     e.preventDefault()
     setSavingStudent(true)
     try {
-      const taken = await fetchSchoolUsernames()
-      const username = uniqueUsername(
-        generateUsername(newStudent.apellidoPaterno, newStudent.apellidoMaterno, newStudent.nombre),
-        taken
-      )
-      await addDoc(collection(db, 'students'), {
-        apellidoPaterno: newStudent.apellidoPaterno.trim(),
-        apellidoMaterno: newStudent.apellidoMaterno.trim(),
-        nombre: newStudent.nombre.trim(),
-        username,
-        // Sin contraseña temporal: el alumno define su propia contraseña en el primer
-        // ingreso. resetPassword solo se setea cuando el docente habilita la recuperación.
-        resetPassword: null,
-        escuelaId: userProfile.escuelaId,
-        asignaturaId: subjectId,
-        activado: false,
-        orden: groupStudents.length + 1,
-        createdAt: serverTimestamp(),
-      })
+      const schoolDocs = await fetchSchoolStudents()
+      const identity = findStudentIdentity(schoolDocs, newStudent)
+      // Already enrolled in THIS subject → don't create a duplicate.
+      if (identity && identity.matches.some((m) => m.asignaturaId === subjectId)) {
+        toast('Ese alumno ya está en esta asignatura', 'error')
+        return
+      }
+      // Same full name elsewhere in the school → ask the teacher if it's the same person
+      // before reusing (linking) their account.
+      if (identity) {
+        setLinkCandidate({ person: { ...newStudent }, identity, schoolDocs })
+        return
+      }
+      await createEnrollment(newStudent, null, schoolDocs)
       setNewStudent({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
       setShowAddStudent(false)
       toast('Alumno agregado')
-      const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
-      setGroupStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)))
+      await refreshGroupStudents()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
       setSavingStudent(false)
+    }
+  }
+
+  // Resolves the "same name found" confirmation: link to the existing account or create new.
+  async function resolveLinkCandidate(isSamePerson) {
+    if (!linkCandidate) return
+    const { person, identity, schoolDocs } = linkCandidate
+    setSavingStudent(true)
+    try {
+      await createEnrollment(person, isSamePerson ? identity : null, schoolDocs)
+      setNewStudent({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
+      setShowAddStudent(false)
+      toast(isSamePerson ? 'Asignatura vinculada a su cuenta' : 'Alumno agregado (cuenta nueva)')
+      await refreshGroupStudents()
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingStudent(false)
+      setLinkCandidate(null)
     }
   }
 
@@ -274,32 +325,43 @@ export default function SubjectPage() {
     try {
       const rows = await parseStudentExcel(file)
       if (rows.length === 0) { toast('El archivo no tiene alumnos con los 3 campos requeridos', 'error'); return }
-      const taken = await fetchSchoolUsernames()
+      const schoolDocs = await fetchSchoolStudents()
+      const taken = new Set(schoolDocs.map((d) => d.username))
       const batch = writeBatch(db)
       let nextOrden = groupStudents.length + 1
+      let linked = 0
+      let skipped = 0
       for (const row of rows) {
-        const username = uniqueUsername(
-          generateUsername(row.apellidoPaterno, row.apellidoMaterno, row.nombre),
-          taken
-        )
-        taken.add(username)
+        const identity = findStudentIdentity(schoolDocs, row)
+        // Already in this subject → skip (avoid duplicate enrollment).
+        if (identity && identity.matches.some((m) => m.asignaturaId === subjectId)) { skipped++; continue }
+        let username, uid = null, activado = false
+        if (identity) {
+          // Same person elsewhere → bulk import links automatically to their account.
+          username = identity.username; uid = identity.uid || null; activado = identity.activado; linked++
+        } else {
+          username = uniqueUsername(generateUsername(row.apellidoPaterno, row.apellidoMaterno, row.nombre), taken)
+          taken.add(username)
+        }
         const ref = doc(collection(db, 'students'))
         batch.set(ref, {
           ...row,
           username,
-          // Sin contraseña temporal: el alumno define su contraseña en el primer ingreso.
           resetPassword: null,
+          uid,
           escuelaId: userProfile.escuelaId,
           asignaturaId: subjectId,
-          activado: false,
+          activado,
           orden: nextOrden++,
           createdAt: serverTimestamp(),
         })
       }
       await batch.commit()
-      toast(`${rows.length} alumnos importados`)
-      const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
-      setGroupStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)))
+      const parts = [`${rows.length - skipped} alumnos importados`]
+      if (linked) parts.push(`${linked} vinculados a cuentas existentes`)
+      if (skipped) parts.push(`${skipped} ya estaban en la asignatura`)
+      toast(parts.join(' · '))
+      await refreshGroupStudents()
     } catch (err) {
       toast('Error importando Excel: ' + err.message, 'error')
     } finally {
@@ -333,6 +395,8 @@ export default function SubjectPage() {
     if (!studentToDelete) return
     setSavingStudent(true)
     try {
+      // Remove this enrollment's submissions first so none are orphaned.
+      await deleteSubmissionsByStudent(studentToDelete.id)
       await deleteDoc(doc(db, 'students', studentToDelete.id))
       const remaining = groupStudents.filter((s) => s.id !== studentToDelete.id)
       const batch = writeBatch(db)
@@ -432,6 +496,8 @@ export default function SubjectPage() {
   async function handleDeleteActivity() {
     if (!deleteConfirm) return; setDeleting(true)
     try {
+      // Remove this activity's submissions first so none are orphaned.
+      await deleteSubmissionsByActivity(deleteConfirm.id)
       await deleteDoc(doc(db, 'activities', deleteConfirm.id))
       setActivities((prev) => prev.filter((a) => a.id !== deleteConfirm.id))
       toast('Actividad eliminada'); setDeleteConfirm(null)
@@ -1497,6 +1563,56 @@ export default function SubjectPage() {
         </div>
       )}
 
+      {/* ── Same-name found: link to existing account or create new ── */}
+      {linkCandidate && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !savingStudent && setLinkCandidate(null)} />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-6 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-4">
+              <UserPlus size={22} className="text-accent" />
+            </div>
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Es el mismo alumno?</h3>
+            <p className="text-sm text-muted text-center mt-2">
+              Ya hay un alumno llamado{' '}
+              <strong>{linkCandidate.person.apellidoPaterno} {linkCandidate.person.apellidoMaterno} {linkCandidate.person.nombre}</strong>{' '}
+              en esta escuela
+              {(() => {
+                const n = new Set(linkCandidate.identity.matches.map((m) => m.asignaturaId)).size
+                return n ? ` (inscrito en ${n} asignatura${n !== 1 ? 's' : ''})` : ''
+              })()}.
+            </p>
+            <p className="text-xs text-muted text-center mt-2">
+              Si es la <strong>misma persona</strong>, se agrega esta asignatura a su cuenta (mismo usuario
+              <span className="font-mono"> {linkCandidate.identity.username}</span>). Si es <strong>otra persona</strong> con el mismo nombre, se crea una cuenta nueva.
+            </p>
+            <div className="flex flex-col gap-2 mt-6">
+              <button
+                onClick={() => resolveLinkCandidate(true)}
+                disabled={savingStudent}
+                className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {savingStudent ? <Spinner size="sm" /> : <CheckIcon size={16} />}
+                Sí, es el mismo alumno
+              </button>
+              <button
+                onClick={() => resolveLinkCandidate(false)}
+                disabled={savingStudent}
+                className="w-full py-3 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors disabled:opacity-60"
+              >
+                No, es otro alumno (cuenta nueva)
+              </button>
+              <button
+                onClick={() => setLinkCandidate(null)}
+                disabled={savingStudent}
+                className="w-full py-2 text-sm text-muted hover:text-on-surface transition-colors disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Recovery enabled confirmation ── */}
       {resetPwdResult && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
@@ -1720,7 +1836,7 @@ export default function SubjectPage() {
                   className="accent-[var(--accent)] w-4 h-4" />
                 <div>
                   <p className="text-sm font-medium text-on-surface">Copiar lista de alumnos</p>
-                  <p className="text-xs text-slate-400">Se generan nuevas credenciales; alumnos deberán reactivar su cuenta</p>
+                  <p className="text-xs text-slate-400">Conservan su mismo usuario y cuenta; quienes ya activaron verán esta asignatura al instante</p>
                 </div>
               </label>
               <p className="text-xs text-slate-400">Se duplicarán todas las actividades. Las calificaciones y entregas no se copian.</p>
