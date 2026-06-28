@@ -5,7 +5,7 @@ import { ToastProvider } from './components/Toast'
 import Landing from './pages/Landing'
 import TeacherLogin from './pages/teacher/Login'
 import TeacherRegister from './pages/teacher/Register'
-import RegisterSchool from './pages/teacher/RegisterSchool'
+import Onboarding from './pages/teacher/Onboarding'
 import TeacherDashboard from './pages/teacher/Dashboard'
 import SubjectPage from './pages/teacher/SubjectPage'
 import ActivityPage from './pages/teacher/ActivityPage'
@@ -30,6 +30,20 @@ function ProtectedAdmin({ children }) {
 }
 
 function ProtectedTeacher({ children }) {
+  const { currentUser, userProfile, loading } = useAuth()
+  if (loading) return null
+  if (!currentUser) return <Navigate to="/" replace />
+  if (userProfile?.role === 'admin') return <Navigate to="/Admin" replace />
+  if (userProfile && userProfile.role !== 'docente') return <Navigate to="/alumno" replace />
+  if (userProfile?.role === 'docente' && userProfile.profileComplete === false) {
+    return <Navigate to="/onboarding" replace />
+  }
+  return children
+}
+
+// Same auth/role checks as ProtectedTeacher but WITHOUT the profileComplete
+// redirect — used only by /onboarding itself, to avoid a redirect loop.
+function ProtectedTeacherOnboarding({ children }) {
   const { currentUser, userProfile, loading } = useAuth()
   if (loading) return null
   if (!currentUser) return <Navigate to="/" replace />
@@ -79,7 +93,6 @@ export default function App() {
             <Route path="/" element={<RootRedirect guest={<Landing />} />} />
             <Route path="/docente" element={<RootRedirect />} />
             <Route path="/register" element={<TeacherRegister />} />
-            <Route path="/register/school" element={<RegisterSchool />} />
             <Route path="/alumno" element={<StudentLogin />} />
             <Route path="/activate/:accessCode" element={<StudentActivation />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
@@ -89,6 +102,7 @@ export default function App() {
             <Route path="/Admin" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
 
             {/* Teacher protected */}
+            <Route path="/onboarding" element={<ProtectedTeacherOnboarding><Onboarding /></ProtectedTeacherOnboarding>} />
             <Route path="/dashboard" element={<ProtectedTeacher><TeacherDashboard /></ProtectedTeacher>} />
             <Route path="/subject/:subjectId" element={<ProtectedTeacher><SubjectPage /></ProtectedTeacher>} />
             <Route path="/activity/:activityId" element={<ProtectedTeacher><ActivityPage /></ProtectedTeacher>} />

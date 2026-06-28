@@ -32,10 +32,6 @@ export default function TeacherDashboard() {
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // Welcome modal (shown once after registration)
-  const [showWelcomeModal, setShowWelcomeModal] = useState(location.state?.newAccount === true)
-  const welcomeUsername = location.state?.createdUsername ?? ''
-
   // Trial period modal
   const [trialDismissed, setTrialDismissed] = useState(() => sessionStorage.getItem('trialDismissed') === '1')
   const { subscription, loading: subLoading } = useSubscription()
@@ -154,9 +150,7 @@ export default function TeacherDashboard() {
         <div className="mb-6">
           <p className="text-muted text-sm">Bienvenido,</p>
           <h1 className="text-2xl font-bold text-on-surface truncate">
-            {userProfile?.nombreMostrar ||
-              userProfile?.username ||
-              'Docente'}
+            {userProfile?.nombreMostrar || 'Docente'}
           </h1>
           {userProfile?.schoolName && (
             <p className="text-slate-400 text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
@@ -348,36 +342,6 @@ export default function TeacherDashboard() {
                 {creatingSubject ? 'Creando…' : 'Crear asignatura'}
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Welcome modal — shown once after registration */}
-      {showWelcomeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/50" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-6 text-center space-y-4">
-            <h2 className="text-lg font-bold text-on-surface">¡Bienvenido/a!</h2>
-
-            <div className="bg-blue-50 border border-blue-100 rounded px-4 py-4">
-              <p className="text-xs text-blue-500 mb-1 font-semibold uppercase tracking-wide">Tu nombre de usuario</p>
-              <p className="text-3xl font-black font-mono text-blue-700 tracking-widest">{welcomeUsername}</p>
-              <p className="text-xs text-muted mt-2">Úsalo cada vez que inicies sesión</p>
-            </div>
-
-            <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded px-4 py-3 text-left">
-              <span className="text-amber-500 mt-0.5 text-base">✉</span>
-              <p className="text-sm text-amber-700 leading-relaxed">
-                Enviamos tu usuario y un <strong>enlace de verificación</strong> a tu correo.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setShowWelcomeModal(false)}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors"
-            >
-              Entrar al dashboard
-            </button>
           </div>
         </div>
       )}

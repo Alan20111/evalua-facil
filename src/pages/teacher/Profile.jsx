@@ -4,7 +4,7 @@ import {
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth'
-import { collection, query, where, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore'
+import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -12,6 +12,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
+import { resolveSchoolSelection } from '../../utils/schoolSelection'
 import { Camera, Lock, User, X, CreditCard, School, Search, ChevronDown, Plus } from 'lucide-react'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
@@ -72,32 +73,9 @@ export default function Profile() {
   async function updateSchool(plantel) {
     setSavingSchool(true)
     try {
-      let escuelaId, schoolNombre
-      if (!plantel) {
-        escuelaId = 'sin-escuela'; schoolNombre = 'Sin escuela'
-        await setDoc(doc(db, 'schools', 'sin-escuela'), { nombre: 'Sin escuela', shortName: 'EF', sinEscuela: true }, { merge: true })
-      } else if (plantel.custom) {
-        const name = plantel.nombre.trim()
-        const existing = await getDocs(query(collection(db, 'schools'), where('nombre', '==', name)))
-        if (!existing.empty) escuelaId = existing.docs[0].id
-        else {
-          const ref = doc(collection(db, 'schools'))
-          await setDoc(ref, { nombre: name, shortName: name, custom: true })
-          escuelaId = ref.id
-        }
-        schoolNombre = name
-      } else {
-        const snap = await getDocs(query(collection(db, 'schools'), where('claveSEP', '==', plantel.cct)))
-        if (!snap.empty) escuelaId = snap.docs[0].id
-        else {
-          const ref = doc(collection(db, 'schools'))
-          await setDoc(ref, { claveSEP: plantel.cct, nombre: plantel.nombre, shortName: plantel.short, subsistema: plantel.sub, municipio: plantel.mun, estado: plantel.edo })
-          escuelaId = ref.id
-        }
-        schoolNombre = plantel.short || plantel.nombre
-      }
-      await updateDoc(doc(db, 'users', currentUser.uid), { escuelaId, schoolName: schoolNombre })
-      setUserProfile((p) => ({ ...p, escuelaId, schoolName: schoolNombre }))
+      const { escuelaId, schoolName } = await resolveSchoolSelection(plantel)
+      await updateDoc(doc(db, 'users', currentUser.uid), { escuelaId, schoolName })
+      setUserProfile((p) => ({ ...p, escuelaId, schoolName }))
       toast('Escuela actualizada — solo aplica a asignaturas y alumnos nuevos')
       setShowSchoolPicker(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -201,7 +179,7 @@ export default function Profile() {
     }
   }
 
-  const displayName = userProfile?.nombreMostrar || userProfile?.username || 'Docente'
+  const displayName = userProfile?.nombreMostrar || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
   const daysRemaining = subscription ? calcDaysRemaining(subscription.fechaVencimiento) : null
   const canRenew =
@@ -328,11 +306,6 @@ export default function Profile() {
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
           <div className="text-center">
             <p className="font-bold text-on-surface">{displayName}</p>
-            {userProfile?.username && (
-              <p className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded mt-1 inline-block">
-                {userProfile.username}
-              </p>
-            )}
             {userProfile?.schoolName && (
               <p className="text-xs text-slate-400 mt-1">{userProfile.schoolName}</p>
             )}
@@ -381,14 +354,6 @@ export default function Profile() {
           </h2>
           <div className="space-y-1">
 
-            {/* Username — read only */}
-            <div className="flex items-center gap-3 py-3 border-b border-outline-variant">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-400 mb-0.5">Usuario</p>
-                <p className="text-sm font-semibold font-mono text-on-surface">{userProfile?.username || '—'}</p>
-              </div>
-            </div>
-
             {/* ── Correo (solo lectura) ── */}
             <div className="py-3 border-b border-outline-variant">
               <p className="text-xs text-slate-400 mb-0.5">Correo electrónico</p>
@@ -401,7 +366,7 @@ export default function Profile() {
                 <div className="flex-1">
                   <p className="text-sm font-medium text-on-surface">Contraseña</p>
                   {!hasEmailProvider && (
-                    <p className="text-xs text-slate-400 mt-0.5">Solo disponible con acceso por usuario/contraseña</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Solo disponible si tu cuenta usa correo y contraseña</p>
                   )}
                 </div>
                 {hasEmailProvider && (

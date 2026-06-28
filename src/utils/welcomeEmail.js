@@ -4,7 +4,7 @@ const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID
 const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID
 const PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY
 
-function buildHtml({ username, school }) {
+function buildHtml() {
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -46,32 +46,11 @@ function buildHtml({ username, school }) {
       <tr>
         <td style="background:#ffffff;padding:36px 32px;">
 
-          <p style="margin:0 0 8px;color:#1e293b;font-size:17px;font-weight:700;">
-            Hola, ${username}
-          </p>
           <p style="margin:0 0 28px;color:#475569;font-size:15px;line-height:1.7;">
             Gracias por registrarte en <strong style="color:#1e40af;">Evalúa Fácil</strong>,
-            el sistema de gestión de calificaciones para docentes SEP.
+            el sistema de gestión de calificaciones para docentes SEP. Tu cuenta ya está lista
+            para usarse.
           </p>
-
-          <!-- USERNAME BOX -->
-          <p style="margin:0 0 10px;color:#64748b;font-size:12px;font-weight:700;
-                    text-transform:uppercase;letter-spacing:1.5px;">Tu nombre de usuario</p>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                 style="margin-bottom:32px;">
-            <tr>
-              <td style="background:#eff6ff;border:2px solid #93c5fd;
-                         border-radius:14px;padding:24px;text-align:center;">
-                <p style="margin:0;color:#1e3a8a;font-size:36px;font-weight:900;
-                           font-family:'Courier New',Courier,monospace;letter-spacing:4px;line-height:1;">
-                  ${username}
-                </p>
-                <p style="margin:10px 0 0;color:#64748b;font-size:12px;">
-                  Escuela: <strong>${school}</strong>
-                </p>
-              </td>
-            </tr>
-          </table>
 
           <!-- CTA BUTTON -->
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
@@ -88,7 +67,16 @@ function buildHtml({ username, school }) {
             </tr>
           </table>
 
-          <p style="margin:0;color:#94a3b8;font-size:12px;text-align:center;line-height:1.6;">
+          <p style="margin:0 0 16px;color:#475569;font-size:14px;line-height:1.7;">
+            Al entrar por primera vez te pediremos tu <strong>nombre completo</strong> para
+            terminar de configurar tu cuenta.
+          </p>
+          <p style="margin:0;color:#475569;font-size:14px;line-height:1.7;">
+            Si perteneces a una escuela, podrás asociarla cuando quieras desde tu
+            <strong>perfil</strong> dentro de la plataforma — no es necesario hacerlo ahora.
+          </p>
+
+          <p style="margin:28px 0 0;color:#94a3b8;font-size:12px;text-align:center;line-height:1.6;">
             Si tienes problemas con el botón, visita<br/>
             <a href="https://evalua-facil.vercel.app"
                style="color:#2563eb;text-decoration:none;">evalua-facil.vercel.app</a>
@@ -117,15 +105,15 @@ function buildHtml({ username, school }) {
 </html>`
 }
 
-export async function sendWelcomeEmail({ email, username, school }) {
+export async function sendWelcomeEmail({ email }) {
   if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY) return
   await emailjs.send(
     SERVICE_ID,
     TEMPLATE_ID,
     {
       to_email: email,
-      to_name: username,
-      html_content: buildHtml({ username, school }),
+      to_name: email,
+      html_content: buildHtml(),
     },
     PUBLIC_KEY
   )

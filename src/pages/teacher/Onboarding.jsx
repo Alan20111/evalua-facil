@@ -1,36 +1,25 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  EmailAuthProvider,
-  linkWithCredential,
-} from 'firebase/auth'
-import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
-import { auth, db } from '../../firebase'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
-import { GraduationCap, Check, ChevronDown, Search, X } from 'lucide-react'
-import PasswordInput from '../../components/PasswordInput'
+import { resolveSchoolSelection } from '../../utils/schoolSelection'
 import { usePlanteles } from '../../data/usePlanteles'
+import Spinner from '../../components/Spinner'
+import { GraduationCap, ChevronDown, Search, Check, X, Plus } from 'lucide-react'
 
-function generateTeacherUsername(shortName, count) {
-  const prefix = (shortName || '').toUpperCase().replace(/\s+/g, '')
-  return `${prefix}-${String(count + 1).padStart(2, '0')}`
-}
+export default function Onboarding() {
+  const { currentUser, setUserProfile } = useAuth()
+  const navigate = useNavigate()
+  const toast = useToast()
 
-export default function RegisterSchool() {
+  const [nombre, setNombre] = useState('')
   const [selectedPlantel, setSelectedPlantel] = useState(null)
   const [showPicker, setShowPicker] = useState(false)
   const [search, setSearch] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [saving, setSaving] = useState(false)
-  const navigate = useNavigate()
-  const toast = useToast()
-  const { setUserProfile } = useAuth()
   const { planteles, loading: catalogLoading } = usePlanteles()
-
-  const user = auth.currentUser
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -45,63 +34,18 @@ export default function RegisterSchool() {
       .slice(0, 80)
   }, [planteles, search])
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!user) { navigate('/', { replace: true }); return }
-    if (!selectedPlantel) { toast('Selecciona tu escuela', 'error'); return }
-    if (password !== confirmPassword) { toast('Las contraseñas no coinciden', 'error'); return }
-    if (password.length < 6) { toast('Mínimo 6 caracteres', 'error'); return }
+  async function finish(plantel) {
+    if (!nombre.trim()) { toast('Escribe tu nombre completo', 'error'); return }
     setSaving(true)
     try {
-      // 1. Find or create school
-      const schoolSnap = await getDocs(
-        query(collection(db, 'schools'), where('claveSEP', '==', selectedPlantel.cct))
-      )
-      let schoolId
-      if (!schoolSnap.empty) {
-        schoolId = schoolSnap.docs[0].id
-      } else {
-        const newRef = doc(collection(db, 'schools'))
-        await setDoc(newRef, {
-          claveSEP: selectedPlantel.cct,
-          nombre: selectedPlantel.nombre,
-          shortName: selectedPlantel.short,
-          subsistema: selectedPlantel.sub,
-          municipio: selectedPlantel.mun,
-          estado: selectedPlantel.edo,
-        })
-        schoolId = newRef.id
+      const updates = { nombreMostrar: nombre.trim(), profileComplete: true }
+      if (plantel) {
+        const { escuelaId, schoolName } = await resolveSchoolSelection(plantel)
+        updates.escuelaId = escuelaId
+        updates.schoolName = schoolName
       }
-
-      // 2. Count teachers to generate username
-      const teacherSnap = await getDocs(
-        query(collection(db, 'users'), where('escuelaId', '==', schoolId))
-      )
-      const username = generateTeacherUsername(selectedPlantel.short || selectedPlantel.nombre, teacherSnap.size)
-
-      // 3. Link email/password to Google account so teacher can log in either way
-      try {
-        const credential = EmailAuthProvider.credential(user.email, password)
-        await linkWithCredential(user, credential)
-      } catch (linkErr) {
-        // auth/provider-already-linked = already linked, continue
-        if (linkErr.code !== 'auth/provider-already-linked') throw linkErr
-      }
-
-      // 4. Create Firestore profile
-      const profile = {
-        role: 'docente',
-        username,
-        email: user.email,
-        escuelaId: schoolId,
-        photoURL: user.photoURL || null,
-      }
-      await setDoc(doc(db, 'users', user.uid), profile)
-      setUserProfile({
-        ...profile,
-        schoolName: selectedPlantel.nombre,
-        claveSEP: selectedPlantel.cct,
-      })
+      await updateDoc(doc(db, 'users', currentUser.uid), updates)
+      setUserProfile((p) => ({ ...p, ...updates }))
       navigate('/dashboard')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -109,8 +53,6 @@ export default function RegisterSchool() {
       setSaving(false)
     }
   }
-
-  if (!user) return null
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
@@ -120,21 +62,26 @@ export default function RegisterSchool() {
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">Un último paso</h1>
-          <p className="text-muted text-sm mt-1">Indica tu plantel y crea una contraseña</p>
+          <p className="text-muted text-sm mt-1">Así te verán tus alumnos</p>
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-6">
-          {/* Google account info */}
-          <div className="bg-surface rounded px-4 py-3 mb-4">
-            <p className="text-xs text-slate-400 mb-0.5">Cuenta de Google</p>
-            <p className="text-sm font-semibold text-on-surface">{user.displayName || user.email}</p>
-            <p className="text-xs text-muted">{user.email}</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* School picker */}
+          <form onSubmit={(e) => { e.preventDefault(); finish(selectedPlantel) }} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Escuela</label>
+              <label className="block text-sm font-medium text-muted mb-1">Nombre completo</label>
+              <input
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                required
+                autoFocus
+                className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                placeholder="Ej. Profa. García Pérez"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">Escuela (opcional)</label>
               <button
                 type="button"
                 onClick={() => { setShowPicker(true); setSearch('') }}
@@ -152,46 +99,17 @@ export default function RegisterSchool() {
                   : <ChevronDown size={16} className="text-slate-400 flex-shrink-0" />
                 }
               </button>
-              {selectedPlantel && (
+              {selectedPlantel && !selectedPlantel.custom && (
                 <p className="text-xs text-emerald-700 mt-1 ml-1 truncate">
                   {selectedPlantel.cct} · {selectedPlantel.mun}, {selectedPlantel.edo}
                 </p>
               )}
-            </div>
-
-            {/* Password — to allow username+password login as well */}
-            <div>
-              <label className="block text-sm font-medium text-muted mb-1">
-                Contraseña del sistema
-              </label>
-              <PasswordInput
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete="new-password"
-                className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
-                placeholder="Mínimo 6 caracteres"
-              />
-              <p className="text-xs text-slate-400 mt-1">
-                Te permitirá entrar también con usuario y contraseña.
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
-              <PasswordInput
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                autoComplete="new-password"
-                className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
-                placeholder="Repite la contraseña"
-              />
+              <p className="text-xs text-slate-400 mt-2 ml-1">Podrás asignarla o cambiarla después desde tu perfil.</p>
             </div>
 
             <button
               type="submit"
-              disabled={saving || !selectedPlantel}
+              disabled={saving}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {saving ? <Spinner size="sm" /> : null}
@@ -247,6 +165,18 @@ export default function RegisterSchool() {
                   </li>
                 )}
               </ul>
+            )}
+            {search.trim() && (
+              <div className="border-t border-outline-variant p-2">
+                <button
+                  type="button"
+                  onClick={() => { setSelectedPlantel({ custom: true, nombre: search.trim(), short: search.trim() }); setShowPicker(false) }}
+                  className="w-full flex items-center gap-2 px-4 py-3 rounded text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                >
+                  <Plus size={16} className="flex-shrink-0" />
+                  <span className="truncate">¿No la encuentras? Agregar «{search.trim()}»</span>
+                </button>
+              </div>
             )}
           </div>
         </div>

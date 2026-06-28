@@ -24,23 +24,20 @@ export function AuthProvider({ children }) {
                 const schoolData = schoolSnap.data()
                 profile.schoolName = schoolData.nombre
                 profile.claveSEP = schoolData.claveSEP
-
-                // Migrate old CCT-based usernames (e.g. "110020-05") to
-                // school-name format (e.g. "CBTIS255-05") on first login.
-                if (/^\d/.test(profile.username)) {
-                  const numPart = profile.username.split('-').pop()
-                  const prefix = (schoolData.shortName || schoolData.nombre || '')
-                    .toUpperCase().replace(/\s+/g, '')
-                  if (prefix) {
-                    const newUsername = `${prefix}-${numPart}`
-                    await updateDoc(doc(db, 'users', user.uid), { username: newUsername })
-                    profile.username = newUsername
-                  }
-                }
               }
             } catch {
               // best-effort
             }
+          }
+          // Accounts created before the onboarding wizard existed never went through
+          // it, but they did go through the old registration flow (which always set
+          // an escuelaId, even the "sin-escuela" sentinel). Treat those as complete
+          // so they're never sent to /onboarding; only brand-new accounts (created
+          // without an escuelaId) start as incomplete.
+          if (profile.role === 'docente' && profile.profileComplete === undefined) {
+            const complete = Boolean(profile.escuelaId)
+            updateDoc(doc(db, 'users', user.uid), { profileComplete: complete }).catch(() => {})
+            profile.profileComplete = complete
           }
           setUserProfile(profile)
         } else if (user.email?.endsWith('@evalua.local')) {
