@@ -148,6 +148,14 @@ export default function SubjectPage() {
 
   async function loadAll() {
     setLoading(true)
+    // Navigating from one subject straight to another (e.g. via the sidebar) re-renders
+    // this same component with a new subjectId instead of remounting it — without this,
+    // the Alumnos/Calificaciones tabs would keep showing the PREVIOUS subject's roster,
+    // since `groupStudentsLoaded`/`gradesLoaded` would already be true.
+    setGroupStudents([])
+    setGroupStudentsLoaded(false)
+    setGradeSubMap({})
+    setGradesLoaded(false)
     try {
       const [subSnap, actsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
@@ -175,6 +183,12 @@ export default function SubjectPage() {
         if (data.calificacion != null) c.graded++
       })
       setSubmissionCounts(counts)
+
+      // Re-fetch whichever tab is currently open for the NEW subject — `force: true`
+      // because groupStudentsLoaded was just reset above but this function's own
+      // closure still has the stale value from before that reset took effect.
+      if (activeTab === 'alumnos') await ensureGroupStudents(true)
+      if (activeTab === 'calificaciones') await loadGrades(true, acts)
     } catch (err) {
       toast('Error al cargar: ' + err.message, 'error')
     } finally {
@@ -183,8 +197,11 @@ export default function SubjectPage() {
   }
 
   // ── Students (shared) ──────────────────────────────────────────────
-  async function ensureGroupStudents() {
-    if (groupStudentsLoaded) return groupStudents
+  // `force` bypasses the groupStudentsLoaded cache check — needed right after loadAll()
+  // resets it, since this function's own closure (captured at the start of the same
+  // render that triggered loadAll) still holds the PREVIOUS subject's stale `true`.
+  async function ensureGroupStudents(force = false) {
+    if (groupStudentsLoaded && !force) return groupStudents
     const snap = await getDocs(
       query(collection(db, 'students'), where('asignaturaId', '==', subjectId))
     )
@@ -197,11 +214,14 @@ export default function SubjectPage() {
   }
 
   // ── Calificaciones ─────────────────────────────────────────────────
-  async function loadGrades() {
+  // `actsOverride` lets loadAll() pass the just-fetched activities directly — the
+  // component's own `activities` state hasn't re-rendered yet inside that same call,
+  // so reading it here would still see the PREVIOUS subject's activities.
+  async function loadGrades(force = false, actsOverride = null) {
     setLoadingGrades(true)
     try {
-      await ensureGroupStudents()
-      const subDocs = await fetchSubmissionsForActivities(activities.map((a) => a.id))
+      await ensureGroupStudents(force)
+      const subDocs = await fetchSubmissionsForActivities((actsOverride || activities).map((a) => a.id))
       const map = {}
       subDocs.forEach((d) => {
         const data = d.data()
