@@ -5,6 +5,7 @@ import { ToastProvider } from './components/Toast'
 import Landing from './pages/Landing'
 import TeacherLogin from './pages/teacher/Login'
 import TeacherRegister from './pages/teacher/Register'
+import ResetPassword from './pages/teacher/ResetPassword'
 import Onboarding from './pages/teacher/Onboarding'
 import TeacherDashboard from './pages/teacher/Dashboard'
 import SubjectPage from './pages/teacher/SubjectPage'
@@ -93,6 +94,7 @@ export default function App() {
             <Route path="/" element={<RootRedirect guest={<Landing />} />} />
             <Route path="/docente" element={<RootRedirect />} />
             <Route path="/register" element={<TeacherRegister />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/alumno" element={<StudentLogin />} />
             <Route path="/activate/:accessCode" element={<StudentActivation />} />
             <Route path="/verify-email" element={<VerifyEmail />} />

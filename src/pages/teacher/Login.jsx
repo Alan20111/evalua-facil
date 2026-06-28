@@ -30,6 +30,7 @@ export default function TeacherLogin() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -79,10 +80,16 @@ export default function TeacherLogin() {
       toast('Escribe tu correo primero', 'error')
       return
     }
+    if (resetLoading) return // guard against double-submit issuing two reset links at once
+    setResetLoading(true)
     try {
-      await sendPasswordResetEmail(auth, email.trim())
+      await sendPasswordResetEmail(auth, email.trim(), {
+        url: `${window.location.origin}/reset-password`,
+      })
     } catch {
       // Intentionally silent — don't reveal whether the email exists.
+    } finally {
+      setResetLoading(false)
     }
     toast('Si el correo existe, te enviamos un enlace para restablecer tu contraseña')
   }
@@ -134,7 +141,8 @@ export default function TeacherLogin() {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-xs text-blue-600 hover:underline"
+                  disabled={resetLoading}
+                  className="text-xs text-blue-600 hover:underline disabled:opacity-60"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
