@@ -228,7 +228,7 @@ export default function SubjectPage() {
   // re-enrolled) so we can reuse their username/uid instead of forking a second account.
   async function fetchSchoolStudents() {
     const snap = await getDocs(
-      query(collection(db, 'students'), where('escuelaId', '==', userProfile.escuelaId))
+      query(collection(db, 'students'), where('escuelaId', '==', userProfile.escuelaId || 'sin-escuela'))
     )
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
   }
@@ -257,7 +257,7 @@ export default function SubjectPage() {
       nombre: person.nombre.trim(),
       username,
       resetPassword: null,
-      escuelaId: userProfile.escuelaId,
+      escuelaId: userProfile.escuelaId || 'sin-escuela',
       asignaturaId: subjectId,
       activado: identity ? identity.activado : false,
       uid: identity ? (identity.uid || null) : null,
@@ -352,7 +352,7 @@ export default function SubjectPage() {
           username,
           resetPassword: null,
           uid,
-          escuelaId: userProfile.escuelaId,
+          escuelaId: userProfile.escuelaId || 'sin-escuela',
           asignaturaId: subjectId,
           activado,
           orden: nextOrden++,
@@ -724,7 +724,7 @@ export default function SubjectPage() {
         icon: copyForm.icon || 'book',
         keepStudents: copyForm.keepStudents,
         docenteId: currentUser.uid,
-        escuelaId: userProfile?.escuelaId,
+        escuelaId: userProfile?.escuelaId || 'sin-escuela',
       })
       toast('Asignatura duplicada')
       setShowCopyModal(false)

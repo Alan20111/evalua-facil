@@ -29,6 +29,20 @@ export function AuthProvider({ children }) {
               // best-effort
             }
           }
+          // Some legacy accounts never got an escuelaId at all — not even the
+          // "sin-escuela" sentinel — because they predate that convention. School
+          // is optional, so self-heal them to the sentinel instead of leaving
+          // escuelaId undefined (which Firestore rejects when writing new docs
+          // like subjects/students that store it).
+          if (profile.role === 'docente' && !profile.escuelaId) {
+            profile.escuelaId = 'sin-escuela'
+            profile.schoolName = profile.schoolName || 'Sin escuela'
+            updateDoc(doc(db, 'users', user.uid), {
+              escuelaId: 'sin-escuela',
+              schoolName: profile.schoolName,
+            }).catch(() => {})
+          }
+
           // Accounts created before the onboarding wizard existed never went through
           // it, but they did go through the old registration flow (which always set
           // an escuelaId, even the "sin-escuela" sentinel). Treat those as complete

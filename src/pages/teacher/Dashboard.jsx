@@ -80,11 +80,6 @@ export default function TeacherDashboard() {
       toast('Activa tu suscripción mensual para crear nuevas asignaturas — toda tu información sigue disponible')
       return
     }
-    if (!userProfile?.escuelaId) {
-      toast('Configura tu escuela en tu perfil antes de crear una asignatura', 'error')
-      navigate('/profile')
-      return
-    }
     setShowSubjectModal(true)
   }
 
@@ -116,17 +111,13 @@ export default function TeacherDashboard() {
       toast('Activa tu suscripción mensual para crear nuevas asignaturas — toda tu información sigue disponible')
       return
     }
-    if (!userProfile?.escuelaId) {
-      toast('Configura tu escuela en tu perfil antes de crear una asignatura', 'error')
-      return
-    }
     setCreatingSubject(true)
     try {
       const subData = {
         nombre: newSubjectName.trim(),
         grupo: newSubjectGrupo.trim(),
         docenteId: currentUser.uid,
-        escuelaId: userProfile.escuelaId,
+        escuelaId: userProfile.escuelaId || 'sin-escuela',
         parciales: newSubjectParciales,
         fechaInicio: newSubjectFechaInicio || '',
         fechaFin: newSubjectFechaFin || '',
