@@ -7,11 +7,16 @@ import Spinner from '../../components/Spinner'
 import { GraduationCap, CheckCircle2 } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
 
-// Custom action-handler for Firebase's password-reset email links (see
-// actionCodeSettings.url in Login.jsx). We verify/confirm the oobCode ourselves
-// instead of letting the user land on Firebase's hosted (English) default page —
-// this never creates a new account or changes the UID, it only resets the
-// password on the SAME account the oobCode was issued for.
+// Action-handler for Firebase's password-reset email links. actionCodeSettings.url
+// (set in Login.jsx) is used by Firebase's OWN hosted reset page as its "continue"
+// link — there's no Console access from this repo to redirect the email link
+// straight here, so this route can be reached two different ways:
+//   1) With a real oobCode — e.g. if the link ever points here directly. We verify
+//      and confirm it ourselves: same account, same UID, no new user created.
+//   2) With NO oobCode — the normal case, reached after Firebase's hosted page has
+//      already completed the reset itself and the teacher clicked its "Continue"
+//      button. There's nothing left to verify here, so we just send them to the
+//      login screen — never show an "invalid link" error for this case.
 export default function ResetPassword() {
   const [searchParams] = useSearchParams()
   const oobCode = searchParams.get('oobCode')
@@ -25,11 +30,14 @@ export default function ResetPassword() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (!oobCode) { setStatus('invalid'); return }
+    if (!oobCode) {
+      navigate('/docente', { replace: true })
+      return
+    }
     verifyPasswordResetCode(auth, oobCode)
       .then((userEmail) => { setEmail(userEmail); setStatus('valid') })
       .catch(() => setStatus('invalid'))
-  }, [oobCode])
+  }, [oobCode, navigate])
 
   async function handleSubmit(e) {
     e.preventDefault()

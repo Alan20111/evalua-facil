@@ -14,9 +14,10 @@ const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 
-// Spanish for any Firebase-hosted UI/email this app still triggers
-// (e.g. the default action-handler page, if a reset link is ever opened
-// before the custom /reset-password route exists for it).
+// Spanish for the email content and for Firebase's own hosted action-handler
+// page (e.g. password reset) — its Action URL lives in Firebase Console >
+// Authentication > Templates, outside this repo, so this is the only lever
+// over its language available from the code.
 auth.languageCode = 'es-MX'
 
 export default app
