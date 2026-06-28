@@ -16,7 +16,6 @@ import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, 
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatPublishAt } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
@@ -867,24 +866,23 @@ export default function SubjectPage() {
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">Archivada</span>
                 )}
               </div>
-              <p className="text-slate-400 text-xs truncate">{subjectPeriodLabel(subject)}</p>
             </div>
           </div>
 
           {/* Action buttons — wrap on mobile so they never overflow */}
           <div className="flex flex-wrap items-center gap-1 mt-3">
             <button type="button" onClick={() => setShowQR(true)}
-              title="Código QR de acceso"
+              title="Código QR de acceso para alumnos"
               className="p-2 text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
               <QrCode size={19} />
             </button>
             <button type="button" onClick={copyActivationLink}
-              title="Copiar link de activación"
+              title="Copiar link de activación para alumnos"
               className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-accent-light'}`}>
               {copiedLink ? <CheckIcon size={19} /> : <Link size={19} />}
             </button>
             <button type="button" onClick={copyAccessCode}
-              title="Copiar código de acceso"
+              title="Copiar código de acceso para alumnos"
               className={`flex items-center gap-1 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-sm ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-accent-light'}`}>
               {copiedCode
                 ? <><CheckIcon size={19} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
