@@ -65,6 +65,9 @@ export default function Profile() {
   const [savingSchool, setSavingSchool] = useState(false)
   const [addingCustomSchool, setAddingCustomSchool] = useState(false)
   const [customSchoolName, setCustomSchoolName] = useState('')
+  const [customSchoolCCT, setCustomSchoolCCT] = useState('')
+  const [customSchoolCity, setCustomSchoolCity] = useState('')
+  const [customSchoolState, setCustomSchoolState] = useState('')
   const [customSchools, setCustomSchools] = useState([])
   const [customSchoolsLoaded, setCustomSchoolsLoaded] = useState(false)
   const { planteles, loading: catalogLoading } = usePlanteles()
@@ -96,13 +99,23 @@ export default function Profile() {
 
   function openCustomSchoolForm() {
     setCustomSchoolName(schoolSearch.trim())
+    setCustomSchoolCCT('')
+    setCustomSchoolCity('')
+    setCustomSchoolState('')
     setAddingCustomSchool(true)
   }
 
   async function submitCustomSchool(e) {
     e.preventDefault()
-    if (!customSchoolName.trim()) return
-    await updateSchool({ custom: true, nombre: customSchoolName.trim(), short: customSchoolName.trim() })
+    if (!customSchoolName.trim() || !customSchoolCity.trim() || !customSchoolState.trim()) return
+    await updateSchool({
+      custom: true,
+      nombre: customSchoolName.trim(),
+      short: customSchoolName.trim(),
+      cct: customSchoolCCT.trim(),
+      mun: customSchoolCity.trim(),
+      edo: customSchoolState.trim(),
+    })
     setAddingCustomSchool(false)
   }
 
@@ -474,7 +487,7 @@ export default function Profile() {
               <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={17} /></button>
             </div>
             {addingCustomSchool ? (
-              <form onSubmit={submitCustomSchool} className="p-4 space-y-3">
+              <form onSubmit={submitCustomSchool} className="p-4 space-y-3 overflow-y-auto">
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
                   <input
@@ -487,12 +500,48 @@ export default function Profile() {
                     placeholder="Ej. Escuela Secundaria Técnica N.° 12"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-muted mb-1">
+                    Clave del centro de trabajo (CCT) <span className="text-slate-500 font-normal text-xs">(opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={customSchoolCCT}
+                    onChange={(e) => setCustomSchoolCCT(e.target.value)}
+                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                    placeholder="Ej. 15ECT0001H"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-muted mb-1">Ciudad / municipio</label>
+                    <input
+                      type="text"
+                      value={customSchoolCity}
+                      onChange={(e) => setCustomSchoolCity(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                      placeholder="Ej. Celaya"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-muted mb-1">Estado</label>
+                    <input
+                      type="text"
+                      value={customSchoolState}
+                      onChange={(e) => setCustomSchoolState(e.target.value)}
+                      required
+                      className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                      placeholder="Ej. Guanajuato"
+                    />
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setAddingCustomSchool(false)} disabled={savingSchool}
                     className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
                     Cancelar
                   </button>
-                  <button type="submit" disabled={savingSchool || !customSchoolName.trim()}
+                  <button type="submit" disabled={savingSchool || !customSchoolName.trim() || !customSchoolCity.trim() || !customSchoolState.trim()}
                     className="flex-1 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                     {savingSchool ? <Spinner size="sm" /> : null}
                     {savingSchool ? 'Guardando…' : 'Agregar escuela'}
@@ -519,6 +568,11 @@ export default function Profile() {
                           <button type="button" onClick={() => updateSchool({ custom: true, nombre: s.nombre })} disabled={savingSchool}
                             className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors disabled:opacity-60">
                             <p className="text-sm font-medium text-on-surface leading-tight">{s.nombre}</p>
+                            {(s.claveSEP || s.municipio || s.estado) && (
+                              <p className="text-sm text-slate-500 mt-0.5">
+                                {[s.claveSEP, [s.municipio, s.estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
                           </button>
                         </li>
                       ))}

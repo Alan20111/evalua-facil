@@ -30,11 +30,21 @@ export async function resolveSchoolSelection(plantel) {
   if (plantel.custom) {
     const name = plantel.nombre.trim()
     const nombreNormalizado = normalizeName(name)
+    // CCT/municipio/estado are only present when adding a brand-new custom
+    // school (the form that collects them); re-selecting an existing one from
+    // the suggestion list omits them, so an empty `extra` never overwrites
+    // data the school already has.
+    const extra = {}
+    if (plantel.cct?.trim()) extra.claveSEP = plantel.cct.trim()
+    if (plantel.mun?.trim()) extra.municipio = plantel.mun.trim()
+    if (plantel.edo?.trim()) extra.estado = plantel.edo.trim()
+
     const existing = await getDocs(
       query(collection(db, 'schools'), where('nombreNormalizado', '==', nombreNormalizado))
     )
     if (!existing.empty) {
       const match = existing.docs[0]
+      if (Object.keys(extra).length) await setDoc(doc(db, 'schools', match.id), extra, { merge: true })
       return { escuelaId: match.id, schoolName: match.data().nombre || name }
     }
     // Fallback for custom schools created before nombreNormalizado existed —
@@ -43,11 +53,11 @@ export async function resolveSchoolSelection(plantel) {
     const legacy = await getDocs(query(collection(db, 'schools'), where('nombre', '==', name)))
     if (!legacy.empty) {
       const match = legacy.docs[0]
-      await setDoc(doc(db, 'schools', match.id), { nombreNormalizado }, { merge: true })
+      await setDoc(doc(db, 'schools', match.id), { nombreNormalizado, ...extra }, { merge: true })
       return { escuelaId: match.id, schoolName: match.data().nombre || name }
     }
     const ref = doc(collection(db, 'schools'))
-    await setDoc(ref, { nombre: name, nombreNormalizado, shortName: name, custom: true })
+    await setDoc(ref, { nombre: name, nombreNormalizado, shortName: name, custom: true, ...extra })
     return { escuelaId: ref.id, schoolName: name }
   }
 
