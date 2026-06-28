@@ -1186,7 +1186,7 @@ export default function SubjectPage() {
               </button>
               <label
                 title="Sube la plantilla de Excel ya llena para registrar a todos los alumnos de una vez"
-                className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors cursor-pointer"
+                className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors cursor-pointer"
               >
                 {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />} <strong>Paso 2</strong> · Subir la plantilla de Excel con los datos de los alumnos
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
