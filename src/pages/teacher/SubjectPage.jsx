@@ -1182,13 +1182,13 @@ export default function SubjectPage() {
                 title="Descarga un Excel vacío con el formato correcto para pegar la lista de tus alumnos"
                 className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
               >
-                <Download size={15} className="flex-shrink-0" /> Descargar plantilla en Excel para pegar datos de alumnos
+                <Download size={15} className="flex-shrink-0" /> <strong>Paso 1</strong> · Descargar plantilla en Excel para pegar datos de alumnos
               </button>
               <label
                 title="Sube la plantilla de Excel ya llena para registrar a todos los alumnos de una vez"
-                className={`flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 rounded text-sm font-medium text-white transition-colors cursor-pointer ${savingStudent ? 'bg-accent/60' : 'bg-accent hover:bg-accent-hover'}`}
+                className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors cursor-pointer"
               >
-                {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />} Subir la plantilla de Excel con los datos de los alumnos
+                {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />} <strong>Paso 2</strong> · Subir la plantilla de Excel con los datos de los alumnos
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
               </label>
             </div>
@@ -1198,10 +1198,10 @@ export default function SubjectPage() {
           <button
             type="button"
             onClick={() => setShowCredentialsModal(true)}
-            title="Descarga un PDF con el usuario de cada alumno y el código de la clase"
+            title="Genera el código de acceso de cada alumno y descarga un PDF con sus usuarios"
             className="w-full flex items-center justify-center gap-2 py-2.5 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
           >
-            <KeyRound size={15} /> Descargar lista de acceso (usuarios + código)
+            <KeyRound size={15} /> <strong>Paso 3</strong> · Generar códigos para alumnos y descargar lista de acceso (usuarios + códigos)
           </button>
 
           {/* 3 — Buscar alumno + agregar manualmente */}
