@@ -25,7 +25,7 @@ import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet, Search,
-  ArrowUp, ArrowDown, ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode,
+  ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode,
   Link, Hash, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff,
 } from 'lucide-react'
@@ -128,6 +128,8 @@ export default function SubjectPage() {
   const [showAddStudent, setShowAddStudent] = useState(false)
   const [showQR, setShowQR] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState(null)
+  const [studentToEdit, setStudentToEdit] = useState(null)
+  const [editStudentForm, setEditStudentForm] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
   const [studentToReset, setStudentToReset] = useState(null)
   const [resetPwdResult, setResetPwdResult] = useState(null) // { student }
   const [linkCandidate, setLinkCandidate] = useState(null) // { person, identity, schoolDocs }
@@ -435,19 +437,41 @@ export default function SubjectPage() {
     }
   }
 
-  async function moveStudent(index, direction) {
-    const newList = [...groupStudents]
-    const targetIndex = index + direction
-    if (targetIndex < 0 || targetIndex >= newList.length) return
-    ;[newList[index], newList[targetIndex]] = [newList[targetIndex], newList[index]]
+  function openEditStudent(s) {
+    setStudentToEdit(s)
+    setEditStudentForm({
+      apellidoPaterno: s.apellidoPaterno || '',
+      apellidoMaterno: s.apellidoMaterno || '',
+      nombre: s.nombre || '',
+    })
+  }
+
+  async function saveEditStudent(e) {
+    e.preventDefault()
+    if (!studentToEdit) return
+    setSavingStudent(true)
     try {
-      const batch = writeBatch(db)
-      newList.forEach((s, i) => batch.update(doc(db, 'students', s.id), { orden: i + 1 }))
-      await batch.commit()
-      setGroupStudents(newList.map((s, i) => ({ ...s, orden: i + 1 })))
+      const updated = {
+        apellidoPaterno: editStudentForm.apellidoPaterno.trim(),
+        apellidoMaterno: editStudentForm.apellidoMaterno.trim(),
+        nombre: editStudentForm.nombre.trim(),
+      }
+      await updateDoc(doc(db, 'students', studentToEdit.id), updated)
+      setGroupStudents((prev) => prev.map((s) => (s.id === studentToEdit.id ? { ...s, ...updated } : s)))
+      toast('Alumno actualizado')
+      setStudentToEdit(null)
     } catch (err) {
-      toast('No se pudo reordenar: ' + err.message, 'error')
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingStudent(false)
     }
+  }
+
+  // Hands off to the existing delete-confirmation modal so the cascade-delete of
+  // submissions and the orden re-index stay in one place.
+  function requestDeleteFromEdit() {
+    setStudentToDelete(studentToEdit)
+    setStudentToEdit(null)
   }
 
   function fullStudentName(s) {
@@ -1299,37 +1323,19 @@ export default function SubjectPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    {!searchAlumnos && (
-                      <>
-                        <button
-                          onClick={() => moveStudent(i, -1)}
-                          disabled={i === 0}
-                          className="p-1.5 text-slate-400 hover:text-muted disabled:opacity-30 rounded"
-                        >
-                          <ArrowUp size={14} />
-                        </button>
-                        <button
-                          onClick={() => moveStudent(i, 1)}
-                          disabled={i === filteredAlumnos.length - 1}
-                          className="p-1.5 text-slate-400 hover:text-muted disabled:opacity-30 rounded"
-                        >
-                          <ArrowDown size={14} />
-                        </button>
-                      </>
-                    )}
+                    <button
+                      onClick={() => openEditStudent(s)}
+                      className="p-1.5 text-slate-400 hover:text-accent rounded"
+                      title="Editar nombre del alumno"
+                    >
+                      <Pencil size={14} />
+                    </button>
                     <button
                       onClick={() => setStudentToReset(s)}
                       className="p-1.5 text-amber-500 hover:text-amber-700 rounded"
                       title="Habilitar recuperación de contraseña"
                     >
                       <RotateCcw size={14} />
-                    </button>
-                    <button
-                      onClick={() => setStudentToDelete(s)}
-                      className="p-1.5 text-slate-300 hover:text-red-500 rounded"
-                      title="Eliminar alumno"
-                    >
-                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
@@ -1501,6 +1507,53 @@ export default function SubjectPage() {
               >
                 {savingStudent ? <Spinner size="sm" /> : <Plus size={16} />}
                 Agregar alumno
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit student modal ── */}
+      {studentToEdit && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToEdit(null)} />
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold">Editar alumno</h3>
+              <button onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+            </div>
+            <form onSubmit={saveEditStudent} className="space-y-3">
+              {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
+                <input
+                  key={field}
+                  type="text"
+                  value={editStudentForm[field]}
+                  onChange={(e) => setEditStudentForm((f) => ({ ...f, [field]: e.target.value }))}
+                  required={field !== 'apellidoMaterno'}
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  placeholder={
+                    field === 'apellidoPaterno' ? 'Apellido paterno'
+                      : field === 'apellidoMaterno' ? 'Apellido materno'
+                      : 'Nombre(s)'
+                  }
+                />
+              ))}
+              <button
+                type="submit"
+                disabled={savingStudent}
+                className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {savingStudent ? <Spinner size="sm" /> : <Pencil size={16} />}
+                Guardar cambios
+              </button>
+              <button
+                type="button"
+                onClick={requestDeleteFromEdit}
+                disabled={savingStudent}
+                className="w-full py-2.5 rounded border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                <Trash2 size={15} />
+                Eliminar alumno
               </button>
             </form>
           </div>
