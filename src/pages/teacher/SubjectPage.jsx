@@ -357,10 +357,14 @@ export default function SubjectPage() {
     const targetIndex = index + direction
     if (targetIndex < 0 || targetIndex >= newList.length) return
     ;[newList[index], newList[targetIndex]] = [newList[targetIndex], newList[index]]
-    const batch = writeBatch(db)
-    newList.forEach((s, i) => batch.update(doc(db, 'students', s.id), { orden: i + 1 }))
-    await batch.commit()
-    setGroupStudents(newList.map((s, i) => ({ ...s, orden: i + 1 })))
+    try {
+      const batch = writeBatch(db)
+      newList.forEach((s, i) => batch.update(doc(db, 'students', s.id), { orden: i + 1 }))
+      await batch.commit()
+      setGroupStudents(newList.map((s, i) => ({ ...s, orden: i + 1 })))
+    } catch (err) {
+      toast('No se pudo reordenar: ' + err.message, 'error')
+    }
   }
 
   function copyActivationLink() {

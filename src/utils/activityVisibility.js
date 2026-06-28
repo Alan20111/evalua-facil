@@ -21,5 +21,6 @@ export function activityVisibilityState(a) {
 export function formatPublishAt(publishAt) {
   if (!publishAt) return ''
   const d = new Date(publishAt)
-  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  // toLocaleString (not toLocaleDateString) so hour/minute are actually rendered.
+  return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
