@@ -12,7 +12,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
-import { resolveSchoolSelection } from '../../utils/schoolSelection'
+import { resolveSchoolSelection, normalizeName } from '../../utils/schoolSelection'
 import { Camera, Lock, User, X, CreditCard, School, Search, ChevronDown, Plus } from 'lucide-react'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
@@ -83,18 +83,18 @@ export default function Profile() {
   }, [showSchoolPicker, customSchoolsLoaded])
 
   const filteredPlanteles = useMemo(() => {
-    const q = schoolSearch.trim().toLowerCase()
+    const q = normalizeName(schoolSearch)
     if (!q) return []
     return planteles.filter((p) =>
-      p.nombre?.toLowerCase().includes(q) || p.short?.toLowerCase().includes(q) ||
-      p.cct?.toLowerCase().includes(q) || p.mun?.toLowerCase().includes(q)
+      normalizeName(p.nombre || '').includes(q) || normalizeName(p.short || '').includes(q) ||
+      normalizeName(p.cct || '').includes(q) || normalizeName(p.mun || '').includes(q)
     ).slice(0, 80)
   }, [planteles, schoolSearch])
 
   const filteredCustomSchools = useMemo(() => {
-    const q = schoolSearch.trim().toLowerCase()
+    const q = normalizeName(schoolSearch)
     if (!q) return []
-    return customSchools.filter((s) => s.nombre?.toLowerCase().includes(q))
+    return customSchools.filter((s) => normalizeName(s.nombre || '').includes(q))
   }, [customSchools, schoolSearch])
 
   function openCustomSchoolForm() {

@@ -5,7 +5,9 @@ import { db } from '../firebase'
 // school name in different ways ("Secundaria Juárez" vs "secundaria juarez")
 // still land on the same `schools` doc — Profile.jsx promises that schools
 // with the same name share groups, so the match can't be a fragile exact string.
-function normalizeName(name) {
+// Exported so the school picker's search box can use the same rule: typing
+// with or without accents/case finds the same results.
+export function normalizeName(name) {
   return name
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
