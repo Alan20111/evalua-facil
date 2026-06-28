@@ -12,7 +12,7 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
-import { resolveSchoolSelection, normalizeName } from '../../utils/schoolSelection'
+import { resolveSchoolSelection, normalizeName, findSimilarSchools } from '../../utils/schoolSelection'
 import { Camera, Lock, User, X, CreditCard, School, Search, ChevronDown, Plus } from 'lucide-react'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
@@ -64,7 +64,10 @@ export default function Profile() {
   const [schoolSearch, setSchoolSearch] = useState('')
   const [savingSchool, setSavingSchool] = useState(false)
   const [addingCustomSchool, setAddingCustomSchool] = useState(false)
-  const [confirmingCustomSchool, setConfirmingCustomSchool] = useState(false)
+  // 'form' (typing the data) → 'similar' (possible matches found, asking if
+  // it's one of them) → 'confirm' (final review before actually saving).
+  const [customSchoolStep, setCustomSchoolStep] = useState('form')
+  const [similarSchools, setSimilarSchools] = useState([])
   const [customSchoolName, setCustomSchoolName] = useState('')
   const [customSchoolCCT, setCustomSchoolCCT] = useState('')
   const [customSchoolCity, setCustomSchoolCity] = useState('')
@@ -103,7 +106,8 @@ export default function Profile() {
     setCustomSchoolCCT('')
     setCustomSchoolCity('')
     setCustomSchoolState('')
-    setConfirmingCustomSchool(false)
+    setCustomSchoolStep('form')
+    setSimilarSchools([])
     setAddingCustomSchool(true)
   }
 
@@ -133,7 +137,34 @@ export default function Profile() {
       toast('La clave del centro de trabajo solo debe tener letras y números', 'error')
       return
     }
-    setConfirmingCustomSchool(true)
+
+    const name = customSchoolName.trim()
+    const mun = customSchoolCity.trim()
+    const edo = customSchoolState.trim()
+    const candidates = [
+      ...customSchools.map((s) => ({
+        kind: 'custom', id: s.id, nombre: s.nombre, municipio: s.municipio, estado: s.estado, claveSEP: s.claveSEP,
+      })),
+      ...planteles.map((p) => ({
+        kind: 'catalog', plantel: p, nombre: p.nombre || p.short, municipio: p.mun, estado: p.edo, claveSEP: p.cct,
+      })),
+    ]
+    const matches = findSimilarSchools(name, mun, edo, candidates)
+    if (matches.length) {
+      setSimilarSchools(matches.slice(0, 5))
+      setCustomSchoolStep('similar')
+    } else {
+      setCustomSchoolStep('confirm')
+    }
+  }
+
+  async function chooseSimilarSchool(candidate) {
+    if (candidate.kind === 'custom') {
+      await updateSchool({ existingId: candidate.id, nombre: candidate.nombre })
+    } else {
+      await updateSchool(candidate.plantel)
+    }
+    setAddingCustomSchool(false)
   }
 
   async function submitCustomSchool() {
@@ -146,7 +177,6 @@ export default function Profile() {
       edo: customSchoolState.trim(),
     })
     setAddingCustomSchool(false)
-    setConfirmingCustomSchool(false)
   }
 
   async function updateSchool(plantel) {
@@ -410,7 +440,7 @@ export default function Profile() {
               <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
               <p className="text-sm text-slate-500 mt-0.5">Las escuelas con el mismo nombre pueden tener grupos en común.</p>
             </div>
-            <button type="button" onClick={() => { setSchoolSearch(''); setAddingCustomSchool(false); setConfirmingCustomSchool(false); setShowSchoolPicker(true) }}
+            <button type="button" onClick={() => { setSchoolSearch(''); setAddingCustomSchool(false); setCustomSchoolStep('form'); setShowSchoolPicker(true) }}
               className="text-blue-600 text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
           </div>
         </div>
@@ -516,7 +546,36 @@ export default function Profile() {
               </div>
               <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={17} /></button>
             </div>
-            {addingCustomSchool && confirmingCustomSchool ? (
+            {addingCustomSchool && customSchoolStep === 'similar' ? (
+              <div className="p-4 space-y-4 overflow-y-auto">
+                <p className="text-sm text-muted">
+                  Encontramos escuelas parecidas — ¿es alguna de estas la misma que quieres agregar?
+                </p>
+                <ul className="space-y-2">
+                  {similarSchools.map((c, i) => (
+                    <li key={i}>
+                      <button type="button" onClick={() => chooseSimilarSchool(c)} disabled={savingSchool}
+                        className="w-full text-left px-3 py-2.5 rounded border border-outline-variant hover:bg-blue-50 transition-colors disabled:opacity-60">
+                        <p className="text-sm font-medium text-on-surface leading-tight">{c.nombre}</p>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                          {[c.claveSEP, [c.municipio, c.estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
+                        </p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setCustomSchoolStep('form')} disabled={savingSchool}
+                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
+                    Volver
+                  </button>
+                  <button type="button" onClick={() => setCustomSchoolStep('confirm')} disabled={savingSchool}
+                    className="flex-1 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60">
+                    Ninguna, es nueva
+                  </button>
+                </div>
+              </div>
+            ) : addingCustomSchool && customSchoolStep === 'confirm' ? (
               <div className="p-4 space-y-4">
                 <p className="text-sm text-muted">¿Confirmas que la escuela a agregar es esta?</p>
                 <div className="bg-surface rounded p-3 border border-outline-variant space-y-1">
@@ -525,7 +584,7 @@ export default function Profile() {
                   <p className="text-sm text-slate-500">{customSchoolCity.trim()}, {customSchoolState.trim()}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setConfirmingCustomSchool(false)} disabled={savingSchool}
+                  <button type="button" onClick={() => setCustomSchoolStep(similarSchools.length ? 'similar' : 'form')} disabled={savingSchool}
                     className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
                     Volver
                   </button>

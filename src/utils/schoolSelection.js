@@ -119,3 +119,68 @@ export async function resolveSchoolSelection(plantel, createdBy) {
   })
   return { escuelaId: ref.id, schoolName: plantel.short || plantel.nombre }
 }
+
+function levenshtein(a, b) {
+  const m = a.length
+  const n = b.length
+  if (!m) return n
+  if (!n) return m
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  for (let i = 0; i <= m; i++) dp[i][0] = i
+  for (let j = 0; j <= n; j++) dp[0][j] = j
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+    }
+  }
+  return dp[m][n]
+}
+
+function digitsOf(s) {
+  return (s.match(/\d+/g) || []).join(',')
+}
+
+// True if two school names look like the same school written differently —
+// typos or reordered words ("María Fuentez" vs "María Fuentes"). Used to
+// suggest "¿es esta la misma escuela?" before creating a new custom entry,
+// not to silently merge anything — so it's tuned to avoid false positives:
+// many real schools share an otherwise-identical name and differ only by a
+// number ("CBTIS 255" vs "CBTIS 256", "Secundaria Técnica 5" vs "... 12"),
+// so any digit mismatch rules out a match outright before anything else.
+export function namesAreSimilar(a, b) {
+  const na = normalizeName(a || '')
+  const nb = normalizeName(b || '')
+  if (!na || !nb) return false
+  if (na === nb) return true
+  const da = digitsOf(na)
+  const db = digitsOf(nb)
+  if (da && db && da !== db) return false
+  const maxLen = Math.max(na.length, nb.length)
+  const similarity = 1 - levenshtein(na, nb) / maxLen
+  if (similarity >= 0.85) return true
+  const wordsA = new Set(na.split(' ').filter((w) => w.length > 2))
+  const wordsB = new Set(nb.split(' ').filter((w) => w.length > 2))
+  let common = 0
+  wordsA.forEach((w) => { if (wordsB.has(w)) common++ })
+  const union = new Set([...wordsA, ...wordsB]).size
+  return common >= 2 && union > 0 && common / union >= 0.8
+}
+
+// Finds existing schools (catalog or custom) that plausibly match a
+// newly-typed name+city+state, so the teacher can confirm it's the same
+// school instead of accidentally creating a duplicate. City/state are
+// required to roughly match (when known on both sides) before even
+// comparing names — a common name in a different town shouldn't surface.
+export function findSimilarSchools(name, mun, edo, candidates) {
+  const targetMun = mun ? normalizeName(mun) : ''
+  const targetEdo = edo ? normalizeName(edo) : ''
+  return candidates.filter((c) => {
+    const cMun = c.municipio ? normalizeName(c.municipio) : ''
+    const cEdo = c.estado ? normalizeName(c.estado) : ''
+    if (targetEdo && cEdo && targetEdo !== cEdo) return false
+    if (targetMun && cMun && targetMun !== cMun) return false
+    return namesAreSimilar(name, c.nombre)
+  })
+}
