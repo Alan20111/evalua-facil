@@ -8,7 +8,7 @@ import {
   updateDoc,
   doc,
 } from 'firebase/firestore'
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updatePassword } from 'firebase/auth'
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -153,18 +153,12 @@ export default function StudentActivation() {
       // student (double-submit, re-activation, or returning student) and log in directly
       // when possible — only fall back to the "ya tienes cuenta" screen as a last resort.
       let cred = null
-      // 1) Try the password they just typed (covers a double-tap that already created the
-      //    account, and a returning student who reused their real password).
+      // Try the password they just typed (covers a double-tap that already created the
+      // account, and a returning student who reused their real password). A forgotten
+      // password is NOT handled here — that goes through "Recuperar contraseña" on /alumno.
       try {
         cred = await signInWithEmailAndPassword(auth, email, password)
       } catch { /* not their current password */ }
-      // 2) Try the teacher-issued temporary password, if any, and adopt the new one.
-      if (!cred && student.resetPassword) {
-        try {
-          cred = await signInWithEmailAndPassword(auth, email, student.resetPassword)
-          await updatePassword(cred.user, password)
-        } catch { cred = null }
-      }
       if (cred) {
         try {
           await finishActivation(cred.user)

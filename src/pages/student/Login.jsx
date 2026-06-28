@@ -168,8 +168,14 @@ export default function StudentLogin() {
         setRecoverError(msg)
         return
       }
-      await signInWithEmailAndPassword(auth, email, newPassword)
-      navigate('/alumno/dashboard')
+      // Password is already changed server-side; sign in. If THIS fails (e.g. network),
+      // tell the student to just log in — their new password is valid.
+      try {
+        await signInWithEmailAndPassword(auth, email, newPassword)
+        navigate('/alumno/dashboard')
+      } catch {
+        setRecoverError('Tu contraseña se actualizó. Vuelve a “Iniciar sesión” con tu nueva contraseña.')
+      }
     } catch {
       setRecoverError('No pudimos recuperar tu contraseña. Intenta de nuevo en un momento.')
     } finally {

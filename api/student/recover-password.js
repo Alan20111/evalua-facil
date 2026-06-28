@@ -19,7 +19,9 @@ async function setAuthPassword(email, newPassword) {
   let user = null
   try {
     user = await auth.getUserByEmail(email)
-  } catch {
+  } catch (e) {
+    // Only "no existe" means we should create it; any other error must surface.
+    if (e.code !== 'auth/user-not-found') throw e
     user = null
   }
   if (user) {
@@ -35,9 +37,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Método no permitido' })
   }
   try {
-    const { username, escuelaId, newPassword } = req.body || {}
-    if (!username || !newPassword) {
-      return res.status(400).json({ error: 'Faltan datos (username y nueva contraseña).' })
+    // Vercel usually parses JSON bodies, but be defensive if it arrives as a string.
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
+    const { username, escuelaId, newPassword } = body
+    if (!username || !String(username).trim() || !newPassword) {
+      return res.status(400).json({ error: 'Faltan datos (usuario y nueva contraseña).' })
+    }
+    // escuelaId is required so a username can never be resolved across schools.
+    if (!escuelaId) {
+      return res.status(400).json({ error: 'Falta la escuela del alumno.' })
     }
     if (String(newPassword).length < 6) {
       return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres.' })
@@ -46,10 +54,11 @@ export default async function handler(req, res) {
     const db = getDb()
     const snap = await db
       .collection('students')
-      .where('username', '==', String(username).toUpperCase())
+      .where('username', '==', String(username).trim().toUpperCase())
       .get()
-    let docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    if (escuelaId) docs = docs.filter((d) => d.escuelaId === escuelaId)
+    const docs = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((d) => d.escuelaId === escuelaId)
     if (!docs.length) {
       return res.status(404).json({ error: 'No encontramos ese usuario.' })
     }

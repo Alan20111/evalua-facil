@@ -308,22 +308,18 @@ export default function SubjectPage() {
     }
   }
 
-  function generateResetPassword() {
-    return Math.random().toString(36).slice(2, 6).toUpperCase()
-  }
-
-  // Enables password recovery for a student: sets a non-empty `resetPassword` marker that
-  // the student-side "Recuperar contraseña" flow checks. The student then chooses a new
-  // password (the actual reset runs server-side via Admin SDK). We do NOT dictate a temp
-  // password to the teacher anymore.
+  // Enables password recovery for a student: sets the `resetPassword` field to `true` (an
+  // opaque enable-marker, NOT a password) that the student-side "Recuperar contraseña" flow
+  // checks. The student then chooses a new password (the actual reset runs server-side via
+  // Admin SDK, which clears the marker). We do NOT dictate any temp password to the teacher.
   async function confirmResetStudentPassword() {
     if (!studentToReset) return
     try {
       await updateDoc(doc(db, 'students', studentToReset.id), {
-        resetPassword: generateResetPassword(),
+        resetPassword: true,
       })
       setGroupStudents((prev) =>
-        prev.map((s) => s.id === studentToReset.id ? { ...s, resetPassword: 'enabled' } : s)
+        prev.map((s) => s.id === studentToReset.id ? { ...s, resetPassword: true } : s)
       )
       setResetPwdResult({ student: studentToReset })
     } catch (err) {
