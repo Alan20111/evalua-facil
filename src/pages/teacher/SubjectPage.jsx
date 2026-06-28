@@ -25,7 +25,7 @@ import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet, Search,
-  ArrowUp, ArrowDown, UserPlus, RotateCcw, Upload, Download, QrCode,
+  ArrowUp, ArrowDown, ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode,
   Link, Hash, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff,
 } from 'lucide-react'
@@ -427,6 +427,25 @@ export default function SubjectPage() {
       setGroupStudents(newList.map((s, i) => ({ ...s, orden: i + 1 })))
     } catch (err) {
       toast('No se pudo reordenar: ' + err.message, 'error')
+    }
+  }
+
+  function fullStudentName(s) {
+    return `${s.apellidoPaterno || ''} ${s.apellidoMaterno || ''} ${s.nombre || ''}`.trim()
+  }
+
+  async function sortStudentsAlphabetically() {
+    const newList = [...groupStudents].sort((a, b) =>
+      fullStudentName(a).localeCompare(fullStudentName(b), 'es')
+    )
+    try {
+      const batch = writeBatch(db)
+      newList.forEach((s, i) => batch.update(doc(db, 'students', s.id), { orden: i + 1 }))
+      await batch.commit()
+      setGroupStudents(newList.map((s, i) => ({ ...s, orden: i + 1 })))
+      toast('Alumnos ordenados alfabéticamente')
+    } catch (err) {
+      toast('No se pudo ordenar: ' + err.message, 'error')
     }
   }
 
@@ -1204,8 +1223,22 @@ export default function SubjectPage() {
             <KeyRound size={15} /> <strong>Paso 3</strong> · Generar códigos para alumnos y descargar lista de acceso (usuarios + códigos)
           </button>
 
+          {/* Ordenar alfabéticamente */}
+          <div className="flex justify-end pt-1">
+            <button
+              type="button"
+              onClick={sortStudentsAlphabetically}
+              disabled={groupStudents.length < 2}
+              title="Ordena la lista por apellido y nombre"
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-accent-light disabled:opacity-40"
+            >
+              <ArrowUpDown size={13} />
+              Ordenar alfabéticamente
+            </button>
+          </div>
+
           {/* 3 — Buscar alumno + agregar manualmente */}
-          <div className="flex gap-2 pt-1">
+          <div className="flex gap-2">
             <div className="flex-1 relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -1241,7 +1274,7 @@ export default function SubjectPage() {
                   <span className="w-5 text-sm text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-on-surface truncate">
-                      {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
+                      {fullStudentName(s)}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs font-mono text-accent font-semibold">{s.username}</span>
