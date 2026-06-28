@@ -63,15 +63,26 @@ export function calcTrialEndTimestamp(fechaInicio) {
   return Timestamp.fromDate(calcTrialEnd(fechaInicio))
 }
 
+// A trial's real end is always `fechaInicio + TRIAL_DURATION_DAYS` — never
+// whatever happens to be stored in `fechaVencimiento`. Older/seeded
+// subscription docs can carry windows from before the 30-day policy (e.g.
+// 60 days), so trial day counts are always recomputed here instead of
+// trusting that field, the one place the trial length is allowed to live.
+export function effectiveVencimiento(subscription) {
+  if (!subscription) return null
+  if (subscription.status === 'trial') return calcTrialEnd(subscription.fechaInicio)
+  return subscription.fechaVencimiento
+}
+
 // A subscription stops allowing new content the moment it's expired — a
-// trial past its `fechaVencimiento`, or a paid plan marked `vencida`. This is
-// the one place that decides "expired"; everything else (banners, create
-// buttons) reads from here instead of re-deriving the rule.
+// trial past its real end, or a paid plan marked `vencida`. This is the one
+// place that decides "expired"; everything else (banners, create buttons)
+// reads from here instead of re-deriving the rule.
 export function isSubscriptionExpired(subscription) {
   if (!subscription) return false
   if (subscription.status === 'vencida') return true
   if (subscription.status === 'trial') {
-    const days = calcDaysRemaining(subscription.fechaVencimiento)
+    const days = calcDaysRemaining(effectiveVencimiento(subscription))
     return days !== null && days <= 0
   }
   return false
@@ -95,7 +106,7 @@ export function canCreateContent(subscription) {
 //   - expired (days <= 0): notice only, tone 'expired'.
 export function getTrialBannerMessage(subscription) {
   if (subscription?.status !== 'trial') return null
-  const days = calcDaysRemaining(subscription.fechaVencimiento)
+  const days = calcDaysRemaining(effectiveVencimiento(subscription))
   if (days === null) return null
 
   if (days <= 0) {

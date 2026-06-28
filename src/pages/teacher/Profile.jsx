@@ -21,6 +21,7 @@ import {
   MONTHLY_PRICE_MXN,
   SUBSCRIPTION_NAME,
   calcDaysRemaining,
+  effectiveVencimiento,
   formatCurrency,
   formatDate,
   getDaysLabel,
@@ -183,7 +184,7 @@ export default function Profile() {
 
   const displayName = userProfile?.nombreMostrar || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
-  const daysRemaining = subscription ? calcDaysRemaining(subscription.fechaVencimiento) : null
+  const daysRemaining = subscription ? calcDaysRemaining(effectiveVencimiento(subscription)) : null
   const canRenew =
     !subscription ||
     subscription.status === 'vencida' ||

@@ -13,7 +13,7 @@
  *   • 3-4 alumnos por docente (mix activado / sin activar)
  *   • Suscripciones por docente (trial / activa / vencida / pendiente_pago)
  *   • 1 pago aprobado para docente con suscripción activa
- *   • Plan Pro $100
+ *   • Suscripción mensual $116
  *   • Admin: alannicanor62@gmail.com
  */
 
@@ -42,27 +42,30 @@ const SCHOOLS = [
 const TEACHERS = [
   { email: 'mgarcia.cbtis255@gmail.com', pwd: 'Evalua2024!', nombre: 'María García López',
     username: 'CBTIS255-01', escuelaId: '11DCT0020A', school: 'CBTIS 255',
-    verified: true,  sub: { status: 'trial',          fechaInicio: ago(15), fechaVenc: from(45), precio: 0    } },
+    // Trial: 15 de 30 días transcurridos → 15 restantes
+    verified: true,  sub: { status: 'trial',          fechaInicio: ago(15), fechaVenc: from(15), precio: 0    } },
 
   { email: 'rsanchez.cetis115@gmail.com', pwd: 'Evalua2024!', nombre: 'Roberto Sánchez Cruz',
     username: 'CETIS115-01', escuelaId: '11DCT0115O', school: 'CETIS 115',
-    verified: false, sub: { status: 'trial',          fechaInicio: ago(35), fechaVenc: from(25), precio: 0    } },
+    // Trial vencido hace 5 días (35 transcurridos de 30)
+    verified: false, sub: { status: 'trial',          fechaInicio: ago(35), fechaVenc: ago(5),  precio: 0    } },
 
   { email: 'amartinez.cbtis198@gmail.com', pwd: 'Evalua2024!', nombre: 'Ana Martínez Flores',
     username: 'CBTIS198-01', escuelaId: '11DCT0009E', school: 'CBTIS 198',
-    verified: true,  sub: { status: 'activa',         fechaInicio: ago(5),  fechaVenc: from(25), precio: 100  } },
+    verified: true,  sub: { status: 'activa',         fechaInicio: ago(5),  fechaVenc: from(25), precio: 116  } },
 
   { email: 'jlopez.cbtis255@gmail.com', pwd: 'Evalua2024!', nombre: 'Juan López Hernández',
     username: 'CBTIS255-02', escuelaId: '11DCT0020A', school: 'CBTIS 255',
-    verified: true,  sub: { status: 'vencida',        fechaInicio: ago(75), fechaVenc: ago(15),  precio: 100  } },
+    verified: true,  sub: { status: 'vencida',        fechaInicio: ago(75), fechaVenc: ago(15),  precio: 116  } },
 
   { email: 'sramirez.cetis115@gmail.com', pwd: 'Evalua2024!', nombre: 'Sofía Ramírez Torres',
     username: 'CETIS115-02', escuelaId: '11DCT0115O', school: 'CETIS 115',
-    verified: false, sub: { status: 'trial',          fechaInicio: ago(55), fechaVenc: from(5),  precio: 0    } },
+    // Trial por terminar: 25 de 30 días transcurridos → 5 restantes
+    verified: false, sub: { status: 'trial',          fechaInicio: ago(25), fechaVenc: from(5),  precio: 0    } },
 
   { email: 'cgomez.cbtis198@gmail.com', pwd: 'Evalua2024!', nombre: 'Carlos Gómez Ruiz',
     username: 'CBTIS198-02', escuelaId: '11DCT0009E', school: 'CBTIS 198',
-    verified: true,  sub: { status: 'pendiente_pago', fechaInicio: ago(62), fechaVenc: from(0),  precio: 100  } },
+    verified: true,  sub: { status: 'pendiente_pago', fechaInicio: ago(62), fechaVenc: from(0),  precio: 116  } },
 ]
 
 const SUBJECTS_BY_TEACHER = {
@@ -173,14 +176,14 @@ async function main() {
   console.log(`\n🔑 Cuenta temporal: ${tempUid}`)
 
   try {
-    // ── Plan Pro ────────────────────────────────────────────────────────────────
-    console.log('\n📦 Plan Pro…')
+    // ── Suscripción mensual ──────────────────────────────────────────────────────
+    console.log('\n📦 Suscripción mensual…')
     await writeDoc(tok, 'plans', 'pro', {
-      nombre: 'Plan Pro', descripcion: 'Acceso completo sin límites.',
-      precio: 100, periodicidad: 'mensual', maxAsignaturas: -1, maxAlumnos: -1,
+      nombre: 'Suscripción mensual', descripcion: 'Acceso completo sin límites.',
+      precio: 116, periodicidad: 'mensual', maxAsignaturas: -1, maxAlumnos: -1,
       activo: true, orden: 1,
     })
-    console.log('  ✅ Plan Pro $100/mes')
+    console.log('  ✅ Suscripción mensual $116/mes')
 
     // ── Escuelas ────────────────────────────────────────────────────────────────
     console.log('\n🏫 Escuelas…')
@@ -214,7 +217,7 @@ async function main() {
       // Firestore: subscriptions
       await writeDoc(tok, 'subscriptions', null, {
         docenteId: uid, planId: t.sub.status === 'activa' ? 'pro' : '',
-        planName: t.sub.status === 'activa' ? 'Plan Pro' : 'Trial',
+        planName: t.sub.status === 'activa' ? 'Suscripción mensual' : 'Trial',
         escuelaId: t.escuelaId, schoolName: t.school,
         status: t.sub.status, precio: t.sub.precio,
         fechaInicio: t.sub.fechaInicio, fechaVencimiento: t.sub.fechaVenc,
@@ -228,8 +231,8 @@ async function main() {
     // Pago aprobado para amartinez (activa)
     const anaUid = teacherUids['CBTIS198-01']
     await writeDoc(tok, 'payments', null, {
-      docenteId: anaUid, planId: 'pro', planName: 'Plan Pro',
-      monto: 100, metodo: 'transferencia', status: 'aprobado',
+      docenteId: anaUid, planId: 'pro', planName: 'Suscripción mensual',
+      monto: 116, metodo: 'transferencia', status: 'aprobado',
       referencia: `REF${Math.floor(Math.random()*900000+100000)}`, banco: 'BBVA',
       escuelaId: '11DCT0009E', notas: '',
       createdAt: ago(5), updatedAt: ago(4), reviewedAt: ago(4),
@@ -239,8 +242,8 @@ async function main() {
     // Pago pendiente para cgomez (pendiente_pago)
     const carlosUid = teacherUids['CBTIS198-02']
     await writeDoc(tok, 'payments', null, {
-      docenteId: carlosUid, planId: 'pro', planName: 'Plan Pro',
-      monto: 100, metodo: 'transferencia', status: 'pendiente',
+      docenteId: carlosUid, planId: 'pro', planName: 'Suscripción mensual',
+      monto: 116, metodo: 'transferencia', status: 'pendiente',
       referencia: `REF${Math.floor(Math.random()*900000+100000)}`, banco: 'BBVA',
       escuelaId: '11DCT0009E', notas: '',
       createdAt: ago(2), updatedAt: ago(2), reviewedAt: null,

@@ -154,29 +154,29 @@ async function main() {
   try {
     // Demo scenarios for subscriptions
     const scenarios = [
-      // 1. Trial activo
+      // 1. Trial activo (10 de 30 días transcurridos → 20 restantes)
       { teacher: TEACHERS[0], status: 'trial', planId: '', planName: 'Trial', price: 0,
-        fechaInicio: daysAgo(10), fechaVencimiento: daysFrom(50) },
-      // 2. Plan Pro activo (pago aprobado)
-      { teacher: TEACHERS[1], status: 'activa', planId: 'pro', planName: 'Plan Pro', price: 100,
+        fechaInicio: daysAgo(10), fechaVencimiento: daysFrom(20) },
+      // 2. Suscripción mensual activa
+      { teacher: TEACHERS[1], status: 'activa', planId: 'pro', planName: 'Suscripción mensual', price: 116,
         fechaInicio: daysAgo(15), fechaVencimiento: daysFrom(15) },
       // 3. Pendiente de pago
-      { teacher: TEACHERS[2], status: 'pendiente_pago', planId: 'pro', planName: 'Plan Pro', price: 100,
+      { teacher: TEACHERS[2], status: 'pendiente_pago', planId: 'pro', planName: 'Suscripción mensual', price: 116,
         fechaInicio: daysAgo(5), fechaVencimiento: daysFrom(25) },
-      // 4. Trial activo
+      // 4. Trial activo, últimos días (2 de 30 transcurridos → 28 restantes)
       { teacher: TEACHERS[3], status: 'trial', planId: '', planName: 'Trial', price: 0,
-        fechaInicio: daysAgo(2), fechaVencimiento: daysFrom(58) },
+        fechaInicio: daysAgo(2), fechaVencimiento: daysFrom(28) },
       // 5. Vencida
-      { teacher: TEACHERS[4], status: 'vencida', planId: 'pro', planName: 'Plan Pro', price: 100,
+      { teacher: TEACHERS[4], status: 'vencida', planId: 'pro', planName: 'Suscripción mensual', price: 116,
         fechaInicio: daysAgo(40), fechaVencimiento: daysAgo(10) },
-      // 6. Trial activo
+      // 6. Trial por terminar (20 de 30 transcurridos → 10 restantes)
       { teacher: TEACHERS[5], status: 'trial', planId: '', planName: 'Trial', price: 0,
-        fechaInicio: daysAgo(20), fechaVencimiento: daysFrom(40) },
-      // 7. Plan Pro activo
-      { teacher: TEACHERS[6], status: 'activa', planId: 'pro', planName: 'Plan Pro', price: 100,
+        fechaInicio: daysAgo(20), fechaVencimiento: daysFrom(10) },
+      // 7. Suscripción mensual activa
+      { teacher: TEACHERS[6], status: 'activa', planId: 'pro', planName: 'Suscripción mensual', price: 116,
         fechaInicio: daysAgo(5), fechaVencimiento: daysFrom(25) },
       // 8. Pendiente de pago
-      { teacher: TEACHERS[7], status: 'pendiente_pago', planId: 'pro', planName: 'Plan Pro', price: 100,
+      { teacher: TEACHERS[7], status: 'pendiente_pago', planId: 'pro', planName: 'Suscripción mensual', price: 116,
         fechaInicio: daysAgo(1), fechaVencimiento: daysFrom(29) },
     ]
 
