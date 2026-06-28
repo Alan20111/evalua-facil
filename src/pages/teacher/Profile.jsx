@@ -312,7 +312,6 @@ export default function Profile() {
           </h2>
           <form onSubmit={handleSaveNombre} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Nombre completo</label>
               <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
                 className={inputCls} placeholder="Ej. Profa. García Pérez" />
               <p className="text-sm text-muted mt-1">Así te verán tus alumnos</p>
