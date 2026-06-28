@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, query, setDoc, where } from 'firebase/firestore'
+import { collection, doc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore'
 import { db } from '../firebase'
 
 // Case/accent/spacing-insensitive key so two teachers typing the same custom
@@ -19,7 +19,10 @@ export function normalizeName(name) {
 // Resolves a plantel (from the catalog, a custom name, or null for "sin escuela")
 // to a `schools/{id}` doc, creating it if it doesn't exist yet. Shared by Profile.jsx
 // and Onboarding.jsx so the school-picker logic isn't duplicated across both.
-export async function resolveSchoolSelection(plantel) {
+// `createdBy` (the teacher's uid) is recorded only when a brand-new custom
+// school doc is created — not shown to anyone, just there so a bad/junk entry
+// can be traced back if it ever needs reviewing.
+export async function resolveSchoolSelection(plantel, createdBy) {
   if (!plantel) {
     await setDoc(
       doc(db, 'schools', 'sin-escuela'),
@@ -89,7 +92,15 @@ export async function resolveSchoolSelection(plantel) {
     }
 
     const ref = doc(collection(db, 'schools'))
-    await setDoc(ref, { nombre: name, nombreNormalizado, shortName: name, custom: true, ...extra })
+    await setDoc(ref, {
+      nombre: name,
+      nombreNormalizado,
+      shortName: name,
+      custom: true,
+      ...extra,
+      createdBy: createdBy || null,
+      createdAt: serverTimestamp(),
+    })
     return { escuelaId: ref.id, schoolName: name }
   }
 

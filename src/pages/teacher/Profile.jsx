@@ -64,6 +64,7 @@ export default function Profile() {
   const [schoolSearch, setSchoolSearch] = useState('')
   const [savingSchool, setSavingSchool] = useState(false)
   const [addingCustomSchool, setAddingCustomSchool] = useState(false)
+  const [confirmingCustomSchool, setConfirmingCustomSchool] = useState(false)
   const [customSchoolName, setCustomSchoolName] = useState('')
   const [customSchoolCCT, setCustomSchoolCCT] = useState('')
   const [customSchoolCity, setCustomSchoolCity] = useState('')
@@ -102,12 +103,40 @@ export default function Profile() {
     setCustomSchoolCCT('')
     setCustomSchoolCity('')
     setCustomSchoolState('')
+    setConfirmingCustomSchool(false)
     setAddingCustomSchool(true)
   }
 
-  async function submitCustomSchool(e) {
+  // Catches obvious junk (empty, too short, no letters at all) without
+  // blocking real names the static catalog wouldn't recognize — it can't
+  // verify the school is real, just that what was typed looks like a name.
+  function looksLikeText(value, minLen) {
+    const v = value.trim()
+    return v.length >= minLen && /[a-zA-ZÀ-ÖØ-öø-ÿ]/.test(v)
+  }
+
+  function reviewCustomSchool(e) {
     e.preventDefault()
-    if (!customSchoolName.trim() || !customSchoolCity.trim() || !customSchoolState.trim()) return
+    if (!looksLikeText(customSchoolName, 4)) {
+      toast('Escribe el nombre completo de la escuela', 'error')
+      return
+    }
+    if (!looksLikeText(customSchoolCity, 2)) {
+      toast('Escribe la ciudad o municipio', 'error')
+      return
+    }
+    if (!looksLikeText(customSchoolState, 2)) {
+      toast('Escribe el estado', 'error')
+      return
+    }
+    if (customSchoolCCT.trim() && !/^[a-zA-Z0-9]+$/.test(customSchoolCCT.trim())) {
+      toast('La clave del centro de trabajo solo debe tener letras y números', 'error')
+      return
+    }
+    setConfirmingCustomSchool(true)
+  }
+
+  async function submitCustomSchool() {
     await updateSchool({
       custom: true,
       nombre: customSchoolName.trim(),
@@ -117,12 +146,13 @@ export default function Profile() {
       edo: customSchoolState.trim(),
     })
     setAddingCustomSchool(false)
+    setConfirmingCustomSchool(false)
   }
 
   async function updateSchool(plantel) {
     setSavingSchool(true)
     try {
-      const { escuelaId, schoolName } = await resolveSchoolSelection(plantel)
+      const { escuelaId, schoolName } = await resolveSchoolSelection(plantel, currentUser.uid)
       await updateDoc(doc(db, 'users', currentUser.uid), { escuelaId, schoolName })
       setUserProfile((p) => ({ ...p, escuelaId, schoolName }))
       toast('Escuela actualizada — solo aplica a asignaturas y alumnos nuevos')
@@ -380,7 +410,7 @@ export default function Profile() {
               <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
               <p className="text-sm text-slate-500 mt-0.5">Las escuelas con el mismo nombre pueden tener grupos en común.</p>
             </div>
-            <button type="button" onClick={() => { setSchoolSearch(''); setAddingCustomSchool(false); setShowSchoolPicker(true) }}
+            <button type="button" onClick={() => { setSchoolSearch(''); setAddingCustomSchool(false); setConfirmingCustomSchool(false); setShowSchoolPicker(true) }}
               className="text-blue-600 text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
           </div>
         </div>
@@ -486,8 +516,28 @@ export default function Profile() {
               </div>
               <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={17} /></button>
             </div>
-            {addingCustomSchool ? (
-              <form onSubmit={submitCustomSchool} className="p-4 space-y-3 overflow-y-auto">
+            {addingCustomSchool && confirmingCustomSchool ? (
+              <div className="p-4 space-y-4">
+                <p className="text-sm text-muted">¿Confirmas que la escuela a agregar es esta?</p>
+                <div className="bg-surface rounded p-3 border border-outline-variant space-y-1">
+                  <p className="text-sm font-semibold text-on-surface">{customSchoolName.trim()}</p>
+                  {customSchoolCCT.trim() && <p className="text-sm text-slate-500">CCT: {customSchoolCCT.trim()}</p>}
+                  <p className="text-sm text-slate-500">{customSchoolCity.trim()}, {customSchoolState.trim()}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setConfirmingCustomSchool(false)} disabled={savingSchool}
+                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
+                    Volver
+                  </button>
+                  <button type="button" onClick={submitCustomSchool} disabled={savingSchool}
+                    className="flex-1 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    {savingSchool ? <Spinner size="sm" /> : null}
+                    {savingSchool ? 'Guardando…' : 'Confirmar y agregar'}
+                  </button>
+                </div>
+              </div>
+            ) : addingCustomSchool ? (
+              <form onSubmit={reviewCustomSchool} className="p-4 space-y-3 overflow-y-auto">
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
                   <input
@@ -541,10 +591,9 @@ export default function Profile() {
                     className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
                     Cancelar
                   </button>
-                  <button type="submit" disabled={savingSchool || !customSchoolName.trim() || !customSchoolCity.trim() || !customSchoolState.trim()}
+                  <button type="submit" disabled={savingSchool}
                     className="flex-1 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                    {savingSchool ? <Spinner size="sm" /> : null}
-                    {savingSchool ? 'Guardando…' : 'Agregar escuela'}
+                    Continuar
                   </button>
                 </div>
               </form>
