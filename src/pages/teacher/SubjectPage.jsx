@@ -1491,7 +1491,7 @@ export default function SubjectPage() {
                       {gradeRows.map(({ s, parcialData, finalAvg }, i) => (
                         <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[rgba(249,115,22,0.12)] ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
                           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[rgba(249,115,22,0.12)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
-                            {i + 1}
+                            {s.orden}
                           </td>
                           <td className={`sticky left-8 z-10 w-[150px] px-2 py-1 font-medium text-on-surface truncate border-r border-outline-variant transition-colors duration-200 group-hover:bg-[rgba(249,115,22,0.12)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.apellidoPaterno} {s.nombre}
