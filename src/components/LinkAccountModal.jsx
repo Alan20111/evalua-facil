@@ -120,7 +120,10 @@ export default function LinkAccountModal({ onClose }) {
             <CheckCircle2 size={40} className="text-emerald-500 mx-auto" />
             <p className="text-sm font-medium text-on-surface">Revisa tu correo</p>
             <p className="text-sm text-muted leading-relaxed">
-              Te enviamos un enlace a <strong>{email.trim()}</strong> para crear tu contraseña. Ábrelo desde esta misma computadora para continuar.
+              Te enviamos un enlace a <strong>{email.trim()}</strong>. Ábrelo desde esta misma computadora para continuar.
+            </p>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Por tu seguridad, ese enlace solo confirma que eres tú quien tiene acceso a este correo — nunca te enviamos contraseñas por correo electrónico. La contraseña la crearás tú mismo en el siguiente paso.
             </p>
             <button
               type="button"

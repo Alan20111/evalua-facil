@@ -132,9 +132,14 @@ export default function ResetPassword() {
           {status === 'valid' && (
             <form onSubmit={handleSubmit} className="space-y-3">
               {isGoogleLinking && (
-                <p className="text-sm text-muted leading-relaxed">
-                  Tu cuenta usa Google para iniciar sesión. Crea una contraseña para poder entrar también desde cualquier computadora sin usar Google.
-                </p>
+                <>
+                  <p className="text-sm text-muted leading-relaxed">
+                    Tu cuenta usa Google para iniciar sesión. Crea una contraseña para poder entrar también desde cualquier computadora sin usar Google.
+                  </p>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Haber abierto este enlace en tu correo ya confirmó que eres tú. Ahora puedes escribir tu propia contraseña con total seguridad.
+                  </p>
+                </>
               )}
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
