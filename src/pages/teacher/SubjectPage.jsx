@@ -40,6 +40,7 @@ import {
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity } from '../../utils/studentIdentity'
+import { matchesStudentSearch } from '../../utils/studentSearch'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 
@@ -1277,11 +1278,7 @@ export default function SubjectPage() {
     ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}`
     : (activityLabelById[editActivityId] || '—')
 
-  const filteredGradeStudents = groupStudents.filter((s) => {
-    if (!searchGrade.trim()) return true
-    return `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre}`.toLowerCase()
-      .includes(searchGrade.trim().toLowerCase())
-  })
+  const filteredGradeStudents = groupStudents.filter((s) => matchesStudentSearch(s, searchGrade))
 
   const tableParcials = PARCIALES.map((p) => ({
     p, acts: activities.filter((a) => a.parcial === p),
@@ -1340,9 +1337,8 @@ export default function SubjectPage() {
 
   const activationUrl = `${window.location.origin}/activate/${subject?.accessCode}`
   const filteredAlumnos = groupStudents.filter((s) =>
-    `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre} ${s.username}`
-      .toLowerCase()
-      .includes(searchAlumnos.toLowerCase())
+    matchesStudentSearch(s, searchAlumnos) ||
+    (s.username || '').toLowerCase().includes(searchAlumnos.trim().toLowerCase())
   )
 
   if (loading) return (

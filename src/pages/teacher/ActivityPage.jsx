@@ -26,6 +26,7 @@ import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sani
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import AttachmentList from '../../components/AttachmentList'
+import { matchesStudentSearch } from '../../utils/studentSearch'
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
@@ -184,10 +185,7 @@ export default function ActivityPage() {
 
   let filtered = filter === 'todos' ? students : students.filter((s) => getStatus(s.id) === filter)
   if (searchStudents.trim()) {
-    const q = searchStudents.trim().toLowerCase()
-    filtered = filtered.filter((s) =>
-      `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre}`.toLowerCase().includes(q)
-    )
+    filtered = filtered.filter((s) => matchesStudentSearch(s, searchStudents))
   }
   if (sortAlpha) {
     filtered = [...filtered].sort((a, b) =>
