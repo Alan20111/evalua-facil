@@ -1458,10 +1458,10 @@ export default function SubjectPage() {
               {filteredAlumnos.map((s, i) => (
                 <div
                   key={s.id}
-                  className={`flex items-center gap-2 px-3 py-1 leading-tight ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                  className={`flex items-center gap-2 px-3 py-0.5 leading-tight ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
-                  <span className="w-5 text-sm text-slate-500 text-right flex-shrink-0">{s.orden}</span>
-                  <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
+                  <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
+                  <p className="flex-1 min-w-0 text-xs font-medium text-on-surface truncate">
                     {fullStudentName(s)}
                   </p>
                   <span className="w-20 flex-shrink-0 text-xs font-mono text-accent font-semibold truncate">{s.username}</span>
