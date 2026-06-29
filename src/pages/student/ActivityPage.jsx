@@ -44,10 +44,13 @@ async function uploadToCloudinary(file) {
 
 function fmtDate(dateStr) {
   if (!dateStr) return ''
+  const hasTime = dateStr.includes('T')
   // YYYY-MM-DD is parsed as UTC midnight; append T00:00:00 to force local time
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-MX', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  })
+  const d = new Date(hasTime ? dateStr : dateStr + 'T00:00:00')
+  const datePart = d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
+  if (!hasTime) return datePart
+  const timePart = d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })
+  return `${datePart}, ${timePart} hrs`
 }
 
 export default function StudentActivityPage() {

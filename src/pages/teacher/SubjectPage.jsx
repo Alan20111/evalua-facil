@@ -52,6 +52,16 @@ async function fetchSubmissionsForActivities(actIds) {
 
 const EMPTY_FORM = { nombre: '', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '' }
 
+// `fechaLimite` used to be a plain date (YYYY-MM-DD); only show a time
+// component for values that actually carry one (datetime-local strings).
+function formatDeadline(fechaLimite) {
+  const hasTime = fechaLimite.includes('T')
+  const d = new Date(hasTime ? fechaLimite : `${fechaLimite}T00:00:00`)
+  return hasTime
+    ? d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+}
+
 function gradeColor(norm) {
   if (norm === null) return 'text-slate-300'
   if (norm >= 8) return 'text-emerald-700'
@@ -554,7 +564,9 @@ export default function SubjectPage() {
     setForm({
       nombre: activity.nombre || '',
       instrucciones: toRichHtml(activity.instrucciones || ''),
-      fechaLimite: activity.fechaLimite || '',
+      fechaLimite: activity.fechaLimite
+        ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)
+        : '',
       tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
       extensionesCustom: activity.extensionesCustom || '',
       oculta: activity.oculta || false,
@@ -1146,7 +1158,7 @@ export default function SubjectPage() {
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                     {a.fechaLimite && (
                                       <span className="text-xs text-amber-600 flex items-center gap-0.5">
-                                        <Clock size={14} /> {new Date(a.fechaLimite).toLocaleDateString('es-MX')}
+                                        <Clock size={14} /> {formatDeadline(a.fechaLimite)}
                                       </span>
                                     )}
                                     {visState === 'hidden' && (
@@ -1540,8 +1552,13 @@ export default function SubjectPage() {
                 <label className="block text-sm font-medium text-muted mb-1">
                   Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
                 </label>
-                <input type="date" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
+                <input type="datetime-local" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                {form.fechaLimite && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Se mostrará a los alumnos como la fecha y hora en que se cierran las entregas.
+                  </p>
+                )}
               </div>
 
               <button type="submit" disabled={saving}
