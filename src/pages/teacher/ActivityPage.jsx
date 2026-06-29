@@ -310,7 +310,7 @@ export default function ActivityPage() {
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
-                  filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'
+                  filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}
               >
                 {f === 'todos' ? 'Todos' : STATUS_LABELS[f]}
@@ -334,7 +334,7 @@ export default function ActivityPage() {
             onClick={() => setSortAlpha((v) => !v)}
             title="Ordenar por nombre"
             className={`p-2 rounded border transition-colors ${
-              sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-slate-400 hover:text-muted'
+              sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'
             }`}
           >
             <ArrowDownAZ size={20} />
@@ -347,7 +347,7 @@ export default function ActivityPage() {
             <button
               onClick={handleZipDownload}
               disabled={zipDownloading}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
             >
               {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
               {zipDownloading
