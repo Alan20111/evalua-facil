@@ -26,6 +26,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
+import AttachmentList from '../../components/AttachmentList'
 
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -326,6 +327,7 @@ export default function StudentActivityPage() {
               className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
             />
+            <AttachmentList files={activity?.archivosAdjuntos} />
           </div>
         )}
 

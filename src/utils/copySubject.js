@@ -54,6 +54,7 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       nombre: a.nombre,
       maxCalif: a.maxCalif,
       instrucciones: a.instrucciones || '',
+      archivosAdjuntos: a.archivosAdjuntos || [],
       fechaLimite: a.fechaLimite || null,
       tiposArchivo: a.tiposArchivo || 'imagenes',
       extensionesCustom: a.extensionesCustom || '',

@@ -66,10 +66,11 @@ function formatResourceDate(ts) {
 // heavier than a single submission file — a higher cap than the 5 MB used
 // for student deliveries (src/pages/student/ActivityPage.jsx).
 const MAX_RESOURCE_SIZE = 15 * 1024 * 1024
-// "Material de apoyo" allows any file type (no extension whitelist, unlike
-// the Recursos tab) and any number of files — only the per-file size is
-// capped, same ceiling already proven for the Recursos tab's Cloudinary preset.
-const MAX_MATERIAL_FILE_SIZE = 15 * 1024 * 1024
+// Shared by "Material de apoyo" files AND activity-instruction attachments:
+// both allow any file type (no extension whitelist, unlike the Recursos tab)
+// and any number of files — only the per-file size is capped, same ceiling
+// already proven for the Recursos tab's Cloudinary preset.
+const MAX_ATTACHMENT_FILE_SIZE = 15 * 1024 * 1024
 const EMPTY_MATERIAL_FORM = { nombre: '', descripcion: '', oculta: false, publishAt: '', visibilidadMode: 'show' }
 
 function gradeColor(norm) {
@@ -99,6 +100,11 @@ export default function SubjectPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
+  // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
+  // archivo" button) — support material for the alumno, NOT evidence: kept
+  // entirely separate from `submissions`, never required, never graded.
+  const [activityExistingFiles, setActivityExistingFiles] = useState([]) // [{url,nombre,tamano}]
+  const [activityNewFiles, setActivityNewFiles] = useState([]) // File[] pending upload
 
   // Materials ("Material de apoyo") — independent of Activity: scoped per
   // parcial like activities, but never creates a submission/grade. Loaded
@@ -706,7 +712,9 @@ export default function SubjectPage() {
       return
     }
     setModalMode('create'); setModalParcial(parcial); setEditActivityId(null)
-    setForm(EMPTY_FORM); setShowModal(true)
+    setForm(EMPTY_FORM)
+    setActivityExistingFiles([]); setActivityNewFiles([])
+    setShowModal(true)
   }
   function openEdit(activity) {
     setModalMode('edit'); setModalParcial(activity.parcial); setEditActivityId(activity.id)
@@ -722,7 +730,26 @@ export default function SubjectPage() {
       publishAt: activity.publishAt || '',
       visibilidadMode: !activity.oculta ? 'show' : activity.publishAt ? 'schedule' : 'hide',
     })
+    setActivityExistingFiles(activity.archivosAdjuntos || [])
+    setActivityNewFiles([])
     setShowModal(true)
+  }
+
+  function addInstructionFiles(files) {
+    const tooBig = files.find((f) => f.size > MAX_ATTACHMENT_FILE_SIZE)
+    if (tooBig) { toast(`"${tooBig.name}" supera el máximo de 15 MB`, 'error'); return }
+    setActivityNewFiles((prev) => [...prev, ...files])
+  }
+
+  // `index` is into the combined [existing..., new...] list rendered by
+  // RichTextEditor's AttachmentList — split it back into the two arrays.
+  function removeInstructionFile(index) {
+    if (index < activityExistingFiles.length) {
+      setActivityExistingFiles((prev) => prev.filter((_, i) => i !== index))
+    } else {
+      const newIndex = index - activityExistingFiles.length
+      setActivityNewFiles((prev) => prev.filter((_, i) => i !== newIndex))
+    }
   }
 
   async function handleSaveActivity(e) {
@@ -741,17 +768,25 @@ export default function SubjectPage() {
       return
     }
     setSaving(true)
-    const payload = {
-      nombre: form.nombre.trim(),
-      maxCalif: 10,
-      instrucciones: sanitizeHtml(form.instrucciones),
-      fechaLimite: form.fechaLimite || null,
-      tiposArchivo,
-      extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
-      oculta: form.oculta || !!form.publishAt,
-      publishAt: form.publishAt || null,
-    }
     try {
+      const uploaded = await Promise.all(
+        activityNewFiles.map(async (file) => ({
+          url: await uploadToCloudinary(file, 'evalua-facil/instrucciones-adjuntos'),
+          nombre: file.name,
+          tamano: file.size,
+        }))
+      )
+      const payload = {
+        nombre: form.nombre.trim(),
+        maxCalif: 10,
+        instrucciones: sanitizeHtml(form.instrucciones),
+        archivosAdjuntos: [...activityExistingFiles, ...uploaded],
+        fechaLimite: form.fechaLimite || null,
+        tiposArchivo,
+        extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
+        oculta: form.oculta || !!form.publishAt,
+        publishAt: form.publishAt || null,
+      }
       if (modalMode === 'create') {
         // `orden` is only a sort key (Firestore gives no ordering guarantee
         // without it). The "Actividad" label (1.1, 1.2…) is presentation —
@@ -771,6 +806,7 @@ export default function SubjectPage() {
         toast('Actividad actualizada')
       }
       setShowModal(false); setForm(EMPTY_FORM)
+      setActivityExistingFiles([]); setActivityNewFiles([])
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSaving(false) }
   }
@@ -835,7 +871,7 @@ export default function SubjectPage() {
   }
 
   function addMaterialFiles(files) {
-    const tooBig = files.find((f) => f.size > MAX_MATERIAL_FILE_SIZE)
+    const tooBig = files.find((f) => f.size > MAX_ATTACHMENT_FILE_SIZE)
     if (tooBig) { toast(`"${tooBig.name}" supera el máximo de 15 MB`, 'error'); return }
     setMaterialNewFiles((prev) => [...prev, ...files])
   }
@@ -1965,6 +2001,12 @@ export default function SubjectPage() {
                   value={form.instrucciones}
                   onChange={(html) => setForm((f) => ({ ...f, instrucciones: html }))}
                   placeholder="Describe la tarea para tus alumnos…"
+                  attachments={[
+                    ...activityExistingFiles,
+                    ...activityNewFiles.map((f) => ({ nombre: f.name, tamano: f.size })),
+                  ]}
+                  onAttachFiles={addInstructionFiles}
+                  onRemoveAttachment={removeInstructionFile}
                 />
               </div>
               <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>

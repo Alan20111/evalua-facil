@@ -25,6 +25,7 @@ import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
+import AttachmentList from '../../components/AttachmentList'
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
@@ -285,6 +286,7 @@ export default function ActivityPage() {
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
             />
           )}
+          <AttachmentList files={activity?.archivosAdjuntos} />
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2 mt-2">

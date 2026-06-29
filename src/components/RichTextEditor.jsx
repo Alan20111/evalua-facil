@@ -11,10 +11,11 @@ import Placeholder from '@tiptap/extension-placeholder'
 import {
   Bold, Italic, Underline as UnderlineIcon, Baseline, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight, Link2, Image as ImageIcon,
-  RemoveFormatting, Eye, Pencil,
+  RemoveFormatting, Eye, Pencil, Paperclip,
 } from 'lucide-react'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, richTextContentClass } from '../utils/sanitizeHtml'
+import AttachmentList from './AttachmentList'
 
 // Reusable rich-text editor: a deliberately small toolbar (bold, italic,
 // underline, text color, bullet/numbered lists, alignment, link, image, clear
@@ -40,7 +41,11 @@ async function insertImageFile(editor, file) {
   }
 }
 
-export default function RichTextEditor({ value, onChange, placeholder }) {
+// `attachments`/`onAttachFiles`/`onRemoveAttachment` are all optional — when
+// omitted (e.g. the "Material de apoyo" description, which has its own
+// dedicated file dropzone) the attach button and the "Archivos adjuntos"
+// block simply don't render, so this stays a no-op for every other caller.
+export default function RichTextEditor({ value, onChange, placeholder, attachments, onAttachFiles, onRemoveAttachment }) {
   const [showPreview, setShowPreview] = useState(false)
 
   const editor = useEditor({
@@ -112,6 +117,17 @@ export default function RichTextEditor({ value, onChange, placeholder }) {
     input.type = 'file'
     input.accept = 'image/*'
     input.onchange = () => insertImageFile(editor, input.files?.[0])
+    input.click()
+  }
+
+  // Attached files are NOT inserted into the document (unlike images) — they
+  // stay out of `editor`/`value` entirely and are rendered as a separate
+  // block below, per the "no incrustar en el texto" requirement.
+  function pickAttachFiles() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.multiple = true
+    input.onchange = () => { if (input.files?.length) onAttachFiles(Array.from(input.files)) }
     input.click()
   }
 
@@ -188,6 +204,15 @@ export default function RichTextEditor({ value, onChange, placeholder }) {
           <RemoveFormatting size={16} />
         </button>
 
+        {onAttachFiles && (
+          <>
+            <span className="w-px h-5 bg-outline-variant mx-1" />
+            <button type="button" title="Adjuntar archivo" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted`} onClick={pickAttachFiles}>
+              <Paperclip size={16} />
+            </button>
+          </>
+        )}
+
         <span className="flex-1" />
 
         <button type="button" title={showPreview ? 'Editar' : 'Vista previa'}
@@ -204,6 +229,12 @@ export default function RichTextEditor({ value, onChange, placeholder }) {
         />
       ) : (
         <EditorContent editor={editor} className="p-3 max-h-[40vh] overflow-y-auto" />
+      )}
+
+      {onAttachFiles && (
+        <div className="px-3 pb-3">
+          <AttachmentList files={attachments} onRemove={onRemoveAttachment} />
+        </div>
       )}
     </div>
   )
