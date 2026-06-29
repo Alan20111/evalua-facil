@@ -301,15 +301,15 @@ export default function Profile() {
 
   return (
     <TeacherLayout>
-      <div className={`px-4 py-6 space-y-5 ${TEACHER_CONTAINER_NARROW}`}>
+      <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER_NARROW}`}>
 
         {/* Mi plan */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
-          <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
+          <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
             <CreditCard size={19} className="text-slate-400" /> Mi plan
           </h2>
           {subLoading ? (
-            <div className="flex justify-center py-2.5"><Spinner /></div>
+            <div className="flex justify-center py-2"><Spinner /></div>
           ) : subscription ? (
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
@@ -356,13 +356,13 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => setShowPaymentModal(true)}
-              className="mt-3 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors"
+              className="mt-2 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors"
             >
               {subscription && subscription.status !== 'trial' ? 'Renovar suscripción mensual' : 'Activar suscripción mensual'}
             </button>
           )}
           {recentPayments.length > 0 && (
-            <div className="mt-3 pt-4 border-t border-outline-variant">
+            <div className="mt-2 pt-4 border-t border-outline-variant">
               <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Últimos pagos</p>
               <ul className="space-y-2">
                 {recentPayments.map((p) => (
@@ -414,7 +414,7 @@ export default function Profile() {
 
         {/* Nombre visible */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
-          <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
+          <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
             <User size={19} className="text-slate-400" /> Nombre
           </h2>
           <form onSubmit={handleSaveNombre} className="space-y-2">
@@ -433,7 +433,7 @@ export default function Profile() {
 
         {/* Escuela */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
-          <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
+          <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
             <School size={19} className="text-slate-400" /> Escuela
           </h2>
           <div className="flex items-center gap-2">
@@ -448,7 +448,7 @@ export default function Profile() {
 
         {/* Acceso */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
-          <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
+          <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
             <Lock size={19} className="text-slate-400" /> Acceso
           </h2>
           <div className="space-y-1">
@@ -477,7 +477,7 @@ export default function Profile() {
               </div>
 
               {showPwdForm && (
-                <form onSubmit={requestPwdChange} className="mt-3 space-y-2">
+                <form onSubmit={requestPwdChange} className="mt-2 space-y-2">
                   <div>
                     <label className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
                     <PasswordInput value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
@@ -517,7 +517,7 @@ export default function Profile() {
               <X size={20} />
             </button>
             <h3 className="text-base font-semibold text-on-surface mb-2 pr-6">{confirm.title}</h3>
-            <p className="text-sm text-muted mb-5 leading-relaxed">{confirm.message}</p>
+            <p className="text-sm text-muted mb-4 leading-relaxed">{confirm.message}</p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setConfirm(null)} disabled={confirming}
                 className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">

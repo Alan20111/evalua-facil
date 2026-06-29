@@ -1017,7 +1017,7 @@ export default function SubjectPage() {
       <div className={TEACHER_CONTAINER}>
 
         {/* ── Header ── */}
-        <div className="bg-surface-card border-b border-outline-variant px-4 py-2.5">
+        <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
           <div className="flex items-center gap-2">
             <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
@@ -1036,7 +1036,7 @@ export default function SubjectPage() {
           </div>
 
           {/* Action buttons — wrap on mobile so they never overflow */}
-          <div className="flex flex-wrap items-center gap-1 mt-3">
+          <div className="flex flex-wrap items-center gap-1 mt-2">
             <button type="button" onClick={() => setShowQR(true)}
               title="Código QR de registro al curso para alumnos"
               className="p-2 text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
@@ -1078,7 +1078,7 @@ export default function SubjectPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mt-3 bg-surface-container p-1 rounded">
+          <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
             {['actividades', 'calificaciones', 'alumnos'].map((t) => (
               <button key={t} onClick={() => switchTab(t)}
                 className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
@@ -1094,7 +1094,7 @@ export default function SubjectPage() {
             TAB: ACTIVIDADES
         ══════════════════════════════════════════════════════════ */}
         {activeTab === 'actividades' && (
-          <div className={`px-4 py-2.5 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+          <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
             {PARCIALES.map((p) => {
               const acts = activities.filter((a) => a.parcial === p)
               const isOpen = openParcial === p
@@ -1228,7 +1228,7 @@ export default function SubjectPage() {
             TAB: CALIFICACIONES
         ══════════════════════════════════════════════════════════ */}
         {activeTab === 'calificaciones' && (
-          <div className="px-4 py-2.5 space-y-2">
+          <div className="px-4 py-2 space-y-2">
             {/* 1 — Descargar calificaciones (Excel / PDF) */}
             <div>
               <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
@@ -1340,7 +1340,7 @@ export default function SubjectPage() {
           TAB: ALUMNOS
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
-        <div className={`px-4 py-2.5 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+        <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
           {/* 1 — Agregar alumnos con la plantilla de Excel (paso 1: descargar, paso 2: subir) */}
           <div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar alumnos con Excel</p>
@@ -1459,13 +1459,13 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowModal(false)} />
           <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">
                 {modalMode === 'create' ? `Nueva actividad — Parcial ${modalParcial}` : 'Editar actividad'}
               </h3>
               <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <p className="text-base text-on-surface -mt-2 mb-3">
+            <p className="text-base text-on-surface -mt-2 mb-2">
               Actividad <strong className="text-accent">{previewActividad}</strong>
             </p>
             <form onSubmit={handleSaveActivity} className="space-y-2">
@@ -1576,7 +1576,7 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteConfirm(null)} />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
-            <p className="text-sm text-muted mb-5">
+            <p className="text-sm text-muted mb-4">
               "<strong>{deleteConfirm.nombre}</strong>" se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
@@ -1597,7 +1597,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddStudent(false)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Agregar alumno</h3>
               <button onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
@@ -1635,7 +1635,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToEdit(null)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar alumno</h3>
               <button onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
@@ -1731,7 +1731,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToReset(null)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-2">
               <KeyRound size={24} className="text-amber-500" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Habilitar recuperación de contraseña?</h3>
@@ -1740,7 +1740,7 @@ export default function SubjectPage() {
               ({studentToReset.username}) podrá elegir una <strong>nueva contraseña</strong> desde
               «Recuperar contraseña» en su pantalla de acceso. No necesitas darle ninguna clave.
             </p>
-            <div className="flex gap-2 mt-6">
+            <div className="flex gap-2 mt-4">
               <button
                 onClick={() => setStudentToReset(null)}
                 className="flex-1 py-2 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors"
@@ -1764,7 +1764,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !generatingCredentials && setShowCredentialsModal(false)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
               <KeyRound size={24} className="text-accent" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">Descargar lista de acceso</h3>
@@ -1775,7 +1775,7 @@ export default function SubjectPage() {
             <p className="text-xs text-muted text-center mt-2">
               Cada alumno elige su propia contraseña la primera vez que entra. No se generan claves temporales.
             </p>
-            <div className="flex gap-2 mt-6">
+            <div className="flex gap-2 mt-4">
               <button
                 onClick={() => setShowCredentialsModal(false)}
                 disabled={generatingCredentials}
@@ -1801,7 +1801,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !savingStudent && setLinkCandidate(null)} />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
-            <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
               <UserPlus size={24} className="text-accent" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Es el mismo alumno?</h3>
@@ -1818,7 +1818,7 @@ export default function SubjectPage() {
               Si es la <strong>misma persona</strong>, se agrega esta asignatura a su cuenta (mismo usuario
               <span className="font-mono"> {linkCandidate.identity.username}</span>). Si es <strong>otra persona</strong> con el mismo nombre, se crea una cuenta nueva.
             </p>
-            <div className="flex flex-col gap-2 mt-6">
+            <div className="flex flex-col gap-2 mt-4">
               <button
                 onClick={() => resolveLinkCandidate(true)}
                 disabled={savingStudent}
@@ -1851,11 +1851,11 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setResetPwdResult(null)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-2">
               <KeyRound size={24} className="text-green-600" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">Recuperación habilitada</h3>
-            <p className="text-sm text-muted text-center mt-2 mb-5">
+            <p className="text-sm text-muted text-center mt-2 mb-4">
               <strong>{resetPwdResult.student.nombre}</strong> ya puede entrar a la pantalla de acceso
               de alumnos, tocar <strong>«Recuperar contraseña»</strong>, escribir su usuario y elegir una
               nueva contraseña.
@@ -1875,7 +1875,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToDelete(null)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
               <Trash2 size={24} className="text-red-500" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Eliminar alumno?</h3>
@@ -1884,7 +1884,7 @@ export default function SubjectPage() {
               <strong>{studentToDelete.apellidoPaterno} {studentToDelete.nombre}</strong>{' '}
               ({studentToDelete.username}). Esta acción no se puede deshacer.
             </p>
-            <div className="flex gap-2 mt-6">
+            <div className="flex gap-2 mt-4">
               <button
                 onClick={() => setStudentToDelete(null)}
                 className="flex-1 py-2 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors"
@@ -1909,10 +1909,10 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setActivateModal(null)} />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-semibold text-on-surface mb-1">Activar actividad</h3>
-            <p className="text-sm text-muted mb-3">
+            <p className="text-sm text-muted mb-2">
               "<strong>{activateModal.nombre}</strong>" está oculta. ¿Cómo quieres activarla?
             </p>
-            <div className="space-y-2 mb-3">
+            <div className="space-y-2 mb-2">
               <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${activateMode === 'now' ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
                 <input type="radio" name="activateMode" value="now" checked={activateMode === 'now'} onChange={() => setActivateMode('now')} className="accent-[var(--accent)]" />
                 <div>
@@ -1954,7 +1954,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowEditSubjectModal(false)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
               <button onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
@@ -2020,7 +2020,7 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowCopyModal(false)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
               <button onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
@@ -2088,11 +2088,11 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
-            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
               <Trash2 size={24} className="text-red-500" />
             </div>
             <h3 className="text-base font-semibold text-on-surface text-center mb-1">¿Eliminar asignatura?</h3>
-            <p className="text-sm text-muted text-center mb-3">
+            <p className="text-sm text-muted text-center mb-2">
               Se borrarán permanentemente todas las actividades, entregas y alumnos de{' '}
               <strong>{subject?.nombre}</strong>. Esta acción <strong>no se puede deshacer</strong>.
             </p>
@@ -2101,7 +2101,7 @@ export default function SubjectPage() {
               type="text"
               value={deleteSubjectConfirmText}
               onChange={(e) => setDeleteSubjectConfirmText(e.target.value)}
-              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-red-400 text-sm bg-surface mb-3"
+              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-red-400 text-sm bg-surface mb-2"
               placeholder={subject?.nombre}
             />
             <div className="flex gap-2">
@@ -2124,14 +2124,14 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !archiving && setShowArchiveModal(false)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
               <button onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <p className="text-sm text-muted mb-3">
+            <p className="text-sm text-muted mb-2">
               Al archivar se conservan las actividades y la lista de alumnos, pero <strong>se eliminan las entregas</strong>. ¿Qué hacemos con ellas?
             </p>
-            <div className="space-y-2 mb-5">
+            <div className="space-y-2 mb-4">
               {[
                 { val: 'save', label: 'Guardar entregas como ZIP', desc: 'Se descargan antes de eliminarlas' },
                 { val: 'skip', label: 'Archivar sin guardar', desc: 'Las entregas se eliminan sin descargar' },
@@ -2167,13 +2167,13 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowUnarchiveModal(false)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
               <button onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <p className="text-sm text-muted mb-3">Puedes editar los datos y elegir cómo restaurar:</p>
+            <p className="text-sm text-muted mb-2">Puedes editar los datos y elegir cómo restaurar:</p>
 
-            <div className="space-y-2 mb-5">
+            <div className="space-y-2 mb-4">
               <div>
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Datos</p>
                 <div className="space-y-2">

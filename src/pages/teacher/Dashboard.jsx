@@ -174,10 +174,10 @@ export default function TeacherDashboard() {
 
   return (
     <TeacherLayout>
-      <div className={`px-4 sm:px-6 lg:px-8 py-6 ${TEACHER_CONTAINER_NARROW}`}>
+      <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
         {/* Greeting */}
-        <div className="mb-6">
+        <div className="mb-4">
           <p className="text-muted text-sm">Bienvenido,</p>
           <h1 className="text-2xl font-bold text-on-surface truncate">
             {userProfile?.nombreMostrar || 'Docente'}
@@ -192,17 +192,17 @@ export default function TeacherDashboard() {
         ) : (
           <>
             {/* ── Mis asignaturas ── */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
               <h2 className="text-lg font-semibold text-on-surface">Mis asignaturas</h2>
               <span className="text-sm text-slate-500">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
             </div>
 
             {subjects.length === 0 ? (
-              <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center mb-6">
-                <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-3">
+              <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center mb-4">
+                <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-2">
                   <BookOpen size={28} className="text-blue-400" />
                 </div>
-                <p className="text-muted font-medium mb-3">Aún no tienes asignaturas</p>
+                <p className="text-muted font-medium mb-2">Aún no tienes asignaturas</p>
                 <button
                   type="button"
                   onClick={openSubjectModal}
@@ -213,7 +213,7 @@ export default function TeacherDashboard() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-2 mb-8">
+              <div className="space-y-2 mb-4">
                 {subjects.map((s, i) => (
                   <div
                     key={s.id}
@@ -282,7 +282,7 @@ export default function TeacherDashboard() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowSubjectModal(false)} />
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
               <button onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-muted rounded">
                 <X size={20} />

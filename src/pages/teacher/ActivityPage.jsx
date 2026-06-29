@@ -249,7 +249,7 @@ export default function ActivityPage() {
       <div data-subject-palette={subject?.colorPalette || 'default'}>
       <div className={TEACHER_CONTAINER_NARROW}>
         {/* Header */}
-        <div className="bg-surface-card border-b border-outline-variant px-4 py-2.5">
+        <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate(`/subject/${activity?.asignaturaId}`)}
@@ -281,13 +281,13 @@ export default function ActivityPage() {
           )}
           {activity?.instrucciones && (
             <div
-              className={`text-sm text-on-surface mt-3 ${richTextContentClass}`}
+              className={`text-sm text-on-surface mt-2 ${richTextContentClass}`}
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
             />
           )}
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-2 mt-3">
+          <div className="grid grid-cols-3 gap-2 mt-2">
             {[
               { key: 'pendiente', label: 'Pendientes', icon: Circle, color: 'text-muted', bg: 'bg-surface' },
               { key: 'entregado', label: 'Entregados', icon: Clock, color: 'text-accent', bg: 'bg-accent-light' },
@@ -302,7 +302,7 @@ export default function ActivityPage() {
           </div>
 
           {/* Filter tabs */}
-          <div className="flex gap-1 mt-3 bg-surface-container p-1 rounded">
+          <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
             {['todos', 'pendiente', 'entregado', 'calificado'].map((f) => (
               <button
                 key={f}
@@ -410,7 +410,7 @@ export default function ActivityPage() {
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center justify-between gap-2 mb-2">
               <div className="min-w-0 flex-1">
                 <h3 className="text-base font-semibold text-on-surface truncate">
                   {selected.student.apellidoPaterno} {selected.student.nombre}
@@ -428,7 +428,7 @@ export default function ActivityPage() {
 
             {/* Prev / next navigation across the student row */}
             {filtered.length > 1 && (
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2">
                 <button
                   type="button"
                   onClick={() => goToOffset(-1)}
@@ -452,7 +452,7 @@ export default function ActivityPage() {
             {/* Image preview (when the submission is an image) */}
             {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL &&
               isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) && (
-              <a href={selected.sub.archivoURL} target="_blank" rel="noopener noreferrer" className="block mb-3">
+              <a href={selected.sub.archivoURL} target="_blank" rel="noopener noreferrer" className="block mb-2">
                 <img
                   src={selected.sub.archivoURL}
                   alt="Entrega del alumno"
@@ -467,7 +467,7 @@ export default function ActivityPage() {
                 href={selected.sub.archivoURL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors mb-3"
+                className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors mb-2"
               >
                 <Download size={18} className="text-accent" />
                 Ver / Descargar entrega
@@ -476,7 +476,7 @@ export default function ActivityPage() {
 
             {/* Submission history */}
             {selected.sub?.historial?.length > 0 && (
-              <div className="mb-3">
+              <div className="mb-2">
                 <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
                 <div className="space-y-1.5">
                   {[...selected.sub.historial].reverse().map((v, i) => (
@@ -546,13 +546,13 @@ export default function ActivityPage() {
                 </button>
               </form>
             ) : (
-              <p className="text-sm text-slate-400 text-center py-2.5">
+              <p className="text-sm text-slate-400 text-center py-2">
                 El alumno aún no ha entregado esta tarea.
               </p>
             )}
 
             {/* Bottom actions — extend date */}
-            <div className="mt-3 pt-3 border-t border-outline-variant space-y-2">
+            <div className="mt-2 pt-3 border-t border-outline-variant space-y-2">
 
               {/* Extend deadline */}
               {!extendMode ? (
