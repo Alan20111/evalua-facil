@@ -1409,12 +1409,10 @@ export default function SubjectPage() {
                   placeholder="Ej: Tarea 1, Examen parcial" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">
-                  Instrucciones <span className="text-slate-400 font-normal">(opcional)</span>
-                </label>
+                <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
                 <textarea value={form.instrucciones} onChange={(e) => setForm((f) => ({ ...f, instrucciones: e.target.value }))}
-                  rows={3}
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                  required rows={3}
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-y"
                   placeholder="Describe la tarea para tus alumnos…" />
               </div>
               <div>

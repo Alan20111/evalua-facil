@@ -648,14 +648,12 @@ export default function ActivityPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">
-                  Instrucciones <span className="text-slate-400 font-normal">(opcional)</span>
-                </label>
+                <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
                 <textarea
                   value={editForm.instrucciones}
                   onChange={(e) => setEditForm((f) => ({ ...f, instrucciones: e.target.value }))}
-                  rows={3}
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                  required rows={3}
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-y"
                   placeholder="Instrucciones para los alumnos…"
                 />
               </div>
