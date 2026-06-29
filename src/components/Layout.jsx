@@ -70,7 +70,7 @@ export default function TeacherLayout({ children }) {
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white">
-            <GraduationCap size={18} />
+            <GraduationCap size={20} />
           </div>
           <span className="font-semibold text-on-surface text-body-sm">Evalúa Fácil</span>
         </div>
@@ -79,7 +79,7 @@ export default function TeacherLayout({ children }) {
           onClick={handleLogout}
           className="p-2 text-muted hover:text-error rounded transition-colors"
         >
-          <LogOut size={18} />
+          <LogOut size={20} />
         </button>
       </header>
 
@@ -90,7 +90,7 @@ export default function TeacherLayout({ children }) {
           {/* Logo */}
           <div className="px-5 py-3 flex items-center gap-2.5">
             <div className="w-9 h-9 rounded bg-white flex items-center justify-center flex-shrink-0">
-              <GraduationCap size={20} className="text-accent" />
+              <GraduationCap size={22} className="text-accent" />
             </div>
             <span className="font-bold text-white">Evalúa Fácil</span>
           </div>
@@ -113,7 +113,7 @@ export default function TeacherLayout({ children }) {
                 {userProfile?.schoolName || 'Mi perfil'}
               </p>
             </div>
-            <ChevronRight size={14} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
+            <ChevronRight size={16} className="text-white/50 group-hover:text-white/80 flex-shrink-0" />
           </NavLink>
 
           {/* Trial status — the day counter is always visible from day 1; an amber
@@ -127,7 +127,7 @@ export default function TeacherLayout({ children }) {
                 trialBanner.tone !== 'neutral' ? 'bg-amber-400/20 hover:bg-amber-400/30' : 'hover:bg-white/10'
               }`}
             >
-              <Timer size={13} className="text-white/80 flex-shrink-0 mt-0.5" />
+              <Timer size={15} className="text-white/80 flex-shrink-0 mt-0.5" />
               <div className="leading-tight">
                 {trialBanner.counter && (
                   <p className="text-metadata text-white/90">{trialBanner.counter}</p>
@@ -144,7 +144,7 @@ export default function TeacherLayout({ children }) {
             <span className="text-label-caps text-white/70 group-hover:text-white uppercase transition-colors">
               Asignaturas
             </span>
-            <ChevronRight size={13} className="text-white/50 group-hover:text-white transition-colors" />
+            <ChevronRight size={15} className="text-white/50 group-hover:text-white transition-colors" />
           </NavLink>
 
           {/* Subject list */}
@@ -166,7 +166,7 @@ export default function TeacherLayout({ children }) {
                     }`
                   }
                 >
-                  <SubjectIcon iconKey={s.icon} size={15} className="flex-shrink-0" />
+                  <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
                   <span className="truncate">{subjectDisplayName(s)}</span>
                 </NavLink>
               ))
@@ -178,7 +178,7 @@ export default function TeacherLayout({ children }) {
               onClick={() => navigate('/dashboard', { state: { openCreate: true } })}
               className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
             >
-              <Plus size={15} />
+              <Plus size={17} />
               Nueva asignatura…
             </button>
           </div>
@@ -191,7 +191,7 @@ export default function TeacherLayout({ children }) {
                 onClick={() => setShowArchived((a) => !a)}
                 className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors"
               >
-                <Archive size={13} />
+                <Archive size={15} />
                 Archivadas ({archivedSubjects.length})
               </button>
               {showArchived &&
@@ -205,7 +205,7 @@ export default function TeacherLayout({ children }) {
                       }`
                     }
                   >
-                    <SubjectIcon iconKey={s.icon} size={13} className="flex-shrink-0" />
+                    <SubjectIcon iconKey={s.icon} size={15} className="flex-shrink-0" />
                     <span className="truncate">{subjectDisplayName(s)}</span>
                   </NavLink>
                 ))}
@@ -219,7 +219,7 @@ export default function TeacherLayout({ children }) {
               onClick={handleLogout}
               className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
             >
-              <LogOut size={15} />
+              <LogOut size={17} />
               Cerrar sesión
             </button>
           </div>
@@ -240,7 +240,7 @@ export default function TeacherLayout({ children }) {
               }`
             }
           >
-            <LayoutDashboard size={22} />
+            <LayoutDashboard size={24} />
             <span>Asignaturas</span>
           </NavLink>
           <NavLink
@@ -251,7 +251,7 @@ export default function TeacherLayout({ children }) {
               }`
             }
           >
-            <User size={22} />
+            <User size={24} />
             <span>Perfil</span>
           </NavLink>
         </div>

@@ -16,7 +16,7 @@ export default function PasswordInput({ className = '', ...props }) {
         onClick={() => setShow((v) => !v)}
         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-muted transition-colors"
       >
-        {show ? <EyeOff size={17} /> : <Eye size={17} />}
+        {show ? <EyeOff size={19} /> : <Eye size={19} />}
       </button>
     </div>
   )

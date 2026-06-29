@@ -969,10 +969,10 @@ export default function SubjectPage() {
         <div className="bg-surface-card border-b border-outline-variant px-4 py-3">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
-              <ArrowLeft size={20} />
+              <ArrowLeft size={22} />
             </button>
             <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-              <SubjectIcon iconKey={subject?.icon} size={18} className="text-accent" />
+              <SubjectIcon iconKey={subject?.icon} size={20} className="text-accent" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -989,40 +989,40 @@ export default function SubjectPage() {
             <button type="button" onClick={() => setShowQR(true)}
               title="Código QR de acceso para alumnos"
               className="p-2 text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
-              <QrCode size={19} />
+              <QrCode size={21} />
             </button>
             <button type="button" onClick={copyActivationLink}
               title="Copiar link de activación para alumnos"
               className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-accent-light'}`}>
-              {copiedLink ? <CheckIcon size={19} /> : <Link size={19} />}
+              {copiedLink ? <CheckIcon size={21} /> : <Link size={21} />}
             </button>
             <button type="button" onClick={copyAccessCode}
               title="Copiar código de acceso para alumnos"
               className={`flex items-center gap-1 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-sm ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-accent-light'}`}>
               {copiedCode
-                ? <><CheckIcon size={19} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
-                : <><Hash size={19} className="flex-shrink-0" /><span>{subject?.accessCode}</span></>}
+                ? <><CheckIcon size={21} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
+                : <><Hash size={21} className="flex-shrink-0" /><span>{subject?.accessCode}</span></>}
             </button>
             <div className="flex-1" />
             <button type="button" onClick={openEditSubject}
               title="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
-              <Pencil size={19} />
+              <Pencil size={21} />
             </button>
             <button type="button" onClick={openCopyModal}
               title="Duplicar esta asignatura (con o sin la lista de alumnos)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
-              <Copy size={19} />
+              <Copy size={21} />
             </button>
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
               title={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
               className="p-2 text-slate-400 hover:text-amber-600 rounded transition-colors disabled:opacity-50 flex-shrink-0">
-              {subject?.archived ? <ArchiveRestore size={19} /> : <Archive size={19} />}
+              {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
             </button>
             <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
               title="Eliminar la asignatura permanentemente (no se puede deshacer)"
               className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
-              <Trash2 size={19} />
+              <Trash2 size={21} />
             </button>
           </div>
 
@@ -1058,14 +1058,14 @@ export default function SubjectPage() {
                       <p className="font-semibold text-on-surface text-base leading-tight">Parcial {p}</p>
                       <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                     </div>
-                    {isOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                    {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
                   </button>
 
                   {isOpen && (
-                    <div className="border-t border-outline-variant pr-4 py-2.5">
-                      <div className="ml-3 pl-3 border-l-2 border-accent space-y-2">
+                    <div className="border-t border-outline-variant pr-4 py-2">
+                      <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
                       {acts.length === 0 && (
-                        <p className="text-slate-400 text-sm text-center py-2.5">Sin actividades</p>
+                        <p className="text-slate-400 text-sm text-center py-2">Sin actividades</p>
                       )}
                       {acts.map((a) => {
                         const counts = submissionCounts[a.id] || {}
@@ -1074,30 +1074,30 @@ export default function SubjectPage() {
                         return (
                           <div key={a.id} className={`flex items-center gap-1 rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
                             <button onClick={() => navigate(`/activity/${a.id}`)}
-                              className="flex items-center gap-3 flex-1 min-w-0 px-3 py-3.5 text-left">
-                              <FileText size={18} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
+                              className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2.5 text-left">
+                              <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
-                                <p className={`text-base font-medium truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
+                                <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
                                   {a.actividad && <span className="text-accent font-semibold">{a.actividad} · </span>}
                                   {a.nombre}
                                 </p>
                                 {a.instrucciones && (
-                                  <p className="text-sm text-slate-500 mt-1 whitespace-pre-wrap">{a.instrucciones}</p>
+                                  <p className="text-sm text-slate-500 leading-tight mt-0.5 whitespace-pre-wrap">{a.instrucciones}</p>
                                 )}
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                   {a.fechaLimite && (
                                     <span className="text-xs text-amber-600 flex items-center gap-0.5">
-                                      <Clock size={10} /> {new Date(a.fechaLimite).toLocaleDateString('es-MX')}
+                                      <Clock size={14} /> {new Date(a.fechaLimite).toLocaleDateString('es-MX')}
                                     </span>
                                   )}
                                   {visState === 'hidden' && (
                                     <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                      <EyeOff size={9} /> Oculta
+                                      <EyeOff size={13} /> Oculta
                                     </span>
                                   )}
                                   {visState === 'scheduled' && (
                                     <span className="text-xs bg-accent-light text-accent px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                      <Clock size={9} /> {formatPublishAt(a.publishAt)}
+                                      <Clock size={13} /> {formatPublishAt(a.publishAt)}
                                     </span>
                                   )}
                                 </div>
@@ -1105,12 +1105,12 @@ export default function SubjectPage() {
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 {counts.graded > 0 && (
                                   <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <CheckCircle size={9} /> {counts.graded}
+                                    <CheckCircle size={13} /> {counts.graded}
                                   </span>
                                 )}
                                 {counts.delivered > 0 && (
                                   <span className="text-xs bg-accent-light text-accent px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <Circle size={9} /> {counts.delivered}
+                                    <Circle size={13} /> {counts.delivered}
                                   </span>
                                 )}
                               </div>
@@ -1122,7 +1122,7 @@ export default function SubjectPage() {
                                 title="Activar para alumnos"
                                 className="p-2 text-slate-300 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0"
                               >
-                                <EyeOff size={14} />
+                                <EyeOff size={16} />
                               </button>
                             ) : (
                               <button
@@ -1130,16 +1130,16 @@ export default function SubjectPage() {
                                 title="Ocultar para alumnos"
                                 className="p-2 text-slate-400 hover:text-muted hover:bg-surface rounded transition-colors flex-shrink-0"
                               >
-                                <Eye size={14} />
+                                <Eye size={16} />
                               </button>
                             )}
                             <button onClick={() => openEdit(a)} title="Editar"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0 mr-0.5">
-                              <Pencil size={14} />
+                              <Pencil size={16} />
                             </button>
                             <button onClick={() => setDeleteConfirm(a)} title="Eliminar"
                               className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
-                              <Trash2 size={14} />
+                              <Trash2 size={16} />
                             </button>
                           </div>
                         )
@@ -1149,7 +1149,7 @@ export default function SubjectPage() {
                         className={`w-full py-2.5 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-accent-light' : 'border-outline-variant text-slate-400 hover:bg-surface'
                         }`}>
-                        <Plus size={15} /> Agregar actividad
+                        <Plus size={17} /> Agregar actividad
                       </button>
                       </div>
                     </div>
@@ -1175,7 +1175,7 @@ export default function SubjectPage() {
                   title="Descarga las calificaciones de todos los alumnos en una hoja de Excel"
                   className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
                 >
-                  {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={15} />} Excel
+                  {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
                 </button>
                 <button
                   onClick={handleExportGradesPDF}
@@ -1183,13 +1183,13 @@ export default function SubjectPage() {
                   title="Descarga las calificaciones de todos los alumnos en un PDF imprimible"
                   className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
                 >
-                  {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={15} />} PDF
+                  {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
                 </button>
               </div>
             </div>
 
             <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={searchGrade} onChange={(e) => setSearchGrade(e.target.value)}
                 placeholder="Buscar alumno…"
                 className="w-full pl-9 pr-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card" />
@@ -1286,13 +1286,13 @@ export default function SubjectPage() {
                 onClick={downloadStudentTemplate}
                 className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
               >
-                <Download size={15} className="flex-shrink-0" /> <strong>Paso 1</strong> · Descargar plantilla en Excel para pegar datos de alumnos
+                <Download size={17} className="flex-shrink-0" /> <strong>Paso 1</strong> · Descargar plantilla en Excel para pegar datos de alumnos
               </button>
               <label
                 title="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
                 className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors cursor-pointer"
               >
-                {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />} <strong>Paso 2</strong> · Subir la plantilla de Excel con los datos de los alumnos
+                {savingStudent ? <Spinner size="sm" /> : <Upload size={17} className="flex-shrink-0" />} <strong>Paso 2</strong> · Subir la plantilla de Excel con los datos de los alumnos
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
               </label>
             </div>
@@ -1305,7 +1305,7 @@ export default function SubjectPage() {
             title="Genera tu lista actualizada cada vez que agregues usuarios"
             className="w-full flex items-center justify-center gap-2 py-2.5 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
           >
-            <KeyRound size={15} /> <strong>Paso 3</strong> · Generar códigos para alumnos y descargar lista de acceso (usuarios + códigos)
+            <KeyRound size={17} /> <strong>Paso 3</strong> · Generar códigos para alumnos y descargar lista de acceso (usuarios + códigos)
           </button>
 
           {/* Ordenar alfabéticamente */}
@@ -1317,7 +1317,7 @@ export default function SubjectPage() {
               title="Ordena la lista por apellido y nombre"
               className="flex items-center gap-1 text-xs text-slate-500 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-accent-light disabled:opacity-40"
             >
-              <ArrowUpDown size={13} />
+              <ArrowUpDown size={15} />
               Ordenar alfabéticamente
             </button>
           </div>
@@ -1325,7 +1325,7 @@ export default function SubjectPage() {
           {/* 3 — Buscar alumno + agregar manualmente */}
           <div className="flex gap-2">
             <div className="flex-1 relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={searchAlumnos}
                 onChange={(e) => setSearchAlumnos(e.target.value)}
@@ -1338,7 +1338,7 @@ export default function SubjectPage() {
               title="Agregar nuevo alumno"
               className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
             >
-              <UserPlus size={18} />
+              <UserPlus size={20} />
             </button>
           </div>
 
@@ -1376,7 +1376,7 @@ export default function SubjectPage() {
                       className="p-1.5 text-slate-400 hover:text-accent rounded"
                       title="Editar alumno"
                     >
-                      <Pencil size={14} />
+                      <Pencil size={16} />
                     </button>
                   </div>
                 </div>
@@ -1396,7 +1396,7 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">
                 {modalMode === 'create' ? `Nueva actividad — Parcial ${modalParcial}` : 'Editar actividad'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+              <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-base text-on-surface -mt-2 mb-3">
               Actividad <strong className="text-accent">{previewActividad}</strong>
@@ -1482,7 +1482,7 @@ export default function SubjectPage() {
 
               <button type="submit" disabled={saving}
                 className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                {saving ? <Spinner size="sm" /> : modalMode === 'create' ? <Plus size={16} /> : <Pencil size={16} />}
+                {saving ? <Spinner size="sm" /> : modalMode === 'create' ? <Plus size={18} /> : <Pencil size={18} />}
                 {saving ? 'Guardando…' : modalMode === 'create' ? 'Crear actividad' : 'Guardar cambios'}
               </button>
             </form>
@@ -1504,7 +1504,7 @@ export default function SubjectPage() {
                 className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
               <button onClick={handleDeleteActivity} disabled={deleting}
                 className="flex-1 py-2.5 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-                {deleting ? <Spinner size="sm" /> : <Trash2 size={14} />}
+                {deleting ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deleting ? 'Eliminando…' : 'Eliminar'}
               </button>
             </div>
@@ -1519,7 +1519,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Agregar alumno</h3>
-              <button onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+              <button onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={addStudent} className="space-y-3">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
@@ -1542,7 +1542,7 @@ export default function SubjectPage() {
                 disabled={savingStudent}
                 className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {savingStudent ? <Spinner size="sm" /> : <Plus size={16} />}
+                {savingStudent ? <Spinner size="sm" /> : <Plus size={18} />}
                 Agregar alumno
               </button>
             </form>
@@ -1557,7 +1557,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Editar alumno</h3>
-              <button onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+              <button onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={saveEditStudent} className="space-y-3">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
@@ -1590,7 +1590,7 @@ export default function SubjectPage() {
                 disabled={savingStudent}
                 className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {savingStudent ? <Spinner size="sm" /> : <Pencil size={16} />}
+                {savingStudent ? <Spinner size="sm" /> : <Pencil size={18} />}
                 Guardar cambios
               </button>
               <button
@@ -1599,7 +1599,7 @@ export default function SubjectPage() {
                 disabled={savingStudent}
                 className="w-full py-2.5 rounded border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                <RotateCcw size={15} />
+                <RotateCcw size={17} />
                 Habilitar recuperación de contraseña
               </button>
               <button
@@ -1608,7 +1608,7 @@ export default function SubjectPage() {
                 disabled={savingStudent}
                 className="w-full py-2.5 rounded border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                <Trash2 size={15} />
+                <Trash2 size={17} />
                 Eliminar alumno
               </button>
             </form>
@@ -1626,7 +1626,7 @@ export default function SubjectPage() {
                 <h3 className="text-lg font-semibold leading-tight">{subject.nombre}</h3>
                 {subject.grupo && <p className="text-sm text-muted">Grupo: {subject.grupo}</p>}
               </div>
-              <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={18} /></button>
+              <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
             </div>
             <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-3">
               <QRCode value={activationUrl} size={200} className="max-w-full h-auto" />
@@ -1636,7 +1636,7 @@ export default function SubjectPage() {
               disabled={exportingPdf}
               className="w-full flex items-center justify-center gap-2 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-50"
             >
-              {exportingPdf ? <Spinner size="sm" /> : <Download size={15} />}
+              {exportingPdf ? <Spinner size="sm" /> : <Download size={17} />}
               {exportingPdf ? 'Generando PDF…' : 'Descargar QR en PDF'}
             </button>
           </div>
@@ -1649,7 +1649,7 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToReset(null)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-3">
-              <KeyRound size={22} className="text-amber-500" />
+              <KeyRound size={24} className="text-amber-500" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Habilitar recuperación de contraseña?</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -1668,7 +1668,7 @@ export default function SubjectPage() {
                 onClick={confirmResetStudentPassword}
                 className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded transition-colors flex items-center justify-center gap-2"
               >
-                <KeyRound size={16} />
+                <KeyRound size={18} />
                 Habilitar
               </button>
             </div>
@@ -1682,7 +1682,7 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => !generatingCredentials && setShowCredentialsModal(false)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
-              <KeyRound size={22} className="text-accent" />
+              <KeyRound size={24} className="text-accent" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">Descargar lista de acceso</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -1705,7 +1705,7 @@ export default function SubjectPage() {
                 disabled={generatingCredentials}
                 className="flex-1 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {generatingCredentials ? <Spinner size="sm" /> : <Download size={16} />}
+                {generatingCredentials ? <Spinner size="sm" /> : <Download size={18} />}
                 {generatingCredentials ? 'Descargando…' : 'Descargar lista'}
               </button>
             </div>
@@ -1719,7 +1719,7 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => !savingStudent && setLinkCandidate(null)} />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-5 shadow-2xl">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
-              <UserPlus size={22} className="text-accent" />
+              <UserPlus size={24} className="text-accent" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Es el mismo alumno?</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -1741,7 +1741,7 @@ export default function SubjectPage() {
                 disabled={savingStudent}
                 className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {savingStudent ? <Spinner size="sm" /> : <CheckIcon size={16} />}
+                {savingStudent ? <Spinner size="sm" /> : <CheckIcon size={18} />}
                 Sí, es el mismo alumno
               </button>
               <button
@@ -1769,7 +1769,7 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setResetPwdResult(null)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3">
-              <KeyRound size={22} className="text-green-600" />
+              <KeyRound size={24} className="text-green-600" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">Recuperación habilitada</h3>
             <p className="text-sm text-muted text-center mt-2 mb-5">
@@ -1793,7 +1793,7 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToDelete(null)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3">
-              <Trash2 size={22} className="text-red-500" />
+              <Trash2 size={24} className="text-red-500" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Eliminar alumno?</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -1813,7 +1813,7 @@ export default function SubjectPage() {
                 disabled={savingStudent}
                 className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {savingStudent ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                {savingStudent ? <Spinner size="sm" /> : <Trash2 size={18} />}
                 Eliminar
               </button>
             </div>
@@ -1859,7 +1859,7 @@ export default function SubjectPage() {
               <button onClick={handleActivateConfirm}
                 disabled={activateMode === 'schedule' && !activateDate}
                 className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 flex items-center justify-center gap-2">
-                <Eye size={14} /> Activar
+                <Eye size={16} /> Activar
               </button>
             </div>
           </div>
@@ -1873,7 +1873,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
-              <button onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+              <button onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleEditSubject} className="space-y-3">
               <div>
@@ -1924,7 +1924,7 @@ export default function SubjectPage() {
               </div>
               <button type="submit" disabled={editingSubject}
                 className="w-full py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
-                {editingSubject ? <Spinner size="sm" /> : <Pencil size={16} />}
+                {editingSubject ? <Spinner size="sm" /> : <Pencil size={18} />}
                 {editingSubject ? 'Guardando…' : 'Guardar cambios'}
               </button>
             </form>
@@ -1939,7 +1939,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
-              <button onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+              <button onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleCopySubject} className="space-y-3">
               <div>
@@ -1992,7 +1992,7 @@ export default function SubjectPage() {
               <p className="text-sm text-slate-500">Se duplicarán todas las actividades. Las calificaciones y entregas no se copian.</p>
               <button type="submit" disabled={copyingSubject}
                 className="w-full py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
-                {copyingSubject ? <Spinner size="sm" /> : <Copy size={16} />}
+                {copyingSubject ? <Spinner size="sm" /> : <Copy size={18} />}
                 {copyingSubject ? 'Duplicando…' : 'Duplicar asignatura'}
               </button>
             </form>
@@ -2006,7 +2006,7 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} />
           <div className="relative bg-surface-card rounded-card p-5 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3">
-              <Trash2 size={22} className="text-red-500" />
+              <Trash2 size={24} className="text-red-500" />
             </div>
             <h3 className="text-base font-semibold text-on-surface text-center mb-1">¿Eliminar asignatura?</h3>
             <p className="text-sm text-muted text-center mb-3">
@@ -2027,7 +2027,7 @@ export default function SubjectPage() {
               <button onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
                 className="flex-1 py-2.5 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 flex items-center justify-center gap-2">
-                {deletingSubject ? <Spinner size="sm" /> : <Trash2 size={14} />}
+                {deletingSubject ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deletingSubject ? 'Eliminando…' : 'Eliminar todo'}
               </button>
             </div>
@@ -2043,7 +2043,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
-              <button onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+              <button onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-3">
               Al archivar se conservan las actividades y la lista de alumnos, pero <strong>se eliminan las entregas</strong>. ¿Qué hacemos con ellas?
@@ -2067,7 +2067,7 @@ export default function SubjectPage() {
                 className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface disabled:opacity-60">Cancelar</button>
               <button onClick={handleArchiveConfirm} disabled={archiving}
                 className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
-                {archiving ? <Spinner size="sm" /> : <Archive size={14} />}
+                {archiving ? <Spinner size="sm" /> : <Archive size={16} />}
                 {archiving
                   ? (zipDownloading
                       ? `Descargando ${zipProgress.done}/${zipProgress.total}…`
@@ -2086,7 +2086,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
-              <button onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
+              <button onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-3">Puedes editar los datos y elegir cómo restaurar:</p>
 

@@ -104,7 +104,7 @@ export default function PaymentConfig() {
     <div className="space-y-5 max-w-2xl">
       {/* Security notice */}
       <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-card px-4 py-3.5">
-        <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+        <AlertTriangle size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
         <div className="text-xs text-amber-800 leading-relaxed">
           <p className="font-semibold mb-0.5">Las llaves secretas NO van aquí</p>
           Aquí solo se guardan datos públicos (Public Key de Mercado Pago, Client ID de PayPal, datos
@@ -118,7 +118,7 @@ export default function PaymentConfig() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded bg-sky-50 flex items-center justify-center">
-              <Wallet size={18} className="text-sky-500" />
+              <Wallet size={20} className="text-sky-500" />
             </div>
             <div>
               <h3 className="font-semibold text-on-surface">Mercado Pago</h3>
@@ -140,7 +140,7 @@ export default function PaymentConfig() {
               hint="Panel de Mercado Pago → Tus integraciones → Credenciales de producción."
             />
             <p className="text-xs text-slate-400 flex items-center gap-1">
-              <ExternalLink size={11} />
+              <ExternalLink size={13} />
               El Access Token (secreto) va en Vercel como MP_ACCESS_TOKEN.
             </p>
           </div>
@@ -152,7 +152,7 @@ export default function PaymentConfig() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded bg-blue-50 flex items-center justify-center">
-              <Wallet size={18} className="text-blue-600" />
+              <Wallet size={20} className="text-blue-600" />
             </div>
             <div>
               <h3 className="font-semibold text-on-surface">PayPal</h3>
@@ -171,7 +171,7 @@ export default function PaymentConfig() {
               hint="PayPal Developer Dashboard → tu app → Client ID (producción)."
             />
             <p className="text-xs text-slate-400 flex items-center gap-1">
-              <ExternalLink size={11} />
+              <ExternalLink size={13} />
               El Secret va en Vercel como PAYPAL_SECRET.
             </p>
           </div>
@@ -183,7 +183,7 @@ export default function PaymentConfig() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded bg-emerald-50 flex items-center justify-center">
-              <Landmark size={18} className="text-emerald-500" />
+              <Landmark size={20} className="text-emerald-500" />
             </div>
             <div>
               <h3 className="font-semibold text-on-surface">Transferencia bancaria</h3>
@@ -240,7 +240,7 @@ export default function PaymentConfig() {
           disabled={saving}
           className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 disabled:opacity-60"
         >
-          {saving ? <Spinner size="sm" /> : <Save size={15} />}
+          {saving ? <Spinner size="sm" /> : <Save size={17} />}
           Guardar configuración
         </button>
       </div>

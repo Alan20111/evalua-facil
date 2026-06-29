@@ -263,7 +263,7 @@ export default function StudentActivation() {
             <div>
               <div className="flex items-center gap-3 p-3 bg-accent-light rounded mb-3">
                 <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                  <Check size={16} className="text-accent" />
+                  <Check size={18} className="text-accent" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-on-surface">Ya tienes cuenta</p>
@@ -295,7 +295,7 @@ export default function StudentActivation() {
                   style={{ touchAction: 'manipulation' }}
                   className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {loading ? <Spinner size="sm" /> : <Check size={16} />}
+                  {loading ? <Spinner size="sm" /> : <Check size={18} />}
                   {loading ? 'Vinculando…' : 'Agregar asignatura'}
                 </button>
               </form>
@@ -338,7 +338,7 @@ export default function StudentActivation() {
             <div>
               <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded mb-3">
                 <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                  <Check size={16} className="text-emerald-600" />
+                  <Check size={18} className="text-emerald-600" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-on-surface break-words">
@@ -382,7 +382,7 @@ export default function StudentActivation() {
                   style={{ touchAction: 'manipulation' }}
                   className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {loading ? <Spinner size="sm" /> : <Check size={16} />}
+                  {loading ? <Spinner size="sm" /> : <Check size={18} />}
                   {loading ? 'Activando…' : 'Activar cuenta'}
                 </button>
               </form>

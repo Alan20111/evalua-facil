@@ -43,7 +43,7 @@ export default function AdminDashboard() {
           disabled={refreshing || loading}
           className="flex items-center gap-1.5 px-3 py-2 text-sm text-muted border border-outline-variant rounded hover:bg-surface-card disabled:opacity-60"
         >
-          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           Actualizar
         </button>
       </div>

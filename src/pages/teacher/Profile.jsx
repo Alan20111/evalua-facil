@@ -305,7 +305,7 @@ export default function Profile() {
         {/* Mi plan */}
         <div className="bg-surface-card rounded-card shadow-card p-4">
           <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
-            <CreditCard size={17} className="text-slate-400" /> Mi plan
+            <CreditCard size={19} className="text-slate-400" /> Mi plan
           </h2>
           {subLoading ? (
             <div className="flex justify-center py-3"><Spinner /></div>
@@ -399,7 +399,7 @@ export default function Profile() {
             </div>
             <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading}
               className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
-              {photoUploading ? <Spinner size="sm" /> : <Camera size={13} />}
+              {photoUploading ? <Spinner size="sm" /> : <Camera size={15} />}
             </button>
           </div>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
@@ -414,7 +414,7 @@ export default function Profile() {
         {/* Nombre visible */}
         <div className="bg-surface-card rounded-card shadow-card p-4">
           <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
-            <User size={17} className="text-slate-400" /> Nombre
+            <User size={19} className="text-slate-400" /> Nombre
           </h2>
           <form onSubmit={handleSaveNombre} className="space-y-3">
             <div>
@@ -433,7 +433,7 @@ export default function Profile() {
         {/* Escuela */}
         <div className="bg-surface-card rounded-card shadow-card p-4">
           <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
-            <School size={17} className="text-slate-400" /> Escuela
+            <School size={19} className="text-slate-400" /> Escuela
           </h2>
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
@@ -448,7 +448,7 @@ export default function Profile() {
         {/* Acceso */}
         <div className="bg-surface-card rounded-card shadow-card p-4">
           <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
-            <Lock size={17} className="text-slate-400" /> Acceso
+            <Lock size={19} className="text-slate-400" /> Acceso
           </h2>
           <div className="space-y-1">
 
@@ -494,7 +494,7 @@ export default function Profile() {
                   </div>
                   <button type="submit" disabled={savingPwd}
                     className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                    {savingPwd ? <Spinner size="sm" /> : <Lock size={15} />}
+                    {savingPwd ? <Spinner size="sm" /> : <Lock size={17} />}
                     {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}
                   </button>
                 </form>
@@ -513,7 +513,7 @@ export default function Profile() {
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-5">
             <button onClick={() => !confirming && setConfirm(null)}
               className="absolute top-4 right-4 p-1 text-slate-400 hover:text-muted rounded">
-              <X size={18} />
+              <X size={20} />
             </button>
             <h3 className="text-base font-semibold text-on-surface mb-2 pr-6">{confirm.title}</h3>
             <p className="text-sm text-muted mb-5 leading-relaxed">{confirm.message}</p>
@@ -539,12 +539,12 @@ export default function Profile() {
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-sm rounded-card shadow-2xl flex flex-col max-h-[80vh]">
             <div className="flex items-center gap-2 p-3 border-b border-outline-variant">
               <div className="flex-1 relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input autoFocus type="text" value={schoolSearch} onChange={(e) => setSchoolSearch(e.target.value)}
                   placeholder="Nombre, CCT o municipio…"
                   className="w-full pl-8 pr-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
-              <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={17} /></button>
+              <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
             </div>
             {addingCustomSchool && customSchoolStep === 'similar' ? (
               <div className="p-4 space-y-3 overflow-y-auto">
@@ -660,7 +660,7 @@ export default function Profile() {
               <>
                 <button type="button" onClick={() => updateSchool(null)} disabled={savingSchool}
                   className="flex items-center gap-2 px-4 py-2.5 text-left border-b border-outline-variant hover:bg-surface disabled:opacity-60">
-                  <ChevronDown size={15} className="text-slate-400 rotate-0" />
+                  <ChevronDown size={17} className="text-slate-400 rotate-0" />
                   <span className="text-sm font-medium text-muted">Sin escuela</span>
                 </button>
                 {schoolSearch.trim() && (
@@ -704,7 +704,7 @@ export default function Profile() {
                       onClick={openCustomSchoolForm}
                       className="w-full flex items-center gap-2 px-4 py-2.5 rounded text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-60"
                     >
-                      <Plus size={16} className="flex-shrink-0" />
+                      <Plus size={18} className="flex-shrink-0" />
                       <span className="truncate">¿No la encuentras? Agregar «{schoolSearch.trim()}»</span>
                     </button>
                   </div>

@@ -317,7 +317,7 @@ export default function StudentLogin() {
                 disabled={loading || !subjectCodeInput.trim()}
                 className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {loading ? <Spinner size="sm" /> : <Hash size={16} />}
+                {loading ? <Spinner size="sm" /> : <Hash size={18} />}
                 {loading ? 'Activando…' : 'Activar mi cuenta'}
               </button>
             </form>
@@ -326,7 +326,7 @@ export default function StudentLogin() {
               onClick={cancelNeedCode}
               className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm text-muted hover:text-on-surface transition-colors"
             >
-              <ArrowLeft size={15} /> Volver
+              <ArrowLeft size={17} /> Volver
             </button>
           </div>
         ) : mode === 'recover' ? (
@@ -363,7 +363,7 @@ export default function StudentLogin() {
                   disabled={loading || !recoverUsername.trim()}
                   className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {loading ? <Spinner size="sm" /> : <KeyRound size={16} />}
+                  {loading ? <Spinner size="sm" /> : <KeyRound size={18} />}
                   {loading ? 'Verificando…' : 'Continuar'}
                 </button>
               </form>
@@ -371,7 +371,7 @@ export default function StudentLogin() {
               <form onSubmit={handleRecoverSetPassword} className="space-y-3">
                 <div className="flex items-center gap-3 p-3 bg-accent-light rounded">
                   <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                    <KeyRound size={16} className="text-accent" />
+                    <KeyRound size={18} className="text-accent" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-on-surface truncate">
@@ -409,7 +409,7 @@ export default function StudentLogin() {
                   disabled={loading}
                   className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {loading ? <Spinner size="sm" /> : <KeyRound size={16} />}
+                  {loading ? <Spinner size="sm" /> : <KeyRound size={18} />}
                   {loading ? 'Guardando…' : 'Guardar contraseña'}
                 </button>
               </form>
@@ -419,7 +419,7 @@ export default function StudentLogin() {
               onClick={backToLogin}
               className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm text-muted hover:text-on-surface transition-colors"
             >
-              <ArrowLeft size={15} /> Volver al inicio de sesión
+              <ArrowLeft size={17} /> Volver al inicio de sesión
             </button>
           </div>
         ) : (
@@ -486,7 +486,7 @@ export default function StudentLogin() {
               >
                 <span className="text-sm font-semibold text-muted">¿Primera vez? Activa tu cuenta</span>
                 <ChevronDown
-                  size={17}
+                  size={19}
                   className={`text-slate-400 transition-transform duration-200 ${showCodeSection ? 'rotate-180' : ''}`}
                 />
               </button>
@@ -514,7 +514,7 @@ export default function StudentLogin() {
                       disabled={!codeInput.trim()}
                       className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
                     >
-                      <Hash size={16} />
+                      <Hash size={18} />
                       Ir
                     </button>
                   </form>

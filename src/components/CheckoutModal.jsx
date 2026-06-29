@@ -194,7 +194,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-bold text-on-surface">Activar suscripción mensual</h3>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-muted">
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
@@ -224,7 +224,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                       : 'border-outline-variant text-muted hover:bg-surface'
                   }`}
                 >
-                  <m.icon size={14} />
+                  <m.icon size={16} />
                   {m.label}
                 </button>
               ))}
@@ -238,7 +238,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 disabled={submitting}
                 className="w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {submitting ? <Loader2 size={16} className="animate-spin" /> : <Wallet size={16} />}
+                {submitting ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
                 {submitting ? 'Redirigiendo…' : 'Pagar con Mercado Pago'}
               </button>
             )}

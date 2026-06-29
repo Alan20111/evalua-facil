@@ -28,7 +28,7 @@ export default function StatsCards({ kpis }) {
       {KPI_CONFIG.map(({ key, label, icon: Icon, format }) => (
         <div key={key} className="bg-surface-card rounded-card shadow-card p-4 md:p-4">
           <div className="flex items-center gap-2 text-slate-400 mb-2 min-w-0">
-            <Icon size={16} className="flex-shrink-0" />
+            <Icon size={18} className="flex-shrink-0" />
             <span className="text-xs font-medium truncate">{label}</span>
           </div>
           <p className="text-xl md:text-2xl font-bold text-on-surface truncate">{format(kpis[key] ?? 0)}</p>

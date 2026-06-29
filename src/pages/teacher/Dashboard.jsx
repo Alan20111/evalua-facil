@@ -207,7 +207,7 @@ export default function TeacherDashboard() {
                   onClick={openSubjectModal}
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded transition-colors"
                 >
-                  <Plus size={16} />
+                  <Plus size={18} />
                   Crear mi primera asignatura
                 </button>
               </div>
@@ -226,7 +226,7 @@ export default function TeacherDashboard() {
                         title="Subir"
                         className="p-1 text-slate-400 hover:text-accent disabled:opacity-30 rounded"
                       >
-                        <ArrowUp size={14} />
+                        <ArrowUp size={16} />
                       </button>
                       <button
                         onClick={() => moveSubject(i, 1)}
@@ -234,7 +234,7 @@ export default function TeacherDashboard() {
                         title="Bajar"
                         className="p-1 text-slate-400 hover:text-accent disabled:opacity-30 rounded"
                       >
-                        <ArrowDown size={14} />
+                        <ArrowDown size={16} />
                       </button>
                     </div>
                     <button
@@ -242,7 +242,7 @@ export default function TeacherDashboard() {
                       className="flex-1 min-w-0 text-left p-2 flex items-center gap-3"
                     >
                       <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-                        <SubjectIcon iconKey={s.icon} size={19} className="text-accent" />
+                        <SubjectIcon iconKey={s.icon} size={21} className="text-accent" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -257,7 +257,7 @@ export default function TeacherDashboard() {
                           <p className="text-sm text-slate-500 mt-0.5">{subjectPeriodLabel(s)}</p>
                         )}
                       </div>
-                      <ChevronRight size={18} className="text-slate-300 flex-shrink-0" />
+                      <ChevronRight size={20} className="text-slate-300 flex-shrink-0" />
                     </button>
                   </div>
                 ))}
@@ -273,7 +273,7 @@ export default function TeacherDashboard() {
         onClick={openSubjectModal}
         className="md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
       >
-        <Plus size={24} />
+        <Plus size={26} />
       </button>
 
       {/* ── Nueva asignatura modal ── */}
@@ -284,7 +284,7 @@ export default function TeacherDashboard() {
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
               <button onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-muted rounded">
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
             <form onSubmit={handleCreateSubject} className="space-y-3">
@@ -385,7 +385,7 @@ export default function TeacherDashboard() {
                 disabled={creatingSubject}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {creatingSubject ? <Spinner size="sm" /> : <Plus size={16} />}
+                {creatingSubject ? <Spinner size="sm" /> : <Plus size={18} />}
                 {creatingSubject ? 'Creando…' : 'Crear asignatura'}
               </button>
             </form>

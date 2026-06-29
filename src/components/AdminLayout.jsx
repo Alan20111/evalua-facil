@@ -48,7 +48,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
           onClick={() => setMobileOpen((o) => !o)}
           className="p-2 text-muted rounded"
         >
-          {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </header>
 
@@ -87,7 +87,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
                     : 'text-muted hover:bg-surface'
                 }`}
               >
-                <Icon size={16} />
+                <Icon size={18} />
                 {label}
               </button>
             ))}
@@ -99,7 +99,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
               onClick={handleLogout}
               className="flex items-center gap-2 w-full px-3 py-2 rounded text-sm text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
             >
-              <LogOut size={14} />
+              <LogOut size={16} />
               Cerrar sesión
             </button>
           </div>

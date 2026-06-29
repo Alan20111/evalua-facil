@@ -23,10 +23,10 @@ export function ToastProvider({ children }) {
               t.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
             }`}
           >
-            {t.type === 'error' ? <XCircle size={18} /> : <CheckCircle size={18} />}
+            {t.type === 'error' ? <XCircle size={20} /> : <CheckCircle size={20} />}
             <span className="flex-1">{t.msg}</span>
             <button onClick={() => setToasts((ts) => ts.filter((x) => x.id !== t.id))}>
-              <X size={14} />
+              <X size={16} />
             </button>
           </div>
         ))}

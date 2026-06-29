@@ -241,7 +241,7 @@ export default function ActivityPage() {
               onClick={() => navigate(`/subject/${activity?.asignaturaId}`)}
               className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={22} />
             </button>
             <div className="flex-1">
               <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2">
@@ -263,7 +263,7 @@ export default function ActivityPage() {
               { key: 'calificado', label: 'Calificados', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
             ].map(({ key, label, icon: Icon, color, bg }) => (
               <div key={key} className={`${bg} rounded p-3.5 text-center`}>
-                <Icon size={18} className={`${color} mx-auto mb-1.5`} />
+                <Icon size={20} className={`${color} mx-auto mb-1.5`} />
                 <p className="text-2xl font-bold text-on-surface">{counts[key]}</p>
                 <p className="text-xs text-muted">{label}</p>
               </div>
@@ -289,7 +289,7 @@ export default function ActivityPage() {
         {/* Search + sort */}
         <div className="px-4 pt-4 pb-2 flex gap-2">
           <div className="flex-1 relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               value={searchStudents}
               onChange={(e) => setSearchStudents(e.target.value)}
@@ -304,7 +304,7 @@ export default function ActivityPage() {
               sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-slate-400 hover:text-muted'
             }`}
           >
-            <ArrowDownAZ size={18} />
+            <ArrowDownAZ size={20} />
           </button>
         </div>
 
@@ -316,7 +316,7 @@ export default function ActivityPage() {
               disabled={zipDownloading}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-accent-light transition-colors disabled:opacity-40"
             >
-              {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={16} />}
+              {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
               {zipDownloading
                 ? `Comprimiendo ${zipProgress.done}/${zipProgress.total}…`
                 : 'Descargar entregas como ZIP'}
@@ -356,10 +356,10 @@ export default function ActivityPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {hasExtension && <CalendarDays size={13} className="text-orange-400" />}
+                      {hasExtension && <CalendarDays size={15} className="text-orange-400" />}
                       {sub?.calificacion != null && (
                         <span className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
-                          <Star size={12} /> {sub.calificacion}/{activity?.maxCalif}
+                          <Star size={14} /> {sub.calificacion}/{activity?.maxCalif}
                         </span>
                       )}
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[status]}`}>
@@ -392,7 +392,7 @@ export default function ActivityPage() {
                     : 'Sin entrega aún'}
                 </p>
               </div>
-              <button onClick={closeModal} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={18} /></button>
+              <button onClick={closeModal} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
             </div>
 
             {/* Prev / next navigation across the student row */}
@@ -404,7 +404,7 @@ export default function ActivityPage() {
                   disabled={curIdx <= 0}
                   className="flex items-center gap-1 text-xs font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
                 >
-                  <ChevronLeft size={16} /> Anterior
+                  <ChevronLeft size={18} /> Anterior
                 </button>
                 <span className="text-sm text-slate-500">{curIdx + 1} / {filtered.length}</span>
                 <button
@@ -413,7 +413,7 @@ export default function ActivityPage() {
                   disabled={curIdx >= filtered.length - 1}
                   className="flex items-center gap-1 text-xs font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
                 >
-                  Siguiente <ChevronRight size={16} />
+                  Siguiente <ChevronRight size={18} />
                 </button>
               </div>
             )}
@@ -438,7 +438,7 @@ export default function ActivityPage() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors mb-3"
               >
-                <Download size={16} className="text-accent" />
+                <Download size={18} className="text-accent" />
                 Ver / Descargar entrega
               </a>
             )}
@@ -459,7 +459,7 @@ export default function ActivityPage() {
                         ? <span className="text-slate-400 italic">sin archivo</span>
                         : v.archivoURL
                           ? <a href={v.archivoURL} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
-                              <Download size={10} /> {v.nombreArchivo}
+                              <Download size={14} /> {v.nombreArchivo}
                             </a>
                           : <span className="text-slate-300 italic">sin archivo</span>
                       }
@@ -510,7 +510,7 @@ export default function ActivityPage() {
                   disabled={saving || !canCreate}
                   className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {saving ? <Spinner size="sm" /> : <Star size={16} />}
+                  {saving ? <Spinner size="sm" /> : <Star size={18} />}
                   {saving ? 'Guardando…' : 'Guardar calificación'}
                 </button>
               </form>

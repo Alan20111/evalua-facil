@@ -152,7 +152,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
           onClick={openCreate}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700"
         >
-          <Plus size={14} /> Nueva
+          <Plus size={16} /> Nueva
         </button>
       </div>
 
@@ -205,7 +205,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                           className="p-1.5 text-slate-400 hover:text-blue-600 rounded"
                           title="Editar"
                         >
-                          <Pencil size={14} />
+                          <Pencil size={16} />
                         </button>
                         {sub.status !== 'cancelada' && (
                           <button
@@ -214,7 +214,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                             className="p-1.5 text-slate-400 hover:text-amber-600 rounded"
                             title="Cancelar"
                           >
-                            <Ban size={14} />
+                            <Ban size={16} />
                           </button>
                         )}
                         <button
@@ -223,7 +223,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                           className="p-1.5 text-slate-400 hover:text-red-600 rounded"
                           title="Eliminar"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
@@ -243,7 +243,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 {modal.mode === 'create' ? 'Nueva suscripción' : 'Editar suscripción'}
               </h3>
               <button type="button" onClick={() => setModal(null)}>
-                <X size={18} className="text-slate-400" />
+                <X size={20} className="text-slate-400" />
               </button>
             </div>
             <form onSubmit={handleSave} className="space-y-3">

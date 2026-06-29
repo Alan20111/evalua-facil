@@ -27,7 +27,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
             className={`w-9 h-9 rounded-full flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
             style={{ backgroundColor: p.color }}
           >
-            {selected && <Check size={16} className="text-white" />}
+            {selected && <Check size={18} className="text-white" />}
           </button>
         )
       })}

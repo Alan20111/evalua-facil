@@ -235,7 +235,7 @@ export default function StudentActivityPage() {
           onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}
           className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={22} />
         </button>
         <div className="min-w-0">
           <h1 className="text-lg font-bold text-on-surface truncate">{activity?.nombre}</h1>
@@ -250,9 +250,9 @@ export default function StudentActivityPage() {
           isDelivered ? 'bg-accent-light border border-accent' :
           'bg-surface border border-outline-variant'
         }`}>
-          {isGraded ? <CheckCircle size={24} className="text-emerald-500 flex-shrink-0" />
-            : isDelivered ? <Clock size={24} className="text-accent flex-shrink-0" />
-            : <FileText size={24} className="text-slate-400 flex-shrink-0" />}
+          {isGraded ? <CheckCircle size={26} className="text-emerald-500 flex-shrink-0" />
+            : isDelivered ? <Clock size={26} className="text-accent flex-shrink-0" />
+            : <FileText size={26} className="text-slate-400 flex-shrink-0" />}
           <div className="min-w-0">
             <p className="font-semibold text-on-surface text-sm">
               {isGraded ? 'Calificado'
@@ -262,8 +262,8 @@ export default function StudentActivityPage() {
             {isDelivered && (
               <p className="text-xs text-muted mt-0.5 flex items-center gap-1 min-w-0">
                 {noFile
-                  ? <><CheckCircle size={10} className="flex-shrink-0" /> Completada sin archivo</>
-                  : <><FileText size={10} className="flex-shrink-0" /> <span className="truncate">{submission.nombreArchivo}</span></>}
+                  ? <><CheckCircle size={14} className="flex-shrink-0" /> Completada sin archivo</>
+                  : <><FileText size={14} className="flex-shrink-0" /> <span className="truncate">{submission.nombreArchivo}</span></>}
               </p>
             )}
           </div>
@@ -279,7 +279,7 @@ export default function StudentActivityPage() {
               rel="noopener noreferrer"
               className="flex items-center gap-3 px-3 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
             >
-              <Download size={15} className="text-accent flex-shrink-0" />
+              <Download size={17} className="text-accent flex-shrink-0" />
               <span className="truncate">{submission.nombreArchivo}</span>
             </a>
           </div>
@@ -289,7 +289,7 @@ export default function StudentActivityPage() {
         {isGraded && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <div className="flex items-center gap-3 mb-3">
-              <Star size={20} className="text-amber-400" />
+              <Star size={22} className="text-amber-400" />
               <h2 className="font-semibold text-on-surface">Tu calificación</h2>
             </div>
             <div className="flex items-end gap-2 mb-3">
@@ -298,7 +298,7 @@ export default function StudentActivityPage() {
             </div>
             {submission.comentario && (
               <div className="bg-surface rounded p-3 flex gap-2">
-                <MessageSquare size={15} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                <MessageSquare size={17} className="text-slate-400 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-muted italic">"{submission.comentario}"</p>
               </div>
             )}
@@ -354,7 +354,7 @@ export default function StudentActivityPage() {
                   className="hidden"
                   onChange={(e) => setFile(e.target.files[0] || null)}
                 />
-                <Upload size={24} className={`flex-shrink-0 ${file ? 'text-accent' : 'text-slate-400'}`} />
+                <Upload size={26} className={`flex-shrink-0 ${file ? 'text-accent' : 'text-slate-400'}`} />
                 <p className="text-sm mt-2 font-medium text-muted text-center break-words line-clamp-2 max-w-full">
                   {file ? file.name : 'Toca para seleccionar archivo'}
                 </p>
@@ -368,7 +368,7 @@ export default function StudentActivityPage() {
                 style={{ touchAction: 'manipulation' }}
                 className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                {uploading ? <Spinner size="sm" /> : <Upload size={16} />}
+                {uploading ? <Spinner size="sm" /> : <Upload size={18} />}
                 {uploading ? 'Subiendo…' : 'Entregar'}
               </button>
               <button

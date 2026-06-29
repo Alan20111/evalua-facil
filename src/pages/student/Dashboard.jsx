@@ -159,7 +159,7 @@ export default function StudentDashboard() {
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between gap-3 shadow-card">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-            <GraduationCap size={18} className="text-white" />
+            <GraduationCap size={20} className="text-white" />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-on-surface truncate">
@@ -172,7 +172,7 @@ export default function StudentDashboard() {
           onClick={handleLogout}
           className="p-2 text-slate-400 hover:text-red-500 rounded transition-colors flex-shrink-0"
         >
-          <LogOut size={18} />
+          <LogOut size={20} />
         </button>
       </header>
 
@@ -196,7 +196,7 @@ export default function StudentDashboard() {
                 className="w-full bg-surface-card rounded-card p-4 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-3"
               >
                 <div className="w-12 h-12 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-                  <SubjectIcon iconKey={s.icon} size={20} className="text-accent" />
+                  <SubjectIcon iconKey={s.icon} size={22} className="text-accent" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
@@ -209,7 +209,7 @@ export default function StudentDashboard() {
                       <p className="text-sm text-slate-500">promedio</p>
                     </div>
                   )}
-                  <ChevronRight size={16} className="text-slate-300" />
+                  <ChevronRight size={18} className="text-slate-300" />
                 </div>
               </button>
             ))}
@@ -221,7 +221,7 @@ export default function StudentDashboard() {
           onClick={() => { setJoinCode(''); setShowJoin(true) }}
           className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-card border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
         >
-          <Plus size={16} /> Unirme a otra asignatura
+          <Plus size={18} /> Unirme a otra asignatura
         </button>
       </div>
 
@@ -232,7 +232,7 @@ export default function StudentDashboard() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-on-surface truncate">Unirme a otra asignatura</h3>
-              <button onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={18} /></button>
+              <button onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-3">
               Ingresa el <strong>código de acceso</strong> de tu nueva asignatura (o escanea su QR). Como ya tienes cuenta, solo confirmarás tu contraseña.
@@ -256,7 +256,7 @@ export default function StudentDashboard() {
                 disabled={!joinCode.trim()}
                 className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
               >
-                <Hash size={16} /> Ir
+                <Hash size={18} /> Ir
               </button>
             </form>
           </div>

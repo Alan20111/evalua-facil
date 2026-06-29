@@ -138,7 +138,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                             disabled={processing === payment.id}
                             className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold hover:bg-emerald-200 disabled:opacity-60"
                           >
-                            {processing === payment.id ? <Spinner size="sm" /> : <Check size={12} />}
+                            {processing === payment.id ? <Spinner size="sm" /> : <Check size={14} />}
                             Aprobar
                           </button>
                           <button
@@ -147,7 +147,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                             disabled={processing === payment.id}
                             className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold hover:bg-red-200 disabled:opacity-60"
                           >
-                            <X size={12} /> Rechazar
+                            <X size={14} /> Rechazar
                           </button>
                         </div>
                       )}

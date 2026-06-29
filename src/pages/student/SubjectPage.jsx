@@ -94,10 +94,10 @@ export default function StudentSubjectPage() {
           onClick={() => navigate('/alumno/dashboard')}
           className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={22} />
         </button>
         <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-          <SubjectIcon iconKey={subject?.icon} size={18} className="text-accent" />
+          <SubjectIcon iconKey={subject?.icon} size={20} className="text-accent" />
         </div>
         <div className="min-w-0">
           <h1 className="text-lg font-bold text-on-surface truncate">{subjectDisplayName(subject)}</h1>
@@ -129,14 +129,14 @@ export default function StudentSubjectPage() {
                       <span className="text-lg font-bold text-accent">{avg}</span>
                     </div>
                   )}
-                  {isOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                  {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
                 </div>
               </button>
 
               {isOpen && (
-                <div className="border-t border-outline-variant px-4 py-2.5 space-y-2">
+                <div className="border-t border-outline-variant px-4 py-2 space-y-1.5">
                   {acts.length === 0 && (
-                    <p className="text-slate-400 text-sm text-center py-2.5">Sin actividades</p>
+                    <p className="text-slate-400 text-sm text-center py-2">Sin actividades</p>
                   )}
                   {acts.map((a) => {
                     const sub = submissions[a.id]
@@ -146,28 +146,28 @@ export default function StudentSubjectPage() {
                       <button
                         key={a.id}
                         onClick={() => navigate(`/alumno/actividad/${a.id}`)}
-                        className="w-full flex items-center gap-3 px-3 py-3.5 rounded hover:bg-surface transition-colors border border-outline-variant text-left"
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-surface transition-colors border border-outline-variant text-left"
                       >
                         <div className="flex-shrink-0">
                           {graded ? (
-                            <CheckCircle size={18} className="text-emerald-500" />
+                            <CheckCircle size={20} className="text-emerald-500" />
                           ) : delivered ? (
-                            <Clock size={18} className="text-accent" />
+                            <Clock size={20} className="text-accent" />
                           ) : (
-                            <Circle size={18} className="text-slate-300" />
+                            <Circle size={20} className="text-slate-300" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-on-surface truncate">{a.nombre}</p>
+                          <p className="text-sm font-medium leading-tight text-on-surface truncate">{a.nombre}</p>
                           {sub?.comentario && (
-                            <p className="text-sm text-slate-500 truncate mt-0.5">"{sub.comentario}"</p>
+                            <p className="text-sm text-slate-500 leading-tight truncate mt-0.5">"{sub.comentario}"</p>
                           )}
                         </div>
                         <div className="flex-shrink-0 text-right">
                           {graded ? (
                             <div>
                               <p className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
-                                <Star size={11} /> {sub.calificacion}
+                                <Star size={13} /> {sub.calificacion}
                               </p>
                               <p className="text-sm text-slate-500">/{a.maxCalif}</p>
                             </div>
