@@ -21,7 +21,7 @@ import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import FileTypeSelect from '../../components/FileTypeSelect'
 import RichTextEditor from '../../components/RichTextEditor'
-import { htmlToPlainText, sanitizeHtml, toRichHtml } from '../../utils/sanitizeHtml'
+import { htmlToPlainText, richTextContentClass, sanitizeHtml, toRichHtml } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import { TEACHER_CONTAINER } from '../../config/layout'
 import {
@@ -1141,10 +1141,13 @@ export default function SubjectPage() {
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
                                   {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} · </span>}
                                   {a.nombre}
-                                  {a.instrucciones && (
-                                    <span className="text-sm font-normal text-on-surface"> — {htmlToPlainText(a.instrucciones)}</span>
-                                  )}
                                 </p>
+                                {a.instrucciones && (
+                                  <div
+                                    className={`text-sm leading-tight line-clamp-2 text-on-surface ${richTextContentClass}`}
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(a.instrucciones)) }}
+                                  />
+                                )}
                                 {(a.fechaLimite || visState !== 'visible') && (
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                     {a.fechaLimite && (
