@@ -251,6 +251,9 @@ export default function ActivityPage() {
               <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
             </div>
           </div>
+          {activity?.instrucciones && (
+            <p className="text-sm text-muted mt-3 whitespace-pre-wrap">{activity.instrucciones}</p>
+          )}
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2 mt-4">
