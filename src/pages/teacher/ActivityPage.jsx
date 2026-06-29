@@ -369,7 +369,7 @@ export default function ActivityPage() {
                   <button
                     key={s.id}
                     onClick={() => openGrade(s)}
-                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-[rgba(249,115,22,0.12)] transition-colors cursor-pointer ${
+                    className={`w-full flex items-center gap-2 px-2 py-1 text-left hover:bg-[rgba(249,115,22,0.12)] transition-colors cursor-pointer ${
                       i > 0 ? 'border-t border-outline-variant' : ''
                     }`}
                   >
@@ -379,7 +379,7 @@ export default function ActivityPage() {
                         {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
                       </p>
                       {sub?.fechaEntrega?.seconds && (
-                        <p className="text-sm text-slate-500 mt-0.5">
+                        <p className="text-xs text-slate-500 mt-0.5">
                           {new Date(sub.fechaEntrega.seconds * 1000).toLocaleString('es-MX', {
                             day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                           })}
@@ -389,7 +389,7 @@ export default function ActivityPage() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {hasExtension && <CalendarDays size={15} className="text-orange-400" />}
                       {sub?.calificacion != null && (
-                        <span className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
+                        <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
                           <Star size={14} /> {sub.calificacion}/{activity?.maxCalif}
                         </span>
                       )}
