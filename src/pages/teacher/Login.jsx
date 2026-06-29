@@ -6,24 +6,13 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
 } from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
-import { auth, db } from '../../firebase'
+import { auth } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
+import GoogleIcon from '../../components/GoogleIcon'
 import { GraduationCap } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
-import { createTeacherAccount } from '../../utils/teacherAccount'
-
-function GoogleIcon(props) {
-  return (
-    <svg viewBox="0 0 48 48" width="18" height="18" {...props}>
-      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.6 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.5 29.6 4.5 24 4.5 13.2 4.5 4.5 13.2 4.5 24S13.2 43.5 24 43.5 43.5 34.8 43.5 24c0-1.2-.1-2.4-.4-3.5z"/>
-      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 7.1 29.6 5 24 5c-7.7 0-14.3 4.4-17.7 10.7z"/>
-      <path fill="#4CAF50" d="M24 43.5c5.5 0 10.4-1.9 14.2-5.1l-6.6-5.4C29.6 34.7 26.9 36 24 36c-5.3 0-9.7-3.1-11.3-7.6l-6.6 5.1C9.6 39.1 16.3 43.5 24 43.5z"/>
-      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.3 5.7l6.6 5.4C41.6 35.7 43.5 30.3 43.5 24c0-1.2-.1-2.4-.4-3.5z"/>
-    </svg>
-  )
-}
+import { createTeacherAccountIfNew } from '../../utils/googleAuth'
 
 export default function TeacherLogin() {
   const [email, setEmail] = useState('')
@@ -34,22 +23,16 @@ export default function TeacherLogin() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  async function landNewOrExistingAccount(user) {
-    const ref = doc(db, 'users', user.uid)
-    const snap = await getDoc(ref)
-    if (!snap.exists()) {
-      await createTeacherAccount(user.uid, user.email, user.photoURL || null)
-    }
-    navigate('/dashboard')
-  }
-
   async function handleGoogleSignIn() {
     setGoogleLoading(true)
     try {
       const result = await signInWithPopup(auth, new GoogleAuthProvider())
-      await landNewOrExistingAccount(result.user)
+      await createTeacherAccountIfNew(result.user)
+      navigate('/dashboard')
     } catch (err) {
-      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        toast('Ya tienes una cuenta con este correo. Inicia sesión con tu contraseña.', 'error')
+      } else if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
         toast('No se pudo iniciar sesión con Google', 'error')
       }
     } finally {

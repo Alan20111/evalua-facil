@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { GoogleAuthProvider, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import { createTeacherAccount } from '../../utils/teacherAccount'
+import { createTeacherAccountIfNew } from '../../utils/googleAuth'
 import Spinner from '../../components/Spinner'
+import GoogleIcon from '../../components/GoogleIcon'
 import { GraduationCap } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
 
@@ -13,8 +15,26 @@ export default function Register() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
+
+  async function handleGoogleSignUp() {
+    setGoogleLoading(true)
+    try {
+      const result = await signInWithPopup(auth, new GoogleAuthProvider())
+      await createTeacherAccountIfNew(result.user)
+      navigate('/dashboard')
+    } catch (err) {
+      if (err.code === 'auth/account-exists-with-different-credential') {
+        toast('Ya tienes una cuenta con este correo. Inicia sesión con tu contraseña.', 'error')
+      } else if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        toast('No se pudo continuar con Google', 'error')
+      }
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -27,7 +47,7 @@ export default function Register() {
       navigate('/dashboard')
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
-        toast('Este correo ya tiene cuenta. Inicia sesión.', 'error')
+        toast('Este correo ya tiene cuenta (quizá con Google). Inicia sesión.', 'error')
       } else {
         toast('Error: ' + err.message, 'error')
       }
@@ -47,7 +67,25 @@ export default function Register() {
           <p className="text-muted text-sm mt-1">Evalúa Fácil — Docente</p>
         </div>
 
-        <div className="bg-surface-card rounded-card shadow-card p-5">
+        <div className="bg-surface-card rounded-card shadow-card p-5 space-y-3">
+          <button
+            type="button"
+            onClick={handleGoogleSignUp}
+            disabled={googleLoading}
+            className="w-full py-2.5 border border-outline-variant rounded font-semibold text-sm text-on-surface hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {googleLoading ? <Spinner size="sm" /> : <GoogleIcon />}
+            {googleLoading ? 'Conectando…' : 'Continuar con Google'}
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-outline-variant" />
+            <span className="text-sm text-slate-500">o</span>
+            <div className="flex-1 h-px bg-outline-variant" />
+          </div>
+
+          <p className="text-xs font-semibold text-muted uppercase tracking-wide">Crear cuenta con correo electrónico</p>
+
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
