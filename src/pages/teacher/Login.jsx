@@ -13,6 +13,7 @@ import GoogleIcon from '../../components/GoogleIcon'
 import { GraduationCap } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
 import { createTeacherAccountIfNew } from '../../utils/googleAuth'
+import LinkAccountModal from '../../components/LinkAccountModal'
 
 export default function TeacherLogin() {
   const [email, setEmail] = useState('')
@@ -20,6 +21,7 @@ export default function TeacherLogin() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
+  const [showLinkAccount, setShowLinkAccount] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -99,6 +101,14 @@ export default function TeacherLogin() {
             {googleLoading ? 'Conectando…' : 'Continuar con Google'}
           </button>
 
+          <button
+            type="button"
+            onClick={() => setShowLinkAccount(true)}
+            className="w-full text-center text-xs text-blue-600 hover:underline"
+          >
+            ¿Normalmente entras con Google y hoy usarás otra computadora?
+          </button>
+
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-outline-variant" />
             <span className="text-sm text-slate-500">o</span>
@@ -162,6 +172,8 @@ export default function TeacherLogin() {
           Para una mejor experiencia recomendamos utilizar Evalúa Fácil Docente desde una laptop o computadora de escritorio.
         </p>
       </div>
+
+      {showLinkAccount && <LinkAccountModal onClose={() => setShowLinkAccount(false)} />}
     </div>
   )
 }

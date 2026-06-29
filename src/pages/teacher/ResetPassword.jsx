@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth'
+import {
+  confirmPasswordReset,
+  fetchSignInMethodsForEmail,
+  signInWithEmailAndPassword,
+  verifyPasswordResetCode,
+} from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -28,6 +33,11 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [saving, setSaving] = useState(false)
+  // True when this link is being used to add a password to a Google-only
+  // account ("Acceso desde otra computadora"), not a regular password reset
+  // — detected from the account's sign-in methods before the new password
+  // is set. Drives the stricter validation and the dual-access copy below.
+  const [isGoogleLinking, setIsGoogleLinking] = useState(false)
 
   useEffect(() => {
     if (!oobCode) {
@@ -35,17 +45,37 @@ export default function ResetPassword() {
       return
     }
     verifyPasswordResetCode(auth, oobCode)
-      .then((userEmail) => { setEmail(userEmail); setStatus('valid') })
+      .then(async (userEmail) => {
+        setEmail(userEmail)
+        try {
+          const methods = await fetchSignInMethodsForEmail(auth, userEmail)
+          setIsGoogleLinking(methods.includes('google.com') && !methods.includes('password'))
+        } catch {
+          setIsGoogleLinking(false)
+        }
+        setStatus('valid')
+      })
       .catch(() => setStatus('invalid'))
   }, [oobCode, navigate])
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (password.length < 6) { toast('Mínimo 6 caracteres', 'error'); return }
+    if (isGoogleLinking) {
+      if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+        toast('Mínimo 8 caracteres, con al menos una letra y un número', 'error')
+        return
+      }
+    } else if (password.length < 6) {
+      toast('Mínimo 6 caracteres', 'error')
+      return
+    }
     if (password !== confirmPassword) { toast('Las contraseñas no coinciden', 'error'); return }
     setSaving(true)
     try {
       await confirmPasswordReset(auth, oobCode, password)
+      if (isGoogleLinking) {
+        await signInWithEmailAndPassword(auth, email, password)
+      }
       setStatus('done')
     } catch (err) {
       toast(
@@ -66,7 +96,9 @@ export default function ResetPassword() {
           <div className="w-16 h-16 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-on-surface">Restablecer contraseña</h1>
+          <h1 className="text-2xl font-bold text-on-surface">
+            {isGoogleLinking ? 'Crear contraseña' : 'Restablecer contraseña'}
+          </h1>
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5">
@@ -90,6 +122,11 @@ export default function ResetPassword() {
 
           {status === 'valid' && (
             <form onSubmit={handleSubmit} className="space-y-3">
+              {isGoogleLinking && (
+                <p className="text-sm text-muted leading-relaxed">
+                  Tu cuenta usa Google para iniciar sesión. Crea una contraseña para poder entrar también desde cualquier computadora sin usar Google.
+                </p>
+              )}
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
                 <input
@@ -105,10 +142,10 @@ export default function ResetPassword() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={isGoogleLinking ? 8 : 6}
                   autoComplete="new-password"
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={isGoogleLinking ? 'Mínimo 8 caracteres, con letra y número' : 'Mínimo 6 caracteres'}
                 />
               </div>
               <div>
@@ -128,12 +165,38 @@ export default function ResetPassword() {
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}
-                {saving ? 'Guardando…' : 'Guardar nueva contraseña'}
+                {saving ? 'Guardando…' : (isGoogleLinking ? 'Guardar y entrar' : 'Guardar nueva contraseña')}
               </button>
             </form>
           )}
 
-          {status === 'done' && (
+          {status === 'done' && isGoogleLinking && (
+            <div className="text-center space-y-3">
+              <CheckCircle2 size={40} className="text-emerald-500 mx-auto" />
+              <p className="text-base font-semibold text-on-surface">¡Listo!</p>
+              <p className="text-sm text-muted leading-relaxed text-left">
+                Tu contraseña ha sido creada correctamente.
+                <br /><br />
+                A partir de ahora podrás iniciar sesión de dos formas:
+              </p>
+              <ul className="text-sm text-muted leading-relaxed text-left list-disc pl-5">
+                <li>Continuar con Google.</li>
+                <li>Correo electrónico y contraseña.</li>
+              </ul>
+              <p className="text-sm font-medium text-amber-600 leading-relaxed">
+                Anótala o guárdala en tu administrador de contraseñas, ya que no volverá a mostrarse.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors"
+              >
+                Entrar a Evalúa Fácil
+              </button>
+            </div>
+          )}
+
+          {status === 'done' && !isGoogleLinking && (
             <div className="text-center space-y-3">
               <CheckCircle2 size={40} className="text-emerald-500 mx-auto" />
               <p className="text-sm font-medium text-on-surface">
