@@ -20,7 +20,7 @@ import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import FileTypeSelect from '../../components/FileTypeSelect'
-import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE } from '../../config/fileTypes'
+import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys } from '../../config/fileTypes'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
@@ -47,7 +47,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: DEFAULT_FILE_TYPE, extensionesCustom: '', oculta: false, publishAt: '' }
+const EMPTY_FORM = { nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '' }
 
 function gradeColor(norm) {
   if (norm === null) return 'text-slate-300'
@@ -532,7 +532,7 @@ export default function SubjectPage() {
       maxCalif: String(activity.maxCalif ?? '10'),
       instrucciones: activity.instrucciones || '',
       fechaLimite: activity.fechaLimite || '',
-      tiposArchivo: activity.tiposArchivo || DEFAULT_FILE_TYPE,
+      tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
       extensionesCustom: activity.extensionesCustom || '',
       oculta: activity.oculta || false,
       publishAt: activity.publishAt || '',
@@ -547,23 +547,30 @@ export default function SubjectPage() {
       return
     }
     setSaving(true)
+    const tiposArchivo = normalizeFileTypeKeys(form.tiposArchivo)
     const payload = {
       nombre: form.nombre.trim(),
       maxCalif: parseFloat(form.maxCalif) || 10,
       instrucciones: form.instrucciones.trim(),
       fechaLimite: form.fechaLimite || null,
-      tiposArchivo: form.tiposArchivo || DEFAULT_FILE_TYPE,
-      extensionesCustom: form.tiposArchivo === CUSTOM_FILE_TYPE ? (form.extensionesCustom || '').trim() : '',
+      tiposArchivo,
+      extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
       oculta: form.oculta || !!form.publishAt,
       publishAt: form.publishAt || null,
     }
     try {
       if (modalMode === 'create') {
+        // "Actividad" is the short label (1.1, 1.2…) that identifies this activity
+        // everywhere it needs a compact reference (mainly the grades table column
+        // header) — fixed by its position within the parcial, not editable by the
+        // teacher, so it always matches what students were told to look for.
+        const orden = activities.filter((a) => a.parcial === modalParcial).length + 1
+        const actividad = `${modalParcial}.${orden}`
         const ref = await addDoc(collection(db, 'activities'), {
-          ...payload, tipo: 'archivo', parcial: modalParcial,
+          ...payload, tipo: 'archivo', parcial: modalParcial, orden, actividad,
           asignaturaId: subjectId, docenteId: currentUser.uid, createdAt: serverTimestamp(),
         })
-        setActivities((prev) => [...prev, { id: ref.id, ...payload, tipo: 'archivo', parcial: modalParcial, asignaturaId: subjectId, docenteId: currentUser.uid }])
+        setActivities((prev) => [...prev, { id: ref.id, ...payload, tipo: 'archivo', parcial: modalParcial, orden, actividad, asignaturaId: subjectId, docenteId: currentUser.uid }])
         setSubmissionCounts((prev) => ({ ...prev, [ref.id]: { delivered: 0, graded: 0 } }))
         toast('Actividad creada')
       } else {
@@ -582,7 +589,23 @@ export default function SubjectPage() {
       // Remove this activity's submissions first so none are orphaned.
       await deleteSubmissionsByActivity(deleteConfirm.id)
       await deleteDoc(doc(db, 'activities', deleteConfirm.id))
-      setActivities((prev) => prev.filter((a) => a.id !== deleteConfirm.id))
+      // Renumber the remaining activities of the SAME parcial so "Actividad" stays
+      // contiguous (1.1, 1.2…) — otherwise deleting 1.1 would leave a gap before 1.2.
+      const remaining = activities
+        .filter((a) => a.id !== deleteConfirm.id && a.parcial === deleteConfirm.parcial)
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      const batch = writeBatch(db)
+      const renumbered = remaining.map((a, i) => {
+        const orden = i + 1
+        const actividad = `${deleteConfirm.parcial}.${orden}`
+        batch.update(doc(db, 'activities', a.id), { orden, actividad })
+        return { ...a, orden, actividad }
+      })
+      await batch.commit()
+      setActivities((prev) => {
+        const others = prev.filter((a) => a.id !== deleteConfirm.id && a.parcial !== deleteConfirm.parcial)
+        return [...others, ...renumbered]
+      })
       toast('Actividad eliminada'); setDeleteConfirm(null)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setDeleting(false) }
@@ -886,6 +909,13 @@ export default function SubjectPage() {
   // ── Computed ───────────────────────────────────────────────────────
   const PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
 
+  // Preview of the auto-assigned "Actividad" label shown (read-only) in the modal —
+  // mirrors the exact computation handleSaveActivity uses, so what the teacher sees
+  // before saving always matches what gets stored.
+  const previewActividad = modalMode === 'create'
+    ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}`
+    : (activities.find((a) => a.id === editActivityId)?.actividad || '—')
+
   const filteredGradeStudents = groupStudents.filter((s) => {
     if (!searchGrade.trim()) return true
     return `${s.apellidoPaterno} ${s.apellidoMaterno} ${s.nombre}`.toLowerCase()
@@ -1044,7 +1074,10 @@ export default function SubjectPage() {
                               className="flex items-center gap-3 flex-1 min-w-0 px-3 py-3 text-left">
                               <FileText size={18} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>{a.nombre}</p>
+                                <p className={`text-sm font-medium truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
+                                  {a.actividad && <span className="text-accent font-semibold">{a.actividad} · </span>}
+                                  {a.nombre}
+                                </p>
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                   <span className="text-sm text-slate-500">Máx: {a.maxCalif}</span>
                                   {a.fechaLimite && (
@@ -1187,7 +1220,7 @@ export default function SubjectPage() {
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
                             <th key={a.id} className="px-2 py-1.5 text-xs font-normal text-slate-400 text-center border-l border-outline-variant max-w-[80px]">
-                              <span className="block truncate max-w-[76px]" title={a.nombre}>{a.nombre}</span>
+                              <span className="block truncate max-w-[76px]" title={a.nombre}>{a.actividad || a.nombre}</span>
                             </th>
                           )),
                           <th key={`avg-${p}`} className="px-2 py-1.5 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
@@ -1358,6 +1391,9 @@ export default function SubjectPage() {
               </h3>
               <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
             </div>
+            <p className="text-xs text-muted -mt-2 mb-4">
+              Actividad <strong className="text-accent">{previewActividad}</strong> — este número se asigna solo, según su lugar en el parcial, y es el que aparecerá como encabezado de columna en tu pestaña de Calificaciones.
+            </p>
             <form onSubmit={handleSaveActivity} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>

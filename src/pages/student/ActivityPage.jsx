@@ -21,7 +21,7 @@ import {
   ArrowLeft, Upload, CheckCircle, Clock, FileText, Star,
   MessageSquare, Download,
 } from 'lucide-react'
-import { getFileType, isFileAllowed } from '../../config/fileTypes'
+import { resolveFileTypes, isFileAllowed } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
@@ -130,7 +130,7 @@ export default function StudentActivityPage() {
     if (!file) return
     if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
     if (!isFileAllowed(file, activity?.tiposArchivo || 'todos', activity?.extensionesCustom)) {
-      toast(`Solo se permiten: ${getFileType(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}`, 'error'); return
+      toast(`Solo se permiten: ${resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}`, 'error'); return
     }
     if (file.size > 5 * 1024 * 1024) { toast('El archivo no puede superar 5 MB', 'error'); return }
     setUploading(true)
@@ -350,7 +350,7 @@ export default function StudentActivityPage() {
               }`}>
                 <input
                   type="file"
-                  accept={getFileType(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}
+                  accept={resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}
                   className="hidden"
                   onChange={(e) => setFile(e.target.files[0] || null)}
                 />
@@ -358,7 +358,7 @@ export default function StudentActivityPage() {
                 <p className="text-sm mt-2 font-medium text-muted text-center break-words line-clamp-2 max-w-full">
                   {file ? file.name : 'Toca para seleccionar archivo'}
                 </p>
-                <p className="text-sm text-slate-500 mt-1 text-center break-words max-w-full">{getFileType(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept} · máx 5 MB</p>
+                <p className="text-sm text-slate-500 mt-1 text-center break-words max-w-full">{resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept} · máx 5 MB</p>
               </label>
               <button
                 type="button"

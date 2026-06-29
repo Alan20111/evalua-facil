@@ -1,56 +1,51 @@
-// Allowed file-type presets a teacher can pick per activity.
-// Default is images only; the teacher can widen it from the activity form.
-export const FILE_TYPE_OPTIONS = [
+// Allowed file-type categories a teacher can pick per activity (multi-select —
+// the teacher can check several at once, at least one must stay checked).
+export const FILE_TYPE_BASE_OPTIONS = [
   {
     key: 'imagenes',
     label: 'Imágenes (JPG, PNG)',
-    accept: '.jpg,.jpeg,.png',
     mimes: ['image/jpeg', 'image/jpg', 'image/png'],
     exts: ['jpg', 'jpeg', 'png'],
   },
   {
     key: 'pdf',
     label: 'PDF',
-    accept: '.pdf',
     mimes: ['application/pdf'],
     exts: ['pdf'],
   },
   {
-    key: 'imagenes_pdf',
-    label: 'Imágenes y PDF',
-    accept: '.jpg,.jpeg,.png,.pdf',
-    mimes: ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'],
-    exts: ['jpg', 'jpeg', 'png', 'pdf'],
-  },
-  {
-    key: 'documentos',
-    label: 'Word y PDF',
-    accept: '.doc,.docx,.pdf',
+    key: 'word',
+    label: 'Word',
     mimes: [
-      'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ],
-    exts: ['doc', 'docx', 'pdf'],
-  },
-  {
-    key: 'todos',
-    label: 'Cualquier archivo',
-    accept: '.doc,.docx,.pdf,.jpg,.jpeg,.png',
-    mimes: [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-    ],
-    exts: ['doc', 'docx', 'pdf', 'jpg', 'jpeg', 'png'],
+    exts: ['doc', 'docx'],
   },
 ]
 
-export const DEFAULT_FILE_TYPE = 'imagenes'
+export const ALL_FILES_KEY = 'todos'
 export const CUSTOM_FILE_TYPE = 'personalizado'
+export const DEFAULT_FILE_TYPE = 'imagenes'
+
+// `tiposArchivo` used to be a single preset key before multi-select existed.
+// Map each legacy value to its equivalent array of base keys.
+const LEGACY_KEY_MAP = {
+  imagenes: ['imagenes'],
+  pdf: ['pdf'],
+  imagenes_pdf: ['imagenes', 'pdf'],
+  documentos: ['word', 'pdf'],
+  todos: [ALL_FILES_KEY],
+  personalizado: [CUSTOM_FILE_TYPE],
+}
+
+// Normalize either shape (legacy single string or current array) into a clean,
+// non-empty array of keys.
+export function normalizeFileTypeKeys(value) {
+  if (Array.isArray(value)) return value.length ? value : [DEFAULT_FILE_TYPE]
+  if (typeof value === 'string' && value) return LEGACY_KEY_MAP[value] || [DEFAULT_FILE_TYPE]
+  return [DEFAULT_FILE_TYPE]
+}
 
 // Normalize a free-text list of extensions ("PSD, .ai zip") into a clean array
 // ['psd', 'ai', 'zip'].
@@ -61,31 +56,54 @@ export function parseCustomExts(raw) {
     .filter(Boolean)
 }
 
-// Resolve the active file-type definition. For the 'personalizado' key it is built
-// on the fly from the teacher's custom extensions; otherwise it's a preset.
-export function getFileType(key, customExts) {
-  if (key === CUSTOM_FILE_TYPE) {
+// Human label for the current selection, e.g. "Imágenes (JPG, PNG), PDF" or
+// "Cualquier archivo".
+export function fileTypesLabel(value, customExts) {
+  const keys = normalizeFileTypeKeys(value)
+  if (keys.includes(ALL_FILES_KEY)) return 'Cualquier archivo'
+  const parts = keys
+    .filter((k) => k !== CUSTOM_FILE_TYPE)
+    .map((k) => FILE_TYPE_BASE_OPTIONS.find((o) => o.key === k)?.label)
+    .filter(Boolean)
+  if (keys.includes(CUSTOM_FILE_TYPE)) {
     const exts = parseCustomExts(customExts)
-    return {
-      key: CUSTOM_FILE_TYPE,
-      label: exts.length ? exts.map((e) => e.toUpperCase()).join(', ') : 'Personalizado',
-      accept: exts.map((e) => `.${e}`).join(','),
-      mimes: [],
-      exts,
-    }
+    parts.push(exts.length ? exts.map((e) => e.toUpperCase()).join(', ') : 'Personalizado')
   }
-  return (
-    FILE_TYPE_OPTIONS.find((o) => o.key === key) ||
-    FILE_TYPE_OPTIONS.find((o) => o.key === DEFAULT_FILE_TYPE)
-  )
+  return parts.length ? parts.join(', ') : FILE_TYPE_BASE_OPTIONS[0].label
 }
 
-// Validate a File against a preset key (and optional custom extensions), by MIME
-// first and extension as fallback.
-export function isFileAllowed(file, key, customExts) {
-  const ft = getFileType(key, customExts)
-  if (ft.exts.length === 0) return true // custom with no exts set → allow anything
-  if (file.type && ft.mimes.includes(file.type)) return true
+// Combined accept/mime/ext set for the current selection — used for the upload
+// <input accept> attribute and to validate an uploaded file.
+export function resolveFileTypes(value, customExts) {
+  const keys = normalizeFileTypeKeys(value)
+  if (keys.includes(ALL_FILES_KEY)) {
+    const mimes = FILE_TYPE_BASE_OPTIONS.flatMap((o) => o.mimes)
+    const exts = FILE_TYPE_BASE_OPTIONS.flatMap((o) => o.exts)
+    return { mimes, exts, accept: exts.map((e) => `.${e}`).join(',') }
+  }
+  const mimes = []
+  const exts = []
+  keys.forEach((k) => {
+    if (k === CUSTOM_FILE_TYPE) {
+      exts.push(...parseCustomExts(customExts))
+      return
+    }
+    const base = FILE_TYPE_BASE_OPTIONS.find((o) => o.key === k)
+    if (base) { mimes.push(...base.mimes); exts.push(...base.exts) }
+  })
+  return {
+    mimes: [...new Set(mimes)],
+    exts: [...new Set(exts)],
+    accept: [...new Set(exts)].map((e) => `.${e}`).join(','),
+  }
+}
+
+// Validate a File against the current selection, by MIME first and extension
+// as fallback.
+export function isFileAllowed(file, value, customExts) {
+  const { mimes, exts } = resolveFileTypes(value, customExts)
+  if (exts.length === 0) return true // only "personalizado" selected with no extensions typed → allow anything
+  if (file.type && mimes.includes(file.type)) return true
   const ext = (file.name.split('.').pop() || '').toLowerCase()
-  return ft.exts.includes(ext)
+  return exts.includes(ext)
 }

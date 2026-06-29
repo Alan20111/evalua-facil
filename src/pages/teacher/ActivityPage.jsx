@@ -19,7 +19,7 @@ import {
   ChevronLeft, ChevronRight, FolderDown,
 } from 'lucide-react'
 import FileTypeSelect from '../../components/FileTypeSelect'
-import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE } from '../../config/fileTypes'
+import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys } from '../../config/fileTypes'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -53,7 +53,7 @@ export default function ActivityPage() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showEditModal, setShowEditModal] = useState(false)
-  const [editForm, setEditForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: DEFAULT_FILE_TYPE, extensionesCustom: '' })
+  const [editForm, setEditForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [searchStudents, setSearchStudents] = useState('')
   const [sortAlpha, setSortAlpha] = useState(false)
@@ -104,7 +104,7 @@ export default function ActivityPage() {
       maxCalif: String(activity?.maxCalif ?? '10'),
       instrucciones: activity?.instrucciones || '',
       fechaLimite: activity?.fechaLimite || '',
-      tiposArchivo: activity?.tiposArchivo || DEFAULT_FILE_TYPE,
+      tiposArchivo: normalizeFileTypeKeys(activity?.tiposArchivo),
       extensionesCustom: activity?.extensionesCustom || '',
     })
     setShowEditModal(true)
@@ -114,13 +114,14 @@ export default function ActivityPage() {
     e.preventDefault()
     setEditSaving(true)
     try {
+      const tiposArchivo = normalizeFileTypeKeys(editForm.tiposArchivo)
       await updateDoc(doc(db, 'activities', activityId), {
         nombre: editForm.nombre.trim(),
         maxCalif: parseFloat(editForm.maxCalif) || 10,
         instrucciones: editForm.instrucciones.trim(),
         fechaLimite: editForm.fechaLimite || null,
-        tiposArchivo: editForm.tiposArchivo || DEFAULT_FILE_TYPE,
-        extensionesCustom: editForm.tiposArchivo === CUSTOM_FILE_TYPE ? (editForm.extensionesCustom || '').trim() : '',
+        tiposArchivo,
+        extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (editForm.extensionesCustom || '').trim() : '',
       })
       toast('Actividad actualizada')
       setShowEditModal(false)
@@ -284,7 +285,10 @@ export default function ActivityPage() {
             </button>
             <div className="flex-1">
               <h1 className="text-xl font-bold text-on-surface">{activity?.nombre}</h1>
-              <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
+              <p className="text-slate-400 text-xs">
+                {subjectDisplayName(subject)} · Parcial {activity?.parcial}
+                {activity?.actividad && <> · Actividad {activity.actividad}</>}
+              </p>
             </div>
             <button
               onClick={openEditModal}
