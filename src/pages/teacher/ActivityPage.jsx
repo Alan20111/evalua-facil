@@ -15,11 +15,9 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, CheckCircle, Clock, Circle, X,
-  Download, Star, Pencil, CalendarDays, Search, ArrowDownAZ,
+  Download, Star, CalendarDays, Search, ArrowDownAZ,
   ChevronLeft, ChevronRight, FolderDown,
 } from 'lucide-react'
-import FileTypeSelect from '../../components/FileTypeSelect'
-import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -52,9 +50,6 @@ export default function ActivityPage() {
   const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '' })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [editForm, setEditForm] = useState({ nombre: '', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '' })
-  const [editSaving, setEditSaving] = useState(false)
   const [searchStudents, setSearchStudents] = useState('')
   const [sortAlpha, setSortAlpha] = useState(false)
   // Per-student deadline extension
@@ -95,44 +90,6 @@ export default function ActivityPage() {
       toast('Error al cargar: ' + err.message, 'error')
     } finally {
       setLoading(false)
-    }
-  }
-
-  function openEditModal() {
-    setEditForm({
-      nombre: activity?.nombre || '',
-      instrucciones: activity?.instrucciones || '',
-      fechaLimite: activity?.fechaLimite || '',
-      tiposArchivo: normalizeFileTypeKeys(activity?.tiposArchivo),
-      extensionesCustom: activity?.extensionesCustom || '',
-    })
-    setShowEditModal(true)
-  }
-
-  async function handleEditActivity(e) {
-    e.preventDefault()
-    const tiposArchivo = normalizeFileTypeKeys(editForm.tiposArchivo)
-    if (tiposArchivo.includes(CUSTOM_FILE_TYPE) && parseCustomExts(editForm.extensionesCustom).length === 0) {
-      toast('Escribe al menos una extensión para "Personalizado"', 'error')
-      return
-    }
-    setEditSaving(true)
-    try {
-      await updateDoc(doc(db, 'activities', activityId), {
-        nombre: editForm.nombre.trim(),
-        maxCalif: 10,
-        instrucciones: editForm.instrucciones.trim(),
-        fechaLimite: editForm.fechaLimite || null,
-        tiposArchivo,
-        extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (editForm.extensionesCustom || '').trim() : '',
-      })
-      toast('Actividad actualizada')
-      setShowEditModal(false)
-      loadAll()
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setEditSaving(false)
     }
   }
 
@@ -287,19 +244,12 @@ export default function ActivityPage() {
               <ArrowLeft size={20} />
             </button>
             <div className="flex-1">
-              <h1 className="text-xl font-bold text-on-surface">{activity?.nombre}</h1>
-              <p className="text-slate-400 text-xs">
-                {subjectDisplayName(subject)} · Parcial {activity?.parcial}
-                {activity?.actividad && <> · Actividad {activity.actividad}</>}
-              </p>
+              <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2">
+                {activity?.actividad && <span className="text-accent">{activity.actividad}</span>}
+                {activity?.nombre}
+              </h1>
+              <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
             </div>
-            <button
-              onClick={openEditModal}
-              className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0"
-              title="Editar actividad"
-            >
-              <Pencil size={18} />
-            </button>
           </div>
 
           {/* Stats */}
@@ -613,69 +563,6 @@ export default function ActivityPage() {
         </div>
       )}
 
-      {/* Edit activity modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowEditModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold">Editar actividad</h3>
-              <button onClick={() => setShowEditModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
-            </div>
-            <form onSubmit={handleEditActivity} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">Nombre</label>
-                <input
-                  type="text"
-                  value={editForm.nombre}
-                  onChange={(e) => setEditForm((f) => ({ ...f, nombre: e.target.value }))}
-                  required
-                  autoFocus
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
-                />
-              </div>
-              <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
-                <textarea
-                  value={editForm.instrucciones}
-                  onChange={(e) => setEditForm((f) => ({ ...f, instrucciones: e.target.value }))}
-                  required rows={3}
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-y"
-                  placeholder="Instrucciones para los alumnos…"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">
-                  Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
-                </label>
-                <input
-                  type="date"
-                  value={editForm.fechaLimite}
-                  onChange={(e) => setEditForm((f) => ({ ...f, fechaLimite: e.target.value }))}
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
-                />
-              </div>
-              <div className="pt-1">
-                <FileTypeSelect
-                  value={editForm.tiposArchivo}
-                  onChange={(v) => setEditForm((f) => ({ ...f, tiposArchivo: v }))}
-                  customExts={editForm.extensionesCustom}
-                  onCustomChange={(v) => setEditForm((f) => ({ ...f, extensionesCustom: v }))}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={editSaving}
-                className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {editSaving ? <Spinner size="sm" /> : <Pencil size={16} />}
-                {editSaving ? 'Guardando…' : 'Guardar cambios'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
       </div>
     </TeacherLayout>
   )
