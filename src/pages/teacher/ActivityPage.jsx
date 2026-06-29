@@ -324,7 +324,7 @@ export default function ActivityPage() {
             <input
               value={searchStudents}
               onChange={(e) => setSearchStudents(e.target.value)}
-              placeholder="Buscar alumno…"
+              placeholder="Buscar por nombre o por número de lista…"
               className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card"
             />
           </div>

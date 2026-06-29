@@ -1682,7 +1682,7 @@ export default function SubjectPage() {
             <div className="relative">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={searchGrade} onChange={(e) => setSearchGrade(e.target.value)}
-                placeholder="Buscar alumno…"
+                placeholder="Buscar por nombre o por número de lista…"
                 className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card" />
             </div>
 
@@ -1856,7 +1856,7 @@ export default function SubjectPage() {
               <input
                 value={searchAlumnos}
                 onChange={(e) => setSearchAlumnos(e.target.value)}
-                placeholder="Buscar alumno…"
+                placeholder="Buscar por nombre o por número de lista…"
                 className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card"
               />
             </div>
