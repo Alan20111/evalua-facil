@@ -1699,19 +1699,19 @@ export default function SubjectPage() {
       {showQR && subject && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowQR(false)} />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-xs rounded-card p-5 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-3">
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card p-6 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
               <div className="text-left">
-                <h3 className="text-lg font-semibold leading-tight">{subject.nombre}</h3>
-                {subject.grupo && <p className="text-sm text-muted">Grupo: {subject.grupo}</p>}
+                <h3 className="text-xl font-semibold leading-tight">{subject.nombre}</h3>
+                {subject.grupo && <p className="text-base text-muted">Grupo: {subject.grupo}</p>}
               </div>
-              <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+              <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={22} /></button>
             </div>
-            <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-3">
-              <QRCode value={activationUrl} size={200} className="max-w-full h-auto" />
+            <div className="flex justify-center p-5 bg-surface-card rounded border border-outline-variant mb-4">
+              <QRCode value={activationUrl} size={280} className="max-w-full h-auto" />
             </div>
             {subject.accessCode && (
-              <p className="text-3xl font-bold tracking-wide text-accent mb-3">{subject.accessCode}</p>
+              <p className="text-5xl font-bold tracking-wide text-accent mb-4">{subject.accessCode}</p>
             )}
             <button
               onClick={handleExportQRPDF}
