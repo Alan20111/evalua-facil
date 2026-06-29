@@ -520,7 +520,7 @@ export default function Profile() {
             <p className="text-sm text-muted mb-4 leading-relaxed">{confirm.message}</p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setConfirm(null)} disabled={confirming}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-60">
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                 Cancelar
               </button>
               <button type="button" onClick={handleConfirm} disabled={confirming}
@@ -556,7 +556,7 @@ export default function Profile() {
                   {similarSchools.map((c, i) => (
                     <li key={i}>
                       <button type="button" onClick={() => chooseSimilarSchool(c)} disabled={savingSchool}
-                        className="w-full text-left px-3 py-2 rounded border border-outline-variant hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-60">
+                        className="w-full text-left px-3 py-2 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                         <p className="text-sm font-medium text-on-surface leading-tight">{c.nombre}</p>
                         <p className="text-sm text-slate-500 mt-0.5">
                           {[c.claveSEP, [c.municipio, c.estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
@@ -567,7 +567,7 @@ export default function Profile() {
                 </ul>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setCustomSchoolStep('form')} disabled={savingSchool}
-                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-60">
+                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                     Volver
                   </button>
                   <button type="button" onClick={() => setCustomSchoolStep('confirm')} disabled={savingSchool}
@@ -586,7 +586,7 @@ export default function Profile() {
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setCustomSchoolStep(similarSchools.length ? 'similar' : 'form')} disabled={savingSchool}
-                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-60">
+                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                     Volver
                   </button>
                   <button type="button" onClick={submitCustomSchool} disabled={savingSchool}
@@ -648,7 +648,7 @@ export default function Profile() {
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setAddingCustomSchool(false)} disabled={savingSchool}
-                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-60">
+                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                     Cancelar
                   </button>
                   <button type="submit" disabled={savingSchool}
@@ -660,7 +660,7 @@ export default function Profile() {
             ) : (
               <>
                 <button type="button" onClick={() => updateSchool(null)} disabled={savingSchool}
-                  className="flex items-center gap-2 px-4 py-2 text-left border-b border-outline-variant hover:bg-[rgba(249,115,22,0.12)] disabled:opacity-60">
+                  className="flex items-center gap-2 px-4 py-2 text-left border-b border-outline-variant hover:bg-[var(--accent-tint)] disabled:opacity-60">
                   <ChevronDown size={17} className="text-slate-400 rotate-0" />
                   <span className="text-sm font-medium text-muted">Sin escuela</span>
                 </button>
@@ -675,7 +675,7 @@ export default function Profile() {
                       {filteredCustomSchools.map((s) => (
                         <li key={s.id}>
                           <button type="button" onClick={() => updateSchool({ existingId: s.id, nombre: s.nombre })} disabled={savingSchool}
-                            className="w-full text-left px-4 py-2 hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-60">
+                            className="w-full text-left px-4 py-2 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                             <p className="text-sm font-medium text-on-surface leading-tight">{s.nombre}</p>
                             {(s.claveSEP || s.municipio || s.estado) && (
                               <p className="text-sm text-slate-500 mt-0.5">
@@ -688,7 +688,7 @@ export default function Profile() {
                       {filteredPlanteles.map((p) => (
                         <li key={p.cct}>
                           <button type="button" onClick={() => updateSchool(p)} disabled={savingSchool}
-                            className="w-full text-left px-4 py-2 hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-60">
+                            className="w-full text-left px-4 py-2 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                             <p className="text-sm font-medium text-on-surface leading-tight">{p.short || p.nombre}</p>
                             <p className="text-sm text-slate-500 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
                           </button>
@@ -703,7 +703,7 @@ export default function Profile() {
                       type="button"
                       disabled={savingSchool}
                       onClick={openCustomSchoolForm}
-                      className="w-full flex items-center gap-2 px-4 py-2 rounded text-sm font-medium text-blue-600 hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-60"
+                      className="w-full flex items-center gap-2 px-4 py-2 rounded text-sm font-medium text-blue-600 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
                     >
                       <Plus size={18} className="flex-shrink-0" />
                       <span className="truncate">¿No la encuentras? Agregar «{schoolSearch.trim()}»</span>

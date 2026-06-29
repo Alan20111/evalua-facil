@@ -29,7 +29,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
       <label className="block text-sm font-medium text-muted mb-2">Archivos permitidos</label>
       <div className="border border-outline-variant rounded divide-y divide-outline-variant overflow-hidden">
         {FILE_TYPE_BASE_OPTIONS.map((o) => (
-          <label key={o.key} className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[rgba(249,115,22,0.12)] cursor-pointer">
+          <label key={o.key} className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)] cursor-pointer">
             <input
               type="checkbox"
               checked={keys.includes(o.key)}
@@ -39,7 +39,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
             <span className={keys.includes(o.key) ? 'text-accent font-medium' : 'text-on-surface'}>{o.label}</span>
           </label>
         ))}
-        <label className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[rgba(249,115,22,0.12)] cursor-pointer">
+        <label className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)] cursor-pointer">
           <input
             type="checkbox"
             checked={keys.includes(ALL_FILES_KEY)}
@@ -48,7 +48,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
           />
           <span className={keys.includes(ALL_FILES_KEY) ? 'text-accent font-medium' : 'text-on-surface'}>1 solo archivo de cualquier extensión</span>
         </label>
-        <label className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[rgba(249,115,22,0.12)] cursor-pointer">
+        <label className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)] cursor-pointer">
           <input
             type="checkbox"
             checked={isCustom}

@@ -1132,12 +1132,12 @@ export default function SubjectPage() {
     setHoverGradeCell((prev) => (prev.row === rowIdx && prev.col === col ? prev : { row: rowIdx, col }))
   }
   const handleGradeTableLeave = () => setHoverGradeCell({ row: null, col: null })
-  const gradeHeaderColBg = (colIdx) => (hoverGradeCell.col === colIdx ? 'bg-[rgba(249,115,22,0.12)]' : '')
+  const gradeHeaderColBg = (colIdx) => (hoverGradeCell.col === colIdx ? 'bg-[var(--accent-tint)]' : '')
   const gradeBodyCellBg = (colIdx, rowIdx) => {
     if (hoverGradeCell.col !== colIdx) return ''
     return hoverGradeCell.row === rowIdx
-      ? 'bg-[rgba(249,115,22,0.22)] ring-1 ring-inset ring-orange-500'
-      : 'bg-[rgba(249,115,22,0.12)]'
+      ? 'bg-[var(--accent-tint-strong)] ring-1 ring-inset ring-[var(--accent)]'
+      : 'bg-[var(--accent-tint)]'
   }
 
   // Pre-compute grade rows
@@ -1199,17 +1199,17 @@ export default function SubjectPage() {
           <div className="flex flex-wrap items-center gap-1 mt-2">
             <button type="button" onClick={() => setShowQR(true)}
               title="Código QR de registro al curso para alumnos"
-              className="p-2 text-accent hover:bg-[rgba(37,99,235,0.16)] rounded transition-colors flex-shrink-0">
+              className="p-2 text-accent hover:bg-[var(--accent-tint-strong)] rounded transition-colors flex-shrink-0">
               <QrCode size={21} />
             </button>
             <button type="button" onClick={copyActivationLink}
               title="Copiar link de registro al curso para alumnos"
-              className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[rgba(37,99,235,0.16)]'}`}>
+              className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-tint-strong)]'}`}>
               {copiedLink ? <CheckIcon size={21} /> : <Link size={21} />}
             </button>
             <button type="button" onClick={copyAccessCode}
               title="Copiar código de acceso para alumnos"
-              className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-3xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[rgba(37,99,235,0.16)]'}`}>
+              className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-3xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-tint-strong)]'}`}>
               {copiedCode
                 ? <><CheckIcon size={24} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
                 : <span>{subject?.accessCode}</span>}
@@ -1217,17 +1217,17 @@ export default function SubjectPage() {
             <div className="flex-1" />
             <button type="button" onClick={openEditSubject}
               title="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-              className="p-2 text-slate-400 hover:text-accent hover:bg-[rgba(37,99,235,0.16)] rounded transition-colors flex-shrink-0">
+              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint-strong)] rounded transition-colors flex-shrink-0">
               <Pencil size={21} />
             </button>
             <button type="button" onClick={openCopyModal}
               title="Duplicar esta asignatura (con o sin la lista de alumnos)"
-              className="p-2 text-slate-400 hover:text-accent hover:bg-[rgba(37,99,235,0.16)] rounded transition-colors flex-shrink-0">
+              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint-strong)] rounded transition-colors flex-shrink-0">
               <Copy size={21} />
             </button>
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
               title={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
-              className="p-2 text-slate-400 hover:text-accent hover:bg-[rgba(37,99,235,0.16)] rounded transition-colors disabled:opacity-50 flex-shrink-0">
+              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint-strong)] rounded transition-colors disabled:opacity-50 flex-shrink-0">
               {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
             </button>
             <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
@@ -1242,7 +1242,7 @@ export default function SubjectPage() {
             {['actividades', 'calificaciones', 'alumnos', 'recursos'].map((t) => (
               <button key={t} onClick={() => switchTab(t)}
                 className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
-                  activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)]'
+                  activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'
                 }`}>
                 {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'alumnos' ? 'Alumnos' : 'Recursos'}
               </button>
@@ -1263,7 +1263,7 @@ export default function SubjectPage() {
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                   <div className="w-full flex items-center gap-1">
                     <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
-                      className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[rgba(249,115,22,0.12)] transition-colors text-left">
+                      className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-tint)] transition-colors text-left">
                       <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
                         <span className={`font-bold text-sm ${parcialOculto ? 'text-slate-400' : 'text-accent'}`}>{p}</span>
                       </div>
@@ -1277,7 +1277,7 @@ export default function SubjectPage() {
                     <button
                       onClick={() => toggleParcialVisibility(p)}
                       title={parcialOculto ? 'Mostrar este parcial a los alumnos' : 'Ocultar este parcial a los alumnos'}
-                      className="p-2 text-slate-400 hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)] rounded transition-colors flex-shrink-0"
+                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] rounded transition-colors flex-shrink-0"
                     >
                       {parcialOculto ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
@@ -1297,7 +1297,7 @@ export default function SubjectPage() {
                         const visState = activityVisibilityState(a, parcialOculto)
                         const isHidden = visState !== 'visible'
                         return (
-                          <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[rgba(249,115,22,0.12)]'}`}>
+                          <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
                             <button onClick={() => navigate(`/activity/${a.id}`)}
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
                               <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
@@ -1344,7 +1344,7 @@ export default function SubjectPage() {
                               <button
                                 onClick={(e) => { e.stopPropagation(); setActivateMode('now'); setActivateDate(''); setActivateModal(a) }}
                                 title="Activar para alumnos"
-                                className="p-2 text-slate-300 hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)] rounded transition-colors flex-shrink-0"
+                                className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-tint)] rounded transition-colors flex-shrink-0"
                               >
                                 <EyeOff size={16} />
                               </button>
@@ -1352,13 +1352,13 @@ export default function SubjectPage() {
                               <button
                                 onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
                                 title="Ocultar para alumnos"
-                                className="p-2 text-slate-400 hover:text-muted hover:bg-[rgba(249,115,22,0.12)] rounded transition-colors flex-shrink-0"
+                                className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-tint)] rounded transition-colors flex-shrink-0"
                               >
                                 <Eye size={16} />
                               </button>
                             )}
                             <button onClick={() => openEdit(a)} title="Editar"
-                              className="p-2 text-slate-400 hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)] rounded transition-colors flex-shrink-0 mr-0.5">
+                              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
                             </button>
                             <button onClick={() => setDeleteConfirm(a)} title="Eliminar"
@@ -1371,7 +1371,7 @@ export default function SubjectPage() {
                       <button onClick={() => openAdd(p)}
                         title={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevas actividades'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                          canCreate ? 'border-accent text-accent hover:bg-[rgba(249,115,22,0.12)]' : 'border-outline-variant text-slate-400 hover:bg-[rgba(249,115,22,0.12)]'
+                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-tint)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-tint)]'
                         }`}>
                         <Plus size={17} /> Agregar actividad
                       </button>
@@ -1397,7 +1397,7 @@ export default function SubjectPage() {
                   onClick={handleExport}
                   disabled={exporting}
                   title="Descarga las calificaciones de todos los alumnos en una hoja de Excel"
-                  className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
                 >
                   {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
                 </button>
@@ -1405,7 +1405,7 @@ export default function SubjectPage() {
                   onClick={handleExportGradesPDF}
                   disabled={exportingGradesPdf}
                   title="Descarga las calificaciones de todos los alumnos en un PDF imprimible"
-                  className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
                 >
                   {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
                 </button>
@@ -1489,11 +1489,11 @@ export default function SubjectPage() {
                     </thead>
                     <tbody>
                       {gradeRows.map(({ s, parcialData, finalAvg }, i) => (
-                        <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[rgba(249,115,22,0.12)] ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[rgba(249,115,22,0.12)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                        <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
+                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.orden}
                           </td>
-                          <td className={`sticky left-8 z-10 w-[150px] px-2 py-1 font-medium text-on-surface truncate border-r border-outline-variant transition-colors duration-200 group-hover:bg-[rgba(249,115,22,0.12)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          <td className={`sticky left-8 z-10 w-[150px] px-2 py-1 font-medium text-on-surface truncate border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.apellidoPaterno} {s.nombre}
                           </td>
                           {parcialData.map(({ p, grades, avg }, pi) => [
@@ -1538,7 +1538,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={downloadStudentTemplate}
                 title="Descargar plantilla en Excel para pegar datos de alumnos"
-                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[rgba(249,115,22,0.12)] transition-colors"
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-tint)] transition-colors"
               >
                 <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
                 <Download size={15} className="flex-shrink-0" />
@@ -1547,7 +1547,7 @@ export default function SubjectPage() {
               <ChevronRight size={16} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
               <label
                 title="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
-                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[rgba(249,115,22,0.12)] transition-colors cursor-pointer"
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-tint)] transition-colors cursor-pointer"
               >
                 <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
                 {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />}
@@ -1559,7 +1559,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={() => setShowCredentialsModal(true)}
                 title="Genera tu lista actualizada de códigos de acceso cada vez que agregues alumnos"
-                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[rgba(249,115,22,0.12)] transition-colors"
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-tint)] transition-colors"
               >
                 <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
                 <KeyRound size={15} className="flex-shrink-0" />
@@ -1575,7 +1575,7 @@ export default function SubjectPage() {
               onClick={sortStudentsAlphabetically}
               disabled={groupStudents.length < 2}
               title="Ordena la lista por apellido y nombre"
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-orange-600 transition-colors px-2 py-1 rounded hover:bg-[rgba(249,115,22,0.12)] disabled:opacity-40"
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-[var(--accent-tint)] disabled:opacity-40"
             >
               <ArrowUpDown size={15} />
               Ordenar alfabéticamente
@@ -1621,7 +1621,7 @@ export default function SubjectPage() {
               {filteredAlumnos.map((s, i) => (
                 <div
                   key={s.id}
-                  className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[rgba(249,115,22,0.2)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                  className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
                   <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                   <p className="flex-1 min-w-0 text-xs font-medium text-on-surface truncate">
@@ -1637,7 +1637,7 @@ export default function SubjectPage() {
                   </span>
                   <button
                     onClick={() => openEditStudent(s)}
-                    className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)] rounded transition-colors duration-200"
+                    className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] rounded transition-colors duration-200"
                     title="Editar alumno"
                   >
                     <Pencil size={16} />
@@ -1688,11 +1688,11 @@ export default function SubjectPage() {
                       </p>
                     </div>
                     <a href={r.url} target="_blank" rel="noreferrer" title="Ver / descargar"
-                      className="p-2 text-slate-400 hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)] rounded transition-colors flex-shrink-0">
+                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] rounded transition-colors flex-shrink-0">
                       <Download size={18} />
                     </a>
                     <button onClick={() => openEditResource(r)} title="Editar"
-                      className="p-2 text-slate-400 hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)] rounded transition-colors flex-shrink-0">
+                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] rounded transition-colors flex-shrink-0">
                       <Pencil size={18} />
                     </button>
                     <button onClick={() => setDeleteResourceConfirm(r)} title="Eliminar"
@@ -1752,7 +1752,7 @@ export default function SubjectPage() {
               <div>
                 <label className="block text-sm font-medium text-muted mb-2">Visibilidad</label>
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[rgba(249,115,22,0.12)]"
+                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
                     style={{ borderColor: form.visibilidadMode === 'show' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'show' ? 'var(--accent-light)' : '' }}>
                     <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'show'}
                       onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'show', oculta: false, publishAt: '' }))}
@@ -1762,7 +1762,7 @@ export default function SubjectPage() {
                       <p className="text-xs text-muted">Visible para alumnos de inmediato</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[rgba(249,115,22,0.12)]"
+                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
                     style={{ borderColor: form.visibilidadMode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'hide' ? 'var(--accent-light)' : '' }}>
                     <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'hide'}
                       onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'hide', oculta: true, publishAt: '' }))}
@@ -1772,7 +1772,7 @@ export default function SubjectPage() {
                       <p className="text-xs text-muted">Solo tú lo ves, hasta que lo muestres o programes</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[rgba(249,115,22,0.12)]"
+                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
                     style={{ borderColor: form.visibilidadMode === 'schedule' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'schedule' ? 'var(--accent-light)' : '' }}>
                     <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'schedule'}
                       onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'schedule', oculta: true }))}
@@ -1835,7 +1835,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[rgba(249,115,22,0.12)]">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button onClick={handleDeleteActivity} disabled={deleting}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deleting ? <Spinner size="sm" /> : <Trash2 size={16} />}
@@ -1971,7 +1971,7 @@ export default function SubjectPage() {
             <button
               onClick={handleExportQRPDF}
               disabled={exportingPdf}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-50"
             >
               {exportingPdf ? <Spinner size="sm" /> : <Download size={17} />}
               {exportingPdf ? 'Generando PDF…' : 'Descargar QR en PDF'}
@@ -1997,7 +1997,7 @@ export default function SubjectPage() {
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => setStudentToReset(null)}
-                className="flex-1 py-2 bg-surface-container hover:bg-[rgba(249,115,22,0.12)] text-muted font-semibold rounded transition-colors"
+                className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors"
               >
                 Cancelar
               </button>
@@ -2033,7 +2033,7 @@ export default function SubjectPage() {
               <button
                 onClick={() => setShowCredentialsModal(false)}
                 disabled={generatingCredentials}
-                className="flex-1 py-2 bg-surface-container hover:bg-[rgba(249,115,22,0.12)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
+                className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
                 Cancelar
               </button>
@@ -2084,7 +2084,7 @@ export default function SubjectPage() {
               <button
                 onClick={() => resolveLinkCandidate(false)}
                 disabled={savingStudent}
-                className="w-full py-2 bg-surface-container hover:bg-[rgba(249,115,22,0.12)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
+                className="w-full py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
                 No, es otro alumno (cuenta nueva)
               </button>
@@ -2141,7 +2141,7 @@ export default function SubjectPage() {
             <div className="flex gap-2 mt-4">
               <button
                 onClick={() => setStudentToDelete(null)}
-                className="flex-1 py-2 bg-surface-container hover:bg-[rgba(249,115,22,0.12)] text-muted font-semibold rounded transition-colors"
+                className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors"
               >
                 Cancelar
               </button>
@@ -2167,14 +2167,14 @@ export default function SubjectPage() {
               "<strong>{activateModal.nombre}</strong>" está oculta. ¿Cómo quieres activarla?
             </p>
             <div className="space-y-2 mb-2">
-              <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${activateMode === 'now' ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[rgba(249,115,22,0.12)]'}`}>
+              <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${activateMode === 'now' ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
                 <input type="radio" name="activateMode" value="now" checked={activateMode === 'now'} onChange={() => setActivateMode('now')} className="accent-[var(--accent)]" />
                 <div>
                   <p className="text-sm font-medium text-on-surface">Mostrar ahora</p>
                   <p className="text-sm text-slate-500">Visible de inmediato para alumnos</p>
                 </div>
               </label>
-              <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${activateMode === 'schedule' ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[rgba(249,115,22,0.12)]'}`}>
+              <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${activateMode === 'schedule' ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
                 <input type="radio" name="activateMode" value="schedule" checked={activateMode === 'schedule'} onChange={() => setActivateMode('schedule')} className="accent-[var(--accent)]" />
                 <div>
                   <p className="text-sm font-medium text-on-surface">Programar</p>
@@ -2192,7 +2192,7 @@ export default function SubjectPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setActivateModal(null)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[rgba(249,115,22,0.12)]">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button onClick={handleActivateConfirm}
                 disabled={activateMode === 'schedule' && !activateDate}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 flex items-center justify-center gap-2">
@@ -2318,7 +2318,7 @@ export default function SubjectPage() {
                 <label className="block text-sm font-medium text-muted mb-2">Icono de la asignatura</label>
                 <IconSelect value={copyForm.icon} onChange={(ic) => setCopyForm((f) => ({ ...f, icon: ic }))} />
               </div>
-              <label className="flex items-center gap-2 p-3 rounded border border-outline-variant cursor-pointer hover:bg-[rgba(249,115,22,0.12)] transition-colors">
+              <label className="flex items-center gap-2 p-3 rounded border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
                 <input type="checkbox" checked={copyForm.keepStudents} onChange={(e) => setCopyForm((f) => ({ ...f, keepStudents: e.target.checked }))}
                   className="accent-[var(--accent)] w-4 h-4" />
                 <div>
@@ -2360,7 +2360,7 @@ export default function SubjectPage() {
             />
             <div className="flex gap-2">
               <button onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[rgba(249,115,22,0.12)]">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 flex items-center justify-center gap-2">
@@ -2390,7 +2390,7 @@ export default function SubjectPage() {
                 { val: 'save', label: 'Guardar entregas como ZIP', desc: 'Se descargan antes de eliminarlas' },
                 { val: 'skip', label: 'Archivar sin guardar', desc: 'Las entregas se eliminan sin descargar' },
               ].map(({ val, label, desc }) => (
-                <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${archiveExportChoice === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[rgba(249,115,22,0.12)]'}`}>
+                <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${archiveExportChoice === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
                   <input type="radio" name="archiveExport" value={val} checked={archiveExportChoice === val} onChange={() => setArchiveExportChoice(val)} className="accent-[var(--accent)]" />
                   <div>
                     <p className="text-sm font-medium text-on-surface">{label}</p>
@@ -2401,7 +2401,7 @@ export default function SubjectPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setShowArchiveModal(false)} disabled={archiving}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[rgba(249,115,22,0.12)] disabled:opacity-60">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
               <button onClick={handleArchiveConfirm} disabled={archiving}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {archiving ? <Spinner size="sm" /> : <Archive size={16} />}
@@ -2471,7 +2471,7 @@ export default function SubjectPage() {
                     { val: 'keep', label: 'Conservar lista', desc: 'Alumnos y calificaciones se mantienen' },
                     { val: 'reset', label: 'Borrar y empezar de cero', desc: 'Se eliminan alumnos y sus entregas' },
                   ].map(({ val, label, desc }) => (
-                    <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${unarchiveStudents === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[rgba(249,115,22,0.12)]'}`}>
+                    <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${unarchiveStudents === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
                       <input type="radio" name="unarchiveStudents" value={val} checked={unarchiveStudents === val} onChange={() => setUnarchiveStudents(val)} className="accent-[var(--accent)]" />
                       <div>
                         <p className="text-sm font-medium text-on-surface">{label}</p>
@@ -2490,7 +2490,7 @@ export default function SubjectPage() {
                     { val: 'show', label: 'Mostrar todas' },
                     { val: 'hide', label: 'Ocultar todas' },
                   ].map(({ val, label }) => (
-                    <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${unarchiveActivities === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[rgba(249,115,22,0.12)]'}`}>
+                    <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${unarchiveActivities === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
                       <input type="radio" name="unarchiveActivities" value={val} checked={unarchiveActivities === val} onChange={() => setUnarchiveActivities(val)} className="accent-[var(--accent)]" />
                       <p className="text-sm font-medium text-on-surface">{label}</p>
                     </label>
@@ -2501,7 +2501,7 @@ export default function SubjectPage() {
 
             <div className="flex gap-2">
               <button onClick={() => setShowUnarchiveModal(false)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[rgba(249,115,22,0.12)]">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {unarchivedSaving ? <Spinner size="sm" /> : null}
@@ -2580,7 +2580,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button onClick={() => setDeleteResourceConfirm(null)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[rgba(249,115,22,0.12)]">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button onClick={handleDeleteResource} disabled={deletingResource}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deletingResource ? <Spinner size="sm" /> : <Trash2 size={16} />}

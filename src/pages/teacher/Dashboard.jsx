@@ -218,14 +218,14 @@ export default function TeacherDashboard() {
                   <div
                     key={s.id}
                     data-subject-palette={s.colorPalette || 'default'}
-                    className="w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[rgba(249,115,22,0.1)] transition-all duration-200 flex items-center gap-1"
+                    className="w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-1"
                   >
                     <div className="flex flex-col flex-shrink-0">
                       <button
                         onClick={() => moveSubject(i, -1)}
                         disabled={i === 0}
                         title="Subir"
-                        className="p-1 text-slate-400 hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)] disabled:opacity-30 rounded"
+                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-30 rounded"
                       >
                         <ArrowUp size={16} />
                       </button>
@@ -233,7 +233,7 @@ export default function TeacherDashboard() {
                         onClick={() => moveSubject(i, 1)}
                         disabled={i === subjects.length - 1}
                         title="Bajar"
-                        className="p-1 text-slate-400 hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)] disabled:opacity-30 rounded"
+                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-30 rounded"
                       >
                         <ArrowDown size={16} />
                       </button>
@@ -356,7 +356,7 @@ export default function TeacherDashboard() {
                       className={`py-2 rounded text-sm font-bold transition-colors ${
                         newSubjectParciales === n
                           ? 'bg-blue-600 text-white'
-                          : 'bg-surface-container text-muted hover:bg-[rgba(249,115,22,0.12)]'
+                          : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'
                       }`}
                     >
                       {n}

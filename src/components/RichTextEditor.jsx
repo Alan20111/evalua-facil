@@ -27,7 +27,7 @@ import { sanitizeHtml, richTextContentClass } from '../utils/sanitizeHtml'
 // constant — TOOLBAR_BTN_ACTIVE already supplies its own background, and a
 // shared hover here would visibly tint an already-active button on rollover.
 const TOOLBAR_BTN = 'p-1.5 rounded transition-colors disabled:opacity-40'
-const TOOLBAR_BTN_HOVER = 'hover:bg-[rgba(249,115,22,0.12)]'
+const TOOLBAR_BTN_HOVER = 'hover:bg-[var(--accent-tint)]'
 const TOOLBAR_BTN_ACTIVE = 'bg-accent-light text-accent'
 
 async function insertImageFile(editor, file) {

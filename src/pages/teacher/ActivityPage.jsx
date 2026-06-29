@@ -308,7 +308,7 @@ export default function ActivityPage() {
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
-                  filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted'
+                  filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'
                 }`}
               >
                 {f === 'todos' ? 'Todos' : STATUS_LABELS[f]}
@@ -345,7 +345,7 @@ export default function ActivityPage() {
             <button
               onClick={handleZipDownload}
               disabled={zipDownloading}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[rgba(249,115,22,0.12)] transition-colors disabled:opacity-40"
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
             >
               {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
               {zipDownloading
@@ -369,7 +369,7 @@ export default function ActivityPage() {
                   <button
                     key={s.id}
                     onClick={() => openGrade(s)}
-                    className={`w-full flex items-center gap-2 px-2 py-1 text-left hover:bg-[rgba(249,115,22,0.12)] transition-colors cursor-pointer ${
+                    className={`w-full flex items-center gap-2 px-2 py-1 text-left hover:bg-[var(--accent-tint)] transition-colors cursor-pointer ${
                       i > 0 ? 'border-t border-outline-variant' : ''
                     }`}
                   >
@@ -433,7 +433,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => goToOffset(-1)}
                   disabled={curIdx <= 0}
-                  className="flex items-center gap-1 text-xs font-medium text-muted hover:text-orange-600 disabled:opacity-30 disabled:hover:text-muted transition-colors"
+                  className="flex items-center gap-1 text-xs font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
                 >
                   <ChevronLeft size={18} /> Anterior
                 </button>
@@ -442,7 +442,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => goToOffset(1)}
                   disabled={curIdx >= filtered.length - 1}
-                  className="flex items-center gap-1 text-xs font-medium text-muted hover:text-orange-600 disabled:opacity-30 disabled:hover:text-muted transition-colors"
+                  className="flex items-center gap-1 text-xs font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
                 >
                   Siguiente <ChevronRight size={18} />
                 </button>
@@ -467,7 +467,7 @@ export default function ActivityPage() {
                 href={selected.sub.archivoURL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[rgba(249,115,22,0.12)] transition-colors mb-2"
+                className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors mb-2"
               >
                 <Download size={18} className="text-accent" />
                 Ver / Descargar entrega

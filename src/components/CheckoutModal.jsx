@@ -221,7 +221,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold border transition-colors ${
                     method === m.id
                       ? 'bg-blue-50 border-blue-300 text-blue-700'
-                      : 'border-outline-variant text-muted hover:bg-[rgba(249,115,22,0.12)]'
+                      : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
                   }`}
                 >
                   <m.icon size={16} />

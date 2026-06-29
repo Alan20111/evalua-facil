@@ -69,6 +69,12 @@
     --accent: #2563eb;        /* electric blue (docente / default) */
     --accent-hover: #1d4ed8;
     --accent-light: #dbeafe;
+    /* Subtle hover wash derived from --accent — never hardcode a hover
+       color in a component; reference these so every hover automatically
+       follows the active role/subject palette. `-strong` is for emphasis
+       states (active table cell/column) that need to read a bit more. */
+    --accent-tint: color-mix(in srgb, var(--accent) 12%, transparent);
+    --accent-tint-strong: color-mix(in srgb, var(--accent) 18%, transparent);
   }
   [data-role='docente'] {
     --accent: #2563eb;
