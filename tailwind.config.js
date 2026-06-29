@@ -73,28 +73,35 @@ export default {
       // Line-heights are recomputed at slightly tighter ratios on top of that
       // (taper ~1.29 → ~1.10), since the brief also asked to keep tightening
       // vertical space, not just hold the line.
+      //
+      // Fifth pass: pass four still read as oversized for an 8-hour-capture
+      // tool — elegant was traded for big. This sets each tier to the exact
+      // midpoint between pass four's value and Tailwind's original default
+      // (the comments below list both), per tier. Not a return to the
+      // original scale — still meaningfully larger everywhere — just no
+      // longer at the "increase" end of the range.
       fontSize: {
-        xs: ['0.875rem', { lineHeight: '1.125rem' }],     // 14px/18px (was 16/20; original 12/16)
-        sm: ['1rem', { lineHeight: '1.25rem' }],           // 16px/20px (was 18/24; original 14/20)
-        base: ['1.125rem', { lineHeight: '1.375rem' }],    // 18px/22px (was 20/26; original 16/24)
-        lg: ['1.25rem', { lineHeight: '1.5rem' }],         // 20px/24px (was 22/28; original 18/28)
-        xl: ['1.375rem', { lineHeight: '1.625rem' }],      // 22px/26px (was 24/30; original 20/28)
-        '2xl': ['1.625rem', { lineHeight: '1.875rem' }],   // 26px/30px (was 28/34; original 24/32)
-        '3xl': ['2rem', { lineHeight: '2.25rem' }],        // 32px/36px (was 34/40; original 30/36)
-        '4xl': ['2.375rem', { lineHeight: '2.625rem' }],   // 38px/42px (was 40/44; original 36/40)
-        '5xl': ['3.25rem', { lineHeight: '1' }],           // 52px (was 54; original 48)
-        '6xl': ['4rem', { lineHeight: '1' }],              // 64px (was 68; original 60)
+        xs: ['0.8125rem', { lineHeight: '1.0625rem' }],   // 13px/17px (was 14/18; original 12/16)
+        sm: ['0.9375rem', { lineHeight: '1.25rem' }],      // 15px/20px (was 16/20; original 14/20)
+        base: ['1.0625rem', { lineHeight: '1.4375rem' }],  // 17px/23px (was 18/22; original 16/24)
+        lg: ['1.1875rem', { lineHeight: '1.625rem' }],     // 19px/26px (was 20/24; original 18/28)
+        xl: ['1.3125rem', { lineHeight: '1.6875rem' }],    // 21px/27px (was 22/26; original 20/28)
+        '2xl': ['1.5625rem', { lineHeight: '1.9375rem' }], // 25px/31px (was 26/30; original 24/32)
+        '3xl': ['1.9375rem', { lineHeight: '2.25rem' }],   // 31px/36px (was 32/36; original 30/36)
+        '4xl': ['2.3125rem', { lineHeight: '2.5625rem' }], // 37px/41px (was 38/42; original 36/40)
+        '5xl': ['3.125rem', { lineHeight: '1' }],          // 50px (was 52; original 48)
+        '6xl': ['3.875rem', { lineHeight: '1' }],          // 62px (was 64; original 60)
 
         // Semantic tokens, kept in sync with the scale above (body-md ≈ new
         // base, body-sm ≈ new sm, label-caps/metadata ≈ new xs) — still only
         // used in a couple of components, but consistent if adopted further.
-        'headline-xl': ['2.625rem', { lineHeight: '2.75rem', letterSpacing: '-0.02em', fontWeight: '700' }], // 42px/44px
-        'headline-lg': ['2rem', { lineHeight: '2.25rem', letterSpacing: '-0.01em', fontWeight: '600' }],     // 32px/36px
-        'title-md': ['1.375rem', { lineHeight: '1.625rem', fontWeight: '600' }], // 22px/26px
-        'body-md': ['1.125rem', { lineHeight: '1.375rem' }],                 // 18px/22px
-        'body-sm': ['1rem', { lineHeight: '1.25rem' }],                      // 16px/20px
-        'label-caps': ['0.875rem', { lineHeight: '1.125rem', letterSpacing: '0.05em', fontWeight: '700' }], // 14px/18px
-        metadata: ['0.875rem', { lineHeight: '1.125rem' }],                  // 14px/18px
+        'headline-xl': ['2.5625rem', { lineHeight: '2.6875rem', letterSpacing: '-0.02em', fontWeight: '700' }], // 41px/43px
+        'headline-lg': ['1.9375rem', { lineHeight: '2.25rem', letterSpacing: '-0.01em', fontWeight: '600' }],   // 31px/36px
+        'title-md': ['1.3125rem', { lineHeight: '1.6875rem', fontWeight: '600' }], // 21px/27px
+        'body-md': ['1.0625rem', { lineHeight: '1.4375rem' }],               // 17px/23px
+        'body-sm': ['0.9375rem', { lineHeight: '1.25rem' }],                 // 15px/20px
+        'label-caps': ['0.8125rem', { lineHeight: '1.0625rem', letterSpacing: '0.05em', fontWeight: '700' }], // 13px/17px
+        metadata: ['0.8125rem', { lineHeight: '1.0625rem' }],                // 13px/17px
       },
     },
   },
