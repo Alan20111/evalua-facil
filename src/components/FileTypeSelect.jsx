@@ -26,7 +26,10 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
 
   return (
     <div>
-      <label className="block text-sm font-medium text-muted mb-2">Archivos permitidos</label>
+      <label className="block text-sm font-medium text-muted mb-1">Archivos permitidos</label>
+      <p className="text-xs text-accent font-medium mb-2">
+        Ejemplo: al elegir imágenes y 1 Word, el alumno podrá subir hasta 3 imágenes o un archivo de Word.
+      </p>
       <div className="border border-outline-variant rounded divide-y divide-outline-variant overflow-hidden">
         {FILE_TYPE_BASE_OPTIONS.map((o) => (
           <label key={o.key} className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-[var(--accent-tint)] cursor-pointer">
