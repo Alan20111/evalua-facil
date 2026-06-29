@@ -1153,7 +1153,7 @@ export default function SubjectPage() {
                                       </span>
                                     )}
                                     {a.fechaLimite && (
-                                      <span title="Fecha de cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
+                                      <span title="Fecha y hora de cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
                                         <Clock size={14} /> {formatDeadline(a.fechaLimite)}
                                       </span>
                                     )}
