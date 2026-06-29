@@ -22,6 +22,7 @@ import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downlo
 import { subjectDisplayName } from '../../utils/subjectName'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
+import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
@@ -263,7 +264,10 @@ export default function ActivityPage() {
             </div>
           </div>
           {activity?.instrucciones && (
-            <p className="text-sm text-on-surface mt-3 whitespace-pre-wrap">{activity.instrucciones}</p>
+            <div
+              className={`text-sm text-on-surface mt-3 ${richTextContentClass}`}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+            />
           )}
 
           {/* Stats */}

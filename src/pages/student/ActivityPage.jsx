@@ -25,6 +25,7 @@ import { resolveFileTypes, isFileAllowed } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
+import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -314,9 +315,10 @@ export default function StudentActivityPage() {
         {activity?.instrucciones && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
-            <p className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-              {activity.instrucciones}
-            </p>
+            <div
+              className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+            />
           </div>
         )}
 

@@ -20,6 +20,8 @@ import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import FileTypeSelect from '../../components/FileTypeSelect'
+import RichTextEditor from '../../components/RichTextEditor'
+import { htmlToPlainText, sanitizeHtml, toRichHtml } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
@@ -550,7 +552,7 @@ export default function SubjectPage() {
     setModalMode('edit'); setModalParcial(activity.parcial); setEditActivityId(activity.id)
     setForm({
       nombre: activity.nombre || '',
-      instrucciones: activity.instrucciones || '',
+      instrucciones: toRichHtml(activity.instrucciones || ''),
       fechaLimite: activity.fechaLimite || '',
       tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
       extensionesCustom: activity.extensionesCustom || '',
@@ -571,11 +573,15 @@ export default function SubjectPage() {
       toast('Escribe al menos una extensión para "Personalizado"', 'error')
       return
     }
+    if (!htmlToPlainText(form.instrucciones)) {
+      toast('Escribe las instrucciones de la actividad', 'error')
+      return
+    }
     setSaving(true)
     const payload = {
       nombre: form.nombre.trim(),
       maxCalif: 10,
-      instrucciones: form.instrucciones.trim(),
+      instrucciones: sanitizeHtml(form.instrucciones),
       fechaLimite: form.fechaLimite || null,
       tiposArchivo,
       extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
@@ -1136,7 +1142,7 @@ export default function SubjectPage() {
                                   {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} · </span>}
                                   {a.nombre}
                                   {a.instrucciones && (
-                                    <span className="text-sm font-normal text-on-surface"> — {a.instrucciones.replace(/\s+/g, ' ').trim()}</span>
+                                    <span className="text-sm font-normal text-on-surface"> — {htmlToPlainText(a.instrucciones)}</span>
                                   )}
                                 </p>
                                 {(a.fechaLimite || visState !== 'visible') && (
@@ -1448,7 +1454,7 @@ export default function SubjectPage() {
       {showModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">
                 {modalMode === 'create' ? `Nueva actividad — Parcial ${modalParcial}` : 'Editar actividad'}
@@ -1468,10 +1474,11 @@ export default function SubjectPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
-                <textarea value={form.instrucciones} onChange={(e) => setForm((f) => ({ ...f, instrucciones: e.target.value }))}
-                  required rows={3}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-y"
-                  placeholder="Describe la tarea para tus alumnos…" />
+                <RichTextEditor
+                  value={form.instrucciones}
+                  onChange={(html) => setForm((f) => ({ ...f, instrucciones: html }))}
+                  placeholder="Describe la tarea para tus alumnos…"
+                />
               </div>
               <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
               <div className="pt-1">
