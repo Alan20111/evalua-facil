@@ -84,29 +84,34 @@ export default function StudentActivityPage() {
         return
       }
       const actData = { id: actSnap.id, ...actSnap.data() }
+
+      // Subject is needed before the gate check below — a whole parcial can be
+      // hidden from students at the subject level, which must override an
+      // individual activity's own visibility.
+      const subSnap = await getDoc(doc(db, 'subjects', actData.asignaturaId))
+      const subData = { id: subSnap.id, ...subSnap.data() }
+      const parcialOculto = (subData.parcialesOcultos || []).includes(actData.parcial)
+
       // Students must never reach a hidden/scheduled activity, even via a direct URL.
-      if (!isActivityPublished(actData)) {
+      if (!isActivityPublished(actData, parcialOculto)) {
         toast('Esta actividad no está disponible', 'error')
         navigate('/alumno/dashboard')
         return
       }
       setActivity(actData)
+      setSubject(subData)
 
       // Resolve this student's enrollment record for the activity's subject.
       const studData = await getEnrollmentForSubject(currentUser, userProfile, actData.asignaturaId)
       setStudent(studData)
 
-      const [subSnap, subsSnap] = await Promise.all([
-        getDoc(doc(db, 'subjects', actData.asignaturaId)),
-        studData
-          ? getDocs(query(
-              collection(db, 'submissions'),
-              where('actividadId', '==', activityId),
-              where('alumnoId', '==', studData.id)
-            ))
-          : Promise.resolve(null),
-      ])
-      setSubject({ id: subSnap.id, ...subSnap.data() })
+      const subsSnap = studData
+        ? await getDocs(query(
+            collection(db, 'submissions'),
+            where('actividadId', '==', activityId),
+            where('alumnoId', '==', studData.id)
+          ))
+        : null
       if (subsSnap && !subsSnap.empty) {
         setSubmission({ id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() })
       }
@@ -309,7 +314,7 @@ export default function StudentActivityPage() {
         {activity?.instrucciones && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
-            <p className="text-sm text-muted leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+            <p className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
               {activity.instrucciones}
             </p>
           </div>

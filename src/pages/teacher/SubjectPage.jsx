@@ -745,6 +745,17 @@ export default function SubjectPage() {
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
+  // ── Parcial visibility (hides every activity in it from students at once) ──
+  async function toggleParcialVisibility(p) {
+    const hidden = subject?.parcialesOcultos || []
+    const next = hidden.includes(p) ? hidden.filter((x) => x !== p) : [...hidden, p]
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), { parcialesOcultos: next })
+      setSubject((s) => ({ ...s, parcialesOcultos: next }))
+      toast(next.includes(p) ? `Parcial ${p} oculto para alumnos` : `Parcial ${p} visible para alumnos`)
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
   async function handleActivateConfirm() {
     if (!activateModal) return
     try {
@@ -1077,19 +1088,33 @@ export default function SubjectPage() {
             {PARCIALES.map((p) => {
               const acts = activities.filter((a) => a.parcial === p)
               const isOpen = openParcial === p
+              const parcialOculto = (subject?.parcialesOcultos || []).includes(p)
               return (
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
-                  <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
-                    className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-surface transition-colors">
-                    <div className="w-10 h-10 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-                      <span className="text-accent font-bold text-sm">{p}</span>
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="font-semibold text-on-surface text-base leading-tight">Parcial {p}</p>
-                      <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
-                    </div>
-                    {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
-                  </button>
+                  <div className="w-full flex items-center gap-1">
+                    <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
+                      className="flex-1 min-w-0 px-4 py-2.5 flex items-center gap-3 hover:bg-surface transition-colors text-left">
+                      <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
+                        <span className={`font-bold text-sm ${parcialOculto ? 'text-slate-400' : 'text-accent'}`}>{p}</span>
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <p className={`font-semibold text-base leading-tight truncate ${parcialOculto ? 'text-slate-400' : 'text-on-surface'}`}>
+                          Parcial {p}{parcialOculto && <span className="text-xs font-normal text-slate-400"> · oculto a alumnos</span>}
+                        </p>
+                        <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => toggleParcialVisibility(p)}
+                      title={parcialOculto ? 'Mostrar este parcial a los alumnos' : 'Ocultar este parcial a los alumnos'}
+                      className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0"
+                    >
+                      {parcialOculto ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                    <button onClick={() => setOpenParcial(isOpen ? 0 : p)} className="p-2 mr-2 flex-shrink-0">
+                      {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+                    </button>
+                  </div>
 
                   {isOpen && (
                     <div className="border-t border-outline-variant pr-4 py-2">
@@ -1099,7 +1124,7 @@ export default function SubjectPage() {
                       )}
                       {acts.map((a) => {
                         const counts = submissionCounts[a.id] || {}
-                        const visState = activityVisibilityState(a)
+                        const visState = activityVisibilityState(a, parcialOculto)
                         const isHidden = visState !== 'visible'
                         return (
                           <div key={a.id} className={`flex items-center gap-1 rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
@@ -1111,7 +1136,7 @@ export default function SubjectPage() {
                                   {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} · </span>}
                                   {a.nombre}
                                   {a.instrucciones && (
-                                    <span className="text-sm font-normal text-slate-400"> — {a.instrucciones.replace(/\s+/g, ' ').trim()}</span>
+                                    <span className="text-sm font-normal text-on-surface"> — {a.instrucciones.replace(/\s+/g, ' ').trim()}</span>
                                   )}
                                 </p>
                                 {(a.fechaLimite || visState !== 'visible') && (

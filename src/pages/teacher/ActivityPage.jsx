@@ -263,7 +263,7 @@ export default function ActivityPage() {
             </div>
           </div>
           {activity?.instrucciones && (
-            <p className="text-sm text-muted mt-3 whitespace-pre-wrap">{activity.instrucciones}</p>
+            <p className="text-sm text-on-surface mt-3 whitespace-pre-wrap">{activity.instrucciones}</p>
           )}
 
           {/* Stats */}

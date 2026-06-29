@@ -1,8 +1,11 @@
 // Single source of truth for activity visibility.
 // Used by teacher views (styling) and student views (filtering).
 // Backward-compat: activities without `oculta` field are treated as visible.
+// `parcialOculto` is the subject-level override (the whole parcial hidden from
+// students) — when true it always wins over the activity's own `oculta` state.
 
-export function isActivityPublished(a) {
+export function isActivityPublished(a, parcialOculto = false) {
+  if (parcialOculto) return false
   if (!a?.oculta) return true
   if (a.publishAt) return new Date(a.publishAt).getTime() <= Date.now()
   return false
@@ -10,7 +13,8 @@ export function isActivityPublished(a) {
 
 // Returns the display state for teacher UI.
 // 'visible' | 'scheduled' | 'hidden'
-export function activityVisibilityState(a) {
+export function activityVisibilityState(a, parcialOculto = false) {
+  if (parcialOculto) return 'hidden'
   if (!a?.oculta) return 'visible'
   if (a.publishAt && new Date(a.publishAt).getTime() <= Date.now()) return 'visible'
   if (a.publishAt) return 'scheduled'

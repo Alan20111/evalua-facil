@@ -43,8 +43,11 @@ export default function StudentSubjectPage() {
         getEnrollmentForSubject(currentUser, userProfile, subjectId),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
       ])
-      setSubject({ id: subSnap.id, ...subSnap.data() })
-      const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter(isActivityPublished)
+      const subData = { id: subSnap.id, ...subSnap.data() }
+      setSubject(subData)
+      const parcialesOcultos = subData.parcialesOcultos || []
+      const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        .filter((a) => isActivityPublished(a, parcialesOcultos.includes(a.parcial)))
       setActivities(acts)
       if (!studData) return
 

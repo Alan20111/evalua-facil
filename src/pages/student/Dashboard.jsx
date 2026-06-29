@@ -89,6 +89,8 @@ export default function StudentDashboard() {
       const subjSnaps = await Promise.all(asignaturaIds.map((id) => getDoc(doc(db, 'subjects', id))))
       const subs = subjSnaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() }))
       if (subs.length === 0) { setSubjects([]); return }
+      const subjectById = {}
+      subs.forEach((s) => { subjectById[s.id] = s })
 
       // Everything else in ONE parallel batch — a constant number of round trips:
       //  · teacher names  · all activities (chunked `in`)  · all my submissions (chunked `in`)
@@ -113,7 +115,8 @@ export default function StudentDashboard() {
       const actsBySubject = {}
       actDocs.forEach((d) => {
         const a = { id: d.id, ...d.data() }
-        if (!isActivityPublished(a)) return
+        const parcialesOcultos = subjectById[a.asignaturaId]?.parcialesOcultos || []
+        if (!isActivityPublished(a, parcialesOcultos.includes(a.parcial))) return
         if (!actsBySubject[a.asignaturaId]) actsBySubject[a.asignaturaId] = []
         actsBySubject[a.asignaturaId].push(a)
       })
