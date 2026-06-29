@@ -46,7 +46,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
             onChange={() => toggle(ALL_FILES_KEY)}
             className="accent-[var(--accent)]"
           />
-          <span className={keys.includes(ALL_FILES_KEY) ? 'text-accent font-medium' : 'text-on-surface'}>Cualquier archivo</span>
+          <span className={keys.includes(ALL_FILES_KEY) ? 'text-accent font-medium' : 'text-on-surface'}>1 solo archivo de cualquier extensión</span>
         </label>
         <label className="flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-surface cursor-pointer">
           <input
@@ -55,7 +55,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
             onChange={() => toggle(CUSTOM_FILE_TYPE)}
             className="accent-[var(--accent)]"
           />
-          <span className={isCustom ? 'text-accent font-medium' : 'text-on-surface'}>Personalizado (escribe las extensiones)</span>
+          <span className={isCustom ? 'text-accent font-medium' : 'text-on-surface'}>1 archivo personalizado, escribe la extensión</span>
         </label>
         {isCustom && (
           <div className="px-3 py-2.5 bg-surface">

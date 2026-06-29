@@ -3,24 +3,42 @@
 export const FILE_TYPE_BASE_OPTIONS = [
   {
     key: 'imagenes',
-    label: 'Imágenes (JPG, PNG)',
+    label: 'Imágenes (JPG, PNG) — hasta un máximo de 3; para más de 3 fotos o imágenes se sugiere que estén dentro de un archivo PDF',
     mimes: ['image/jpeg', 'image/jpg', 'image/png'],
     exts: ['jpg', 'jpeg', 'png'],
   },
   {
     key: 'pdf',
-    label: 'PDF',
+    label: '1 PDF',
     mimes: ['application/pdf'],
     exts: ['pdf'],
   },
   {
     key: 'word',
-    label: 'Word',
+    label: '1 Word',
     mimes: [
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ],
     exts: ['doc', 'docx'],
+  },
+  {
+    key: 'powerpoint',
+    label: '1 Power Point',
+    mimes: [
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ],
+    exts: ['ppt', 'pptx'],
+  },
+  {
+    key: 'excel',
+    label: '1 Excel',
+    mimes: [
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ],
+    exts: ['xls', 'xlsx'],
   },
 ]
 
