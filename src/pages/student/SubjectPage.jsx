@@ -20,8 +20,9 @@ import { formatFileSize } from '../../utils/formatBytes'
 import SubjectIcon from '../../components/SubjectIcon'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
-  Clock, Circle, Star, Download, FolderOpen,
+  Clock, Circle, Star, Download, FolderOpen, BookOpen, Paperclip,
 } from 'lucide-react'
+import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 
 function formatResourceDate(ts) {
   if (!ts?.toDate) return ''
@@ -35,6 +36,7 @@ export default function StudentSubjectPage() {
   const [activities, setActivities] = useState([])
   const [submissions, setSubmissions] = useState({})
   const [resources, setResources] = useState([])
+  const [materials, setMaterials] = useState([])
   const [openParcial, setOpenParcial] = useState(1)
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
@@ -46,11 +48,12 @@ export default function StudentSubjectPage() {
     setLoading(true)
     try {
       // Resolve THIS student's enrollment record for the subject being viewed.
-      const [subSnap, studData, actsSnap, resSnap] = await Promise.all([
+      const [subSnap, studData, actsSnap, resSnap, matsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
         getEnrollmentForSubject(currentUser, userProfile, subjectId),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
         getDocs(query(collection(db, 'resources'), where('asignaturaId', '==', subjectId))),
+        getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))),
       ])
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
@@ -63,6 +66,14 @@ export default function StudentSubjectPage() {
       setResources(
         resSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.fechaPublicacion?.seconds ?? 0) - (a.fechaPublicacion?.seconds ?? 0))
+      )
+      // Material de apoyo — same publish rules as activities (oculta/publishAt),
+      // but it never has a submission/grade, so it's filtered here and never
+      // touches `submissions`/`calcParcialAvg` below.
+      setMaterials(
+        matsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .filter((m) => isActivityPublished(m, parcialesOcultos.includes(m.parcial)))
+          .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       )
       if (!studData) return
 
@@ -126,6 +137,7 @@ export default function StudentSubjectPage() {
       <div className="px-4 py-5 max-w-2xl mx-auto space-y-3">
         {PARCIALES.map((p) => {
           const acts = activities.filter((a) => a.parcial === p)
+          const mats = materials.filter((m) => m.parcial === p)
           const avg = calcParcialAvg(p)
           const isOpen = openParcial === p
           return (
@@ -198,6 +210,40 @@ export default function StudentSubjectPage() {
                       </button>
                     )
                   })}
+
+                  {/* Material de apoyo — never has a submission/grade; just
+                      available for consulta y descarga. */}
+                  {mats.map((m) => (
+                    <div key={m.id} className="w-full rounded border border-outline-variant overflow-hidden">
+                      <div className="flex items-center gap-3 px-3 py-2">
+                        <BookOpen size={20} className="text-amber-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium leading-tight text-on-surface truncate">{m.nombre}</p>
+                          <p className="text-xs text-slate-500 flex items-center gap-0.5">
+                            <Paperclip size={11} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                      </div>
+                      {m.descripcion && (
+                        <div className={`px-3 pb-2 text-sm text-slate-600 ${richTextContentClass}`}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.descripcion) }} />
+                      )}
+                      <div className="px-3 pb-2 space-y-1">
+                        {(m.archivos || []).map((f, i) => {
+                          const { icon: FileIconComp, color } = getResourceIcon(f.nombre)
+                          return (
+                            <a key={i} href={f.url} target="_blank" rel="noreferrer"
+                              className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant hover:bg-surface transition-colors">
+                              <FileIconComp size={17} className={`flex-shrink-0 ${color}`} />
+                              <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
+                              <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
+                              <Download size={15} className="text-slate-400 flex-shrink-0" />
+                            </a>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

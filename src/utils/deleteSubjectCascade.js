@@ -24,12 +24,13 @@ async function batchDeleteDocs(refs) {
 }
 
 // Fully deletes a subject and all related data in cascade:
-// activities → submissions → students → subject doc.
+// activities → submissions → materials → students → subject doc.
 // NOTE: Firebase Auth accounts of students are NOT deleted (same as per-student delete today).
 export async function deleteSubjectCascade(subjectId) {
-  const [actsSnap, studsSnap] = await Promise.all([
+  const [actsSnap, studsSnap, matsSnap] = await Promise.all([
     getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
+    getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))),
   ])
 
   const actIds = actsSnap.docs.map((d) => d.id)
@@ -38,6 +39,7 @@ export async function deleteSubjectCascade(subjectId) {
   const refs = [
     ...subsDocs.map((d) => doc(db, 'submissions', d.id)),
     ...actsSnap.docs.map((d) => doc(db, 'activities', d.id)),
+    ...matsSnap.docs.map((d) => doc(db, 'materials', d.id)),
     ...studsSnap.docs.map((d) => doc(db, 'students', d.id)),
   ]
   await batchDeleteDocs(refs)

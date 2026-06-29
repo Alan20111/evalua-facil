@@ -21,7 +21,9 @@ import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import FileTypeSelect from '../../components/FileTypeSelect'
 import RichTextEditor from '../../components/RichTextEditor'
-import { htmlToPlainText, sanitizeHtml, toRichHtml } from '../../utils/sanitizeHtml'
+import VisibilitySelect from '../../components/VisibilitySelect'
+import FileDropzone from '../../components/FileDropzone'
+import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { uploadToCloudinary } from '../../utils/cloudinary'
@@ -33,7 +35,7 @@ import {
   FileSpreadsheet, Search,
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
-  Eye, EyeOff,
+  Eye, EyeOff, BookOpen, Paperclip,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
@@ -64,6 +66,11 @@ function formatResourceDate(ts) {
 // heavier than a single submission file — a higher cap than the 5 MB used
 // for student deliveries (src/pages/student/ActivityPage.jsx).
 const MAX_RESOURCE_SIZE = 15 * 1024 * 1024
+// "Material de apoyo" allows any file type (no extension whitelist, unlike
+// the Recursos tab) and any number of files — only the per-file size is
+// capped, same ceiling already proven for the Recursos tab's Cloudinary preset.
+const MAX_MATERIAL_FILE_SIZE = 15 * 1024 * 1024
+const EMPTY_MATERIAL_FORM = { nombre: '', descripcion: '', oculta: false, publishAt: '', visibilidadMode: 'show' }
 
 function gradeColor(norm) {
   if (norm === null) return 'text-slate-300'
@@ -92,6 +99,23 @@ export default function SubjectPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
+
+  // Materials ("Material de apoyo") — independent of Activity: scoped per
+  // parcial like activities, but never creates a submission/grade. Loaded
+  // together with activities in loadAll() (not lazily, since it lives
+  // inline in the Actividades tab, not behind its own tab).
+  const [materials, setMaterials] = useState([])
+  const [showMaterialModal, setShowMaterialModal] = useState(false)
+  const [materialModalMode, setMaterialModalMode] = useState('create')
+  const [materialParcial, setMaterialParcial] = useState(1)
+  const [editMaterialId, setEditMaterialId] = useState(null)
+  const [materialForm, setMaterialForm] = useState(EMPTY_MATERIAL_FORM)
+  const [materialNewFiles, setMaterialNewFiles] = useState([]) // File[] pending upload
+  const [materialExistingFiles, setMaterialExistingFiles] = useState([]) // [{url,nombre,tamano}] kept on edit
+  const [savingMaterial, setSavingMaterial] = useState(false)
+  const [deleteMaterialConfirm, setDeleteMaterialConfirm] = useState(null)
+  const [deletingMaterial, setDeletingMaterial] = useState(false)
+  const [expandedMaterialId, setExpandedMaterialId] = useState(null)
 
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -194,9 +218,10 @@ export default function SubjectPage() {
     setResources([])
     setResourcesLoaded(false)
     try {
-      const [subSnap, actsSnap] = await Promise.all([
+      const [subSnap, actsSnap, matsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
+        getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))),
       ])
       let subData = { id: subSnap.id, ...subSnap.data() }
       if (!subData.accessCode) {
@@ -228,6 +253,11 @@ export default function SubjectPage() {
       }
       acts = acts.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       setActivities(acts)
+
+      setMaterials(
+        matsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      )
 
       const subDocs = await fetchSubmissionsForActivities(acts.map((a) => a.id))
 
@@ -773,6 +803,112 @@ export default function SubjectPage() {
     finally { setDeleting(false) }
   }
 
+  // ── Material de apoyo actions ───────────────────────────────────────
+  // Independent entity from Activity: no maxCalif, no tiposArchivo, no
+  // fechaLimite, no submissions — only a name, an optional rich-text
+  // description and one or more downloadable files. Reuses the same
+  // visibilidadMode/oculta/publishAt shape (and VisibilitySelect component)
+  // as activities so the "show now / hide / schedule" behavior is identical.
+  function openAddMaterial(parcial) {
+    if (!canCreate) {
+      toast('Activa tu suscripción mensual para crear nuevo material de apoyo — toda tu información sigue disponible')
+      return
+    }
+    setMaterialModalMode('create'); setMaterialParcial(parcial); setEditMaterialId(null)
+    setMaterialForm(EMPTY_MATERIAL_FORM)
+    setMaterialNewFiles([]); setMaterialExistingFiles([])
+    setShowMaterialModal(true)
+  }
+
+  function openEditMaterial(material) {
+    setMaterialModalMode('edit'); setMaterialParcial(material.parcial); setEditMaterialId(material.id)
+    setMaterialForm({
+      nombre: material.nombre || '',
+      descripcion: material.descripcion || '',
+      oculta: material.oculta || false,
+      publishAt: material.publishAt || '',
+      visibilidadMode: !material.oculta ? 'show' : material.publishAt ? 'schedule' : 'hide',
+    })
+    setMaterialNewFiles([])
+    setMaterialExistingFiles(material.archivos || [])
+    setShowMaterialModal(true)
+  }
+
+  function addMaterialFiles(files) {
+    const tooBig = files.find((f) => f.size > MAX_MATERIAL_FILE_SIZE)
+    if (tooBig) { toast(`"${tooBig.name}" supera el máximo de 15 MB`, 'error'); return }
+    setMaterialNewFiles((prev) => [...prev, ...files])
+  }
+
+  async function handleSaveMaterial(e) {
+    e.preventDefault()
+    if (materialModalMode === 'create' && !canCreate) {
+      toast('Activa tu suscripción mensual para crear nuevo material de apoyo — toda tu información sigue disponible')
+      return
+    }
+    if (!materialForm.nombre.trim()) { toast('Escribe un nombre para el material', 'error'); return }
+    if (materialExistingFiles.length === 0 && materialNewFiles.length === 0) {
+      toast('Agrega al menos un archivo', 'error'); return
+    }
+    setSavingMaterial(true)
+    try {
+      const uploaded = await Promise.all(
+        materialNewFiles.map(async (file) => ({
+          url: await uploadToCloudinary(file, 'evalua-facil/materiales'),
+          nombre: file.name,
+          tamano: file.size,
+        }))
+      )
+      const archivos = [...materialExistingFiles, ...uploaded]
+      const payload = {
+        nombre: materialForm.nombre.trim(),
+        descripcion: sanitizeHtml(materialForm.descripcion),
+        archivos,
+        oculta: materialForm.oculta || !!materialForm.publishAt,
+        publishAt: materialForm.publishAt || null,
+      }
+      if (materialModalMode === 'create') {
+        const orden = materials.filter((m) => m.parcial === materialParcial).length + 1
+        const ref = await addDoc(collection(db, 'materials'), {
+          ...payload, parcial: materialParcial, orden,
+          asignaturaId: subjectId, docenteId: currentUser.uid, createdAt: serverTimestamp(),
+        })
+        setMaterials((prev) => [...prev, { id: ref.id, ...payload, parcial: materialParcial, orden, asignaturaId: subjectId, docenteId: currentUser.uid }])
+        toast('Material agregado')
+      } else {
+        await updateDoc(doc(db, 'materials', editMaterialId), payload)
+        setMaterials((prev) => prev.map((m) => m.id === editMaterialId ? { ...m, ...payload } : m))
+        toast('Material actualizado')
+      }
+      setShowMaterialModal(false); setMaterialForm(EMPTY_MATERIAL_FORM)
+      setMaterialNewFiles([]); setMaterialExistingFiles([])
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setSavingMaterial(false) }
+  }
+
+  async function handleDeleteMaterial() {
+    if (!deleteMaterialConfirm) return; setDeletingMaterial(true)
+    try {
+      await deleteDoc(doc(db, 'materials', deleteMaterialConfirm.id))
+      setMaterials((prev) => prev.filter((m) => m.id !== deleteMaterialConfirm.id))
+      toast('Material eliminado'); setDeleteMaterialConfirm(null)
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setDeletingMaterial(false) }
+  }
+
+  // Same visibility toggle activities already have ("Activar para alumnos" /
+  // "Ocultar para alumnos" without opening the full edit form).
+  async function hideMaterial(m) {
+    const payload = { oculta: true, publishAt: null }
+    await updateDoc(doc(db, 'materials', m.id), payload)
+    setMaterials((prev) => prev.map((x) => x.id === m.id ? { ...x, ...payload } : x))
+  }
+  async function showMaterialNow(m) {
+    const payload = { oculta: false, publishAt: null }
+    await updateDoc(doc(db, 'materials', m.id), payload)
+    setMaterials((prev) => prev.map((x) => x.id === m.id ? { ...x, ...payload } : x))
+  }
+
   function handleToggleArchive() {
     if (!subject) return
     if (subject.archived) {
@@ -1257,6 +1393,7 @@ export default function SubjectPage() {
           <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
             {PARCIALES.map((p) => {
               const acts = activities.filter((a) => a.parcial === p)
+              const mats = materials.filter((m) => m.parcial === p)
               const isOpen = openParcial === p
               const parcialOculto = (subject?.parcialesOcultos || []).includes(p)
               return (
@@ -1368,12 +1505,104 @@ export default function SubjectPage() {
                           </div>
                         )
                       })}
+
+                      {/* Materiales de apoyo — visually distinct from activities (book
+                          icon, no submission/grade badges): independent entity, not an
+                          "actividad sin calificación". */}
+                      {mats.length > 0 && (
+                        <>
+                          <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-1">Material de apoyo</p>
+                          {mats.map((m) => {
+                            const visState = activityVisibilityState(m, parcialOculto)
+                            const isHidden = visState !== 'visible'
+                            const isExpanded = expandedMaterialId === m.id
+                            return (
+                              <div key={m.id} className={`w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
+                                <div className="flex items-center gap-1">
+                                  <button onClick={() => setExpandedMaterialId(isExpanded ? null : m.id)}
+                                    className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left hover:bg-[var(--accent-tint)] rounded transition-colors">
+                                    <BookOpen size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-amber-500'}`} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>{m.nombre}</p>
+                                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                        <span className="text-xs text-slate-500 flex items-center gap-0.5">
+                                          <Paperclip size={12} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
+                                        </span>
+                                        {m.publishAt && (
+                                          <span title="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
+                                            <Clock size={14} /> {formatPublishAt(m.publishAt)}
+                                          </span>
+                                        )}
+                                        {visState === 'hidden' && (
+                                          <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                            <EyeOff size={13} /> Oculto
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {isExpanded ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
+                                  </button>
+                                  {isHidden ? (
+                                    <button onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} title="Mostrar a alumnos"
+                                      className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-tint)] rounded transition-colors flex-shrink-0">
+                                      <EyeOff size={16} />
+                                    </button>
+                                  ) : (
+                                    <button onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} title="Ocultar a alumnos"
+                                      className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-tint)] rounded transition-colors flex-shrink-0">
+                                      <Eye size={16} />
+                                    </button>
+                                  )}
+                                  <button onClick={() => openEditMaterial(m)} title="Editar"
+                                    className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] rounded transition-colors flex-shrink-0 mr-0.5">
+                                    <Pencil size={16} />
+                                  </button>
+                                  <button onClick={() => setDeleteMaterialConfirm(m)} title="Eliminar"
+                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                                {isExpanded && (
+                                  <div className="border-t border-outline-variant px-3 py-2 ml-9">
+                                    {m.descripcion && (
+                                      <div className={`text-sm text-on-surface mb-2 ${richTextContentClass}`}
+                                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.descripcion) }} />
+                                    )}
+                                    <div className="space-y-1">
+                                      {(m.archivos || []).map((f, i) => {
+                                        const { icon: FileIconComp, color } = getResourceIcon(f.nombre)
+                                        return (
+                                          <a key={i} href={f.url} target="_blank" rel="noreferrer"
+                                            className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors">
+                                            <FileIconComp size={18} className={`flex-shrink-0 ${color}`} />
+                                            <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
+                                            <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
+                                            <Download size={15} className="text-slate-400 flex-shrink-0" />
+                                          </a>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </>
+                      )}
+
                       <button onClick={() => openAdd(p)}
                         title={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevas actividades'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-tint)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-tint)]'
                         }`}>
                         <Plus size={17} /> Agregar actividad
+                      </button>
+                      <button onClick={() => openAddMaterial(p)}
+                        title={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevo material de apoyo'}
+                        className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-tint)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-tint)]'
+                        }`}>
+                        <BookOpen size={17} /> Agregar material de apoyo
                       </button>
                       </div>
                     </div>
@@ -1751,46 +1980,16 @@ export default function SubjectPage() {
               {/* Visibilidad */}
               <div>
                 <label className="block text-sm font-medium text-muted mb-2">Visibilidad</label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-                    style={{ borderColor: form.visibilidadMode === 'show' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'show' ? 'var(--accent-light)' : '' }}>
-                    <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'show'}
-                      onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'show', oculta: false, publishAt: '' }))}
-                      className="accent-[var(--accent)]" />
-                    <div>
-                      <p className="text-sm font-medium text-on-surface">Mostrar ahora</p>
-                      <p className="text-xs text-muted">Visible para alumnos de inmediato</p>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-                    style={{ borderColor: form.visibilidadMode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'hide' ? 'var(--accent-light)' : '' }}>
-                    <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'hide'}
-                      onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'hide', oculta: true, publishAt: '' }))}
-                      className="accent-[var(--accent)]" />
-                    <div>
-                      <p className="text-sm font-medium text-on-surface">Ocultar</p>
-                      <p className="text-xs text-muted">Solo tú lo ves, hasta que lo muestres o programes</p>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-                    style={{ borderColor: form.visibilidadMode === 'schedule' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'schedule' ? 'var(--accent-light)' : '' }}>
-                    <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'schedule'}
-                      onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'schedule', oculta: true }))}
-                      className="accent-[var(--accent)]" />
-                    <div>
-                      <p className="text-sm font-medium text-on-surface">Programar</p>
-                      <p className="text-xs text-muted">Se activa automáticamente en una fecha</p>
-                    </div>
-                  </label>
-                  {form.visibilidadMode === 'schedule' && (
-                    <input
-                      type="datetime-local"
-                      value={form.publishAt}
-                      onChange={(e) => setForm((f) => ({ ...f, publishAt: e.target.value }))}
-                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
-                    />
-                  )}
-                </div>
+                <VisibilitySelect
+                  mode={form.visibilidadMode}
+                  publishAt={form.publishAt}
+                  onModeChange={(mode) => setForm((f) => ({
+                    ...f, visibilidadMode: mode,
+                    oculta: mode !== 'show',
+                    publishAt: mode === 'schedule' ? f.publishAt : '',
+                  }))}
+                  onPublishAtChange={(v) => setForm((f) => ({ ...f, publishAt: v }))}
+                />
               </div>
 
               {/* Fecha límite — hasta abajo */}
@@ -1840,6 +2039,115 @@ export default function SubjectPage() {
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deleting ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deleting ? 'Eliminando…' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Material de apoyo create/edit modal ── */}
+      {showMaterialModal && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowMaterialModal(false)} />
+          <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                {materialModalMode === 'create' ? `Nuevo material de apoyo — Parcial ${materialParcial}` : 'Editar material de apoyo'}
+              </h3>
+              <button onClick={() => setShowMaterialModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+            </div>
+            <form onSubmit={handleSaveMaterial} className="space-y-2">
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
+                <input type="text" value={materialForm.nombre} onChange={(e) => setMaterialForm((f) => ({ ...f, nombre: e.target.value }))}
+                  required autoFocus
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  placeholder="Ej: Libro de texto, Video introductorio, Guía de laboratorio" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">Descripción <span className="text-slate-400 font-normal">(opcional)</span></label>
+                <RichTextEditor
+                  value={materialForm.descripcion}
+                  onChange={(html) => setMaterialForm((f) => ({ ...f, descripcion: html }))}
+                  placeholder="Explica brevemente este material para tus alumnos…"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">Recursos</label>
+                <FileDropzone
+                  onFilesSelected={addMaterialFiles}
+                  hint="Cualquier tipo de archivo (PDF, Word, Excel, PowerPoint, imágenes, audio, video, ZIP, RAR…) · máximo 15 MB por archivo"
+                />
+                {(materialExistingFiles.length > 0 || materialNewFiles.length > 0) && (
+                  <div className="space-y-1 mt-2">
+                    {materialExistingFiles.map((f, i) => (
+                      <div key={`existing-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant">
+                        <Paperclip size={16} className="text-slate-400 flex-shrink-0" />
+                        <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
+                        <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
+                        <button type="button" onClick={() => setMaterialExistingFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                          <X size={15} />
+                        </button>
+                      </div>
+                    ))}
+                    {materialNewFiles.map((f, i) => (
+                      <div key={`new-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-accent bg-[var(--accent-tint)]">
+                        <Paperclip size={16} className="text-accent flex-shrink-0" />
+                        <span className="text-sm text-on-surface truncate flex-1">{f.name}</span>
+                        <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.size)}</span>
+                        <button type="button" onClick={() => setMaterialNewFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                          <X size={15} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Visibilidad */}
+              <div>
+                <label className="block text-sm font-medium text-muted mb-2">Visibilidad</label>
+                <VisibilitySelect
+                  mode={materialForm.visibilidadMode}
+                  publishAt={materialForm.publishAt}
+                  onModeChange={(mode) => setMaterialForm((f) => ({
+                    ...f, visibilidadMode: mode,
+                    oculta: mode !== 'show',
+                    publishAt: mode === 'schedule' ? f.publishAt : '',
+                  }))}
+                  onPublishAtChange={(v) => setMaterialForm((f) => ({ ...f, publishAt: v }))}
+                />
+              </div>
+
+              <button type="submit" disabled={savingMaterial}
+                className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                {savingMaterial ? <Spinner size="sm" /> : materialModalMode === 'create' ? <Plus size={18} /> : <Pencil size={18} />}
+                {savingMaterial ? 'Guardando…' : materialModalMode === 'create' ? 'Crear material' : 'Guardar cambios'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete material confirmation ── */}
+      {deleteMaterialConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteMaterialConfirm(null)} />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar material de apoyo?</h3>
+            <p className="text-sm text-muted mb-4">
+              "<strong>{deleteMaterialConfirm.nombre}</strong>" se eliminará permanentemente.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteMaterialConfirm(null)}
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <button onClick={handleDeleteMaterial} disabled={deletingMaterial}
+                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                {deletingMaterial ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                {deletingMaterial ? 'Eliminando…' : 'Eliminar'}
               </button>
             </div>
           </div>

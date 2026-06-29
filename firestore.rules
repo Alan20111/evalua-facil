@@ -59,6 +59,17 @@ service cloud.firestore {
         request.auth.uid == resource.data.docenteId;
     }
 
+    // "Material de apoyo" — per-parcial course material (one or more files +
+    // optional rich-text description). Independent of `activities`: it never
+    // creates a submission/grade, so it has no link to `submissions` at all.
+    // Same read/write shape as resources/activities.
+    match /materials/{materialId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+    }
+
     match /submissions/{submissionId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
