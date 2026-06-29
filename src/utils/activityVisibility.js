@@ -28,3 +28,13 @@ export function formatPublishAt(publishAt) {
   // toLocaleString (not toLocaleDateString) so hour/minute are actually rendered.
   return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
+
+// Human-readable label for the submission deadline. `fechaLimite` used to be
+// a plain date (YYYY-MM-DD); default legacy values without a time component
+// to midnight so the hour always renders.
+export function formatDeadline(fechaLimite) {
+  if (!fechaLimite) return ''
+  const hasTime = fechaLimite.includes('T')
+  const d = new Date(hasTime ? fechaLimite : `${fechaLimite}T00:00:00`)
+  return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}

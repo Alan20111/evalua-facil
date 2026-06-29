@@ -24,6 +24,7 @@ import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
@@ -264,6 +265,20 @@ export default function ActivityPage() {
               <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
             </div>
           </div>
+          {(activity?.publishAt || activity?.fechaLimite) && (
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
+              {activity?.publishAt && (
+                <span title="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
+                  <Clock size={14} /> {formatPublishAt(activity.publishAt)}
+                </span>
+              )}
+              {activity?.fechaLimite && (
+                <span title="Fecha de cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
+                  <Clock size={14} /> {formatDeadline(activity.fechaLimite)}
+                </span>
+              )}
+            </div>
+          )}
           {activity?.instrucciones && (
             <div
               className={`text-sm text-on-surface mt-3 ${richTextContentClass}`}

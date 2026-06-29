@@ -14,7 +14,7 @@ import { exportSubjectGradesPDF, exportCredentialsPDF, exportQRPDF } from '../..
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
-import { activityVisibilityState, formatPublishAt } from '../../utils/activityVisibility'
+import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
@@ -51,14 +51,6 @@ async function fetchSubmissionsForActivities(actIds) {
 }
 
 const EMPTY_FORM = { nombre: '', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show' }
-
-// `fechaLimite` used to be a plain date (YYYY-MM-DD); default legacy values
-// without a time component to midnight so the hour always renders.
-function formatDeadline(fechaLimite) {
-  const hasTime = fechaLimite.includes('T')
-  const d = new Date(hasTime ? fechaLimite : `${fechaLimite}T00:00:00`)
-  return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
 
 function gradeColor(norm) {
   if (norm === null) return 'text-slate-300'
