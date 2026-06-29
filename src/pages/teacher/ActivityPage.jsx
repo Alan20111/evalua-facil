@@ -345,7 +345,7 @@ export default function ActivityPage() {
             <button
               onClick={handleZipDownload}
               disabled={zipDownloading}
-              className="w-full flex items-center justify-center gap-2 py-2 rounded border border-accent text-accent text-sm font-medium hover:bg-accent-light transition-colors disabled:opacity-40"
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-accent-light transition-colors disabled:opacity-40"
             >
               {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
               {zipDownloading

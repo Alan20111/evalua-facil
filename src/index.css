@@ -40,19 +40,25 @@
   /* ── Teacher-only type-scale nudge ────────────────────────────────
      tailwind.config.js's fontSize.{xs..6xl} resolve through var(--fs-*)
      with the shared (student) scale as the fallback — only [data-role=
-     'docente'] overrides them, one half-step tighter, leaving the
-     student module's font sizes completely untouched. */
+     'docente'] overrides them, leaving the student module's font sizes
+     completely untouched.
+     Note: the desktop sidebar (blue plane in Layout.jsx) and the mobile
+     accent header use the *semantic* tokens (body-sm, metadata,
+     label-caps, etc., defined directly in tailwind.config.js) — those
+     are intentionally NOT overridden here, so "on blue" text stays
+     exactly as-is while every white-card/table/form/list screen (all
+     built on raw text-xs…text-6xl) gets this final, subtle reduction. */
   [data-role='docente'] {
-    --fs-xs: 0.78125rem;   --lh-xs: 1.03125rem;
-    --fs-sm: 0.90625rem;   --lh-sm: 1.25rem;
-    --fs-base: 1.03125rem; --lh-base: 1.46875rem;
-    --fs-lg: 1.15625rem;   --lh-lg: 1.6875rem;
-    --fs-xl: 1.28125rem;   --lh-xl: 1.71875rem;
-    --fs-2xl: 1.53125rem;  --lh-2xl: 1.96875rem;
-    --fs-3xl: 1.90625rem;  --lh-3xl: 2.25rem;
-    --fs-4xl: 2.28125rem;  --lh-4xl: 2.53125rem;
-    --fs-5xl: 3.0625rem;
-    --fs-6xl: 3.8125rem;
+    --fs-xs: 0.765625rem;   --lh-xs: 1.03125rem;
+    --fs-sm: 0.890625rem;   --lh-sm: 1.25rem;
+    --fs-base: 1.015625rem; --lh-base: 1.46875rem;
+    --fs-lg: 1.140625rem;   --lh-lg: 1.6875rem;
+    --fs-xl: 1.265625rem;   --lh-xl: 1.71875rem;
+    --fs-2xl: 1.515625rem;  --lh-2xl: 1.96875rem;
+    --fs-3xl: 1.890625rem;  --lh-3xl: 2.25rem;
+    --fs-4xl: 2.265625rem;  --lh-4xl: 2.53125rem;
+    --fs-5xl: 3.03125rem;
+    --fs-6xl: 3.78125rem;
   }
 
   /* ── Accent theming ──────────────────────────────────────────────

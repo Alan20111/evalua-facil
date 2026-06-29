@@ -93,17 +93,22 @@ export default {
       // through a CSS var so [data-role='docente'] can move it to the
       // midpoint between pass five and the original default again (half the
       // remaining gap) without touching the student experience at all.
+      //
+      // Seventh pass (teacher-only, white-background content only): one
+      // more subtle -0.25px (-0.5px for 5xl/6xl) nudge per tier, staying a
+      // hair above Tailwind's original default everywhere — see the actual
+      // values under [data-role='docente'] in src/index.css.
       fontSize: {
-        xs: ['var(--fs-xs, 0.8125rem)', { lineHeight: 'var(--lh-xs, 1.0625rem)' }],     // 13px/17px (docente: 12.5/16.5; original 12/16)
-        sm: ['var(--fs-sm, 0.9375rem)', { lineHeight: 'var(--lh-sm, 1.25rem)' }],        // 15px/20px (docente: 14.5/20; original 14/20)
-        base: ['var(--fs-base, 1.0625rem)', { lineHeight: 'var(--lh-base, 1.4375rem)' }], // 17px/23px (docente: 16.5/23.5; original 16/24)
-        lg: ['var(--fs-lg, 1.1875rem)', { lineHeight: 'var(--lh-lg, 1.625rem)' }],       // 19px/26px (docente: 18.5/27; original 18/28)
-        xl: ['var(--fs-xl, 1.3125rem)', { lineHeight: 'var(--lh-xl, 1.6875rem)' }],      // 21px/27px (docente: 20.5/27.5; original 20/28)
-        '2xl': ['var(--fs-2xl, 1.5625rem)', { lineHeight: 'var(--lh-2xl, 1.9375rem)' }], // 25px/31px (docente: 24.5/31.5; original 24/32)
-        '3xl': ['var(--fs-3xl, 1.9375rem)', { lineHeight: 'var(--lh-3xl, 2.25rem)' }],   // 31px/36px (docente: 30.5/36; original 30/36)
-        '4xl': ['var(--fs-4xl, 2.3125rem)', { lineHeight: 'var(--lh-4xl, 2.5625rem)' }], // 37px/41px (docente: 36.5/40.5; original 36/40)
-        '5xl': ['var(--fs-5xl, 3.125rem)', { lineHeight: '1' }],   // 50px (docente: 49; original 48)
-        '6xl': ['var(--fs-6xl, 3.875rem)', { lineHeight: '1' }],   // 62px (docente: 61; original 60)
+        xs: ['var(--fs-xs, 0.8125rem)', { lineHeight: 'var(--lh-xs, 1.0625rem)' }],     // 13px/17px (docente: 12.25/16.5; original 12/16)
+        sm: ['var(--fs-sm, 0.9375rem)', { lineHeight: 'var(--lh-sm, 1.25rem)' }],        // 15px/20px (docente: 14.25/20; original 14/20)
+        base: ['var(--fs-base, 1.0625rem)', { lineHeight: 'var(--lh-base, 1.4375rem)' }], // 17px/23px (docente: 16.25/23.5; original 16/24)
+        lg: ['var(--fs-lg, 1.1875rem)', { lineHeight: 'var(--lh-lg, 1.625rem)' }],       // 19px/26px (docente: 18.25/27; original 18/28)
+        xl: ['var(--fs-xl, 1.3125rem)', { lineHeight: 'var(--lh-xl, 1.6875rem)' }],      // 21px/27px (docente: 20.25/27.5; original 20/28)
+        '2xl': ['var(--fs-2xl, 1.5625rem)', { lineHeight: 'var(--lh-2xl, 1.9375rem)' }], // 25px/31px (docente: 24.25/31.5; original 24/32)
+        '3xl': ['var(--fs-3xl, 1.9375rem)', { lineHeight: 'var(--lh-3xl, 2.25rem)' }],   // 31px/36px (docente: 30.25/36; original 30/36)
+        '4xl': ['var(--fs-4xl, 2.3125rem)', { lineHeight: 'var(--lh-4xl, 2.5625rem)' }], // 37px/41px (docente: 36.25/40.5; original 36/40)
+        '5xl': ['var(--fs-5xl, 3.125rem)', { lineHeight: '1' }],   // 50px (docente: 48.5; original 48)
+        '6xl': ['var(--fs-6xl, 3.875rem)', { lineHeight: '1' }],   // 62px (docente: 60.5; original 60)
 
         // Semantic tokens, kept in sync with the pass-five scale above
         // (body-md ≈ base, body-sm ≈ sm, label-caps/metadata ≈ xs) — still

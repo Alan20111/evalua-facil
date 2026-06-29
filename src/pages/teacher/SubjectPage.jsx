@@ -28,7 +28,7 @@ import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet, Search,
-  ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode,
+  ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff,
 } from 'lucide-react'
@@ -1237,7 +1237,7 @@ export default function SubjectPage() {
                   onClick={handleExport}
                   disabled={exporting}
                   title="Descarga las calificaciones de todos los alumnos en una hoja de Excel"
-                  className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
                 >
                   {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
                 </button>
@@ -1245,7 +1245,7 @@ export default function SubjectPage() {
                   onClick={handleExportGradesPDF}
                   disabled={exportingGradesPdf}
                   title="Descarga las calificaciones de todos los alumnos en un PDF imprimible"
-                  className="flex-1 flex items-center justify-center gap-2 py-2 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-surface transition-colors disabled:opacity-40"
                 >
                   {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
                 </button>
@@ -1341,36 +1341,45 @@ export default function SubjectPage() {
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
         <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
-          {/* 1 — Agregar alumnos con la plantilla de Excel (paso 1: descargar, paso 2: subir) */}
+          {/* Agregar alumnos — compact 3-step strip: template → upload → activation codes.
+              Each step shows just a number + icon + short label; the full instructions
+              live in the title tooltip instead of wrapping across two lines like before. */}
           <div>
-            <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar alumnos con Excel</p>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar alumnos</p>
+            <div className="flex flex-col sm:flex-row sm:items-stretch gap-1 bg-surface-card border border-outline-variant rounded overflow-hidden">
               <button
                 type="button"
                 onClick={downloadStudentTemplate}
-                className="flex-1 flex items-center justify-center text-center gap-2 py-2 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
+                title="Descargar plantilla en Excel para pegar datos de alumnos"
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-accent-light transition-colors"
               >
-                <Download size={17} className="flex-shrink-0" /> <strong>Paso 1</strong> · Descargar plantilla en Excel para pegar datos de alumnos
+                <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
+                <Download size={15} className="flex-shrink-0" />
+                <span className="truncate">Plantilla Excel</span>
               </button>
+              <ChevronRight size={16} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
               <label
                 title="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
-                className="flex-1 flex items-center justify-center text-center gap-2 py-2 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors cursor-pointer"
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-accent-light transition-colors cursor-pointer"
               >
-                {savingStudent ? <Spinner size="sm" /> : <Upload size={17} className="flex-shrink-0" />} <strong>Paso 2</strong> · Subir la plantilla de Excel con los datos de los alumnos
+                <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
+                {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />}
+                <span className="truncate">Subir plantilla</span>
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
               </label>
+              <ChevronRight size={16} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
+              <button
+                type="button"
+                onClick={() => setShowCredentialsModal(true)}
+                title="Genera tu lista actualizada de códigos de acceso cada vez que agregues alumnos"
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-accent-light transition-colors"
+              >
+                <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
+                <KeyRound size={15} className="flex-shrink-0" />
+                <span className="truncate">Generar códigos</span>
+              </button>
             </div>
           </div>
-
-          {/* 2 — Descargar lista de acceso (R16) */}
-          <button
-            type="button"
-            onClick={() => setShowCredentialsModal(true)}
-            title="Genera tu lista actualizada cada vez que agregues usuarios"
-            className="w-full flex items-center justify-center gap-2 py-2 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
-          >
-            <KeyRound size={17} /> <strong>Paso 3</strong> · Generar códigos para alumnos y descargar lista de acceso (usuarios + códigos)
-          </button>
 
           {/* Ordenar alfabéticamente */}
           <div className="flex justify-end pt-1">
@@ -1581,7 +1590,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
               <button onClick={handleDeleteActivity} disabled={deleting}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deleting ? <Spinner size="sm" /> : <Trash2 size={16} />}
@@ -1677,7 +1686,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={requestResetFromEdit}
                 disabled={savingStudent}
-                className="w-full py-2 rounded border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-1.5 rounded border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <RotateCcw size={17} />
                 Habilitar recuperación de contraseña
@@ -1686,7 +1695,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={requestDeleteFromEdit}
                 disabled={savingStudent}
-                className="w-full py-2 rounded border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-1.5 rounded border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <Trash2 size={17} />
                 Eliminar alumno
@@ -1717,7 +1726,7 @@ export default function SubjectPage() {
             <button
               onClick={handleExportQRPDF}
               disabled={exportingPdf}
-              className="w-full flex items-center justify-center gap-2 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-50"
             >
               {exportingPdf ? <Spinner size="sm" /> : <Download size={17} />}
               {exportingPdf ? 'Generando PDF…' : 'Descargar QR en PDF'}
@@ -1938,7 +1947,7 @@ export default function SubjectPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setActivateModal(null)}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
               <button onClick={handleActivateConfirm}
                 disabled={activateMode === 'schedule' && !activateDate}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 flex items-center justify-center gap-2">
@@ -2106,7 +2115,7 @@ export default function SubjectPage() {
             />
             <div className="flex gap-2">
               <button onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
               <button onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 flex items-center justify-center gap-2">
@@ -2147,7 +2156,7 @@ export default function SubjectPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => setShowArchiveModal(false)} disabled={archiving}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface disabled:opacity-60">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface disabled:opacity-60">Cancelar</button>
               <button onClick={handleArchiveConfirm} disabled={archiving}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {archiving ? <Spinner size="sm" /> : <Archive size={16} />}
@@ -2247,7 +2256,7 @@ export default function SubjectPage() {
 
             <div className="flex gap-2">
               <button onClick={() => setShowUnarchiveModal(false)}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
               <button onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {unarchivedSaving ? <Spinner size="sm" /> : null}
