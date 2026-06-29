@@ -15,11 +15,18 @@ import Spinner from '../../components/Spinner'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
+import { getResourceIcon } from '../../utils/resourceTypes'
+import { formatFileSize } from '../../utils/formatBytes'
 import SubjectIcon from '../../components/SubjectIcon'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
-  Clock, Circle, Star,
+  Clock, Circle, Star, Download, FolderOpen,
 } from 'lucide-react'
+
+function formatResourceDate(ts) {
+  if (!ts?.toDate) return ''
+  return ts.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 export default function StudentSubjectPage() {
   const { subjectId } = useParams()
@@ -27,6 +34,7 @@ export default function StudentSubjectPage() {
   const [subject, setSubject] = useState(null)
   const [activities, setActivities] = useState([])
   const [submissions, setSubmissions] = useState({})
+  const [resources, setResources] = useState([])
   const [openParcial, setOpenParcial] = useState(1)
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
@@ -38,10 +46,11 @@ export default function StudentSubjectPage() {
     setLoading(true)
     try {
       // Resolve THIS student's enrollment record for the subject being viewed.
-      const [subSnap, studData, actsSnap] = await Promise.all([
+      const [subSnap, studData, actsSnap, resSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
         getEnrollmentForSubject(currentUser, userProfile, subjectId),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
+        getDocs(query(collection(db, 'resources'), where('asignaturaId', '==', subjectId))),
       ])
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
@@ -49,6 +58,12 @@ export default function StudentSubjectPage() {
       const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
         .filter((a) => isActivityPublished(a, parcialesOcultos.includes(a.parcial)))
       setActivities(acts)
+      // Sorted in memory (most-recent-first) — Firestore queries here can't
+      // use orderBy per this project's index constraints (see CLAUDE.md).
+      setResources(
+        resSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.fechaPublicacion?.seconds ?? 0) - (a.fechaPublicacion?.seconds ?? 0))
+      )
       if (!studData) return
 
       // One query for ALL of this student's submissions, then map to activities in memory
@@ -188,6 +203,43 @@ export default function StudentSubjectPage() {
             </div>
           )
         })}
+
+        {/* Recursos — permanent course material, read-only for students:
+            no submission, no grade, nothing to mark as done. */}
+        {resources.length > 0 && (
+          <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
+            <div className="px-4 py-3 flex items-center gap-2 border-b border-outline-variant">
+              <FolderOpen size={18} className="text-accent flex-shrink-0" />
+              <p className="font-semibold text-on-surface">Recursos</p>
+            </div>
+            <div className="px-4 py-2 space-y-1.5">
+              {resources.map((r) => {
+                const { icon: Icon, color } = getResourceIcon(r.nombreArchivo)
+                return (
+                  <a
+                    key={r.id}
+                    href={r.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-3 px-2 py-2 rounded hover:bg-surface transition-colors border border-outline-variant"
+                  >
+                    <Icon size={24} className={`flex-shrink-0 ${color}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-on-surface truncate">{r.nombre}</p>
+                      {r.descripcion && (
+                        <p className="text-sm text-slate-500 truncate">{r.descripcion}</p>
+                      )}
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {formatFileSize(r.tamano)}{r.tamano ? ' · ' : ''}{formatResourceDate(r.fechaPublicacion)}
+                      </p>
+                    </div>
+                    <Download size={18} className="text-slate-400 flex-shrink-0" />
+                  </a>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

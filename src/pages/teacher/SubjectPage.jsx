@@ -24,6 +24,9 @@ import RichTextEditor from '../../components/RichTextEditor'
 import { htmlToPlainText, sanitizeHtml, toRichHtml } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { uploadToCloudinary } from '../../utils/cloudinary'
+import { RESOURCE_ACCEPT, getResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
+import { formatFileSize } from '../../utils/formatBytes'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
@@ -51,6 +54,16 @@ async function fetchSubmissionsForActivities(actIds) {
 }
 
 const EMPTY_FORM = { nombre: '', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show' }
+
+function formatResourceDate(ts) {
+  if (!ts?.toDate) return ''
+  return ts.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+// Resources are course material (PDFs, decks, spreadsheets), typically
+// heavier than a single submission file — a higher cap than the 5 MB used
+// for student deliveries (src/pages/student/ActivityPage.jsx).
+const MAX_RESOURCE_SIZE = 15 * 1024 * 1024
 
 function gradeColor(norm) {
   if (norm === null) return 'text-slate-300'
@@ -140,6 +153,19 @@ export default function SubjectPage() {
   const [savingStudent, setSavingStudent] = useState(false)
   const [searchAlumnos, setSearchAlumnos] = useState('')
 
+  // Resources (Recursos tab) — independent entity scoped by asignaturaId,
+  // not tied to activities (see the `resources` collection in firestore.rules).
+  const [resources, setResources] = useState([])
+  const [resourcesLoaded, setResourcesLoaded] = useState(false)
+  const [loadingResources, setLoadingResources] = useState(false)
+  const [showResourceModal, setShowResourceModal] = useState(false)
+  const [resourceModalMode, setResourceModalMode] = useState('create') // 'create' | 'edit'
+  const [resourceForm, setResourceForm] = useState({ id: null, nombre: '', descripcion: '' })
+  const [resourceFile, setResourceFile] = useState(null)
+  const [savingResource, setSavingResource] = useState(false)
+  const [deleteResourceConfirm, setDeleteResourceConfirm] = useState(null)
+  const [deletingResource, setDeletingResource] = useState(false)
+
   // Calificaciones
   const [gradeSubMap, setGradeSubMap] = useState({})
   const [gradesLoaded, setGradesLoaded] = useState(false)
@@ -165,6 +191,8 @@ export default function SubjectPage() {
     setGroupStudentsLoaded(false)
     setGradeSubMap({})
     setGradesLoaded(false)
+    setResources([])
+    setResourcesLoaded(false)
     try {
       const [subSnap, actsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
@@ -219,6 +247,7 @@ export default function SubjectPage() {
       // closure still has the stale value from before that reset took effect.
       if (activeTab === 'alumnos') await ensureGroupStudents(true)
       if (activeTab === 'calificaciones') await loadGrades(true, acts)
+      if (activeTab === 'recursos') await ensureResources(true)
     } catch (err) {
       toast('Error al cargar: ' + err.message, 'error')
     } finally {
@@ -241,6 +270,101 @@ export default function SubjectPage() {
     setGroupStudents(students)
     setGroupStudentsLoaded(true)
     return students
+  }
+
+  // ── Resources (Recursos tab) ───────────────────────────────────────
+  async function ensureResources(force = false) {
+    if (resourcesLoaded && !force) return resources
+    setLoadingResources(true)
+    try {
+      const snap = await getDocs(query(collection(db, 'resources'), where('asignaturaId', '==', subjectId)))
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        // Most-recent-first by publish date — sorted in memory since this
+        // project's Firestore queries can't use orderBy (see CLAUDE.md).
+        .sort((a, b) => (b.fechaPublicacion?.seconds ?? 0) - (a.fechaPublicacion?.seconds ?? 0))
+      setResources(list)
+      setResourcesLoaded(true)
+      return list
+    } catch (err) {
+      toast('Error al cargar recursos: ' + err.message, 'error')
+      return []
+    } finally {
+      setLoadingResources(false)
+    }
+  }
+
+  function openAddResource() {
+    setResourceModalMode('create')
+    setResourceForm({ id: null, nombre: '', descripcion: '' })
+    setResourceFile(null)
+    setShowResourceModal(true)
+  }
+
+  function openEditResource(r) {
+    setResourceModalMode('edit')
+    setResourceForm({ id: r.id, nombre: r.nombre, descripcion: r.descripcion || '' })
+    setResourceFile(null)
+    setShowResourceModal(true)
+  }
+
+  async function handleSaveResource(e) {
+    e.preventDefault()
+    if (!resourceForm.nombre.trim()) { toast('Escribe un nombre', 'error'); return }
+    if (resourceModalMode === 'create' && !resourceFile) { toast('Selecciona un archivo', 'error'); return }
+    if (resourceFile) {
+      if (!isResourceFileAllowed(resourceFile)) { toast('Tipo de archivo no permitido', 'error'); return }
+      if (resourceFile.size > MAX_RESOURCE_SIZE) { toast('El archivo no puede superar 15 MB', 'error'); return }
+    }
+    setSavingResource(true)
+    try {
+      if (resourceModalMode === 'create') {
+        const url = await uploadToCloudinary(resourceFile, 'evalua-facil/recursos')
+        await addDoc(collection(db, 'resources'), {
+          asignaturaId: subjectId,
+          docenteId: currentUser.uid,
+          nombre: resourceForm.nombre.trim(),
+          descripcion: resourceForm.descripcion.trim(),
+          url,
+          nombreArchivo: resourceFile.name,
+          tamano: resourceFile.size,
+          fechaPublicacion: serverTimestamp(),
+        })
+        toast('Recurso agregado')
+      } else {
+        const patch = {
+          nombre: resourceForm.nombre.trim(),
+          descripcion: resourceForm.descripcion.trim(),
+        }
+        if (resourceFile) {
+          patch.url = await uploadToCloudinary(resourceFile, 'evalua-facil/recursos')
+          patch.nombreArchivo = resourceFile.name
+          patch.tamano = resourceFile.size
+        }
+        await updateDoc(doc(db, 'resources', resourceForm.id), patch)
+        toast('Recurso actualizado')
+      }
+      setShowResourceModal(false)
+      await ensureResources(true)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingResource(false)
+    }
+  }
+
+  async function handleDeleteResource() {
+    if (!deleteResourceConfirm) return
+    setDeletingResource(true)
+    try {
+      await deleteDoc(doc(db, 'resources', deleteResourceConfirm.id))
+      setDeleteResourceConfirm(null)
+      await ensureResources(true)
+      toast('Recurso eliminado')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setDeletingResource(false)
+    }
   }
 
   // ── Calificaciones ─────────────────────────────────────────────────
@@ -270,6 +394,7 @@ export default function SubjectPage() {
     setActiveTab(tab)
     if (tab === 'calificaciones' && !gradesLoaded) loadGrades()
     if (tab === 'alumnos' && !groupStudentsLoaded) ensureGroupStudents()
+    if (tab === 'recursos' && !resourcesLoaded) ensureResources()
   }
 
   // ── Student management (Alumnos tab) ──────────────────────────────
@@ -1114,12 +1239,12 @@ export default function SubjectPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
-            {['actividades', 'calificaciones', 'alumnos'].map((t) => (
+            {['actividades', 'calificaciones', 'alumnos', 'recursos'].map((t) => (
               <button key={t} onClick={() => switchTab(t)}
                 className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                   activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:text-on-surface'
                 }`}>
-                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : 'Alumnos'}
+                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'alumnos' ? 'Alumnos' : 'Recursos'}
               </button>
             ))}
           </div>
@@ -1519,6 +1644,64 @@ export default function SubjectPage() {
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════
+          TAB: RECURSOS
+      ══════════════════════════════════════════════════════════ */}
+      {activeTab === 'recursos' && (
+        <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-muted leading-relaxed">
+              Materiales permanentes del curso (programa, reglamento, guías, presentaciones…), disponibles para tus alumnos durante todo el semestre. No generan entrega ni calificación.
+            </p>
+            <button type="button" onClick={openAddResource}
+              title="Agregar recurso"
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+              <Plus size={16} /> Agregar recurso
+            </button>
+          </div>
+
+          {!resourcesLoaded || loadingResources ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
+          ) : resources.length === 0 ? (
+            <div className="text-center py-10 text-slate-400 text-sm">
+              Aún no hay recursos en esta asignatura
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {resources.map((r) => {
+                const { icon: Icon, color } = getResourceIcon(r.nombreArchivo)
+                return (
+                  <div key={r.id} className="flex items-center gap-3 bg-surface-card border border-outline-variant rounded-card px-3 py-2 shadow-card">
+                    <Icon size={28} className={`flex-shrink-0 ${color}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-on-surface truncate">{r.nombre}</p>
+                      {r.descripcion && (
+                        <p className="text-xs text-slate-500 truncate">{r.descripcion}</p>
+                      )}
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {formatFileSize(r.tamano)}{r.tamano ? ' · ' : ''}{formatResourceDate(r.fechaPublicacion)}
+                      </p>
+                    </div>
+                    <a href={r.url} target="_blank" rel="noreferrer" title="Ver / descargar"
+                      className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
+                      <Download size={18} />
+                    </a>
+                    <button onClick={() => openEditResource(r)} title="Editar"
+                      className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
+                      <Pencil size={18} />
+                    </button>
+                    <button onClick={() => setDeleteResourceConfirm(r)} title="Eliminar"
+                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -2323,6 +2506,85 @@ export default function SubjectPage() {
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {unarchivedSaving ? <Spinner size="sm" /> : null}
                 {unarchivedSaving ? 'Guardando…' : 'Desarchivar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add/Edit resource modal ── */}
+      {showResourceModal && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowResourceModal(false)} />
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">{resourceModalMode === 'create' ? 'Agregar recurso' : 'Editar recurso'}</h3>
+              <button onClick={() => setShowResourceModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+            </div>
+            <form onSubmit={handleSaveResource} className="space-y-2">
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">Nombre del recurso</label>
+                <input
+                  type="text"
+                  value={resourceForm.nombre}
+                  onChange={(e) => setResourceForm((f) => ({ ...f, nombre: e.target.value }))}
+                  required
+                  autoFocus
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  placeholder="Ej: Programa de la asignatura"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">Descripción (opcional)</label>
+                <textarea
+                  value={resourceForm.descripcion}
+                  onChange={(e) => setResourceForm((f) => ({ ...f, descripcion: e.target.value }))}
+                  rows={2}
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                  placeholder="Ej: Consulta este documento antes del primer parcial"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">
+                  Archivo {resourceModalMode === 'edit' && '(déjalo vacío para conservar el actual)'}
+                </label>
+                <input
+                  type="file"
+                  accept={RESOURCE_ACCEPT}
+                  onChange={(e) => setResourceFile(e.target.files?.[0] || null)}
+                  className="w-full text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-accent-light file:text-accent file:text-sm file:font-medium"
+                />
+                <p className="text-xs text-slate-400 mt-1">PDF, Word, Excel, Power Point, JPG o PNG · máximo 15 MB</p>
+              </div>
+              <button
+                type="submit"
+                disabled={savingResource}
+                className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {savingResource ? <Spinner size="sm" /> : <Upload size={18} />}
+                {savingResource ? 'Guardando…' : 'Guardar recurso'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete resource confirm ── */}
+      {deleteResourceConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteResourceConfirm(null)} />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar recurso?</h3>
+            <p className="text-sm text-muted mb-4">
+              "<strong>{deleteResourceConfirm.nombre}</strong>" se eliminará permanentemente.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteResourceConfirm(null)}
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
+              <button onClick={handleDeleteResource} disabled={deletingResource}
+                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                {deletingResource ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                {deletingResource ? 'Eliminando…' : 'Eliminar'}
               </button>
             </div>
           </div>

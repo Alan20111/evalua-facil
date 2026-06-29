@@ -48,6 +48,17 @@ service cloud.firestore {
         request.auth.uid == resource.data.docenteId;
     }
 
+    // Permanent course materials (syllabus, guides, etc.) — not tied to an
+    // activity, so they never generate a submission or grade. Same
+    // read/write shape as activities: any authenticated user (teacher or
+    // enrolled student) can read; only the owning teacher can write/delete.
+    match /resources/{resourceId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+    }
+
     match /submissions/{submissionId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
