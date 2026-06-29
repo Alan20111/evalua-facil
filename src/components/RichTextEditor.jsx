@@ -23,7 +23,11 @@ import { sanitizeHtml, richTextContentClass } from '../utils/sanitizeHtml'
 // retroalimentación, comentarios…) can reuse it via `value`/`onChange` (HTML
 // string in, HTML string out) without depending on this modal or feature.
 
-const TOOLBAR_BTN = 'p-1.5 rounded hover:bg-surface transition-colors disabled:opacity-40'
+// hover lives in each button's "not active" branch below, never in this base
+// constant — TOOLBAR_BTN_ACTIVE already supplies its own background, and a
+// shared hover here would visibly tint an already-active button on rollover.
+const TOOLBAR_BTN = 'p-1.5 rounded transition-colors disabled:opacity-40'
+const TOOLBAR_BTN_HOVER = 'hover:bg-[rgba(249,115,22,0.12)]'
 const TOOLBAR_BTN_ACTIVE = 'bg-accent-light text-accent'
 
 async function insertImageFile(editor, file) {
@@ -115,21 +119,21 @@ export default function RichTextEditor({ value, onChange, placeholder }) {
     <div className="border border-outline-variant rounded bg-surface-card overflow-hidden">
       <div className="flex items-center gap-0.5 flex-wrap p-1.5 border-b border-outline-variant bg-surface">
         <button type="button" title="Negrita"
-          className={`${TOOLBAR_BTN} ${editor.isActive('bold') ? TOOLBAR_BTN_ACTIVE : 'text-muted'}`}
+          className={`${TOOLBAR_BTN} ${editor.isActive('bold') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => editor.chain().focus().toggleBold().run()}>
           <Bold size={16} />
         </button>
         <button type="button" title="Cursiva"
-          className={`${TOOLBAR_BTN} ${editor.isActive('italic') ? TOOLBAR_BTN_ACTIVE : 'text-muted'}`}
+          className={`${TOOLBAR_BTN} ${editor.isActive('italic') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => editor.chain().focus().toggleItalic().run()}>
           <Italic size={16} />
         </button>
         <button type="button" title="Subrayado"
-          className={`${TOOLBAR_BTN} ${editor.isActive('underline') ? TOOLBAR_BTN_ACTIVE : 'text-muted'}`}
+          className={`${TOOLBAR_BTN} ${editor.isActive('underline') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => editor.chain().focus().toggleUnderline().run()}>
           <UnderlineIcon size={16} />
         </button>
-        <label title="Color de texto" className={`${TOOLBAR_BTN} text-muted cursor-pointer relative`}>
+        <label title="Color de texto" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted cursor-pointer relative`}>
           <Baseline size={16} />
           <input
             type="color"
@@ -141,12 +145,12 @@ export default function RichTextEditor({ value, onChange, placeholder }) {
         <span className="w-px h-5 bg-outline-variant mx-1" />
 
         <button type="button" title="Lista con viñetas"
-          className={`${TOOLBAR_BTN} ${editor.isActive('bulletList') ? TOOLBAR_BTN_ACTIVE : 'text-muted'}`}
+          className={`${TOOLBAR_BTN} ${editor.isActive('bulletList') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => editor.chain().focus().toggleBulletList().run()}>
           <List size={16} />
         </button>
         <button type="button" title="Lista numerada"
-          className={`${TOOLBAR_BTN} ${editor.isActive('orderedList') ? TOOLBAR_BTN_ACTIVE : 'text-muted'}`}
+          className={`${TOOLBAR_BTN} ${editor.isActive('orderedList') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}>
           <ListOrdered size={16} />
         </button>
@@ -154,17 +158,17 @@ export default function RichTextEditor({ value, onChange, placeholder }) {
         <span className="w-px h-5 bg-outline-variant mx-1" />
 
         <button type="button" title="Alinear a la izquierda"
-          className={`${TOOLBAR_BTN} ${editor.isActive({ textAlign: 'left' }) ? TOOLBAR_BTN_ACTIVE : 'text-muted'}`}
+          className={`${TOOLBAR_BTN} ${editor.isActive({ textAlign: 'left' }) ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => editor.chain().focus().setTextAlign('left').run()}>
           <AlignLeft size={16} />
         </button>
         <button type="button" title="Centrar"
-          className={`${TOOLBAR_BTN} ${editor.isActive({ textAlign: 'center' }) ? TOOLBAR_BTN_ACTIVE : 'text-muted'}`}
+          className={`${TOOLBAR_BTN} ${editor.isActive({ textAlign: 'center' }) ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => editor.chain().focus().setTextAlign('center').run()}>
           <AlignCenter size={16} />
         </button>
         <button type="button" title="Alinear a la derecha"
-          className={`${TOOLBAR_BTN} ${editor.isActive({ textAlign: 'right' }) ? TOOLBAR_BTN_ACTIVE : 'text-muted'}`}
+          className={`${TOOLBAR_BTN} ${editor.isActive({ textAlign: 'right' }) ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => editor.chain().focus().setTextAlign('right').run()}>
           <AlignRight size={16} />
         </button>
@@ -172,14 +176,14 @@ export default function RichTextEditor({ value, onChange, placeholder }) {
         <span className="w-px h-5 bg-outline-variant mx-1" />
 
         <button type="button" title="Insertar enlace"
-          className={`${TOOLBAR_BTN} ${editor.isActive('link') ? TOOLBAR_BTN_ACTIVE : 'text-muted'}`}
+          className={`${TOOLBAR_BTN} ${editor.isActive('link') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={setLink}>
           <Link2 size={16} />
         </button>
-        <button type="button" title="Insertar imagen" className={`${TOOLBAR_BTN} text-muted`} onClick={pickImageFile}>
+        <button type="button" title="Insertar imagen" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted`} onClick={pickImageFile}>
           <ImageIcon size={16} />
         </button>
-        <button type="button" title="Eliminar formato" className={`${TOOLBAR_BTN} text-muted`}
+        <button type="button" title="Eliminar formato" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted`}
           onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
           <RemoveFormatting size={16} />
         </button>
@@ -187,7 +191,7 @@ export default function RichTextEditor({ value, onChange, placeholder }) {
         <span className="flex-1" />
 
         <button type="button" title={showPreview ? 'Editar' : 'Vista previa'}
-          className={`${TOOLBAR_BTN} ${showPreview ? TOOLBAR_BTN_ACTIVE : 'text-muted'}`}
+          className={`${TOOLBAR_BTN} ${showPreview ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => setShowPreview((v) => !v)}>
           {showPreview ? <Pencil size={16} /> : <Eye size={16} />}
         </button>

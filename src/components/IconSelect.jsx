@@ -13,7 +13,7 @@ export default function IconSelect({ value = 'book', onChange }) {
             type="button"
             onClick={() => onChange(key)}
             aria-label={key}
-            className={`aspect-square rounded flex items-center justify-center transition-colors ${selected ? 'bg-accent text-white' : 'bg-surface-container text-muted hover:bg-surface-dim'}`}
+            className={`aspect-square rounded flex items-center justify-center transition-colors ${selected ? 'bg-accent text-white' : 'bg-surface-container text-muted hover:bg-[rgba(249,115,22,0.12)]'}`}
           >
             <Icon size={19} />
           </button>
