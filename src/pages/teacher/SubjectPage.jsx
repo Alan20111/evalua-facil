@@ -1080,10 +1080,10 @@ export default function SubjectPage() {
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
                                   {a.actividad && <span className="text-accent font-semibold">{a.actividad} · </span>}
                                   {a.nombre}
+                                  {a.instrucciones && (
+                                    <span className="text-sm font-normal text-slate-400"> — {a.instrucciones.replace(/\s+/g, ' ').trim()}</span>
+                                  )}
                                 </p>
-                                {a.instrucciones && (
-                                  <p className="text-sm text-slate-500 leading-tight mt-0.5 truncate">{a.instrucciones.replace(/\s+/g, ' ').trim()}</p>
-                                )}
                                 {(a.fechaLimite || visState !== 'visible') && (
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                     {a.fechaLimite && (
