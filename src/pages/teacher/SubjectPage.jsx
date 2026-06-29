@@ -145,6 +145,10 @@ export default function SubjectPage() {
   const [gradesLoaded, setGradesLoaded] = useState(false)
   const [loadingGrades, setLoadingGrades] = useState(false)
   const [searchGrade, setSearchGrade] = useState('')
+  // Column/row hover tracking for the grades table cross-highlight — set via
+  // event delegation on the table (see handleGradeTableHover below) instead
+  // of one handler per cell.
+  const [hoverGradeCell, setHoverGradeCell] = useState({ row: null, col: null })
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -981,9 +985,8 @@ export default function SubjectPage() {
   })).filter((pd) => pd.acts.length > 0)
 
   // Sequential index per real grade column (activities + parcial averages +
-  // final average), shared by header and body cells via data-col so the
-  // CSS column-hover rules below (generated from gradeColCount) can match
-  // every cell of a column at once.
+  // final average), shared by header and body cells via data-col so
+  // handleGradeTableHover can tell which column is under the cursor.
   let _colIdx = 0
   const colIndexByKey = {}
   tableParcials.forEach(({ p, acts }) => {
@@ -991,7 +994,26 @@ export default function SubjectPage() {
     colIndexByKey[`avg-${p}`] = _colIdx++
   })
   colIndexByKey.final = _colIdx++
-  const gradeColCount = _colIdx
+
+  // Event delegation: one listener on the table instead of one per cell.
+  // Reads data-row/data-col off the hovered element (or its closest
+  // ancestor that has them) and only updates state when they actually
+  // change, so moving within the same cell doesn't re-render.
+  const handleGradeTableHover = (e) => {
+    const cell = e.target.closest('[data-col]')
+    const row = e.target.closest('[data-row]')
+    const col = cell ? Number(cell.getAttribute('data-col')) : null
+    const rowIdx = row ? Number(row.getAttribute('data-row')) : null
+    setHoverGradeCell((prev) => (prev.row === rowIdx && prev.col === col ? prev : { row: rowIdx, col }))
+  }
+  const handleGradeTableLeave = () => setHoverGradeCell({ row: null, col: null })
+  const gradeHeaderColBg = (colIdx) => (hoverGradeCell.col === colIdx ? 'bg-[rgba(37,99,235,0.08)]' : '')
+  const gradeBodyCellBg = (colIdx, rowIdx) => {
+    if (hoverGradeCell.col !== colIdx) return ''
+    return hoverGradeCell.row === rowIdx
+      ? 'bg-[rgba(37,99,235,0.18)] ring-1 ring-inset ring-accent'
+      : 'bg-[rgba(37,99,235,0.08)]'
+  }
 
   // Pre-compute grade rows
   const gradeRows = filteredGradeStudents.map((s) => {
@@ -1286,16 +1308,11 @@ export default function SubjectPage() {
                       width its columns actually need, so the wrapper's
                       overflow-x-auto only scrolls once real content overflows,
                       never just because of an arbitrary minimum. */}
-                  {/* One CSS rule per real column, generated from gradeColCount:
-                      `.grades-table:has([data-col="N"]:hover) [data-col="N"]`
-                      tints every cell (th or td) sharing that index while any
-                      one of them is hovered — pure CSS, no per-cell JS state.
-                      The active-cell emphasis itself lives in index.css
-                      (unlayered, !important) so it always wins over this. */}
-                  <style>{Array.from({ length: gradeColCount }, (_, idx) =>
-                    `.grades-table:has([data-col="${idx}"]:hover) [data-col="${idx}"]{background-color:rgba(37,99,235,0.08);}`
-                  ).join('')}</style>
-                  <table className="grades-table text-xs border-collapse table-fixed">
+                  <table
+                    className="grades-table text-xs border-collapse table-fixed"
+                    onMouseOver={handleGradeTableHover}
+                    onMouseLeave={handleGradeTableLeave}
+                  >
                     {/* table-fixed reads column widths from the first row, but
                         that row has colSpan'd "Parcial" headers — an explicit
                         colgroup is the only reliable way to size each real
@@ -1332,40 +1349,39 @@ export default function SubjectPage() {
                         </th>
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
-                            <th key={a.id} data-col={colIndexByKey[`act-${a.id}`]} className="w-9 px-0.5 py-1.5 font-normal text-slate-400 text-center border-l border-outline-variant">
+                            <th key={a.id} data-col={colIndexByKey[`act-${a.id}`]} className={`w-9 px-0.5 py-1.5 font-normal text-slate-400 text-center border-l border-outline-variant transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
                               <span className="block truncate" title={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
-                          <th key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                          <th key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey[`avg-${p}`])}`}>
                             Prom.
                           </th>,
                         ])}
-                        <th data-col={colIndexByKey.final} className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                        <th data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey.final)}`}>
                           Prom.
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {gradeRows.map(({ s, parcialData, finalAvg }, i) => (
-                        <tr key={s.id} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-accent-light/40 ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
+                        <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-accent-light/40 ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
                           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-accent-light/40 ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {i + 1}
                           </td>
-                          <td className={`sticky left-8 z-10 w-[150px] px-2 py-1 font-medium text-on-surface truncate border-r border-outline-variant transition-colors duration-200 group-hover:bg-accent-light/40 ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}
-                            title={`${s.apellidoPaterno} ${s.nombre}`}>
+                          <td className={`sticky left-8 z-10 w-[150px] px-2 py-1 font-medium text-on-surface truncate border-r border-outline-variant transition-colors duration-200 group-hover:bg-accent-light/40 ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.apellidoPaterno} {s.nombre}
                           </td>
                           {parcialData.map(({ p, grades, avg }, pi) => [
                             ...tableParcials[pi].acts.map((a, ai) => (
-                              <td key={a.id} data-col={colIndexByKey[`act-${a.id}`]} className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 ${gradeColor(grades[ai])}`}>
+                              <td key={a.id} data-col={colIndexByKey[`act-${a.id}`]} className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 ${gradeColor(grades[ai])} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}>
                                 {grades[ai] !== null ? grades[ai] : '—'}
                               </td>
                             )),
-                            <td key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(avg)}`}>
+                            <td key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(avg)} ${gradeBodyCellBg(colIndexByKey[`avg-${p}`], i)}`}>
                               {avg !== null ? avg : '—'}
                             </td>,
                           ])}
-                          <td data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(finalAvg)}`}>
+                          <td data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(finalAvg)} ${gradeBodyCellBg(colIndexByKey.final, i)}`}>
                             {finalAvg !== null ? finalAvg : '—'}
                           </td>
                         </tr>
