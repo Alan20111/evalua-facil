@@ -1049,9 +1049,9 @@ export default function SubjectPage() {
             </button>
             <button type="button" onClick={copyAccessCode}
               title="Copiar código de acceso para alumnos"
-              className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-6xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-accent-light'}`}>
+              className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-3xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-accent-light'}`}>
               {copiedCode
-                ? <><CheckIcon size={32} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
+                ? <><CheckIcon size={24} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
                 : <span>{subject?.accessCode}</span>}
             </button>
             <div className="flex-1" />
