@@ -6,7 +6,8 @@ import {
   signInWithEmailAndPassword,
   verifyPasswordResetCode,
 } from 'firebase/auth'
-import { auth } from '../../firebase'
+import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore'
+import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { GraduationCap, CheckCircle2 } from 'lucide-react'
@@ -48,8 +49,15 @@ export default function ResetPassword() {
       .then(async (userEmail) => {
         setEmail(userEmail)
         try {
-          const methods = await fetchSignInMethodsForEmail(auth, userEmail)
-          setIsGoogleLinking(methods.includes('google.com') && !methods.includes('password'))
+          const normalized = userEmail.trim().toLowerCase()
+          const [usersSnap, methods] = await Promise.all([
+            getDocs(query(collection(db, 'users'), where('email', '==', normalized))),
+            fetchSignInMethodsForEmail(auth, normalized).catch(() => []),
+          ])
+          const profile = usersSnap.docs[0]?.data()
+          const hasLocalPassword = profile?.hasLocalPassword === true || methods.includes('password')
+          const confirmedGoogle = profile?.provider === 'google' || methods.includes('google.com')
+          setIsGoogleLinking(confirmedGoogle && !hasLocalPassword)
         } catch {
           setIsGoogleLinking(false)
         }
@@ -74,7 +82,8 @@ export default function ResetPassword() {
     try {
       await confirmPasswordReset(auth, oobCode, password)
       if (isGoogleLinking) {
-        await signInWithEmailAndPassword(auth, email, password)
+        const result = await signInWithEmailAndPassword(auth, email, password)
+        await updateDoc(doc(db, 'users', result.user.uid), { hasLocalPassword: true })
       }
       setStatus('done')
     } catch (err) {

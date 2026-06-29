@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { fetchSignInMethodsForEmail, sendPasswordResetEmail } from 'firebase/auth'
-import { auth } from '../firebase'
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import { auth, db } from '../firebase'
 import { X, CheckCircle2 } from 'lucide-react'
 import Spinner from './Spinner'
 
@@ -10,6 +11,16 @@ import Spinner from './Spinner'
 // you're not authenticated as, so identity is proven the standard secure
 // way: a password-reset email (confirmPasswordReset, handled by
 // ResetPassword.jsx) rather than a form filled in right here.
+//
+// Existence/provider checks use Firestore's `users` collection (where the
+// account's `provider`/`hasLocalPassword` fields live — see
+// utils/teacherAccount.js) as the source of truth, not only
+// fetchSignInMethodsForEmail: that Auth-only lookup can come back empty
+// under Firebase's email-enumeration protection, which previously caused a
+// real Google account to be reported as "no existe". Auth's result is
+// still used to refine the message when Firestore's fields are missing
+// (legacy accounts created before this field existed) — but it can never
+// by itself produce a false "account doesn't exist".
 export default function LinkAccountModal({ onClose }) {
   const [email, setEmail] = useState('')
   const [step, setStep] = useState('email') // email | sent
@@ -20,18 +31,36 @@ export default function LinkAccountModal({ onClose }) {
     e.preventDefault()
     setError('')
     setLoading(true)
-    const trimmed = email.trim()
+    const normalized = email.trim().toLowerCase()
     try {
-      const methods = await fetchSignInMethodsForEmail(auth, trimmed)
-      if (methods.length === 0) {
+      const [usersSnap, methods] = await Promise.all([
+        getDocs(query(collection(db, 'users'), where('email', '==', normalized))),
+        fetchSignInMethodsForEmail(auth, normalized).catch(() => []),
+      ])
+      const profile = usersSnap.docs[0]?.data()
+
+      if (!profile) {
         setError('No existe una cuenta registrada con ese correo electrónico.')
         return
       }
-      if (methods.includes('password')) {
-        setError('Esta cuenta ya utiliza una contraseña. Inicia sesión normalmente con tu correo y contraseña.')
+
+      const hasLocalPassword = profile.hasLocalPassword === true || methods.includes('password')
+      if (hasLocalPassword) {
+        setError('Esta cuenta ya tiene una contraseña. Inicia sesión normalmente con tu correo y contraseña.')
         return
       }
-      await sendPasswordResetEmail(auth, trimmed, {
+
+      // Only block as "not Google" when we have positive evidence of it —
+      // a legacy account with no `provider` field and an inconclusive Auth
+      // lookup must default to letting the teacher continue, never to a
+      // false negative.
+      const confirmedNonGoogle = profile.provider === 'password' || (methods.length > 0 && !methods.includes('google.com'))
+      if (confirmedNonGoogle) {
+        setError('Esta cuenta no fue registrada con Google. Inicia sesión con tu contraseña habitual.')
+        return
+      }
+
+      await sendPasswordResetEmail(auth, normalized, {
         url: `${window.location.origin}/reset-password`,
       })
       setStep('sent')
@@ -58,7 +87,7 @@ export default function LinkAccountModal({ onClose }) {
           <>
             <h3 className="text-lg font-semibold text-on-surface mb-1 pr-6">Acceso desde otra computadora</h3>
             <p className="text-sm text-muted mb-4 leading-relaxed">
-              Si normalmente inicias sesión con Google, puedes crear una contraseña para ingresar desde cualquier computadora sin utilizar Google. Solo tendrás que hacerlo una vez.
+              Escribe el mismo correo con el que te registraste mediante Google para crear una contraseña y poder iniciar sesión sin utilizar Google. Solo tendrás que hacerlo una vez.
             </p>
             <form onSubmit={handleContinue} className="space-y-3">
               <div>

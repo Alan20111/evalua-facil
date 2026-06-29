@@ -9,6 +9,6 @@ export async function createTeacherAccountIfNew(user) {
   const ref = doc(db, 'users', user.uid)
   const snap = await getDoc(ref)
   if (!snap.exists()) {
-    await createTeacherAccount(user.uid, user.email, user.photoURL || null)
+    await createTeacherAccount(user.uid, user.email, user.photoURL || null, 'google')
   }
 }

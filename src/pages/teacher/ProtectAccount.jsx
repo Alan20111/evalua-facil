@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { EmailAuthProvider, linkWithCredential } from 'firebase/auth'
-import { auth } from '../../firebase'
+import { doc, updateDoc } from 'firebase/firestore'
+import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
@@ -27,6 +28,7 @@ export default function ProtectAccount() {
     try {
       const credential = EmailAuthProvider.credential(auth.currentUser.email, password)
       await linkWithCredential(auth.currentUser, credential)
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), { hasLocalPassword: true })
       toast('Listo — ya puedes entrar también con tu correo y contraseña')
       navigate('/dashboard')
     } catch (err) {
