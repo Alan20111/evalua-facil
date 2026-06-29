@@ -236,6 +236,10 @@ export default function StudentActivityPage() {
   const displayDate = extendedDate || activity?.fechaLimite
   // Can re-submit if teacher gave an extension and task isn't graded yet
   const canResubmit = !!extendedDate && !isGraded && !!submission
+  // Legacy deadlines stored as a plain date (no time) close at end of day
+  const isPastDeadline = !!displayDate && new Date(
+    displayDate.includes('T') ? displayDate : `${displayDate}T23:59:59`
+  ).getTime() < Date.now()
 
   return (
     <div className="min-h-screen bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
@@ -344,7 +348,12 @@ export default function StudentActivityPage() {
         </div>
 
         {/* Upload */}
-        {(!submission || canResubmit) && (
+        {(!submission || canResubmit) && isPastDeadline && (
+          <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+            El plazo de entrega para esta actividad ya cerró.
+          </div>
+        )}
+        {(!submission || canResubmit) && !isPastDeadline && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <h2 className="font-semibold text-on-surface mb-1">
               {canResubmit ? 'Subir versión corregida' : 'Subir entrega'}

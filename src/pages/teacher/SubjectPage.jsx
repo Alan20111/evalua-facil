@@ -1554,11 +1554,9 @@ export default function SubjectPage() {
                 </label>
                 <input type="datetime-local" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
-                {form.fechaLimite && (
-                  <p className="text-xs text-slate-400 mt-1">
-                    Se mostrará a los alumnos como la fecha y hora en que se cierran las entregas.
-                  </p>
-                )}
+                <p className="text-xs text-slate-400 mt-1">
+                  Luego de esta fecha y hora ya no se reciben entregas.
+                </p>
               </div>
 
               <button type="submit" disabled={saving}
