@@ -1043,7 +1043,7 @@ export default function SubjectPage() {
               <QrCode size={21} />
             </button>
             <button type="button" onClick={copyActivationLink}
-              title="Copiar link de activación para alumnos"
+              title="Copiar link de registro al curso para alumnos"
               className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-accent-light'}`}>
               {copiedLink ? <CheckIcon size={21} /> : <Link size={21} />}
             </button>
