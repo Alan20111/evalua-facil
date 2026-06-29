@@ -1268,37 +1268,54 @@ export default function SubjectPage() {
             ) : (
               <>
                 <div className="overflow-x-auto rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
-                  <table className="text-sm border-collapse min-w-[640px]">
+                  {/* table-fixed + explicit narrow per-column widths (no forced
+                      min-w on the table itself) — the table only takes the
+                      width its columns actually need, so the wrapper's
+                      overflow-x-auto only scrolls once real content overflows,
+                      never just because of an arbitrary minimum. */}
+                  <table className="text-xs border-collapse table-fixed">
+                    {/* table-fixed reads column widths from the first row, but
+                        that row has colSpan'd "Parcial" headers — an explicit
+                        colgroup is the only reliable way to size each real
+                        column regardless of the header's rowspan/colspan. */}
+                    <colgroup>
+                      <col className="w-[150px]" />
+                      {tableParcials.map(({ p, acts }) => [
+                        ...acts.map((a) => <col key={a.id} className="w-12" />),
+                        <col key={`avgcol-${p}`} className="w-14" />,
+                      ])}
+                      <col className="w-14" />
+                    </colgroup>
                     <thead>
-                      <tr className="bg-surface border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-surface px-3 py-2 text-left text-xs font-medium text-muted whitespace-nowrap min-w-[170px] border-r border-outline-variant">
+                      <tr className="bg-accent-light border-b border-outline-variant">
+                        <th className="sticky left-0 z-10 bg-accent-light w-[150px] px-2 py-1.5 text-left font-medium text-muted whitespace-nowrap border-r border-outline-variant">
                           Alumno
                         </th>
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
-                            className="px-2.5 py-2 text-xs font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
+                            className="px-1.5 py-1.5 font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
                             Parcial {p}
                           </th>
                         ))}
-                        <th className="px-2.5 py-2 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                        <th className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
                           Final
                         </th>
                       </tr>
-                      <tr className="bg-surface-card border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-surface-card px-3 py-2 text-left text-xs font-medium text-muted border-r border-outline-variant whitespace-nowrap">
+                      <tr className="bg-accent-light border-b border-outline-variant">
+                        <th className="sticky left-0 z-10 bg-accent-light w-[150px] px-2 py-1.5 text-left font-medium text-muted border-r border-outline-variant whitespace-nowrap">
                           Actividad
                         </th>
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
-                            <th key={a.id} className="px-2.5 py-2 text-xs font-normal text-slate-400 text-center border-l border-outline-variant max-w-[96px]">
-                              <span className="block truncate max-w-[88px]" title={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
+                            <th key={a.id} className="w-12 px-1 py-1.5 font-normal text-slate-400 text-center border-l border-outline-variant">
+                              <span className="block truncate" title={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
-                          <th key={`avg-${p}`} className="px-2.5 py-2 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                          <th key={`avg-${p}`} className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
                             Prom.
                           </th>,
                         ])}
-                        <th className="px-2.5 py-2 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                        <th className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
                           Prom.
                         </th>
                       </tr>
@@ -1306,20 +1323,21 @@ export default function SubjectPage() {
                     <tbody>
                       {gradeRows.map(({ s, parcialData, finalAvg }, i) => (
                         <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                          <td className={`sticky left-0 z-10 px-3 py-2 text-xs font-medium text-on-surface whitespace-nowrap border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          <td className={`sticky left-0 z-10 w-[150px] px-2 py-1 font-medium text-on-surface truncate border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}
+                            title={`${s.apellidoPaterno} ${s.nombre}`}>
                             {s.apellidoPaterno} {s.nombre}
                           </td>
                           {parcialData.map(({ p, grades, avg }, pi) => [
                             ...tableParcials[pi].acts.map((a, ai) => (
-                              <td key={a.id} className={`px-2.5 py-2 text-center text-xs font-semibold border-l border-outline-variant ${gradeColor(grades[ai])}`}>
+                              <td key={a.id} className={`w-12 px-1 py-1 text-center font-semibold border-l border-outline-variant ${gradeColor(grades[ai])}`}>
                                 {grades[ai] !== null ? grades[ai] : '—'}
                               </td>
                             )),
-                            <td key={`avg-${p}`} className={`px-2.5 py-2 text-center text-xs font-bold border-l border-outline-variant ${gradeColor(avg)}`}>
+                            <td key={`avg-${p}`} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant ${gradeColor(avg)}`}>
                               {avg !== null ? avg : '—'}
                             </td>,
                           ])}
-                          <td className={`px-2.5 py-2 text-center text-xs font-bold border-l border-outline-variant ${gradeColor(finalAvg)}`}>
+                          <td className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant ${gradeColor(finalAvg)}`}>
                             {finalAvg !== null ? finalAvg : '—'}
                           </td>
                         </tr>
