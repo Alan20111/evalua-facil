@@ -19,7 +19,7 @@ import {
   ChevronLeft, ChevronRight, FolderDown,
 } from 'lucide-react'
 import FileTypeSelect from '../../components/FileTypeSelect'
-import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys } from '../../config/fileTypes'
+import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -112,9 +112,13 @@ export default function ActivityPage() {
 
   async function handleEditActivity(e) {
     e.preventDefault()
+    const tiposArchivo = normalizeFileTypeKeys(editForm.tiposArchivo)
+    if (tiposArchivo.includes(CUSTOM_FILE_TYPE) && parseCustomExts(editForm.extensionesCustom).length === 0) {
+      toast('Escribe al menos una extensión para "Personalizado"', 'error')
+      return
+    }
     setEditSaving(true)
     try {
-      const tiposArchivo = normalizeFileTypeKeys(editForm.tiposArchivo)
       await updateDoc(doc(db, 'activities', activityId), {
         nombre: editForm.nombre.trim(),
         maxCalif: parseFloat(editForm.maxCalif) || 10,

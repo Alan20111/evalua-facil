@@ -20,7 +20,7 @@ import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import FileTypeSelect from '../../components/FileTypeSelect'
-import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys } from '../../config/fileTypes'
+import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
@@ -546,8 +546,12 @@ export default function SubjectPage() {
       toast('Activa tu suscripción mensual para crear nuevas actividades — toda tu información sigue disponible')
       return
     }
-    setSaving(true)
     const tiposArchivo = normalizeFileTypeKeys(form.tiposArchivo)
+    if (tiposArchivo.includes(CUSTOM_FILE_TYPE) && parseCustomExts(form.extensionesCustom).length === 0) {
+      toast('Escribe al menos una extensión para "Personalizado"', 'error')
+      return
+    }
+    setSaving(true)
     const payload = {
       nombre: form.nombre.trim(),
       maxCalif: parseFloat(form.maxCalif) || 10,

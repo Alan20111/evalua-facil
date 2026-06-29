@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 import {
   FILE_TYPE_BASE_OPTIONS, ALL_FILES_KEY, CUSTOM_FILE_TYPE,
-  normalizeFileTypeKeys, fileTypesLabel,
+  normalizeFileTypeKeys, fileTypesLabel, parseCustomExts,
 } from '../config/fileTypes'
 
 // Subtle gray text that expands into a checklist, used in the activity form so the
@@ -14,6 +14,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
   const ref = useRef(null)
   const keys = normalizeFileTypeKeys(value)
   const isCustom = keys.includes(CUSTOM_FILE_TYPE)
+  const customExtsMissing = isCustom && parseCustomExts(customExts).length === 0
 
   useEffect(() => {
     function onDoc(e) {
@@ -80,15 +81,23 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
         </div>
       )}
       {isCustom && (
-        <input
-          type="text"
-          value={customExts}
-          onChange={(e) => onCustomChange?.(e.target.value)}
-          placeholder="Ej: pptx, zip, psd"
-          autoComplete="off"
-          spellCheck={false}
-          className="mt-2 w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
-        />
+        <>
+          <input
+            type="text"
+            value={customExts}
+            onChange={(e) => onCustomChange?.(e.target.value)}
+            placeholder="Ej: pptx, zip, psd"
+            required
+            autoComplete="off"
+            spellCheck={false}
+            className={`mt-2 w-full px-3 py-2 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface ${
+              customExtsMissing ? 'border-red-300' : 'border-outline-variant'
+            }`}
+          />
+          {customExtsMissing && (
+            <p className="mt-1 text-xs text-red-500">Escribe al menos una extensión (ej: pptx, zip, psd)</p>
+          )}
+        </>
       )}
     </div>
   )
