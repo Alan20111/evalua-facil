@@ -1199,17 +1199,17 @@ export default function SubjectPage() {
           <div className="flex flex-wrap items-center gap-1 mt-2">
             <button type="button" onClick={() => setShowQR(true)}
               title="Código QR de registro al curso para alumnos"
-              className="p-2 text-accent hover:bg-[rgba(249,115,22,0.12)] rounded transition-colors flex-shrink-0">
+              className="p-2 text-accent hover:bg-[rgba(37,99,235,0.16)] rounded transition-colors flex-shrink-0">
               <QrCode size={21} />
             </button>
             <button type="button" onClick={copyActivationLink}
               title="Copiar link de registro al curso para alumnos"
-              className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[rgba(249,115,22,0.12)]'}`}>
+              className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[rgba(37,99,235,0.16)]'}`}>
               {copiedLink ? <CheckIcon size={21} /> : <Link size={21} />}
             </button>
             <button type="button" onClick={copyAccessCode}
               title="Copiar código de acceso para alumnos"
-              className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-3xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[rgba(249,115,22,0.12)]'}`}>
+              className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-3xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[rgba(37,99,235,0.16)]'}`}>
               {copiedCode
                 ? <><CheckIcon size={24} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
                 : <span>{subject?.accessCode}</span>}
@@ -1217,17 +1217,17 @@ export default function SubjectPage() {
             <div className="flex-1" />
             <button type="button" onClick={openEditSubject}
               title="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-              className="p-2 text-slate-400 hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)] rounded transition-colors flex-shrink-0">
+              className="p-2 text-slate-400 hover:text-accent hover:bg-[rgba(37,99,235,0.16)] rounded transition-colors flex-shrink-0">
               <Pencil size={21} />
             </button>
             <button type="button" onClick={openCopyModal}
               title="Duplicar esta asignatura (con o sin la lista de alumnos)"
-              className="p-2 text-slate-400 hover:text-orange-600 hover:bg-[rgba(249,115,22,0.12)] rounded transition-colors flex-shrink-0">
+              className="p-2 text-slate-400 hover:text-accent hover:bg-[rgba(37,99,235,0.16)] rounded transition-colors flex-shrink-0">
               <Copy size={21} />
             </button>
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
               title={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
-              className="p-2 text-slate-400 hover:text-amber-600 rounded transition-colors disabled:opacity-50 flex-shrink-0">
+              className="p-2 text-slate-400 hover:text-accent hover:bg-[rgba(37,99,235,0.16)] rounded transition-colors disabled:opacity-50 flex-shrink-0">
               {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
             </button>
             <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
