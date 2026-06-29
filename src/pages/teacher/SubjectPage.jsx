@@ -1051,7 +1051,6 @@ export default function SubjectPage() {
                 ? <><CheckIcon size={21} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
                 : <><Hash size={21} className="flex-shrink-0" /><span>{subject?.accessCode}</span></>}
             </button>
-            <div className="flex-1" />
             <button type="button" onClick={openEditSubject}
               title="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
@@ -1100,11 +1099,11 @@ export default function SubjectPage() {
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                   <div className="w-full flex items-center gap-1">
                     <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
-                      className="flex-1 min-w-0 px-4 py-2.5 flex items-center gap-3 hover:bg-surface transition-colors text-left">
+                      className="min-w-0 max-w-2xl px-4 py-2.5 flex items-center gap-3 hover:bg-surface transition-colors text-left">
                       <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
                         <span className={`font-bold text-sm ${parcialOculto ? 'text-slate-400' : 'text-accent'}`}>{p}</span>
                       </div>
-                      <div className="flex-1 text-left min-w-0">
+                      <div className="text-left min-w-0">
                         <p className={`font-semibold text-base leading-tight truncate ${parcialOculto ? 'text-slate-400' : 'text-on-surface'}`}>
                           Parcial {p}{parcialOculto && <span className="text-xs font-normal text-slate-400"> · oculto a alumnos</span>}
                         </p>

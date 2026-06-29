@@ -175,6 +175,9 @@ export default function TeacherLogin() {
           ¿Eres alumno?{' '}
           <Link to="/alumno" className="text-muted hover:underline">Acceso de alumnos</Link>
         </p>
+        <p className="text-center text-xs text-slate-400 mt-4">
+          Para una mejor experiencia recomendamos utilizar Evalúa Fácil Docente desde una laptop o computadora de escritorio.
+        </p>
       </div>
     </div>
   )
