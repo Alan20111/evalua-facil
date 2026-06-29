@@ -1074,7 +1074,7 @@ export default function SubjectPage() {
                         return (
                           <div key={a.id} className={`flex items-center gap-1 rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
                             <button onClick={() => navigate(`/activity/${a.id}`)}
-                              className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2.5 text-left">
+                              className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2 text-left">
                               <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
@@ -1082,25 +1082,27 @@ export default function SubjectPage() {
                                   {a.nombre}
                                 </p>
                                 {a.instrucciones && (
-                                  <p className="text-sm text-slate-500 leading-tight mt-0.5 whitespace-pre-wrap">{a.instrucciones}</p>
+                                  <p className="text-sm text-slate-500 leading-tight mt-0.5 truncate">{a.instrucciones.replace(/\s+/g, ' ').trim()}</p>
                                 )}
-                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                  {a.fechaLimite && (
-                                    <span className="text-xs text-amber-600 flex items-center gap-0.5">
-                                      <Clock size={14} /> {new Date(a.fechaLimite).toLocaleDateString('es-MX')}
-                                    </span>
-                                  )}
-                                  {visState === 'hidden' && (
-                                    <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                      <EyeOff size={13} /> Oculta
-                                    </span>
-                                  )}
-                                  {visState === 'scheduled' && (
-                                    <span className="text-xs bg-accent-light text-accent px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                      <Clock size={13} /> {formatPublishAt(a.publishAt)}
-                                    </span>
-                                  )}
-                                </div>
+                                {(a.fechaLimite || visState !== 'visible') && (
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    {a.fechaLimite && (
+                                      <span className="text-xs text-amber-600 flex items-center gap-0.5">
+                                        <Clock size={14} /> {new Date(a.fechaLimite).toLocaleDateString('es-MX')}
+                                      </span>
+                                    )}
+                                    {visState === 'hidden' && (
+                                      <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                        <EyeOff size={13} /> Oculta
+                                      </span>
+                                    )}
+                                    {visState === 'scheduled' && (
+                                      <span className="text-xs bg-accent-light text-accent px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                        <Clock size={13} /> {formatPublishAt(a.publishAt)}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 {counts.graded > 0 && (
