@@ -170,7 +170,28 @@ export default function SubjectPage() {
         subData = { ...subData, accessCode: newCode }
       }
       setSubject(subData)
-      const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      // Firestore doesn't guarantee document order without orderBy (not allowed
+      // per this project's query constraints), so `orden` is the only thing that
+      // determines display order. Activities created before this field existed
+      // self-heal here: fall back to `createdAt`/id for a stable order, assign
+      // `orden` from that position, and persist it — same pattern already used
+      // for subjects/students.
+      let acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      if (acts.some((a) => a.orden == null)) {
+        const byParcial = {}
+        acts.forEach((a) => { (byParcial[a.parcial] ||= []).push(a) })
+        const batch = writeBatch(db)
+        acts = Object.values(byParcial).flatMap((list) => {
+          list.sort((a, b) => (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0) || a.id.localeCompare(b.id))
+          return list.map((a, i) => {
+            const orden = i + 1
+            if (a.orden !== orden) batch.update(doc(db, 'activities', a.id), { orden })
+            return { ...a, orden }
+          })
+        })
+        batch.commit().catch(() => {}) // best-effort; in-memory order is already correct
+      }
+      acts = acts.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       setActivities(acts)
 
       const subDocs = await fetchSubmissionsForActivities(acts.map((a) => a.id))
@@ -563,17 +584,16 @@ export default function SubjectPage() {
     }
     try {
       if (modalMode === 'create') {
-        // "Actividad" is the short label (1.1, 1.2…) that identifies this activity
-        // everywhere it needs a compact reference (mainly the grades table column
-        // header) — fixed by its position within the parcial, not editable by the
-        // teacher, so it always matches what students were told to look for.
+        // `orden` is only a sort key (Firestore gives no ordering guarantee
+        // without it). The "Actividad" label (1.1, 1.2…) is presentation —
+        // computed fresh from position within the parcial wherever it's shown
+        // (see `activityLabelById` below) — never stored, so it can't drift.
         const orden = activities.filter((a) => a.parcial === modalParcial).length + 1
-        const actividad = `${modalParcial}.${orden}`
         const ref = await addDoc(collection(db, 'activities'), {
-          ...payload, tipo: 'archivo', parcial: modalParcial, orden, actividad,
+          ...payload, tipo: 'archivo', parcial: modalParcial, orden,
           asignaturaId: subjectId, docenteId: currentUser.uid, createdAt: serverTimestamp(),
         })
-        setActivities((prev) => [...prev, { id: ref.id, ...payload, tipo: 'archivo', parcial: modalParcial, orden, actividad, asignaturaId: subjectId, docenteId: currentUser.uid }])
+        setActivities((prev) => [...prev, { id: ref.id, ...payload, tipo: 'archivo', parcial: modalParcial, orden, asignaturaId: subjectId, docenteId: currentUser.uid }])
         setSubmissionCounts((prev) => ({ ...prev, [ref.id]: { delivered: 0, graded: 0 } }))
         toast('Actividad creada')
       } else {
@@ -592,17 +612,17 @@ export default function SubjectPage() {
       // Remove this activity's submissions first so none are orphaned.
       await deleteSubmissionsByActivity(deleteConfirm.id)
       await deleteDoc(doc(db, 'activities', deleteConfirm.id))
-      // Renumber the remaining activities of the SAME parcial so "Actividad" stays
-      // contiguous (1.1, 1.2…) — otherwise deleting 1.1 would leave a gap before 1.2.
+      // Re-index `orden` for the remaining activities of the SAME parcial so the
+      // sort key stays contiguous (1, 2, 3…) — the displayed "Actividad" label
+      // is derived from this position wherever it's shown, never stored.
       const remaining = activities
         .filter((a) => a.id !== deleteConfirm.id && a.parcial === deleteConfirm.parcial)
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       const batch = writeBatch(db)
       const renumbered = remaining.map((a, i) => {
         const orden = i + 1
-        const actividad = `${deleteConfirm.parcial}.${orden}`
-        batch.update(doc(db, 'activities', a.id), { orden, actividad })
-        return { ...a, orden, actividad }
+        batch.update(doc(db, 'activities', a.id), { orden })
+        return { ...a, orden }
       })
       await batch.commit()
       setActivities((prev) => {
@@ -912,12 +932,22 @@ export default function SubjectPage() {
   // ── Computed ───────────────────────────────────────────────────────
   const PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
 
-  // Preview of the auto-assigned "Actividad" label shown (read-only) in the modal —
-  // mirrors the exact computation handleSaveActivity uses, so what the teacher sees
-  // before saving always matches what gets stored.
+  // "Actividad" labels (1.1, 1.2…) are presentation, not stored data — always
+  // derived from each activity's position within its parcial in the current
+  // `activities` list (kept sorted by `orden`). Computing this fresh on every
+  // render means the displayed sequence can never drift out of order/gapped,
+  // regardless of creation order, deletions, or stale stored values.
+  const activityLabelById = {}
+  PARCIALES.forEach((p) => {
+    activities.filter((a) => a.parcial === p).forEach((a, i) => {
+      activityLabelById[a.id] = `${p}.${i + 1}`
+    })
+  })
+
+  // Preview of the auto-assigned "Actividad" label shown (read-only) in the modal.
   const previewActividad = modalMode === 'create'
     ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}`
-    : (activities.find((a) => a.id === editActivityId)?.actividad || '—')
+    : (activityLabelById[editActivityId] || '—')
 
   const filteredGradeStudents = groupStudents.filter((s) => {
     if (!searchGrade.trim()) return true
@@ -1078,7 +1108,7 @@ export default function SubjectPage() {
                               <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
-                                  {a.actividad && <span className="text-accent font-semibold">{a.actividad} · </span>}
+                                  {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} · </span>}
                                   {a.nombre}
                                   {a.instrucciones && (
                                     <span className="text-sm font-normal text-slate-400"> — {a.instrucciones.replace(/\s+/g, ' ').trim()}</span>
@@ -1229,7 +1259,7 @@ export default function SubjectPage() {
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
                             <th key={a.id} className="px-2.5 py-2 text-xs font-normal text-slate-400 text-center border-l border-outline-variant max-w-[96px]">
-                              <span className="block truncate max-w-[88px]" title={a.nombre}>{a.actividad || a.nombre}</span>
+                              <span className="block truncate max-w-[88px]" title={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
                           <th key={`avg-${p}`} className="px-2.5 py-2 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">

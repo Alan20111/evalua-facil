@@ -42,6 +42,7 @@ const STATUS_LABELS = {
 export default function ActivityPage() {
   const { activityId } = useParams()
   const [activity, setActivity] = useState(null)
+  const [activityLabel, setActivityLabel] = useState(null)
   const [subject, setSubject] = useState(null)
   const [students, setStudents] = useState([])
   const [submissions, setSubmissions] = useState({})
@@ -75,10 +76,20 @@ export default function ActivityPage() {
       const subSnap = await getDoc(doc(db, 'subjects', actData.asignaturaId))
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
-      const [studsSnap, subsSnap] = await Promise.all([
+      const [studsSnap, subsSnap, siblingActsSnap] = await Promise.all([
         getDocs(query(collection(db, 'students'), where('asignaturaId', '==', actData.asignaturaId))),
         getDocs(query(collection(db, 'submissions'), where('actividadId', '==', activityId))),
+        getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', actData.asignaturaId))),
       ])
+      // "Actividad" (1.1, 1.2…) is presentation, derived from this activity's
+      // position among its parcial siblings — never trusted from the stored
+      // field, so it always matches what the subject page currently shows.
+      const siblings = siblingActsSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((a) => a.parcial === actData.parcial)
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      const idx = siblings.findIndex((a) => a.id === activityId)
+      setActivityLabel(idx >= 0 ? `${actData.parcial}.${idx + 1}` : null)
       const studList = studsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
@@ -245,7 +256,7 @@ export default function ActivityPage() {
             </button>
             <div className="flex-1">
               <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2">
-                {activity?.actividad && <span className="text-accent">{activity.actividad}</span>}
+                {activityLabel && <span className="text-accent">{activityLabel}</span>}
                 {activity?.nombre}
               </h1>
               <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
