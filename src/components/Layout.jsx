@@ -41,7 +41,9 @@ export default function TeacherLayout({ children }) {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setSubjects(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        list.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        setSubjects(list)
         setLoadingSidebar(false)
       },
       () => setLoadingSidebar(false)
