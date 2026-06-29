@@ -1172,7 +1172,7 @@ export default function SubjectPage() {
                         const visState = activityVisibilityState(a, parcialOculto)
                         const isHidden = visState !== 'visible'
                         return (
-                          <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
+                          <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[rgba(249,115,22,0.12)]'}`}>
                             <button onClick={() => navigate(`/activity/${a.id}`)}
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
                               <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
@@ -1496,7 +1496,7 @@ export default function SubjectPage() {
               {filteredAlumnos.map((s, i) => (
                 <div
                   key={s.id}
-                  className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[rgba(249,115,22,0.12)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                  className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[rgba(249,115,22,0.2)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
                   <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                   <p className="flex-1 min-w-0 text-xs font-medium text-on-surface truncate">
