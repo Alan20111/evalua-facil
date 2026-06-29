@@ -1710,6 +1710,9 @@ export default function SubjectPage() {
             <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-3">
               <QRCode value={activationUrl} size={200} className="max-w-full h-auto" />
             </div>
+            {subject.accessCode && (
+              <p className="text-3xl font-bold tracking-wide text-accent mb-3">{subject.accessCode}</p>
+            )}
             <button
               onClick={handleExportQRPDF}
               disabled={exportingPdf}

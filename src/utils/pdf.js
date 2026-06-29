@@ -104,6 +104,13 @@ export async function exportQRPDF({ subject, activationUrl }) {
   const qrSize = 130
   doc.addImage(qrDataUrl, 'PNG', centerX - qrSize / 2, 55, qrSize, qrSize)
 
+  if (subject.accessCode) {
+    doc.setFont(undefined, 'bold')
+    doc.setFontSize(40)
+    doc.setTextColor(20)
+    doc.text(subject.accessCode, centerX, 215, { align: 'center' })
+  }
+
   doc.save(`qr_${safeFile(subject)}.pdf`)
 }
 
