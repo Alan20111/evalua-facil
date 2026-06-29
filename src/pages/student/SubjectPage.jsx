@@ -48,13 +48,17 @@ export default function StudentSubjectPage() {
     setLoading(true)
     try {
       // Resolve THIS student's enrollment record for the subject being viewed.
-      const [subSnap, studData, actsSnap, resSnap, matsSnap] = await Promise.all([
+      // `materials` is fetched separately, with its rejection swallowed: if its
+      // Firestore rules aren't deployed yet, getDocs() rejects with
+      // permission-denied — that must never take down subject/activities/
+      // resources with it (it did once, via this same Promise.all).
+      const [subSnap, studData, actsSnap, resSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
         getEnrollmentForSubject(currentUser, userProfile, subjectId),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
         getDocs(query(collection(db, 'resources'), where('asignaturaId', '==', subjectId))),
-        getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))),
       ])
+      const matsSnap = await getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))).catch(() => ({ docs: [] }))
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
       const parcialesOcultos = subData.parcialesOcultos || []

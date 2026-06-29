@@ -27,11 +27,16 @@ async function batchDeleteDocs(refs) {
 // activities → submissions → materials → students → subject doc.
 // NOTE: Firebase Auth accounts of students are NOT deleted (same as per-student delete today).
 export async function deleteSubjectCascade(subjectId) {
-  const [actsSnap, studsSnap, matsSnap] = await Promise.all([
+  // `materials` is fetched separately, with its rejection swallowed: if its
+  // Firestore rules aren't deployed yet, getDocs() rejects with
+  // permission-denied — that must never block deleting the subject itself
+  // (it would have, via this same Promise.all). Worst case, a few orphaned
+  // `materials` docs are left behind instead of a stuck "Eliminar" button.
+  const [actsSnap, studsSnap] = await Promise.all([
     getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
-    getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))),
   ])
+  const matsSnap = await getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))).catch(() => ({ docs: [] }))
 
   const actIds = actsSnap.docs.map((d) => d.id)
   const subsDocs = await fetchSubmissionsForActivities(actIds)

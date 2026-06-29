@@ -224,11 +224,17 @@ export default function SubjectPage() {
     setResources([])
     setResourcesLoaded(false)
     try {
-      const [subSnap, actsSnap, matsSnap] = await Promise.all([
+      // `materials` is fetched separately (not inside this Promise.all): if its
+      // Firestore rules aren't deployed yet, getDocs() rejects with
+      // permission-denied — that must never take down the subject/activities
+      // load with it (it did once: the whole page fell back to defaults —
+      // generic icon, blue palette, 3 parciales — because setSubject() was
+      // never reached).
+      const [subSnap, actsSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
-        getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))),
       ])
+      const matsSnap = await getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))).catch(() => ({ docs: [] }))
       let subData = { id: subSnap.id, ...subSnap.data() }
       if (!subData.accessCode) {
         const newCode = Math.random().toString(36).slice(2, 8).toUpperCase()
