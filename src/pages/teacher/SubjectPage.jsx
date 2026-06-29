@@ -1038,7 +1038,7 @@ export default function SubjectPage() {
           {/* Action buttons — wrap on mobile so they never overflow */}
           <div className="flex flex-wrap items-center gap-1 mt-3">
             <button type="button" onClick={() => setShowQR(true)}
-              title="Código QR de acceso para alumnos"
+              title="Código QR de registro al curso para alumnos"
               className="p-2 text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
               <QrCode size={21} />
             </button>
