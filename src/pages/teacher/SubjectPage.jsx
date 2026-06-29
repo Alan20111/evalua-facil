@@ -1054,6 +1054,7 @@ export default function SubjectPage() {
                 ? <><CheckIcon size={32} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
                 : <span>{subject?.accessCode}</span>}
             </button>
+            <div className="flex-1" />
             <button type="button" onClick={openEditSubject}
               title="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-accent-light rounded transition-colors flex-shrink-0">
