@@ -218,7 +218,7 @@ export default function TeacherDashboard() {
                   <div
                     key={s.id}
                     data-subject-palette={s.colorPalette || 'default'}
-                    className="w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-accent-light/30 transition-all duration-200 flex items-center gap-1"
+                    className="w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[rgba(37,99,235,0.06)] transition-all duration-200 flex items-center gap-1"
                   >
                     <div className="flex flex-col flex-shrink-0">
                       <button
