@@ -58,28 +58,35 @@ export default {
       // them at the same rate would blow up layouts and break the hierarchy gap
       // between "big title" and "huge title". Each step is still clearly bigger
       // than the one before it, so the visual hierarchy is preserved end to end.
+      //
+      // Third pass: line-height only. Font sizes above stay exactly as they were
+      // — this pass tightens just the lineHeight half of each pair, which had
+      // carried a generous ratio (~1.35–1.5, prose-like) better suited to
+      // long-form reading than a dense form/table-driven app. Ratios now taper
+      // from ~1.25 at the smallest sizes down to ~1.1 at the largest headings,
+      // following the same taper logic as the size scale above.
       fontSize: {
-        xs: ['1rem', { lineHeight: '1.375rem' }],        // was 0.75rem/1rem   (12px/16px) → 16px/22px  (+33%)
-        sm: ['1.125rem', { lineHeight: '1.625rem' }],     // was 0.875rem/1.25rem (14px/20px) → 18px/26px (+29%)
-        base: ['1.25rem', { lineHeight: '1.875rem' }],    // was 1rem/1.5rem    (16px/24px) → 20px/30px  (+25%)
-        lg: ['1.375rem', { lineHeight: '2rem' }],         // was 1.125rem/1.75rem (18px/28px) → 22px/32px (+22%)
-        xl: ['1.5rem', { lineHeight: '2.125rem' }],       // was 1.25rem/1.75rem (20px/28px) → 24px/34px  (+20%)
-        '2xl': ['1.75rem', { lineHeight: '2.375rem' }],   // was 1.5rem/2rem    (24px/32px) → 28px/38px   (+17%)
-        '3xl': ['2.125rem', { lineHeight: '2.625rem' }],  // was 1.875rem/2.25rem (30px/36px) → 34px/42px (+13%)
-        '4xl': ['2.5rem', { lineHeight: '2.875rem' }],    // was 2.25rem/2.5rem (36px/40px) → 40px/46px   (+11%)
-        '5xl': ['3.375rem', { lineHeight: '1' }],         // was 3rem          (48px) → 54px              (+13%)
-        '6xl': ['4.25rem', { lineHeight: '1' }],          // was 3.75rem       (60px) → 68px              (+13%)
+        xs: ['1rem', { lineHeight: '1.25rem' }],          // 16px/20px (was 16/22, ratio 1.25)
+        sm: ['1.125rem', { lineHeight: '1.5rem' }],       // 18px/24px (was 18/26, ratio 1.33)
+        base: ['1.25rem', { lineHeight: '1.625rem' }],    // 20px/26px (was 20/30, ratio 1.3)
+        lg: ['1.375rem', { lineHeight: '1.75rem' }],      // 22px/28px (was 22/32, ratio 1.27)
+        xl: ['1.5rem', { lineHeight: '1.875rem' }],       // 24px/30px (was 24/34, ratio 1.25)
+        '2xl': ['1.75rem', { lineHeight: '2.125rem' }],   // 28px/34px (was 28/38, ratio 1.21)
+        '3xl': ['2.125rem', { lineHeight: '2.5rem' }],    // 34px/40px (was 34/42, ratio 1.18)
+        '4xl': ['2.5rem', { lineHeight: '2.75rem' }],     // 40px/44px (was 40/46, ratio 1.1)
+        '5xl': ['3.375rem', { lineHeight: '1' }],         // 54px (unchanged — display size, no leading)
+        '6xl': ['4.25rem', { lineHeight: '1' }],          // 68px (unchanged — display size, no leading)
 
         // Semantic tokens, kept in sync with the scale above (body-md ≈ new
         // base, body-sm ≈ new sm, label-caps/metadata ≈ new xs) — still only
         // used in a couple of components, but consistent if adopted further.
-        'headline-xl': ['2.75rem', { lineHeight: '3.25rem', letterSpacing: '-0.02em', fontWeight: '700' }], // 44px/52px
-        'headline-lg': ['2.125rem', { lineHeight: '2.625rem', letterSpacing: '-0.01em', fontWeight: '600' }], // 34px/42px
-        'title-md': ['1.5rem', { lineHeight: '2rem', fontWeight: '600' }],     // 24px/32px
-        'body-md': ['1.25rem', { lineHeight: '1.875rem' }],                   // 20px/30px
-        'body-sm': ['1.125rem', { lineHeight: '1.625rem' }],                  // 18px/26px
-        'label-caps': ['1rem', { lineHeight: '1.375rem', letterSpacing: '0.05em', fontWeight: '700' }], // 16px/22px
-        metadata: ['1rem', { lineHeight: '1.375rem' }],                       // 16px/22px
+        'headline-xl': ['2.75rem', { lineHeight: '3rem', letterSpacing: '-0.02em', fontWeight: '700' }],   // 44px/48px
+        'headline-lg': ['2.125rem', { lineHeight: '2.375rem', letterSpacing: '-0.01em', fontWeight: '600' }], // 34px/38px
+        'title-md': ['1.5rem', { lineHeight: '1.875rem', fontWeight: '600' }], // 24px/30px
+        'body-md': ['1.25rem', { lineHeight: '1.625rem' }],                  // 20px/26px
+        'body-sm': ['1.125rem', { lineHeight: '1.5rem' }],                   // 18px/24px
+        'label-caps': ['1rem', { lineHeight: '1.25rem', letterSpacing: '0.05em', fontWeight: '700' }], // 16px/20px
+        metadata: ['1rem', { lineHeight: '1.25rem' }],                       // 16px/20px
       },
     },
   },
