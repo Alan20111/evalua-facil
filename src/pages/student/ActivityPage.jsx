@@ -230,7 +230,7 @@ export default function StudentActivityPage() {
 
   return (
     <div className="min-h-screen bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
-      <header className="bg-surface-card border-b border-outline-variant px-4 py-4 flex items-center gap-3 shadow-card">
+      <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
           onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}
           className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
@@ -243,7 +243,7 @@ export default function StudentActivityPage() {
         </div>
       </header>
 
-      <div className="px-4 py-5 max-w-xl mx-auto space-y-4">
+      <div className="px-4 py-5 max-w-xl mx-auto space-y-3">
         {/* Status */}
         <div className={`rounded-card p-4 flex items-center gap-3 ${
           isGraded ? 'bg-emerald-50 border border-emerald-200' :
@@ -287,7 +287,7 @@ export default function StudentActivityPage() {
 
         {/* Grade */}
         {isGraded && (
-          <div className="bg-surface-card rounded-card p-5 shadow-card">
+          <div className="bg-surface-card rounded-card p-4 shadow-card">
             <div className="flex items-center gap-3 mb-3">
               <Star size={20} className="text-amber-400" />
               <h2 className="font-semibold text-on-surface">Tu calificación</h2>
@@ -307,7 +307,7 @@ export default function StudentActivityPage() {
 
         {/* Instructions */}
         {activity?.instrucciones && (
-          <div className="bg-surface-card rounded-card p-5 shadow-card">
+          <div className="bg-surface-card rounded-card p-4 shadow-card">
             <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
             <p className="text-sm text-muted leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
               {activity.instrucciones}
@@ -335,7 +335,7 @@ export default function StudentActivityPage() {
 
         {/* Upload */}
         {(!submission || canResubmit) && (
-          <div className="bg-surface-card rounded-card p-5 shadow-card">
+          <div className="bg-surface-card rounded-card p-4 shadow-card">
             <h2 className="font-semibold text-on-surface mb-1">
               {canResubmit ? 'Subir versión corregida' : 'Subir entrega'}
             </h2>
@@ -366,7 +366,7 @@ export default function StudentActivityPage() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={!file || uploading}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {uploading ? <Spinner size="sm" /> : <Upload size={16} />}
                 {uploading ? 'Subiendo…' : 'Entregar'}

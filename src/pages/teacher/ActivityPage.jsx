@@ -235,7 +235,7 @@ export default function ActivityPage() {
       <div data-subject-palette={subject?.colorPalette || 'default'}>
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="bg-surface-card border-b border-outline-variant px-4 py-4">
+        <div className="bg-surface-card border-b border-outline-variant px-4 py-3">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(`/subject/${activity?.asignaturaId}`)}
@@ -256,7 +256,7 @@ export default function ActivityPage() {
           )}
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-2 mt-4">
+          <div className="grid grid-cols-3 gap-2 mt-3">
             {[
               { key: 'pendiente', label: 'Pendientes', icon: Circle, color: 'text-muted', bg: 'bg-surface' },
               { key: 'entregado', label: 'Entregados', icon: Clock, color: 'text-accent', bg: 'bg-accent-light' },
@@ -338,7 +338,7 @@ export default function ActivityPage() {
                   <button
                     key={s.id}
                     onClick={() => openGrade(s)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface transition-colors cursor-pointer ${
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface transition-colors cursor-pointer ${
                       i > 0 ? 'border-t border-outline-variant' : ''
                     }`}
                   >
@@ -378,8 +378,8 @@ export default function ActivityPage() {
       {selected && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between gap-2 mb-3">
               <div className="min-w-0 flex-1">
                 <h3 className="text-base font-semibold text-on-surface truncate">
                   {selected.student.apellidoPaterno} {selected.student.nombre}
@@ -436,7 +436,7 @@ export default function ActivityPage() {
                 href={selected.sub.archivoURL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-3 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors mb-4"
+                className="flex items-center gap-2 px-4 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors mb-3"
               >
                 <Download size={16} className="text-accent" />
                 Ver / Descargar entrega
@@ -445,7 +445,7 @@ export default function ActivityPage() {
 
             {/* Submission history */}
             {selected.sub?.historial?.length > 0 && (
-              <div className="mb-4">
+              <div className="mb-3">
                 <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
                 <div className="space-y-1.5">
                   {[...selected.sub.historial].reverse().map((v, i) => (
@@ -471,7 +471,7 @@ export default function ActivityPage() {
 
             {/* Grade form (only when submission exists) */}
             {selected.sub ? (
-              <form onSubmit={saveGrade} className="space-y-4">
+              <form onSubmit={saveGrade} className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">
                     Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
@@ -485,7 +485,7 @@ export default function ActivityPage() {
                     max={activity?.maxCalif}
                     step="0.1"
                     autoFocus
-                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   />
                 </div>
                 <div>
@@ -496,7 +496,7 @@ export default function ActivityPage() {
                     value={gradeForm.comentario}
                     onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                     rows={2}
-                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
                     placeholder="Retroalimentación para el alumno…"
                   />
                 </div>
@@ -508,20 +508,20 @@ export default function ActivityPage() {
                 <button
                   type="submit"
                   disabled={saving || !canCreate}
-                  className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {saving ? <Spinner size="sm" /> : <Star size={16} />}
                   {saving ? 'Guardando…' : 'Guardar calificación'}
                 </button>
               </form>
             ) : (
-              <p className="text-sm text-slate-400 text-center py-4">
+              <p className="text-sm text-slate-400 text-center py-3">
                 El alumno aún no ha entregado esta tarea.
               </p>
             )}
 
             {/* Bottom actions — extend date */}
-            <div className="mt-4 pt-3 border-t border-outline-variant space-y-2">
+            <div className="mt-3 pt-3 border-t border-outline-variant space-y-2">
 
               {/* Extend deadline */}
               {!extendMode ? (

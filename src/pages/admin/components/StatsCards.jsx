@@ -24,9 +24,9 @@ export default function StatsCards({ kpis }) {
   if (!kpis) return null
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-3">
       {KPI_CONFIG.map(({ key, label, icon: Icon, format }) => (
-        <div key={key} className="bg-surface-card rounded-card shadow-card p-4 md:p-5">
+        <div key={key} className="bg-surface-card rounded-card shadow-card p-4 md:p-4">
           <div className="flex items-center gap-2 text-slate-400 mb-2 min-w-0">
             <Icon size={16} className="flex-shrink-0" />
             <span className="text-xs font-medium truncate">{label}</span>
@@ -85,14 +85,14 @@ export function ResumenCharts({ stats }) {
   }))
 
   return (
-    <div className="grid md:grid-cols-2 gap-4 mt-6">
-      <div className="bg-surface-card rounded-card shadow-card p-5">
-        <h3 className="font-semibold text-on-surface mb-4">Docentes por escuela (top 10)</h3>
+    <div className="grid md:grid-cols-2 gap-3 mt-6">
+      <div className="bg-surface-card rounded-card shadow-card p-4">
+        <h3 className="font-semibold text-on-surface mb-3">Docentes por escuela (top 10)</h3>
         <BarChart items={teachersBySchool} labelKey="school" valueKey="count" />
       </div>
 
-      <div className="bg-surface-card rounded-card shadow-card p-5">
-        <h3 className="font-semibold text-on-surface mb-4">Estado de suscripciones</h3>
+      <div className="bg-surface-card rounded-card shadow-card p-4">
+        <h3 className="font-semibold text-on-surface mb-3">Estado de suscripciones</h3>
         <BarChart items={statusItems} labelKey="name" valueKey="count" />
       </div>
     </div>

@@ -89,7 +89,7 @@ export default function StudentSubjectPage() {
 
   return (
     <div className="min-h-screen bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
-      <header className="bg-surface-card border-b border-outline-variant px-4 py-4 flex items-center gap-3 shadow-card">
+      <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
           onClick={() => navigate('/alumno/dashboard')}
           className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
@@ -114,7 +114,7 @@ export default function StudentSubjectPage() {
             <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
               <button
                 onClick={() => setOpenParcial(isOpen ? 0 : p)}
-                className="w-full px-4 py-4 flex items-center gap-3 hover:bg-surface transition-colors"
+                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface transition-colors"
               >
                 <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                   <span className="text-accent font-bold text-sm">{p}</span>
@@ -134,9 +134,9 @@ export default function StudentSubjectPage() {
               </button>
 
               {isOpen && (
-                <div className="border-t border-outline-variant px-4 py-3 space-y-2">
+                <div className="border-t border-outline-variant px-4 py-2.5 space-y-2">
                   {acts.length === 0 && (
-                    <p className="text-slate-400 text-sm text-center py-3">Sin actividades</p>
+                    <p className="text-slate-400 text-sm text-center py-2.5">Sin actividades</p>
                   )}
                   {acts.map((a) => {
                     const sub = submissions[a.id]

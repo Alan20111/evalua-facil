@@ -11,18 +11,18 @@ export default function Landing() {
           <p className="text-muted mt-2">Elige cómo quieres entrar</p>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-2 gap-3">
           {/* Docente */}
           <Link
             to="/docente"
-            className="group bg-surface-card rounded-card shadow-card hover:shadow-md transition-shadow p-6 text-center"
+            className="group bg-surface-card rounded-card shadow-card hover:shadow-md transition-shadow p-5 text-center"
           >
-            <div className="w-14 h-14 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-3">
               <GraduationCap size={28} className="text-white" />
             </div>
             <h2 className="text-lg font-bold text-on-surface">Soy Docente</h2>
             <p className="text-sm text-muted mt-1">Administra y evalúa tus asignaturas</p>
-            <span className="mt-4 inline-flex items-center gap-1 text-blue-600 font-semibold text-sm group-hover:gap-2 transition-all">
+            <span className="mt-3 inline-flex items-center gap-1 text-blue-600 font-semibold text-sm group-hover:gap-2 transition-all">
               Entrar <ChevronRight size={16} />
             </span>
           </Link>
@@ -30,14 +30,14 @@ export default function Landing() {
           {/* Alumno */}
           <Link
             to="/alumno"
-            className="group bg-surface-card rounded-card shadow-card hover:shadow-md transition-shadow p-6 text-center"
+            className="group bg-surface-card rounded-card shadow-card hover:shadow-md transition-shadow p-5 text-center"
           >
-            <div className="w-14 h-14 rounded-card bg-orange-500 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-card bg-orange-500 flex items-center justify-center mx-auto mb-3">
               <BookOpen size={28} className="text-white" />
             </div>
             <h2 className="text-lg font-bold text-on-surface">Soy Alumno</h2>
             <p className="text-sm text-muted mt-1">Entra a tus asignaturas y entregas</p>
-            <span className="mt-4 inline-flex items-center gap-1 text-orange-600 font-semibold text-sm group-hover:gap-2 transition-all">
+            <span className="mt-3 inline-flex items-center gap-1 text-orange-600 font-semibold text-sm group-hover:gap-2 transition-all">
               Entrar <ChevronRight size={16} />
             </span>
           </Link>

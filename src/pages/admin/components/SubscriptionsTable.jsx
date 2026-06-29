@@ -145,7 +145,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
 
   return (
     <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-      <div className="px-5 py-4 border-b border-outline-variant flex items-center justify-between">
+      <div className="px-5 py-3 border-b border-outline-variant flex items-center justify-between">
         <h2 className="font-semibold text-on-surface">Suscripciones</h2>
         <button
           type="button"
@@ -160,13 +160,13 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
-              <th className="px-4 py-3">Docente</th>
-              <th className="px-4 py-3">Escuela</th>
-              <th className="px-4 py-3">Plan</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Vencimiento</th>
-              <th className="px-4 py-3">Días</th>
-              <th className="px-4 py-3">Acciones</th>
+              <th className="px-4 py-2.5">Docente</th>
+              <th className="px-4 py-2.5">Escuela</th>
+              <th className="px-4 py-2.5">Plan</th>
+              <th className="px-4 py-2.5">Estado</th>
+              <th className="px-4 py-2.5">Vencimiento</th>
+              <th className="px-4 py-2.5">Días</th>
+              <th className="px-4 py-2.5">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -183,21 +183,21 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 const days = calcDaysRemaining(sub.fechaVencimiento)
                 return (
                   <tr key={sub.id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <p className="font-medium text-on-surface">
                         {teacher?.username || teacher?.email || sub.docenteId.slice(0, 8)}
                       </p>
                     </td>
-                    <td className="px-4 py-3 text-muted truncate max-w-[140px]">
+                    <td className="px-4 py-2.5 text-muted truncate max-w-[140px]">
                       {sub.schoolName || '—'}
                     </td>
-                    <td className="px-4 py-3">{plan?.nombre || (sub.status === 'trial' ? 'Trial' : '—')}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">{plan?.nombre || (sub.status === 'trial' ? 'Trial' : '—')}</td>
+                    <td className="px-4 py-2.5">
                       <StatusBadge status={sub.status} />
                     </td>
-                    <td className="px-4 py-3 text-muted">{formatDate(sub.fechaVencimiento)}</td>
-                    <td className="px-4 py-3 text-muted">{days !== null ? days : '—'}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5 text-muted">{formatDate(sub.fechaVencimiento)}</td>
+                    <td className="px-4 py-2.5 text-muted">{days !== null ? days : '—'}</td>
+                    <td className="px-4 py-2.5">
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
@@ -237,8 +237,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
 
       {modal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-surface-card rounded-card p-6 w-[calc(100%-2rem)] max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-on-surface">
                 {modal.mode === 'create' ? 'Nueva suscripción' : 'Editar suscripción'}
               </h3>

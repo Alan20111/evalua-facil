@@ -36,7 +36,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
 
   return (
     <div className="min-h-screen bg-surface">
-      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between shadow-card">
+      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
             AD
@@ -58,7 +58,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
             mobileOpen ? 'flex' : 'hidden'
           } md:flex flex-col w-64 h-screen fixed md:sticky top-0 bg-surface-card border-r border-outline-variant flex-shrink-0 overflow-y-auto z-40 md:z-20`}
         >
-          <div className="px-5 py-4 border-b border-outline-variant flex items-center gap-2.5">
+          <div className="px-5 py-3 border-b border-outline-variant flex items-center gap-2.5">
             <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
               AD
             </div>
@@ -68,11 +68,11 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
             </div>
           </div>
 
-          <div className="px-4 py-3 border-b border-outline-variant">
+          <div className="px-4 py-2.5 border-b border-outline-variant">
             <p className="text-xs text-slate-400 truncate">{displayName}</p>
           </div>
 
-          <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
+          <nav className="flex-1 px-2 py-2.5 space-y-0.5 overflow-y-auto">
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
@@ -93,7 +93,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
             ))}
           </nav>
 
-          <div className="px-2 py-3 border-t border-outline-variant">
+          <div className="px-2 py-2.5 border-t border-outline-variant">
             <button
               type="button"
               onClick={handleLogout}
@@ -112,7 +112,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
           />
         )}
 
-        <main className="flex-1 min-w-0 min-h-screen p-4 md:p-6 lg:p-8 max-w-7xl">{children}</main>
+        <main className="flex-1 min-w-0 min-h-screen p-4 md:p-5 lg:p-8 max-w-7xl">{children}</main>
       </div>
     </div>
   )

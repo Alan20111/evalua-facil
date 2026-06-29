@@ -98,19 +98,19 @@ export default function TeacherLogin() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">Evalúa Fácil</h1>
           <p className="text-muted text-sm mt-1">Evidencias y calificaciones. Sin complicaciones.</p>
         </div>
 
-        <div className="bg-surface-card rounded-card shadow-card p-6 space-y-4">
+        <div className="bg-surface-card rounded-card shadow-card p-5 space-y-3">
           <button
             type="button"
             onClick={handleGoogleSignIn}
             disabled={googleLoading}
-            className="w-full py-3 border border-outline-variant rounded font-semibold text-sm text-on-surface hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            className="w-full py-2.5 border border-outline-variant rounded font-semibold text-sm text-on-surface hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {googleLoading ? <Spinner size="sm" /> : <GoogleIcon />}
             {googleLoading ? 'Conectando…' : 'Continuar con Google'}
@@ -122,7 +122,7 @@ export default function TeacherLogin() {
             <div className="flex-1 h-px bg-outline-variant" />
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
               <input
@@ -131,7 +131,7 @@ export default function TeacherLogin() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-surface"
                 placeholder="nombre@correo.com"
               />
             </div>
@@ -152,14 +152,14 @@ export default function TeacherLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-surface"
                 placeholder="••••••••"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? 'Entrando…' : 'Iniciar sesión'}

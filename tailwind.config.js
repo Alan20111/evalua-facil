@@ -59,34 +59,42 @@ export default {
       // between "big title" and "huge title". Each step is still clearly bigger
       // than the one before it, so the visual hierarchy is preserved end to end.
       //
-      // Third pass: line-height only. Font sizes above stay exactly as they were
-      // — this pass tightens just the lineHeight half of each pair, which had
-      // carried a generous ratio (~1.35–1.5, prose-like) better suited to
-      // long-form reading than a dense form/table-driven app. Ratios now taper
-      // from ~1.25 at the smallest sizes down to ~1.1 at the largest headings,
-      // following the same taper logic as the size scale above.
+      // Third pass: line-height only. Font sizes stayed put — this pass
+      // tightened just the lineHeight half of each pair, from a generous
+      // prose-like ratio (~1.35–1.5) down to ~1.1–1.33.
+      //
+      // Fourth pass: the combined result read well but consumed too much
+      // screen on the laptops (14"/15"/16") teachers actually use — the real
+      // target audience. This step pulls every font-size down by one level
+      // (literally: each tier now sits where the tier below it used to be,
+      // keeping the same taper shape) while staying above this project's
+      // very first scale (Tailwind's defaults) at every tier — i.e. it gives
+      // back half of the increase from pass two, it doesn't erase it.
+      // Line-heights are recomputed at slightly tighter ratios on top of that
+      // (taper ~1.29 → ~1.10), since the brief also asked to keep tightening
+      // vertical space, not just hold the line.
       fontSize: {
-        xs: ['1rem', { lineHeight: '1.25rem' }],          // 16px/20px (was 16/22, ratio 1.25)
-        sm: ['1.125rem', { lineHeight: '1.5rem' }],       // 18px/24px (was 18/26, ratio 1.33)
-        base: ['1.25rem', { lineHeight: '1.625rem' }],    // 20px/26px (was 20/30, ratio 1.3)
-        lg: ['1.375rem', { lineHeight: '1.75rem' }],      // 22px/28px (was 22/32, ratio 1.27)
-        xl: ['1.5rem', { lineHeight: '1.875rem' }],       // 24px/30px (was 24/34, ratio 1.25)
-        '2xl': ['1.75rem', { lineHeight: '2.125rem' }],   // 28px/34px (was 28/38, ratio 1.21)
-        '3xl': ['2.125rem', { lineHeight: '2.5rem' }],    // 34px/40px (was 34/42, ratio 1.18)
-        '4xl': ['2.5rem', { lineHeight: '2.75rem' }],     // 40px/44px (was 40/46, ratio 1.1)
-        '5xl': ['3.375rem', { lineHeight: '1' }],         // 54px (unchanged — display size, no leading)
-        '6xl': ['4.25rem', { lineHeight: '1' }],          // 68px (unchanged — display size, no leading)
+        xs: ['0.875rem', { lineHeight: '1.125rem' }],     // 14px/18px (was 16/20; original 12/16)
+        sm: ['1rem', { lineHeight: '1.25rem' }],           // 16px/20px (was 18/24; original 14/20)
+        base: ['1.125rem', { lineHeight: '1.375rem' }],    // 18px/22px (was 20/26; original 16/24)
+        lg: ['1.25rem', { lineHeight: '1.5rem' }],         // 20px/24px (was 22/28; original 18/28)
+        xl: ['1.375rem', { lineHeight: '1.625rem' }],      // 22px/26px (was 24/30; original 20/28)
+        '2xl': ['1.625rem', { lineHeight: '1.875rem' }],   // 26px/30px (was 28/34; original 24/32)
+        '3xl': ['2rem', { lineHeight: '2.25rem' }],        // 32px/36px (was 34/40; original 30/36)
+        '4xl': ['2.375rem', { lineHeight: '2.625rem' }],   // 38px/42px (was 40/44; original 36/40)
+        '5xl': ['3.25rem', { lineHeight: '1' }],           // 52px (was 54; original 48)
+        '6xl': ['4rem', { lineHeight: '1' }],              // 64px (was 68; original 60)
 
         // Semantic tokens, kept in sync with the scale above (body-md ≈ new
         // base, body-sm ≈ new sm, label-caps/metadata ≈ new xs) — still only
         // used in a couple of components, but consistent if adopted further.
-        'headline-xl': ['2.75rem', { lineHeight: '3rem', letterSpacing: '-0.02em', fontWeight: '700' }],   // 44px/48px
-        'headline-lg': ['2.125rem', { lineHeight: '2.375rem', letterSpacing: '-0.01em', fontWeight: '600' }], // 34px/38px
-        'title-md': ['1.5rem', { lineHeight: '1.875rem', fontWeight: '600' }], // 24px/30px
-        'body-md': ['1.25rem', { lineHeight: '1.625rem' }],                  // 20px/26px
-        'body-sm': ['1.125rem', { lineHeight: '1.5rem' }],                   // 18px/24px
-        'label-caps': ['1rem', { lineHeight: '1.25rem', letterSpacing: '0.05em', fontWeight: '700' }], // 16px/20px
-        metadata: ['1rem', { lineHeight: '1.25rem' }],                       // 16px/20px
+        'headline-xl': ['2.625rem', { lineHeight: '2.75rem', letterSpacing: '-0.02em', fontWeight: '700' }], // 42px/44px
+        'headline-lg': ['2rem', { lineHeight: '2.25rem', letterSpacing: '-0.01em', fontWeight: '600' }],     // 32px/36px
+        'title-md': ['1.375rem', { lineHeight: '1.625rem', fontWeight: '600' }], // 22px/26px
+        'body-md': ['1.125rem', { lineHeight: '1.375rem' }],                 // 18px/22px
+        'body-sm': ['1rem', { lineHeight: '1.25rem' }],                      // 16px/20px
+        'label-caps': ['0.875rem', { lineHeight: '1.125rem', letterSpacing: '0.05em', fontWeight: '700' }], // 14px/18px
+        metadata: ['0.875rem', { lineHeight: '1.125rem' }],                  // 14px/18px
       },
     },
   },

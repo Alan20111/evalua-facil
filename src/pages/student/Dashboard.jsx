@@ -156,7 +156,7 @@ export default function StudentDashboard() {
   return (
     <div className="min-h-screen bg-surface">
       {/* Header */}
-      <header className="bg-surface-card border-b border-outline-variant px-4 py-4 flex items-center justify-between gap-3 shadow-card">
+      <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between gap-3 shadow-card">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
             <GraduationCap size={18} className="text-white" />
@@ -193,7 +193,7 @@ export default function StudentDashboard() {
                 key={s.id}
                 data-subject-palette={s.colorPalette || 'default'}
                 onClick={() => navigate(`/alumno/materia/${s.id}`)}
-                className="w-full bg-surface-card rounded-card p-4 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-4"
+                className="w-full bg-surface-card rounded-card p-4 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-3"
               >
                 <div className="w-12 h-12 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                   <SubjectIcon iconKey={s.icon} size={20} className="text-accent" />
@@ -219,7 +219,7 @@ export default function StudentDashboard() {
         {/* Join another subject */}
         <button
           onClick={() => { setJoinCode(''); setShowJoin(true) }}
-          className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-card border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
+          className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-card border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
         >
           <Plus size={16} /> Unirme a otra asignatura
         </button>
@@ -229,12 +229,12 @@ export default function StudentDashboard() {
       {showJoin && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowJoin(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-on-surface truncate">Unirme a otra asignatura</h3>
               <button onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={18} /></button>
             </div>
-            <p className="text-sm text-muted mb-4">
+            <p className="text-sm text-muted mb-3">
               Ingresa el <strong>código de acceso</strong> de tu nueva asignatura (o escanea su QR). Como ya tienes cuenta, solo confirmarás tu contraseña.
             </p>
             <form onSubmit={handleJoinSubject} className="flex gap-2">
@@ -249,12 +249,12 @@ export default function StudentDashboard() {
                 spellCheck={false}
                 maxLength={8}
                 placeholder="Ej: A3B7K2"
-                className="flex-1 px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
+                className="flex-1 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
               />
               <button
                 type="submit"
                 disabled={!joinCode.trim()}
-                className="px-4 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
               >
                 <Hash size={16} /> Ir
               </button>

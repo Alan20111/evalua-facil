@@ -191,7 +191,7 @@ export default function TeacherDashboard() {
         ) : (
           <>
             {/* ── Mis asignaturas ── */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-3">
               <h2 className="text-lg font-semibold text-on-surface">Mis asignaturas</h2>
               <span className="text-sm text-slate-500">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
             </div>
@@ -239,7 +239,7 @@ export default function TeacherDashboard() {
                     </div>
                     <button
                       onClick={() => navigate(`/subject/${s.id}`)}
-                      className="flex-1 min-w-0 text-left p-2 flex items-center gap-4"
+                      className="flex-1 min-w-0 text-left p-2 flex items-center gap-3"
                     >
                       <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                         <SubjectIcon iconKey={s.icon} size={19} className="text-accent" />
@@ -280,14 +280,14 @@ export default function TeacherDashboard() {
       {showSubjectModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowSubjectModal(false)} />
-          <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
               <button onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-muted rounded">
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={handleCreateSubject} className="space-y-4">
+            <form onSubmit={handleCreateSubject} className="space-y-3">
               {/* Nombre de la asignatura */}
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Asignatura</label>
@@ -297,7 +297,7 @@ export default function TeacherDashboard() {
                   onChange={(e) => setNewSubjectName(e.target.value)}
                   required
                   autoFocus
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
                   placeholder="Ej: Matemáticas, Física, Historia"
                 />
               </div>
@@ -309,7 +309,7 @@ export default function TeacherDashboard() {
                   value={newSubjectGrupo}
                   onChange={(e) => setNewSubjectGrupo(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C"
                 />
               </div>
@@ -383,7 +383,7 @@ export default function TeacherDashboard() {
               <button
                 type="submit"
                 disabled={creatingSubject}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {creatingSubject ? <Spinner size="sm" /> : <Plus size={16} />}
                 {creatingSubject ? 'Creando…' : 'Crear asignatura'}

@@ -9,7 +9,7 @@ import { usePaymentConfig } from '../hooks/usePaymentConfig'
 import { MONTHLY_PLAN_ID, MONTHLY_PRICE_MXN, SUBSCRIPTION_NAME, formatCurrency } from '../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
+  'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
 
 function loadPaypalSdk(clientId) {
   return new Promise((resolve, reject) => {
@@ -188,7 +188,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4" onClick={onClose}>
       <div
-        className="bg-surface-card rounded-card p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
+        className="bg-surface-card rounded-card p-5 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -205,7 +205,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
             No hay métodos de pago disponibles por el momento. Contacta al administrador.
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div>
               <p className="font-semibold text-on-surface">{SUBSCRIPTION_NAME}</p>
               <p className="text-sm text-muted">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
@@ -236,7 +236,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 type="button"
                 onClick={payWithMercadoPago}
                 disabled={submitting}
-                className="w-full py-3 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : <Wallet size={16} />}
                 {submitting ? 'Redirigiendo…' : 'Pagar con Mercado Pago'}
@@ -273,7 +273,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {submitting ? <Spinner size="sm" /> : null}
                   {submitting ? 'Registrando…' : 'Registrar pago'}

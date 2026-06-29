@@ -38,7 +38,7 @@ export default function UsersTable({ stats }) {
 
   return (
     <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-      <div className="px-5 py-4 border-b border-outline-variant">
+      <div className="px-5 py-3 border-b border-outline-variant">
         <h2 className="font-semibold text-on-surface">Docentes</h2>
       </div>
 
@@ -46,12 +46,12 @@ export default function UsersTable({ stats }) {
         <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
-              <th className="px-4 py-3">Usuario</th>
-              <th className="px-4 py-3">Correo</th>
-              <th className="px-4 py-3">Escuela</th>
-              <th className="px-4 py-3">Plan actual</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Último pago</th>
+              <th className="px-4 py-2.5">Usuario</th>
+              <th className="px-4 py-2.5">Correo</th>
+              <th className="px-4 py-2.5">Escuela</th>
+              <th className="px-4 py-2.5">Plan actual</th>
+              <th className="px-4 py-2.5">Estado</th>
+              <th className="px-4 py-2.5">Último pago</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -70,16 +70,16 @@ export default function UsersTable({ stats }) {
 
                 return (
                   <tr key={teacher.id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3 font-mono text-xs font-semibold text-on-surface">
+                    <td className="px-4 py-2.5 font-mono text-xs font-semibold text-on-surface">
                       {teacher.username || '—'}
                     </td>
-                    <td className="px-4 py-3 text-muted truncate max-w-[160px]">
+                    <td className="px-4 py-2.5 text-muted truncate max-w-[160px]">
                       {teacher.email || '—'}
                     </td>
-                    <td className="px-4 py-3 text-muted truncate max-w-[140px]">
+                    <td className="px-4 py-2.5 text-muted truncate max-w-[140px]">
                       {school?.nombre || teacher.schoolName || '—'}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       {sub?.status === 'trial' ? (
                         <span className="text-xs text-blue-600 font-medium">Trial</span>
                       ) : plan ? (
@@ -88,7 +88,7 @@ export default function UsersTable({ stats }) {
                         '—'
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       {sub ? (
                         <span
                           className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getSubscriptionStatusColor(sub.status)}`}
@@ -99,7 +99,7 @@ export default function UsersTable({ stats }) {
                         <span className="text-xs text-slate-400">Sin plan</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-muted">
+                    <td className="px-4 py-2.5 text-muted">
                       {lastPayment ? (
                         <span>
                           {formatCurrency(lastPayment.monto)} — {formatDate(lastPayment.createdAt)}

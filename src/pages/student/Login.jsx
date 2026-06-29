@@ -275,7 +275,7 @@ export default function StudentLogin() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">
@@ -286,8 +286,8 @@ export default function StudentLogin() {
 
         {mode === 'login' && step === 'need_code' ? (
           /* ── Confirm subject access code before creating the account ── */
-          <div className="bg-surface-card rounded-card shadow-card p-6">
-            <form onSubmit={handleConfirmCode} className="space-y-4">
+          <div className="bg-surface-card rounded-card shadow-card p-5">
+            <form onSubmit={handleConfirmCode} className="space-y-3">
               <p className="text-sm text-muted">
                 Es tu primera vez. Para activar tu cuenta, ingresa el <strong>código de acceso</strong>{' '}
                 de tu asignatura (el del QR o el que te dio tu maestro o maestra):
@@ -305,7 +305,7 @@ export default function StudentLogin() {
                   autoCapitalize="characters"
                   spellCheck={false}
                   maxLength={8}
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
                   placeholder="Ej: A3B7K2"
                 />
               </div>
@@ -315,7 +315,7 @@ export default function StudentLogin() {
               <button
                 type="submit"
                 disabled={loading || !subjectCodeInput.trim()}
-                className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? <Spinner size="sm" /> : <Hash size={16} />}
                 {loading ? 'Activando…' : 'Activar mi cuenta'}
@@ -324,16 +324,16 @@ export default function StudentLogin() {
             <button
               type="button"
               onClick={cancelNeedCode}
-              className="mt-4 w-full flex items-center justify-center gap-1.5 text-sm text-muted hover:text-on-surface transition-colors"
+              className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm text-muted hover:text-on-surface transition-colors"
             >
               <ArrowLeft size={15} /> Volver
             </button>
           </div>
         ) : mode === 'recover' ? (
           /* ── Recovery ── */
-          <div className="bg-surface-card rounded-card shadow-card p-6">
+          <div className="bg-surface-card rounded-card shadow-card p-5">
             {recoverStep === 'username' ? (
-              <form onSubmit={handleRecoverFind} className="space-y-4">
+              <form onSubmit={handleRecoverFind} className="space-y-3">
                 <p className="text-sm text-muted">
                   Tu maestro debe <strong>habilitar la recuperación</strong> antes de que puedas elegir
                   una nueva contraseña. Escribe tu username:
@@ -350,7 +350,7 @@ export default function StudentLogin() {
                     autoCorrect="off"
                     autoCapitalize="characters"
                     spellCheck={false}
-                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
                     placeholder="Ej: MERK"
                     maxLength={8}
                   />
@@ -361,14 +361,14 @@ export default function StudentLogin() {
                 <button
                   type="submit"
                   disabled={loading || !recoverUsername.trim()}
-                  className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <KeyRound size={16} />}
                   {loading ? 'Verificando…' : 'Continuar'}
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleRecoverSetPassword} className="space-y-4">
+              <form onSubmit={handleRecoverSetPassword} className="space-y-3">
                 <div className="flex items-center gap-3 p-3 bg-accent-light rounded">
                   <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                     <KeyRound size={16} className="text-accent" />
@@ -387,7 +387,7 @@ export default function StudentLogin() {
                     onChange={(e) => { setNewPassword(e.target.value); setRecoverError('') }}
                     required
                     autoFocus
-                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                     placeholder="Mínimo 6 caracteres"
                   />
                 </div>
@@ -397,7 +397,7 @@ export default function StudentLogin() {
                     value={confirmNewPassword}
                     onChange={(e) => { setConfirmNewPassword(e.target.value); setRecoverError('') }}
                     required
-                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                     placeholder="Repite tu contraseña"
                   />
                 </div>
@@ -407,7 +407,7 @@ export default function StudentLogin() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <KeyRound size={16} />}
                   {loading ? 'Guardando…' : 'Guardar contraseña'}
@@ -417,7 +417,7 @@ export default function StudentLogin() {
             <button
               type="button"
               onClick={backToLogin}
-              className="mt-4 w-full flex items-center justify-center gap-1.5 text-sm text-muted hover:text-on-surface transition-colors"
+              className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm text-muted hover:text-on-surface transition-colors"
             >
               <ArrowLeft size={15} /> Volver al inicio de sesión
             </button>
@@ -425,8 +425,8 @@ export default function StudentLogin() {
         ) : (
           <>
             {/* ── Login form ── */}
-            <div className="bg-surface-card rounded-card shadow-card p-6">
-              <form onSubmit={handleLogin} className="space-y-4">
+            <div className="bg-surface-card rounded-card shadow-card p-5">
+              <form onSubmit={handleLogin} className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Username</label>
                   <input
@@ -439,7 +439,7 @@ export default function StudentLogin() {
                     autoCorrect="off"
                     autoCapitalize="characters"
                     spellCheck={false}
-                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
                     placeholder="Ej: MERK"
                     maxLength={8}
                   />
@@ -450,7 +450,7 @@ export default function StudentLogin() {
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError('') }}
                     required
-                    className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                     placeholder="••••••••"
                   />
                 </div>
@@ -462,7 +462,7 @@ export default function StudentLogin() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : null}
                   {loading ? 'Entrando…' : 'Iniciar sesión'}
@@ -478,11 +478,11 @@ export default function StudentLogin() {
             </div>
 
             {/* ── First-time activation ── */}
-            <div className="mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
+            <div className="mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
               <button
                 type="button"
                 onClick={() => setShowCodeSection((v) => !v)}
-                className="w-full flex items-center justify-between px-5 py-4 text-left"
+                className="w-full flex items-center justify-between px-5 py-3 text-left"
               >
                 <span className="text-sm font-semibold text-muted">¿Primera vez? Activa tu cuenta</span>
                 <ChevronDown
@@ -507,12 +507,12 @@ export default function StudentLogin() {
                       spellCheck={false}
                       maxLength={8}
                       placeholder="Ej: A3B7K2"
-                      className="flex-1 min-w-0 px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
+                      className="flex-1 min-w-0 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
                     />
                     <button
                       type="submit"
                       disabled={!codeInput.trim()}
-                      className="px-4 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                      className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
                     >
                       <Hash size={16} />
                       Ir
@@ -522,7 +522,7 @@ export default function StudentLogin() {
               )}
             </div>
 
-            <p className="text-center text-sm text-slate-400 mt-4">
+            <p className="text-center text-sm text-slate-400 mt-3">
               ¿Eres docente?{' '}
               <Link to="/docente" className="text-accent hover:underline">Acceso docentes</Link>
             </p>

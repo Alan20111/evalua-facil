@@ -1,7 +1,7 @@
 // Luminous field wrapper: label-caps above, soft pill input styling applied to
 // the child input via `inputClass` for callers that render their own input.
 export const inputClass =
-  'w-full px-4 py-3 rounded border border-outline-variant bg-surface-card text-on-surface text-body-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 placeholder:text-muted'
+  'w-full px-4 py-2.5 rounded border border-outline-variant bg-surface-card text-on-surface text-body-md focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/30 placeholder:text-muted'
 
 export default function Field({ label, htmlFor, className = '', children }) {
   return (

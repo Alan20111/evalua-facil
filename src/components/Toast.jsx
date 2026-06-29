@@ -19,7 +19,7 @@ export function ToastProvider({ children }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`flex items-center gap-3 rounded px-4 py-3 shadow-lg text-white text-sm ${
+            className={`flex items-center gap-3 rounded px-4 py-2.5 shadow-lg text-white text-sm ${
               t.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
             }`}
           >

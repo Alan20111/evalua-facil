@@ -35,7 +35,7 @@ export default function PagoResultado() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface px-4">
       <div className="bg-surface-card rounded-card shadow-card p-8 max-w-sm w-full text-center">
-        <div className={`w-16 h-16 ${v.bg} rounded-full flex items-center justify-center mx-auto mb-4`}>
+        <div className={`w-16 h-16 ${v.bg} rounded-full flex items-center justify-center mx-auto mb-3`}>
           <Icon size={32} className={v.color} />
         </div>
         <h2 className="text-xl font-bold text-on-surface mb-2">{v.title}</h2>

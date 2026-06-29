@@ -90,7 +90,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
 
   return (
     <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-      <div className="px-5 py-4 border-b border-outline-variant">
+      <div className="px-5 py-3 border-b border-outline-variant">
         <h2 className="font-semibold text-on-surface">Pagos</h2>
       </div>
 
@@ -98,12 +98,12 @@ export default function PaymentsTable({ stats, onRefresh }) {
         <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
-              <th className="px-4 py-3">Docente</th>
-              <th className="px-4 py-3">Monto</th>
-              <th className="px-4 py-3">Referencia</th>
-              <th className="px-4 py-3">Estado</th>
-              <th className="px-4 py-3">Fecha</th>
-              <th className="px-4 py-3">Acciones</th>
+              <th className="px-4 py-2.5">Docente</th>
+              <th className="px-4 py-2.5">Monto</th>
+              <th className="px-4 py-2.5">Referencia</th>
+              <th className="px-4 py-2.5">Estado</th>
+              <th className="px-4 py-2.5">Fecha</th>
+              <th className="px-4 py-2.5">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -118,18 +118,18 @@ export default function PaymentsTable({ stats, onRefresh }) {
                 const teacher = teachersMap[payment.docenteId]
                 return (
                   <tr key={payment.id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5">
                       <p className="font-medium text-on-surface">
                         {teacher?.username || teacher?.email || '—'}
                       </p>
                     </td>
-                    <td className="px-4 py-3 font-semibold">{formatCurrency(payment.monto)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{payment.referencia || '—'}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5 font-semibold">{formatCurrency(payment.monto)}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs">{payment.referencia || '—'}</td>
+                    <td className="px-4 py-2.5">
                       <StatusBadge status={payment.status} />
                     </td>
-                    <td className="px-4 py-3 text-muted">{formatDate(payment.createdAt)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-2.5 text-muted">{formatDate(payment.createdAt)}</td>
+                    <td className="px-4 py-2.5">
                       {payment.status === 'pendiente' && (
                         <div className="flex items-center gap-1">
                           <button
@@ -165,16 +165,16 @@ export default function PaymentsTable({ stats, onRefresh }) {
 
       {rejectModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-surface-card rounded-card p-6 w-[calc(100%-2rem)] max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="font-bold text-on-surface mb-2">Rechazar pago</h3>
-            <p className="text-sm text-muted mb-4">
+            <p className="text-sm text-muted mb-3">
               Referencia: {rejectModal.referencia} — {formatCurrency(rejectModal.monto)}
             </p>
             <textarea
               value={notasAdmin}
               onChange={(e) => setNotasAdmin(e.target.value)}
               placeholder="Notas para el docente (opcional)"
-              className="w-full px-3 py-2 rounded border border-outline-variant text-sm mb-4 h-20 resize-none"
+              className="w-full px-3 py-2 rounded border border-outline-variant text-sm mb-3 h-20 resize-none"
             />
             <div className="flex gap-2">
               <button

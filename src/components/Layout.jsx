@@ -67,7 +67,7 @@ export default function TeacherLayout({ children }) {
   return (
     <div className="min-h-screen bg-surface">
       {/* Mobile top bar */}
-      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between shadow-card">
+      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white">
             <GraduationCap size={18} />
@@ -88,7 +88,7 @@ export default function TeacherLayout({ children }) {
         {/* Sidebar — desktop only (solid accent plane) */}
         <aside className="hidden md:flex flex-col w-[280px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
           {/* Logo */}
-          <div className="px-5 py-4 flex items-center gap-2.5">
+          <div className="px-5 py-3 flex items-center gap-2.5">
             <div className="w-9 h-9 rounded bg-white flex items-center justify-center flex-shrink-0">
               <GraduationCap size={20} className="text-accent" />
             </div>
@@ -98,7 +98,7 @@ export default function TeacherLayout({ children }) {
           {/* Profile button */}
           <NavLink
             to="/profile"
-            className="flex items-center gap-3 px-3 py-3 mx-2 mt-1 rounded hover:bg-white/10 transition-colors group"
+            className="flex items-center gap-3 px-3 py-2.5 mx-2 mt-1 rounded hover:bg-white/10 transition-colors group"
           >
             <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
               {userProfile?.photoURL ? (
@@ -150,7 +150,7 @@ export default function TeacherLayout({ children }) {
           {/* Subject list */}
           <div className="flex-1 overflow-y-auto px-2 pb-2">
             {loadingSidebar ? (
-              <div className="flex justify-center py-4">
+              <div className="flex justify-center py-3">
                 <Spinner size="sm" />
               </div>
             ) : activeSubjects.length === 0 ? (
@@ -213,7 +213,7 @@ export default function TeacherLayout({ children }) {
           )}
 
           {/* Logout */}
-          <div className="px-2 py-3 border-t border-white/15">
+          <div className="px-2 py-2.5 border-t border-white/15">
             <button
               type="button"
               onClick={handleLogout}

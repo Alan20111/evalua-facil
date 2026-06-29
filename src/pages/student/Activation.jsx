@@ -225,7 +225,7 @@ export default function StudentActivation() {
   if (!subject) return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-sm text-center">
-        <div className="w-16 h-16 rounded-card bg-red-100 flex items-center justify-center mx-auto mb-4">
+        <div className="w-16 h-16 rounded-card bg-red-100 flex items-center justify-center mx-auto mb-3">
           <GraduationCap size={32} className="text-red-500" />
         </div>
         <h1 className="text-xl font-bold text-on-surface mb-2">Código no válido</h1>
@@ -234,7 +234,7 @@ export default function StudentActivation() {
         </p>
         <button
           onClick={() => navigate('/alumno')}
-          className="px-5 py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+          className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
         >
           Volver al inicio
         </button>
@@ -246,7 +246,7 @@ export default function StudentActivation() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">Activar cuenta</h1>
@@ -258,10 +258,10 @@ export default function StudentActivation() {
           )}
         </div>
 
-        <div className="bg-surface-card rounded-card shadow-card p-6">
+        <div className="bg-surface-card rounded-card shadow-card p-5">
           {step === 'link_existing' ? (
             <div>
-              <div className="flex items-center gap-3 p-3 bg-accent-light rounded mb-4">
+              <div className="flex items-center gap-3 p-3 bg-accent-light rounded mb-3">
                 <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                   <Check size={16} className="text-accent" />
                 </div>
@@ -270,7 +270,7 @@ export default function StudentActivation() {
                   <p className="text-xs text-muted">Escribe tu contraseña para agregar esta asignatura</p>
                 </div>
               </div>
-              <form onSubmit={handleLinkExisting} className="space-y-4">
+              <form onSubmit={handleLinkExisting} className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Tu contraseña actual</label>
                   <PasswordInput
@@ -278,7 +278,7 @@ export default function StudentActivation() {
                     onChange={(e) => { setLinkPassword(e.target.value); setPasswordError('') }}
                     required
                     autoFocus
-                    className={`w-full px-4 py-3 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
+                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Tu contraseña de Evalúa Fácil"
                   />
                 </div>
@@ -293,7 +293,7 @@ export default function StudentActivation() {
                   onMouseDown={(e) => e.preventDefault()}
                   disabled={loading || !linkPassword}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={16} />}
                   {loading ? 'Vinculando…' : 'Agregar asignatura'}
@@ -301,9 +301,9 @@ export default function StudentActivation() {
               </form>
             </div>
           ) : step === 'username' ? (
-            <form onSubmit={handleFindStudent} className="space-y-4">
+            <form onSubmit={handleFindStudent} className="space-y-3">
               <div>
-                <p className="text-sm text-muted mb-4">
+                <p className="text-sm text-muted mb-3">
                   Introduce tu <strong>username</strong> (tu maestro te lo proporcionó).
                 </p>
                 <label className="block text-sm font-medium text-muted mb-1">Username</label>
@@ -317,7 +317,7 @@ export default function StudentActivation() {
                   autoCorrect="off"
                   autoCapitalize="characters"
                   spellCheck={false}
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
                   placeholder="Ej: MERK"
                   maxLength={8}
                 />
@@ -328,7 +328,7 @@ export default function StudentActivation() {
                 onMouseDown={(e) => e.preventDefault()}
                 disabled={loading || !username.trim()}
                 style={{ touchAction: 'manipulation' }}
-                className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? <Spinner size="sm" /> : null}
                 {loading ? 'Buscando…' : 'Continuar'}
@@ -336,7 +336,7 @@ export default function StudentActivation() {
             </form>
           ) : (
             <div>
-              <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded mb-4">
+              <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded mb-3">
                 <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
                   <Check size={16} className="text-emerald-600" />
                 </div>
@@ -347,7 +347,7 @@ export default function StudentActivation() {
                   <p className="text-xs text-muted font-mono">{student?.username}</p>
                 </div>
               </div>
-              <form onSubmit={handleActivate} className="space-y-4">
+              <form onSubmit={handleActivate} className="space-y-3">
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Elige tu contraseña</label>
                   <PasswordInput
@@ -355,7 +355,7 @@ export default function StudentActivation() {
                     onChange={(e) => { setPassword(e.target.value); setPasswordError('') }}
                     required
                     autoFocus
-                    className={`w-full px-4 py-3 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
+                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Mínimo 6 caracteres"
                   />
                 </div>
@@ -365,7 +365,7 @@ export default function StudentActivation() {
                     value={confirmPassword}
                     onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required
-                    className={`w-full px-4 py-3 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
+                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Repite tu contraseña"
                   />
                 </div>
@@ -380,7 +380,7 @@ export default function StudentActivation() {
                   onMouseDown={(e) => e.preventDefault()}
                   disabled={loading}
                   style={{ touchAction: 'manipulation' }}
-                  className="w-full py-3 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {loading ? <Spinner size="sm" /> : <Check size={16} />}
                   {loading ? 'Activando…' : 'Activar cuenta'}

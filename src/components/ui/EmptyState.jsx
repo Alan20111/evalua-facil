@@ -3,7 +3,7 @@ export default function EmptyState({ icon: Icon, title, subtitle, action, classN
   return (
     <div className={`text-center py-12 px-6 ${className}`}>
       {Icon && (
-        <div className="w-16 h-16 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-4">
+        <div className="w-16 h-16 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
           <Icon size={28} className="text-accent" />
         </div>
       )}
