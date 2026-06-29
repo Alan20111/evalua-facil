@@ -1133,7 +1133,7 @@ export default function SubjectPage() {
                         const visState = activityVisibilityState(a, parcialOculto)
                         const isHidden = visState !== 'visible'
                         return (
-                          <div key={a.id} className={`flex items-center gap-1 rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
+                          <div key={a.id} className={`flex items-center gap-1 w-fit max-w-full rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
                             <button onClick={() => navigate(`/activity/${a.id}`)}
                               className="flex items-center gap-3 min-w-0 max-w-2xl px-3 py-2 text-left">
                               <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
