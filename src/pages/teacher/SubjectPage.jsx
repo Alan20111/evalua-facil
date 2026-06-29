@@ -129,7 +129,7 @@ export default function SubjectPage() {
   const [showQR, setShowQR] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState(null)
   const [studentToEdit, setStudentToEdit] = useState(null)
-  const [editStudentForm, setEditStudentForm] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
+  const [editStudentForm, setEditStudentForm] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '', comentarios: '' })
   const [studentToReset, setStudentToReset] = useState(null)
   const [resetPwdResult, setResetPwdResult] = useState(null) // { student }
   const [linkCandidate, setLinkCandidate] = useState(null) // { person, identity, schoolDocs }
@@ -443,6 +443,7 @@ export default function SubjectPage() {
       apellidoPaterno: s.apellidoPaterno || '',
       apellidoMaterno: s.apellidoMaterno || '',
       nombre: s.nombre || '',
+      comentarios: s.comentarios || '',
     })
   }
 
@@ -455,6 +456,7 @@ export default function SubjectPage() {
         apellidoPaterno: editStudentForm.apellidoPaterno.trim(),
         apellidoMaterno: editStudentForm.apellidoMaterno.trim(),
         nombre: editStudentForm.nombre.trim(),
+        comentarios: editStudentForm.comentarios.trim(),
       }
       await updateDoc(doc(db, 'students', studentToEdit.id), updated)
       setGroupStudents((prev) => prev.map((s) => (s.id === studentToEdit.id ? { ...s, ...updated } : s)))
@@ -467,8 +469,14 @@ export default function SubjectPage() {
     }
   }
 
-  // Hands off to the existing delete-confirmation modal so the cascade-delete of
-  // submissions and the orden re-index stay in one place.
+  // Hands off to the existing reset-password / delete-confirmation modals, kept out of
+  // the row itself (the teacher kept clicking it by accident, prompting students to ask
+  // for a reset they didn't need) so the cascade-delete and orden re-index stay in one place.
+  function requestResetFromEdit() {
+    setStudentToReset(studentToEdit)
+    setStudentToEdit(null)
+  }
+
   function requestDeleteFromEdit() {
     setStudentToDelete(studentToEdit)
     setStudentToEdit(null)
@@ -1326,16 +1334,9 @@ export default function SubjectPage() {
                     <button
                       onClick={() => openEditStudent(s)}
                       className="p-1.5 text-slate-400 hover:text-accent rounded"
-                      title="Editar nombre del alumno"
+                      title="Editar alumno"
                     >
                       <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => setStudentToReset(s)}
-                      className="p-1.5 text-amber-500 hover:text-amber-700 rounded"
-                      title="Habilitar recuperación de contraseña"
-                    >
-                      <RotateCcw size={14} />
                     </button>
                   </div>
                 </div>
@@ -1538,6 +1539,16 @@ export default function SubjectPage() {
                   }
                 />
               ))}
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">Comentarios (solo para ti, el alumno no los ve)</label>
+                <textarea
+                  value={editStudentForm.comentarios}
+                  onChange={(e) => setEditStudentForm((f) => ({ ...f, comentarios: e.target.value }))}
+                  rows={3}
+                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                  placeholder="Ej: necesita apoyo extra, cambió de grupo, etc."
+                />
+              </div>
               <button
                 type="submit"
                 disabled={savingStudent}
@@ -1545,6 +1556,15 @@ export default function SubjectPage() {
               >
                 {savingStudent ? <Spinner size="sm" /> : <Pencil size={16} />}
                 Guardar cambios
+              </button>
+              <button
+                type="button"
+                onClick={requestResetFromEdit}
+                disabled={savingStudent}
+                className="w-full py-2.5 rounded border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                <RotateCcw size={15} />
+                Habilitar recuperación de contraseña
               </button>
               <button
                 type="button"
