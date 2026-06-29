@@ -29,7 +29,7 @@ import {
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet, Search,
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode,
-  Link, Hash, Check as CheckIcon, KeyRound, Copy,
+  Link, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
@@ -1049,10 +1049,10 @@ export default function SubjectPage() {
             </button>
             <button type="button" onClick={copyAccessCode}
               title="Copiar código de acceso para alumnos"
-              className={`flex items-center gap-1 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-sm ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-accent-light'}`}>
+              className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-6xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-accent-light'}`}>
               {copiedCode
-                ? <><CheckIcon size={21} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
-                : <><Hash size={21} className="flex-shrink-0" /><span>{subject?.accessCode}</span></>}
+                ? <><CheckIcon size={32} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
+                : <span>{subject?.accessCode}</span>}
             </button>
             <button type="button" onClick={openEditSubject}
               title="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
