@@ -1279,18 +1279,18 @@ export default function SubjectPage() {
                         colgroup is the only reliable way to size each real
                         column regardless of the header's rowspan/colspan. */}
                     <colgroup>
+                      <col className="w-8" />
                       <col className="w-[150px]" />
                       {tableParcials.map(({ p, acts }) => [
-                        ...acts.map((a) => <col key={a.id} className="w-12" />),
+                        ...acts.map((a) => <col key={a.id} className="w-9" />),
                         <col key={`avgcol-${p}`} className="w-14" />,
                       ])}
                       <col className="w-14" />
                     </colgroup>
                     <thead>
                       <tr className="bg-accent-light border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-accent-light w-[150px] px-2 py-1.5 text-left font-medium text-muted whitespace-nowrap border-r border-outline-variant">
-                          Alumno
-                        </th>
+                        <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
+                        <th className="sticky left-8 z-10 bg-accent-light w-[150px] px-2 py-1.5 text-left font-medium text-muted whitespace-nowrap border-r border-outline-variant" />
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
                             className="px-1.5 py-1.5 font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
@@ -1302,12 +1302,15 @@ export default function SubjectPage() {
                         </th>
                       </tr>
                       <tr className="bg-accent-light border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-accent-light w-[150px] px-2 py-1.5 text-left font-medium text-muted border-r border-outline-variant whitespace-nowrap">
-                          Actividad
+                        <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 text-center font-medium text-muted border-r border-outline-variant whitespace-nowrap">
+                          No.
+                        </th>
+                        <th className="sticky left-8 z-10 bg-accent-light w-[150px] px-2 py-1.5 text-left font-medium text-muted border-r border-outline-variant whitespace-nowrap">
+                          Alumno / Actividad
                         </th>
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
-                            <th key={a.id} className="w-12 px-1 py-1.5 font-normal text-slate-400 text-center border-l border-outline-variant">
+                            <th key={a.id} className="w-9 px-0.5 py-1.5 font-normal text-slate-400 text-center border-l border-outline-variant">
                               <span className="block truncate" title={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
@@ -1323,13 +1326,16 @@ export default function SubjectPage() {
                     <tbody>
                       {gradeRows.map(({ s, parcialData, finalAvg }, i) => (
                         <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                          <td className={`sticky left-0 z-10 w-[150px] px-2 py-1 font-medium text-on-surface truncate border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}
+                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                            {i + 1}
+                          </td>
+                          <td className={`sticky left-8 z-10 w-[150px] px-2 py-1 font-medium text-on-surface truncate border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}
                             title={`${s.apellidoPaterno} ${s.nombre}`}>
                             {s.apellidoPaterno} {s.nombre}
                           </td>
                           {parcialData.map(({ p, grades, avg }, pi) => [
                             ...tableParcials[pi].acts.map((a, ai) => (
-                              <td key={a.id} className={`w-12 px-1 py-1 text-center font-semibold border-l border-outline-variant ${gradeColor(grades[ai])}`}>
+                              <td key={a.id} className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant ${gradeColor(grades[ai])}`}>
                                 {grades[ai] !== null ? grades[ai] : '—'}
                               </td>
                             )),
