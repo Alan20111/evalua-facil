@@ -1080,7 +1080,7 @@ export default function SubjectPage() {
               return (
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                   <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface transition-colors">
+                    className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-surface transition-colors">
                     <div className="w-10 h-10 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                       <span className="text-accent font-bold text-sm">{p}</span>
                     </div>
@@ -1239,16 +1239,16 @@ export default function SubjectPage() {
                   <table className="text-sm border-collapse min-w-[640px]">
                     <thead>
                       <tr className="bg-surface border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-surface px-3 py-2.5 text-left text-xs font-medium text-muted whitespace-nowrap min-w-[170px] border-r border-outline-variant">
+                        <th className="sticky left-0 z-10 bg-surface px-3 py-2 text-left text-xs font-medium text-muted whitespace-nowrap min-w-[170px] border-r border-outline-variant">
                           Alumno
                         </th>
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
-                            className="px-2.5 py-2.5 text-xs font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
+                            className="px-2.5 py-2 text-xs font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
                             Parcial {p}
                           </th>
                         ))}
-                        <th className="px-2.5 py-2.5 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                        <th className="px-2.5 py-2 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
                           Final
                         </th>
                       </tr>
@@ -1274,20 +1274,20 @@ export default function SubjectPage() {
                     <tbody>
                       {gradeRows.map(({ s, parcialData, finalAvg }, i) => (
                         <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                          <td className={`sticky left-0 z-10 px-3 py-2.5 text-xs font-medium text-on-surface whitespace-nowrap border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          <td className={`sticky left-0 z-10 px-3 py-2 text-xs font-medium text-on-surface whitespace-nowrap border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.apellidoPaterno} {s.nombre}
                           </td>
                           {parcialData.map(({ p, grades, avg }, pi) => [
                             ...tableParcials[pi].acts.map((a, ai) => (
-                              <td key={a.id} className={`px-2.5 py-2.5 text-center text-xs font-semibold border-l border-outline-variant ${gradeColor(grades[ai])}`}>
+                              <td key={a.id} className={`px-2.5 py-2 text-center text-xs font-semibold border-l border-outline-variant ${gradeColor(grades[ai])}`}>
                                 {grades[ai] !== null ? grades[ai] : '—'}
                               </td>
                             )),
-                            <td key={`avg-${p}`} className={`px-2.5 py-2.5 text-center text-xs font-bold border-l border-outline-variant ${gradeColor(avg)}`}>
+                            <td key={`avg-${p}`} className={`px-2.5 py-2 text-center text-xs font-bold border-l border-outline-variant ${gradeColor(avg)}`}>
                               {avg !== null ? avg : '—'}
                             </td>,
                           ])}
-                          <td className={`px-2.5 py-2.5 text-center text-xs font-bold border-l border-outline-variant ${gradeColor(finalAvg)}`}>
+                          <td className={`px-2.5 py-2 text-center text-xs font-bold border-l border-outline-variant ${gradeColor(finalAvg)}`}>
                             {finalAvg !== null ? finalAvg : '—'}
                           </td>
                         </tr>
@@ -1386,7 +1386,7 @@ export default function SubjectPage() {
               {filteredAlumnos.map((s, i) => (
                 <div
                   key={s.id}
-                  className={`flex items-center gap-3 px-3 py-2.5 ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                  className={`flex items-center gap-3 px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
                   <span className="w-5 text-sm text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                   <div className="flex-1 min-w-0">

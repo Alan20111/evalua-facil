@@ -217,7 +217,7 @@ export default function TeacherDashboard() {
                   <div
                     key={s.id}
                     data-subject-palette={s.colorPalette || 'default'}
-                    className="w-full bg-surface-card rounded-card p-2 shadow-card hover:shadow-md transition-shadow flex items-center gap-1"
+                    className="w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md transition-shadow flex items-center gap-1"
                   >
                     <div className="flex flex-col flex-shrink-0">
                       <button
@@ -239,7 +239,7 @@ export default function TeacherDashboard() {
                     </div>
                     <button
                       onClick={() => navigate(`/subject/${s.id}`)}
-                      className="flex-1 min-w-0 text-left p-2 flex items-center gap-3"
+                      className="flex-1 min-w-0 text-left flex items-center gap-3"
                     >
                       <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                         <SubjectIcon iconKey={s.icon} size={21} className="text-accent" />

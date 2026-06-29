@@ -146,7 +146,7 @@ export default function StudentSubjectPage() {
                       <button
                         key={a.id}
                         onClick={() => navigate(`/alumno/actividad/${a.id}`)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-surface transition-colors border border-outline-variant text-left"
+                        className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-surface transition-colors border border-outline-variant text-left"
                       >
                         <div className="flex-shrink-0">
                           {graded ? (

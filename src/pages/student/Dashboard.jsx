@@ -187,13 +187,13 @@ export default function StudentDashboard() {
             <p className="text-slate-400 text-sm">Usa el botón de abajo para unirte a una.</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {subjects.map((s) => (
               <button
                 key={s.id}
                 data-subject-palette={s.colorPalette || 'default'}
                 onClick={() => navigate(`/alumno/materia/${s.id}`)}
-                className="w-full bg-surface-card rounded-card p-4 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-3"
+                className="w-full bg-surface-card rounded-card p-3 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-3"
               >
                 <div className="w-12 h-12 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                   <SubjectIcon iconKey={s.icon} size={22} className="text-accent" />

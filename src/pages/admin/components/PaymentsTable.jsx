@@ -98,12 +98,12 @@ export default function PaymentsTable({ stats, onRefresh }) {
         <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
-              <th className="px-4 py-2.5">Docente</th>
-              <th className="px-4 py-2.5">Monto</th>
-              <th className="px-4 py-2.5">Referencia</th>
-              <th className="px-4 py-2.5">Estado</th>
-              <th className="px-4 py-2.5">Fecha</th>
-              <th className="px-4 py-2.5">Acciones</th>
+              <th className="px-4 py-2">Docente</th>
+              <th className="px-4 py-2">Monto</th>
+              <th className="px-4 py-2">Referencia</th>
+              <th className="px-4 py-2">Estado</th>
+              <th className="px-4 py-2">Fecha</th>
+              <th className="px-4 py-2">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -118,18 +118,18 @@ export default function PaymentsTable({ stats, onRefresh }) {
                 const teacher = teachersMap[payment.docenteId]
                 return (
                   <tr key={payment.id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2">
                       <p className="font-medium text-on-surface">
                         {teacher?.username || teacher?.email || '—'}
                       </p>
                     </td>
-                    <td className="px-4 py-2.5 font-semibold">{formatCurrency(payment.monto)}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs">{payment.referencia || '—'}</td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2 font-semibold">{formatCurrency(payment.monto)}</td>
+                    <td className="px-4 py-2 font-mono text-xs">{payment.referencia || '—'}</td>
+                    <td className="px-4 py-2">
                       <StatusBadge status={payment.status} />
                     </td>
-                    <td className="px-4 py-2.5 text-muted">{formatDate(payment.createdAt)}</td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-2 text-muted">{formatDate(payment.createdAt)}</td>
+                    <td className="px-4 py-2">
                       {payment.status === 'pendiente' && (
                         <div className="flex items-center gap-1">
                           <button
