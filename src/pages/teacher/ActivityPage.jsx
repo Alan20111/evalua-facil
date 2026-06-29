@@ -23,6 +23,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
+import { TEACHER_CONTAINER } from '../../config/layout'
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
@@ -245,7 +246,7 @@ export default function ActivityPage() {
   return (
     <TeacherLayout>
       <div data-subject-palette={subject?.colorPalette || 'default'}>
-      <div className="max-w-2xl mx-auto">
+      <div className={TEACHER_CONTAINER}>
         {/* Header */}
         <div className="bg-surface-card border-b border-outline-variant px-4 py-3">
           <div className="flex items-center gap-3">

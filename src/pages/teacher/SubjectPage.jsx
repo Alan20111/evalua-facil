@@ -23,6 +23,7 @@ import FileTypeSelect from '../../components/FileTypeSelect'
 import RichTextEditor from '../../components/RichTextEditor'
 import { htmlToPlainText, sanitizeHtml, toRichHtml } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
@@ -1010,7 +1011,7 @@ export default function SubjectPage() {
   return (
     <TeacherLayout>
       <div data-subject-palette={subject?.colorPalette || 'default'}>
-      <div className="max-w-2xl mx-auto">
+      <div className={TEACHER_CONTAINER}>
 
         {/* ── Header ── */}
         <div className="bg-surface-card border-b border-outline-variant px-4 py-3">

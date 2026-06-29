@@ -23,6 +23,7 @@ import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
+import { TEACHER_CONTAINER } from '../../config/layout'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -173,7 +174,7 @@ export default function TeacherDashboard() {
 
   return (
     <TeacherLayout>
-      <div className="px-4 py-6 max-w-2xl mx-auto">
+      <div className={`px-4 sm:px-6 lg:px-8 py-6 ${TEACHER_CONTAINER}`}>
 
         {/* Greeting */}
         <div className="mb-6">
@@ -280,7 +281,7 @@ export default function TeacherDashboard() {
       {showSubjectModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowSubjectModal(false)} />
-          <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[92vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-lg rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
               <button onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-muted rounded">

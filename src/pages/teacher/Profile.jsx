@@ -28,6 +28,7 @@ import {
   getPaymentStatusColor,
   getSubscriptionStatusColor,
 } from '../../utils/subscriptionHelpers'
+import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
 async function uploadAvatar(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -300,7 +301,7 @@ export default function Profile() {
 
   return (
     <TeacherLayout>
-      <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
+      <div className={`px-4 py-6 space-y-5 ${TEACHER_CONTAINER_NARROW}`}>
 
         {/* Mi plan */}
         <div className="bg-surface-card rounded-card shadow-card p-4">
