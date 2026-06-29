@@ -6,6 +6,8 @@ import {
   where,
   getDocs,
   addDoc,
+  doc,
+  writeBatch,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
@@ -13,7 +15,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { Plus, BookOpen, ChevronRight, X, ArrowUpDown } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -48,14 +50,6 @@ export default function TeacherDashboard() {
   const [newSubjectFechaFin, setNewSubjectFechaFin] = useState('')
   const [creatingSubject, setCreatingSubject] = useState(false)
 
-  // Subject list display order toggle (persists across sessions)
-  const [nameOrder, setNameOrder] = useState(() => localStorage.getItem('subjectNameOrder') || 'normal')
-  function toggleNameOrder() {
-    const next = nameOrder === 'normal' ? 'reverse' : 'normal'
-    setNameOrder(next)
-    localStorage.setItem('subjectNameOrder', next)
-  }
-
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -89,18 +83,48 @@ export default function TeacherDashboard() {
       const subSnap = await getDocs(
         query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid))
       )
-      const subList = subSnap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => {
+      let subList = subSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+
+      // Subjects predate manual ordering — the first time we see one without an
+      // `orden`, assign one from its current alphabetical position and persist it,
+      // so the list has a stable order the teacher can then rearrange by hand.
+      if (subList.some((s) => s.orden == null)) {
+        subList = subList.sort((a, b) => {
           const nc = (a.nombre || '').localeCompare(b.nombre || '', 'es')
           if (nc !== 0) return nc
           return (a.grupo || '').localeCompare(b.grupo || '', 'es')
         })
+        const batch = writeBatch(db)
+        subList = subList.map((s, i) => {
+          const orden = i + 1
+          if (s.orden !== orden) batch.update(doc(db, 'subjects', s.id), { orden })
+          return { ...s, orden }
+        })
+        batch.commit().catch(() => {}) // best-effort; the in-memory order is already correct
+      } else {
+        subList = subList.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      }
       setSubjects(subList)
     } catch (err) {
       toast('Error al cargar: ' + err.message, 'error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function moveSubject(index, direction) {
+    const newList = [...subjects]
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= newList.length) return
+    ;[newList[index], newList[targetIndex]] = [newList[targetIndex], newList[index]]
+    setSubjects(newList.map((s, i) => ({ ...s, orden: i + 1 })))
+    try {
+      const batch = writeBatch(db)
+      newList.forEach((s, i) => batch.update(doc(db, 'subjects', s.id), { orden: i + 1 }))
+      await batch.commit()
+    } catch (err) {
+      toast('No se pudo reordenar: ' + err.message, 'error')
+      loadAll()
     }
   }
 
@@ -125,17 +149,11 @@ export default function TeacherDashboard() {
         icon: newSubjectIcon,
         accessCode: generateAccessCode(),
         archived: false,
+        orden: subjects.length + 1,
         createdAt: serverTimestamp(),
       }
       const ref = await addDoc(collection(db, 'subjects'), subData)
-      setSubjects((prev) =>
-        [...prev, { id: ref.id, ...subData }]
-          .sort((a, b) => {
-            const nc = (a.nombre || '').localeCompare(b.nombre || '', 'es')
-            if (nc !== 0) return nc
-            return (a.grupo || '').localeCompare(b.grupo || '', 'es')
-          })
-      )
+      setSubjects((prev) => [...prev, { id: ref.id, ...subData }])
       setShowSubjectModal(false)
       setNewSubjectName('')
       setNewSubjectGrupo('')
@@ -175,18 +193,7 @@ export default function TeacherDashboard() {
             {/* ── Mis asignaturas ── */}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
               <h2 className="text-lg font-semibold text-on-surface">Mis asignaturas</h2>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={toggleNameOrder}
-                  title={nameOrder === 'normal' ? 'Mostrar Grupo + Asignatura' : 'Mostrar Asignatura + Grupo'}
-                  className="flex items-center gap-1 text-sm text-slate-500 hover:text-blue-600 transition-colors px-2 py-1 rounded hover:bg-blue-50"
-                >
-                  <ArrowUpDown size={13} />
-                  {nameOrder === 'normal' ? 'Asignatura · Grupo' : 'Grupo · Asignatura'}
-                </button>
-                <span className="text-xs text-slate-300">·</span>
-                <span className="text-sm text-slate-500">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
-              </div>
+              <span className="text-sm text-slate-500">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
             </div>
 
             {subjects.length === 0 ? (
@@ -206,31 +213,53 @@ export default function TeacherDashboard() {
               </div>
             ) : (
               <div className="space-y-2 mb-8">
-                {subjects.map((s) => (
-                  <button
+                {subjects.map((s, i) => (
+                  <div
                     key={s.id}
                     data-subject-palette={s.colorPalette || 'default'}
-                    onClick={() => navigate(`/subject/${s.id}`)}
-                    className="w-full bg-surface-card rounded-card p-4 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-4"
+                    className="w-full bg-surface-card rounded-card p-2 shadow-card hover:shadow-md transition-shadow flex items-center gap-1"
                   >
-                    <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-                      <SubjectIcon iconKey={s.icon} size={19} className="text-accent" />
+                    <div className="flex flex-col flex-shrink-0">
+                      <button
+                        onClick={() => moveSubject(i, -1)}
+                        disabled={i === 0}
+                        title="Subir"
+                        className="p-1 text-slate-400 hover:text-accent disabled:opacity-30 rounded"
+                      >
+                        <ArrowUp size={14} />
+                      </button>
+                      <button
+                        onClick={() => moveSubject(i, 1)}
+                        disabled={i === subjects.length - 1}
+                        title="Bajar"
+                        className="p-1 text-slate-400 hover:text-accent disabled:opacity-30 rounded"
+                      >
+                        <ArrowDown size={14} />
+                      </button>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s, nameOrder === 'reverse')}</p>
-                        {s.archived && (
-                          <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
-                            archivada
-                          </span>
+                    <button
+                      onClick={() => navigate(`/subject/${s.id}`)}
+                      className="flex-1 min-w-0 text-left p-2 flex items-center gap-4"
+                    >
+                      <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                        <SubjectIcon iconKey={s.icon} size={19} className="text-accent" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s, true)}</p>
+                          {s.archived && (
+                            <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                              archivada
+                            </span>
+                          )}
+                        </div>
+                        {subjectPeriodLabel(s) && (
+                          <p className="text-sm text-slate-500 mt-0.5">{subjectPeriodLabel(s)}</p>
                         )}
                       </div>
-                      {subjectPeriodLabel(s) && (
-                        <p className="text-sm text-slate-500 mt-0.5">{subjectPeriodLabel(s)}</p>
-                      )}
-                    </div>
-                    <ChevronRight size={18} className="text-slate-300 flex-shrink-0" />
-                  </button>
+                      <ChevronRight size={18} className="text-slate-300 flex-shrink-0" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
