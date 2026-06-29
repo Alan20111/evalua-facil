@@ -1448,7 +1448,7 @@ export default function SubjectPage() {
             </div>
           ) : (
             <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
-              <div className="flex items-center gap-2 px-3 py-2 bg-surface-container">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container">
                 <span className="w-5 flex-shrink-0" />
                 <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del alumno</p>
                 <p className="w-20 flex-shrink-0 text-xs font-semibold text-muted uppercase tracking-wide">Código</p>
@@ -1458,23 +1458,23 @@ export default function SubjectPage() {
               {filteredAlumnos.map((s, i) => (
                 <div
                   key={s.id}
-                  className={`flex items-center gap-2 px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                  className={`flex items-center gap-2 px-3 py-1 leading-tight ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
                   <span className="w-5 text-sm text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                   <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
                     {fullStudentName(s)}
                   </p>
                   <span className="w-20 flex-shrink-0 text-xs font-mono text-accent font-semibold truncate">{s.username}</span>
-                  <span className="w-24 flex-shrink-0">
+                  <span className="w-24 flex-shrink-0 flex items-center">
                     {s.activado ? (
-                      <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">activo</span>
+                      <span className="text-[11px] leading-none bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">activo</span>
                     ) : (
-                      <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">sin activar</span>
+                      <span className="text-[11px] leading-none bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">sin activar</span>
                     )}
                   </span>
                   <button
                     onClick={() => openEditStudent(s)}
-                    className="w-9 flex-shrink-0 p-1.5 text-slate-400 hover:text-accent rounded"
+                    className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-accent rounded"
                     title="Editar alumno"
                   >
                     <Pencil size={16} />
