@@ -52,14 +52,12 @@ async function fetchSubmissionsForActivities(actIds) {
 
 const EMPTY_FORM = { nombre: '', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show' }
 
-// `fechaLimite` used to be a plain date (YYYY-MM-DD); only show a time
-// component for values that actually carry one (datetime-local strings).
+// `fechaLimite` used to be a plain date (YYYY-MM-DD); default legacy values
+// without a time component to midnight so the hour always renders.
 function formatDeadline(fechaLimite) {
   const hasTime = fechaLimite.includes('T')
   const d = new Date(hasTime ? fechaLimite : `${fechaLimite}T00:00:00`)
-  return hasTime
-    ? d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-    : d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+  return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 function gradeColor(norm) {
@@ -1155,21 +1153,21 @@ export default function SubjectPage() {
                                   {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} · </span>}
                                   {a.nombre}
                                 </p>
-                                {(a.fechaLimite || visState !== 'visible') && (
+                                {(a.fechaLimite || a.publishAt || visState === 'hidden') && (
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    {a.publishAt && (
+                                      <span title="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
+                                        <Clock size={14} /> {formatPublishAt(a.publishAt)}
+                                      </span>
+                                    )}
                                     {a.fechaLimite && (
-                                      <span className="text-xs text-amber-600 flex items-center gap-0.5">
+                                      <span title="Fecha de cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
                                         <Clock size={14} /> {formatDeadline(a.fechaLimite)}
                                       </span>
                                     )}
                                     {visState === 'hidden' && (
                                       <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                                         <EyeOff size={13} /> Oculta
-                                      </span>
-                                    )}
-                                    {visState === 'scheduled' && (
-                                      <span className="text-xs bg-accent-light text-accent px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                        <Clock size={13} /> {formatPublishAt(a.publishAt)}
                                       </span>
                                     )}
                                   </div>
