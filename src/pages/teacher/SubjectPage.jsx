@@ -50,7 +50,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '' }
+const EMPTY_FORM = { nombre: '', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show' }
 
 // `fechaLimite` used to be a plain date (YYYY-MM-DD); only show a time
 // component for values that actually carry one (datetime-local strings).
@@ -571,6 +571,7 @@ export default function SubjectPage() {
       extensionesCustom: activity.extensionesCustom || '',
       oculta: activity.oculta || false,
       publishAt: activity.publishAt || '',
+      visibilidadMode: !activity.oculta ? 'show' : activity.publishAt ? 'schedule' : 'hide',
     })
     setShowModal(true)
   }
@@ -1507,9 +1508,9 @@ export default function SubjectPage() {
                 <label className="block text-sm font-medium text-muted mb-2">Visibilidad</label>
                 <div className="space-y-2">
                   <label className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface"
-                    style={{ borderColor: !form.oculta ? 'var(--accent)' : '#e2e8f0', background: !form.oculta ? 'var(--accent-light)' : '' }}>
-                    <input type="radio" name="visibilidad" checked={!form.oculta}
-                      onChange={() => setForm((f) => ({ ...f, oculta: false, publishAt: '' }))}
+                    style={{ borderColor: form.visibilidadMode === 'show' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'show' ? 'var(--accent-light)' : '' }}>
+                    <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'show'}
+                      onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'show', oculta: false, publishAt: '' }))}
                       className="accent-[var(--accent)]" />
                     <div>
                       <p className="text-sm font-medium text-on-surface">Mostrar ahora</p>
@@ -1517,9 +1518,9 @@ export default function SubjectPage() {
                     </div>
                   </label>
                   <label className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface"
-                    style={{ borderColor: form.oculta && !form.publishAt ? 'var(--accent)' : '#e2e8f0', background: form.oculta && !form.publishAt ? 'var(--accent-light)' : '' }}>
-                    <input type="radio" name="visibilidad" checked={!!(form.oculta && !form.publishAt)}
-                      onChange={() => setForm((f) => ({ ...f, oculta: true, publishAt: '' }))}
+                    style={{ borderColor: form.visibilidadMode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'hide' ? 'var(--accent-light)' : '' }}>
+                    <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'hide'}
+                      onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'hide', oculta: true, publishAt: '' }))}
                       className="accent-[var(--accent)]" />
                     <div>
                       <p className="text-sm font-medium text-on-surface">Ocultar</p>
@@ -1527,20 +1528,20 @@ export default function SubjectPage() {
                     </div>
                   </label>
                   <label className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface"
-                    style={{ borderColor: form.oculta && form.publishAt ? 'var(--accent)' : '#e2e8f0', background: form.oculta && form.publishAt ? 'var(--accent-light)' : '' }}>
-                    <input type="radio" name="visibilidad" checked={!!(form.oculta && form.publishAt)}
-                      onChange={() => setForm((f) => ({ ...f, oculta: true, publishAt: f.publishAt || '' }))}
+                    style={{ borderColor: form.visibilidadMode === 'schedule' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'schedule' ? 'var(--accent-light)' : '' }}>
+                    <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'schedule'}
+                      onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'schedule', oculta: true }))}
                       className="accent-[var(--accent)]" />
                     <div>
                       <p className="text-sm font-medium text-on-surface">Programar</p>
                       <p className="text-xs text-muted">Se activa automáticamente en una fecha</p>
                     </div>
                   </label>
-                  {form.oculta && (
+                  {form.visibilidadMode === 'schedule' && (
                     <input
                       type="datetime-local"
                       value={form.publishAt}
-                      onChange={(e) => setForm((f) => ({ ...f, publishAt: e.target.value, oculta: true }))}
+                      onChange={(e) => setForm((f) => ({ ...f, publishAt: e.target.value }))}
                       className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                     />
                   )}
@@ -1552,8 +1553,17 @@ export default function SubjectPage() {
                 <label className="block text-sm font-medium text-muted mb-1">
                   Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
                 </label>
-                <input type="datetime-local" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                <div className="flex items-center gap-2">
+                  <input type="datetime-local" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                  {form.fechaLimite && (
+                    <button type="button" onClick={() => setForm((f) => ({ ...f, fechaLimite: '' }))}
+                      title="Quitar fecha límite"
+                      className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded flex-shrink-0">
+                      <X size={18} />
+                    </button>
+                  )}
+                </div>
                 <p className="text-xs text-slate-400 mt-1">
                   Luego de esta fecha y hora ya no se reciben entregas.
                 </p>
