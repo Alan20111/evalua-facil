@@ -1136,7 +1136,7 @@ export default function SubjectPage() {
                         return (
                           <div key={a.id} className={`flex items-center gap-1 rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
                             <button onClick={() => navigate(`/activity/${a.id}`)}
-                              className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2 text-left">
+                              className="flex items-center gap-3 min-w-0 max-w-2xl px-3 py-2 text-left">
                               <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
@@ -1421,7 +1421,7 @@ export default function SubjectPage() {
                   className={`flex items-center gap-3 px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
                   <span className="w-5 text-sm text-slate-500 text-right flex-shrink-0">{s.orden}</span>
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 max-w-2xl">
                     <p className="text-sm font-medium text-on-surface truncate">
                       {fullStudentName(s)}
                     </p>

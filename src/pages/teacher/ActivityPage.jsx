@@ -359,7 +359,7 @@ export default function ActivityPage() {
                     }`}
                   >
                     <span className="w-5 text-sm text-slate-500 text-right flex-shrink-0">{s.orden}</span>
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 max-w-2xl">
                       <p className="text-sm font-medium text-on-surface truncate">
                         {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
                       </p>
