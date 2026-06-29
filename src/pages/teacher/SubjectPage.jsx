@@ -23,7 +23,7 @@ import FileTypeSelect from '../../components/FileTypeSelect'
 import RichTextEditor from '../../components/RichTextEditor'
 import { htmlToPlainText, richTextContentClass, sanitizeHtml, toRichHtml } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
-import { TEACHER_CONTAINER } from '../../config/layout'
+import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
@@ -1090,7 +1090,7 @@ export default function SubjectPage() {
             TAB: ACTIVIDADES
         ══════════════════════════════════════════════════════════ */}
         {activeTab === 'actividades' && (
-          <div className="px-4 py-3 space-y-3">
+          <div className={`px-4 py-3 space-y-3 ${TEACHER_CONTAINER_NARROW}`}>
             {PARCIALES.map((p) => {
               const acts = activities.filter((a) => a.parcial === p)
               const isOpen = openParcial === p
@@ -1099,7 +1099,7 @@ export default function SubjectPage() {
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                   <div className="w-full flex items-center gap-1">
                     <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
-                      className="min-w-0 max-w-2xl px-4 py-2.5 flex items-center gap-3 hover:bg-surface transition-colors text-left">
+                      className="flex-1 min-w-0 px-4 py-2.5 flex items-center gap-3 hover:bg-surface transition-colors text-left">
                       <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
                         <span className={`font-bold text-sm ${parcialOculto ? 'text-slate-400' : 'text-accent'}`}>{p}</span>
                       </div>
@@ -1133,9 +1133,9 @@ export default function SubjectPage() {
                         const visState = activityVisibilityState(a, parcialOculto)
                         const isHidden = visState !== 'visible'
                         return (
-                          <div key={a.id} className={`flex items-center gap-1 w-fit max-w-full rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
+                          <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
                             <button onClick={() => navigate(`/activity/${a.id}`)}
-                              className="flex items-center gap-3 min-w-0 max-w-2xl px-3 py-2 text-left">
+                              className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2 text-left">
                               <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
@@ -1144,7 +1144,7 @@ export default function SubjectPage() {
                                 </p>
                                 {a.instrucciones && (
                                   <div
-                                    className={`text-sm leading-tight line-clamp-2 text-on-surface ${richTextContentClass}`}
+                                    className={`text-sm leading-tight text-on-surface ${richTextContentClass}`}
                                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(a.instrucciones)) }}
                                   />
                                 )}
@@ -1342,7 +1342,7 @@ export default function SubjectPage() {
           TAB: ALUMNOS
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
-        <div className="px-4 py-3 space-y-3">
+        <div className={`px-4 py-3 space-y-3 ${TEACHER_CONTAINER_NARROW}`}>
           {/* 1 — Agregar alumnos con la plantilla de Excel (paso 1: descargar, paso 2: subir) */}
           <div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar alumnos con Excel</p>
@@ -1423,7 +1423,7 @@ export default function SubjectPage() {
                   className={`flex items-center gap-3 px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
                   <span className="w-5 text-sm text-slate-500 text-right flex-shrink-0">{s.orden}</span>
-                  <div className="min-w-0 max-w-2xl">
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-on-surface truncate">
                       {fullStudentName(s)}
                     </p>

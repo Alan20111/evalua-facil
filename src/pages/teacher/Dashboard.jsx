@@ -23,7 +23,7 @@ import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
-import { TEACHER_CONTAINER } from '../../config/layout'
+import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -174,7 +174,7 @@ export default function TeacherDashboard() {
 
   return (
     <TeacherLayout>
-      <div className={`px-4 sm:px-6 lg:px-8 py-6 ${TEACHER_CONTAINER}`}>
+      <div className={`px-4 sm:px-6 lg:px-8 py-6 ${TEACHER_CONTAINER_NARROW}`}>
 
         {/* Greeting */}
         <div className="mb-6">
@@ -218,7 +218,7 @@ export default function TeacherDashboard() {
                   <div
                     key={s.id}
                     data-subject-palette={s.colorPalette || 'default'}
-                    className="w-fit max-w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md transition-shadow flex items-center gap-1"
+                    className="w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md transition-shadow flex items-center gap-1"
                   >
                     <div className="flex flex-col flex-shrink-0">
                       <button
@@ -240,7 +240,7 @@ export default function TeacherDashboard() {
                     </div>
                     <button
                       onClick={() => navigate(`/subject/${s.id}`)}
-                      className="min-w-0 max-w-2xl text-left flex items-center gap-3"
+                      className="flex-1 min-w-0 text-left flex items-center gap-3"
                     >
                       <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                         <SubjectIcon iconKey={s.icon} size={21} className="text-accent" />
