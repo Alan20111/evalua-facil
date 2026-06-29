@@ -1216,7 +1216,9 @@ export default function SubjectPage() {
                         </th>
                       </tr>
                       <tr className="bg-surface-card border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-surface-card px-3 py-1.5 border-r border-outline-variant" />
+                        <th className="sticky left-0 z-10 bg-surface-card px-3 py-1.5 text-left text-xs font-medium text-muted border-r border-outline-variant whitespace-nowrap">
+                          Actividad
+                        </th>
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
                             <th key={a.id} className="px-2 py-1.5 text-xs font-normal text-slate-400 text-center border-l border-outline-variant max-w-[80px]">
@@ -1391,8 +1393,8 @@ export default function SubjectPage() {
               </h3>
               <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={18} /></button>
             </div>
-            <p className="text-xs text-muted -mt-2 mb-4">
-              Actividad <strong className="text-accent">{previewActividad}</strong> — este número se asigna solo, según su lugar en el parcial, y es el que aparecerá como encabezado de columna en tu pestaña de Calificaciones.
+            <p className="text-base text-on-surface -mt-2 mb-4">
+              Actividad <strong className="text-accent">{previewActividad}</strong>
             </p>
             <form onSubmit={handleSaveActivity} className="space-y-4">
               <div>
