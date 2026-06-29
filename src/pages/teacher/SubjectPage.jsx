@@ -1295,7 +1295,7 @@ export default function SubjectPage() {
             </div>
             <button
               onClick={() => setShowAddStudent(true)}
-              title="Agregar un alumno manualmente"
+              title="Agregar nuevo alumno"
               className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
             >
               <UserPlus size={18} />
