@@ -980,6 +980,19 @@ export default function SubjectPage() {
     p, acts: activities.filter((a) => a.parcial === p),
   })).filter((pd) => pd.acts.length > 0)
 
+  // Sequential index per real grade column (activities + parcial averages +
+  // final average), shared by header and body cells via data-col so the
+  // CSS column-hover rules below (generated from gradeColCount) can match
+  // every cell of a column at once.
+  let _colIdx = 0
+  const colIndexByKey = {}
+  tableParcials.forEach(({ p, acts }) => {
+    acts.forEach((a) => { colIndexByKey[`act-${a.id}`] = _colIdx++ })
+    colIndexByKey[`avg-${p}`] = _colIdx++
+  })
+  colIndexByKey.final = _colIdx++
+  const gradeColCount = _colIdx
+
   // Pre-compute grade rows
   const gradeRows = filteredGradeStudents.map((s) => {
     const parcialData = tableParcials.map(({ p, acts }) => {
@@ -1273,7 +1286,16 @@ export default function SubjectPage() {
                       width its columns actually need, so the wrapper's
                       overflow-x-auto only scrolls once real content overflows,
                       never just because of an arbitrary minimum. */}
-                  <table className="text-xs border-collapse table-fixed">
+                  {/* One CSS rule per real column, generated from gradeColCount:
+                      `.grades-table:has([data-col="N"]:hover) [data-col="N"]`
+                      tints every cell (th or td) sharing that index while any
+                      one of them is hovered — pure CSS, no per-cell JS state.
+                      The active-cell emphasis itself lives in index.css
+                      (unlayered, !important) so it always wins over this. */}
+                  <style>{Array.from({ length: gradeColCount }, (_, idx) =>
+                    `.grades-table:has([data-col="${idx}"]:hover) [data-col="${idx}"]{background-color:rgba(37,99,235,0.08);}`
+                  ).join('')}</style>
+                  <table className="grades-table text-xs border-collapse table-fixed">
                     {/* table-fixed reads column widths from the first row, but
                         that row has colSpan'd "Parcial" headers — an explicit
                         colgroup is the only reliable way to size each real
@@ -1310,15 +1332,15 @@ export default function SubjectPage() {
                         </th>
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
-                            <th key={a.id} className="w-9 px-0.5 py-1.5 font-normal text-slate-400 text-center border-l border-outline-variant">
+                            <th key={a.id} data-col={colIndexByKey[`act-${a.id}`]} className="w-9 px-0.5 py-1.5 font-normal text-slate-400 text-center border-l border-outline-variant">
                               <span className="block truncate" title={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
-                          <th key={`avg-${p}`} className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                          <th key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
                             Prom.
                           </th>,
                         ])}
-                        <th className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                        <th data-col={colIndexByKey.final} className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
                           Prom.
                         </th>
                       </tr>
@@ -1335,15 +1357,15 @@ export default function SubjectPage() {
                           </td>
                           {parcialData.map(({ p, grades, avg }, pi) => [
                             ...tableParcials[pi].acts.map((a, ai) => (
-                              <td key={a.id} className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant ${gradeColor(grades[ai])}`}>
+                              <td key={a.id} data-col={colIndexByKey[`act-${a.id}`]} className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 ${gradeColor(grades[ai])}`}>
                                 {grades[ai] !== null ? grades[ai] : '—'}
                               </td>
                             )),
-                            <td key={`avg-${p}`} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant ${gradeColor(avg)}`}>
+                            <td key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(avg)}`}>
                               {avg !== null ? avg : '—'}
                             </td>,
                           ])}
-                          <td className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant ${gradeColor(finalAvg)}`}>
+                          <td data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(finalAvg)}`}>
                             {finalAvg !== null ? finalAvg : '—'}
                           </td>
                         </tr>
