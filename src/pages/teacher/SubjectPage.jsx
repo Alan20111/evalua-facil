@@ -1081,8 +1081,10 @@ export default function SubjectPage() {
                                   {a.actividad && <span className="text-accent font-semibold">{a.actividad} · </span>}
                                   {a.nombre}
                                 </p>
+                                {a.instrucciones && (
+                                  <p className="text-xs text-slate-500 mt-0.5 whitespace-pre-wrap">{a.instrucciones}</p>
+                                )}
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                  <span className="text-sm text-slate-500">Máx: {a.maxCalif}</span>
                                   {a.fechaLimite && (
                                     <span className="text-xs text-amber-600 flex items-center gap-0.5">
                                       <Clock size={10} /> {new Date(a.fechaLimite).toLocaleDateString('es-MX')}
