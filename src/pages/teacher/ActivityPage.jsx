@@ -262,8 +262,8 @@ export default function ActivityPage() {
               { key: 'entregado', label: 'Entregados', icon: Clock, color: 'text-accent', bg: 'bg-accent-light' },
               { key: 'calificado', label: 'Calificados', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
             ].map(({ key, label, icon: Icon, color, bg }) => (
-              <div key={key} className={`${bg} rounded p-3 text-center`}>
-                <Icon size={18} className={`${color} mx-auto mb-1`} />
+              <div key={key} className={`${bg} rounded p-3.5 text-center`}>
+                <Icon size={18} className={`${color} mx-auto mb-1.5`} />
                 <p className="text-2xl font-bold text-on-surface">{counts[key]}</p>
                 <p className="text-xs text-muted">{label}</p>
               </div>

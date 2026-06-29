@@ -1030,7 +1030,7 @@ export default function SubjectPage() {
           <div className="flex gap-1 mt-4 bg-surface-container p-1 rounded">
             {['actividades', 'calificaciones', 'alumnos'].map((t) => (
               <button key={t} onClick={() => switchTab(t)}
-                className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
+                className={`flex-1 py-2.5 text-xs sm:text-sm font-medium rounded transition-colors ${
                   activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:text-on-surface'
                 }`}>
                 {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : 'Alumnos'}
@@ -1051,11 +1051,11 @@ export default function SubjectPage() {
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                   <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
                     className="w-full px-4 py-4 flex items-center gap-3 hover:bg-surface transition-colors">
-                    <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                       <span className="text-accent font-bold text-sm">{p}</span>
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="font-semibold text-on-surface">Parcial {p}</p>
+                      <p className="font-semibold text-on-surface text-lg">Parcial {p}</p>
                       <p className="text-sm text-slate-500">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                     </div>
                     {isOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
@@ -1074,15 +1074,15 @@ export default function SubjectPage() {
                         return (
                           <div key={a.id} className={`flex items-center gap-1 rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
                             <button onClick={() => navigate(`/activity/${a.id}`)}
-                              className="flex items-center gap-3 flex-1 min-w-0 px-3 py-3 text-left">
+                              className="flex items-center gap-3 flex-1 min-w-0 px-3 py-3.5 text-left">
                               <FileText size={18} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
+                                <p className={`text-base font-medium truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
                                   {a.actividad && <span className="text-accent font-semibold">{a.actividad} · </span>}
                                   {a.nombre}
                                 </p>
                                 {a.instrucciones && (
-                                  <p className="text-sm text-slate-500 mt-0.5 whitespace-pre-wrap">{a.instrucciones}</p>
+                                  <p className="text-sm text-slate-500 mt-1 whitespace-pre-wrap">{a.instrucciones}</p>
                                 )}
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                   {a.fechaLimite && (
@@ -1207,34 +1207,34 @@ export default function SubjectPage() {
                   <table className="text-sm border-collapse min-w-[640px]">
                     <thead>
                       <tr className="bg-surface border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-surface px-3 py-2.5 text-left text-xs font-medium text-muted whitespace-nowrap min-w-[150px] border-r border-outline-variant">
+                        <th className="sticky left-0 z-10 bg-surface px-3 py-3 text-left text-xs font-medium text-muted whitespace-nowrap min-w-[170px] border-r border-outline-variant">
                           Alumno
                         </th>
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
-                            className="px-2 py-2.5 text-xs font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
+                            className="px-2.5 py-3 text-xs font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
                             Parcial {p}
                           </th>
                         ))}
-                        <th className="px-2 py-2.5 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                        <th className="px-2.5 py-3 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
                           Final
                         </th>
                       </tr>
                       <tr className="bg-surface-card border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-surface-card px-3 py-1.5 text-left text-xs font-medium text-muted border-r border-outline-variant whitespace-nowrap">
+                        <th className="sticky left-0 z-10 bg-surface-card px-3 py-2 text-left text-xs font-medium text-muted border-r border-outline-variant whitespace-nowrap">
                           Actividad
                         </th>
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
-                            <th key={a.id} className="px-2 py-1.5 text-xs font-normal text-slate-400 text-center border-l border-outline-variant max-w-[80px]">
-                              <span className="block truncate max-w-[76px]" title={a.nombre}>{a.actividad || a.nombre}</span>
+                            <th key={a.id} className="px-2.5 py-2 text-xs font-normal text-slate-400 text-center border-l border-outline-variant max-w-[96px]">
+                              <span className="block truncate max-w-[88px]" title={a.nombre}>{a.actividad || a.nombre}</span>
                             </th>
                           )),
-                          <th key={`avg-${p}`} className="px-2 py-1.5 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                          <th key={`avg-${p}`} className="px-2.5 py-2 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
                             Prom.
                           </th>,
                         ])}
-                        <th className="px-2 py-1.5 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                        <th className="px-2.5 py-2 text-xs font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
                           Prom.
                         </th>
                       </tr>
@@ -1242,20 +1242,20 @@ export default function SubjectPage() {
                     <tbody>
                       {gradeRows.map(({ s, parcialData, finalAvg }, i) => (
                         <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                          <td className={`sticky left-0 z-10 px-3 py-2.5 text-xs font-medium text-on-surface whitespace-nowrap border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          <td className={`sticky left-0 z-10 px-3 py-3 text-xs font-medium text-on-surface whitespace-nowrap border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.apellidoPaterno} {s.nombre}
                           </td>
                           {parcialData.map(({ p, grades, avg }, pi) => [
                             ...tableParcials[pi].acts.map((a, ai) => (
-                              <td key={a.id} className={`px-2 py-2.5 text-center text-xs font-semibold border-l border-outline-variant ${gradeColor(grades[ai])}`}>
+                              <td key={a.id} className={`px-2.5 py-3 text-center text-xs font-semibold border-l border-outline-variant ${gradeColor(grades[ai])}`}>
                                 {grades[ai] !== null ? grades[ai] : '—'}
                               </td>
                             )),
-                            <td key={`avg-${p}`} className={`px-2 py-2.5 text-center text-xs font-bold border-l border-outline-variant ${gradeColor(avg)}`}>
+                            <td key={`avg-${p}`} className={`px-2.5 py-3 text-center text-xs font-bold border-l border-outline-variant ${gradeColor(avg)}`}>
                               {avg !== null ? avg : '—'}
                             </td>,
                           ])}
-                          <td className={`px-2 py-2.5 text-center text-xs font-bold border-l border-outline-variant ${gradeColor(finalAvg)}`}>
+                          <td className={`px-2.5 py-3 text-center text-xs font-bold border-l border-outline-variant ${gradeColor(finalAvg)}`}>
                             {finalAvg !== null ? finalAvg : '—'}
                           </td>
                         </tr>

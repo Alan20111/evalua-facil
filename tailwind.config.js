@@ -43,34 +43,43 @@ export default {
       maxWidth: {
         container: '1200px',
       },
-      // Legibility pass: the whole app is built on Tailwind's default text-*
-      // utilities (text-xs … text-6xl), so the single highest-leverage place to
-      // raise type size everywhere — without touching every component — is to
-      // override that scale here. Each step is bumped ~10–15% over Tailwind's
-      // stock values (kept as a comment alongside) so the relative jump between
-      // consecutive sizes stays close to the original ratio: small text reads
-      // comfortably for older teachers without any one level swallowing the next.
+      // Legibility, second pass: the first round (+10–15%) was judged too timid for
+      // the actual audience — teachers in their 40s–60s reading this for hours, not
+      // developers glancing at a dashboard. This replaces it with a meaningfully
+      // larger scale. The whole app is built on Tailwind's default text-* utilities
+      // (text-xs … text-6xl) rather than the semantic tokens below, so overriding
+      // the scale here is still the one place that reaches every screen.
+      //
+      // The increase is NOT a flat px/percentage add — it tapers by level on
+      // purpose: the smallest sizes (xs/sm), which carry labels, table headers,
+      // badges and helper text, get the biggest relative jump (+30–35%) because
+      // that's where squinting actually happens. Large headings get a smaller
+      // relative bump (+11–13%) since they're already easy to read and growing
+      // them at the same rate would blow up layouts and break the hierarchy gap
+      // between "big title" and "huge title". Each step is still clearly bigger
+      // than the one before it, so the visual hierarchy is preserved end to end.
       fontSize: {
-        xs: ['0.875rem', { lineHeight: '1.25rem' }],   // was 0.75rem/1rem (12px/16px) → 14px/20px
-        sm: ['1rem', { lineHeight: '1.5rem' }],         // was 0.875rem/1.25rem (14px/20px) → 16px/24px
-        base: ['1.125rem', { lineHeight: '1.75rem' }],  // was 1rem/1.5rem (16px/24px) → 18px/28px
-        lg: ['1.25rem', { lineHeight: '1.875rem' }],    // was 1.125rem/1.75rem (18px/28px) → 20px/30px
-        xl: ['1.375rem', { lineHeight: '1.875rem' }],   // was 1.25rem/1.75rem (20px/28px) → 22px/30px
-        '2xl': ['1.625rem', { lineHeight: '2.25rem' }], // was 1.5rem/2rem (24px/32px) → 26px/36px
-        '3xl': ['2rem', { lineHeight: '2.5rem' }],      // was 1.875rem/2.25rem (30px/36px) → 32px/40px
-        '4xl': ['2.375rem', { lineHeight: '2.75rem' }], // was 2.25rem/2.5rem (36px/40px) → 38px/44px
-        '5xl': ['3.25rem', { lineHeight: '1' }],        // was 3rem (48px) → 52px
-        '6xl': ['4rem', { lineHeight: '1' }],           // was 3.75rem (60px) → 64px
+        xs: ['1rem', { lineHeight: '1.375rem' }],        // was 0.75rem/1rem   (12px/16px) → 16px/22px  (+33%)
+        sm: ['1.125rem', { lineHeight: '1.625rem' }],     // was 0.875rem/1.25rem (14px/20px) → 18px/26px (+29%)
+        base: ['1.25rem', { lineHeight: '1.875rem' }],    // was 1rem/1.5rem    (16px/24px) → 20px/30px  (+25%)
+        lg: ['1.375rem', { lineHeight: '2rem' }],         // was 1.125rem/1.75rem (18px/28px) → 22px/32px (+22%)
+        xl: ['1.5rem', { lineHeight: '2.125rem' }],       // was 1.25rem/1.75rem (20px/28px) → 24px/34px  (+20%)
+        '2xl': ['1.75rem', { lineHeight: '2.375rem' }],   // was 1.5rem/2rem    (24px/32px) → 28px/38px   (+17%)
+        '3xl': ['2.125rem', { lineHeight: '2.625rem' }],  // was 1.875rem/2.25rem (30px/36px) → 34px/42px (+13%)
+        '4xl': ['2.5rem', { lineHeight: '2.875rem' }],    // was 2.25rem/2.5rem (36px/40px) → 40px/46px   (+11%)
+        '5xl': ['3.375rem', { lineHeight: '1' }],         // was 3rem          (48px) → 54px              (+13%)
+        '6xl': ['4.25rem', { lineHeight: '1' }],          // was 3.75rem       (60px) → 68px              (+13%)
 
-        // Semantic tokens, bumped to match the scale above (kept in sync: body-md
-        // ≈ new base, body-sm ≈ new sm, label-caps/metadata ≈ new xs).
-        'headline-xl': ['2.25rem', { lineHeight: '2.75rem', letterSpacing: '-0.02em', fontWeight: '700' }], // 36px/44px
-        'headline-lg': ['1.75rem', { lineHeight: '2.25rem', letterSpacing: '-0.01em', fontWeight: '600' }], // 28px/36px
-        'title-md': ['1.25rem', { lineHeight: '1.75rem', fontWeight: '600' }],                              // 20px/28px
-        'body-md': ['1.125rem', { lineHeight: '1.75rem' }],                                                 // 18px/28px
-        'body-sm': ['1rem', { lineHeight: '1.5rem' }],                                                      // 16px/24px
-        'label-caps': ['0.875rem', { lineHeight: '1.25rem', letterSpacing: '0.05em', fontWeight: '700' }],  // 14px/20px
-        metadata: ['0.875rem', { lineHeight: '1.25rem' }],                                                  // 14px/20px
+        // Semantic tokens, kept in sync with the scale above (body-md ≈ new
+        // base, body-sm ≈ new sm, label-caps/metadata ≈ new xs) — still only
+        // used in a couple of components, but consistent if adopted further.
+        'headline-xl': ['2.75rem', { lineHeight: '3.25rem', letterSpacing: '-0.02em', fontWeight: '700' }], // 44px/52px
+        'headline-lg': ['2.125rem', { lineHeight: '2.625rem', letterSpacing: '-0.01em', fontWeight: '600' }], // 34px/42px
+        'title-md': ['1.5rem', { lineHeight: '2rem', fontWeight: '600' }],     // 24px/32px
+        'body-md': ['1.25rem', { lineHeight: '1.875rem' }],                   // 20px/30px
+        'body-sm': ['1.125rem', { lineHeight: '1.625rem' }],                  // 18px/26px
+        'label-caps': ['1rem', { lineHeight: '1.375rem', letterSpacing: '0.05em', fontWeight: '700' }], // 16px/22px
+        metadata: ['1rem', { lineHeight: '1.375rem' }],                       // 16px/22px
       },
     },
   },
