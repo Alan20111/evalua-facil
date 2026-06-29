@@ -79,7 +79,7 @@
          without becoming a solid fill. */
     --accent-tint: color-mix(in srgb, var(--accent) 12%, transparent);
     --accent-tint-strong: color-mix(in srgb, var(--accent) 18%, transparent);
-    --accent-medium: color-mix(in srgb, var(--accent) 50%, transparent);
+    --accent-medium: color-mix(in srgb, var(--accent) 28%, transparent);
   }
   [data-role='docente'] {
     --accent: #2563eb;
