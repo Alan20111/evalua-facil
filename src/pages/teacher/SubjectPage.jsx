@@ -1363,7 +1363,7 @@ export default function SubjectPage() {
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-on-surface truncate">
                   {subjectDisplayName(subject)}
-                  {userProfile?.nombreMostrar && <span className="text-slate-400 font-normal"> — {userProfile.nombreMostrar}</span>}
+                  {userProfile?.nombreMostrar && <span className="text-slate-500 font-normal"> — {userProfile.nombreMostrar}</span>}
                 </h1>
                 {subject?.archived && (
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">Archivada</span>
