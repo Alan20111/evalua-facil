@@ -53,7 +53,7 @@ export default function ActivityPage() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showEditModal, setShowEditModal] = useState(false)
-  const [editForm, setEditForm] = useState({ nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '' })
+  const [editForm, setEditForm] = useState({ nombre: '', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '' })
   const [editSaving, setEditSaving] = useState(false)
   const [searchStudents, setSearchStudents] = useState('')
   const [sortAlpha, setSortAlpha] = useState(false)
@@ -101,7 +101,6 @@ export default function ActivityPage() {
   function openEditModal() {
     setEditForm({
       nombre: activity?.nombre || '',
-      maxCalif: String(activity?.maxCalif ?? '10'),
       instrucciones: activity?.instrucciones || '',
       fechaLimite: activity?.fechaLimite || '',
       tiposArchivo: normalizeFileTypeKeys(activity?.tiposArchivo),
@@ -121,7 +120,7 @@ export default function ActivityPage() {
     try {
       await updateDoc(doc(db, 'activities', activityId), {
         nombre: editForm.nombre.trim(),
-        maxCalif: parseFloat(editForm.maxCalif) || 10,
+        maxCalif: 10,
         instrucciones: editForm.instrucciones.trim(),
         fechaLimite: editForm.fechaLimite || null,
         tiposArchivo,
@@ -635,18 +634,7 @@ export default function ActivityPage() {
                   className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">Calificación máxima</label>
-                <input
-                  type="number"
-                  value={editForm.maxCalif}
-                  onChange={(e) => setEditForm((f) => ({ ...f, maxCalif: e.target.value }))}
-                  required
-                  min="1"
-                  max="100"
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
-                />
-              </div>
+              <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
                 <textarea

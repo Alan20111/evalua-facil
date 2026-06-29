@@ -47,7 +47,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', maxCalif: '10', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '' }
+const EMPTY_FORM = { nombre: '', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '' }
 
 function gradeColor(norm) {
   if (norm === null) return 'text-slate-300'
@@ -529,7 +529,6 @@ export default function SubjectPage() {
     setModalMode('edit'); setModalParcial(activity.parcial); setEditActivityId(activity.id)
     setForm({
       nombre: activity.nombre || '',
-      maxCalif: String(activity.maxCalif ?? '10'),
       instrucciones: activity.instrucciones || '',
       fechaLimite: activity.fechaLimite || '',
       tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
@@ -554,7 +553,7 @@ export default function SubjectPage() {
     setSaving(true)
     const payload = {
       nombre: form.nombre.trim(),
-      maxCalif: parseFloat(form.maxCalif) || 10,
+      maxCalif: 10,
       instrucciones: form.instrucciones.trim(),
       fechaLimite: form.fechaLimite || null,
       tiposArchivo,
@@ -1415,12 +1414,7 @@ export default function SubjectPage() {
                   className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-y"
                   placeholder="Describe la tarea para tus alumnos…" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">Calificación máxima</label>
-                <input type="number" value={form.maxCalif} onChange={(e) => setForm((f) => ({ ...f, maxCalif: e.target.value }))}
-                  required min="1" max="100"
-                  className="w-full px-4 py-3 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
-              </div>
+              <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
               <div className="pt-1">
                 <FileTypeSelect
                   value={form.tiposArchivo}
