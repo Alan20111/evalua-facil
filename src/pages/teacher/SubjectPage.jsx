@@ -1055,8 +1055,8 @@ export default function SubjectPage() {
                       <span className="text-accent font-bold text-sm">{p}</span>
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="font-semibold text-on-surface text-lg">Parcial {p}</p>
-                      <p className="text-sm text-slate-500">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
+                      <p className="font-semibold text-on-surface text-base leading-tight">Parcial {p}</p>
+                      <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                     </div>
                     {isOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
                   </button>
