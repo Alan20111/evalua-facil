@@ -22,6 +22,39 @@
     --outline-variant: #c0c6d5;
   }
 
+  /* ── Corner radius theming ────────────────────────────────────────
+     The student module keeps the original, rounder "mobile card" look
+     (--radius/--radius-card defaults below). The teacher module is a
+     desktop productivity tool — tighter corners read as a work tool
+     (Notion/Airtable/Sheets) instead of an enlarged phone app. Used by
+     `rounded` (DEFAULT) and `rounded-card` in tailwind.config.js. */
+  :root {
+    --radius: 1rem;
+    --radius-card: 2rem;
+  }
+  [data-role='docente'] {
+    --radius: 0.5rem;
+    --radius-card: 0.875rem;
+  }
+
+  /* ── Teacher-only type-scale nudge ────────────────────────────────
+     tailwind.config.js's fontSize.{xs..6xl} resolve through var(--fs-*)
+     with the shared (student) scale as the fallback — only [data-role=
+     'docente'] overrides them, one half-step tighter, leaving the
+     student module's font sizes completely untouched. */
+  [data-role='docente'] {
+    --fs-xs: 0.78125rem;   --lh-xs: 1.03125rem;
+    --fs-sm: 0.90625rem;   --lh-sm: 1.25rem;
+    --fs-base: 1.03125rem; --lh-base: 1.46875rem;
+    --fs-lg: 1.15625rem;   --lh-lg: 1.6875rem;
+    --fs-xl: 1.28125rem;   --lh-xl: 1.71875rem;
+    --fs-2xl: 1.53125rem;  --lh-2xl: 1.96875rem;
+    --fs-3xl: 1.90625rem;  --lh-3xl: 2.25rem;
+    --fs-4xl: 2.28125rem;  --lh-4xl: 2.53125rem;
+    --fs-5xl: 3.0625rem;
+    --fs-6xl: 3.8125rem;
+  }
+
   /* ── Accent theming ──────────────────────────────────────────────
      One shared UI; only the accent color changes by role, and per
      subject inside that subject's pages. Identity elements use the

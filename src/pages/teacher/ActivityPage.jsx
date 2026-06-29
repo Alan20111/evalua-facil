@@ -249,8 +249,8 @@ export default function ActivityPage() {
       <div data-subject-palette={subject?.colorPalette || 'default'}>
       <div className={TEACHER_CONTAINER_NARROW}>
         {/* Header */}
-        <div className="bg-surface-card border-b border-outline-variant px-4 py-3">
-          <div className="flex items-center gap-3">
+        <div className="bg-surface-card border-b border-outline-variant px-4 py-2.5">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => navigate(`/subject/${activity?.asignaturaId}`)}
               className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
@@ -266,7 +266,7 @@ export default function ActivityPage() {
             </div>
           </div>
           {(activity?.publishAt || activity?.fechaLimite) && (
-            <div className="flex items-center gap-3 mt-2 flex-wrap">
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
               {activity?.publishAt && (
                 <span title="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
                   <Clock size={14} /> {formatPublishAt(activity.publishAt)}
@@ -345,7 +345,7 @@ export default function ActivityPage() {
             <button
               onClick={handleZipDownload}
               disabled={zipDownloading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-accent-light transition-colors disabled:opacity-40"
+              className="w-full flex items-center justify-center gap-2 py-2 rounded border border-accent text-accent text-sm font-medium hover:bg-accent-light transition-colors disabled:opacity-40"
             >
               {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
               {zipDownloading
@@ -369,7 +369,7 @@ export default function ActivityPage() {
                   <button
                     key={s.id}
                     onClick={() => openGrade(s)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-surface transition-colors cursor-pointer ${
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-surface transition-colors cursor-pointer ${
                       i > 0 ? 'border-t border-outline-variant' : ''
                     }`}
                   >
@@ -409,7 +409,7 @@ export default function ActivityPage() {
       {selected && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="min-w-0 flex-1">
                 <h3 className="text-base font-semibold text-on-surface truncate">
@@ -467,7 +467,7 @@ export default function ActivityPage() {
                 href={selected.sub.archivoURL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors mb-3"
+                className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors mb-3"
               >
                 <Download size={18} className="text-accent" />
                 Ver / Descargar entrega
@@ -502,7 +502,7 @@ export default function ActivityPage() {
 
             {/* Grade form (only when submission exists) */}
             {selected.sub ? (
-              <form onSubmit={saveGrade} className="space-y-3">
+              <form onSubmit={saveGrade} className="space-y-2">
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">
                     Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
@@ -516,7 +516,7 @@ export default function ActivityPage() {
                     max={activity?.maxCalif}
                     step="0.1"
                     autoFocus
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   />
                 </div>
                 <div>
@@ -527,7 +527,7 @@ export default function ActivityPage() {
                     value={gradeForm.comentario}
                     onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                     rows={2}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
                     placeholder="Retroalimentación para el alumno…"
                   />
                 </div>
@@ -539,14 +539,14 @@ export default function ActivityPage() {
                 <button
                   type="submit"
                   disabled={saving || !canCreate}
-                  className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {saving ? <Spinner size="sm" /> : <Star size={18} />}
                   {saving ? 'Guardando…' : 'Guardar calificación'}
                 </button>
               </form>
             ) : (
-              <p className="text-sm text-slate-400 text-center py-3">
+              <p className="text-sm text-slate-400 text-center py-2.5">
                 El alumno aún no ha entregado esta tarea.
               </p>
             )}

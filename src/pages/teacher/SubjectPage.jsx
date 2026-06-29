@@ -1017,8 +1017,8 @@ export default function SubjectPage() {
       <div className={TEACHER_CONTAINER}>
 
         {/* ── Header ── */}
-        <div className="bg-surface-card border-b border-outline-variant px-4 py-3">
-          <div className="flex items-center gap-3">
+        <div className="bg-surface-card border-b border-outline-variant px-4 py-2.5">
+          <div className="flex items-center gap-2">
             <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
@@ -1081,7 +1081,7 @@ export default function SubjectPage() {
           <div className="flex gap-1 mt-3 bg-surface-container p-1 rounded">
             {['actividades', 'calificaciones', 'alumnos'].map((t) => (
               <button key={t} onClick={() => switchTab(t)}
-                className={`flex-1 py-2.5 text-xs sm:text-sm font-medium rounded transition-colors ${
+                className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                   activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:text-on-surface'
                 }`}>
                 {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : 'Alumnos'}
@@ -1094,7 +1094,7 @@ export default function SubjectPage() {
             TAB: ACTIVIDADES
         ══════════════════════════════════════════════════════════ */}
         {activeTab === 'actividades' && (
-          <div className={`px-4 py-3 space-y-3 ${TEACHER_CONTAINER_NARROW}`}>
+          <div className={`px-4 py-2.5 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
             {PARCIALES.map((p) => {
               const acts = activities.filter((a) => a.parcial === p)
               const isOpen = openParcial === p
@@ -1103,7 +1103,7 @@ export default function SubjectPage() {
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                   <div className="w-full flex items-center gap-1">
                     <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
-                      className="flex-1 min-w-0 px-4 py-2.5 flex items-center gap-3 hover:bg-surface transition-colors text-left">
+                      className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-surface transition-colors text-left">
                       <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
                         <span className={`font-bold text-sm ${parcialOculto ? 'text-slate-400' : 'text-accent'}`}>{p}</span>
                       </div>
@@ -1139,7 +1139,7 @@ export default function SubjectPage() {
                         return (
                           <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
                             <button onClick={() => navigate(`/activity/${a.id}`)}
-                              className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2 text-left">
+                              className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
                               <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
@@ -1210,7 +1210,7 @@ export default function SubjectPage() {
                       })}
                       <button onClick={() => openAdd(p)}
                         title={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevas actividades'}
-                        className={`w-full py-2.5 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-accent-light' : 'border-outline-variant text-slate-400 hover:bg-surface'
                         }`}>
                         <Plus size={17} /> Agregar actividad
@@ -1228,7 +1228,7 @@ export default function SubjectPage() {
             TAB: CALIFICACIONES
         ══════════════════════════════════════════════════════════ */}
         {activeTab === 'calificaciones' && (
-          <div className="px-4 py-3 space-y-3">
+          <div className="px-4 py-2.5 space-y-2">
             {/* 1 — Descargar calificaciones (Excel / PDF) */}
             <div>
               <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
@@ -1256,7 +1256,7 @@ export default function SubjectPage() {
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={searchGrade} onChange={(e) => setSearchGrade(e.target.value)}
                 placeholder="Buscar alumno…"
-                className="w-full pl-9 pr-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card" />
+                className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card" />
             </div>
 
             {loadingGrades ? (
@@ -1340,7 +1340,7 @@ export default function SubjectPage() {
           TAB: ALUMNOS
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
-        <div className={`px-4 py-3 space-y-3 ${TEACHER_CONTAINER_NARROW}`}>
+        <div className={`px-4 py-2.5 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
           {/* 1 — Agregar alumnos con la plantilla de Excel (paso 1: descargar, paso 2: subir) */}
           <div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar alumnos con Excel</p>
@@ -1348,13 +1348,13 @@ export default function SubjectPage() {
               <button
                 type="button"
                 onClick={downloadStudentTemplate}
-                className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
+                className="flex-1 flex items-center justify-center text-center gap-2 py-2 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
               >
                 <Download size={17} className="flex-shrink-0" /> <strong>Paso 1</strong> · Descargar plantilla en Excel para pegar datos de alumnos
               </button>
               <label
                 title="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
-                className="flex-1 flex items-center justify-center text-center gap-2 py-2.5 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors cursor-pointer"
+                className="flex-1 flex items-center justify-center text-center gap-2 py-2 px-3 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors cursor-pointer"
               >
                 {savingStudent ? <Spinner size="sm" /> : <Upload size={17} className="flex-shrink-0" />} <strong>Paso 2</strong> · Subir la plantilla de Excel con los datos de los alumnos
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
@@ -1367,7 +1367,7 @@ export default function SubjectPage() {
             type="button"
             onClick={() => setShowCredentialsModal(true)}
             title="Genera tu lista actualizada cada vez que agregues usuarios"
-            className="w-full flex items-center justify-center gap-2 py-2.5 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2 border border-accent rounded text-sm text-accent hover:bg-accent-light transition-colors"
           >
             <KeyRound size={17} /> <strong>Paso 3</strong> · Generar códigos para alumnos y descargar lista de acceso (usuarios + códigos)
           </button>
@@ -1394,7 +1394,7 @@ export default function SubjectPage() {
                 value={searchAlumnos}
                 onChange={(e) => setSearchAlumnos(e.target.value)}
                 placeholder="Buscar alumno…"
-                className="w-full pl-9 pr-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card"
+                className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card"
               />
             </div>
             <button
@@ -1415,7 +1415,7 @@ export default function SubjectPage() {
             </div>
           ) : (
             <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
-              <div className="flex items-center gap-3 px-3 py-2 bg-surface-container">
+              <div className="flex items-center gap-2 px-3 py-2 bg-surface-container">
                 <span className="w-5 flex-shrink-0" />
                 <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del alumno</p>
                 <p className="w-20 flex-shrink-0 text-xs font-semibold text-muted uppercase tracking-wide">Código</p>
@@ -1425,7 +1425,7 @@ export default function SubjectPage() {
               {filteredAlumnos.map((s, i) => (
                 <div
                   key={s.id}
-                  className={`flex items-center gap-3 px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                  className={`flex items-center gap-2 px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
                   <span className="w-5 text-sm text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                   <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
@@ -1458,7 +1458,7 @@ export default function SubjectPage() {
       {showModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">
                 {modalMode === 'create' ? `Nueva actividad — Parcial ${modalParcial}` : 'Editar actividad'}
@@ -1468,12 +1468,12 @@ export default function SubjectPage() {
             <p className="text-base text-on-surface -mt-2 mb-3">
               Actividad <strong className="text-accent">{previewActividad}</strong>
             </p>
-            <form onSubmit={handleSaveActivity} className="space-y-3">
+            <form onSubmit={handleSaveActivity} className="space-y-2">
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
                 <input type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: Tarea 1, Examen parcial" />
               </div>
               <div>
@@ -1498,7 +1498,7 @@ export default function SubjectPage() {
               <div>
                 <label className="block text-sm font-medium text-muted mb-2">Visibilidad</label>
                 <div className="space-y-2">
-                  <label className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface"
+                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-surface"
                     style={{ borderColor: form.visibilidadMode === 'show' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'show' ? 'var(--accent-light)' : '' }}>
                     <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'show'}
                       onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'show', oculta: false, publishAt: '' }))}
@@ -1508,7 +1508,7 @@ export default function SubjectPage() {
                       <p className="text-xs text-muted">Visible para alumnos de inmediato</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface"
+                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-surface"
                     style={{ borderColor: form.visibilidadMode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'hide' ? 'var(--accent-light)' : '' }}>
                     <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'hide'}
                       onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'hide', oculta: true, publishAt: '' }))}
@@ -1518,7 +1518,7 @@ export default function SubjectPage() {
                       <p className="text-xs text-muted">Solo tú lo ves, hasta que lo muestres o programes</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface"
+                  <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-surface"
                     style={{ borderColor: form.visibilidadMode === 'schedule' ? 'var(--accent)' : '#e2e8f0', background: form.visibilidadMode === 'schedule' ? 'var(--accent-light)' : '' }}>
                     <input type="radio" name="visibilidad" checked={form.visibilidadMode === 'schedule'}
                       onChange={() => setForm((f) => ({ ...f, visibilidadMode: 'schedule', oculta: true }))}
@@ -1533,7 +1533,7 @@ export default function SubjectPage() {
                       type="datetime-local"
                       value={form.publishAt}
                       onChange={(e) => setForm((f) => ({ ...f, publishAt: e.target.value }))}
-                      className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                     />
                   )}
                 </div>
@@ -1546,7 +1546,7 @@ export default function SubjectPage() {
                 </label>
                 <div className="flex items-center gap-2">
                   <input type="datetime-local" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                   {form.fechaLimite && (
                     <button type="button" onClick={() => setForm((f) => ({ ...f, fechaLimite: '' }))}
                       title="Quitar fecha límite"
@@ -1561,7 +1561,7 @@ export default function SubjectPage() {
               </div>
 
               <button type="submit" disabled={saving}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {saving ? <Spinner size="sm" /> : modalMode === 'create' ? <Plus size={18} /> : <Pencil size={18} />}
                 {saving ? 'Guardando…' : modalMode === 'create' ? 'Crear actividad' : 'Guardar cambios'}
               </button>
@@ -1574,16 +1574,16 @@ export default function SubjectPage() {
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteConfirm(null)} />
-          <div className="relative bg-surface-card rounded-card p-5 shadow-2xl w-full max-w-sm">
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
             <p className="text-sm text-muted mb-5">
               "<strong>{deleteConfirm.nombre}</strong>" se eliminará permanentemente.
             </p>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
               <button onClick={handleDeleteActivity} disabled={deleting}
-                className="flex-1 py-2.5 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deleting ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deleting ? 'Eliminando…' : 'Eliminar'}
               </button>
@@ -1596,12 +1596,12 @@ export default function SubjectPage() {
       {showAddStudent && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddStudent(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Agregar alumno</h3>
               <button onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <form onSubmit={addStudent} className="space-y-3">
+            <form onSubmit={addStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
                 <input
                   key={field}
@@ -1609,7 +1609,7 @@ export default function SubjectPage() {
                   value={newStudent[field]}
                   onChange={(e) => setNewStudent((f) => ({ ...f, [field]: e.target.value }))}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder={
                     field === 'apellidoPaterno' ? 'Apellido paterno'
                       : field === 'apellidoMaterno' ? 'Apellido materno'
@@ -1620,7 +1620,7 @@ export default function SubjectPage() {
               <button
                 type="submit"
                 disabled={savingStudent}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {savingStudent ? <Spinner size="sm" /> : <Plus size={18} />}
                 Agregar alumno
@@ -1634,12 +1634,12 @@ export default function SubjectPage() {
       {studentToEdit && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToEdit(null)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Editar alumno</h3>
               <button onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <form onSubmit={saveEditStudent} className="space-y-3">
+            <form onSubmit={saveEditStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
                 <input
                   key={field}
@@ -1647,7 +1647,7 @@ export default function SubjectPage() {
                   value={editStudentForm[field]}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, [field]: e.target.value }))}
                   required={field !== 'apellidoMaterno'}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder={
                     field === 'apellidoPaterno' ? 'Apellido paterno'
                       : field === 'apellidoMaterno' ? 'Apellido materno'
@@ -1661,14 +1661,14 @@ export default function SubjectPage() {
                   value={editStudentForm.comentarios}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, comentarios: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
                   placeholder="Ej: necesita apoyo extra, cambió de grupo, etc."
                 />
               </div>
               <button
                 type="submit"
                 disabled={savingStudent}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {savingStudent ? <Spinner size="sm" /> : <Pencil size={18} />}
                 Guardar cambios
@@ -1677,7 +1677,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={requestResetFromEdit}
                 disabled={savingStudent}
-                className="w-full py-2.5 rounded border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2 rounded border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <RotateCcw size={17} />
                 Habilitar recuperación de contraseña
@@ -1686,7 +1686,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={requestDeleteFromEdit}
                 disabled={savingStudent}
-                className="w-full py-2.5 rounded border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2 rounded border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <Trash2 size={17} />
                 Eliminar alumno
@@ -1698,7 +1698,7 @@ export default function SubjectPage() {
 
       {/* ── QR modal ── */}
       {showQR && subject && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center p-3">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowQR(false)} />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card p-6 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
@@ -1708,7 +1708,7 @@ export default function SubjectPage() {
               </div>
               <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={22} /></button>
             </div>
-            <div className="flex justify-center p-5 bg-surface-card rounded border border-outline-variant mb-4">
+            <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-4">
               <QRCode value={activationUrl} size={280} className="max-w-full h-auto" />
             </div>
             {subject.accessCode && (
@@ -1730,7 +1730,7 @@ export default function SubjectPage() {
       {studentToReset && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToReset(null)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-3">
               <KeyRound size={24} className="text-amber-500" />
             </div>
@@ -1740,16 +1740,16 @@ export default function SubjectPage() {
               ({studentToReset.username}) podrá elegir una <strong>nueva contraseña</strong> desde
               «Recuperar contraseña» en su pantalla de acceso. No necesitas darle ninguna clave.
             </p>
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-2 mt-6">
               <button
                 onClick={() => setStudentToReset(null)}
-                className="flex-1 py-2.5 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors"
+                className="flex-1 py-2 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmResetStudentPassword}
-                className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded transition-colors flex items-center justify-center gap-2"
+                className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded transition-colors flex items-center justify-center gap-2"
               >
                 <KeyRound size={18} />
                 Habilitar
@@ -1763,7 +1763,7 @@ export default function SubjectPage() {
       {showCredentialsModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !generatingCredentials && setShowCredentialsModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
               <KeyRound size={24} className="text-accent" />
             </div>
@@ -1775,18 +1775,18 @@ export default function SubjectPage() {
             <p className="text-xs text-muted text-center mt-2">
               Cada alumno elige su propia contraseña la primera vez que entra. No se generan claves temporales.
             </p>
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-2 mt-6">
               <button
                 onClick={() => setShowCredentialsModal(false)}
                 disabled={generatingCredentials}
-                className="flex-1 py-2.5 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors disabled:opacity-60"
+                className="flex-1 py-2 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleGenerateCredentials}
                 disabled={generatingCredentials}
-                className="flex-1 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                className="flex-1 py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {generatingCredentials ? <Spinner size="sm" /> : <Download size={18} />}
                 {generatingCredentials ? 'Descargando…' : 'Descargar lista'}
@@ -1800,7 +1800,7 @@ export default function SubjectPage() {
       {linkCandidate && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !savingStudent && setLinkCandidate(null)} />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-5 shadow-2xl">
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-3">
               <UserPlus size={24} className="text-accent" />
             </div>
@@ -1822,7 +1822,7 @@ export default function SubjectPage() {
               <button
                 onClick={() => resolveLinkCandidate(true)}
                 disabled={savingStudent}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {savingStudent ? <Spinner size="sm" /> : <CheckIcon size={18} />}
                 Sí, es el mismo alumno
@@ -1830,7 +1830,7 @@ export default function SubjectPage() {
               <button
                 onClick={() => resolveLinkCandidate(false)}
                 disabled={savingStudent}
-                className="w-full py-2.5 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors disabled:opacity-60"
+                className="w-full py-2 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
                 No, es otro alumno (cuenta nueva)
               </button>
@@ -1850,7 +1850,7 @@ export default function SubjectPage() {
       {resetPwdResult && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setResetPwdResult(null)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3">
               <KeyRound size={24} className="text-green-600" />
             </div>
@@ -1862,7 +1862,7 @@ export default function SubjectPage() {
             </p>
             <button
               onClick={() => setResetPwdResult(null)}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+              className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
             >
               Entendido
             </button>
@@ -1874,7 +1874,7 @@ export default function SubjectPage() {
       {studentToDelete && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToDelete(null)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3">
               <Trash2 size={24} className="text-red-500" />
             </div>
@@ -1884,17 +1884,17 @@ export default function SubjectPage() {
               <strong>{studentToDelete.apellidoPaterno} {studentToDelete.nombre}</strong>{' '}
               ({studentToDelete.username}). Esta acción no se puede deshacer.
             </p>
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-2 mt-6">
               <button
                 onClick={() => setStudentToDelete(null)}
-                className="flex-1 py-2.5 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors"
+                className="flex-1 py-2 bg-surface-container hover:bg-surface-dim text-muted font-semibold rounded transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmDeleteStudent}
                 disabled={savingStudent}
-                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {savingStudent ? <Spinner size="sm" /> : <Trash2 size={18} />}
                 Eliminar
@@ -1907,20 +1907,20 @@ export default function SubjectPage() {
       {activateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setActivateModal(null)} />
-          <div className="relative bg-surface-card rounded-card p-5 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-semibold text-on-surface mb-1">Activar actividad</h3>
             <p className="text-sm text-muted mb-3">
               "<strong>{activateModal.nombre}</strong>" está oculta. ¿Cómo quieres activarla?
             </p>
             <div className="space-y-2 mb-3">
-              <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${activateMode === 'now' ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
+              <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${activateMode === 'now' ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
                 <input type="radio" name="activateMode" value="now" checked={activateMode === 'now'} onChange={() => setActivateMode('now')} className="accent-[var(--accent)]" />
                 <div>
                   <p className="text-sm font-medium text-on-surface">Mostrar ahora</p>
                   <p className="text-sm text-slate-500">Visible de inmediato para alumnos</p>
                 </div>
               </label>
-              <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${activateMode === 'schedule' ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
+              <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${activateMode === 'schedule' ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
                 <input type="radio" name="activateMode" value="schedule" checked={activateMode === 'schedule'} onChange={() => setActivateMode('schedule')} className="accent-[var(--accent)]" />
                 <div>
                   <p className="text-sm font-medium text-on-surface">Programar</p>
@@ -1932,16 +1932,16 @@ export default function SubjectPage() {
                   type="datetime-local"
                   value={activateDate}
                   onChange={(e) => setActivateDate(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                 />
               )}
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button onClick={() => setActivateModal(null)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
               <button onClick={handleActivateConfirm}
                 disabled={activateMode === 'schedule' && !activateDate}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 flex items-center justify-center gap-2">
                 <Eye size={16} /> Activar
               </button>
             </div>
@@ -1953,24 +1953,24 @@ export default function SubjectPage() {
       {showEditSubjectModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowEditSubjectModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
               <button onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <form onSubmit={handleEditSubject} className="space-y-3">
+            <form onSubmit={handleEditSubject} className="space-y-2">
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas I" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
@@ -1981,19 +1981,19 @@ export default function SubjectPage() {
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                     <input type="date" value={editSubjectForm.fechaInicio} onChange={(e) => setEditSubjectForm((f) => ({ ...f, fechaInicio: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                      className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                   </div>
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
                     <input type="date" value={editSubjectForm.fechaFin} onChange={(e) => setEditSubjectForm((f) => ({ ...f, fechaFin: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                      className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                   </div>
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Número de parciales</label>
                 <select value={editSubjectForm.parciales} onChange={(e) => setEditSubjectForm((f) => ({ ...f, parciales: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface">
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface">
                   {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
                 </select>
               </div>
@@ -2006,7 +2006,7 @@ export default function SubjectPage() {
                 <IconSelect value={editSubjectForm.icon} onChange={(ic) => setEditSubjectForm((f) => ({ ...f, icon: ic }))} />
               </div>
               <button type="submit" disabled={editingSubject}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-2 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
                 {editingSubject ? <Spinner size="sm" /> : <Pencil size={18} />}
                 {editingSubject ? 'Guardando…' : 'Guardar cambios'}
               </button>
@@ -2019,24 +2019,24 @@ export default function SubjectPage() {
       {showCopyModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowCopyModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
               <button onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <form onSubmit={handleCopySubject} className="space-y-3">
+            <form onSubmit={handleCopySubject} className="space-y-2">
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas II" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
@@ -2047,12 +2047,12 @@ export default function SubjectPage() {
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                     <input type="date" value={copyFechas.fechaInicio} onChange={(e) => setCopyFechas((f) => ({ ...f, fechaInicio: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                      className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                   </div>
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
                     <input type="date" value={copyFechas.fechaFin} onChange={(e) => setCopyFechas((f) => ({ ...f, fechaFin: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                      className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                   </div>
                 </div>
               </div>
@@ -2064,7 +2064,7 @@ export default function SubjectPage() {
                 <label className="block text-sm font-medium text-muted mb-2">Icono de la asignatura</label>
                 <IconSelect value={copyForm.icon} onChange={(ic) => setCopyForm((f) => ({ ...f, icon: ic }))} />
               </div>
-              <label className="flex items-center gap-3 p-3 rounded border border-outline-variant cursor-pointer hover:bg-surface transition-colors">
+              <label className="flex items-center gap-2 p-3 rounded border border-outline-variant cursor-pointer hover:bg-surface transition-colors">
                 <input type="checkbox" checked={copyForm.keepStudents} onChange={(e) => setCopyForm((f) => ({ ...f, keepStudents: e.target.checked }))}
                   className="accent-[var(--accent)] w-4 h-4" />
                 <div>
@@ -2074,7 +2074,7 @@ export default function SubjectPage() {
               </label>
               <p className="text-sm text-slate-500">Se duplicarán todas las actividades. Las calificaciones y entregas no se copian.</p>
               <button type="submit" disabled={copyingSubject}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
+                className="w-full py-2 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
                 {copyingSubject ? <Spinner size="sm" /> : <Copy size={18} />}
                 {copyingSubject ? 'Duplicando…' : 'Duplicar asignatura'}
               </button>
@@ -2087,7 +2087,7 @@ export default function SubjectPage() {
       {showDeleteSubjectConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} />
-          <div className="relative bg-surface-card rounded-card p-5 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3">
               <Trash2 size={24} className="text-red-500" />
             </div>
@@ -2101,15 +2101,15 @@ export default function SubjectPage() {
               type="text"
               value={deleteSubjectConfirmText}
               onChange={(e) => setDeleteSubjectConfirmText(e.target.value)}
-              className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-red-400 text-sm bg-surface mb-3"
+              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-red-400 text-sm bg-surface mb-3"
               placeholder={subject?.nombre}
             />
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
               <button onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
-                className="flex-1 py-2.5 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 flex items-center justify-center gap-2">
                 {deletingSubject ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deletingSubject ? 'Eliminando…' : 'Eliminar todo'}
               </button>
@@ -2123,7 +2123,7 @@ export default function SubjectPage() {
       {showArchiveModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !archiving && setShowArchiveModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
               <button onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
@@ -2136,7 +2136,7 @@ export default function SubjectPage() {
                 { val: 'save', label: 'Guardar entregas como ZIP', desc: 'Se descargan antes de eliminarlas' },
                 { val: 'skip', label: 'Archivar sin guardar', desc: 'Las entregas se eliminan sin descargar' },
               ].map(({ val, label, desc }) => (
-                <label key={val} className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${archiveExportChoice === val ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
+                <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${archiveExportChoice === val ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
                   <input type="radio" name="archiveExport" value={val} checked={archiveExportChoice === val} onChange={() => setArchiveExportChoice(val)} className="accent-[var(--accent)]" />
                   <div>
                     <p className="text-sm font-medium text-on-surface">{label}</p>
@@ -2145,11 +2145,11 @@ export default function SubjectPage() {
                 </label>
               ))}
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button onClick={() => setShowArchiveModal(false)} disabled={archiving}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface disabled:opacity-60">Cancelar</button>
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface disabled:opacity-60">Cancelar</button>
               <button onClick={handleArchiveConfirm} disabled={archiving}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {archiving ? <Spinner size="sm" /> : <Archive size={16} />}
                 {archiving
                   ? (zipDownloading
@@ -2166,35 +2166,35 @@ export default function SubjectPage() {
       {showUnarchiveModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowUnarchiveModal(false)} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
               <button onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-3">Puedes editar los datos y elegir cómo restaurar:</p>
 
-            <div className="space-y-3 mb-5">
+            <div className="space-y-2 mb-5">
               <div>
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Datos</p>
                 <div className="space-y-2">
                   <input type="text" value={unarchiveEdits.nombre} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, nombre: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Asignatura" />
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Asignatura" />
                   <input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                       <input type="date" value={unarchiveEdits.fechaInicio} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, fechaInicio: e.target.value }))}
-                        className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                        className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                     </div>
                     <div className="flex-1">
                       <span className="block text-sm text-slate-500 mb-1">Fin</span>
                       <input type="date" value={unarchiveEdits.fechaFin} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, fechaFin: e.target.value }))}
-                        className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                        className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                     </div>
                   </div>
                   <select value={unarchiveEdits.parciales} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, parciales: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface">
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface">
                     {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
                   </select>
                 </div>
@@ -2217,7 +2217,7 @@ export default function SubjectPage() {
                     { val: 'keep', label: 'Conservar lista', desc: 'Alumnos y calificaciones se mantienen' },
                     { val: 'reset', label: 'Borrar y empezar de cero', desc: 'Se eliminan alumnos y sus entregas' },
                   ].map(({ val, label, desc }) => (
-                    <label key={val} className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${unarchiveStudents === val ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
+                    <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${unarchiveStudents === val ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
                       <input type="radio" name="unarchiveStudents" value={val} checked={unarchiveStudents === val} onChange={() => setUnarchiveStudents(val)} className="accent-[var(--accent)]" />
                       <div>
                         <p className="text-sm font-medium text-on-surface">{label}</p>
@@ -2236,7 +2236,7 @@ export default function SubjectPage() {
                     { val: 'show', label: 'Mostrar todas' },
                     { val: 'hide', label: 'Ocultar todas' },
                   ].map(({ val, label }) => (
-                    <label key={val} className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${unarchiveActivities === val ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
+                    <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-surface ${unarchiveActivities === val ? 'border-accent bg-accent-light' : 'border-outline-variant'}`}>
                       <input type="radio" name="unarchiveActivities" value={val} checked={unarchiveActivities === val} onChange={() => setUnarchiveActivities(val)} className="accent-[var(--accent)]" />
                       <p className="text-sm font-medium text-on-surface">{label}</p>
                     </label>
@@ -2245,11 +2245,11 @@ export default function SubjectPage() {
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button onClick={() => setShowUnarchiveModal(false)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-surface">Cancelar</button>
               <button onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {unarchivedSaving ? <Spinner size="sm" /> : null}
                 {unarchivedSaving ? 'Guardando…' : 'Desarchivar'}
               </button>

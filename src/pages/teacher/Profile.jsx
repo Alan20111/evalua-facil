@@ -46,7 +46,7 @@ async function uploadAvatar(file) {
 }
 
 const inputCls =
-  'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
+  'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
 
 export default function Profile() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
@@ -304,15 +304,15 @@ export default function Profile() {
       <div className={`px-4 py-6 space-y-5 ${TEACHER_CONTAINER_NARROW}`}>
 
         {/* Mi plan */}
-        <div className="bg-surface-card rounded-card shadow-card p-4">
+        <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
             <CreditCard size={19} className="text-slate-400" /> Mi plan
           </h2>
           {subLoading ? (
-            <div className="flex justify-center py-3"><Spinner /></div>
+            <div className="flex justify-center py-2.5"><Spinner /></div>
           ) : subscription ? (
-            <div className="space-y-3">
-              <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-2">
                 <div>
                   {subscription.status === 'trial' ? (
                     <>
@@ -356,7 +356,7 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => setShowPaymentModal(true)}
-              className="mt-3 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors"
+              className="mt-3 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors"
             >
               {subscription && subscription.status !== 'trial' ? 'Renovar suscripción mensual' : 'Activar suscripción mensual'}
             </button>
@@ -389,7 +389,7 @@ export default function Profile() {
         />
 
         {/* Photo + identity */}
-        <div className="bg-surface-card rounded-card shadow-card p-5 flex flex-col items-center gap-3">
+        <div className="bg-surface-card rounded-card shadow-card p-4 flex flex-col items-center gap-2">
           <div className="relative">
             <div className="w-20 h-20 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center">
               {userProfile?.photoURL ? (
@@ -413,18 +413,18 @@ export default function Profile() {
         </div>
 
         {/* Nombre visible */}
-        <div className="bg-surface-card rounded-card shadow-card p-4">
+        <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
             <User size={19} className="text-slate-400" /> Nombre
           </h2>
-          <form onSubmit={handleSaveNombre} className="space-y-3">
+          <form onSubmit={handleSaveNombre} className="space-y-2">
             <div>
               <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
                 className={inputCls} placeholder="Ej. Profa. García Pérez" />
               <p className="text-sm text-muted mt-1">Así te verán tus alumnos</p>
             </div>
             <button type="submit" disabled={savingNombre}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {savingNombre ? <Spinner size="sm" /> : null}
               {savingNombre ? 'Guardando…' : 'Guardar nombre'}
             </button>
@@ -432,11 +432,11 @@ export default function Profile() {
         </div>
 
         {/* Escuela */}
-        <div className="bg-surface-card rounded-card shadow-card p-4">
+        <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
             <School size={19} className="text-slate-400" /> Escuela
           </h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
               <p className="text-sm text-slate-500 mt-0.5">Las escuelas con el mismo nombre pueden tener grupos en común.</p>
@@ -447,21 +447,21 @@ export default function Profile() {
         </div>
 
         {/* Acceso */}
-        <div className="bg-surface-card rounded-card shadow-card p-4">
+        <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-3 flex items-center gap-2">
             <Lock size={19} className="text-slate-400" /> Acceso
           </h2>
           <div className="space-y-1">
 
             {/* ── Correo (solo lectura) ── */}
-            <div className="py-2.5 border-b border-outline-variant">
+            <div className="py-2 border-b border-outline-variant">
               <p className="text-sm text-slate-500 mb-0.5">Correo electrónico</p>
               <p className="text-sm text-on-surface truncate">{currentUser?.email}</p>
             </div>
 
             {/* ── Contraseña ── */}
-            <div className="py-2.5 border-b border-outline-variant">
-              <div className="flex items-center gap-3">
+            <div className="py-2 border-b border-outline-variant">
+              <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-on-surface">Contraseña</p>
                   {!hasEmailProvider && (
@@ -477,7 +477,7 @@ export default function Profile() {
               </div>
 
               {showPwdForm && (
-                <form onSubmit={requestPwdChange} className="mt-3 space-y-3">
+                <form onSubmit={requestPwdChange} className="mt-3 space-y-2">
                   <div>
                     <label className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
                     <PasswordInput value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
@@ -494,7 +494,7 @@ export default function Profile() {
                       required autoComplete="new-password" className={inputCls} placeholder="Repite la contraseña" />
                   </div>
                   <button type="submit" disabled={savingPwd}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                     {savingPwd ? <Spinner size="sm" /> : <Lock size={17} />}
                     {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}
                   </button>
@@ -511,20 +511,20 @@ export default function Profile() {
       {confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => !confirming && setConfirm(null)} />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-5">
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
             <button onClick={() => !confirming && setConfirm(null)}
               className="absolute top-4 right-4 p-1 text-slate-400 hover:text-muted rounded">
               <X size={20} />
             </button>
             <h3 className="text-base font-semibold text-on-surface mb-2 pr-6">{confirm.title}</h3>
             <p className="text-sm text-muted mb-5 leading-relaxed">{confirm.message}</p>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button type="button" onClick={() => setConfirm(null)} disabled={confirming}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
                 Cancelar
               </button>
               <button type="button" onClick={handleConfirm} disabled={confirming}
-                className="flex-1 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {confirming ? <Spinner size="sm" /> : null}
                 {confirming ? 'Procesando…' : 'Confirmar'}
               </button>
@@ -543,12 +543,12 @@ export default function Profile() {
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input autoFocus type="text" value={schoolSearch} onChange={(e) => setSchoolSearch(e.target.value)}
                   placeholder="Nombre, CCT o municipio…"
-                  className="w-full pl-8 pr-3 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
               <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
             </div>
             {addingCustomSchool && customSchoolStep === 'similar' ? (
-              <div className="p-4 space-y-3 overflow-y-auto">
+              <div className="p-3 space-y-2 overflow-y-auto">
                 <p className="text-sm text-muted">
                   Encontramos escuelas parecidas — ¿es alguna de estas la misma que quieres agregar?
                 </p>
@@ -556,7 +556,7 @@ export default function Profile() {
                   {similarSchools.map((c, i) => (
                     <li key={i}>
                       <button type="button" onClick={() => chooseSimilarSchool(c)} disabled={savingSchool}
-                        className="w-full text-left px-3 py-2.5 rounded border border-outline-variant hover:bg-blue-50 transition-colors disabled:opacity-60">
+                        className="w-full text-left px-3 py-2 rounded border border-outline-variant hover:bg-blue-50 transition-colors disabled:opacity-60">
                         <p className="text-sm font-medium text-on-surface leading-tight">{c.nombre}</p>
                         <p className="text-sm text-slate-500 mt-0.5">
                           {[c.claveSEP, [c.municipio, c.estado].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
@@ -567,17 +567,17 @@ export default function Profile() {
                 </ul>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setCustomSchoolStep('form')} disabled={savingSchool}
-                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
+                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
                     Volver
                   </button>
                   <button type="button" onClick={() => setCustomSchoolStep('confirm')} disabled={savingSchool}
-                    className="flex-1 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60">
+                    className="flex-1 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60">
                     Ninguna, es nueva
                   </button>
                 </div>
               </div>
             ) : addingCustomSchool && customSchoolStep === 'confirm' ? (
-              <div className="p-4 space-y-3">
+              <div className="p-3 space-y-2">
                 <p className="text-sm text-muted">¿Confirmas que la escuela a agregar es esta?</p>
                 <div className="bg-surface rounded p-3 border border-outline-variant space-y-1">
                   <p className="text-sm font-semibold text-on-surface">{customSchoolName.trim()}</p>
@@ -586,18 +586,18 @@ export default function Profile() {
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setCustomSchoolStep(similarSchools.length ? 'similar' : 'form')} disabled={savingSchool}
-                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
+                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
                     Volver
                   </button>
                   <button type="button" onClick={submitCustomSchool} disabled={savingSchool}
-                    className="flex-1 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    className="flex-1 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                     {savingSchool ? <Spinner size="sm" /> : null}
                     {savingSchool ? 'Guardando…' : 'Confirmar y agregar'}
                   </button>
                 </div>
               </div>
             ) : addingCustomSchool ? (
-              <form onSubmit={reviewCustomSchool} className="p-4 space-y-3 overflow-y-auto">
+              <form onSubmit={reviewCustomSchool} className="p-3 space-y-2 overflow-y-auto">
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
                   <input
@@ -606,7 +606,7 @@ export default function Profile() {
                     value={customSchoolName}
                     onChange={(e) => setCustomSchoolName(e.target.value)}
                     required
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
                     placeholder="Ej. Escuela Secundaria Técnica N.° 12"
                   />
                 </div>
@@ -618,7 +618,7 @@ export default function Profile() {
                     type="text"
                     value={customSchoolCCT}
                     onChange={(e) => setCustomSchoolCCT(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
                     placeholder="Ej. 15ECT0001H"
                   />
                 </div>
@@ -630,7 +630,7 @@ export default function Profile() {
                       value={customSchoolCity}
                       onChange={(e) => setCustomSchoolCity(e.target.value)}
                       required
-                      className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
                       placeholder="Ej. Celaya"
                     />
                   </div>
@@ -641,18 +641,18 @@ export default function Profile() {
                       value={customSchoolState}
                       onChange={(e) => setCustomSchoolState(e.target.value)}
                       required
-                      className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
                       placeholder="Ej. Guanajuato"
                     />
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <button type="button" onClick={() => setAddingCustomSchool(false)} disabled={savingSchool}
-                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
+                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface transition-colors disabled:opacity-60">
                     Cancelar
                   </button>
                   <button type="submit" disabled={savingSchool}
-                    className="flex-1 py-2.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    className="flex-1 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                     Continuar
                   </button>
                 </div>
@@ -660,7 +660,7 @@ export default function Profile() {
             ) : (
               <>
                 <button type="button" onClick={() => updateSchool(null)} disabled={savingSchool}
-                  className="flex items-center gap-2 px-4 py-2.5 text-left border-b border-outline-variant hover:bg-surface disabled:opacity-60">
+                  className="flex items-center gap-2 px-4 py-2 text-left border-b border-outline-variant hover:bg-surface disabled:opacity-60">
                   <ChevronDown size={17} className="text-slate-400 rotate-0" />
                   <span className="text-sm font-medium text-muted">Sin escuela</span>
                 </button>
@@ -675,7 +675,7 @@ export default function Profile() {
                       {filteredCustomSchools.map((s) => (
                         <li key={s.id}>
                           <button type="button" onClick={() => updateSchool({ existingId: s.id, nombre: s.nombre })} disabled={savingSchool}
-                            className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors disabled:opacity-60">
+                            className="w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors disabled:opacity-60">
                             <p className="text-sm font-medium text-on-surface leading-tight">{s.nombre}</p>
                             {(s.claveSEP || s.municipio || s.estado) && (
                               <p className="text-sm text-slate-500 mt-0.5">
@@ -688,7 +688,7 @@ export default function Profile() {
                       {filteredPlanteles.map((p) => (
                         <li key={p.cct}>
                           <button type="button" onClick={() => updateSchool(p)} disabled={savingSchool}
-                            className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors disabled:opacity-60">
+                            className="w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors disabled:opacity-60">
                             <p className="text-sm font-medium text-on-surface leading-tight">{p.short || p.nombre}</p>
                             <p className="text-sm text-slate-500 mt-0.5">{p.cct} · {p.mun}, {p.edo}</p>
                           </button>
@@ -703,7 +703,7 @@ export default function Profile() {
                       type="button"
                       disabled={savingSchool}
                       onClick={openCustomSchoolForm}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 rounded text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-60"
+                      className="w-full flex items-center gap-2 px-4 py-2 rounded text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-60"
                     >
                       <Plus size={18} className="flex-shrink-0" />
                       <span className="truncate">¿No la encuentras? Agregar «{schoolSearch.trim()}»</span>

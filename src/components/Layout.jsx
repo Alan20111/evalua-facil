@@ -90,7 +90,7 @@ export default function TeacherLayout({ children }) {
         {/* Sidebar — desktop only (solid accent plane) */}
         <aside className="hidden md:flex flex-col w-[280px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
           {/* Logo */}
-          <div className="px-5 py-3 flex items-center gap-2.5">
+          <div className="px-4 py-2.5 flex items-center gap-2.5">
             <div className="w-9 h-9 rounded bg-white flex items-center justify-center flex-shrink-0">
               <GraduationCap size={22} className="text-accent" />
             </div>
@@ -100,7 +100,7 @@ export default function TeacherLayout({ children }) {
           {/* Profile button */}
           <NavLink
             to="/profile"
-            className="flex items-center gap-3 px-3 py-2.5 mx-2 mt-1 rounded hover:bg-white/10 transition-colors group"
+            className="flex items-center gap-3 px-3 py-2 mx-2 mt-1 rounded hover:bg-white/10 transition-colors group"
           >
             <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
               {userProfile?.photoURL ? (
@@ -142,7 +142,7 @@ export default function TeacherLayout({ children }) {
           )}
 
           {/* Subjects header → goes to the full subjects list */}
-          <NavLink to="/dashboard" className="mx-2 px-2 pt-5 pb-1 flex items-center justify-between rounded group">
+          <NavLink to="/dashboard" className="mx-2 px-2 pt-4 pb-1 flex items-center justify-between rounded group">
             <span className="text-label-caps text-white/70 group-hover:text-white uppercase transition-colors">
               Asignaturas
             </span>
@@ -163,7 +163,7 @@ export default function TeacherLayout({ children }) {
                   key={s.id}
                   to={`/subject/${s.id}`}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-3 py-2 rounded text-body-sm transition-colors ${
+                    `flex items-center gap-2 px-3 py-1.5 rounded text-body-sm transition-colors ${
                       isActive ? 'bg-white text-accent font-semibold' : 'text-white/90 hover:bg-white/10'
                     }`
                   }
@@ -178,7 +178,7 @@ export default function TeacherLayout({ children }) {
             <button
               type="button"
               onClick={() => navigate('/dashboard', { state: { openCreate: true } })}
-              className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
+              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
             >
               <Plus size={17} />
               Nueva asignatura…
@@ -191,7 +191,7 @@ export default function TeacherLayout({ children }) {
               <button
                 type="button"
                 onClick={() => setShowArchived((a) => !a)}
-                className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors"
+                className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors"
               >
                 <Archive size={15} />
                 Archivadas ({archivedSubjects.length})
@@ -202,7 +202,7 @@ export default function TeacherLayout({ children }) {
                     key={s.id}
                     to={`/subject/${s.id}`}
                     className={({ isActive }) =>
-                      `flex items-center gap-2 px-3 py-2 rounded text-body-sm transition-colors ${
+                      `flex items-center gap-2 px-3 py-1.5 rounded text-body-sm transition-colors ${
                         isActive ? 'bg-white text-accent' : 'text-white/70 hover:bg-white/10'
                       }`
                     }
@@ -215,11 +215,11 @@ export default function TeacherLayout({ children }) {
           )}
 
           {/* Logout */}
-          <div className="px-2 py-2.5 border-t border-white/15">
+          <div className="px-2 py-2 border-t border-white/15">
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 w-full px-3 py-2 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
             >
               <LogOut size={17} />
               Cerrar sesión
