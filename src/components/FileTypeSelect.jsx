@@ -48,7 +48,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
         <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute z-10 mt-1 w-64 max-w-[calc(100vw-2rem)] max-h-80 overflow-y-auto bg-surface-card border border-outline-variant rounded shadow-lg py-1">
+        <div className="absolute z-10 mt-1 right-0 w-64 max-w-[calc(100vw-2rem)] max-h-80 overflow-y-auto bg-surface-card border border-outline-variant rounded shadow-lg py-1">
           {FILE_TYPE_BASE_OPTIONS.map((o) => (
             <label key={o.key} className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-surface cursor-pointer">
               <input
