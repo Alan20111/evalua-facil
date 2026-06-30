@@ -121,6 +121,8 @@ export default function SubjectPage() {
   const [modalParcial, setModalParcial] = useState(1)
   const [editActivityId, setEditActivityId] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
+  // null = showing the tipo picker, 'entregable'|'cuestionario'|'examen' = form visible
+  const [tipoActividad, setTipoActividad] = useState(null)
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -749,16 +751,17 @@ export default function SubjectPage() {
     setModalMode('create'); setModalParcial(parcial); setEditActivityId(null)
     setForm(EMPTY_FORM)
     setActivityExistingFiles([]); setActivityNewFiles([])
+    setTipoActividad(null)
     setShowModal(true)
   }
   function openEdit(activity) {
     setModalMode('edit'); setModalParcial(activity.parcial); setEditActivityId(activity.id)
+    // When editing, set tipoActividad so the form renders correctly without the picker.
+    const cat = ['actividad', 'tarea'].includes(activity.categoria) ? 'entregable' : (activity.categoria || 'entregable')
+    setTipoActividad(activity.tipo === 'evaluacion' ? cat : cat)
     setForm({
       nombre: activity.nombre || '',
-      // 'actividad'/'tarea' are legacy values from before the two were merged
-      // into a single "Entregable" option — normalize them on open so the
-      // select always has a matching option.
-      categoria: ['actividad', 'tarea'].includes(activity.categoria) ? 'entregable' : (activity.categoria || 'entregable'),
+      categoria: cat,
       instrucciones: toRichHtml(activity.instrucciones || ''),
       fechaLimite: activity.fechaLimite
         ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)
@@ -833,7 +836,7 @@ export default function SubjectPage() {
         // computed fresh from position within the parcial wherever it's shown
         // (see `activityLabelById` below) — never stored, so it can't drift.
         const orden = activities.filter((a) => a.parcial === modalParcial).length + 1
-        const esEvaluacion = form.esEvaluacion && (form.categoria === 'cuestionario' || form.categoria === 'examen')
+        const esEvaluacion = tipoActividad === 'cuestionario' || tipoActividad === 'examen'
         const tipo = esEvaluacion ? 'evaluacion' : 'archivo'
         const extra = esEvaluacion ? { evaluacion: EVALUACION_DEFAULTS[form.categoria] } : {}
         const ref = await addDoc(collection(db, 'activities'), {
@@ -2028,13 +2031,48 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">
-                {modalMode === 'create' ? `Nueva actividad — Parcial ${modalParcial}` : 'Editar actividad'}
+                {modalMode === 'create' && !tipoActividad
+                  ? `Nueva actividad — Parcial ${modalParcial}`
+                  : modalMode === 'create'
+                    ? `${tipoActividad === 'entregable' ? 'Entregable' : tipoActividad === 'cuestionario' ? 'Cuestionario' : 'Examen'} — Parcial ${modalParcial}`
+                    : 'Editar actividad'}
               </h3>
               <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <p className="text-base text-on-surface -mt-2 mb-2">
-              Actividad <strong className="text-accent">{previewActividad}</strong>
-            </p>
+
+            {/* ── Tipo picker (only on create, before choosing type) ── */}
+            {modalMode === 'create' && !tipoActividad ? (
+              <div className="space-y-2 py-2">
+                <p className="text-sm text-muted mb-3">¿Qué tipo de actividad quieres crear?</p>
+                {[
+                  { key: 'entregable', label: 'Entregable', desc: 'El alumno sube un archivo o la marca como completada.' },
+                  { key: 'cuestionario', label: 'Cuestionario', desc: 'Preguntas con calificación automática. Ideal para práctica o aprendizaje.' },
+                  { key: 'examen', label: 'Examen', desc: 'Preguntas con calificación automática. Para evaluación formal.' },
+                ].map((opt) => (
+                  <button key={opt.key} type="button"
+                    onClick={() => {
+                      setTipoActividad(opt.key)
+                      setForm((f) => ({ ...f, categoria: opt.key, esEvaluacion: opt.key !== 'entregable' }))
+                    }}
+                    className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                    <div>
+                      <p className="font-semibold text-on-surface">{opt.label}</p>
+                      <p className="text-xs text-muted mt-0.5">{opt.desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>
+                {modalMode === 'create' && (
+                  <div className="flex items-center gap-2 -mt-2 mb-3">
+                    <button type="button" onClick={() => setTipoActividad(null)}
+                      className="text-xs text-accent hover:underline">← Cambiar tipo</button>
+                  </div>
+                )}
+                <p className="text-base text-on-surface mb-2">
+                  Actividad <strong className="text-accent">{previewActividad}</strong>
+                </p>
             <form onSubmit={handleSaveActivity} className="space-y-2">
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
@@ -2043,27 +2081,6 @@ export default function SubjectPage() {
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: Tarea 1, Examen parcial" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">Tipo</label>
-                <select value={form.categoria} onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface">
-                  {CATEGORIAS_ACTIVIDAD.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
-              </div>
-              {modalMode === 'create' && (form.categoria === 'cuestionario' || form.categoria === 'examen') && (
-                <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-                  style={{ borderColor: form.esEvaluacion ? 'var(--accent)' : '#e2e8f0', background: form.esEvaluacion ? 'var(--accent-light)' : '' }}>
-                  <input type="checkbox" checked={form.esEvaluacion}
-                    onChange={(e) => setForm((f) => ({ ...f, esEvaluacion: e.target.checked }))}
-                    className="accent-[var(--accent)]" />
-                  <div>
-                    <p className="text-sm font-medium text-on-surface">Evaluación con preguntas (auto-calificada)</p>
-                    <p className="text-xs text-muted">Opción múltiple, calificación automática. Configurarás las preguntas al guardar.</p>
-                  </div>
-                </label>
-              )}
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
                 <RichTextEditor
@@ -2129,9 +2146,13 @@ export default function SubjectPage() {
               <button type="submit" disabled={saving}
                 className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {saving ? <Spinner size="sm" /> : modalMode === 'create' ? <Plus size={18} /> : <Pencil size={18} />}
-                {saving ? 'Guardando…' : modalMode === 'create' ? 'Crear actividad' : 'Guardar cambios'}
+                {saving ? 'Guardando…' : modalMode === 'create'
+                  ? (tipoActividad === 'cuestionario' || tipoActividad === 'examen') ? 'Crear y agregar preguntas' : 'Crear actividad'
+                  : 'Guardar cambios'}
               </button>
             </form>
+              </>
+            )}
           </div>
         </div>
       )}
