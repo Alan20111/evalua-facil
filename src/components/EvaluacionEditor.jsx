@@ -169,15 +169,15 @@ export default function EvaluacionEditor({
         setCurrentActivityId(ref.id)
         setAttachNew([])
         onActivityCreated?.({ id: ref.id, ...payload, tipo: 'evaluacion', evaluacion: EVALUACION_DEFAULTS[categoria], parcial, orden, asignaturaId: subjectId, docenteId })
-        toast('Evaluación creada — ahora agrega tus preguntas')
+        toast('Evaluación guardada')
         loadPreguntas(ref.id)
       } else {
         await updateDoc(doc(db, 'activities', currentActivityId), payload)
         setAttachNew([])
         onActivityUpdated?.({ id: currentActivityId, ...payload })
-        toast('Información guardada')
+        toast('Cambios guardados')
       }
-      setInfoCollapsed(true)
+      onClose()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -423,7 +423,7 @@ export default function EvaluacionEditor({
               <button type="submit" disabled={savingInfo}
                 className="w-full py-2 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
                 {savingInfo ? <Spinner size="sm" /> : null}
-                {savingInfo ? 'Guardando…' : isNew ? 'Guardar y continuar a preguntas' : 'Guardar cambios'}
+                {savingInfo ? 'Guardando…' : 'Guardar y regresar a la asignatura'}
               </button>
             </form>
           )}
@@ -616,11 +616,6 @@ export default function EvaluacionEditor({
           </div>
         </div>
 
-        {/* ── Cerrar / Finalizar ── */}
-        <button onClick={onClose}
-          className="w-full py-3 bg-accent text-white font-semibold rounded-card">
-          Listo — regresar a la asignatura
-        </button>
         <div className="h-6" />
       </div>
 
