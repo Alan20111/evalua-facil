@@ -45,10 +45,10 @@ function fmtDuracion(inicio, fin) {
 // of open-ended (respuesta_corta) answers. Lives outside teacher/ActivityPage.jsx
 // (already very large) and is rendered in its place whenever the activity is
 // an evaluación.
-export default function EvaluacionManager({ activity, subject, activityId, students, submissions, onActivityChange }) {
+export default function EvaluacionManager({ activity, subject, activityId, students, submissions, onActivityChange, resultadosOnly = false }) {
   const navigate = useNavigate()
   const toast = useToast()
-  const [tab, setTab] = useState('preguntas')
+  const [tab, setTab] = useState(resultadosOnly ? 'resultados' : 'preguntas')
   const [preguntas, setPreguntas] = useState([])
   const [loadingPreguntas, setLoadingPreguntas] = useState(true)
   const [showPreguntaForm, setShowPreguntaForm] = useState(false)
@@ -450,14 +450,16 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
             <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
           </div>
         </div>
-        <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
-          {TABS.map((t) => (
-            <button key={t.key} onClick={() => { setTab(t.key); if (t.key === 'preguntas') loadBanco() }}
-              className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${tab === t.key ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {!resultadosOnly && (
+          <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
+            {TABS.map((t) => (
+              <button key={t.key} onClick={() => { setTab(t.key); if (t.key === 'preguntas') loadBanco() }}
+                className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${tab === t.key ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="p-4 max-w-2xl mx-auto">

@@ -67,6 +67,10 @@ export default function EvaluacionEditor({
   const [attachExisting, setAttachExisting] = useState([])
   const [attachNew, setAttachNew] = useState([])
 
+  // ── Configuración state ───────────────────────────────────────────
+  const [configForm, setConfigForm] = useState(EVALUACION_DEFAULTS[categoria] || EVALUACION_DEFAULTS.cuestionario)
+  const [savingConfig, setSavingConfig] = useState(false)
+
   // ── Preguntas state ───────────────────────────────────────────────
   const [preguntas, setPreguntas] = useState([])
   const [loadingPreguntas, setLoadingPreguntas] = useState(false)
@@ -106,6 +110,7 @@ export default function EvaluacionEditor({
         })
         setAttachExisting(d.archivosAdjuntos || [])
         setInfoCollapsed(false)
+        if (d.evaluacion) setConfigForm({ ...EVALUACION_DEFAULTS[categoria], ...d.evaluacion })
       }
       loadPreguntas(activityId)
     } catch (err) {
@@ -182,6 +187,21 @@ export default function EvaluacionEditor({
       toast('Error: ' + err.message, 'error')
     } finally {
       setSavingInfo(false)
+    }
+  }
+
+  // ── Save config ───────────────────────────────────────────────────
+  async function handleSaveConfig(e) {
+    e.preventDefault()
+    if (!currentActivityId) { toast('Guarda la información general primero', 'error'); return }
+    setSavingConfig(true)
+    try {
+      await updateDoc(doc(db, 'activities', currentActivityId), { evaluacion: configForm })
+      toast('Configuración guardada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingConfig(false)
     }
   }
 
@@ -436,10 +456,99 @@ export default function EvaluacionEditor({
           )}
         </div>
 
-        {/* ── Sección 2: Preguntas ── */}
+        {/* ── Sección 2: Configuración ── */}
+        <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
+          <div className="px-4 py-3 border-b border-outline-variant">
+            <h2 className="font-semibold text-on-surface">Configuración</h2>
+          </div>
+          <form onSubmit={handleSaveConfig} className="px-4 py-4 space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">Orden de las preguntas</label>
+              <select value={configForm.ordenPreguntas} onChange={(e) => setConfigForm((f) => ({ ...f, ordenPreguntas: e.target.value }))}
+                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                <option value="creacion">Orden de creación</option>
+                <option value="aleatorio">Aleatorio</option>
+              </select>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input type="checkbox" checked={!!configForm.barajarRespuestas}
+                onChange={(e) => setConfigForm((f) => ({ ...f, barajarRespuestas: e.target.checked }))} className="accent-[var(--accent)]" />
+              Barajar el orden de las opciones dentro de cada pregunta
+            </label>
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">Navegación</label>
+              <select value={configForm.navegacion} onChange={(e) => setConfigForm((f) => ({ ...f, navegacion: e.target.value }))}
+                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                <option value="libre">Libre — puede regresar</option>
+                <option value="secuencial">Secuencial — no puede regresar</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
+              <input type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
+                onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))}
+                placeholder="Sin límite" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
+              <input type="number" min="1" value={configForm.intentosPermitidos ?? ''}
+                onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))}
+                placeholder="Ilimitados" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
+              <select value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
+                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                <option value="primero">El primer intento</option>
+                <option value="ultimo">El último intento</option>
+                <option value="mejor">La calificación más alta</option>
+                <option value="promedio">El promedio de todos los intentos</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted mb-1">Publicar resultados</label>
+              <select value={configForm.publicarResultados} onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultados: e.target.value }))}
+                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                <option value="inmediato">Inmediatamente al terminar</option>
+                <option value="fecha">En una fecha específica</option>
+                <option value="manual">Manualmente (yo decido cuándo)</option>
+              </select>
+            </div>
+            {configForm.publicarResultados === 'fecha' && (
+              <input type="datetime-local" value={configForm.publicarResultadosFecha || ''}
+                onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultadosFecha: e.target.value }))}
+                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+            )}
+            <div className="pt-1 border-t border-outline-variant space-y-2">
+              <p className="text-xs font-medium text-muted uppercase tracking-wide pt-2">Qué ve el alumno en sus resultados</p>
+              {[
+                ['mostrarRetroalimentacion', 'Mostrar retroalimentación de cada pregunta'],
+                ['mostrarRespuestasCorrectas', 'Mostrar cuál era la respuesta correcta'],
+                ['mostrarPorcentaje', 'Mostrar porcentaje, además de la calificación'],
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm text-muted">
+                  <input type="checkbox" checked={!!configForm[key]}
+                    onChange={(e) => setConfigForm((f) => ({ ...f, [key]: e.target.checked }))} className="accent-[var(--accent)]" />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <button type="submit" disabled={savingConfig || !currentActivityId}
+              className="w-full py-2 bg-surface-container text-on-surface text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2">
+              {savingConfig ? <Spinner size="sm" /> : null}
+              {savingConfig ? 'Guardando…' : 'Guardar configuración'}
+            </button>
+            {!currentActivityId && (
+              <p className="text-xs text-muted text-center">Guarda la información general primero para poder guardar la configuración.</p>
+            )}
+          </form>
+        </div>
+
+        {/* ── Sección 3: Preguntas ── */}
         <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
           <div className="px-4 py-3 border-b border-outline-variant flex items-center justify-between">
             <h2 className="font-semibold text-on-surface">Preguntas</h2>
+
             {currentActivityId && !showPreguntaForm && (
               <div className="flex gap-2">
                 <button onClick={() => { setShowBanco(true); loadBanco() }}

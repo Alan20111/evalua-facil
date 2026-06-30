@@ -255,6 +255,7 @@ export default function ActivityPage() {
             students={students}
             submissions={submissions}
             onActivityChange={setActivity}
+            resultadosOnly
           />
         </div>
       </TeacherLayout>
