@@ -755,73 +755,84 @@ export default function EvaluacionEditor({
       {showBanco && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null) }} />
-          <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
-            <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
-            <div className="flex gap-2 mb-3">
-              <div className="flex-1 relative">
-                <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type="text" value={bancoSearch} onChange={(e) => setBancoSearch(e.target.value)}
-                  placeholder="Buscar…" className="w-full pl-8 pr-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+          <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card shadow-2xl flex flex-col" style={{height: 'min(90vh, 700px)'}}>
+            {/* Header fijo */}
+            <div className="p-4 border-b border-outline-variant flex-shrink-0">
+              <h3 className="text-base font-semibold mb-3">Mi banco de reactivos</h3>
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input type="text" value={bancoSearch} onChange={(e) => setBancoSearch(e.target.value)}
+                    placeholder="Buscar…" className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                </div>
+                {temas.length > 0 && (
+                  <select value={bancoTemaFilter} onChange={(e) => setBancoTemaFilter(e.target.value)}
+                    className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface">
+                    <option value="">Todos los temas</option>
+                    {temas.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                )}
               </div>
-              {temas.length > 0 && (
-                <select value={bancoTemaFilter} onChange={(e) => setBancoTemaFilter(e.target.value)}
-                  className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
-                  <option value="">Todos los temas</option>
-                  {temas.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+            </div>
+
+            {/* Lista con scroll */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {bancoFiltrado.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-10">{banco.length === 0 ? 'Aún no tienes preguntas en tu banco' : 'Sin resultados'}</p>
+              ) : (
+                <div className="space-y-2">
+                  {bancoFiltrado.map((item) => (
+                    <div key={item.id} className="rounded border border-outline-variant p-3">
+                      {editingBancoId === item.id ? (
+                        <div className="space-y-2">
+                          <select value={bancoEditForm.tipo} onChange={(e) => setBancoEditForm((f) => ({ ...f, tipo: e.target.value }))}
+                            className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
+                            {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                          </select>
+                          <textarea value={bancoEditForm.enunciado} onChange={(e) => setBancoEditForm((f) => ({ ...f, enunciado: e.target.value }))}
+                            rows={2} className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                          {bancoEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
+                            <div key={id} className="flex items-center gap-2">
+                              <input type="radio" name={`be-${item.id}`} checked={bancoEditForm.respuestaCorrecta === id}
+                                onChange={() => setBancoEditForm((f) => ({ ...f, respuestaCorrecta: id }))} className="accent-[var(--accent)]" />
+                              <input type="text" value={bancoEditForm.opciones[id]}
+                                onChange={(e) => setBancoEditForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
+                                placeholder={`Opción ${id.toUpperCase()}`}
+                                className="flex-1 px-2 py-1 rounded border border-outline-variant text-sm bg-surface" />
+                            </div>
+                          ))}
+                          <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
+                            placeholder="Tema (opcional)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => setEditingBancoId(null)} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
+                            <button type="button" onClick={() => handleSaveBancoEdit(item.id)}
+                              className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded">Guardar</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-2">
+                          <button onClick={() => { handleAddFromBanco(item); setShowBanco(false) }}
+                            className="flex-1 text-left text-sm hover:text-accent transition-colors">
+                            {item.enunciado}
+                            {item.tema && <span className="block text-xs text-slate-400 mt-0.5">{item.tema}</span>}
+                          </button>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
+                            <button onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
+                            <button onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-            {bancoFiltrado.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">{banco.length === 0 ? 'Aún no tienes preguntas en tu banco' : 'Sin resultados'}</p>
-            ) : (
-              <div className="space-y-1.5">
-                {bancoFiltrado.map((item) => (
-                  <div key={item.id} className="rounded border border-outline-variant p-2">
-                    {editingBancoId === item.id ? (
-                      <div className="space-y-2">
-                        <select value={bancoEditForm.tipo} onChange={(e) => setBancoEditForm((f) => ({ ...f, tipo: e.target.value }))}
-                          className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
-                          {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
-                        <textarea value={bancoEditForm.enunciado} onChange={(e) => setBancoEditForm((f) => ({ ...f, enunciado: e.target.value }))}
-                          rows={2} className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
-                        {bancoEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
-                          <div key={id} className="flex items-center gap-2">
-                            <input type="radio" name={`be-${item.id}`} checked={bancoEditForm.respuestaCorrecta === id}
-                              onChange={() => setBancoEditForm((f) => ({ ...f, respuestaCorrecta: id }))} className="accent-[var(--accent)]" />
-                            <input type="text" value={bancoEditForm.opciones[id]}
-                              onChange={(e) => setBancoEditForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
-                              placeholder={`Opción ${id.toUpperCase()}`}
-                              className="flex-1 px-2 py-1 rounded border border-outline-variant text-sm bg-surface" />
-                          </div>
-                        ))}
-                        <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
-                          placeholder="Tema (opcional)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
-                        <div className="flex gap-2">
-                          <button type="button" onClick={() => setEditingBancoId(null)} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
-                          <button type="button" onClick={() => handleSaveBancoEdit(item.id)}
-                            className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded">Guardar</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-start gap-2">
-                        <button onClick={() => { handleAddFromBanco(item); setShowBanco(false) }}
-                          className="flex-1 text-left text-sm hover:text-accent transition-colors">
-                          {item.enunciado}
-                          {item.tema && <span className="block text-xs text-slate-400 mt-0.5">{item.tema}</span>}
-                        </button>
-                        <div className="flex gap-1 flex-shrink-0">
-                          <button onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
-                          <button onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
-                          <button onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            <button onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full mt-3 py-2 text-sm text-muted">Cerrar</button>
+
+            {/* Footer fijo */}
+            <div className="p-3 border-t border-outline-variant flex-shrink-0">
+              <button onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full py-2 text-sm text-muted">Cerrar</button>
+            </div>
           </div>
         </div>
       )}
