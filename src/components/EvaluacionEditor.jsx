@@ -10,7 +10,7 @@ import RichTextEditor from './RichTextEditor'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, toRichHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import {
-  ArrowLeft, Plus, Trash2, Library, Pencil, Copy, ChevronUp, ChevronDown,
+  ArrowLeft, Plus, Trash2, Library, Pencil, Copy,
   Search, Image as ImageIcon, X, ChevronDown as CollapseIcon,
 } from 'lucide-react'
 
@@ -563,26 +563,11 @@ export default function EvaluacionEditor({
 
         {/* ── Sección 3: Preguntas ── */}
         <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-outline-variant flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-outline-variant">
             <h2 className="font-semibold text-on-surface">Preguntas</h2>
-
-            {currentActivityId && (
-              <div className="flex gap-2">
-                <button onClick={() => { setShowBanco(true); loadBanco() }}
-                  className="flex items-center gap-1 px-3 py-1.5 border border-accent text-accent text-xs font-medium rounded">
-                  <Library size={15} /> Mi banco
-                </button>
-                {!showPreguntaForm && (
-                  <button onClick={() => setShowPreguntaForm(true)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-accent text-white text-xs font-medium rounded">
-                    <Plus size={15} /> Agregar
-                  </button>
-                )}
-              </div>
-            )}
           </div>
 
-          <div className="p-4 space-y-2">
+          <div className="p-4 space-y-3">
             {!currentActivityId ? (
               <p className="text-sm text-muted text-center py-4">Guarda la información de arriba para empezar a agregar preguntas.</p>
             ) : loadingPreguntas ? (
@@ -590,19 +575,25 @@ export default function EvaluacionEditor({
             ) : (
               <>
                 {preguntas.length === 0 && !showPreguntaForm && (
-                  <p className="text-sm text-slate-400 text-center py-6">Aún no hay preguntas. Usa "Agregar" para crear la primera.</p>
+                  <p className="text-sm text-slate-400 text-center py-4">Aún no hay reactivos.</p>
                 )}
 
                 {preguntas.map((p, i) => (
                   <div key={p.id} className="border border-outline-variant rounded-card">
                     {editingPreguntaId === p.id ? (
-                      <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="p-3 space-y-2">
-                        <select value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
-                          className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                          {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                        </select>
-                        <textarea value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
-                          rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                      <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="p-4 space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
+                          <select value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
+                            className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                            {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-muted mb-1">Enunciado</label>
+                          <textarea value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
+                            rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                        </div>
                         {preguntaEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
                           <div key={id} className="flex items-center gap-2">
                             <input type="radio" name={`ep-${p.id}`} checked={preguntaEditForm.respuestaCorrecta === id}
@@ -624,51 +615,52 @@ export default function EvaluacionEditor({
                             ))}
                           </div>
                         )}
-                        <input type="number" min="0.1" step="0.1" value={preguntaEditForm.ponderacion}
-                          onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                          className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" placeholder="Ponderación" />
-                        <div className="flex gap-2">
-                          <button type="button" onClick={() => setEditingPreguntaId(null)} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
-                          <button type="submit" disabled={savingPregunta} className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
-                            {savingPregunta ? 'Guardando…' : 'Guardar'}
+                        <div>
+                          <label className="block text-sm font-medium text-muted mb-1">Ponderación</label>
+                          <input type="number" min="0.1" step="0.1" value={preguntaEditForm.ponderacion}
+                            onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
+                            className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <button type="button" onClick={() => setEditingPreguntaId(null)} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                          <button type="submit" disabled={savingPregunta} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                            {savingPregunta ? 'Guardando…' : 'Guardar cambios'}
                           </button>
                         </div>
                       </form>
                     ) : (
-                      <div className="p-3">
-                        <div className="flex items-start gap-2">
+                      <div className="p-4">
+                        <div className="flex items-start gap-3">
                           <div className="flex-1">
-                            <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent-light px-1.5 py-0.5 rounded mb-1">
+                            <span className="inline-block text-xs font-semibold uppercase tracking-wide text-accent bg-accent-light px-2 py-0.5 rounded mb-2">
                               {TIPOS_PREGUNTA.find((t) => t.value === p.tipo)?.label}
                             </span>
-                            <p className="text-sm font-medium text-on-surface">{i + 1}. {p.enunciado}</p>
+                            <p className="text-base font-semibold text-on-surface">{i + 1}. {p.enunciado}</p>
                           </div>
-                          <div className="flex gap-0.5 flex-shrink-0">
-                            <button onClick={() => handleMovePregunta(p.id, 'up')} disabled={i === 0} className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded" title="Mover arriba"><ChevronUp size={14} /></button>
-                            <button onClick={() => handleMovePregunta(p.id, 'down')} disabled={i === preguntas.length - 1} className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded" title="Mover abajo"><ChevronDown size={14} /></button>
-                            <button onClick={() => handleGuardarEnBanco(p)} className="p-1 text-slate-400 hover:text-accent rounded" title="Guardar en mi banco"><Library size={14} /></button>
-                            <button onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded" title="Editar"><Pencil size={14} /></button>
-                            <button onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded" title="Duplicar"><Copy size={14} /></button>
-                            <button onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded" title="Eliminar"><Trash2 size={14} /></button>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" title="Guardar en mi banco"><Library size={18} /></button>
+                            <button onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" title="Editar"><Pencil size={18} /></button>
+                            <button onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" title="Duplicar"><Copy size={18} /></button>
+                            <button onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" title="Eliminar"><Trash2 size={18} /></button>
                           </div>
                         </div>
-                        {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-1 max-h-28 rounded border border-outline-variant" />}
+                        {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-36 rounded border border-outline-variant" />}
                         {p.opciones && (
-                          <div className="mt-1 grid grid-cols-2 gap-1">
+                          <div className="mt-2 grid grid-cols-2 gap-1.5">
                             {p.opciones.map((o) => (
-                              <p key={o.id} className={`text-xs px-2 py-1 rounded ${o.id === p.respuestaCorrecta ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-muted'}`}>{o.texto}</p>
+                              <p key={o.id} className={`text-sm px-3 py-1.5 rounded ${o.id === p.respuestaCorrecta ? 'bg-emerald-50 text-emerald-700 font-medium' : 'bg-surface-container text-muted'}`}>{o.texto}</p>
                             ))}
                           </div>
                         )}
-                        {p.tipo === 'respuesta_corta' && <p className="text-xs text-slate-400 mt-1 italic">Respuesta de texto libre — se califica manualmente</p>}
-                        <p className="text-xs text-slate-400 mt-1">Ponderación: {p.ponderacion}</p>
+                        {p.tipo === 'respuesta_corta' && <p className="text-sm text-slate-400 mt-2 italic">Respuesta de texto libre — se califica manualmente</p>}
+                        <p className="text-sm text-slate-400 mt-2">Ponderación: {p.ponderacion}</p>
                       </div>
                     )}
                   </div>
                 ))}
 
-                {showPreguntaForm && (
-                  <form onSubmit={handleAddPregunta} className="border border-outline-variant rounded-card p-3 space-y-2">
+                {showPreguntaForm ? (
+                  <form onSubmit={handleAddPregunta} className="border-2 border-accent rounded-card p-4 space-y-3">
                     <div>
                       <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                       <select value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
@@ -735,10 +727,21 @@ export default function EvaluacionEditor({
                       <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(EMPTY_PREGUNTA) }}
                         className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                       <button type="submit" disabled={savingPregunta} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
-                        {savingPregunta ? 'Guardando…' : 'Agregar pregunta'}
+                        {savingPregunta ? 'Guardando…' : 'Agregar reactivo'}
                       </button>
                     </div>
                   </form>
+                ) : (
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={() => setShowPreguntaForm(true)}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-accent text-white font-medium rounded-card">
+                      <Plus size={18} /> Crear reactivo
+                    </button>
+                    <button onClick={() => { setShowBanco(true); loadBanco() }}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 border border-accent text-accent font-medium rounded-card">
+                      <Library size={18} /> Agregar desde el Banco
+                    </button>
+                  </div>
                 )}
               </>
             )}
@@ -752,7 +755,7 @@ export default function EvaluacionEditor({
       {showBanco && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null) }} />
-          <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
             <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
             <div className="flex gap-2 mb-3">
               <div className="flex-1 relative">
