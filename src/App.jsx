@@ -75,7 +75,8 @@ function ProtectedTeacherProtectAccount({ children }) {
 }
 
 function ProtectedStudent({ children }) {
-  const { currentUser } = useAuth()
+  const { currentUser, loading } = useAuth()
+  if (loading) return null
   if (!currentUser) return <Navigate to="/alumno" replace />
   return children
 }
