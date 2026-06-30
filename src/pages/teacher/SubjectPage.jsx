@@ -66,11 +66,13 @@ const EVALUACION_DEFAULTS = {
     numPreguntas: 0, ordenPreguntas: 'creacion', navegacion: 'libre',
     tiempoLimiteMin: null, intentosPermitidos: null, conservar: 'mejor',
     publicarResultados: 'inmediato', publicarResultadosFecha: null, resultadosPublicados: false,
+    mostrarRetroalimentacion: true, mostrarRespuestasCorrectas: false, mostrarPorcentaje: true, barajarRespuestas: false,
   },
   examen: {
     numPreguntas: 0, ordenPreguntas: 'creacion', navegacion: 'secuencial',
     tiempoLimiteMin: 30, intentosPermitidos: 1, conservar: 'ultimo',
     publicarResultados: 'inmediato', publicarResultadosFecha: null, resultadosPublicados: false,
+    mostrarRetroalimentacion: true, mostrarRespuestasCorrectas: false, mostrarPorcentaje: true, barajarRespuestas: false,
   },
 }
 

@@ -299,7 +299,12 @@ export default function StudentActivityPage() {
           <div className="px-4 py-5 max-w-xl mx-auto space-y-3">
             {finalizado && (
               <div className="bg-surface-card rounded-card p-4 shadow-card">
-                {resultadosVisibles ? (
+                {submission.pendienteRevision ? (
+                  <p className="text-sm text-muted flex items-center gap-2">
+                    <Clock size={17} className="flex-shrink-0" />
+                    Tu evaluación fue entregada — algunas preguntas requieren revisión de tu maestro, tu calificación se actualizará cuando termine.
+                  </p>
+                ) : resultadosVisibles ? (
                   <>
                     <div className="flex items-center gap-3 mb-3">
                       <Star size={22} className="text-amber-400" />
@@ -308,7 +313,19 @@ export default function StudentActivityPage() {
                     <div className="flex items-end gap-2">
                       <span className="text-5xl font-bold text-accent">{submission.calificacion}</span>
                       <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
+                      {ev.mostrarPorcentaje && (
+                        <span className="text-sm text-muted mb-1.5">({Math.round((submission.calificacion / (activity?.maxCalif || 10)) * 100)}%)</span>
+                      )}
                     </div>
+                    {(ev.mostrarRespuestasCorrectas || ev.mostrarRetroalimentacion) && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/alumno/evaluacion/${activityId}/revision`)}
+                        className="mt-3 text-sm font-medium text-accent hover:underline"
+                      >
+                        Ver revisión de tus respuestas
+                      </button>
+                    )}
                   </>
                 ) : (
                   <p className="text-sm text-muted flex items-center gap-2"><Clock size={17} /> Resultados pendientes de publicación</p>
@@ -348,9 +365,17 @@ export default function StudentActivityPage() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted">Calificación a conservar</span>
-                <span className="font-semibold text-on-surface">{ev.conservar === 'mejor' ? 'La más alta' : 'El último intento'}</span>
+                <span className="font-semibold text-on-surface">
+                  {ev.conservar === 'mejor' ? 'La más alta' : ev.conservar === 'primero' ? 'El primer intento' : ev.conservar === 'promedio' ? 'El promedio de tus intentos' : 'El último intento'}
+                </span>
               </div>
             </div>
+
+            {!enProgreso && !finalizado && (
+              <p className="text-xs text-muted bg-surface-container rounded p-3">
+                Una vez que inicies, el cronómetro comenzará y tus respuestas se guardarán automáticamente.
+              </p>
+            )}
 
             {(ev.numPreguntas || 0) === 0 ? (
               <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">

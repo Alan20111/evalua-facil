@@ -7,11 +7,22 @@ import { db, auth } from '../firebase'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { subjectDisplayName } from '../utils/subjectName'
-import { calcularEstadisticasGrupo } from '../utils/evaluacionGrading'
-import { ArrowLeft, Plus, Trash2, Library, Star, Users } from 'lucide-react'
+import { uploadToCloudinary } from '../utils/cloudinary'
+import {
+  calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
+} from '../utils/evaluacionGrading'
+import { ArrowLeft, Plus, Trash2, Library, Star, Users, Search, Pencil, Copy, X, Image as ImageIcon } from 'lucide-react'
 
+const TIPOS_PREGUNTA = [
+  { value: 'opcion_multiple', label: 'Opción múltiple' },
+  { value: 'verdadero_falso', label: 'Verdadero / Falso' },
+  { value: 'respuesta_corta', label: 'Respuesta corta' },
+]
 const OPCION_IDS = ['a', 'b', 'c', 'd']
-const EMPTY_PREGUNTA = { enunciado: '', opciones: { a: '', b: '', c: '', d: '' }, respuestaCorrecta: 'a', ponderacion: 1, guardarEnBanco: false }
+const EMPTY_PREGUNTA = {
+  tipo: 'opcion_multiple', enunciado: '', opciones: { a: '', b: '', c: '', d: '' }, respuestaCorrecta: 'a',
+  vfRespuesta: 'v', ponderacion: 1, retroalimentacion: '', imagenFile: null, guardarEnBanco: false, tema: '',
+}
 
 const TABS = [
   { key: 'preguntas', label: 'Preguntas' },
@@ -19,10 +30,21 @@ const TABS = [
   { key: 'resultados', label: 'Resultados' },
 ]
 
+function fmtHora(ts) {
+  if (!ts?.seconds) return '—'
+  return new Date(ts.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+function fmtDuracion(inicio, fin) {
+  if (!inicio?.seconds || !fin?.seconds) return '—'
+  const min = Math.round((fin.seconds - inicio.seconds) / 60)
+  return `${min} min`
+}
+
 // Manages everything specific to `activity.tipo === 'evaluacion'`: questions,
-// the question bank, evaluación settings, and group results. Lives outside
-// teacher/ActivityPage.jsx (already very large) and is rendered in its place
-// whenever the activity is an evaluación.
+// the question bank, evaluación settings, group results, and manual review
+// of open-ended (respuesta_corta) answers. Lives outside teacher/ActivityPage.jsx
+// (already very large) and is rendered in its place whenever the activity is
+// an evaluación.
 export default function EvaluacionManager({ activity, subject, activityId, students, submissions, onActivityChange }) {
   const navigate = useNavigate()
   const toast = useToast()
@@ -35,8 +57,15 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
   const [banco, setBanco] = useState([])
   const [bancoLoaded, setBancoLoaded] = useState(false)
   const [showBanco, setShowBanco] = useState(false)
+  const [bancoSearch, setBancoSearch] = useState('')
+  const [bancoTemaFilter, setBancoTemaFilter] = useState('')
+  const [editingBancoId, setEditingBancoId] = useState(null)
+  const [bancoEditForm, setBancoEditForm] = useState(null)
   const [configForm, setConfigForm] = useState(activity.evaluacion)
   const [savingConfig, setSavingConfig] = useState(false)
+  const [reviewing, setReviewing] = useState(null) // { student, submission, items: [{pregunta, respuesta}] }
+  const [reviewForm, setReviewForm] = useState({}) // preguntaId -> { puntos, comentario }
+  const [savingReview, setSavingReview] = useState(false)
 
   async function loadPreguntas() {
     setLoadingPreguntas(true)
@@ -71,30 +100,53 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
     onActivityChange((prev) => ({ ...prev, evaluacion: nextEvaluacion }))
   }
 
+  function buildPreguntaData(form) {
+    const base = {
+      tipo: form.tipo,
+      enunciado: form.enunciado.trim(),
+      ponderacion: parseFloat(form.ponderacion) || 1,
+      retroalimentacion: form.retroalimentacion.trim() || null,
+    }
+    if (form.tipo === 'opcion_multiple') {
+      return { ...base, opciones: OPCION_IDS.map((id) => ({ id, texto: form.opciones[id].trim() })), respuestaCorrecta: form.respuestaCorrecta }
+    }
+    if (form.tipo === 'verdadero_falso') {
+      return {
+        ...base,
+        opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }],
+        respuestaCorrecta: form.vfRespuesta,
+      }
+    }
+    return { ...base, opciones: null, respuestaCorrecta: null }
+  }
+
+  function validatePreguntaForm(form) {
+    if (!form.enunciado.trim()) { toast('Escribe el enunciado de la pregunta', 'error'); return false }
+    if (form.tipo === 'opcion_multiple' && OPCION_IDS.some((id) => !form.opciones[id].trim())) {
+      toast('Completa las 4 opciones', 'error'); return false
+    }
+    return true
+  }
+
   async function handleAddPregunta(e) {
     e.preventDefault()
-    const enunciado = preguntaForm.enunciado.trim()
-    if (!enunciado) { toast('Escribe el enunciado de la pregunta', 'error'); return }
-    if (OPCION_IDS.some((id) => !preguntaForm.opciones[id].trim())) { toast('Completa las 4 opciones', 'error'); return }
+    if (!validatePreguntaForm(preguntaForm)) return
     setSaving(true)
     try {
-      const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
-      const data = {
-        tipo: 'opcion_multiple',
-        enunciado,
-        opciones: OPCION_IDS.map((id) => ({ id, texto: preguntaForm.opciones[id].trim() })),
-        respuestaCorrecta: preguntaForm.respuestaCorrecta,
-        ponderacion: parseFloat(preguntaForm.ponderacion) || 1,
-        orden,
-        origenBancoId: null,
+      let imagenUrl = null
+      if (preguntaForm.imagenFile) {
+        imagenUrl = await uploadToCloudinary(preguntaForm.imagenFile, 'evalua-facil/preguntas')
       }
+      const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
+      const data = { ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null }
       const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
       setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
       await syncNumPreguntas(preguntas.length + 1)
       if (preguntaForm.guardarEnBanco) {
         await addDoc(collection(db, 'bancoReactivos'), {
-          docenteId: auth.currentUser.uid, tipo: 'opcion_multiple', enunciado,
+          docenteId: auth.currentUser.uid, tipo: data.tipo, enunciado: data.enunciado,
           opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta,
+          tema: preguntaForm.tema.trim() || null,
           materia: subjectDisplayName(subject), createdAt: serverTimestamp(),
         })
       }
@@ -113,8 +165,9 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
     try {
       const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
       const data = {
-        tipo: 'opcion_multiple', enunciado: item.enunciado, opciones: item.opciones,
-        respuestaCorrecta: item.respuestaCorrecta, ponderacion: 1, orden, origenBancoId: item.id,
+        tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
+        respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
+        imagenUrl: null, orden, origenBancoId: item.id,
       }
       const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
       setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
@@ -139,6 +192,71 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
     }
   }
 
+  // ── Banco de reactivos: buscar/filtrar/editar/eliminar/duplicar ──
+  const temas = [...new Set(banco.map((b) => b.tema).filter(Boolean))]
+  const bancoFiltrado = banco.filter((b) =>
+    (!bancoSearch.trim() || b.enunciado.toLowerCase().includes(bancoSearch.trim().toLowerCase())) &&
+    (!bancoTemaFilter || b.tema === bancoTemaFilter)
+  )
+
+  function openEditBanco(item) {
+    setEditingBancoId(item.id)
+    setBancoEditForm({
+      tipo: item.tipo, enunciado: item.enunciado,
+      opciones: item.tipo === 'opcion_multiple'
+        ? { a: item.opciones?.[0]?.texto || '', b: item.opciones?.[1]?.texto || '', c: item.opciones?.[2]?.texto || '', d: item.opciones?.[3]?.texto || '' }
+        : { a: '', b: '', c: '', d: '' },
+      respuestaCorrecta: item.tipo === 'opcion_multiple' ? (item.respuestaCorrecta || 'a') : 'a',
+      vfRespuesta: item.tipo === 'verdadero_falso' ? (item.respuestaCorrecta || 'v') : 'v',
+      tema: item.tema || '',
+    })
+  }
+
+  async function handleSaveBancoEdit(id) {
+    if (!validatePreguntaForm(bancoEditForm)) return
+    setSaving(true)
+    try {
+      const data = buildPreguntaData({ ...bancoEditForm, ponderacion: 1, retroalimentacion: '' })
+      await updateDoc(doc(db, 'bancoReactivos', id), {
+        tipo: data.tipo, enunciado: data.enunciado, opciones: data.opciones,
+        respuestaCorrecta: data.respuestaCorrecta, tema: bancoEditForm.tema.trim() || null,
+      })
+      setBanco((prev) => prev.map((b) => b.id === id ? { ...b, tipo: data.tipo, enunciado: data.enunciado, opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta, tema: bancoEditForm.tema.trim() || null } : b))
+      setEditingBancoId(null)
+      toast('Pregunta del banco actualizada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDeleteBancoItem(id) {
+    if (!confirm('¿Eliminar esta pregunta de tu banco? No afecta evaluaciones donde ya la usaste.')) return
+    try {
+      await deleteDoc(doc(db, 'bancoReactivos', id))
+      setBanco((prev) => prev.filter((b) => b.id !== id))
+      toast('Eliminada de tu banco')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  async function handleDuplicateBancoItem(item) {
+    try {
+      const ref = await addDoc(collection(db, 'bancoReactivos'), {
+        docenteId: auth.currentUser.uid, tipo: item.tipo, enunciado: `${item.enunciado} (copia)`,
+        opciones: item.opciones || null, respuestaCorrecta: item.respuestaCorrecta || null,
+        tema: item.tema || null, materia: item.materia || null, createdAt: serverTimestamp(),
+      })
+      setBanco((prev) => [...prev, { id: ref.id, docenteId: auth.currentUser.uid, tipo: item.tipo, enunciado: `${item.enunciado} (copia)`, opciones: item.opciones, respuestaCorrecta: item.respuestaCorrecta, tema: item.tema }])
+      toast('Pregunta duplicada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  // ── Configuración ──
   async function handleSaveConfig(e) {
     e.preventDefault()
     setSavingConfig(true)
@@ -161,6 +279,75 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
       toast('Resultados publicados a tus estudiantes')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  // ── Revisión manual de respuesta_corta ──
+  function estadoEstudiante(sub) {
+    if (!sub) return 'No iniciado'
+    if (sub.estadoEvaluacion === 'en_progreso') return 'En proceso'
+    if (sub.pendienteRevision) return 'Finalizado'
+    return 'Calificado'
+  }
+
+  async function handleOpenRevision(student, sub) {
+    try {
+      const respSnap = await getDocs(collection(db, 'submissions', sub.id, 'respuestas'))
+      const respMap = {}
+      respSnap.docs.forEach((d) => { respMap[d.id] = d.data() })
+      const items = preguntas
+        .filter((p) => p.tipo === 'respuesta_corta')
+        .map((p) => ({ pregunta: p, respuesta: respMap[p.id] || {} }))
+      const initialForm = {}
+      items.forEach(({ pregunta, respuesta }) => {
+        initialForm[pregunta.id] = {
+          puntos: respuesta.puntosObtenidos != null ? String(respuesta.puntosObtenidos) : '',
+          comentario: respuesta.comentarioDocente || '',
+        }
+      })
+      setReviewForm(initialForm)
+      setReviewing({ student, submission: sub, items, allRespuestas: respMap })
+    } catch (err) {
+      toast('Error al cargar respuestas: ' + err.message, 'error')
+    }
+  }
+
+  async function handleSaveRevision() {
+    if (!reviewing) return
+    setSavingReview(true)
+    try {
+      const { submission, items, allRespuestas } = reviewing
+      const updatedRespuestas = { ...allRespuestas }
+      for (const { pregunta } of items) {
+        const entry = reviewForm[pregunta.id]
+        const puntos = entry?.puntos === '' ? null : Math.max(0, Math.min(pregunta.ponderacion, parseFloat(entry.puntos) || 0))
+        await updateDoc(doc(db, 'submissions', submission.id, 'respuestas', pregunta.id), {
+          puntosObtenidos: puntos,
+          comentarioDocente: entry?.comentario?.trim() || null,
+        })
+        updatedRespuestas[pregunta.id] = { ...updatedRespuestas[pregunta.id], puntosObtenidos: puntos, comentarioDocente: entry?.comentario?.trim() || null }
+      }
+      const pendiente = resolverPendienteRevision(preguntas, updatedRespuestas)
+      const calificacionIntento = calcularCalificacion(preguntas, updatedRespuestas, activity.maxCalif || 10)
+      // Recompute the final score across all attempts, replacing this attempt's entry with the corrected score.
+      const intentosPrevios = (submission.intentos || []).filter((i) => i.numero !== submission.intentoActual)
+      const calificacionFinal = resolverCalificacionFinal(intentosPrevios, calificacionIntento, activity.evaluacion?.conservar)
+      const intentosActualizados = [
+        ...intentosPrevios,
+        { numero: submission.intentoActual || (intentosPrevios.length + 1), calificacion: calificacionIntento },
+      ]
+      await updateDoc(doc(db, 'submissions', submission.id), {
+        calificacion: calificacionFinal,
+        pendienteRevision: pendiente,
+        estado: pendiente ? 'entregado' : 'calificado',
+        intentos: intentosActualizados,
+      })
+      toast('Revisión guardada')
+      setReviewing(null)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingReview(false)
     }
   }
 
@@ -202,19 +389,28 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
                 {preguntas.map((p, i) => (
                   <div key={p.id} className="bg-surface-card rounded-card shadow-card p-3">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-on-surface flex-1">{i + 1}. {p.enunciado}</p>
+                      <div className="flex-1">
+                        <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent-light px-1.5 py-0.5 rounded mb-1">
+                          {TIPOS_PREGUNTA.find((t) => t.value === p.tipo)?.label || p.tipo}
+                        </span>
+                        <p className="text-sm font-medium text-on-surface">{i + 1}. {p.enunciado}</p>
+                      </div>
                       <button onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded flex-shrink-0">
                         <Trash2 size={16} />
                       </button>
                     </div>
-                    <div className="mt-1 grid grid-cols-2 gap-1">
-                      {p.opciones.map((o) => (
-                        <p key={o.id} className={`text-xs px-2 py-1 rounded ${o.id === p.respuestaCorrecta ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-muted'}`}>
-                          {o.id.toUpperCase()}) {o.texto}
-                        </p>
-                      ))}
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">Ponderación: {p.ponderacion}</p>
+                    {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded border border-outline-variant" />}
+                    {p.opciones && (
+                      <div className="mt-1 grid grid-cols-2 gap-1">
+                        {p.opciones.map((o) => (
+                          <p key={o.id} className={`text-xs px-2 py-1 rounded ${o.id === p.respuestaCorrecta ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-muted'}`}>
+                            {o.texto}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {p.tipo === 'respuesta_corta' && <p className="text-xs text-slate-400 mt-1 italic">Respuesta de texto libre — se califica manualmente</p>}
+                    <p className="text-xs text-slate-400 mt-1">Ponderación: {p.ponderacion}{p.retroalimentacion ? ' · con retroalimentación' : ''}</p>
                   </div>
                 ))}
               </div>
@@ -232,12 +428,28 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
             ) : (
               <form onSubmit={handleAddPregunta} className="bg-surface-card rounded-card shadow-card p-3 space-y-2">
                 <div>
+                  <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
+                  <select value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
+                    className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                    {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                   <textarea value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
                     rows={2} required autoFocus
                     className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                 </div>
-                {OPCION_IDS.map((id) => (
+                <div>
+                  <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
+                    <ImageIcon size={16} /> Imagen opcional
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={(e) => setPreguntaForm((f) => ({ ...f, imagenFile: e.target.files?.[0] || null }))} />
+                    <span className="text-xs text-accent">{preguntaForm.imagenFile ? preguntaForm.imagenFile.name : 'Elegir archivo'}</span>
+                  </label>
+                </div>
+
+                {preguntaForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
                   <div key={id} className="flex items-center gap-2">
                     <input type="radio" name="respuestaCorrecta" checked={preguntaForm.respuestaCorrecta === id}
                       onChange={() => setPreguntaForm((f) => ({ ...f, respuestaCorrecta: id }))} className="accent-[var(--accent)] flex-shrink-0" />
@@ -247,7 +459,30 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
                       className="flex-1 px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                   </div>
                 ))}
-                <p className="text-xs text-slate-400">Selecciona el radio de la opción correcta.</p>
+                {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Selecciona el radio de la opción correcta.</p>}
+
+                {preguntaForm.tipo === 'verdadero_falso' && (
+                  <div className="flex gap-3">
+                    {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
+                      <label key={id} className="flex items-center gap-2 text-sm text-on-surface">
+                        <input type="radio" name="vfRespuesta" checked={preguntaForm.vfRespuesta === id}
+                          onChange={() => setPreguntaForm((f) => ({ ...f, vfRespuesta: id }))} className="accent-[var(--accent)]" />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {preguntaForm.tipo === 'respuesta_corta' && (
+                  <p className="text-xs text-slate-400 italic">El alumno responderá con texto libre. Tú asignas los puntos al revisar su entrega.</p>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
+                  <textarea value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
+                    rows={2} placeholder="Se muestra al alumno después de finalizar, si la configuración lo permite"
+                    className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Ponderación</label>
                   <input type="number" min="0.1" step="0.1" value={preguntaForm.ponderacion}
@@ -259,6 +494,11 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
                     onChange={(e) => setPreguntaForm((f) => ({ ...f, guardarEnBanco: e.target.checked }))} className="accent-[var(--accent)]" />
                   Guardar también en mi banco de reactivos
                 </label>
+                {preguntaForm.guardarEnBanco && (
+                  <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
+                    placeholder="Tema (opcional, ej. Fracciones)"
+                    className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                )}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(EMPTY_PREGUNTA) }}
                     className="flex-1 py-2 text-sm text-muted">Cancelar</button>
@@ -271,22 +511,87 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
 
             {showBanco && (
               <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-                <div className="absolute inset-0 bg-black/40" onClick={() => setShowBanco(false)} />
-                <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[80vh] overflow-y-auto">
+                <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null) }} />
+                <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
                   <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
-                  {banco.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-6">Aún no tienes preguntas guardadas en tu banco</p>
+                  <div className="flex gap-2 mb-3">
+                    <div className="flex-1 relative">
+                      <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input type="text" value={bancoSearch} onChange={(e) => setBancoSearch(e.target.value)}
+                        placeholder="Buscar…" className="w-full pl-8 pr-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                    </div>
+                    {temas.length > 0 && (
+                      <select value={bancoTemaFilter} onChange={(e) => setBancoTemaFilter(e.target.value)}
+                        className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
+                        <option value="">Todos los temas</option>
+                        {temas.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    )}
+                  </div>
+                  {bancoFiltrado.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-6">
+                      {banco.length === 0 ? 'Aún no tienes preguntas guardadas en tu banco' : 'Sin resultados'}
+                    </p>
                   ) : (
                     <div className="space-y-1.5">
-                      {banco.map((item) => (
-                        <button key={item.id} onClick={() => handleAddFromBanco(item)} disabled={saving}
-                          className="w-full text-left px-3 py-2 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors text-sm disabled:opacity-50">
-                          {item.enunciado}
-                        </button>
+                      {bancoFiltrado.map((item) => (
+                        <div key={item.id} className="rounded border border-outline-variant p-2">
+                          {editingBancoId === item.id ? (
+                            <div className="space-y-2">
+                              <select value={bancoEditForm.tipo} onChange={(e) => setBancoEditForm((f) => ({ ...f, tipo: e.target.value }))}
+                                className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
+                                {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                              </select>
+                              <textarea value={bancoEditForm.enunciado} onChange={(e) => setBancoEditForm((f) => ({ ...f, enunciado: e.target.value }))}
+                                rows={2} className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                              {bancoEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
+                                <div key={id} className="flex items-center gap-2">
+                                  <input type="radio" name={`edit-correcta-${item.id}`} checked={bancoEditForm.respuestaCorrecta === id}
+                                    onChange={() => setBancoEditForm((f) => ({ ...f, respuestaCorrecta: id }))} className="accent-[var(--accent)]" />
+                                  <input type="text" value={bancoEditForm.opciones[id]}
+                                    onChange={(e) => setBancoEditForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
+                                    placeholder={`Opción ${id.toUpperCase()}`}
+                                    className="flex-1 px-2 py-1 rounded border border-outline-variant text-sm bg-surface" />
+                                </div>
+                              ))}
+                              {bancoEditForm.tipo === 'verdadero_falso' && (
+                                <div className="flex gap-3">
+                                  {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
+                                    <label key={id} className="flex items-center gap-1.5 text-sm">
+                                      <input type="radio" name={`edit-vf-${item.id}`} checked={bancoEditForm.vfRespuesta === id}
+                                        onChange={() => setBancoEditForm((f) => ({ ...f, vfRespuesta: id }))} className="accent-[var(--accent)]" />
+                                      {label}
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                              <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
+                                placeholder="Tema (opcional)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                              <div className="flex gap-2">
+                                <button type="button" onClick={() => setEditingBancoId(null)} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
+                                <button type="button" onClick={() => handleSaveBancoEdit(item.id)} disabled={saving}
+                                  className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">Guardar</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start gap-2">
+                              <button onClick={() => handleAddFromBanco(item)} disabled={saving}
+                                className="flex-1 text-left text-sm hover:text-accent transition-colors disabled:opacity-50">
+                                {item.enunciado}
+                                {item.tema && <span className="block text-xs text-slate-400 mt-0.5">{item.tema}</span>}
+                              </button>
+                              <div className="flex gap-1 flex-shrink-0">
+                                <button onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={14} /></button>
+                                <button onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={14} /></button>
+                                <button onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={14} /></button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}
-                  <button onClick={() => setShowBanco(false)} className="w-full mt-3 py-2 text-sm text-muted">Cerrar</button>
+                  <button onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full mt-3 py-2 text-sm text-muted">Cerrar</button>
                 </div>
               </div>
             )}
@@ -303,6 +608,11 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
                 <option value="aleatorio">Aleatorio</option>
               </select>
             </div>
+            <label className="flex items-center gap-2 text-sm text-muted">
+              <input type="checkbox" checked={!!configForm.barajarRespuestas}
+                onChange={(e) => setConfigForm((f) => ({ ...f, barajarRespuestas: e.target.checked }))} className="accent-[var(--accent)]" />
+              Barajar el orden de las opciones dentro de cada pregunta
+            </label>
             <div>
               <label className="block text-sm font-medium text-muted mb-1">Navegación</label>
               <select value={configForm.navegacion} onChange={(e) => setConfigForm((f) => ({ ...f, navegacion: e.target.value }))}
@@ -327,8 +637,10 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
               <label className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
               <select value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                <option value="mejor">La calificación más alta</option>
+                <option value="primero">El primer intento</option>
                 <option value="ultimo">El último intento</option>
+                <option value="mejor">La calificación más alta</option>
+                <option value="promedio">El promedio de todos los intentos</option>
               </select>
             </div>
             <div>
@@ -345,6 +657,20 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
                 onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultadosFecha: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             )}
+            <div className="pt-1 border-t border-outline-variant space-y-2">
+              <p className="text-xs font-medium text-muted uppercase tracking-wide pt-2">Qué ve el alumno en sus resultados</p>
+              {[
+                ['mostrarRetroalimentacion', 'Mostrar retroalimentación de cada pregunta'],
+                ['mostrarRespuestasCorrectas', 'Mostrar cuál era la respuesta correcta'],
+                ['mostrarPorcentaje', 'Mostrar porcentaje, además de la calificación'],
+              ].map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm text-muted">
+                  <input type="checkbox" checked={!!configForm[key]}
+                    onChange={(e) => setConfigForm((f) => ({ ...f, [key]: e.target.checked }))} className="accent-[var(--accent)]" />
+                  {label}
+                </label>
+              ))}
+            </div>
             <button type="submit" disabled={savingConfig} className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
               {savingConfig ? 'Guardando…' : 'Guardar configuración'}
             </button>
@@ -378,12 +704,30 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
               ) : (
                 students.map((s, i) => {
                   const sub = submissions[s.id]
+                  const estado = estadoEstudiante(sub)
                   return (
-                    <div key={s.id} className={`flex items-center gap-2 px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
-                      <p className="flex-1 text-sm text-on-surface truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</p>
-                      <span className="text-xs text-muted">
-                        {!sub ? 'Sin iniciar' : sub.estadoEvaluacion === 'finalizado' ? `${sub.calificacion}/${activity.maxCalif || 10}` : 'En progreso'}
-                      </span>
+                    <div key={s.id} className={`px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
+                      <div className="flex items-center gap-2">
+                        <p className="flex-1 text-sm text-on-surface truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                          estado === 'Calificado' ? 'bg-emerald-100 text-emerald-700' :
+                          estado === 'Finalizado' ? 'bg-amber-100 text-amber-700' :
+                          estado === 'En proceso' ? 'bg-blue-100 text-blue-700' : 'bg-surface-container text-muted'
+                        }`}>{estado}</span>
+                        {sub?.estadoEvaluacion === 'finalizado' && (
+                          <span className="text-xs font-semibold text-on-surface flex-shrink-0">{sub.calificacion}/{activity.maxCalif || 10}</span>
+                        )}
+                      </div>
+                      {sub && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {fmtHora(sub.tiempoInicio)} → {fmtHora(sub.fechaEntrega)} · {fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · intento {sub.intentoActual || 1}
+                        </p>
+                      )}
+                      {estado === 'Finalizado' && (
+                        <button onClick={() => handleOpenRevision(s, sub)} className="mt-1 text-xs font-medium text-accent hover:underline">
+                          Revisar respuestas abiertas
+                        </button>
+                      )}
                     </div>
                   )
                 })
@@ -392,6 +736,47 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
           </div>
         )}
       </div>
+
+      {reviewing && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setReviewing(null)} />
+          <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-base font-semibold">
+                Revisar — {reviewing.student.apellidoPaterno} {reviewing.student.nombre}
+              </h3>
+              <button onClick={() => setReviewing(null)} className="p-1 text-slate-400 rounded"><X size={18} /></button>
+            </div>
+            {reviewing.items.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-6">Esta evaluación no tiene preguntas de respuesta corta.</p>
+            ) : (
+              <div className="space-y-3">
+                {reviewing.items.map(({ pregunta, respuesta }) => (
+                  <div key={pregunta.id} className="rounded border border-outline-variant p-3">
+                    <p className="text-sm font-medium text-on-surface mb-1">{pregunta.enunciado}</p>
+                    <p className="text-sm text-muted bg-surface rounded p-2 mb-2 whitespace-pre-wrap">{respuesta.textoRespuesta || '(sin respuesta)'}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="text-xs text-muted flex-shrink-0">Puntos (máx {pregunta.ponderacion})</label>
+                      <input type="number" min="0" max={pregunta.ponderacion} step="0.1"
+                        value={reviewForm[pregunta.id]?.puntos ?? ''}
+                        onChange={(e) => setReviewForm((f) => ({ ...f, [pregunta.id]: { ...f[pregunta.id], puntos: e.target.value } }))}
+                        className="w-20 px-2 py-1 rounded border border-outline-variant text-sm bg-surface" />
+                    </div>
+                    <textarea value={reviewForm[pregunta.id]?.comentario ?? ''}
+                      onChange={(e) => setReviewForm((f) => ({ ...f, [pregunta.id]: { ...f[pregunta.id], comentario: e.target.value } }))}
+                      placeholder="Comentario opcional" rows={2}
+                      className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                  </div>
+                ))}
+                <button onClick={handleSaveRevision} disabled={savingReview}
+                  className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                  {savingReview ? 'Guardando…' : 'Guardar revisión'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -9,7 +9,9 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { ChevronLeft, ChevronRight, Timer, CheckCircle2 } from 'lucide-react'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
-import { calcularCalificacion, resolverCalificacionFinal } from '../../utils/evaluacionGrading'
+import {
+  calcularPuntosPregunta, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
+} from '../../utils/evaluacionGrading'
 import StudentLayout from '../../components/StudentLayout'
 
 // Fisher-Yates with a numeric seed so the shuffled order is reproducible
@@ -25,6 +27,15 @@ function shuffleWithSeed(arr, seed) {
   return a
 }
 
+// Small deterministic string->int hash, used to derive a per-pregunta shuffle
+// seed from its id (combined with the attempt's seed) — no crypto needed,
+// just needs to be stable across reloads of the same attempt.
+function hashSeed(str) {
+  let h = 0
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 233280
+  return h
+}
+
 export default function EvaluacionRunner() {
   const { activityId } = useParams()
   const { currentUser, userProfile } = useAuth()
@@ -34,8 +45,8 @@ export default function EvaluacionRunner() {
   const [activity, setActivity] = useState(null)
   const [subject, setSubject] = useState(null)
   const [submission, setSubmission] = useState(null)
-  const [preguntas, setPreguntas] = useState([]) // ordered
-  const [respuestas, setRespuestas] = useState({}) // preguntaId -> opcionId
+  const [preguntas, setPreguntas] = useState([]) // ordered, with shuffled `opciones` already applied
+  const [respuestas, setRespuestas] = useState({}) // preguntaId -> opcionId | texto
   const [idx, setIdx] = useState(0)
   const [loading, setLoading] = useState(true)
   const [finishing, setFinishing] = useState(false)
@@ -66,16 +77,28 @@ export default function EvaluacionRunner() {
 
       const pregSnap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
       let lista = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      let seed = subData.ordenSeed
       if (actData.evaluacion?.ordenPreguntas === 'aleatorio') {
-        const seed = subData.ordenSeed || (subData.intentoActual || 1) * 7919 + lista.length
+        seed = seed || (subData.intentoActual || 1) * 7919 + lista.length
         lista = shuffleWithSeed(lista, seed)
-        if (!subData.ordenSeed) await updateDoc(doc(db, 'submissions', subData.id), { ordenSeed: seed })
+      }
+      if (actData.evaluacion?.barajarRespuestas) {
+        const baseSeed = seed || (subData.intentoActual || 1) * 7919 + lista.length
+        lista = lista.map((p) => p.opciones
+          ? { ...p, opciones: shuffleWithSeed(p.opciones, baseSeed + hashSeed(p.id)) }
+          : p)
+      }
+      if (!subData.ordenSeed && (actData.evaluacion?.ordenPreguntas === 'aleatorio' || actData.evaluacion?.barajarRespuestas)) {
+        await updateDoc(doc(db, 'submissions', subData.id), { ordenSeed: seed })
       }
       setPreguntas(lista)
 
       const respSnap = await getDocs(collection(db, 'submissions', subData.id, 'respuestas'))
       const respMap = {}
-      respSnap.docs.forEach((d) => { respMap[d.id] = d.data().opcionSeleccionada })
+      respSnap.docs.forEach((d) => {
+        const data = d.data()
+        respMap[d.id] = data.opcionSeleccionada ?? data.textoRespuesta ?? null
+      })
       setRespuestas(respMap)
 
       // Resume the countdown from the original start time, not from now.
@@ -93,12 +116,25 @@ export default function EvaluacionRunner() {
 
   useEffect(() => { if (currentUser) load() }, [activityId, currentUser])
 
-  async function handleSelect(preguntaId, opcionId) {
+  async function handleSelectOpcion(preguntaId, opcionId) {
     setRespuestas((prev) => ({ ...prev, [preguntaId]: opcionId }))
     try {
       await setDoc(
         doc(db, 'submissions', submission.id, 'respuestas', preguntaId),
-        { opcionSeleccionada: opcionId, respondidaEn: serverTimestamp() },
+        { opcionSeleccionada: opcionId, textoRespuesta: null, respondidaEn: serverTimestamp() },
+        { merge: true }
+      )
+    } catch (err) {
+      toast('No se pudo guardar tu respuesta: ' + err.message, 'error')
+    }
+  }
+
+  async function handleTextoChange(preguntaId, texto) {
+    setRespuestas((prev) => ({ ...prev, [preguntaId]: texto }))
+    try {
+      await setDoc(
+        doc(db, 'submissions', submission.id, 'respuestas', preguntaId),
+        { textoRespuesta: texto, opcionSeleccionada: null, respondidaEn: serverTimestamp() },
         { merge: true }
       )
     } catch (err) {
@@ -112,14 +148,28 @@ export default function EvaluacionRunner() {
     setFinishing(true)
     try {
       const respuestasPorPregunta = {}
-      preguntas.forEach((p) => { respuestasPorPregunta[p.id] = { opcionSeleccionada: respuestas[p.id] ?? null } })
+      preguntas.forEach((p) => {
+        const valor = respuestas[p.id] ?? null
+        const respuestaForm = p.tipo === 'respuesta_corta' ? { textoRespuesta: valor } : { opcionSeleccionada: valor }
+        respuestasPorPregunta[p.id] = { ...respuestaForm, puntosObtenidos: calcularPuntosPregunta(p, respuestaForm) }
+      })
+      // Persist each pregunta's resolved points (objective types now, respuesta_corta stays null/pending).
+      await Promise.all(preguntas.map((p) => setDoc(
+        doc(db, 'submissions', submission.id, 'respuestas', p.id),
+        { puntosObtenidos: respuestasPorPregunta[p.id].puntosObtenidos },
+        { merge: true }
+      )))
+
       const calificacionIntento = calcularCalificacion(preguntas, respuestasPorPregunta, activity?.maxCalif || 10)
+      const pendienteRevision = resolverPendienteRevision(preguntas, respuestasPorPregunta)
       const intentosPrevios = submission.intentos || []
       const calificacionFinal = resolverCalificacionFinal(intentosPrevios, calificacionIntento, activity?.evaluacion?.conservar)
+
       await updateDoc(doc(db, 'submissions', submission.id), {
         estadoEvaluacion: 'finalizado',
         calificacion: calificacionFinal,
-        estado: 'entregado',
+        pendienteRevision,
+        estado: pendienteRevision ? 'entregado' : 'calificado',
         fechaEntrega: serverTimestamp(),
         intentos: arrayUnion({
           numero: submission.intentoActual || intentosPrevios.length + 1,
@@ -189,21 +239,35 @@ export default function EvaluacionRunner() {
           </div>
 
           <div className="bg-surface-card rounded-card p-4 shadow-card mb-4">
+            {pregunta.imagenUrl && (
+              <img src={pregunta.imagenUrl} alt="" className="w-full max-h-64 object-contain rounded mb-3 border border-outline-variant" />
+            )}
             <p className="text-base font-medium text-on-surface mb-4 break-words">{pregunta.enunciado}</p>
-            <div className="space-y-2">
-              {pregunta.opciones.map((o) => (
-                <label key={o.id}
-                  className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-                  style={{
-                    borderColor: respuestas[pregunta.id] === o.id ? 'var(--accent)' : '#e2e8f0',
-                    background: respuestas[pregunta.id] === o.id ? 'var(--accent-light)' : '',
-                  }}>
-                  <input type="radio" name={`pregunta-${pregunta.id}`} checked={respuestas[pregunta.id] === o.id}
-                    onChange={() => handleSelect(pregunta.id, o.id)} className="accent-[var(--accent)] flex-shrink-0" />
-                  <span className="text-sm text-on-surface break-words">{o.texto}</span>
-                </label>
-              ))}
-            </div>
+
+            {pregunta.tipo === 'respuesta_corta' ? (
+              <textarea
+                value={respuestas[pregunta.id] || ''}
+                onChange={(e) => handleTextoChange(pregunta.id, e.target.value)}
+                rows={4}
+                placeholder="Escribe tu respuesta…"
+                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+              />
+            ) : (
+              <div className="space-y-2">
+                {pregunta.opciones.map((o) => (
+                  <label key={o.id}
+                    className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+                    style={{
+                      borderColor: respuestas[pregunta.id] === o.id ? 'var(--accent)' : '#e2e8f0',
+                      background: respuestas[pregunta.id] === o.id ? 'var(--accent-light)' : '',
+                    }}>
+                    <input type="radio" name={`pregunta-${pregunta.id}`} checked={respuestas[pregunta.id] === o.id}
+                      onChange={() => handleSelectOpcion(pregunta.id, o.id)} className="accent-[var(--accent)] flex-shrink-0" />
+                    <span className="text-sm text-on-surface break-words">{o.texto}</span>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between gap-2">
