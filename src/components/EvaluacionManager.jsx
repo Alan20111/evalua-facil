@@ -45,7 +45,7 @@ function fmtDuracion(inicio, fin) {
 // of open-ended (respuesta_corta) answers. Lives outside teacher/ActivityPage.jsx
 // (already very large) and is rendered in its place whenever the activity is
 // an evaluación.
-export default function EvaluacionManager({ activity, subject, activityId, activityLabel, students, submissions, onActivityChange, resultadosOnly = false }) {
+export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, resultadosOnly = false }) {
   const navigate = useNavigate()
   const toast = useToast()
   const [tab, setTab] = useState(resultadosOnly ? 'resultados' : 'preguntas')
@@ -446,11 +446,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
+            {contextLine && <p className="text-xs text-slate-400 truncate mb-0.5">{contextLine}</p>}
             <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 truncate">
               {activityLabel && <span className="text-2xl font-extrabold text-accent">{activityLabel}</span>}
               <span className="truncate">{activity.nombre}</span>
             </h1>
-            <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
+            <p className="text-slate-400 text-xs">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
           </div>
         </div>
         {!resultadosOnly && (

@@ -29,6 +29,7 @@ export default function EntregableEditor({
   onActivityUpdated,
   initialForm,        // pre-filled when editing
   initialExistingFiles,
+  contextLine,        // e.g. "Cultura digital I - 1A — Profe Kike Méndez"
 }) {
   const toast = useToast()
   const isNew = !activityId
@@ -117,6 +118,7 @@ export default function EntregableEditor({
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
+            {contextLine && <p className="text-xs text-white/60 truncate">{contextLine}</p>}
             <p className="text-xs text-white/70 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
             <h1 className="font-bold text-white truncate">{form.nombre || `${isNew ? 'Nueva actividad' : 'Editar actividad'}`}</h1>
           </div>

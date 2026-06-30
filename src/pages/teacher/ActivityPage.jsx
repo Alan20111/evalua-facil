@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import {
   collection,
   query,
@@ -47,6 +48,7 @@ const STATUS_LABELS = {
 
 export default function ActivityPage() {
   const { activityId } = useParams()
+  const { userProfile } = useAuth()
   const [activity, setActivity] = useState(null)
   const [activityLabel, setActivityLabel] = useState(null)
   const [subject, setSubject] = useState(null)
@@ -253,6 +255,7 @@ export default function ActivityPage() {
             subject={subject}
             activityId={activityId}
             activityLabel={activityLabel}
+            contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
             students={students}
             submissions={submissions}
             onActivityChange={setActivity}
@@ -281,7 +284,11 @@ export default function ActivityPage() {
                 {activityLabel && <span className="text-accent">{activityLabel}</span>}
                 {activity?.nombre}
               </h1>
-              <p className="text-slate-400 text-xs">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
+              <p className="text-slate-400 text-xs">
+                {subjectDisplayName(subject)}
+                {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
+                {' · '}Parcial {activity?.parcial}
+              </p>
             </div>
           </div>
           {(activity?.publishAt || activity?.fechaLimite) && (
