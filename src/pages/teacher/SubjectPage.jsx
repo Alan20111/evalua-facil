@@ -2077,14 +2077,16 @@ export default function SubjectPage() {
                 />
               </div>
               <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
-              <div className="pt-1">
-                <FileTypeSelect
-                  value={form.tiposArchivo}
-                  onChange={(v) => setForm((f) => ({ ...f, tiposArchivo: v }))}
-                  customExts={form.extensionesCustom}
-                  onCustomChange={(v) => setForm((f) => ({ ...f, extensionesCustom: v }))}
-                />
-              </div>
+              {!(form.esEvaluacion && (form.categoria === 'cuestionario' || form.categoria === 'examen')) && (
+                <div className="pt-1">
+                  <FileTypeSelect
+                    value={form.tiposArchivo}
+                    onChange={(v) => setForm((f) => ({ ...f, tiposArchivo: v }))}
+                    customExts={form.extensionesCustom}
+                    onCustomChange={(v) => setForm((f) => ({ ...f, extensionesCustom: v }))}
+                  />
+                </div>
+              )}
 
               {/* Visibilidad */}
               <div>
