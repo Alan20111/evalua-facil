@@ -46,6 +46,24 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
+
+      // Evaluación questions — only the owning teacher (looked up on the
+      // parent activity) may write; any authenticated user may read. The
+      // student-facing UI is responsible for not requesting `respuestaCorrecta`
+      // while an attempt is in progress (rules can't filter fields).
+      match /preguntas/{preguntaId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+      }
+    }
+
+    // Personal question bank (Evaluaciones) — strictly owner-only.
+    match /bancoReactivos/{reactivoId} {
+      allow read, update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.docenteId;
     }
 
     // Permanent course materials (syllabus, guides, etc.) — not tied to an
@@ -80,6 +98,15 @@ service cloud.firestore {
         request.auth.uid == get(/databases/$(database)/documents/activities/$(resource.data.actividadId)).data.docenteId
         || resource.data.alumnoId == request.auth.uid
       );
+
+      // Evaluación answers (autosave) — only the owning student may write
+      // their own answers; the teacher can read them (detail view) but never
+      // write them.
+      match /respuestas/{preguntaId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null &&
+          get(/databases/$(database)/documents/submissions/$(submissionId)).data.alumnoId == request.auth.uid;
+      }
     }
 
     match /plans/{planId} {

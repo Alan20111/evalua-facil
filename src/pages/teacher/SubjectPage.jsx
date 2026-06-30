@@ -56,7 +56,23 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', categoria: 'actividad', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show' }
+const EMPTY_FORM = { nombre: '', categoria: 'actividad', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show', esEvaluacion: false }
+
+// Defaults for a new evaluación's config — Cuestionario favors repeated
+// practice (unlimited attempts, keep best); Examen favors a single formal
+// attempt (1 try, keep last). The teacher can change all of this afterward.
+const EVALUACION_DEFAULTS = {
+  cuestionario: {
+    numPreguntas: 0, ordenPreguntas: 'creacion', navegacion: 'libre',
+    tiempoLimiteMin: null, intentosPermitidos: null, conservar: 'mejor',
+    publicarResultados: 'inmediato', publicarResultadosFecha: null, resultadosPublicados: false,
+  },
+  examen: {
+    numPreguntas: 0, ordenPreguntas: 'creacion', navegacion: 'secuencial',
+    tiempoLimiteMin: 30, intentosPermitidos: 1, conservar: 'ultimo',
+    publicarResultados: 'inmediato', publicarResultadosFecha: null, resultadosPublicados: false,
+  },
+}
 
 const CATEGORIAS_ACTIVIDAD = [
   { value: 'actividad', label: 'Actividad' },
@@ -809,12 +825,22 @@ export default function SubjectPage() {
         // computed fresh from position within the parcial wherever it's shown
         // (see `activityLabelById` below) — never stored, so it can't drift.
         const orden = activities.filter((a) => a.parcial === modalParcial).length + 1
+        const esEvaluacion = form.esEvaluacion && (form.categoria === 'cuestionario' || form.categoria === 'examen')
+        const tipo = esEvaluacion ? 'evaluacion' : 'archivo'
+        const extra = esEvaluacion ? { evaluacion: EVALUACION_DEFAULTS[form.categoria] } : {}
         const ref = await addDoc(collection(db, 'activities'), {
-          ...payload, tipo: 'archivo', parcial: modalParcial, orden,
+          ...payload, ...extra, tipo, parcial: modalParcial, orden,
           asignaturaId: subjectId, docenteId: currentUser.uid, createdAt: serverTimestamp(),
         })
-        setActivities((prev) => [...prev, { id: ref.id, ...payload, tipo: 'archivo', parcial: modalParcial, orden, asignaturaId: subjectId, docenteId: currentUser.uid }])
+        setActivities((prev) => [...prev, { id: ref.id, ...payload, ...extra, tipo, parcial: modalParcial, orden, asignaturaId: subjectId, docenteId: currentUser.uid }])
         setSubmissionCounts((prev) => ({ ...prev, [ref.id]: { delivered: 0, graded: 0 } }))
+        if (esEvaluacion) {
+          toast('Evaluación creada — agrega tus preguntas')
+          setShowModal(false); setForm(EMPTY_FORM)
+          setActivityExistingFiles([]); setActivityNewFiles([])
+          navigate(`/activity/${ref.id}`)
+          return
+        }
         toast('Actividad creada')
       } else {
         await updateDoc(doc(db, 'activities', editActivityId), payload)
@@ -2018,6 +2044,18 @@ export default function SubjectPage() {
                   ))}
                 </select>
               </div>
+              {modalMode === 'create' && (form.categoria === 'cuestionario' || form.categoria === 'examen') && (
+                <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+                  style={{ borderColor: form.esEvaluacion ? 'var(--accent)' : '#e2e8f0', background: form.esEvaluacion ? 'var(--accent-light)' : '' }}>
+                  <input type="checkbox" checked={form.esEvaluacion}
+                    onChange={(e) => setForm((f) => ({ ...f, esEvaluacion: e.target.checked }))}
+                    className="accent-[var(--accent)]" />
+                  <div>
+                    <p className="text-sm font-medium text-on-surface">Evaluación con preguntas (auto-calificada)</p>
+                    <p className="text-xs text-muted">Opción múltiple, calificación automática. Configurarás las preguntas al guardar.</p>
+                  </div>
+                </label>
+              )}
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
                 <RichTextEditor

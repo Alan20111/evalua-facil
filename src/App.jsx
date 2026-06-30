@@ -21,6 +21,7 @@ import StudentLogin from './pages/student/Login'
 import StudentDashboard from './pages/student/Dashboard'
 import StudentSubjectPage from './pages/student/SubjectPage'
 import StudentActivityPage from './pages/student/ActivityPage'
+import EvaluacionRunner from './pages/student/EvaluacionRunner'
 
 import AdminDashboard from './pages/admin/Dashboard'
 
@@ -135,6 +136,7 @@ export default function App() {
             <Route path="/alumno/dashboard" element={<ProtectedStudent><StudentDashboard /></ProtectedStudent>} />
             <Route path="/alumno/materia/:subjectId" element={<ProtectedStudent><StudentSubjectPage /></ProtectedStudent>} />
             <Route path="/alumno/actividad/:activityId" element={<ProtectedStudent><StudentActivityPage /></ProtectedStudent>} />
+            <Route path="/alumno/evaluacion/:activityId" element={<ProtectedStudent><EvaluacionRunner /></ProtectedStudent>} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -28,6 +28,7 @@ import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import AttachmentList from '../../components/AttachmentList'
 import StudentLayout from '../../components/StudentLayout'
+import { PlayCircle, ListChecks, Timer, RotateCcw } from 'lucide-react'
 
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -226,6 +227,42 @@ export default function StudentActivityPage() {
     }
   }
 
+  async function handleStartOrContinueEvaluacion() {
+    if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
+    setUploading(true)
+    try {
+      if (submission && submission.estadoEvaluacion === 'en_progreso') {
+        navigate(`/alumno/evaluacion/${activityId}`)
+        return
+      }
+      if (submission) {
+        await updateDoc(doc(db, 'submissions', submission.id), {
+          estadoEvaluacion: 'en_progreso',
+          intentoActual: (submission.intentos?.length || 0) + 1,
+          tiempoInicio: serverTimestamp(),
+        })
+      } else {
+        await addDoc(collection(db, 'submissions'), {
+          alumnoId: student.id,
+          actividadId: activityId,
+          calificacion: null,
+          comentario: '',
+          estado: 'pendiente',
+          historial: [],
+          estadoEvaluacion: 'en_progreso',
+          intentoActual: 1,
+          intentos: [],
+          tiempoInicio: serverTimestamp(),
+        })
+      }
+      navigate(`/alumno/evaluacion/${activityId}`)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   if (loading) return (
     <StudentLayout>
       <div className="flex items-center justify-center py-20">
@@ -233,6 +270,112 @@ export default function StudentActivityPage() {
       </div>
     </StudentLayout>
   )
+
+  if (activity?.tipo === 'evaluacion') {
+    const ev = activity.evaluacion || {}
+    const intentosUsados = submission?.intentos?.length || 0
+    const enProgreso = submission?.estadoEvaluacion === 'en_progreso'
+    const finalizado = submission?.estadoEvaluacion === 'finalizado'
+    const sinIntentosRestantes = ev.intentosPermitidos != null && intentosUsados >= ev.intentosPermitidos && !enProgreso
+    const ahoraISO = new Date().toISOString()
+    const resultadosVisibles = finalizado && (
+      ev.publicarResultados === 'inmediato' ||
+      (ev.publicarResultados === 'fecha' && ev.publicarResultadosFecha && ahoraISO >= ev.publicarResultadosFecha) ||
+      (ev.publicarResultados === 'manual' && ev.resultadosPublicados)
+    )
+    return (
+      <StudentLayout>
+        <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
+          <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
+            <button onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+              <ArrowLeft size={22} />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-on-surface truncate">{activity?.nombre}</h1>
+              <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
+            </div>
+          </header>
+
+          <div className="px-4 py-5 max-w-xl mx-auto space-y-3">
+            {finalizado && (
+              <div className="bg-surface-card rounded-card p-4 shadow-card">
+                {resultadosVisibles ? (
+                  <>
+                    <div className="flex items-center gap-3 mb-3">
+                      <Star size={22} className="text-amber-400" />
+                      <h2 className="font-semibold text-on-surface">Tu calificación</h2>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <span className="text-5xl font-bold text-accent">{submission.calificacion}</span>
+                      <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted flex items-center gap-2"><Clock size={17} /> Resultados pendientes de publicación</p>
+                )}
+              </div>
+            )}
+
+            {activity?.instrucciones && (
+              <div className="bg-surface-card rounded-card p-4 shadow-card">
+                <h2 className="font-semibold text-on-surface mb-2">Instrucciones</h2>
+                <div
+                  className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+                />
+              </div>
+            )}
+
+            <div className="bg-surface-card rounded-card p-4 shadow-card space-y-2">
+              <h2 className="font-semibold text-on-surface mb-1">Resumen</h2>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted flex items-center gap-1.5"><ListChecks size={16} /> Número de preguntas</span>
+                <span className="font-semibold text-on-surface">{ev.numPreguntas || 0}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
+                <span className="font-semibold text-on-surface">{ev.tiempoLimiteMin ? `${ev.tiempoLimiteMin} min` : 'Sin límite'}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted flex items-center gap-1.5"><RotateCcw size={16} /> Intentos</span>
+                <span className="font-semibold text-on-surface">
+                  {ev.intentosPermitidos ? `${intentosUsados}/${ev.intentosPermitidos}` : `${intentosUsados} (ilimitados)`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted">Navegación</span>
+                <span className="font-semibold text-on-surface">{ev.navegacion === 'secuencial' ? 'Secuencial — no puedes regresar' : 'Libre'}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted">Calificación a conservar</span>
+                <span className="font-semibold text-on-surface">{ev.conservar === 'mejor' ? 'La más alta' : 'El último intento'}</span>
+              </div>
+            </div>
+
+            {(ev.numPreguntas || 0) === 0 ? (
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+                Tu maestro aún no ha agregado preguntas a esta evaluación.
+              </div>
+            ) : sinIntentosRestantes ? (
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+                Ya usaste todos tus intentos disponibles.
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleStartOrContinueEvaluacion}
+                disabled={uploading}
+                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {uploading ? <Spinner size="sm" /> : <PlayCircle size={20} />}
+                {uploading ? 'Cargando…' : enProgreso ? 'Continuar evaluación' : finalizado ? 'Nuevo intento' : 'Comenzar'}
+              </button>
+            )}
+          </div>
+        </div>
+      </StudentLayout>
+    )
+  }
 
   const isGraded = submission?.calificacion != null
   const isDelivered = !!submission && !isGraded

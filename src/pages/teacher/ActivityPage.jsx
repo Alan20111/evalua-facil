@@ -27,6 +27,7 @@ import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch } from '../../utils/studentSearch'
+import EvaluacionManager from '../../components/EvaluacionManager'
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
@@ -242,6 +243,23 @@ export default function ActivityPage() {
       <div className="flex justify-center py-20"><Spinner size="lg" /></div>
     </TeacherLayout>
   )
+
+  if (activity?.tipo === 'evaluacion') {
+    return (
+      <TeacherLayout>
+        <div data-subject-palette={subject?.colorPalette || 'default'}>
+          <EvaluacionManager
+            activity={activity}
+            subject={subject}
+            activityId={activityId}
+            students={students}
+            submissions={submissions}
+            onActivityChange={setActivity}
+          />
+        </div>
+      </TeacherLayout>
+    )
+  }
 
   return (
     <TeacherLayout>

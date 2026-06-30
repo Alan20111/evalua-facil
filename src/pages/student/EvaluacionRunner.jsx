@@ -1,0 +1,234 @@
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import {
+  collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc, arrayUnion, serverTimestamp,
+} from 'firebase/firestore'
+import { db } from '../../firebase'
+import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../components/Toast'
+import Spinner from '../../components/Spinner'
+import { ChevronLeft, ChevronRight, Timer, CheckCircle2 } from 'lucide-react'
+import { getEnrollmentForSubject } from '../../utils/studentLookup'
+import { calcularCalificacion, resolverCalificacionFinal } from '../../utils/evaluacionGrading'
+import StudentLayout from '../../components/StudentLayout'
+
+// Fisher-Yates with a numeric seed so the shuffled order is reproducible
+// across reloads of the same attempt (the seed is persisted on the submission).
+function shuffleWithSeed(arr, seed) {
+  const a = [...arr]
+  let s = seed
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (s * 9301 + 49297) % 233280
+    const j = Math.floor((s / 233280) * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+export default function EvaluacionRunner() {
+  const { activityId } = useParams()
+  const { currentUser, userProfile } = useAuth()
+  const navigate = useNavigate()
+  const toast = useToast()
+
+  const [activity, setActivity] = useState(null)
+  const [subject, setSubject] = useState(null)
+  const [submission, setSubmission] = useState(null)
+  const [preguntas, setPreguntas] = useState([]) // ordered
+  const [respuestas, setRespuestas] = useState({}) // preguntaId -> opcionId
+  const [idx, setIdx] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [finishing, setFinishing] = useState(false)
+  const [secondsLeft, setSecondsLeft] = useState(null)
+  const finishedRef = useRef(false)
+
+  async function load() {
+    setLoading(true)
+    try {
+      const actSnap = await getDoc(doc(db, 'activities', activityId))
+      if (!actSnap.exists() || actSnap.data().tipo !== 'evaluacion') {
+        navigate(`/alumno/actividad/${activityId}`); return
+      }
+      const actData = { id: actSnap.id, ...actSnap.data() }
+      setActivity(actData)
+      const subSnap = await getDoc(doc(db, 'subjects', actData.asignaturaId))
+      setSubject({ id: subSnap.id, ...subSnap.data() })
+
+      const studData = await getEnrollmentForSubject(currentUser, userProfile, actData.asignaturaId)
+      const subsSnap = await getDocs(query(
+        collection(db, 'submissions'), where('actividadId', '==', activityId), where('alumnoId', '==', studData.id)
+      ))
+      if (subsSnap.empty || subsSnap.docs[0].data().estadoEvaluacion !== 'en_progreso') {
+        navigate(`/alumno/actividad/${activityId}`); return
+      }
+      const subData = { id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() }
+      setSubmission(subData)
+
+      const pregSnap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
+      let lista = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      if (actData.evaluacion?.ordenPreguntas === 'aleatorio') {
+        const seed = subData.ordenSeed || (subData.intentoActual || 1) * 7919 + lista.length
+        lista = shuffleWithSeed(lista, seed)
+        if (!subData.ordenSeed) await updateDoc(doc(db, 'submissions', subData.id), { ordenSeed: seed })
+      }
+      setPreguntas(lista)
+
+      const respSnap = await getDocs(collection(db, 'submissions', subData.id, 'respuestas'))
+      const respMap = {}
+      respSnap.docs.forEach((d) => { respMap[d.id] = d.data().opcionSeleccionada })
+      setRespuestas(respMap)
+
+      // Resume the countdown from the original start time, not from now.
+      if (actData.evaluacion?.tiempoLimiteMin && subData.tiempoInicio?.seconds) {
+        const limitMs = actData.evaluacion.tiempoLimiteMin * 60 * 1000
+        const elapsedMs = Date.now() - subData.tiempoInicio.seconds * 1000
+        setSecondsLeft(Math.max(0, Math.floor((limitMs - elapsedMs) / 1000)))
+      }
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { if (currentUser) load() }, [activityId, currentUser])
+
+  async function handleSelect(preguntaId, opcionId) {
+    setRespuestas((prev) => ({ ...prev, [preguntaId]: opcionId }))
+    try {
+      await setDoc(
+        doc(db, 'submissions', submission.id, 'respuestas', preguntaId),
+        { opcionSeleccionada: opcionId, respondidaEn: serverTimestamp() },
+        { merge: true }
+      )
+    } catch (err) {
+      toast('No se pudo guardar tu respuesta: ' + err.message, 'error')
+    }
+  }
+
+  async function handleFinalizar() {
+    if (finishedRef.current) return
+    finishedRef.current = true
+    setFinishing(true)
+    try {
+      const respuestasPorPregunta = {}
+      preguntas.forEach((p) => { respuestasPorPregunta[p.id] = { opcionSeleccionada: respuestas[p.id] ?? null } })
+      const calificacionIntento = calcularCalificacion(preguntas, respuestasPorPregunta, activity?.maxCalif || 10)
+      const intentosPrevios = submission.intentos || []
+      const calificacionFinal = resolverCalificacionFinal(intentosPrevios, calificacionIntento, activity?.evaluacion?.conservar)
+      await updateDoc(doc(db, 'submissions', submission.id), {
+        estadoEvaluacion: 'finalizado',
+        calificacion: calificacionFinal,
+        estado: 'entregado',
+        fechaEntrega: serverTimestamp(),
+        intentos: arrayUnion({
+          numero: submission.intentoActual || intentosPrevios.length + 1,
+          calificacion: calificacionIntento,
+        }),
+      })
+      toast('Evaluación finalizada')
+      navigate(`/alumno/actividad/${activityId}`)
+    } catch (err) {
+      finishedRef.current = false
+      toast('Error al finalizar: ' + err.message, 'error')
+    } finally {
+      setFinishing(false)
+    }
+  }
+
+  // Countdown tick + auto-finish when it hits zero.
+  useEffect(() => {
+    if (secondsLeft == null) return
+    if (secondsLeft <= 0) {
+      if (!finishedRef.current) handleFinalizar()
+      return
+    }
+    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secondsLeft])
+
+  if (loading || !activity) return (
+    <StudentLayout>
+      <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
+    </StudentLayout>
+  )
+
+  if (preguntas.length === 0) {
+    return (
+      <StudentLayout>
+        <div className="px-4 py-10 text-center text-sm text-slate-400">Esta evaluación no tiene preguntas.</div>
+      </StudentLayout>
+    )
+  }
+
+  const navegacionLibre = activity.evaluacion?.navegacion !== 'secuencial'
+  const pregunta = preguntas[idx]
+  const isLast = idx === preguntas.length - 1
+  const mm = secondsLeft != null ? Math.floor(secondsLeft / 60) : null
+  const ss = secondsLeft != null ? secondsLeft % 60 : null
+
+  return (
+    <StudentLayout>
+      <div className="bg-surface min-h-screen" data-subject-palette={subject?.colorPalette || 'default'}>
+        <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between shadow-card sticky top-0 z-10">
+          <div className="min-w-0">
+            <h1 className="text-base font-bold text-on-surface truncate">{activity.nombre}</h1>
+            <p className="text-xs text-muted">Pregunta {idx + 1} de {preguntas.length}</p>
+          </div>
+          {secondsLeft != null && (
+            <span className={`flex items-center gap-1 text-sm font-semibold flex-shrink-0 ${secondsLeft < 60 ? 'text-error' : 'text-accent'}`}>
+              <Timer size={18} /> {mm}:{String(ss).padStart(2, '0')}
+            </span>
+          )}
+        </header>
+
+        <div className="px-4 py-6 max-w-xl mx-auto">
+          <div className="w-full h-1.5 bg-surface-container rounded-full mb-5 overflow-hidden">
+            <div className="h-full bg-accent transition-all" style={{ width: `${((idx + 1) / preguntas.length) * 100}%` }} />
+          </div>
+
+          <div className="bg-surface-card rounded-card p-4 shadow-card mb-4">
+            <p className="text-base font-medium text-on-surface mb-4 break-words">{pregunta.enunciado}</p>
+            <div className="space-y-2">
+              {pregunta.opciones.map((o) => (
+                <label key={o.id}
+                  className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+                  style={{
+                    borderColor: respuestas[pregunta.id] === o.id ? 'var(--accent)' : '#e2e8f0',
+                    background: respuestas[pregunta.id] === o.id ? 'var(--accent-light)' : '',
+                  }}>
+                  <input type="radio" name={`pregunta-${pregunta.id}`} checked={respuestas[pregunta.id] === o.id}
+                    onChange={() => handleSelect(pregunta.id, o.id)} className="accent-[var(--accent)] flex-shrink-0" />
+                  <span className="text-sm text-on-surface break-words">{o.texto}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            {navegacionLibre ? (
+              <button type="button" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}
+                className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-30 rounded">
+                <ChevronLeft size={18} /> Anterior
+              </button>
+            ) : <span />}
+
+            {isLast ? (
+              <button type="button" onClick={handleFinalizar} disabled={finishing}
+                className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60">
+                {finishing ? <Spinner size="sm" /> : <CheckCircle2 size={18} />}
+                {finishing ? 'Finalizando…' : 'Finalizar evaluación'}
+              </button>
+            ) : (
+              <button type="button" onClick={() => setIdx((i) => i + 1)}
+                className="flex items-center gap-1 px-5 py-2.5 bg-accent text-white font-semibold rounded">
+                Siguiente <ChevronRight size={18} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </StudentLayout>
+  )
+}
