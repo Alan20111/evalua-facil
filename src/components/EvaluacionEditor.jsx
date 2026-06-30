@@ -519,19 +519,13 @@ export default function EvaluacionEditor({
                 onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultadosFecha: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             )}
-            <div className="pt-1 border-t border-outline-variant space-y-2">
-              <p className="text-xs font-medium text-muted uppercase tracking-wide pt-2">Qué ve el alumno en sus resultados</p>
-              {[
-                ['mostrarRetroalimentacion', 'Mostrar retroalimentación de cada pregunta'],
-                ['mostrarRespuestasCorrectas', 'Mostrar cuál era la respuesta correcta'],
-                ['mostrarPorcentaje', 'Mostrar porcentaje, además de la calificación'],
-              ].map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2 text-sm text-muted">
-                  <input type="checkbox" checked={!!configForm[key]}
-                    onChange={(e) => setConfigForm((f) => ({ ...f, [key]: e.target.checked }))} className="accent-[var(--accent)]" />
-                  {label}
-                </label>
-              ))}
+            <div className="pt-1 border-t border-outline-variant">
+              <p className="text-xs font-medium text-muted uppercase tracking-wide pt-2 mb-2">Qué ve el alumno en sus resultados</p>
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input type="checkbox" checked={!!configForm.mostrarRespuestasCorrectas}
+                  onChange={(e) => setConfigForm((f) => ({ ...f, mostrarRespuestasCorrectas: e.target.checked }))} className="accent-[var(--accent)]" />
+                Mostrar cuál era la respuesta correcta
+              </label>
             </div>
             <button type="submit" disabled={savingConfig || !currentActivityId}
               className="w-full py-2 bg-surface-container text-on-surface text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2">
