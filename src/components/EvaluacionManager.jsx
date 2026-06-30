@@ -11,7 +11,7 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
 } from '../utils/evaluacionGrading'
-import { ArrowLeft, Plus, Trash2, Library, Star, Users, Search, Pencil, Copy, X, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Library, Star, Users, Search, Pencil, Copy, X, Image as ImageIcon, ChevronUp, ChevronDown } from 'lucide-react'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -57,6 +57,8 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
   const [banco, setBanco] = useState([])
   const [bancoLoaded, setBancoLoaded] = useState(false)
   const [showBanco, setShowBanco] = useState(false)
+  const [editingPreguntaId, setEditingPreguntaId] = useState(null)
+  const [preguntaEditForm, setPreguntaEditForm] = useState(null)
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
   const [editingBancoId, setEditingBancoId] = useState(null)
@@ -187,6 +189,86 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
       setPreguntas((prev) => prev.filter((p) => p.id !== id))
       await syncNumPreguntas(Math.max(0, preguntas.length - 1))
       toast('Pregunta eliminada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  // ── Editar pregunta dentro de la evaluación ──
+  function openEditPregunta(p) {
+    setEditingPreguntaId(p.id)
+    setPreguntaEditForm({
+      tipo: p.tipo,
+      enunciado: p.enunciado,
+      opciones: p.tipo === 'opcion_multiple'
+        ? { a: p.opciones?.[0]?.texto || '', b: p.opciones?.[1]?.texto || '', c: p.opciones?.[2]?.texto || '', d: p.opciones?.[3]?.texto || '' }
+        : { a: '', b: '', c: '', d: '' },
+      respuestaCorrecta: p.tipo === 'opcion_multiple' ? (p.respuestaCorrecta || 'a') : 'a',
+      vfRespuesta: p.tipo === 'verdadero_falso' ? (p.respuestaCorrecta || 'v') : 'v',
+      ponderacion: p.ponderacion ?? 1,
+      retroalimentacion: p.retroalimentacion || '',
+      imagenFile: null,
+    })
+  }
+
+  async function handleSavePreguntaEdit(e, id) {
+    e.preventDefault()
+    if (!validatePreguntaForm(preguntaEditForm)) return
+    setSaving(true)
+    try {
+      let imagenUrl = preguntas.find((p) => p.id === id)?.imagenUrl || null
+      if (preguntaEditForm.imagenFile) {
+        imagenUrl = await uploadToCloudinary(preguntaEditForm.imagenFile, 'evalua-facil/preguntas')
+      }
+      const data = { ...buildPreguntaData({ ...preguntaEditForm }), imagenUrl }
+      await updateDoc(doc(db, 'activities', activityId, 'preguntas', id), data)
+      setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
+      setEditingPreguntaId(null)
+      toast('Pregunta actualizada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDuplicatePregunta(p) {
+    try {
+      const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((x) => x.orden ?? 0)) + 1
+      const data = {
+        tipo: p.tipo, enunciado: `${p.enunciado} (copia)`, opciones: p.opciones || null,
+        respuestaCorrecta: p.respuestaCorrecta || null, ponderacion: p.ponderacion,
+        retroalimentacion: p.retroalimentacion || null, imagenUrl: p.imagenUrl || null,
+        orden, origenBancoId: null,
+      }
+      const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
+      setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
+      await syncNumPreguntas(preguntas.length + 1)
+      toast('Pregunta duplicada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  async function handleMovePregunta(id, direction) {
+    const idx = preguntas.findIndex((p) => p.id === id)
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (swapIdx < 0 || swapIdx >= preguntas.length) return
+    const a = preguntas[idx]
+    const b = preguntas[swapIdx]
+    const newOrdenA = b.orden ?? swapIdx
+    const newOrdenB = a.orden ?? idx
+    try {
+      await Promise.all([
+        updateDoc(doc(db, 'activities', activityId, 'preguntas', a.id), { orden: newOrdenA }),
+        updateDoc(doc(db, 'activities', activityId, 'preguntas', b.id), { orden: newOrdenB }),
+      ])
+      setPreguntas((prev) => {
+        const next = [...prev]
+        next[idx] = { ...a, orden: newOrdenA }
+        next[swapIdx] = { ...b, orden: newOrdenB }
+        return next.sort((x, y) => (x.orden ?? 0) - (y.orden ?? 0))
+      })
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     }
@@ -388,29 +470,95 @@ export default function EvaluacionManager({ activity, subject, activityId, stude
                 {preguntas.length === 0 && <p className="text-sm text-slate-400 text-center py-6">Aún no hay preguntas</p>}
                 {preguntas.map((p, i) => (
                   <div key={p.id} className="bg-surface-card rounded-card shadow-card p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent-light px-1.5 py-0.5 rounded mb-1">
-                          {TIPOS_PREGUNTA.find((t) => t.value === p.tipo)?.label || p.tipo}
-                        </span>
-                        <p className="text-sm font-medium text-on-surface">{i + 1}. {p.enunciado}</p>
-                      </div>
-                      <button onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded flex-shrink-0">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded border border-outline-variant" />}
-                    {p.opciones && (
-                      <div className="mt-1 grid grid-cols-2 gap-1">
-                        {p.opciones.map((o) => (
-                          <p key={o.id} className={`text-xs px-2 py-1 rounded ${o.id === p.respuestaCorrecta ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-muted'}`}>
-                            {o.texto}
-                          </p>
+                    {editingPreguntaId === p.id ? (
+                      <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="space-y-2">
+                        <div>
+                          <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
+                          <select value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
+                            className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                            {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                          </select>
+                        </div>
+                        <textarea value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
+                          rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                        {preguntaEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
+                          <div key={id} className="flex items-center gap-2">
+                            <input type="radio" name={`edit-p-${p.id}`} checked={preguntaEditForm.respuestaCorrecta === id}
+                              onChange={() => setPreguntaEditForm((f) => ({ ...f, respuestaCorrecta: id }))} className="accent-[var(--accent)] flex-shrink-0" />
+                            <input type="text" value={preguntaEditForm.opciones[id]}
+                              onChange={(e) => setPreguntaEditForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
+                              placeholder={`Opción ${id.toUpperCase()}`} required
+                              className="flex-1 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                          </div>
                         ))}
-                      </div>
+                        {preguntaEditForm.tipo === 'verdadero_falso' && (
+                          <div className="flex gap-3">
+                            {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
+                              <label key={id} className="flex items-center gap-2 text-sm">
+                                <input type="radio" name={`edit-vf-${p.id}`} checked={preguntaEditForm.vfRespuesta === id}
+                                  onChange={() => setPreguntaEditForm((f) => ({ ...f, vfRespuesta: id }))} className="accent-[var(--accent)]" />
+                                {label}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
+                          <textarea value={preguntaEditForm.retroalimentacion} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
+                            rows={2} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-muted mb-1">Ponderación</label>
+                          <input type="number" min="0.1" step="0.1" value={preguntaEditForm.ponderacion}
+                            onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
+                            className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                        </div>
+                        <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
+                          <ImageIcon size={16} /> Cambiar imagen (opcional)
+                          <input type="file" accept="image/*" className="hidden"
+                            onChange={(e) => setPreguntaEditForm((f) => ({ ...f, imagenFile: e.target.files?.[0] || null }))} />
+                          {preguntaEditForm.imagenFile && <span className="text-xs text-accent">{preguntaEditForm.imagenFile.name}</span>}
+                        </label>
+                        <div className="flex gap-2 pt-1">
+                          <button type="button" onClick={() => setEditingPreguntaId(null)} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                          <button type="submit" disabled={saving} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                            {saving ? 'Guardando…' : 'Guardar cambios'}
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent-light px-1.5 py-0.5 rounded mb-1">
+                              {TIPOS_PREGUNTA.find((t) => t.value === p.tipo)?.label || p.tipo}
+                            </span>
+                            <p className="text-sm font-medium text-on-surface">{i + 1}. {p.enunciado}</p>
+                          </div>
+                          <div className="flex gap-0.5 flex-shrink-0">
+                            <button onClick={() => handleMovePregunta(p.id, 'up')} disabled={i === 0}
+                              className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded"><ChevronUp size={15} /></button>
+                            <button onClick={() => handleMovePregunta(p.id, 'down')} disabled={i === preguntas.length - 1}
+                              className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded"><ChevronDown size={15} /></button>
+                            <button onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={15} /></button>
+                            <button onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={15} /></button>
+                            <button onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={15} /></button>
+                          </div>
+                        </div>
+                        {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded border border-outline-variant" />}
+                        {p.opciones && (
+                          <div className="mt-1 grid grid-cols-2 gap-1">
+                            {p.opciones.map((o) => (
+                              <p key={o.id} className={`text-xs px-2 py-1 rounded ${o.id === p.respuestaCorrecta ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-muted'}`}>
+                                {o.texto}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        {p.tipo === 'respuesta_corta' && <p className="text-xs text-slate-400 mt-1 italic">Respuesta de texto libre — se califica manualmente</p>}
+                        <p className="text-xs text-slate-400 mt-1">Ponderación: {p.ponderacion}{p.retroalimentacion ? ' · con retroalimentación' : ''}</p>
+                      </>
                     )}
-                    {p.tipo === 'respuesta_corta' && <p className="text-xs text-slate-400 mt-1 italic">Respuesta de texto libre — se califica manualmente</p>}
-                    <p className="text-xs text-slate-400 mt-1">Ponderación: {p.ponderacion}{p.retroalimentacion ? ' · con retroalimentación' : ''}</p>
                   </div>
                 ))}
               </div>
