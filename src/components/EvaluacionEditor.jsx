@@ -841,17 +841,39 @@ export default function EvaluacionEditor({
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-start gap-2">
-                          <button onClick={() => { handleAddFromBanco(item); setShowBanco(false) }}
-                            className="flex-1 text-left text-sm hover:text-accent transition-colors">
-                            {item.enunciado}
-                            {item.tema && <span className="block text-xs text-slate-400 mt-0.5">{item.tema}</span>}
-                          </button>
-                          <div className="flex gap-1 flex-shrink-0">
-                            <button onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
-                            <button onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
-                            <button onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
+                        <div>
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1">
+                              <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent-light px-1.5 py-0.5 rounded mb-1">
+                                {TIPOS_PREGUNTA.find((t) => t.value === item.tipo)?.label}
+                              </span>
+                              {item.tema && <span className="ml-2 text-[10px] text-slate-400">{item.tema}</span>}
+                              <p className="text-sm font-semibold text-on-surface">{item.enunciado}</p>
+                            </div>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <button onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
+                              <button onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
+                              <button onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
+                            </div>
                           </div>
+                          {item.opciones && Array.isArray(item.opciones) && (
+                            <div className="mt-2 grid grid-cols-2 gap-1">
+                              {item.opciones.map((o) => (
+                                <p key={o.id} className={`text-xs px-2 py-1 rounded ${o.id === item.respuestaCorrecta ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'bg-surface-container text-muted'}`}>
+                                  {o.texto}
+                                </p>
+                              ))}
+                            </div>
+                          )}
+                          {item.tipo === 'verdadero_falso' && item.respuestaCorrecta && (
+                            <p className="mt-1.5 text-xs">
+                              Correcta: <span className="font-semibold text-emerald-700">{item.respuestaCorrecta === 'v' ? 'Verdadero' : 'Falso'}</span>
+                            </p>
+                          )}
+                          <button onClick={() => { handleAddFromBanco(item); setShowBanco(false) }}
+                            className="mt-2 w-full py-1.5 text-xs font-medium bg-accent text-white rounded">
+                            + Agregar a la evaluación
+                          </button>
                         </div>
                       )}
                     </div>
