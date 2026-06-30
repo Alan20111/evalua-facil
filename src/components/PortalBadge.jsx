@@ -4,8 +4,8 @@ export default function PortalBadge({ role }) {
   const isTeacher = role === 'docente'
   return (
     <span
-      className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold leading-tight tracking-wide whitespace-nowrap text-black ${
-        isTeacher ? 'bg-[#39FF14]' : 'bg-[#FFFF33]'
+      className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold leading-tight tracking-wide whitespace-nowrap text-black ${
+        isTeacher ? 'bg-[#39FF14]' : 'bg-[#FF6600]'
       }`}
     >
       {isTeacher ? 'DOCENTE' : 'ESTUDIANTE'}
