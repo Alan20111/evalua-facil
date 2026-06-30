@@ -33,6 +33,7 @@ export default function StudentLayout({ children }) {
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [schoolName, setSchoolName] = useState('')
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [studentInfo, setStudentInfo] = useState(null)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -40,6 +41,10 @@ export default function StudentLayout({ children }) {
     async function run() {
       try {
         const enrollments = await getEnrollments(currentUser, userProfile)
+        // `userProfile` (from AuthContext) can fail to resolve the student doc in some
+        // edge cases — `getEnrollments` looks it up by `uid` first and is more reliable,
+        // so use whichever enrollment it found as a fallback source for name/photo.
+        setStudentInfo(enrollments[0] || null)
         const subjectIds = [...new Set(enrollments.map((e) => e.asignaturaId).filter(Boolean))]
         if (subjectIds.length === 0) { setSubjects([]); return }
         const snaps = await Promise.all(subjectIds.map((id) => getDoc(doc(db, 'subjects', id))))
@@ -54,12 +59,12 @@ export default function StudentLayout({ children }) {
   }, [currentUser, userProfile])
 
   useEffect(() => {
-    const eid = userProfile?.escuelaId
+    const eid = userProfile?.escuelaId || studentInfo?.escuelaId
     if (!eid) return
     getDoc(doc(db, 'schools', eid))
       .then((snap) => { if (snap.exists()) setSchoolName(snap.data().nombre || '') })
       .catch(() => {})
-  }, [userProfile?.escuelaId])
+  }, [userProfile?.escuelaId, studentInfo?.escuelaId])
 
   const handleLogout = async () => {
     await signOut(auth)
@@ -86,12 +91,14 @@ export default function StudentLayout({ children }) {
     }
   }
 
-  const displayName = userProfile
-    ? [userProfile.nombre, userProfile.apellidoPaterno].filter(Boolean).join(' ')
-      || userProfile.username
-      || 'Estudiante'
-    : 'Estudiante'
+  const displayName =
+    [userProfile?.nombre, userProfile?.apellidoPaterno].filter(Boolean).join(' ')
+    || [studentInfo?.nombre, studentInfo?.apellidoPaterno].filter(Boolean).join(' ')
+    || userProfile?.username
+    || studentInfo?.username
+    || 'Estudiante'
   const initials = displayName.charAt(0).toUpperCase()
+  const photoURL = userProfile?.photoURL || studentInfo?.photoURL
 
   return (
     <div className="min-h-screen bg-surface">
@@ -150,8 +157,8 @@ export default function StudentLayout({ children }) {
               <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center">
                 {uploadingPhoto ? (
                   <Spinner size="sm" />
-                ) : userProfile?.photoURL ? (
-                  <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
+                ) : photoURL ? (
+                  <img src={photoURL} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-sm font-bold text-accent">{initials}</span>
                 )}
