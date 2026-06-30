@@ -378,6 +378,23 @@ export default function EvaluacionEditor({
     toast('Pregunta duplicada')
   }
 
+  async function handleGuardarEnBanco(p) {
+    try {
+      await addDoc(collection(db, 'bancoReactivos'), {
+        docenteId: auth.currentUser.uid,
+        tipo: p.tipo,
+        enunciado: p.enunciado,
+        opciones: p.opciones || null,
+        respuestaCorrecta: p.respuestaCorrecta || null,
+        tema: null,
+        createdAt: serverTimestamp(),
+      })
+      toast('Pregunta guardada en tu banco')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
   const tipoLabel = categoria === 'cuestionario' ? 'Cuestionario' : 'Examen'
 
   return (
@@ -625,11 +642,12 @@ export default function EvaluacionEditor({
                             <p className="text-sm font-medium text-on-surface">{i + 1}. {p.enunciado}</p>
                           </div>
                           <div className="flex gap-0.5 flex-shrink-0">
-                            <button onClick={() => handleMovePregunta(p.id, 'up')} disabled={i === 0} className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded"><ChevronUp size={14} /></button>
-                            <button onClick={() => handleMovePregunta(p.id, 'down')} disabled={i === preguntas.length - 1} className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded"><ChevronDown size={14} /></button>
-                            <button onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={14} /></button>
-                            <button onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={14} /></button>
-                            <button onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={14} /></button>
+                            <button onClick={() => handleMovePregunta(p.id, 'up')} disabled={i === 0} className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded" title="Mover arriba"><ChevronUp size={14} /></button>
+                            <button onClick={() => handleMovePregunta(p.id, 'down')} disabled={i === preguntas.length - 1} className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded" title="Mover abajo"><ChevronDown size={14} /></button>
+                            <button onClick={() => handleGuardarEnBanco(p)} className="p-1 text-slate-400 hover:text-accent rounded" title="Guardar en mi banco"><Library size={14} /></button>
+                            <button onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded" title="Editar"><Pencil size={14} /></button>
+                            <button onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded" title="Duplicar"><Copy size={14} /></button>
+                            <button onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded" title="Eliminar"><Trash2 size={14} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-1 max-h-28 rounded border border-outline-variant" />}
