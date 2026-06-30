@@ -235,7 +235,11 @@ export default function SubjectPage() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  useEffect(() => { loadAll() }, [subjectId])
+  // Guard on currentUser + depend on it: on a cold load the Firestore reads in loadAll()
+  // (activities, students, submissions, materials) must not fire before Firebase Auth
+  // restores the session, or the rules reject them and the effect never retries — the same
+  // auth race that hid activities from students. Re-runs once currentUser is ready.
+  useEffect(() => { if (currentUser) loadAll() }, [subjectId, currentUser])
 
   async function loadAll() {
     setLoading(true)
