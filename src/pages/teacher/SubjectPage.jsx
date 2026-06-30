@@ -43,6 +43,7 @@ import { findStudentIdentity } from '../../utils/studentIdentity'
 import { matchesStudentSearch } from '../../utils/studentSearch'
 import { useSubscription } from '../../hooks/useSubscription'
 import EvaluacionEditor from '../../components/EvaluacionEditor'
+import EntregableEditor from '../../components/EntregableEditor'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 
 async function fetchSubmissionsForActivities(actIds) {
@@ -124,8 +125,10 @@ export default function SubjectPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   // null = showing the tipo picker, 'entregable'|'cuestionario'|'examen' = form visible
   const [tipoActividad, setTipoActividad] = useState(null)
-  // Full-screen evaluación editor (replaces the modal for cuestionario/examen)
+  // Full-screen evaluación editor (cuestionario / examen)
   const [evalEditor, setEvalEditor] = useState(null) // null | { activityId, categoria, parcial }
+  // Full-screen entregable editor
+  const [entregableEditor, setEntregableEditor] = useState(null) // null | { activityId, parcial, categoria, activityLabel, initialForm, initialExistingFiles }
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -757,32 +760,32 @@ export default function SubjectPage() {
     setTipoActividad(null)
     setShowModal(true)
   }
-  function openEdit(activity) {
-    // Cuestionario/Examen use the full-screen EvaluacionEditor; everything
-    // else uses the regular modal.
+  function openEdit(activity, labelOverride) {
     if (activity.tipo === 'evaluacion') {
       setEvalEditor({ activityId: activity.id, categoria: activity.categoria, parcial: activity.parcial })
       return
     }
-    setModalMode('edit'); setModalParcial(activity.parcial); setEditActivityId(activity.id)
+    // Entregable (and legacy actividad/tarea) → full-screen editor
     const cat = ['actividad', 'tarea'].includes(activity.categoria) ? 'entregable' : (activity.categoria || 'entregable')
-    setTipoActividad(cat)
-    setForm({
-      nombre: activity.nombre || '',
+    setEntregableEditor({
+      activityId: activity.id,
+      parcial: activity.parcial,
       categoria: cat,
-      instrucciones: toRichHtml(activity.instrucciones || ''),
-      fechaLimite: activity.fechaLimite
-        ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)
-        : '',
-      tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
-      extensionesCustom: activity.extensionesCustom || '',
-      oculta: activity.oculta || false,
-      publishAt: activity.publishAt || '',
-      visibilidadMode: !activity.oculta ? 'show' : activity.publishAt ? 'schedule' : 'hide',
+      activityLabel: labelOverride || null,
+      initialExistingFiles: activity.archivosAdjuntos || [],
+      initialForm: {
+        nombre: activity.nombre || '',
+        instrucciones: toRichHtml(activity.instrucciones || ''),
+        fechaLimite: activity.fechaLimite
+          ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)
+          : '',
+        tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
+        extensionesCustom: activity.extensionesCustom || '',
+        oculta: activity.oculta || false,
+        publishAt: activity.publishAt || '',
+        visibilidadMode: !activity.oculta ? 'show' : activity.publishAt ? 'schedule' : 'hide',
+      },
     })
-    setActivityExistingFiles(activity.archivosAdjuntos || [])
-    setActivityNewFiles([])
-    setShowModal(true)
   }
 
   function addInstructionFiles(files) {
@@ -1589,7 +1592,7 @@ export default function SubjectPage() {
                                 <Eye size={16} />
                               </button>
                             )}
-                            <button onClick={() => openEdit(a)} title="Editar"
+                            <button onClick={() => openEdit(a, activityLabelById[a.id])} title="Editar"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
                             </button>
@@ -2059,11 +2062,10 @@ export default function SubjectPage() {
                 ].map((opt) => (
                   <button key={opt.key} type="button"
                     onClick={() => {
+                      setShowModal(false)
                       if (opt.key === 'entregable') {
-                        setTipoActividad('entregable')
-                        setForm((f) => ({ ...f, categoria: 'entregable', esEvaluacion: false }))
+                        setEntregableEditor({ activityId: null, parcial: modalParcial, categoria: 'entregable', activityLabel: null, initialForm: null, initialExistingFiles: null })
                       } else {
-                        setShowModal(false)
                         setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial })
                       }
                     }}
@@ -3046,6 +3048,29 @@ export default function SubjectPage() {
         </div>
       )}
       </div>
+
+      {/* ── Full-screen entregable editor ── */}
+      {entregableEditor && (
+        <EntregableEditor
+          activityId={entregableEditor.activityId}
+          parcial={entregableEditor.parcial}
+          categoria={entregableEditor.categoria}
+          subjectId={subjectId}
+          docenteId={currentUser?.uid}
+          existingActivities={activities}
+          activityLabel={entregableEditor.activityLabel}
+          initialForm={entregableEditor.initialForm}
+          initialExistingFiles={entregableEditor.initialExistingFiles}
+          onClose={() => setEntregableEditor(null)}
+          onActivityCreated={(act) => {
+            setActivities((prev) => [...prev, act])
+            setSubmissionCounts((prev) => ({ ...prev, [act.id]: { delivered: 0, graded: 0 } }))
+          }}
+          onActivityUpdated={(act) => {
+            setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, ...act } : a))
+          }}
+        />
+      )}
 
       {/* ── Full-screen evaluación editor (Cuestionario / Examen) ── */}
       {evalEditor && (
