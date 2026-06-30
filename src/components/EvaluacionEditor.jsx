@@ -732,15 +732,17 @@ export default function EvaluacionEditor({
                     </div>
                   </form>
                 ) : (
-                  <div className="flex gap-2 pt-1">
-                    <button onClick={() => setShowPreguntaForm(true)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-accent text-white font-medium rounded-card">
-                      <Plus size={18} /> Crear reactivo
-                    </button>
-                    <button onClick={() => { setShowBanco(true); loadBanco() }}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 border border-accent text-accent font-medium rounded-card">
-                      <Library size={18} /> Agregar desde el Banco
-                    </button>
+                  <div className="pt-2 mt-2 border-t border-outline-variant">
+                    <div className="flex gap-2">
+                      <button onClick={() => setShowPreguntaForm(true)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm bg-accent text-white font-medium rounded-card">
+                        <Plus size={15} /> Crear reactivo nuevo
+                      </button>
+                      <button onClick={() => { setShowBanco(true); loadBanco() }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm border border-accent text-accent font-medium rounded-card">
+                        <Library size={15} /> Agregar desde el Banco
+                      </button>
+                    </div>
                   </div>
                 )}
               </>
