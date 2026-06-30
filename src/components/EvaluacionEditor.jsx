@@ -234,10 +234,17 @@ export default function EvaluacionEditor({
     await updateDoc(doc(db, 'activities', currentActivityId), { 'evaluacion.numPreguntas': total })
   }
 
+  const ponderacionUsada = preguntas.reduce((s, p) => s + (parseFloat(p.ponderacion) || 0), 0)
+  const ponderacionRestante = Math.max(0, parseFloat((10 - ponderacionUsada).toFixed(2)))
+
   async function handleAddPregunta(e) {
     e.preventDefault()
     if (!currentActivityId) { toast('Guarda la información antes de agregar preguntas', 'error'); return }
     if (!validatePregunta(preguntaForm)) return
+    const nueva = parseFloat(preguntaForm.ponderacion) || 1
+    if (ponderacionUsada + nueva > 10.001) {
+      toast(`La ponderación excede 10. Disponible: ${ponderacionRestante}`, 'error'); return
+    }
     setSavingPregunta(true)
     try {
       let imagenUrl = null
@@ -278,6 +285,11 @@ export default function EvaluacionEditor({
   async function handleSavePreguntaEdit(e, id) {
     e.preventDefault()
     if (!validatePregunta(preguntaEditForm)) return
+    const otrasPonderacion = preguntas.filter((p) => p.id !== id).reduce((s, p) => s + (parseFloat(p.ponderacion) || 0), 0)
+    const nueva = parseFloat(preguntaEditForm.ponderacion) || 1
+    if (otrasPonderacion + nueva > 10.001) {
+      toast(`La ponderación excede 10. Disponible para este reactivo: ${Math.max(0, parseFloat((10 - otrasPonderacion).toFixed(2)))}`, 'error'); return
+    }
     setSavingPregunta(true)
     try {
       let imagenUrl = preguntas.find((p) => p.id === id)?.imagenUrl || null
@@ -563,8 +575,13 @@ export default function EvaluacionEditor({
 
         {/* ── Sección 3: Preguntas ── */}
         <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-outline-variant">
+          <div className="px-4 py-3 border-b border-outline-variant flex items-center justify-between">
             <h2 className="font-semibold text-on-surface">Preguntas</h2>
+            {preguntas.length > 0 && (
+              <span className={`text-sm font-semibold ${Math.abs(ponderacionUsada - 10) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {parseFloat(ponderacionUsada.toFixed(2))} / 10 pts
+              </span>
+            )}
           </div>
 
           <div className="p-4 space-y-3">
@@ -616,8 +633,15 @@ export default function EvaluacionEditor({
                           </div>
                         )}
                         <div>
-                          <label className="block text-sm font-medium text-muted mb-1">Ponderación</label>
-                          <input type="number" min="0.1" step="0.1" value={preguntaEditForm.ponderacion}
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-sm font-medium text-muted">Ponderación</label>
+                            {(() => {
+                              const otras = preguntas.filter((x) => x.id !== p.id).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)
+                              const disp = Math.max(0, parseFloat((10 - otras).toFixed(2)))
+                              return <span className={`text-xs font-medium ${disp <= 0 ? 'text-error' : 'text-slate-400'}`}>Disponible: {disp} / 10</span>
+                            })()}
+                          </div>
+                          <input type="number" min="0.1" max={Math.max(0, parseFloat((10 - preguntas.filter((x) => x.id !== p.id).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)).toFixed(2)))} step="0.1" value={preguntaEditForm.ponderacion}
                             onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
                             className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                         </div>
@@ -708,8 +732,13 @@ export default function EvaluacionEditor({
                         className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-muted mb-1">Ponderación</label>
-                      <input type="number" min="0.1" step="0.1" value={preguntaForm.ponderacion}
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-sm font-medium text-muted">Ponderación</label>
+                        <span className={`text-xs font-medium ${ponderacionRestante <= 0 ? 'text-error' : 'text-slate-400'}`}>
+                          Disponible: {ponderacionRestante} / 10
+                        </span>
+                      </div>
+                      <input type="number" min="0.1" max={ponderacionRestante} step="0.1" value={preguntaForm.ponderacion}
                         onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
                         className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                     </div>
