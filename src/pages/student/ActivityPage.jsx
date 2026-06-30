@@ -244,6 +244,7 @@ export default function StudentActivityPage() {
       } else {
         await addDoc(collection(db, 'submissions'), {
           alumnoId: student.id,
+          alumnoUid: currentUser.uid,
           actividadId: activityId,
           calificacion: null,
           comentario: '',
