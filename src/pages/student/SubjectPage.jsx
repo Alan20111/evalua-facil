@@ -23,6 +23,7 @@ import {
   Clock, Circle, Star, Download, FolderOpen, BookOpen, Paperclip,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
+import StudentLayout from '../../components/StudentLayout'
 
 function formatResourceDate(ts) {
   if (!ts?.toDate) return ''
@@ -115,13 +116,16 @@ export default function StudentSubjectPage() {
   const PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-surface">
-      <Spinner size="lg" />
-    </div>
+    <StudentLayout>
+      <div className="flex items-center justify-center py-20">
+        <Spinner size="lg" />
+      </div>
+    </StudentLayout>
   )
 
   return (
-    <div className="min-h-screen bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
+    <StudentLayout>
+    <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
           onClick={() => navigate('/alumno/dashboard')}
@@ -292,5 +296,6 @@ export default function StudentSubjectPage() {
         )}
       </div>
     </div>
+    </StudentLayout>
   )
 }

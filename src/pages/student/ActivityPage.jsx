@@ -27,6 +27,7 @@ import { isActivityPublished } from '../../utils/activityVisibility'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import AttachmentList from '../../components/AttachmentList'
+import StudentLayout from '../../components/StudentLayout'
 
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -223,9 +224,11 @@ export default function StudentActivityPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-surface">
-      <Spinner size="lg" />
-    </div>
+    <StudentLayout>
+      <div className="flex items-center justify-center py-20">
+        <Spinner size="lg" />
+      </div>
+    </StudentLayout>
   )
 
   const isGraded = submission?.calificacion != null
@@ -243,7 +246,8 @@ export default function StudentActivityPage() {
   ).getTime() < Date.now()
 
   return (
-    <div className="min-h-screen bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
+    <StudentLayout>
+    <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
           onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}
@@ -407,5 +411,6 @@ export default function StudentActivityPage() {
         )}
       </div>
     </div>
+    </StudentLayout>
   )
 }

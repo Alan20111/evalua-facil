@@ -8,16 +8,16 @@ import {
   where,
   getDocs,
 } from 'firebase/firestore'
-import { signOut } from 'firebase/auth'
-import { auth, db } from '../../firebase'
+import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { BookOpen, ChevronRight, LogOut, GraduationCap, Plus, X, Hash } from 'lucide-react'
+import { BookOpen, ChevronRight, Plus, X, Hash } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollments } from '../../utils/studentLookup'
+import StudentLayout from '../../components/StudentLayout'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -48,7 +48,6 @@ async function fetchSubmissionsForStudents(studentDocIds) {
 
 export default function StudentDashboard() {
   const { currentUser, userProfile } = useAuth()
-  const [student, setStudent] = useState(null)
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [showJoin, setShowJoin] = useState(false)
@@ -78,8 +77,6 @@ export default function StudentDashboard() {
         setSubjects([])
         return
       }
-      setStudent(enrollments[0]) // identity (name/username) is shared across enrollments
-
       // Map each subject → the enrollment doc id (used as alumnoId for submissions).
       const docIdBySubject = {}
       enrollments.forEach((s) => { if (s.asignaturaId) docIdBySubject[s.asignaturaId] = s.id })
@@ -145,40 +142,16 @@ export default function StudentDashboard() {
     }
   }
 
-  const handleLogout = async () => {
-    await signOut(auth)
-    navigate('/alumno')
-  }
-
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-surface">
-      <Spinner size="lg" />
-    </div>
+    <StudentLayout>
+      <div className="flex items-center justify-center py-20">
+        <Spinner size="lg" />
+      </div>
+    </StudentLayout>
   )
 
   return (
-    <div className="min-h-screen bg-surface">
-      {/* Header */}
-      <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between gap-3 shadow-card">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-            <GraduationCap size={20} className="text-white" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-on-surface truncate">
-              {student?.nombre} {student?.apellidoPaterno}
-            </p>
-            <p className="text-xs text-accent font-mono truncate">{student?.username}</p>
-          </div>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="p-2 text-slate-400 hover:text-red-500 rounded transition-colors flex-shrink-0"
-        >
-          <LogOut size={20} />
-        </button>
-      </header>
-
+    <StudentLayout>
       <div className="px-4 py-6 max-w-2xl mx-auto">
         <h1 className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
         <p className="text-slate-400 text-sm mb-5">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''} activas</p>
@@ -265,6 +238,6 @@ export default function StudentDashboard() {
           </div>
         </div>
       )}
-    </div>
+    </StudentLayout>
   )
 }
