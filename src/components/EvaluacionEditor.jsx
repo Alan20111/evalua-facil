@@ -727,7 +727,7 @@ export default function EvaluacionEditor({
                       <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(EMPTY_PREGUNTA) }}
                         className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                       <button type="submit" disabled={savingPregunta} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
-                        {savingPregunta ? 'Guardando…' : 'Agregar reactivo'}
+                        {savingPregunta ? 'Guardando…' : 'Guardar pregunta'}
                       </button>
                     </div>
                   </form>
