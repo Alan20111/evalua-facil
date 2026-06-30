@@ -56,7 +56,14 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show' }
+const EMPTY_FORM = { nombre: '', categoria: 'actividad', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show' }
+
+const CATEGORIAS_ACTIVIDAD = [
+  { value: 'actividad', label: 'Actividad' },
+  { value: 'tarea', label: 'Tarea' },
+  { value: 'cuestionario', label: 'Cuestionario' },
+  { value: 'examen', label: 'Examen' },
+]
 
 function formatResourceDate(ts) {
   if (!ts?.toDate) return ''
@@ -499,7 +506,7 @@ export default function SubjectPage() {
       const identity = findStudentIdentity(schoolDocs, newStudent)
       // Already enrolled in THIS subject → don't create a duplicate.
       if (identity && identity.matches.some((m) => m.asignaturaId === subjectId)) {
-        toast('Ese alumno ya está en esta asignatura', 'error')
+        toast('Ese estudiante ya está en esta asignatura', 'error')
         return
       }
       // Same full name elsewhere in the school → ask the teacher if it's the same person
@@ -511,7 +518,7 @@ export default function SubjectPage() {
       await createEnrollment(newStudent, null, schoolDocs)
       setNewStudent({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
       setShowAddStudent(false)
-      toast('Alumno agregado')
+      toast('Estudiante agregado')
       await refreshGroupStudents()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -529,7 +536,7 @@ export default function SubjectPage() {
       await createEnrollment(person, isSamePerson ? identity : null, schoolDocs)
       setNewStudent({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
       setShowAddStudent(false)
-      toast(isSamePerson ? 'Asignatura vinculada a su cuenta' : 'Alumno agregado (cuenta nueva)')
+      toast(isSamePerson ? 'Asignatura vinculada a su cuenta' : 'Estudiante agregado (cuenta nueva)')
       await refreshGroupStudents()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -545,7 +552,7 @@ export default function SubjectPage() {
     setSavingStudent(true)
     try {
       const rows = await parseStudentExcel(file)
-      if (rows.length === 0) { toast('El archivo no tiene alumnos con los 3 campos requeridos', 'error'); return }
+      if (rows.length === 0) { toast('El archivo no tiene estudiantes con los 3 campos requeridos', 'error'); return }
       const schoolDocs = await fetchSchoolStudents()
       const taken = new Set(schoolDocs.map((d) => d.username))
       const batch = writeBatch(db)
@@ -578,7 +585,7 @@ export default function SubjectPage() {
         })
       }
       await batch.commit()
-      const parts = [`${rows.length - skipped} alumnos importados`]
+      const parts = [`${rows.length - skipped} estudiantes importados`]
       if (linked) parts.push(`${linked} vinculados a cuentas existentes`)
       if (skipped) parts.push(`${skipped} ya estaban en la asignatura`)
       toast(parts.join(' · '))
@@ -656,7 +663,7 @@ export default function SubjectPage() {
       }
       await updateDoc(doc(db, 'students', studentToEdit.id), updated)
       setGroupStudents((prev) => prev.map((s) => (s.id === studentToEdit.id ? { ...s, ...updated } : s)))
-      toast('Alumno actualizado')
+      toast('Estudiante actualizado')
       setStudentToEdit(null)
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -691,7 +698,7 @@ export default function SubjectPage() {
       newList.forEach((s, i) => batch.update(doc(db, 'students', s.id), { orden: i + 1 }))
       await batch.commit()
       setGroupStudents(newList.map((s, i) => ({ ...s, orden: i + 1 })))
-      toast('Alumnos ordenados alfabéticamente')
+      toast('Estudiantes ordenados alfabéticamente')
     } catch (err) {
       toast('No se pudo ordenar: ' + err.message, 'error')
     }
@@ -727,6 +734,7 @@ export default function SubjectPage() {
     setModalMode('edit'); setModalParcial(activity.parcial); setEditActivityId(activity.id)
     setForm({
       nombre: activity.nombre || '',
+      categoria: activity.categoria || 'actividad',
       instrucciones: toRichHtml(activity.instrucciones || ''),
       fechaLimite: activity.fechaLimite
         ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)
@@ -785,6 +793,7 @@ export default function SubjectPage() {
       )
       const payload = {
         nombre: form.nombre.trim(),
+        categoria: form.categoria,
         maxCalif: 10,
         instrucciones: sanitizeHtml(form.instrucciones),
         archivosAdjuntos: [...activityExistingFiles, ...uploaded],
@@ -1070,7 +1079,7 @@ export default function SubjectPage() {
     try {
       await updateDoc(doc(db, 'subjects', subjectId), { parcialesOcultos: next })
       setSubject((s) => ({ ...s, parcialesOcultos: next }))
-      toast(next.includes(p) ? `Parcial ${p} oculto para alumnos` : `Parcial ${p} visible para alumnos`)
+      toast(next.includes(p) ? `Parcial ${p} oculto para estudiantes` : `Parcial ${p} visible para estudiantes`)
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
@@ -1080,7 +1089,7 @@ export default function SubjectPage() {
       if (activateMode === 'now') {
         await updateDoc(doc(db, 'activities', activateModal.id), { oculta: false, publishAt: null })
         setActivities((prev) => prev.map((a) => a.id === activateModal.id ? { ...a, oculta: false, publishAt: null } : a))
-        toast('Actividad visible para alumnos')
+        toast('Actividad visible para estudiantes')
       } else {
         if (!activateDate) { toast('Elige una fecha', 'error'); return }
         await updateDoc(doc(db, 'activities', activateModal.id), { oculta: true, publishAt: activateDate })
@@ -1249,7 +1258,7 @@ export default function SubjectPage() {
         students = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         setGroupStudents(students); setGroupStudentsLoaded(true)
       }
-      if (students.length === 0) { toast('No hay alumnos en esta asignatura', 'error'); return }
+      if (students.length === 0) { toast('No hay estudiantes en esta asignatura', 'error'); return }
 
       await exportCredentialsPDF({ subject, students, activationUrl })
       toast('Lista de acceso descargada')
@@ -1375,17 +1384,17 @@ export default function SubjectPage() {
           {/* Action buttons — wrap on mobile so they never overflow */}
           <div className="flex flex-wrap items-center gap-1 mt-2">
             <button type="button" onClick={() => setShowQR(true)}
-              title="Código QR de registro al curso para alumnos"
+              title="Código QR de registro al curso para estudiantes"
               className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
               <QrCode size={21} />
             </button>
             <button type="button" onClick={copyActivationLink}
-              title="Copiar link de registro al curso para alumnos"
+              title="Copiar link de registro al curso para estudiantes"
               className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
               {copiedLink ? <CheckIcon size={21} /> : <Link size={21} />}
             </button>
             <button type="button" onClick={copyAccessCode}
-              title="Copiar código de acceso para alumnos"
+              title="Copiar código de acceso para estudiantes"
               className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-3xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
               {copiedCode
                 ? <><CheckIcon size={24} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
@@ -1398,7 +1407,7 @@ export default function SubjectPage() {
               <Pencil size={21} />
             </button>
             <button type="button" onClick={openCopyModal}
-              title="Duplicar esta asignatura (con o sin la lista de alumnos)"
+              title="Duplicar esta asignatura (con o sin la lista de estudiantes)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
               <Copy size={21} />
             </button>
@@ -1421,7 +1430,7 @@ export default function SubjectPage() {
                 className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                   activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}>
-                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'alumnos' ? 'Alumnos' : 'Recursos'}
+                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'alumnos' ? 'Estudiantes' : 'Recursos'}
               </button>
             ))}
           </div>
@@ -1447,14 +1456,14 @@ export default function SubjectPage() {
                       </div>
                       <div className="text-left min-w-0">
                         <p className={`font-semibold text-base leading-tight truncate ${parcialOculto ? 'text-slate-400' : 'text-on-surface'}`}>
-                          Parcial {p}{parcialOculto && <span className="text-xs font-normal text-slate-400"> · oculto a alumnos</span>}
+                          Parcial {p}{parcialOculto && <span className="text-xs font-normal text-slate-400"> · oculto a estudiantes</span>}
                         </p>
                         <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                       </div>
                     </button>
                     <button
                       onClick={() => toggleParcialVisibility(p)}
-                      title={parcialOculto ? 'Mostrar este parcial a los alumnos' : 'Ocultar este parcial a los alumnos'}
+                      title={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                     >
                       {parcialOculto ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -1521,7 +1530,7 @@ export default function SubjectPage() {
                             {isHidden ? (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setActivateMode('now'); setActivateDate(''); setActivateModal(a) }}
-                                title="Activar para alumnos"
+                                title="Activar para estudiantes"
                                 className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                               >
                                 <EyeOff size={16} />
@@ -1529,7 +1538,7 @@ export default function SubjectPage() {
                             ) : (
                               <button
                                 onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
-                                title="Ocultar para alumnos"
+                                title="Ocultar para estudiantes"
                                 className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                               >
                                 <Eye size={16} />
@@ -1584,12 +1593,12 @@ export default function SubjectPage() {
                                     {isExpanded ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
                                   </button>
                                   {isHidden ? (
-                                    <button onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} title="Mostrar a alumnos"
+                                    <button onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} title="Mostrar a estudiantes"
                                       className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                       <EyeOff size={16} />
                                     </button>
                                   ) : (
-                                    <button onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} title="Ocultar a alumnos"
+                                    <button onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} title="Ocultar a estudiantes"
                                       className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                       <Eye size={16} />
                                     </button>
@@ -1666,7 +1675,7 @@ export default function SubjectPage() {
                 <button
                   onClick={handleExport}
                   disabled={exporting}
-                  title="Descarga las calificaciones de todos los alumnos en una hoja de Excel"
+                  title="Descarga las calificaciones de todos los estudiantes en una hoja de Excel"
                   className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
                 >
                   {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
@@ -1674,7 +1683,7 @@ export default function SubjectPage() {
                 <button
                   onClick={handleExportGradesPDF}
                   disabled={exportingGradesPdf}
-                  title="Descarga las calificaciones de todos los alumnos en un PDF imprimible"
+                  title="Descarga las calificaciones de todos los estudiantes en un PDF imprimible"
                   className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
                 >
                   {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
@@ -1694,7 +1703,7 @@ export default function SubjectPage() {
             ) : activities.length === 0 ? (
               <p className="text-center text-slate-400 text-sm py-12">No hay actividades en esta asignatura</p>
             ) : groupStudents.length === 0 ? (
-              <p className="text-center text-slate-400 text-sm py-12">No hay alumnos en este grupo</p>
+              <p className="text-center text-slate-400 text-sm py-12">No hay estudiantes en este grupo</p>
             ) : (
               <>
                 <div className="overflow-x-auto rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
@@ -1740,7 +1749,7 @@ export default function SubjectPage() {
                           No.
                         </th>
                         <th className="sticky left-8 z-10 bg-accent-light w-[150px] px-2 py-1.5 text-left font-medium text-muted border-r border-outline-variant whitespace-nowrap">
-                          Alumno / Actividad
+                          Estudiante / Actividad
                         </th>
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
@@ -1802,12 +1811,12 @@ export default function SubjectPage() {
               Each step shows just a number + icon + short label; the full instructions
               live in the title tooltip instead of wrapping across two lines like before. */}
           <div>
-            <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar alumnos</p>
+            <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar estudiantes</p>
             <div className="flex flex-col sm:flex-row sm:items-stretch gap-1 bg-surface-card border border-outline-variant rounded overflow-hidden">
               <button
                 type="button"
                 onClick={downloadStudentTemplate}
-                title="Descargar plantilla en Excel para pegar datos de alumnos"
+                title="Descargar plantilla en Excel para pegar datos de estudiantes"
                 className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-medium)] transition-colors"
               >
                 <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
@@ -1828,7 +1837,7 @@ export default function SubjectPage() {
               <button
                 type="button"
                 onClick={() => setShowCredentialsModal(true)}
-                title="Genera tu lista actualizada de códigos de acceso cada vez que agregues alumnos"
+                title="Genera tu lista actualizada de códigos de acceso cada vez que agregues estudiantes"
                 className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-medium)] transition-colors"
               >
                 <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
@@ -1865,7 +1874,7 @@ export default function SubjectPage() {
             </div>
             <button
               onClick={() => setShowAddStudent(true)}
-              title="Agregar nuevo alumno"
+              title="Agregar nuevo estudiante"
               className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
             >
               <UserPlus size={20} />
@@ -1877,13 +1886,13 @@ export default function SubjectPage() {
             <div className="flex justify-center py-10"><Spinner /></div>
           ) : filteredAlumnos.length === 0 ? (
             <div className="text-center py-10 text-slate-400 text-sm">
-              {searchAlumnos ? 'Sin resultados' : 'No hay alumnos en esta asignatura'}
+              {searchAlumnos ? 'Sin resultados' : 'No hay estudiantes en esta asignatura'}
             </div>
           ) : (
             <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container">
                 <span className="w-5 flex-shrink-0" />
-                <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del alumno</p>
+                <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del estudiante</p>
                 <p className="w-20 flex-shrink-0 text-xs font-semibold text-muted uppercase tracking-wide">Código</p>
                 <p className="w-24 flex-shrink-0 text-xs font-semibold text-muted uppercase tracking-wide">Estado</p>
                 <span className="w-9 flex-shrink-0" />
@@ -1908,7 +1917,7 @@ export default function SubjectPage() {
                   <button
                     onClick={() => openEditStudent(s)}
                     className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
-                    title="Editar alumno"
+                    title="Editar estudiante"
                   >
                     <Pencil size={16} />
                   </button>
@@ -1926,7 +1935,7 @@ export default function SubjectPage() {
         <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm text-muted leading-relaxed">
-              Materiales permanentes del curso (programa, reglamento, guías, presentaciones…), disponibles para tus alumnos durante todo el semestre. No generan entrega ni calificación.
+              Materiales permanentes del curso (programa, reglamento, guías, presentaciones…), disponibles para tus estudiantes durante todo el semestre. No generan entrega ni calificación.
             </p>
             <button type="button" onClick={openAddResource}
               title="Agregar recurso"
@@ -2001,11 +2010,20 @@ export default function SubjectPage() {
                   placeholder="Ej: Tarea 1, Examen parcial" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-muted mb-1">Tipo</label>
+                <select value={form.categoria} onChange={(e) => setForm((f) => ({ ...f, categoria: e.target.value }))}
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface">
+                  {CATEGORIAS_ACTIVIDAD.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
                 <RichTextEditor
                   value={form.instrucciones}
                   onChange={(html) => setForm((f) => ({ ...f, instrucciones: html }))}
-                  placeholder="Describe la tarea para tus alumnos…"
+                  placeholder="Describe la tarea para tus estudiantes…"
                   attachments={[
                     ...activityExistingFiles,
                     ...activityNewFiles.map((f) => ({ nombre: f.name, tamano: f.size })),
@@ -2116,7 +2134,7 @@ export default function SubjectPage() {
                 <RichTextEditor
                   value={materialForm.descripcion}
                   onChange={(html) => setMaterialForm((f) => ({ ...f, descripcion: html }))}
-                  placeholder="Explica brevemente este material para tus alumnos…"
+                  placeholder="Explica brevemente este material para tus estudiantes…"
                 />
               </div>
 
@@ -2207,7 +2225,7 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowAddStudent(false)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Agregar alumno</h3>
+              <h3 className="text-lg font-semibold">Agregar estudiante</h3>
               <button onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={addStudent} className="space-y-2">
@@ -2232,7 +2250,7 @@ export default function SubjectPage() {
                 className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {savingStudent ? <Spinner size="sm" /> : <Plus size={18} />}
-                Agregar alumno
+                Agregar estudiante
               </button>
             </form>
           </div>
@@ -2245,7 +2263,7 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setStudentToEdit(null)} />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Editar alumno</h3>
+              <h3 className="text-lg font-semibold">Editar estudiante</h3>
               <button onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={saveEditStudent} className="space-y-2">
@@ -2265,7 +2283,7 @@ export default function SubjectPage() {
                 />
               ))}
               <div>
-                <label className="block text-xs font-medium text-muted mb-1">Comentarios (solo para ti, el alumno no los ve)</label>
+                <label className="block text-xs font-medium text-muted mb-1">Comentarios (solo para ti, el estudiante no los ve)</label>
                 <textarea
                   value={editStudentForm.comentarios}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, comentarios: e.target.value }))}
@@ -2298,7 +2316,7 @@ export default function SubjectPage() {
                 className="w-full py-1.5 rounded border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <Trash2 size={17} />
-                Eliminar alumno
+                Eliminar estudiante
               </button>
             </form>
           </div>
@@ -2378,11 +2396,11 @@ export default function SubjectPage() {
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">Descargar lista de acceso</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Se descargará un PDF con el <strong>usuario</strong> de cada alumno y el
+              Se descargará un PDF con el <strong>usuario</strong> de cada estudiante y el
               <strong> código de la clase</strong> para que puedan entrar por primera vez.
             </p>
             <p className="text-xs text-muted text-center mt-2">
-              Cada alumno elige su propia contraseña la primera vez que entra. No se generan claves temporales.
+              Cada estudiante elige su propia contraseña la primera vez que entra. No se generan claves temporales.
             </p>
             <div className="flex gap-2 mt-4">
               <button
@@ -2413,9 +2431,9 @@ export default function SubjectPage() {
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
               <UserPlus size={24} className="text-accent" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Es el mismo alumno?</h3>
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Es el mismo estudiante?</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Ya hay un alumno llamado{' '}
+              Ya hay un estudiante llamado{' '}
               <strong>{linkCandidate.person.apellidoPaterno} {linkCandidate.person.apellidoMaterno} {linkCandidate.person.nombre}</strong>{' '}
               en esta escuela
               {(() => {
@@ -2434,14 +2452,14 @@ export default function SubjectPage() {
                 className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {savingStudent ? <Spinner size="sm" /> : <CheckIcon size={18} />}
-                Sí, es el mismo alumno
+                Sí, es el mismo estudiante
               </button>
               <button
                 onClick={() => resolveLinkCandidate(false)}
                 disabled={savingStudent}
                 className="w-full py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
-                No, es otro alumno (cuenta nueva)
+                No, es otro estudiante (cuenta nueva)
               </button>
               <button
                 onClick={() => setLinkCandidate(null)}
@@ -2466,7 +2484,7 @@ export default function SubjectPage() {
             <h3 className="text-lg font-semibold text-center text-on-surface">Recuperación habilitada</h3>
             <p className="text-sm text-muted text-center mt-2 mb-4">
               <strong>{resetPwdResult.student.nombre}</strong> ya puede entrar a la pantalla de acceso
-              de alumnos, tocar <strong>«Recuperar contraseña»</strong>, escribir su usuario y elegir una
+              de estudiantes, tocar <strong>«Recuperar contraseña»</strong>, escribir su usuario y elegir una
               nueva contraseña.
             </p>
             <button
@@ -2487,7 +2505,7 @@ export default function SubjectPage() {
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
               <Trash2 size={24} className="text-red-500" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Eliminar alumno?</h3>
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Eliminar estudiante?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Se eliminará a{' '}
               <strong>{studentToDelete.apellidoPaterno} {studentToDelete.nombre}</strong>{' '}
@@ -2526,7 +2544,7 @@ export default function SubjectPage() {
                 <input type="radio" name="activateMode" value="now" checked={activateMode === 'now'} onChange={() => setActivateMode('now')} className="accent-[var(--accent)]" />
                 <div>
                   <p className="text-sm font-medium text-on-surface">Mostrar ahora</p>
-                  <p className="text-sm text-slate-500">Visible de inmediato para alumnos</p>
+                  <p className="text-sm text-slate-500">Visible de inmediato para estudiantes</p>
                 </div>
               </label>
               <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${activateMode === 'schedule' ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
@@ -2677,7 +2695,7 @@ export default function SubjectPage() {
                 <input type="checkbox" checked={copyForm.keepStudents} onChange={(e) => setCopyForm((f) => ({ ...f, keepStudents: e.target.checked }))}
                   className="accent-[var(--accent)] w-4 h-4" />
                 <div>
-                  <p className="text-sm font-medium text-on-surface">Copiar lista de alumnos</p>
+                  <p className="text-sm font-medium text-on-surface">Copiar lista de estudiantes</p>
                   <p className="text-sm text-slate-500">Conservan su mismo usuario y cuenta; quienes ya activaron verán esta asignatura al instante</p>
                 </div>
               </label>
@@ -2702,7 +2720,7 @@ export default function SubjectPage() {
             </div>
             <h3 className="text-base font-semibold text-on-surface text-center mb-1">¿Eliminar asignatura?</h3>
             <p className="text-sm text-muted text-center mb-2">
-              Se borrarán permanentemente todas las actividades, entregas y alumnos de{' '}
+              Se borrarán permanentemente todas las actividades, entregas y estudiantes de{' '}
               <strong>{subject?.nombre}</strong>. Esta acción <strong>no se puede deshacer</strong>.
             </p>
             <p className="text-xs text-muted mb-2">Escribe <strong>{subject?.nombre}</strong> para confirmar:</p>
@@ -2738,7 +2756,7 @@ export default function SubjectPage() {
               <button onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-2">
-              Al archivar se conservan las actividades y la lista de alumnos, pero <strong>se eliminan las entregas</strong>. ¿Qué hacemos con ellas?
+              Al archivar se conservan las actividades y la lista de estudiantes, pero <strong>se eliminan las entregas</strong>. ¿Qué hacemos con ellas?
             </p>
             <div className="space-y-2 mb-4">
               {[
@@ -2820,11 +2838,11 @@ export default function SubjectPage() {
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Lista de alumnos</p>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Lista de estudiantes</p>
                 <div className="space-y-1.5">
                   {[
-                    { val: 'keep', label: 'Conservar lista', desc: 'Alumnos y calificaciones se mantienen' },
-                    { val: 'reset', label: 'Borrar y empezar de cero', desc: 'Se eliminan alumnos y sus entregas' },
+                    { val: 'keep', label: 'Conservar lista', desc: 'Estudiantes y calificaciones se mantienen' },
+                    { val: 'reset', label: 'Borrar y empezar de cero', desc: 'Se eliminan estudiantes y sus entregas' },
                   ].map(({ val, label, desc }) => (
                     <label key={val} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${unarchiveStudents === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
                       <input type="radio" name="unarchiveStudents" value={val} checked={unarchiveStudents === val} onChange={() => setUnarchiveStudents(val)} className="accent-[var(--accent)]" />

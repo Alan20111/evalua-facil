@@ -11,7 +11,7 @@ import { formatCurrency } from '../../../utils/subscriptionHelpers'
 
 const KPI_CONFIG = [
   { key: 'teacherCount', label: 'Docentes', icon: Users, format: (v) => v },
-  { key: 'activeStudentCount', label: 'Alumnos activos', icon: GraduationCap, format: (v) => v },
+  { key: 'activeStudentCount', label: 'Estudiantes activos', icon: GraduationCap, format: (v) => v },
   { key: 'activeSubCount', label: 'Suscripciones activas', icon: CreditCard, format: (v) => v },
   { key: 'trialCount', label: 'En periodo trial', icon: Timer, format: (v) => v },
   { key: 'totalRevenue', label: 'Ingresos totales', icon: DollarSign, format: formatCurrency },

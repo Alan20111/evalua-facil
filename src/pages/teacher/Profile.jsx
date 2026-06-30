@@ -186,7 +186,7 @@ export default function Profile() {
       const { escuelaId, schoolName } = await resolveSchoolSelection(plantel, currentUser.uid)
       await updateDoc(doc(db, 'users', currentUser.uid), { escuelaId, schoolName })
       setUserProfile((p) => ({ ...p, escuelaId, schoolName }))
-      toast('Escuela actualizada — solo aplica a asignaturas y alumnos nuevos')
+      toast('Escuela actualizada — solo aplica a asignaturas y estudiantes nuevos')
       setShowSchoolPicker(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingSchool(false) }
@@ -421,7 +421,7 @@ export default function Profile() {
             <div>
               <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
                 className={inputCls} placeholder="Ej. Profa. García Pérez" />
-              <p className="text-sm text-muted mt-1">Así te verán tus alumnos</p>
+              <p className="text-sm text-muted mt-1">Así te verán tus estudiantes</p>
             </div>
             <button type="submit" disabled={savingNombre}
               className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">

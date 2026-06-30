@@ -32,6 +32,21 @@ function formatResourceDate(ts) {
 
 const TABS = ['Actividades', 'Calificaciones', 'Recursos']
 
+const CATEGORIA_LABELS = { actividad: 'Actividad', tarea: 'Tarea', cuestionario: 'Cuestionario', examen: 'Examen' }
+
+function formatFechaLimite(value) {
+  if (!value) return ''
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+}
+
+function isOverdue(activity) {
+  if (!activity.fechaLimite) return false
+  const d = new Date(activity.fechaLimite)
+  return !isNaN(d.getTime()) && d < new Date()
+}
+
 export default function StudentSubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
@@ -211,6 +226,8 @@ export default function StudentSubjectPage() {
                       const sub = submissions[a.id]
                       const graded = sub?.calificacion != null
                       const delivered = sub && !graded
+                      const overdue = !graded && !delivered && isOverdue(a)
+                      const fechaLimiteLabel = formatFechaLimite(a.fechaLimite)
                       return (
                         <button
                           key={a.id}
@@ -222,12 +239,18 @@ export default function StudentSubjectPage() {
                               <CheckCircle size={20} className="text-emerald-500" />
                             ) : delivered ? (
                               <Clock size={20} className="text-accent" />
+                            ) : overdue ? (
+                              <Circle size={20} className="text-red-400" />
                             ) : (
                               <Circle size={20} className="text-slate-300" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium leading-tight text-on-surface truncate">{a.nombre}</p>
+                            <p className="text-xs text-slate-500 leading-tight truncate mt-0.5">
+                              {CATEGORIA_LABELS[a.categoria] || 'Actividad'}
+                              {fechaLimiteLabel && ` · Vence ${fechaLimiteLabel}`}
+                            </p>
                             {sub?.comentario && (
                               <p className="text-sm text-slate-500 leading-tight truncate mt-0.5">"{sub.comentario}"</p>
                             )}
@@ -241,7 +264,9 @@ export default function StudentSubjectPage() {
                                 <p className="text-xs text-slate-500">/{a.maxCalif}</p>
                               </div>
                             ) : delivered ? (
-                              <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregado</span>
+                              <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregada</span>
+                            ) : overdue ? (
+                              <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">Vencida</span>
                             ) : (
                               <span className="text-xs bg-surface-container text-muted px-2 py-1 rounded-full">Pendiente</span>
                             )}
@@ -325,6 +350,7 @@ export default function StudentSubjectPage() {
                       const sub = submissions[a.id]
                       const graded = sub?.calificacion != null
                       const delivered = sub && !graded
+                      const overdue = !graded && !delivered && isOverdue(a)
                       return (
                         <div key={a.id} className="flex items-center gap-3 px-4 py-2.5">
                           <div className="flex-shrink-0">
@@ -332,18 +358,25 @@ export default function StudentSubjectPage() {
                               <CheckCircle size={18} className="text-emerald-500" />
                             ) : delivered ? (
                               <Clock size={18} className="text-accent" />
+                            ) : overdue ? (
+                              <Circle size={18} className="text-red-400" />
                             ) : (
                               <Circle size={18} className="text-slate-300" />
                             )}
                           </div>
-                          <p className="flex-1 text-sm text-on-surface truncate min-w-0">{a.nombre}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-on-surface truncate">{a.nombre}</p>
+                            <p className="text-xs text-slate-400 truncate">{CATEGORIA_LABELS[a.categoria] || 'Actividad'}</p>
+                          </div>
                           <div className="flex-shrink-0 text-right">
                             {graded ? (
                               <p className="text-sm font-bold text-emerald-600">
                                 {sub.calificacion} <span className="font-normal text-slate-400">/ {a.maxCalif}</span>
                               </p>
                             ) : delivered ? (
-                              <span className="text-xs text-accent font-medium">Entregado</span>
+                              <span className="text-xs text-accent font-medium">Entregada</span>
+                            ) : overdue ? (
+                              <span className="text-xs text-red-500 font-medium">Vencida</span>
                             ) : (
                               <span className="text-xs text-slate-400">Pendiente</span>
                             )}

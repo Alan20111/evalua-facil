@@ -10,7 +10,7 @@ import { subjectPeriodLabel } from './dateRange'
 export async function downloadStudentTemplate() {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
-  const sheet = workbook.addWorksheet('Alumnos')
+  const sheet = workbook.addWorksheet('Estudiantes')
 
   // Column 1: list number. Column 2: full name in a SINGLE cell, in the order
   // Apellido Paterno · Apellido Materno · Nombre(s) (separated by spaces).
@@ -37,7 +37,7 @@ export async function downloadStudentTemplate() {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'plantilla-alumnos.xlsx'
+  a.download = 'plantilla-estudiantes.xlsx'
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

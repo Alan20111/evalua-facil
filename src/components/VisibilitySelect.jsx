@@ -12,7 +12,7 @@ export default function VisibilitySelect({ mode, publishAt, onModeChange, onPubl
           className="accent-[var(--accent)]" />
         <div>
           <p className="text-sm font-medium text-on-surface">Mostrar ahora</p>
-          <p className="text-xs text-muted">Visible para alumnos de inmediato</p>
+          <p className="text-xs text-muted">Visible para estudiantes de inmediato</p>
         </div>
       </label>
       <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"

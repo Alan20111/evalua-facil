@@ -35,7 +35,7 @@ export default function Landing() {
             <div className="w-14 h-14 rounded-card bg-orange-500 flex items-center justify-center mx-auto mb-3">
               <BookOpen size={28} className="text-white" />
             </div>
-            <h2 className="text-lg font-bold text-on-surface">Soy Alumno</h2>
+            <h2 className="text-lg font-bold text-on-surface">Soy Estudiante</h2>
             <p className="text-sm text-muted mt-1">Entra a tus asignaturas y entregas</p>
             <span className="mt-3 inline-flex items-center gap-1 text-orange-600 font-semibold text-sm group-hover:gap-2 transition-all">
               Entrar <ChevronRight size={18} />

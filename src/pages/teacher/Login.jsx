@@ -165,8 +165,8 @@ export default function TeacherLogin() {
           <Link to="/register" className="text-blue-600 font-semibold hover:underline">Crear cuenta</Link>
         </p>
         <p className="text-center text-sm text-slate-400 mt-3">
-          ¿Eres alumno?{' '}
-          <Link to="/alumno" className="text-muted hover:underline">Acceso de alumnos</Link>
+          ¿Eres estudiante?{' '}
+          <Link to="/alumno" className="text-muted hover:underline">Acceso de estudiantes</Link>
         </p>
         <p className="text-center text-xs text-slate-400 mt-4">
           Para una mejor experiencia recomendamos utilizar Evalúa Fácil Docente desde una laptop o computadora de escritorio.

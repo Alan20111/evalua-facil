@@ -358,7 +358,7 @@ export default function ActivityPage() {
         {/* Student list */}
         <div className="px-4 pb-4">
           {filtered.length === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-8">Sin alumnos en esta categoría</p>
+            <p className="text-center text-slate-400 text-sm py-8">Sin estudiantes en esta categoría</p>
           ) : (
             <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
               {filtered.map((s, i) => {
@@ -455,7 +455,7 @@ export default function ActivityPage() {
               <a href={selected.sub.archivoURL} target="_blank" rel="noopener noreferrer" className="block mb-2">
                 <img
                   src={selected.sub.archivoURL}
-                  alt="Entrega del alumno"
+                  alt="Entrega del estudiante"
                   className="w-full max-h-72 object-contain rounded border border-outline-variant bg-surface"
                 />
               </a>
@@ -528,12 +528,12 @@ export default function ActivityPage() {
                     onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                     rows={2}
                     className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
-                    placeholder="Retroalimentación para el alumno…"
+                    placeholder="Retroalimentación para el estudiante…"
                   />
                 </div>
                 {!canCreate && (
                   <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
-                    Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este alumno sigue disponible.
+                    Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
                   </p>
                 )}
                 <button
@@ -547,7 +547,7 @@ export default function ActivityPage() {
               </form>
             ) : (
               <p className="text-sm text-slate-400 text-center py-2">
-                El alumno aún no ha entregado esta tarea.
+                El estudiante aún no ha entregado esta tarea.
               </p>
             )}
 
@@ -565,7 +565,7 @@ export default function ActivityPage() {
                 </button>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted">Nueva fecha límite para este alumno</p>
+                  <p className="text-xs font-medium text-muted">Nueva fecha límite para este estudiante</p>
                   <div className="flex gap-2">
                     <input
                       type="date"

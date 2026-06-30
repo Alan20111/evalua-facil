@@ -52,6 +52,7 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
     const ref = doc(collection(db, 'activities'))
     batch.set(ref, {
       nombre: a.nombre,
+      categoria: a.categoria || 'actividad',
       maxCalif: a.maxCalif,
       instrucciones: a.instrucciones || '',
       archivosAdjuntos: a.archivosAdjuntos || [],

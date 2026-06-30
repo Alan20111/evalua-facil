@@ -88,8 +88,8 @@ export default function StudentLayout({ children }) {
   const displayName = userProfile
     ? [userProfile.nombre, userProfile.apellidoPaterno].filter(Boolean).join(' ')
       || userProfile.username
-      || 'Alumno'
-    : 'Alumno'
+      || 'Estudiante'
+    : 'Estudiante'
   const initials = displayName.charAt(0).toUpperCase()
 
   return (

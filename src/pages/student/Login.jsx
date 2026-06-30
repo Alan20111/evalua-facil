@@ -279,7 +279,7 @@ export default function StudentLogin() {
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">
-            {mode === 'recover' ? 'Recuperar contraseña' : 'Acceso Alumnos'}
+            {mode === 'recover' ? 'Recuperar contraseña' : 'Acceso Estudiantes'}
           </h1>
           <p className="text-muted text-sm mt-1">Evalúa Fácil</p>
         </div>

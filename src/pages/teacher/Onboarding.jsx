@@ -17,7 +17,7 @@ export default function Onboarding() {
 
   async function finish(e) {
     e.preventDefault()
-    if (!nombre.trim()) { toast('Escribe cómo quieres que te vean tus alumnos', 'error'); return }
+    if (!nombre.trim()) { toast('Escribe cómo quieres que te vean tus estudiantes', 'error'); return }
     setSaving(true)
     try {
       const updates = { nombreMostrar: nombre.trim(), profileComplete: true }
@@ -39,13 +39,13 @@ export default function Onboarding() {
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">Un último paso</h1>
-          <p className="text-muted text-sm mt-1">Así te verán tus alumnos</p>
+          <p className="text-muted text-sm mt-1">Así te verán tus estudiantes</p>
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5">
           <form onSubmit={finish} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">¿Cómo quieres que te vean tus alumnos?</label>
+              <label className="block text-sm font-medium text-muted mb-1">¿Cómo quieres que te vean tus estudiantes?</label>
               <input
                 type="text"
                 value={nombre}

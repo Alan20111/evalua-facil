@@ -127,7 +127,7 @@ export function getTrialBannerMessage(subscription) {
   if (days <= TRIAL_WARNING_DAYS) {
     return {
       counter,
-      notice: `Tu período de prueba está por terminar. Conserva tus grupos, alumnos, actividades y calificaciones activando tu suscripción mensual por solo $${MONTHLY_PRICE_MXN} MXN.`,
+      notice: `Tu período de prueba está por terminar. Conserva tus grupos, estudiantes, actividades y calificaciones activando tu suscripción mensual por solo $${MONTHLY_PRICE_MXN} MXN.`,
       tone: 'warning',
     }
   }

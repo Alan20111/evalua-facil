@@ -60,7 +60,7 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
 
   autoTable(doc, {
     startY: periodo ? 28 : 24,
-    head: [['#', 'Alumno', ...PARCIALES.map((p) => `Prom. P${p}`), 'Final']],
+    head: [['#', 'Estudiante', ...PARCIALES.map((p) => `Prom. P${p}`), 'Final']],
     body,
     styles: { fontSize: 9, cellPadding: 2.5, textColor: 30 },
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
@@ -131,7 +131,7 @@ export async function exportCredentialsPDF({ subject, students, activationUrl })
   doc.setFontSize(16); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
   doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 20)
   doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-  doc.text('Lista de acceso de los alumnos', 14, 27)
+  doc.text('Lista de acceso de los estudiantes', 14, 27)
   doc.setFontSize(13); doc.setTextColor(20); doc.setFont(undefined, 'bold')
   doc.text(`Código de la clase: ${subject.accessCode || '—'}`, 14, 37)
 
@@ -164,7 +164,7 @@ export async function exportCredentialsPDF({ subject, students, activationUrl })
 
   const y = doc.lastAutoTable.finalY + 8
   doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(130)
-  doc.text('Cada alumno entra con su usuario y el código de la clase, y elige su propia contraseña la primera vez.', 14, y)
+  doc.text('Cada estudiante entra con su usuario y el código de la clase, y elige su propia contraseña la primera vez.', 14, y)
 
   doc.save(`lista_acceso_${safeFile(subject)}.pdf`)
 }

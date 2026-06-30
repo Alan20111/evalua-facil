@@ -73,7 +73,7 @@ export default function StudentDashboard() {
       // subject, all sharing the same auth uid). Load every enrollment.
       const enrollments = await getEnrollments(currentUser, userProfile)
       if (enrollments.length === 0) {
-        toast('No se encontró tu perfil de alumno', 'error')
+        toast('No se encontró tu perfil de estudiante', 'error')
         setSubjects([])
         return
       }
