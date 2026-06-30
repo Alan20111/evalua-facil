@@ -105,7 +105,7 @@ export default function EvaluacionEditor({
           visibilidadMode: !d.oculta ? 'show' : d.publishAt ? 'schedule' : 'hide',
         })
         setAttachExisting(d.archivosAdjuntos || [])
-        setInfoCollapsed(true) // start with info collapsed when editing
+        setInfoCollapsed(false)
       }
       loadPreguntas(activityId)
     } catch (err) {
