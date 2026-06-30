@@ -56,14 +56,19 @@ export default function StudentSubjectPage() {
   const [resources, setResources] = useState([])
   const [materials, setMaterials] = useState([])
   const [teacherName, setTeacherName] = useState('')
-  const [debugInfo, setDebugInfo] = useState(null)
   const [openParcial, setOpenParcial] = useState(1)
   const [activeTab, setActiveTab] = useState('Actividades')
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
   const toast = useToast()
 
-  useEffect(() => { loadAll() }, [subjectId])
+  useEffect(() => {
+    // `currentUser` can still be null on first mount while Firebase Auth restores the
+    // session (most visible in incognito/fresh sessions, no cached auth state) — firing
+    // the Firestore query before then gets rejected by security rules and, since this
+    // effect didn't depend on `currentUser`, never retried once auth was ready.
+    if (currentUser) loadAll()
+  }, [subjectId, currentUser])
 
   async function loadAll() {
     setLoading(true)
@@ -94,19 +99,9 @@ export default function StudentSubjectPage() {
       }
 
       const parcialesOcultos = subData.parcialesOcultos || []
-      const rawActs = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      const acts = rawActs
+      const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
         .filter((a) => isActivityPublished(a, parcialesOcultos.includes(a.parcial)))
       setActivities(acts)
-      // TEMP DEBUG — remove once the "no se ven actividades" report is diagnosed.
-      setDebugInfo({
-        subjectId,
-        raw: rawActs.length,
-        visible: acts.length,
-        sample: rawActs.slice(0, 3).map((a) => ({
-          id: a.id, nombre: a.nombre, parcial: a.parcial, oculta: a.oculta, publishAt: a.publishAt, asignaturaId: a.asignaturaId,
-        })),
-      })
 
       setResources(
         resSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -161,13 +156,6 @@ export default function StudentSubjectPage() {
   return (
     <StudentLayout>
     <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
-
-      {/* TEMP DEBUG PANEL — remove once the "no se ven actividades" report is diagnosed. */}
-      {debugInfo && (
-        <pre className="m-2 p-2 text-[10px] bg-black text-lime-300 rounded overflow-x-auto whitespace-pre-wrap">
-          {JSON.stringify(debugInfo, null, 2)}
-        </pre>
-      )}
 
       {/* Page header */}
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">

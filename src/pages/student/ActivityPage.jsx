@@ -77,8 +77,11 @@ export default function StudentActivityPage() {
     return () => unsub()
   }, [activityId])
 
-  // One-time load for everything else (student, subject, submission)
-  useEffect(() => { loadOther() }, [activityId, userProfile?.studentId])
+  // One-time load for everything else (student, subject, submission). Guarded on
+  // `currentUser` — on a fresh/incognito session Firebase Auth may not have restored
+  // yet on first mount, and firing these reads before then gets rejected by Firestore
+  // rules with no retry since this effect didn't depend on `currentUser`.
+  useEffect(() => { if (currentUser) loadOther() }, [activityId, userProfile?.studentId, currentUser])
 
   async function loadOther() {
     setLoading(true)
