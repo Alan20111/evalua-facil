@@ -118,7 +118,7 @@ export default function EntregableEditor({
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
-            {contextLine && <p className="text-xs text-white/60 truncate">{contextLine}</p>}
+            {contextLine && <p className="text-sm font-semibold text-white truncate">{contextLine}</p>}
             <p className="text-xs text-white/70 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
             <h1 className="font-bold text-white truncate">{form.nombre || `${isNew ? 'Nueva actividad' : 'Editar actividad'}`}</h1>
           </div>

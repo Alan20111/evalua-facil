@@ -406,7 +406,7 @@ export default function EvaluacionEditor({
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
-            {contextLine && <p className="text-xs text-white/60 truncate">{contextLine}</p>}
+            {contextLine && <p className="text-sm font-semibold text-white truncate">{contextLine}</p>}
             <p className="text-xs text-white/70 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
             <h1 className="font-bold text-white truncate flex items-baseline gap-2">
               {activityLabel && <span className="text-2xl font-extrabold text-white/90">{activityLabel}</span>}

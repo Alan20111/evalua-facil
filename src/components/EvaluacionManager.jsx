@@ -446,7 +446,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
-            {contextLine && <p className="text-xs text-slate-400 truncate mb-0.5">{contextLine}</p>}
+            {contextLine && <p className="text-sm font-semibold text-on-surface truncate mb-0.5">{contextLine}</p>}
             <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 truncate">
               {activityLabel && <span className="text-2xl font-extrabold text-accent">{activityLabel}</span>}
               <span className="truncate">{activity.nombre}</span>
