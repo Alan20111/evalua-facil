@@ -56,7 +56,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', categoria: 'actividad', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show', esEvaluacion: false }
+const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show', esEvaluacion: false }
 
 // Defaults for a new evaluación's config — Cuestionario favors repeated
 // practice (unlimited attempts, keep best); Examen favors a single formal
@@ -77,8 +77,7 @@ const EVALUACION_DEFAULTS = {
 }
 
 const CATEGORIAS_ACTIVIDAD = [
-  { value: 'actividad', label: 'Actividad' },
-  { value: 'tarea', label: 'Tarea' },
+  { value: 'entregable', label: 'Entregable' },
   { value: 'cuestionario', label: 'Cuestionario' },
   { value: 'examen', label: 'Examen' },
 ]
@@ -756,7 +755,10 @@ export default function SubjectPage() {
     setModalMode('edit'); setModalParcial(activity.parcial); setEditActivityId(activity.id)
     setForm({
       nombre: activity.nombre || '',
-      categoria: activity.categoria || 'actividad',
+      // 'actividad'/'tarea' are legacy values from before the two were merged
+      // into a single "Entregable" option — normalize them on open so the
+      // select always has a matching option.
+      categoria: ['actividad', 'tarea'].includes(activity.categoria) ? 'entregable' : (activity.categoria || 'entregable'),
       instrucciones: toRichHtml(activity.instrucciones || ''),
       fechaLimite: activity.fechaLimite
         ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)

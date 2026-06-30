@@ -32,7 +32,10 @@ function formatResourceDate(ts) {
 
 const TABS = ['Actividades', 'Calificaciones', 'Recursos']
 
-const CATEGORIA_LABELS = { actividad: 'Actividad', tarea: 'Tarea', cuestionario: 'Cuestionario', examen: 'Examen' }
+// 'actividad'/'tarea' are legacy categoria values from before they were
+// merged into a single "Entregable" option — still mapped here so old
+// activities keep showing a correct label without needing a data migration.
+const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', cuestionario: 'Cuestionario', examen: 'Examen' }
 
 function formatFechaLimite(value) {
   if (!value) return ''
@@ -254,7 +257,7 @@ export default function StudentSubjectPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium leading-tight text-on-surface truncate">{a.nombre}</p>
                             <p className="text-xs text-slate-500 leading-tight truncate mt-0.5">
-                              {CATEGORIA_LABELS[a.categoria] || 'Actividad'}
+                              {CATEGORIA_LABELS[a.categoria] || 'Entregable'}
                               {fechaLimiteLabel && ` · Vence ${fechaLimiteLabel}`}
                             </p>
                             {sub?.comentario && (
@@ -372,7 +375,7 @@ export default function StudentSubjectPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-on-surface truncate">{a.nombre}</p>
-                            <p className="text-xs text-slate-400 truncate">{CATEGORIA_LABELS[a.categoria] || 'Actividad'}</p>
+                            <p className="text-xs text-slate-400 truncate">{CATEGORIA_LABELS[a.categoria] || 'Entregable'}</p>
                           </div>
                           <div className="flex-shrink-0 text-right">
                             {graded ? (
