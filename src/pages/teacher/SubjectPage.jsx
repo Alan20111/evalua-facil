@@ -42,6 +42,7 @@ import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity } from '../../utils/studentIdentity'
 import { matchesStudentSearch } from '../../utils/studentSearch'
 import { useSubscription } from '../../hooks/useSubscription'
+import EvaluacionEditor from '../../components/EvaluacionEditor'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 
 async function fetchSubmissionsForActivities(actIds) {
@@ -123,6 +124,8 @@ export default function SubjectPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   // null = showing the tipo picker, 'entregable'|'cuestionario'|'examen' = form visible
   const [tipoActividad, setTipoActividad] = useState(null)
+  // Full-screen evaluación editor (replaces the modal for cuestionario/examen)
+  const [evalEditor, setEvalEditor] = useState(null) // null | { activityId, categoria, parcial }
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -755,10 +758,15 @@ export default function SubjectPage() {
     setShowModal(true)
   }
   function openEdit(activity) {
+    // Cuestionario/Examen use the full-screen EvaluacionEditor; everything
+    // else uses the regular modal.
+    if (activity.tipo === 'evaluacion') {
+      setEvalEditor({ activityId: activity.id, categoria: activity.categoria, parcial: activity.parcial })
+      return
+    }
     setModalMode('edit'); setModalParcial(activity.parcial); setEditActivityId(activity.id)
-    // When editing, set tipoActividad so the form renders correctly without the picker.
     const cat = ['actividad', 'tarea'].includes(activity.categoria) ? 'entregable' : (activity.categoria || 'entregable')
-    setTipoActividad(activity.tipo === 'evaluacion' ? cat : cat)
+    setTipoActividad(cat)
     setForm({
       nombre: activity.nombre || '',
       categoria: cat,
@@ -2051,8 +2059,13 @@ export default function SubjectPage() {
                 ].map((opt) => (
                   <button key={opt.key} type="button"
                     onClick={() => {
-                      setTipoActividad(opt.key)
-                      setForm((f) => ({ ...f, categoria: opt.key, esEvaluacion: opt.key !== 'entregable' }))
+                      if (opt.key === 'entregable') {
+                        setTipoActividad('entregable')
+                        setForm((f) => ({ ...f, categoria: 'entregable', esEvaluacion: false }))
+                      } else {
+                        setShowModal(false)
+                        setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial })
+                      }
                     }}
                     className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                     <div>
@@ -3033,6 +3046,27 @@ export default function SubjectPage() {
         </div>
       )}
       </div>
+
+      {/* ── Full-screen evaluación editor (Cuestionario / Examen) ── */}
+      {evalEditor && (
+        <EvaluacionEditor
+          activityId={evalEditor.activityId}
+          parcial={evalEditor.parcial}
+          categoria={evalEditor.categoria}
+          subjectId={subjectId}
+          docenteId={currentUser?.uid}
+          subject={subject}
+          existingActivities={activities}
+          onClose={() => setEvalEditor(null)}
+          onActivityCreated={(act) => {
+            setActivities((prev) => [...prev, act])
+            setSubmissionCounts((prev) => ({ ...prev, [act.id]: { delivered: 0, graded: 0 } }))
+          }}
+          onActivityUpdated={(act) => {
+            setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, ...act } : a))
+          }}
+        />
+      )}
     </TeacherLayout>
   )
 }
