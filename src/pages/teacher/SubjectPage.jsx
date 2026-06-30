@@ -762,7 +762,7 @@ export default function SubjectPage() {
   }
   function openEdit(activity, labelOverride) {
     if (activity.tipo === 'evaluacion') {
-      setEvalEditor({ activityId: activity.id, categoria: activity.categoria, parcial: activity.parcial })
+      setEvalEditor({ activityId: activity.id, categoria: activity.categoria, parcial: activity.parcial, activityLabel: labelOverride || null })
       return
     }
     // Entregable (and legacy actividad/tarea) → full-screen editor
@@ -2066,7 +2066,7 @@ export default function SubjectPage() {
                       if (opt.key === 'entregable') {
                         setEntregableEditor({ activityId: null, parcial: modalParcial, categoria: 'entregable', activityLabel: null, initialForm: null, initialExistingFiles: null })
                       } else {
-                        setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial })
+                        setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial, activityLabel: `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}` })
                       }
                     }}
                     className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
@@ -3078,6 +3078,7 @@ export default function SubjectPage() {
           activityId={evalEditor.activityId}
           parcial={evalEditor.parcial}
           categoria={evalEditor.categoria}
+          activityLabel={evalEditor.activityLabel}
           subjectId={subjectId}
           docenteId={currentUser?.uid}
           subject={subject}

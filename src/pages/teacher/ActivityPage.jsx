@@ -252,6 +252,7 @@ export default function ActivityPage() {
             activity={activity}
             subject={subject}
             activityId={activityId}
+            activityLabel={activityLabel}
             students={students}
             submissions={submissions}
             onActivityChange={setActivity}

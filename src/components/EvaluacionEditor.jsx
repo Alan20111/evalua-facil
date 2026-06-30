@@ -47,6 +47,7 @@ export default function EvaluacionEditor({
   activityId,      // null = creating new; string = editing existing
   parcial,
   categoria,       // 'cuestionario' | 'examen'
+  activityLabel,   // e.g. "1.3" — shown in the header
   subjectId,
   docenteId,
   subject,
@@ -388,7 +389,10 @@ export default function EvaluacionEditor({
           </button>
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white/70 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
-            <h1 className="font-bold text-white truncate">{infoForm.nombre || `Nuevo ${tipoLabel}`}</h1>
+            <h1 className="font-bold text-white truncate flex items-baseline gap-2">
+              {activityLabel && <span className="text-2xl font-extrabold text-white/90">{activityLabel}</span>}
+              <span>{infoForm.nombre || `Nuevo ${tipoLabel}`}</span>
+            </h1>
           </div>
           <span className="text-xs text-white/60 flex-shrink-0">{preguntas.length} pregunta{preguntas.length !== 1 ? 's' : ''}</span>
         </div>
