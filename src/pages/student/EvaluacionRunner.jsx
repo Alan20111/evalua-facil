@@ -199,16 +199,16 @@ export default function EvaluacionRunner() {
   }, [secondsLeft])
 
   if (loading || !activity) return (
-    <StudentLayout>
-      <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
-    </StudentLayout>
+    <div className="fixed inset-0 z-50 bg-surface flex items-center justify-center">
+      <Spinner size="lg" />
+    </div>
   )
 
   if (preguntas.length === 0) {
     return (
-      <StudentLayout>
-        <div className="px-4 py-10 text-center text-sm text-slate-400">Esta evaluación no tiene preguntas.</div>
-      </StudentLayout>
+      <div className="fixed inset-0 z-50 bg-surface flex items-center justify-center">
+        <p className="text-sm text-slate-400">Esta evaluación no tiene preguntas.</p>
+      </div>
     )
   }
 
@@ -219,8 +219,7 @@ export default function EvaluacionRunner() {
   const ss = secondsLeft != null ? secondsLeft % 60 : null
 
   return (
-    <StudentLayout>
-      <div className="bg-surface min-h-screen" data-subject-palette={subject?.colorPalette || 'default'}>
+    <div className="fixed inset-0 z-50 bg-surface overflow-y-auto" data-subject-palette={subject?.colorPalette || 'default'}>
         <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between shadow-card sticky top-0 z-10">
           <div className="min-w-0">
             <h1 className="text-base font-bold text-on-surface truncate">{activity.nombre}</h1>
@@ -292,7 +291,6 @@ export default function EvaluacionRunner() {
             )}
           </div>
         </div>
-      </div>
-    </StudentLayout>
+    </div>
   )
 }
