@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, ChevronRight, LayoutDashboard, GraduationCap } from 'lucide-react'
+import { LogOut, ChevronRight, LayoutDashboard, GraduationCap, Camera } from 'lucide-react'
 import { signOut } from 'firebase/auth'
-import { getDoc, doc } from 'firebase/firestore'
+import { getDoc, doc, getDocs, collection, query, where, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import Spinner from './Spinner'
@@ -10,12 +10,29 @@ import SubjectIcon from './SubjectIcon'
 import { subjectDisplayName } from '../utils/subjectName'
 import { getEnrollments } from '../utils/studentLookup'
 
+async function uploadPhotoToCloudinary(file) {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('upload_preset', uploadPreset)
+  formData.append('folder', 'evalua-facil/profiles')
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    method: 'POST',
+    body: formData,
+  })
+  if (!res.ok) throw new Error('Error al subir foto')
+  return (await res.json()).secure_url
+}
+
 export default function StudentLayout({ children }) {
-  const { currentUser, userProfile } = useAuth()
+  const { currentUser, userProfile, setUserProfile } = useAuth()
   const navigate = useNavigate()
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [schoolName, setSchoolName] = useState('')
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (!currentUser) return
@@ -48,13 +65,44 @@ export default function StudentLayout({ children }) {
     navigate('/alumno')
   }
 
+  async function handlePhotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingPhoto(true)
+    try {
+      const url = await uploadPhotoToCloudinary(file)
+      // Update every enrollment doc that belongs to this student uid
+      const snap = await getDocs(
+        query(collection(db, 'students'), where('uid', '==', currentUser.uid))
+      )
+      await Promise.all(snap.docs.map((d) => updateDoc(doc(db, 'students', d.id), { photoURL: url })))
+      setUserProfile((prev) => ({ ...prev, photoURL: url }))
+    } catch {
+      // best-effort — silent failure
+    } finally {
+      setUploadingPhoto(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   const displayName = userProfile
     ? [userProfile.nombre, userProfile.apellidoPaterno].filter(Boolean).join(' ')
+      || userProfile.username
+      || 'Alumno'
     : 'Alumno'
   const initials = displayName.charAt(0).toUpperCase()
 
   return (
     <div className="min-h-screen bg-surface">
+      {/* Hidden file input for photo upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePhotoChange}
+      />
+
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
         <div className="flex items-center gap-2">
@@ -74,8 +122,8 @@ export default function StudentLayout({ children }) {
 
       {/* Desktop: sidebar + content */}
       <div className="flex">
-        {/* Sidebar — desktop only. data-role="docente" forces the institutional blue
-            regardless of the parent's data-role="alumno" accent override. */}
+        {/* Sidebar — desktop only. data-role="docente" forces the institutional
+            blue regardless of the parent's data-role="alumno" accent override. */}
         <aside
           data-role="docente"
           className="hidden md:flex flex-col w-[280px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20"
@@ -88,15 +136,27 @@ export default function StudentLayout({ children }) {
             <span className="font-bold text-white">Evalúa Fácil</span>
           </div>
 
-          {/* Student profile */}
+          {/* Student profile — click avatar to change photo */}
           <div className="flex items-center gap-3 px-3 py-2 mx-2 mt-1 rounded">
-            <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
-              {userProfile?.photoURL ? (
-                <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-sm font-bold text-accent">{initials}</span>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="relative w-9 h-9 rounded-full flex-shrink-0 group focus:outline-none"
+              title="Cambiar foto"
+            >
+              <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center">
+                {uploadingPhoto ? (
+                  <Spinner size="sm" />
+                ) : userProfile?.photoURL ? (
+                  <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-sm font-bold text-accent">{initials}</span>
+                )}
+              </div>
+              <span className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                <Camera size={15} className="text-white" />
+              </span>
+            </button>
             <div className="min-w-0 flex-1">
               <p className="text-body-sm font-semibold text-white truncate">{displayName}</p>
               {schoolName && (
