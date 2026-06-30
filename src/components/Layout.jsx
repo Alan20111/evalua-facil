@@ -24,6 +24,7 @@ import { useSubscription } from '../hooks/useSubscription'
 import { getTrialBannerMessage } from '../utils/subscriptionHelpers'
 import { subjectDisplayName } from '../utils/subjectName'
 import SubjectIcon from './SubjectIcon'
+import PortalBadge from './PortalBadge'
 
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
@@ -75,6 +76,7 @@ export default function TeacherLayout({ children }) {
             <GraduationCap size={20} />
           </div>
           <span className="font-semibold text-on-surface text-body-sm">Evalúa Fácil</span>
+          <PortalBadge role="docente" />
         </div>
         <button
           type="button"
@@ -95,6 +97,7 @@ export default function TeacherLayout({ children }) {
               <GraduationCap size={22} className="text-accent" />
             </div>
             <span className="font-bold text-white">Evalúa Fácil</span>
+            <PortalBadge role="docente" />
           </div>
 
           {/* Profile button */}

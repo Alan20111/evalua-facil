@@ -9,6 +9,7 @@ import Spinner from './Spinner'
 import SubjectIcon from './SubjectIcon'
 import { subjectDisplayName } from '../utils/subjectName'
 import { getEnrollments } from '../utils/studentLookup'
+import PortalBadge from './PortalBadge'
 
 async function uploadPhotoToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -110,6 +111,7 @@ export default function StudentLayout({ children }) {
             <GraduationCap size={20} />
           </div>
           <span className="font-semibold text-on-surface text-body-sm">Evalúa Fácil</span>
+          <PortalBadge role="alumno" />
         </div>
         <button
           type="button"
@@ -134,6 +136,7 @@ export default function StudentLayout({ children }) {
               <GraduationCap size={22} className="text-accent" />
             </div>
             <span className="font-bold text-white">Evalúa Fácil</span>
+            <PortalBadge role="alumno" />
           </div>
 
           {/* Student profile — click avatar to change photo */}
