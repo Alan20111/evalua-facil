@@ -566,16 +566,18 @@ export default function EvaluacionEditor({
           <div className="px-4 py-3 border-b border-outline-variant flex items-center justify-between">
             <h2 className="font-semibold text-on-surface">Preguntas</h2>
 
-            {currentActivityId && !showPreguntaForm && (
+            {currentActivityId && (
               <div className="flex gap-2">
                 <button onClick={() => { setShowBanco(true); loadBanco() }}
                   className="flex items-center gap-1 px-3 py-1.5 border border-accent text-accent text-xs font-medium rounded">
                   <Library size={15} /> Mi banco
                 </button>
-                <button onClick={() => setShowPreguntaForm(true)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-accent text-white text-xs font-medium rounded">
-                  <Plus size={15} /> Agregar
-                </button>
+                {!showPreguntaForm && (
+                  <button onClick={() => setShowPreguntaForm(true)}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-accent text-white text-xs font-medium rounded">
+                    <Plus size={15} /> Agregar
+                  </button>
+                )}
               </div>
             )}
           </div>
