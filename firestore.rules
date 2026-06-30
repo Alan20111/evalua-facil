@@ -2,13 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // IMPORTANT: guard with exists() before get(). Students have NO users/{uid} doc, so a
+    // bare get(users/{uid}).data.role throws during rule evaluation → the whole request is
+    // denied with "Missing or insufficient permissions". exists() makes these return false
+    // gracefully for any account without a users doc instead of erroring.
     function isAdmin() {
       return request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isDocente() {
       return request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'docente';
     }
 
@@ -93,10 +99,14 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow update: if request.auth != null;
       // Only the owning teacher (of the activity) or the student who made the
-      // submission may delete it.
+      // submission may delete it. Guard the get() with exists() so a submission whose
+      // activity was already deleted can still be cleaned up without a rule-eval error.
       allow delete: if request.auth != null && (
-        request.auth.uid == get(/databases/$(database)/documents/activities/$(resource.data.actividadId)).data.docenteId
-        || resource.data.alumnoId == request.auth.uid
+        resource.data.alumnoId == request.auth.uid
+        || (
+          exists(/databases/$(database)/documents/activities/$(resource.data.actividadId))
+          && request.auth.uid == get(/databases/$(database)/documents/activities/$(resource.data.actividadId)).data.docenteId
+        )
       );
 
       // Evaluación answers (autosave) — only the owning student may write
