@@ -20,6 +20,11 @@ function toIsoNow() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
 }
 
+function computeScheduleDefault() {
+  const d = new Date(Date.now() + 2 * 60 * 60 * 1000)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
   { value: 'verdadero_falso', label: 'Verdadero / Falso' },
@@ -491,7 +496,7 @@ export default function EvaluacionEditor({
                   publishedAt={infoForm.publishedAt}
                   onModeChange={(mode) => setInfoForm((f) => ({
                     ...f, visibilidadMode: mode,
-                    publishAt: mode === 'schedule' ? f.publishAt : '',
+                    publishAt: mode === 'schedule' ? (f.publishAt || computeScheduleDefault()) : '',
                     fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
                   }))}
                   onPublishAtChange={(v) => setInfoForm((f) => ({ ...f, publishAt: v }))}
@@ -511,6 +516,10 @@ export default function EvaluacionEditor({
                       onChange={v => setInfoForm(f => ({ ...f, fechaLimite: v }))}
                       placeholder="Sin fecha límite…"
                       clearable
+                      defaultTime="23:59"
+                      defaultDate={
+                        (infoForm.publishAt || infoForm.publishedAt || '').split('T')[0] || undefined
+                      }
                       minDateTime={
                         infoForm.visibilidadMode === 'published' ? (infoForm.publishedAt || undefined) :
                         infoForm.visibilidadMode === 'schedule'  ? (infoForm.publishAt  || undefined) :
