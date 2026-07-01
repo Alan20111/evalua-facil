@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Timer,
   GraduationCap,
+  CalendarDays,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -144,8 +145,21 @@ export default function TeacherLayout({ children }) {
             </button>
           )}
 
+          {/* Calendario */}
+          <NavLink
+            to="/calendario"
+            className={({ isActive }) =>
+              `flex items-center gap-2 mx-2 px-3 py-1.5 rounded text-body-sm transition-colors ${
+                isActive ? 'bg-white text-accent font-semibold' : 'text-white/80 hover:bg-white/10'
+              }`
+            }
+          >
+            <CalendarDays size={17} className="flex-shrink-0" />
+            Calendario
+          </NavLink>
+
           {/* Subjects header → goes to the full subjects list */}
-          <NavLink to="/dashboard" className="mx-2 px-2 pt-4 pb-1 flex items-center justify-between rounded group">
+          <NavLink to="/dashboard" className="mx-2 px-2 pt-3 pb-1 flex items-center justify-between rounded group">
             <span className="text-label-caps text-white/70 group-hover:text-white uppercase transition-colors">
               Asignaturas
             </span>
@@ -247,6 +261,17 @@ export default function TeacherLayout({ children }) {
           >
             <LayoutDashboard size={24} />
             <span>Asignaturas</span>
+          </NavLink>
+          <NavLink
+            to="/calendario"
+            className={({ isActive }) =>
+              `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
+                isActive ? 'text-accent' : 'text-muted'
+              }`
+            }
+          >
+            <CalendarDays size={24} />
+            <span>Calendario</span>
           </NavLink>
           <NavLink
             to="/profile"

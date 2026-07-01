@@ -13,6 +13,7 @@ import TeacherDashboard from './pages/teacher/Dashboard'
 import SubjectPage from './pages/teacher/SubjectPage'
 import ActivityPage from './pages/teacher/ActivityPage'
 import Profile from './pages/teacher/Profile'
+import CalendarPage from './pages/teacher/CalendarPage'
 import VerifyEmail from './pages/teacher/VerifyEmail'
 import PagoResultado from './pages/teacher/PagoResultado'
 
@@ -133,6 +134,7 @@ export default function App() {
             <Route path="/subject/:subjectId" element={<ProtectedTeacher><SubjectPage /></ProtectedTeacher>} />
             <Route path="/activity/:activityId" element={<ProtectedTeacher><ActivityPage /></ProtectedTeacher>} />
             <Route path="/profile" element={<ProtectedTeacher><Profile /></ProtectedTeacher>} />
+            <Route path="/calendario" element={<ProtectedTeacher><CalendarPage /></ProtectedTeacher>} />
 
             {/* Student protected */}
             <Route path="/alumno/dashboard" element={<ProtectedStudent><StudentDashboard /></ProtectedStudent>} />

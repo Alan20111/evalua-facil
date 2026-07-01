@@ -160,5 +160,21 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Personal calendar events created by the teacher.
+    match /events/{eventId} {
+      allow read, update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.docenteId;
+    }
+
+    // Teacher's class schedule blocks (Mi Horario).
+    match /horario/{bloqueId} {
+      allow read, update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.docenteId;
+    }
   }
 }
