@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   collection, query, where, doc, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, getDoc,
 } from 'firebase/firestore'
@@ -64,11 +64,9 @@ export default function EvaluacionEditor({
   onActivityUpdated,
 }) {
   const toast = useToast()
-  const openedAt = useRef(toIsoNow()).current
-
   // ── Basic info state ──────────────────────────────────────────────
   const [infoForm, setInfoForm] = useState({
-    nombre: '', instrucciones: '', fechaLimite: '', oculta: false, publishAt: '', visibilidadMode: 'show',
+    nombre: '', instrucciones: '', fechaLimite: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
   })
   const [infoCollapsed, setInfoCollapsed] = useState(false)
   const [savingInfo, setSavingInfo] = useState(false)
@@ -115,7 +113,8 @@ export default function EvaluacionEditor({
             : '',
           oculta: d.oculta || false,
           publishAt: d.publishAt || '',
-          visibilidadMode: !d.oculta ? 'show' : d.publishAt ? 'schedule' : 'hide',
+          publishedAt: d.publishedAt || '',
+          visibilidadMode: (d.publishedAt || !d.oculta) ? 'published' : d.publishAt ? 'schedule' : 'hide',
         })
         setAttachExisting(d.archivosAdjuntos || [])
         setInfoCollapsed(false)
@@ -154,6 +153,18 @@ export default function EvaluacionEditor({
     if (!htmlToPlainText(infoForm.instrucciones) && !infoForm.nombre.trim()) {
       toast('Escribe al menos el nombre de la evaluación', 'error'); return
     }
+    // Backend validation: fechaLimite must be strictly after the effective publish datetime
+    const effectivePublishAt =
+      infoForm.visibilidadMode === 'show'      ? toIsoNow() :
+      infoForm.visibilidadMode === 'published' ? (infoForm.publishedAt || null) :
+      infoForm.visibilidadMode === 'schedule'  ? (infoForm.publishAt || null) :
+      null
+    if (infoForm.fechaLimite && effectivePublishAt) {
+      if (infoForm.fechaLimite <= effectivePublishAt) {
+        toast('La fecha límite debe ser posterior a la fecha de publicación', 'error'); return
+      }
+    }
+
     setSavingInfo(true)
     try {
       const uploaded = await Promise.all(
@@ -162,14 +173,19 @@ export default function EvaluacionEditor({
           nombre: file.name, tamano: file.size,
         }))
       )
+      const newPublishedAt =
+        infoForm.visibilidadMode === 'show'      ? toIsoNow() :
+        infoForm.visibilidadMode === 'published' ? (infoForm.publishedAt || null) :
+        null
       const payload = {
         nombre: infoForm.nombre.trim(),
         categoria,
         instrucciones: sanitizeHtml(infoForm.instrucciones),
         archivosAdjuntos: [...attachExisting, ...uploaded],
         fechaLimite: infoForm.fechaLimite || null,
-        oculta: infoForm.oculta || !!infoForm.publishAt,
-        publishAt: infoForm.publishAt || null,
+        oculta: infoForm.visibilidadMode === 'schedule' || infoForm.visibilidadMode === 'hide',
+        publishAt: infoForm.visibilidadMode === 'schedule' ? (infoForm.publishAt || null) : null,
+        publishedAt: newPublishedAt,
         maxCalif: 10,
       }
       if (isNew) {
@@ -472,9 +488,9 @@ export default function EvaluacionEditor({
                 <VisibilitySelect
                   mode={infoForm.visibilidadMode}
                   publishAt={infoForm.publishAt}
+                  publishedAt={infoForm.publishedAt}
                   onModeChange={(mode) => setInfoForm((f) => ({
                     ...f, visibilidadMode: mode,
-                    oculta: mode !== 'show',
                     publishAt: mode === 'schedule' ? f.publishAt : '',
                     fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
                   }))}
@@ -484,7 +500,9 @@ export default function EvaluacionEditor({
               {infoForm.visibilidadMode !== 'hide' && (
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
-                  {infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
+                  {infoForm.visibilidadMode === 'show' ? (
+                    <p className="text-xs text-slate-400 px-1">Guarda primero para establecer la fecha de publicación y luego podrás asignar una fecha límite.</p>
+                  ) : infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
                     <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
                     <EFDateTimePicker
@@ -494,8 +512,8 @@ export default function EvaluacionEditor({
                       placeholder="Sin fecha límite…"
                       clearable
                       minDateTime={
-                        infoForm.visibilidadMode === 'schedule' ? (infoForm.publishAt || undefined) :
-                        infoForm.visibilidadMode === 'show'     ? openedAt :
+                        infoForm.visibilidadMode === 'published' ? (infoForm.publishedAt || undefined) :
+                        infoForm.visibilidadMode === 'schedule'  ? (infoForm.publishAt  || undefined) :
                         undefined
                       }
                     />
