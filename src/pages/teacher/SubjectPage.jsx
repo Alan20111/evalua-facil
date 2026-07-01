@@ -2639,7 +2639,7 @@ export default function SubjectPage() {
               <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${activateMode === 'now' ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
                 <input type="radio" name="activateMode" value="now" checked={activateMode === 'now'} onChange={() => setActivateMode('now')} className="accent-[var(--accent)]" />
                 <div>
-                  <p className="text-sm font-medium text-on-surface">Mostrar ahora</p>
+                  <p className="text-sm font-medium text-on-surface">Mostrar</p>
                   <p className="text-sm text-slate-500">Visible de inmediato para estudiantes</p>
                 </div>
               </label>
