@@ -19,6 +19,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
+import DateTimePicker from '../../components/DateTimePicker'
 import FileTypeSelect from '../../components/FileTypeSelect'
 import RichTextEditor from '../../components/RichTextEditor'
 import VisibilitySelect from '../../components/VisibilitySelect'
@@ -2142,17 +2143,11 @@ export default function SubjectPage() {
                 <label className="block text-sm font-medium text-muted mb-1">
                   Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
                 </label>
-                <div className="flex items-center gap-2">
-                  <input type="datetime-local" value={form.fechaLimite} onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
-                  {form.fechaLimite && (
-                    <button type="button" onClick={() => setForm((f) => ({ ...f, fechaLimite: '' }))}
-                      title="Quitar fecha límite"
-                      className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded flex-shrink-0">
-                      <X size={18} />
-                    </button>
-                  )}
-                </div>
+                <DateTimePicker
+                  value={form.fechaLimite}
+                  onChange={(v) => setForm((f) => ({ ...f, fechaLimite: v }))}
+                  placeholder="Sin fecha límite"
+                />
                 <p className="text-xs text-slate-400 mt-1">
                   Luego de esta fecha y hora ya no se reciben entregas.
                 </p>
@@ -2639,11 +2634,10 @@ export default function SubjectPage() {
                 </div>
               </label>
               {activateMode === 'schedule' && (
-                <input
-                  type="datetime-local"
+                <DateTimePicker
                   value={activateDate}
-                  onChange={(e) => setActivateDate(e.target.value)}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  onChange={setActivateDate}
+                  placeholder="Elegir fecha y hora"
                 />
               )}
             </div>

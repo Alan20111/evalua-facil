@@ -10,6 +10,7 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, toRichHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../config/fileTypes'
 import { ArrowLeft, Plus, Pencil, X } from 'lucide-react'
+import DateTimePicker from './DateTimePicker'
 
 const MAX_ATTACH = 15 * 1024 * 1024
 
@@ -166,17 +167,11 @@ export default function EntregableEditor({
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
             <div>
               <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
-              <div className="flex gap-2">
-                <input type="datetime-local" value={form.fechaLimite}
-                  onChange={(e) => setForm((f) => ({ ...f, fechaLimite: e.target.value }))}
-                  className="flex-1 px-4 py-2 rounded border border-outline-variant text-sm bg-surface" />
-                {form.fechaLimite && (
-                  <button type="button" onClick={() => setForm((f) => ({ ...f, fechaLimite: '' }))}
-                    className="p-2.5 text-slate-400 hover:text-error rounded">
-                    <X size={18} />
-                  </button>
-                )}
-              </div>
+              <DateTimePicker
+                value={form.fechaLimite}
+                onChange={(v) => setForm((f) => ({ ...f, fechaLimite: v }))}
+                placeholder="Sin fecha límite"
+              />
             </div>
 
             <div>
