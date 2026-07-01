@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    zoom: 0.9;
+  }
   body {
     @apply bg-surface text-on-surface font-sans antialiased;
   }
