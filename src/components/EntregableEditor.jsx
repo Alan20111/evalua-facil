@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
@@ -13,6 +13,11 @@ import { ArrowLeft, Plus, Pencil, X } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 
 const MAX_ATTACH = 15 * 1024 * 1024
+
+function toIsoNow() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
 
 // Full-screen editor for Entregable activities (file submission / mark-complete).
 // Mirrors the visual pattern of EvaluacionEditor so all activity creation/editing
@@ -34,6 +39,9 @@ export default function EntregableEditor({
 }) {
   const toast = useToast()
   const isNew = !activityId
+
+  // Capture the moment the editor opens — used as minDateTime when mode is 'show'
+  const openedAt = useRef(toIsoNow()).current
 
   const [form, setForm] = useState(initialForm || {
     nombre: '', instrucciones: '', fechaLimite: '',
@@ -192,7 +200,11 @@ export default function EntregableEditor({
                     onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                     placeholder="Sin fecha límite…"
                     clearable
-                    minDateTime={form.publishAt || undefined}
+                    minDateTime={
+                      form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
+                      form.visibilidadMode === 'show'     ? openedAt :
+                      undefined
+                    }
                   />
                 )}
               </div>

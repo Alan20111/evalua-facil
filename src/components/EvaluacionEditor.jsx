@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   collection, query, where, doc, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, getDoc,
 } from 'firebase/firestore'
@@ -14,6 +14,11 @@ import {
   Search, Image as ImageIcon, X, ChevronDown as CollapseIcon,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
+
+function toIsoNow() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -59,6 +64,7 @@ export default function EvaluacionEditor({
   onActivityUpdated,
 }) {
   const toast = useToast()
+  const openedAt = useRef(toIsoNow()).current
 
   // ── Basic info state ──────────────────────────────────────────────
   const [infoForm, setInfoForm] = useState({
@@ -487,7 +493,11 @@ export default function EvaluacionEditor({
                       onChange={v => setInfoForm(f => ({ ...f, fechaLimite: v }))}
                       placeholder="Sin fecha límite…"
                       clearable
-                      minDateTime={infoForm.publishAt || undefined}
+                      minDateTime={
+                        infoForm.visibilidadMode === 'schedule' ? (infoForm.publishAt || undefined) :
+                        infoForm.visibilidadMode === 'show'     ? openedAt :
+                        undefined
+                      }
                     />
                   )}
                 </div>
