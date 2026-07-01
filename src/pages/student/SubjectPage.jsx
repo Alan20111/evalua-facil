@@ -18,12 +18,40 @@ import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { getResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import SubjectIcon from '../../components/SubjectIcon'
+import AttachmentList from '../../components/AttachmentList'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
-  Clock, Circle, Star, Download, FolderOpen, BookOpen, Paperclip,
+  Clock, Circle, Star, FolderOpen, BookOpen, Paperclip,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
+
+function ResourceCard({ resource: r }) {
+  const { icon: Icon, color } = getResourceIcon(r.nombreArchivo || r.nombre || '')
+  return (
+    <div className="border border-outline-variant rounded overflow-hidden">
+      <div className="flex items-start gap-3 px-3 py-2.5">
+        <Icon size={22} className={`flex-shrink-0 mt-0.5 ${color}`} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-on-surface">{r.nombre}</p>
+          {r.descripcion && (
+            <p className="text-xs text-slate-500 mt-0.5">{r.descripcion}</p>
+          )}
+          <p className="text-xs text-slate-400 mt-0.5">
+            {r.tamano != null ? formatFileSize(r.tamano) + ' · ' : ''}
+            {formatResourceDate(r.fechaPublicacion)}
+          </p>
+        </div>
+      </div>
+      <div className="px-3 pb-2">
+        <AttachmentList
+          files={[{ url: r.url, nombre: r.nombreArchivo || r.nombre, tamano: r.tamano }]}
+          title={null}
+        />
+      </div>
+    </div>
+  )
+}
 
 function formatResourceDate(ts) {
   if (!ts?.toDate) return ''
@@ -299,19 +327,8 @@ export default function StudentSubjectPage() {
                           <div className={`px-3 pb-2 text-sm text-slate-600 ${richTextContentClass}`}
                             dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.descripcion) }} />
                         )}
-                        <div className="px-3 pb-2 space-y-1">
-                          {(m.archivos || []).map((f, i) => {
-                            const { icon: FileIconComp, color } = getResourceIcon(f.nombre)
-                            return (
-                              <a key={i} href={f.url} target="_blank" rel="noreferrer"
-                                className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant hover:bg-surface transition-colors">
-                                <FileIconComp size={17} className={`flex-shrink-0 ${color}`} />
-                                <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
-                                <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
-                                <Download size={15} className="text-slate-400 flex-shrink-0" />
-                              </a>
-                            )
-                          })}
+                        <div className="px-3 pb-2">
+                          <AttachmentList files={(m.archivos || []).map((f) => ({ url: f.url, nombre: f.nombre, tamano: f.tamano }))} />
                         </div>
                       </div>
                     ))}
@@ -415,31 +432,10 @@ export default function StudentSubjectPage() {
                 <FolderOpen size={18} className="text-accent flex-shrink-0" />
                 <p className="font-semibold text-on-surface">Recursos de la asignatura</p>
               </div>
-              <div className="px-4 py-2 space-y-1.5">
-                {resources.map((r) => {
-                  const { icon: Icon, color } = getResourceIcon(r.nombreArchivo)
-                  return (
-                    <a
-                      key={r.id}
-                      href={r.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-3 px-2 py-2 rounded hover:bg-surface transition-colors border border-outline-variant"
-                    >
-                      <Icon size={24} className={`flex-shrink-0 ${color}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-on-surface truncate">{r.nombre}</p>
-                        {r.descripcion && (
-                          <p className="text-sm text-slate-500 truncate">{r.descripcion}</p>
-                        )}
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {formatFileSize(r.tamano)}{r.tamano ? ' · ' : ''}{formatResourceDate(r.fechaPublicacion)}
-                        </p>
-                      </div>
-                      <Download size={18} className="text-slate-400 flex-shrink-0" />
-                    </a>
-                  )
-                })}
+              <div className="px-4 py-2 space-y-2">
+                {resources.map((r) => (
+                  <ResourceCard key={r.id} resource={r} />
+                ))}
               </div>
             </div>
           )}
