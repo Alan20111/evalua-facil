@@ -285,7 +285,7 @@ export default function DateTimePicker({
         {displayText && (
           <button type="button" onClick={handleClear}
             className="flex-shrink-0 p-0.5 rounded text-slate-400 hover:text-red-500 transition-colors"
-            title="Borrar fecha">
+            data-tooltip="Borrar fecha">
             <X size={14} />
           </button>
         )}

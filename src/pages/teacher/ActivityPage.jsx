@@ -294,12 +294,12 @@ export default function ActivityPage() {
           {(activity?.publishAt || activity?.fechaLimite) && (
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {activity?.publishAt && (
-                <span title="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
+                <span data-tooltip="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
                   <Clock size={14} /> {formatPublishAt(activity.publishAt)}
                 </span>
               )}
               {activity?.fechaLimite && (
-                <span title="Fecha y hora de cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
+                <span data-tooltip="Fecha y hora de cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
                   <Clock size={14} /> {formatDeadline(activity.fechaLimite)}
                 </span>
               )}
@@ -357,7 +357,7 @@ export default function ActivityPage() {
           </div>
           <button
             onClick={() => setSortAlpha((v) => !v)}
-            title="Ordenar por nombre"
+            data-tooltip="Ordenar por nombre"
             className={`p-2 rounded border transition-colors ${
               sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'
             }`}

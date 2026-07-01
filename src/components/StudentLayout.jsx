@@ -164,7 +164,7 @@ export default function StudentLayout({ children }) {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="relative w-9 h-9 rounded-full flex-shrink-0 group focus:outline-none"
-              title="Cambiar foto"
+              data-tooltip="Cambiar foto"
             >
               <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center">
                 {uploadingPhoto ? (
