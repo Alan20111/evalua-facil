@@ -1438,17 +1438,17 @@ export default function SubjectPage() {
           {/* Action buttons — wrap on mobile so they never overflow */}
           <div className="flex flex-wrap items-center gap-1 mt-2">
             <button type="button" onClick={() => setShowQR(true)}
-              title="Código QR de registro al curso para estudiantes"
+              data-tooltip="Código QR de registro al curso para estudiantes"
               className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
               <QrCode size={21} />
             </button>
             <button type="button" onClick={copyActivationLink}
-              title="Copiar link de registro al curso para estudiantes"
+              data-tooltip="Copiar link de registro al curso para estudiantes"
               className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
               {copiedLink ? <CheckIcon size={21} /> : <Link size={21} />}
             </button>
             <button type="button" onClick={copyAccessCode}
-              title="Copiar código de acceso para estudiantes"
+              data-tooltip="Copiar código de acceso para estudiantes"
               className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-3xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
               {copiedCode
                 ? <><CheckIcon size={24} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
@@ -1456,22 +1456,22 @@ export default function SubjectPage() {
             </button>
             <div className="flex-1" />
             <button type="button" onClick={openEditSubject}
-              title="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
+              data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
               <Pencil size={21} />
             </button>
             <button type="button" onClick={openCopyModal}
-              title="Duplicar esta asignatura (con o sin la lista de estudiantes)"
+              data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
               <Copy size={21} />
             </button>
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
-              title={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
+              data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-50 flex-shrink-0">
               {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
             </button>
             <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
-              title="Eliminar la asignatura permanentemente (no se puede deshacer)"
+              data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
               className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
               <Trash2 size={21} />
             </button>
@@ -1517,7 +1517,7 @@ export default function SubjectPage() {
                     </button>
                     <button
                       onClick={() => toggleParcialVisibility(p)}
-                      title={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
+                      data-tooltip={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                     >
                       {parcialOculto ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -1550,12 +1550,12 @@ export default function SubjectPage() {
                                 {(a.fechaLimite || a.publishAt || visState === 'hidden') && (
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                     {a.publishAt && (
-                                      <span title="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
+                                      <span data-tooltip="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
                                         <Clock size={14} /> {formatPublishAt(a.publishAt)}
                                       </span>
                                     )}
                                     {a.fechaLimite && (
-                                      <span title="Fecha y hora de cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
+                                      <span data-tooltip="Fecha y hora de cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
                                         <Clock size={14} /> {formatDeadline(a.fechaLimite)}
                                       </span>
                                     )}
@@ -1570,21 +1570,21 @@ export default function SubjectPage() {
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 {counts.delivered > 0 && (
                                   <span
-                                    title={`${counts.delivered} entregado${counts.delivered !== 1 ? 's' : ''} de ${totalStudents} alumno${totalStudents !== 1 ? 's' : ''}`}
+                                    data-tooltip={`${counts.delivered} entregado${counts.delivered !== 1 ? 's' : ''} de ${totalStudents} alumno${totalStudents !== 1 ? 's' : ''}`}
                                     className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                                     <Upload size={11} /> {counts.delivered}/{totalStudents}
                                   </span>
                                 )}
                                 {(counts.delivered - counts.graded) > 0 && (
                                   <span
-                                    title={`${counts.delivered - counts.graded} entregado${(counts.delivered - counts.graded) !== 1 ? 's' : ''} sin calificar`}
+                                    data-tooltip={`${counts.delivered - counts.graded} entregado${(counts.delivered - counts.graded) !== 1 ? 's' : ''} sin calificar`}
                                     className="text-xs bg-accent-light text-accent px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                                     <Circle size={13} /> {counts.delivered - counts.graded}
                                   </span>
                                 )}
                                 {counts.graded > 0 && (
                                   <span
-                                    title={`${counts.graded} calificado${counts.graded !== 1 ? 's' : ''}`}
+                                    data-tooltip={`${counts.graded} calificado${counts.graded !== 1 ? 's' : ''}`}
                                     className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                                     <CheckCircle size={13} /> {counts.graded}
                                   </span>
@@ -1595,7 +1595,7 @@ export default function SubjectPage() {
                             {isHidden ? (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setActivateMode('now'); setActivateDate(''); setActivateModal(a) }}
-                                title="Activar para estudiantes"
+                                data-tooltip="Activar para estudiantes"
                                 className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                               >
                                 <EyeOff size={16} />
@@ -1603,17 +1603,17 @@ export default function SubjectPage() {
                             ) : (
                               <button
                                 onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
-                                title="Ocultar para estudiantes"
+                                data-tooltip="Ocultar para estudiantes"
                                 className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                               >
                                 <Eye size={16} />
                               </button>
                             )}
-                            <button onClick={() => openEdit(a, activityLabelById[a.id])} title="Editar"
+                            <button onClick={() => openEdit(a, activityLabelById[a.id])} data-tooltip="Editar"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
                             </button>
-                            <button onClick={() => setDeleteConfirm(a)} title="Eliminar"
+                            <button onClick={() => setDeleteConfirm(a)} data-tooltip="Eliminar"
                               className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
                               <Trash2 size={16} />
                             </button>
@@ -1644,7 +1644,7 @@ export default function SubjectPage() {
                                           <Paperclip size={12} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
                                         </span>
                                         {m.publishAt && (
-                                          <span title="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
+                                          <span data-tooltip="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
                                             <Clock size={14} /> {formatPublishAt(m.publishAt)}
                                           </span>
                                         )}
@@ -1658,21 +1658,21 @@ export default function SubjectPage() {
                                     {isExpanded ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
                                   </button>
                                   {isHidden ? (
-                                    <button onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} title="Mostrar a estudiantes"
+                                    <button onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} data-tooltip="Mostrar a estudiantes"
                                       className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                       <EyeOff size={16} />
                                     </button>
                                   ) : (
-                                    <button onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} title="Ocultar a estudiantes"
+                                    <button onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} data-tooltip="Ocultar a estudiantes"
                                       className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                       <Eye size={16} />
                                     </button>
                                   )}
-                                  <button onClick={() => openEditMaterial(m)} title="Editar"
+                                  <button onClick={() => openEditMaterial(m)} data-tooltip="Editar"
                                     className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                                     <Pencil size={16} />
                                   </button>
-                                  <button onClick={() => setDeleteMaterialConfirm(m)} title="Eliminar"
+                                  <button onClick={() => setDeleteMaterialConfirm(m)} data-tooltip="Eliminar"
                                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
                                     <Trash2 size={16} />
                                   </button>
@@ -1706,14 +1706,14 @@ export default function SubjectPage() {
                       )}
 
                       <button onClick={() => openAdd(p)}
-                        title={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevas actividades'}
+                        data-tooltip={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevas actividades'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Plus size={17} /> Agregar actividad
                       </button>
                       <button onClick={() => openAddMaterial(p)}
-                        title={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevo material de apoyo'}
+                        data-tooltip={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevo material de apoyo'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
                         }`}>
@@ -1740,7 +1740,7 @@ export default function SubjectPage() {
                 <button
                   onClick={handleExport}
                   disabled={exporting}
-                  title="Descarga las calificaciones de todos los estudiantes en una hoja de Excel"
+                  data-tooltip="Descarga las calificaciones de todos los estudiantes en una hoja de Excel"
                   className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
                 >
                   {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
@@ -1748,7 +1748,7 @@ export default function SubjectPage() {
                 <button
                   onClick={handleExportGradesPDF}
                   disabled={exportingGradesPdf}
-                  title="Descarga las calificaciones de todos los estudiantes en un PDF imprimible"
+                  data-tooltip="Descarga las calificaciones de todos los estudiantes en un PDF imprimible"
                   className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
                 >
                   {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
@@ -1819,7 +1819,7 @@ export default function SubjectPage() {
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
                             <th key={a.id} data-col={colIndexByKey[`act-${a.id}`]} className={`w-9 px-0.5 py-1.5 font-normal text-slate-400 text-center border-l border-outline-variant transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
-                              <span className="block truncate" title={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
+                              <span className="block truncate" data-tooltip={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
                           <th key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey[`avg-${p}`])}`}>
@@ -1881,7 +1881,7 @@ export default function SubjectPage() {
               <button
                 type="button"
                 onClick={downloadStudentTemplate}
-                title="Descargar plantilla en Excel para pegar datos de estudiantes"
+                data-tooltip="Descargar plantilla en Excel para pegar datos de estudiantes"
                 className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-medium)] transition-colors"
               >
                 <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
@@ -1890,7 +1890,7 @@ export default function SubjectPage() {
               </button>
               <ChevronRight size={16} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
               <label
-                title="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
+                data-tooltip="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
                 className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-medium)] transition-colors cursor-pointer"
               >
                 <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
@@ -1902,7 +1902,7 @@ export default function SubjectPage() {
               <button
                 type="button"
                 onClick={() => setShowCredentialsModal(true)}
-                title="Genera tu lista actualizada de códigos de acceso cada vez que agregues estudiantes"
+                data-tooltip="Genera tu lista actualizada de códigos de acceso cada vez que agregues estudiantes"
                 className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-medium)] transition-colors"
               >
                 <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
@@ -1918,7 +1918,7 @@ export default function SubjectPage() {
               type="button"
               onClick={sortStudentsAlphabetically}
               disabled={groupStudents.length < 2}
-              title="Ordena la lista por apellido y nombre"
+              data-tooltip="Ordena la lista por apellido y nombre"
               className="flex items-center gap-1 text-xs text-slate-500 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-[var(--accent-medium)] disabled:opacity-40"
             >
               <ArrowUpDown size={15} />
@@ -1939,7 +1939,7 @@ export default function SubjectPage() {
             </div>
             <button
               onClick={() => setShowAddStudent(true)}
-              title="Agregar nuevo estudiante"
+              data-tooltip="Agregar nuevo estudiante"
               className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
             >
               <UserPlus size={20} />
@@ -1982,7 +1982,7 @@ export default function SubjectPage() {
                   <button
                     onClick={() => openEditStudent(s)}
                     className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
-                    title="Editar estudiante"
+                    data-tooltip="Editar estudiante"
                   >
                     <Pencil size={16} />
                   </button>
@@ -2003,7 +2003,7 @@ export default function SubjectPage() {
               Materiales permanentes del curso (programa, reglamento, guías, presentaciones…), disponibles para tus estudiantes durante todo el semestre. No generan entrega ni calificación.
             </p>
             <button type="button" onClick={openAddResource}
-              title="Agregar recurso"
+              data-tooltip="Agregar recurso"
               className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
               <Plus size={16} /> Agregar recurso
             </button>
@@ -2031,15 +2031,15 @@ export default function SubjectPage() {
                         {formatFileSize(r.tamano)}{r.tamano ? ' · ' : ''}{formatResourceDate(r.fechaPublicacion)}
                       </p>
                     </div>
-                    <a href={r.url} target="_blank" rel="noreferrer" title="Ver / descargar"
+                    <a href={r.url} target="_blank" rel="noreferrer" data-tooltip="Ver / descargar"
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                       <Download size={18} />
                     </a>
-                    <button onClick={() => openEditResource(r)} title="Editar"
+                    <button onClick={() => openEditResource(r)} data-tooltip="Editar"
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                       <Pencil size={18} />
                     </button>
-                    <button onClick={() => setDeleteResourceConfirm(r)} title="Eliminar"
+                    <button onClick={() => setDeleteResourceConfirm(r)} data-tooltip="Eliminar"
                       className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
                       <Trash2 size={18} />
                     </button>

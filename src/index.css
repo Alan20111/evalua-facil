@@ -106,3 +106,32 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* ── Custom tooltips — always above the cursor ───────────────────────────── */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #1e293b;
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  padding: 4px 8px;
+  border-radius: 5px;
+  max-width: 240px;
+  white-space: normal;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 9999;
+  transition: opacity 0.12s ease 0.25s;
+}
+[data-tooltip]:hover::after {
+  opacity: 1;
+}

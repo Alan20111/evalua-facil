@@ -679,10 +679,10 @@ export default function EvaluacionEditor({
                             <p className="text-base font-semibold text-on-surface">{i + 1}. {p.enunciado}</p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
-                            <button onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" title="Guardar en mi banco"><Library size={18} /></button>
-                            <button onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" title="Editar"><Pencil size={18} /></button>
-                            <button onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" title="Duplicar"><Copy size={18} /></button>
-                            <button onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" title="Eliminar"><Trash2 size={18} /></button>
+                            <button onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
+                            <button onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
+                            <button onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
+                            <button onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={18} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-36 rounded border border-outline-variant" />}

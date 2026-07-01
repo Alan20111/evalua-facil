@@ -203,7 +203,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                           type="button"
                           onClick={() => openEdit(sub)}
                           className="p-1.5 text-slate-400 hover:text-blue-600 rounded"
-                          title="Editar"
+                          data-tooltip="Editar"
                         >
                           <Pencil size={16} />
                         </button>
@@ -212,7 +212,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                             type="button"
                             onClick={() => handleCancel(sub)}
                             className="p-1.5 text-slate-400 hover:text-amber-600 rounded"
-                            title="Cancelar"
+                            data-tooltip="Cancelar"
                           >
                             <Ban size={16} />
                           </button>
@@ -221,7 +221,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                           type="button"
                           onClick={() => handleDelete(sub)}
                           className="p-1.5 text-slate-400 hover:text-red-600 rounded"
-                          title="Eliminar"
+                          data-tooltip="Eliminar"
                         >
                           <Trash2 size={16} />
                         </button>

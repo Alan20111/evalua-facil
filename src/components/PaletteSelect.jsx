@@ -22,7 +22,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
             key={p.key}
             type="button"
             onClick={() => onChange(p.key)}
-            title={p.label}
+            data-tooltip={p.label}
             aria-label={p.label}
             className={`w-9 h-9 rounded-full flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
             style={{ backgroundColor: p.color }}

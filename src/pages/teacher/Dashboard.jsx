@@ -224,7 +224,7 @@ export default function TeacherDashboard() {
                       <button
                         onClick={() => moveSubject(i, -1)}
                         disabled={i === 0}
-                        title="Subir"
+                        data-tooltip="Subir"
                         className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-30 rounded"
                       >
                         <ArrowUp size={16} />
@@ -232,7 +232,7 @@ export default function TeacherDashboard() {
                       <button
                         onClick={() => moveSubject(i, 1)}
                         disabled={i === subjects.length - 1}
-                        title="Bajar"
+                        data-tooltip="Bajar"
                         className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-30 rounded"
                       >
                         <ArrowDown size={16} />

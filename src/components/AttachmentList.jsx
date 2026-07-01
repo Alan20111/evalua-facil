@@ -41,25 +41,25 @@ function FileRow({ f, onRemove, index }) {
         </span>
         {f.url && canView && (
           <button onClick={() => setOpen((v) => !v)}
-            className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" title="Ver archivo">
+            className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Ver archivo">
             <Eye size={15} />
           </button>
         )}
         {f.url && (isPdf || isOffice) && (
           <a href={docsViewerUrl(viewUrl)} target="_blank" rel="noreferrer"
-            title="Abrir en Google Docs"
+            data-tooltip="Abrir en Google Docs"
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <ExternalLink size={15} />
           </a>
         )}
         {f.url && (
-          <a href={downloadUrl} target="_blank" rel="noreferrer" title="Descargar"
+          <a href={downloadUrl} target="_blank" rel="noreferrer" data-tooltip="Descargar"
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <Download size={15} />
           </a>
         )}
         {onRemove && (
-          <button type="button" onClick={() => onRemove(index)} title="Quitar"
+          <button type="button" onClick={() => onRemove(index)} data-tooltip="Quitar"
             className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
             <X size={15} />
           </button>
@@ -82,7 +82,7 @@ function FileRow({ f, onRemove, index }) {
             >
               <iframe
                 src={docsViewerUrl(viewUrl)}
-                title={f.nombre}
+                data-tooltip={f.nombre}
                 className="w-full h-full"
                 style={{ border: 'none' }}
               />
@@ -90,7 +90,7 @@ function FileRow({ f, onRemove, index }) {
           ) : (
             <iframe
               src={docsViewerUrl(viewUrl)}
-              title={f.nombre}
+              data-tooltip={f.nombre}
               className="w-full h-[70vh]"
               style={{ border: 'none' }}
             />
