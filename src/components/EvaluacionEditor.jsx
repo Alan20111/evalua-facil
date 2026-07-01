@@ -462,22 +462,34 @@ export default function EvaluacionEditor({
               </div>
               <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
-                <DateTimePicker
-                  value={infoForm.fechaLimite}
-                  onChange={(v) => setInfoForm((f) => ({ ...f, fechaLimite: v }))}
-                  placeholder="Sin fecha límite"
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-muted mb-2">Visibilidad</label>
                 <VisibilitySelect
                   mode={infoForm.visibilidadMode}
                   publishAt={infoForm.publishAt}
-                  onModeChange={(mode) => setInfoForm((f) => ({ ...f, visibilidadMode: mode, oculta: mode !== 'show', publishAt: mode === 'schedule' ? f.publishAt : '' }))}
+                  onModeChange={(mode) => setInfoForm((f) => ({
+                    ...f, visibilidadMode: mode,
+                    oculta: mode !== 'show',
+                    publishAt: mode === 'schedule' ? f.publishAt : '',
+                    fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
+                  }))}
                   onPublishAtChange={(v) => setInfoForm((f) => ({ ...f, publishAt: v }))}
                 />
               </div>
+              {infoForm.visibilidadMode !== 'hide' && (
+                <div>
+                  <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
+                  {infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
+                    <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
+                  ) : (
+                    <DateTimePicker
+                      value={infoForm.fechaLimite}
+                      onChange={(v) => setInfoForm((f) => ({ ...f, fechaLimite: v }))}
+                      placeholder="Sin fecha límite"
+                      minDateTime={infoForm.visibilidadMode === 'schedule' ? infoForm.publishAt : undefined}
+                    />
+                  )}
+                </div>
+              )}
               <button type="submit" disabled={savingInfo}
                 className="w-full py-2 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
                 {savingInfo ? <Spinner size="sm" /> : null}

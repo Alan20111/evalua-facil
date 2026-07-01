@@ -2133,25 +2133,35 @@ export default function SubjectPage() {
                     ...f, visibilidadMode: mode,
                     oculta: mode !== 'show',
                     publishAt: mode === 'schedule' ? f.publishAt : '',
+                    fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
                   }))}
                   onPublishAtChange={(v) => setForm((f) => ({ ...f, publishAt: v }))}
                 />
               </div>
 
-              {/* Fecha límite — hasta abajo */}
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">
-                  Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
-                </label>
-                <DateTimePicker
-                  value={form.fechaLimite}
-                  onChange={(v) => setForm((f) => ({ ...f, fechaLimite: v }))}
-                  placeholder="Sin fecha límite"
-                />
-                <p className="text-xs text-slate-400 mt-1">
-                  Luego de esta fecha y hora ya no se reciben entregas.
-                </p>
-              </div>
+              {/* Fecha límite — solo visible si no está oculta */}
+              {form.visibilidadMode !== 'hide' && (
+                <div>
+                  <label className="block text-sm font-medium text-muted mb-1">
+                    Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
+                  </label>
+                  {form.visibilidadMode === 'schedule' && !form.publishAt ? (
+                    <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
+                  ) : (
+                    <>
+                      <DateTimePicker
+                        value={form.fechaLimite}
+                        onChange={(v) => setForm((f) => ({ ...f, fechaLimite: v }))}
+                        placeholder="Sin fecha límite"
+                        minDateTime={form.visibilidadMode === 'schedule' ? form.publishAt : undefined}
+                      />
+                      <p className="text-xs text-slate-400 mt-1">
+                        Luego de esta fecha y hora ya no se reciben entregas.
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
 
               <button type="submit" disabled={saving}
                 className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
