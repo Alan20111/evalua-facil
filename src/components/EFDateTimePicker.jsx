@@ -370,6 +370,7 @@ export default function EFDateTimePicker({
   clearable = true,
   className = '',
   minDateTime,
+  defaultTime = '23:59',  // HH:MM 24h — used when opening with no existing value
 }) {
   const triggerRef  = useRef(null)
   const popoverRef  = useRef(null)
@@ -435,7 +436,7 @@ export default function EFDateTimePicker({
     if (mode === 'datetime') {
       const hhmm = src
         ? `${String(src.getHours()).padStart(2, '0')}:${String(src.getMinutes()).padStart(2, '0')}`
-        : '23:59'
+        : defaultTime
       const { hourIdx: hi, minIdx: mi, ampmIdx: ai } = h24ToWheels(hhmm)
       setHourIdx(hi)
       setMinIdx(mi)
