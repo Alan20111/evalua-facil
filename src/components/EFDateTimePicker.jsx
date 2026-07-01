@@ -125,8 +125,7 @@ export default function EFDateTimePicker({
 
   const [open, setOpen] = useState(false)
   const [openUpward, setOpenUpward] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const [pos, setPos] = useState({ top: 0, left: 0, maxH: 530 })
 
   const parsed = useMemo(() => parseValue(value, mode), [value, mode])
 
@@ -150,22 +149,26 @@ export default function EFDateTimePicker({
     const rect = triggerRef.current.getBoundingClientRect()
     const vw = window.innerWidth
     const vh = window.innerHeight
-    const mobile = vw < 640
-    setIsMobile(mobile)
-    if (mobile) {
-      setPos({ top: 0, left: 0 })
-      return
-    }
-    const popH = mode === 'datetime' ? 520 : 370
-    const spaceBelow = vh - rect.bottom - 8
-    const spaceAbove = rect.top - 8
-    const goUp = spaceBelow < popH && spaceAbove > spaceBelow
-    const left = Math.max(8, Math.min(rect.left, vw - 336 - 8))
+    const PAD = 8
+    const W = 328
+
+    const spaceBelow = vh - rect.bottom - PAD
+    const spaceAbove = rect.top - PAD
+    const idealH = mode === 'datetime' ? 520 : 370
+    const goUp = spaceBelow < idealH && spaceAbove > spaceBelow
+
+    // maxH = actual available space in the chosen direction, capped at idealH
+    const maxH = Math.min(idealH, goUp ? spaceAbove : spaceBelow)
+
+    // Clamp left so the popover never bleeds past right or left edge
+    const left = Math.max(PAD, Math.min(rect.left, vw - W - PAD))
+
     const top = goUp
-      ? Math.max(8, rect.top - Math.min(popH, spaceAbove) - 4)
+      ? rect.top - maxH - 4
       : rect.bottom + 4
+
     setOpenUpward(goUp)
-    setPos({ top, left })
+    setPos({ top, left, maxH })
   }, [mode])
 
   function openPicker() {
@@ -298,7 +301,7 @@ export default function EFDateTimePicker({
   const placeholderText = placeholder || (mode === 'date' ? 'Seleccionar fecha…' : 'Seleccionar fecha y hora…')
 
   // ── Popover ─────────────────────────────────────────────────────────────────
-  const desktopPopoverStyle = {
+  const popoverStyle = {
     position: 'fixed',
     top: pos.top,
     left: pos.left,
@@ -311,39 +314,15 @@ export default function EFDateTimePicker({
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    maxHeight: typeof window !== 'undefined' ? Math.min(window.innerHeight - 80, mode === 'datetime' ? 530 : 380) : 530,
-  }
-
-  const mobilePopoverStyle = {
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    width: '100%',
-    zIndex: 9999,
-    background: 'var(--surface-card)',
-    borderRadius: '16px 16px 0 0',
-    boxShadow: '0 -4px 32px rgba(0,0,0,.18)',
-    border: '1px solid var(--outline-variant)',
-    borderBottom: 'none',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-    maxHeight: '92vh',
+    maxHeight: pos.maxH,
   }
 
   const popover = open && createPortal(
     <>
-      {isMobile && (
-        <div
-          onClick={() => setOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 9998 }}
-        />
-      )}
       <div
         ref={popoverRef}
-        className={isMobile ? 'ef-pop-in-up' : openUpward ? 'ef-pop-in-up' : 'ef-pop-in'}
-        style={isMobile ? mobilePopoverStyle : desktopPopoverStyle}
+        className={openUpward ? 'ef-pop-in-up' : 'ef-pop-in'}
+        style={popoverStyle}
       >
       {/* Header */}
       <div style={{
