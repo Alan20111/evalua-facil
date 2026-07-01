@@ -468,21 +468,20 @@ export default function EFDateTimePicker({
             onChange={e => e.target.value && handleTimeChange(e.target.value)}
             style={{
               width: '100%',
-              fontSize: 22,
-              fontWeight: 600,
-              padding: '9px 14px',
-              borderRadius: 10,
-              border: '1.5px solid var(--outline-variant)',
+              fontSize: 14,
+              fontWeight: 500,
+              padding: '7px 12px',
+              borderRadius: 8,
+              border: '1px solid var(--outline-variant)',
               background: 'var(--surface)',
               color: 'var(--on-surface)',
               cursor: 'pointer',
               outline: 'none',
               fontFamily: 'inherit',
-              letterSpacing: '0.04em',
               boxSizing: 'border-box',
             }}
-            onFocus={e => { e.target.style.borderColor = 'var(--accent)' }}
-            onBlur={e => { e.target.style.borderColor = 'var(--outline-variant)' }}
+            onFocus={e => { e.target.style.borderColor = 'var(--accent)'; e.target.style.boxShadow = '0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent)' }}
+            onBlur={e => { e.target.style.borderColor = 'var(--outline-variant)'; e.target.style.boxShadow = 'none' }}
           />
         </div>
       )}
