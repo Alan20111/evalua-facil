@@ -9,8 +9,6 @@ const MESES = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ]
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-const HORAS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
-const MINUTOS = ['00', '15', '30', '45']
 
 // ── Keyframes (injected once into <head>) ─────────────────────────────────────
 const STYLE_ID = 'ef-dtp-styles'
@@ -138,10 +136,8 @@ export default function EFDateTimePicker({
   const [slideDir, setSlideDir] = useState(null)
   const [slideKey, setSlideKey] = useState(0)
 
-  // Time
-  const [hour, setHour] = useState('8')
-  const [minute, setMinute] = useState('00')
-  const [ampm, setAmpm] = useState('AM')
+  // Time (24h "HH:MM" string for <input type="time">)
+  const [timeStr, setTimeStr] = useState('08:00')
 
   // ── Open / position ─────────────────────────────────────────────────────────
   const computePos = useCallback(() => {
@@ -154,7 +150,7 @@ export default function EFDateTimePicker({
 
     const spaceBelow = vh - rect.bottom - PAD
     const spaceAbove = rect.top - PAD
-    const idealH = mode === 'datetime' ? 520 : 370
+    const idealH = mode === 'datetime' ? 430 : 340
     const goUp = spaceBelow < idealH && spaceAbove > spaceBelow
 
     // maxH = actual available space in the chosen direction, capped at idealH
@@ -178,17 +174,9 @@ export default function EFDateTimePicker({
     setDraft(src || null)
     setViewDate(src ? new Date(src.getFullYear(), src.getMonth(), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1))
     if (mode === 'datetime' && src) {
-      let h = src.getHours()
-      const ap = h < 12 ? 'AM' : 'PM'
-      h = h % 12 || 12
-      const slots = [0, 15, 30, 45]
-      const closest = slots.reduce((p, c) =>
-        Math.abs(c - src.getMinutes()) < Math.abs(p - src.getMinutes()) ? c : p, 0)
-      setHour(String(h))
-      setMinute(String(closest).padStart(2, '0'))
-      setAmpm(ap)
+      setTimeStr(`${String(src.getHours()).padStart(2, '0')}:${String(src.getMinutes()).padStart(2, '0')}`)
     } else if (mode === 'datetime') {
-      setHour('8'); setMinute('00'); setAmpm('AM')
+      setTimeStr('08:00')
     }
     computePos()
     setOpen(true)
@@ -234,34 +222,23 @@ export default function EFDateTimePicker({
   }
 
   // ── Day/time helpers ────────────────────────────────────────────────────────
-  function applyTimeToDraft(base, h, min, ap) {
+  function applyTimeToDraft(base, hhmm) {
     const d = base ? new Date(base) : new Date()
-    if (!base) { d.setHours(0, 0, 0, 0) }
-    let hNum = parseInt(h)
-    if (ap === 'PM' && hNum !== 12) hNum += 12
-    if (ap === 'AM' && hNum === 12) hNum = 0
-    d.setHours(hNum, parseInt(min), 0, 0)
+    if (!base) d.setHours(0, 0, 0, 0)
+    const [hh, mm] = hhmm.split(':').map(Number)
+    d.setHours(hh, mm, 0, 0)
     return d
   }
 
   function selectDay(d) {
-    const next = mode === 'datetime'
-      ? applyTimeToDraft(new Date(d.getFullYear(), d.getMonth(), d.getDate()), hour, minute, ampm)
-      : new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const base = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const next = mode === 'datetime' ? applyTimeToDraft(base, timeStr) : base
     setDraft(next)
   }
 
-  function changeHour(h) {
-    setHour(h)
-    if (draft || mode === 'datetime') setDraft(prev => applyTimeToDraft(prev, h, minute, ampm))
-  }
-  function changeMinute(m) {
-    setMinute(m)
-    if (draft || mode === 'datetime') setDraft(prev => applyTimeToDraft(prev, hour, m, ampm))
-  }
-  function changeAmpm(a) {
-    setAmpm(a)
-    if (draft || mode === 'datetime') setDraft(prev => applyTimeToDraft(prev, hour, minute, a))
+  function handleTimeChange(hhmm) {
+    setTimeStr(hhmm)
+    setDraft(prev => applyTimeToDraft(prev || new Date(), hhmm))
   }
 
   // ── Shortcuts ───────────────────────────────────────────────────────────────
@@ -279,9 +256,8 @@ export default function EFDateTimePicker({
   }, [])
 
   function applyShortcut(d) {
-    const next = mode === 'datetime'
-      ? applyTimeToDraft(new Date(d.getFullYear(), d.getMonth(), d.getDate()), hour, minute, ampm)
-      : new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const base = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const next = mode === 'datetime' ? applyTimeToDraft(base, timeStr) : base
     setDraft(next)
     setViewDate(new Date(next.getFullYear(), next.getMonth(), 1))
   }
@@ -482,93 +458,32 @@ export default function EFDateTimePicker({
 
       {/* Time selector */}
       {mode === 'datetime' && (
-        <div style={{ borderTop: '1px solid var(--outline-variant)', padding: '8px 12px 6px' }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            {/* Hours */}
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, textAlign: 'center' }}>Hora</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3 }}>
-                {HORAS.map(h => (
-                  <button
-                    key={h}
-                    type="button"
-                    onClick={() => changeHour(h)}
-                    style={{
-                      padding: '5px 0',
-                      borderRadius: 6,
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      background: hour === h ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 10%, transparent)',
-                      color: hour === h ? '#fff' : 'var(--accent)',
-                      transition: 'background .1s',
-                    }}
-                    onMouseEnter={e => { if (hour !== h) e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 20%, transparent)' }}
-                    onMouseLeave={e => { if (hour !== h) e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)' }}
-                  >
-                    {h}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ width: 1, background: 'var(--outline-variant)', alignSelf: 'stretch', margin: '18px 0 0' }} />
-
-            {/* Minutes + AM/PM */}
-            <div>
-              <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6, textAlign: 'center' }}>Min.</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {MINUTOS.map(m => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => changeMinute(m)}
-                    style={{
-                      width: 40,
-                      padding: '5px 0',
-                      borderRadius: 6,
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      background: minute === m ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 10%, transparent)',
-                      color: minute === m ? '#fff' : 'var(--accent)',
-                      transition: 'background .1s',
-                    }}
-                    onMouseEnter={e => { if (minute !== m) e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 20%, transparent)' }}
-                    onMouseLeave={e => { if (minute !== m) e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)' }}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 6 }}>
-                {['AM', 'PM'].map(a => (
-                  <button
-                    key={a}
-                    type="button"
-                    onClick={() => changeAmpm(a)}
-                    style={{
-                      width: 40,
-                      padding: '5px 0',
-                      borderRadius: 6,
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 11,
-                      fontWeight: 700,
-                      background: ampm === a ? 'var(--on-surface)' : 'var(--surface-container)',
-                      color: ampm === a ? 'var(--surface-card)' : 'var(--on-surface-variant)',
-                      transition: 'background .1s',
-                    }}
-                  >
-                    {a}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+        <div style={{ borderTop: '1px solid var(--outline-variant)', padding: '10px 14px 12px' }}>
+          <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 7 }}>
+            Hora
+          </p>
+          <input
+            type="time"
+            value={timeStr}
+            onChange={e => e.target.value && handleTimeChange(e.target.value)}
+            style={{
+              width: '100%',
+              fontSize: 22,
+              fontWeight: 600,
+              padding: '9px 14px',
+              borderRadius: 10,
+              border: '1.5px solid var(--outline-variant)',
+              background: 'var(--surface)',
+              color: 'var(--on-surface)',
+              cursor: 'pointer',
+              outline: 'none',
+              fontFamily: 'inherit',
+              letterSpacing: '0.04em',
+              boxSizing: 'border-box',
+            }}
+            onFocus={e => { e.target.style.borderColor = 'var(--accent)' }}
+            onBlur={e => { e.target.style.borderColor = 'var(--outline-variant)' }}
+          />
         </div>
       )}
 
