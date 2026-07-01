@@ -32,7 +32,7 @@ import { RESOURCE_ACCEPT, getResourceIcon, isResourceFileAllowed } from '../../u
 import { formatFileSize } from '../../utils/formatBytes'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
-  CheckCircle, Circle, X, Pencil, Trash2, Archive, ArchiveRestore,
+  CheckCircle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet, Search,
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
@@ -1578,8 +1578,8 @@ export default function SubjectPage() {
                                 {(counts.delivered - counts.graded) > 0 && (
                                   <span
                                     data-tooltip={`${counts.delivered - counts.graded} entregado${(counts.delivered - counts.graded) !== 1 ? 's' : ''} sin calificar`}
-                                    className="text-xs bg-accent-light text-accent px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <Circle size={13} /> {counts.delivered - counts.graded}
+                                    className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                    <Clock size={12} /> {counts.delivered - counts.graded}
                                   </span>
                                 )}
                                 {counts.graded > 0 && (
