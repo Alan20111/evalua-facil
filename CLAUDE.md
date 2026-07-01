@@ -125,6 +125,24 @@ VITE_EMAILJS_TEMPLATE_ID
 VITE_EMAILJS_PUBLIC_KEY
 ```
 
+## Git workflow
+
+Use **feature branches + pull requests** — never commit directly to `main`.
+
+```bash
+# Start every task
+git checkout -b feat/short-description   # or fix/, chore/
+
+# When done: build, commit, push, open PR
+npm run build
+git add <files>
+git commit -m "feat(...): ..."
+git push -u origin feat/short-description
+gh pr create --title "..." --body "..."
+```
+
+PRs merge into `main` → Vercel auto-deploys. Always push immediately after committing (no confirmation needed).
+
 ## Deployment
 
 Push to `main` → Vercel auto-deploys. Config in `vercel.json` (Vite framework, all routes → `index.html`). Firestore security rules and indexes are **not** auto-deployed — run `firebase deploy --only firestore` manually when `firestore.rules` or `firestore.indexes.json` change.
