@@ -166,26 +166,35 @@ export default function EntregableEditor({
 
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
-              <DateTimePicker
-                value={form.fechaLimite}
-                onChange={(v) => setForm((f) => ({ ...f, fechaLimite: v }))}
-                placeholder="Sin fecha límite"
-              />
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-muted mb-2">Visibilidad</label>
               <VisibilitySelect
                 mode={form.visibilidadMode}
                 publishAt={form.publishAt}
                 onModeChange={(mode) => setForm((f) => ({
                   ...f, visibilidadMode: mode,
-                  oculta: mode !== 'show', publishAt: mode === 'schedule' ? f.publishAt : '',
+                  oculta: mode !== 'show',
+                  publishAt: mode === 'schedule' ? f.publishAt : '',
+                  fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
                 }))}
                 onPublishAtChange={(v) => setForm((f) => ({ ...f, publishAt: v }))}
               />
             </div>
+
+            {form.visibilidadMode !== 'hide' && (
+              <div>
+                <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
+                {form.visibilidadMode === 'schedule' && !form.publishAt ? (
+                  <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
+                ) : (
+                  <DateTimePicker
+                    value={form.fechaLimite}
+                    onChange={(v) => setForm((f) => ({ ...f, fechaLimite: v }))}
+                    placeholder="Sin fecha límite"
+                    minDateTime={form.visibilidadMode === 'schedule' ? form.publishAt : undefined}
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           <button type="submit" disabled={saving}

@@ -115,6 +115,7 @@ export default function DateTimePicker({
   value,
   onChange,
   placeholder = 'Sin fecha límite',
+  minDateTime,   // optional "YYYY-MM-DDTHH:mm" — defaults to now
   className = '',
 }) {
   const [open, setOpen] = useState(false)
@@ -124,31 +125,30 @@ export default function DateTimePicker({
   const containerRef = useRef()
 
   function openPicker() {
-    const now = new Date()
+    const min = minDateTime ? new Date(minDateTime) : new Date()
     const p = parseValue(value)
     if (p) {
       setDraft(p)
       setViewYear(p.year)
       setViewMonth(p.month)
     } else {
-      // Initialize to next 5-min slot in the future
-      const nowH = now.getHours()
-      let minute = Math.ceil((now.getMinutes() + 1) / 5) * 5
-      let h24 = nowH
-      if (minute >= 60) { minute = 0; h24 = nowH + 1 }
-      if (h24 >= 24) { h24 = 0 } // edge: midnight
+      // Initialize to next 5-min slot after min
+      let h24 = min.getHours()
+      let minute = Math.ceil((min.getMinutes() + 1) / 5) * 5
+      if (minute >= 60) { minute = 0; h24 += 1 }
+      if (h24 >= 24) { h24 = 0 }
       const ampm = h24 >= 12 ? 'pm' : 'am'
       const hour = h24 % 12 || 12
       setDraft({
-        year: now.getFullYear(),
-        month: now.getMonth(),
-        day: now.getDate(),
+        year: min.getFullYear(),
+        month: min.getMonth(),
+        day: min.getDate(),
         hour,
         minute,
         ampm,
       })
-      setViewYear(now.getFullYear())
-      setViewMonth(now.getMonth())
+      setViewYear(min.getFullYear())
+      setViewMonth(min.getMonth())
     }
     setOpen(true)
   }
@@ -182,57 +182,54 @@ export default function DateTimePicker({
     setOpen(false)
   }
 
-  const now = new Date()
-  const todayY = now.getFullYear()
-  const todayM = now.getMonth()
-  const todayD = now.getDate()
-  const nowH24 = now.getHours()
-  const nowMin = now.getMinutes()
+  // Use minDateTime if provided, otherwise "now"
+  const min = minDateTime ? new Date(minDateTime) : new Date()
+  const minY = min.getFullYear()
+  const minM = min.getMonth()
+  const minD = min.getDate()
+  const minH24 = min.getHours()
+  const minMin = min.getMinutes()
 
-  // Is the draft date today?
-  const draftIsToday = draft &&
-    draft.day === todayD && draft.month === todayM && draft.year === todayY
+  // Is the draft date the same day as min?
+  const draftIsMinDay = draft &&
+    draft.day === minD && draft.month === minM && draft.year === minY
 
   function isPastDay(cell) {
-    if (cell.year < todayY) return true
-    if (cell.year === todayY && cell.month < todayM) return true
-    if (cell.year === todayY && cell.month === todayM && cell.day < todayD) return true
+    if (cell.year < minY) return true
+    if (cell.year === minY && cell.month < minM) return true
+    if (cell.year === minY && cell.month === minM && cell.day < minD) return true
     return false
   }
 
   function isHourDisabled(h) {
-    if (!draftIsToday) return false
-    return to24(h, draft.ampm) < nowH24
+    if (!draftIsMinDay) return false
+    return to24(h, draft.ampm) < minH24
   }
 
   function isMinuteDisabled(m) {
-    if (!draftIsToday || !draft) return false
+    if (!draftIsMinDay || !draft) return false
     const h24 = to24(draft.hour, draft.ampm)
-    if (h24 < nowH24) return true
-    if (h24 === nowH24) return m <= nowMin
+    if (h24 < minH24) return true
+    if (h24 === minH24) return m <= minMin
     return false
   }
 
   function isAmpmDisabled(ap) {
-    if (!draftIsToday) return false
-    // AM is disabled if current time is PM (13:00+) and switching to AM would make all hours past
-    if (ap === 'am' && nowH24 >= 12) return true
+    if (!draftIsMinDay) return false
+    if (ap === 'am' && minH24 >= 12) return true
     return false
   }
 
-  // When user picks ampm that might make current hour invalid, advance to first valid hour
   function handleAmpm(ap) {
     setDraft(d => {
       const h24 = to24(d.hour, ap)
-      if (draftIsToday && h24 < nowH24) {
-        // Find first valid hour in this ampm period
-        const firstValid = HOURS.find(h => to24(h, ap) >= nowH24)
-        const newHour = firstValid || (ap === 'pm' ? 12 : 12)
-        // Also fix minute if needed
+      if (draftIsMinDay && h24 < minH24) {
+        const firstValid = HOURS.find(h => to24(h, ap) >= minH24)
+        const newHour = firstValid || 12
         const newH24 = to24(newHour, ap)
         let newMinute = d.minute
-        if (newH24 === nowH24 && newMinute <= nowMin) {
-          newMinute = MINUTES.find(m => m > nowMin) ?? 0
+        if (newH24 === minH24 && newMinute <= minMin) {
+          newMinute = MINUTES.find(m => m > minMin) ?? 0
         }
         return { ...d, ampm: ap, hour: newHour, minute: newMinute }
       }
@@ -240,13 +237,12 @@ export default function DateTimePicker({
     })
   }
 
-  // When user picks a hour, also fix minutes if they'd be in the past
   function handleHour(h) {
     setDraft(d => {
       const h24 = to24(h, d.ampm)
       let newMinute = d.minute
-      if (draftIsToday && h24 === nowH24 && newMinute <= nowMin) {
-        newMinute = MINUTES.find(m => m > nowMin) ?? 0
+      if (draftIsMinDay && h24 === minH24 && newMinute <= minMin) {
+        newMinute = MINUTES.find(m => m > minMin) ?? 0
       }
       return { ...d, hour: h, minute: newMinute }
     })
@@ -254,8 +250,9 @@ export default function DateTimePicker({
 
   const cells = draft ? getCalendarCells(viewYear, viewMonth) : []
 
+  const realToday = new Date()
   function isToday(c) {
-    return c.day === todayD && c.month === todayM && c.year === todayY
+    return c.day === realToday.getDate() && c.month === realToday.getMonth() && c.year === realToday.getFullYear()
   }
   function isSel(c) {
     return draft && c.day === draft.day && c.month === draft.month && c.year === draft.year
@@ -264,11 +261,8 @@ export default function DateTimePicker({
   const displayText = formatDisplay(value)
   const draftDisplay = draft ? formatDisplay(toValue(draft)) : null
 
-  // Confirm button disabled if draft is in the past
-  const draftInPast = draft && (() => {
-    const v = toValue(draft)
-    return new Date(v) <= now
-  })()
+  // Confirm disabled if draft is before min
+  const draftInPast = draft && new Date(toValue(draft)) <= min
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
