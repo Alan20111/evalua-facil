@@ -45,6 +45,7 @@ export default function VisibilitySelect({ mode, publishAt, onModeChange, onPubl
           onChange={onPublishAtChange}
           placeholder="Elegir fecha de publicación…"
           clearable={false}
+          defaultTime="07:00"
         />
       )}
     </div>
