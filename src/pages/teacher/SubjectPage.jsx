@@ -1568,27 +1568,21 @@ export default function SubjectPage() {
                                 )}
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
-                                {counts.delivered > 0 && (
-                                  <span
-                                    data-tooltip={`${counts.delivered} entregado${counts.delivered !== 1 ? 's' : ''} de ${totalStudents} alumno${totalStudents !== 1 ? 's' : ''}`}
-                                    className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <Upload size={11} /> {counts.delivered}/{totalStudents}
-                                  </span>
-                                )}
-                                {(counts.delivered - counts.graded) > 0 && (
-                                  <span
-                                    data-tooltip={`${counts.delivered - counts.graded} entregado${(counts.delivered - counts.graded) !== 1 ? 's' : ''} sin calificar`}
-                                    className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <Clock size={12} /> {counts.delivered - counts.graded}
-                                  </span>
-                                )}
-                                {counts.graded > 0 && (
-                                  <span
-                                    data-tooltip={`${counts.graded} calificado${counts.graded !== 1 ? 's' : ''}`}
-                                    className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <CheckCircle size={13} /> {counts.graded}
-                                  </span>
-                                )}
+                                <span
+                                  data-tooltip={`${counts.delivered} entregado${counts.delivered !== 1 ? 's' : ''} de ${totalStudents} alumno${totalStudents !== 1 ? 's' : ''}`}
+                                  className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                  <Upload size={11} /> {counts.delivered}/{totalStudents}
+                                </span>
+                                <span
+                                  data-tooltip={`${counts.delivered - counts.graded} sin calificar`}
+                                  className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                  <Clock size={12} /> {counts.delivered - counts.graded}
+                                </span>
+                                <span
+                                  data-tooltip={`${counts.graded} calificado${counts.graded !== 1 ? 's' : ''}`}
+                                  className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                  <CheckCircle size={13} /> {counts.graded}
+                                </span>
                               </div>
                             </button>
                             {/* Visibility toggle */}
