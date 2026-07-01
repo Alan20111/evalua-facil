@@ -232,15 +232,15 @@ export default function EvaluacionRunner() {
         <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-xl font-bold truncate">
-                {subject ? `${subject.nombre}${subject.grupo ? ` — ${subject.grupo}` : ''}` : ''}
-                {teacherName ? ` · ${teacherName}` : ''}
-              </p>
               {student && (
-                <p className="text-sm text-white/80 font-medium truncate">
+                <p className="text-xl font-bold truncate">
                   {[student.apellidoPaterno, student.apellidoMaterno, student.nombre].filter(Boolean).join(' ')}
                 </p>
               )}
+              <p className="text-xs text-white/60 truncate">
+                {subject ? `${subject.nombre}${subject.grupo ? ` — ${subject.grupo}` : ''}` : ''}
+                {teacherName ? ` · ${teacherName}` : ''}
+              </p>
               <p className="text-xs text-white/60 mt-0.5">
                 {activity.nombre} — Pregunta {idx + 1} de {preguntas.length}
               </p>
