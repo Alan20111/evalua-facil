@@ -19,6 +19,12 @@ function toIsoNow() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
 }
 
+// Returns ISO datetime string for "now + 2 hours", used as smart default for scheduled publication
+function computeScheduleDefault() {
+  const d = new Date(Date.now() + 2 * 60 * 60 * 1000)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
 // Full-screen editor for Entregable activities (file submission / mark-complete).
 // Mirrors the visual pattern of EvaluacionEditor so all activity creation/editing
 // feels consistent regardless of type.
@@ -196,7 +202,8 @@ export default function EntregableEditor({
                 publishedAt={form.publishedAt}
                 onModeChange={(mode) => setForm((f) => ({
                   ...f, visibilidadMode: mode,
-                  publishAt: mode === 'schedule' ? f.publishAt : '',
+                  // 9.1: auto-fill publishAt with now+2h when switching to schedule for the first time
+                  publishAt: mode === 'schedule' ? (f.publishAt || computeScheduleDefault()) : '',
                   fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
                 }))}
                 onPublishAtChange={(v) => setForm((f) => ({ ...f, publishAt: v }))}
@@ -217,6 +224,11 @@ export default function EntregableEditor({
                     onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                     placeholder="Sin fecha límite…"
                     clearable
+                    defaultTime="23:59"
+                    defaultDate={
+                      // 9.2: open on publish date when no fechaLimite yet; fall back to today
+                      (form.publishAt || form.publishedAt || '').split('T')[0] || undefined
+                    }
                     minDateTime={
                       form.visibilidadMode === 'published' ? (form.publishedAt || undefined) :
                       form.visibilidadMode === 'schedule'  ? (form.publishAt  || undefined) :

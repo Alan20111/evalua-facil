@@ -391,6 +391,7 @@ export default function EFDateTimePicker({
   className = '',
   minDateTime,
   defaultTime = '23:59',  // HH:MM 24h — used when opening with no existing value
+  defaultDate,             // YYYY-MM-DD — calendar opens here when no value is set
 }) {
   const triggerRef  = useRef(null)
   const popoverRef  = useRef(null)
@@ -506,9 +507,16 @@ export default function EFDateTimePicker({
     if (disabled) return
     ensureStyles()
     const src = parsed
-    setDraft(src ? new Date(src.getFullYear(), src.getMonth(), src.getDate()) : null)
-    setViewDate(src
-      ? new Date(src.getFullYear(), src.getMonth(), 1)
+    // When no existing value, use defaultDate as the initial calendar selection
+    const defD = !src && defaultDate ? parseValue(defaultDate, 'date') : null
+    const anchorDate = src
+      ? new Date(src.getFullYear(), src.getMonth(), src.getDate())
+      : defD
+        ? new Date(defD.getFullYear(), defD.getMonth(), defD.getDate())
+        : null
+    setDraft(anchorDate)
+    setViewDate(anchorDate
+      ? new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1)
       : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     )
     if (mode === 'datetime') {
