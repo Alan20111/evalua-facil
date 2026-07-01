@@ -116,6 +116,7 @@ export default function SubjectPage() {
   const [subject, setSubject] = useState(null)
   const [activities, setActivities] = useState([])
   const [submissionCounts, setSubmissionCounts] = useState({})
+  const [totalStudents, setTotalStudents] = useState(0)
   const [openParcial, setOpenParcial] = useState(1)
 
   // Activity modal
@@ -309,7 +310,11 @@ export default function SubjectPage() {
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       )
 
-      const subDocs = await fetchSubmissionsForActivities(acts.map((a) => a.id))
+      const [subDocs, studSnap] = await Promise.all([
+        fetchSubmissionsForActivities(acts.map((a) => a.id)),
+        getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
+      ])
+      setTotalStudents(studSnap.size)
 
       const counts = {}
       acts.forEach((a) => { counts[a.id] = { delivered: 0, graded: 0 } })
@@ -1563,14 +1568,25 @@ export default function SubjectPage() {
                                 )}
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
-                                {counts.graded > 0 && (
-                                  <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <CheckCircle size={13} /> {counts.graded}
+                                {counts.delivered > 0 && (
+                                  <span
+                                    title={`${counts.delivered} entregado${counts.delivered !== 1 ? 's' : ''} de ${totalStudents} alumno${totalStudents !== 1 ? 's' : ''}`}
+                                    className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                    <Upload size={11} /> {counts.delivered}/{totalStudents}
                                   </span>
                                 )}
-                                {counts.delivered > 0 && (
-                                  <span className="text-xs bg-accent-light text-accent px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                    <Circle size={13} /> {counts.delivered}
+                                {(counts.delivered - counts.graded) > 0 && (
+                                  <span
+                                    title={`${counts.delivered - counts.graded} entregado${(counts.delivered - counts.graded) !== 1 ? 's' : ''} sin calificar`}
+                                    className="text-xs bg-accent-light text-accent px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                    <Circle size={13} /> {counts.delivered - counts.graded}
+                                  </span>
+                                )}
+                                {counts.graded > 0 && (
+                                  <span
+                                    title={`${counts.graded} calificado${counts.graded !== 1 ? 's' : ''}`}
+                                    className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                    <CheckCircle size={13} /> {counts.graded}
                                   </span>
                                 )}
                               </div>
