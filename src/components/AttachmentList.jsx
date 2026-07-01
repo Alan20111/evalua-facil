@@ -11,6 +11,14 @@ function docsViewerUrl(url) {
   return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
 }
 
+// Cloudinary stores PDFs uploaded via /auto/upload as /image/upload/ which
+// causes browsers to receive the wrong Content-Type. Swapping to /raw/upload/
+// makes Cloudinary serve the file with application/pdf so viewers work.
+function pdfUrl(url) {
+  if (!url) return url
+  return url.replace('/image/upload/', '/raw/upload/')
+}
+
 function FileRow({ f, onRemove, index }) {
   const [open, setOpen] = useState(false)
   const ext = resourceExtension(f.nombre)
@@ -19,6 +27,9 @@ function FileRow({ f, onRemove, index }) {
   const isImage = IMAGE_EXTS.includes(ext)
   const canView = isPdf || isOffice || isImage
   const { icon: Icon, color } = getResourceIcon(f.nombre)
+
+  const viewUrl = isPdf ? pdfUrl(f.url) : f.url
+  const downloadUrl = isPdf ? pdfUrl(f.url) : f.url
 
   return (
     <div className="rounded border border-outline-variant bg-surface-card overflow-hidden">
@@ -34,15 +45,15 @@ function FileRow({ f, onRemove, index }) {
             <Eye size={15} />
           </button>
         )}
-        {f.url && isOffice && (
-          <a href={`https://docs.google.com/viewer?url=${encodeURIComponent(f.url)}`}
-            target="_blank" rel="noreferrer" title="Abrir en Google Docs"
+        {f.url && (isPdf || isOffice) && (
+          <a href={docsViewerUrl(viewUrl)} target="_blank" rel="noreferrer"
+            title="Abrir en Google Docs"
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <ExternalLink size={15} />
           </a>
         )}
         {f.url && (
-          <a href={f.url} target="_blank" rel="noreferrer" title="Descargar"
+          <a href={downloadUrl} target="_blank" rel="noreferrer" title="Descargar"
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <Download size={15} />
           </a>
@@ -59,9 +70,26 @@ function FileRow({ f, onRemove, index }) {
         <div className="border-t border-outline-variant bg-surface">
           {isImage ? (
             <img src={f.url} alt={f.nombre} className="w-full max-h-[70vh] object-contain" />
+          ) : isPdf ? (
+            // Use <object> with explicit type so the browser applies application/pdf
+            // regardless of what Content-Type the server returns.
+            // Falls back to Google Docs Viewer iframe if the browser can't render it.
+            <object
+              data={viewUrl}
+              type="application/pdf"
+              className="w-full"
+              style={{ height: '70vh', border: 'none' }}
+            >
+              <iframe
+                src={docsViewerUrl(viewUrl)}
+                title={f.nombre}
+                className="w-full h-full"
+                style={{ border: 'none' }}
+              />
+            </object>
           ) : (
             <iframe
-              src={isPdf ? docsViewerUrl(f.url) : docsViewerUrl(f.url)}
+              src={docsViewerUrl(viewUrl)}
               title={f.nombre}
               className="w-full h-[70vh]"
               style={{ border: 'none' }}
