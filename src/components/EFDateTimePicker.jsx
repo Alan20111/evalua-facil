@@ -369,8 +369,6 @@ export default function EFDateTimePicker({
   disabled = false,
   clearable = true,
   className = '',
-  // minDateTime accepted but not enforced (future enhancement)
-  // eslint-disable-next-line no-unused-vars
   minDateTime,
 }) {
   const triggerRef  = useRef(null)
@@ -381,6 +379,14 @@ export default function EFDateTimePicker({
   const [pos, setPos]             = useState({ top: 0, left: 0, maxH: 560 })
 
   const parsed = useMemo(() => parseValue(value, mode), [value, mode])
+
+  // Normalize minDateTime to midnight so we can compare date-only
+  const minDateOnly = useMemo(() => {
+    if (!minDateTime) return null
+    const p = parseValue(minDateTime, 'datetime')
+    if (!p) return null
+    return new Date(p.getFullYear(), p.getMonth(), p.getDate())
+  }, [minDateTime])
 
   // Draft: only the date portion. Time comes from wheel indices.
   const [draft, setDraft]       = useState(null)
@@ -479,7 +485,9 @@ export default function EFDateTimePicker({
   }
 
   function selectDay(d) {
-    setDraft(new Date(d.getFullYear(), d.getMonth(), d.getDate()))
+    const dn = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    if (minDateOnly && dn < minDateOnly) return
+    setDraft(dn)
   }
 
   // ── Shortcuts ──────────────────────────────────────────────────────────────
@@ -630,7 +638,9 @@ export default function EFDateTimePicker({
 
         {/* Shortcuts */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '9px 12px 4px' }}>
-          {shortcuts.map(({ label, d }) => chip(label, () => applyShortcut(d)))}
+          {shortcuts
+            .filter(({ d }) => !minDateOnly || new Date(d.getFullYear(), d.getMonth(), d.getDate()) >= minDateOnly)
+            .map(({ label, d }) => chip(label, () => applyShortcut(d)))}
           {clearable && chip('Sin límite', clear, false)}
         </div>
 
@@ -685,14 +695,17 @@ export default function EFDateTimePicker({
           <div key={slideKey} className={slideDir === 'left' ? 'ef-slide-l' : slideDir === 'right' ? 'ef-slide-r' : ''}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px 0' }}>
               {grid.map((d, i) => {
-                const inMonth = d.getMonth() === viewDate.getMonth()
-                const isToday = isSameDay(d, todayD)
-                const isSel   = isSameDay(d, draft)
+                const inMonth    = d.getMonth() === viewDate.getMonth()
+                const isToday    = isSameDay(d, todayD)
+                const isSel      = isSameDay(d, draft)
+                const dn         = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+                const isDisabled = minDateOnly && dn < minDateOnly
                 return (
                   <button
                     key={i}
                     type="button"
                     onClick={() => selectDay(d)}
+                    disabled={isDisabled}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -700,7 +713,7 @@ export default function EFDateTimePicker({
                       height: 32,
                       borderRadius: '50%',
                       border: 'none',
-                      cursor: 'pointer',
+                      cursor: isDisabled ? 'not-allowed' : 'pointer',
                       fontSize: 12,
                       fontWeight: isSel || isToday ? 700 : 400,
                       background: isSel
@@ -710,9 +723,12 @@ export default function EFDateTimePicker({
                           : 'transparent',
                       color: isSel
                         ? '#fff'
-                        : !inMonth
+                        : isDisabled
                           ? 'var(--outline-variant)'
-                          : 'var(--on-surface)',
+                          : !inMonth
+                            ? 'var(--outline-variant)'
+                            : 'var(--on-surface)',
+                      opacity: isDisabled ? 0.4 : 1,
                       outline: isToday && !isSel
                         ? '2px solid color-mix(in srgb, var(--accent) 35%, transparent)'
                         : 'none',
@@ -720,8 +736,8 @@ export default function EFDateTimePicker({
                       transition: 'background .1s',
                       margin: '0 1px',
                     }}
-                    onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 18%, transparent)' }}
-                    onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = isToday ? 'color-mix(in srgb, var(--accent) 14%, transparent)' : 'transparent' }}
+                    onMouseEnter={e => { if (!isSel && !isDisabled) e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 18%, transparent)' }}
+                    onMouseLeave={e => { if (!isSel && !isDisabled) e.currentTarget.style.background = isToday ? 'color-mix(in srgb, var(--accent) 14%, transparent)' : 'transparent' }}
                   >
                     {d.getDate()}
                   </button>

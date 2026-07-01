@@ -487,6 +487,7 @@ export default function EvaluacionEditor({
                       onChange={v => setInfoForm(f => ({ ...f, fechaLimite: v }))}
                       placeholder="Sin fecha límite…"
                       clearable
+                      minDateTime={infoForm.publishAt || undefined}
                     />
                   )}
                 </div>

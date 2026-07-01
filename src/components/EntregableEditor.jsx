@@ -192,6 +192,7 @@ export default function EntregableEditor({
                     onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                     placeholder="Sin fecha límite…"
                     clearable
+                    minDateTime={form.publishAt || undefined}
                   />
                 )}
               </div>
