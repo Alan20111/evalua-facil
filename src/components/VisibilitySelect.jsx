@@ -2,6 +2,8 @@
 // content type that needs the oculta/publishAt fields — activities first,
 // now also support materials. Extracted so both forms read from one place:
 // any future tweak (copy, a new mode, the schedule input) changes once.
+import DateTimePicker from './DateTimePicker'
+
 export default function VisibilitySelect({ mode, publishAt, onModeChange, onPublishAtChange }) {
   return (
     <div className="space-y-2">
@@ -36,11 +38,10 @@ export default function VisibilitySelect({ mode, publishAt, onModeChange, onPubl
         </div>
       </label>
       {mode === 'schedule' && (
-        <input
-          type="datetime-local"
+        <DateTimePicker
           value={publishAt}
-          onChange={(e) => onPublishAtChange(e.target.value)}
-          className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+          onChange={onPublishAtChange}
+          placeholder="Elegir fecha de publicación"
         />
       )}
     </div>

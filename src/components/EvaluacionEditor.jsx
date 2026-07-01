@@ -13,6 +13,7 @@ import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy,
   Search, Image as ImageIcon, X, ChevronDown as CollapseIcon,
 } from 'lucide-react'
+import DateTimePicker from './DateTimePicker'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -462,9 +463,11 @@ export default function EvaluacionEditor({
               <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
-                <input type="datetime-local" value={infoForm.fechaLimite}
-                  onChange={(e) => setInfoForm((f) => ({ ...f, fechaLimite: e.target.value }))}
-                  className="w-full px-4 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                <DateTimePicker
+                  value={infoForm.fechaLimite}
+                  onChange={(v) => setInfoForm((f) => ({ ...f, fechaLimite: v }))}
+                  placeholder="Sin fecha límite"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted mb-2">Visibilidad</label>
@@ -550,9 +553,11 @@ export default function EvaluacionEditor({
               </select>
             </div>
             {configForm.publicarResultados === 'fecha' && (
-              <input type="datetime-local" value={configForm.publicarResultadosFecha || ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultadosFecha: e.target.value }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+              <DateTimePicker
+                value={configForm.publicarResultadosFecha || ''}
+                onChange={(v) => setConfigForm((f) => ({ ...f, publicarResultadosFecha: v }))}
+                placeholder="Elegir fecha de publicación"
+              />
             )}
             <div className="pt-1 border-t border-outline-variant">
               <p className="text-xs font-medium text-muted uppercase tracking-wide pt-2 mb-2">Qué ve el alumno en sus resultados</p>
