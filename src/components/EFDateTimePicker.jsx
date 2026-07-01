@@ -12,7 +12,7 @@ const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sáb
 
 // 12-hour wheel: starts at 12 so 12→1→2→...→11 wraps naturally
 const HOURS   = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-const MINUTES = [0, 15, 30, 45]
+const MINUTES = Array.from({ length: 60 }, (_, i) => i)
 const AMPM    = ['AM', 'PM']
 const ITEM_H  = 40   // px per wheel row
 const ANIM_MS = 200  // wheel animation duration
@@ -117,15 +117,13 @@ function getEndOfMonth() {
 
 // 24h string → wheel indices
 function h24ToWheels(hhmm) {
-  const [h, m] = (hhmm || '08:00').split(':').map(Number)
+  const [h, m] = (hhmm || '23:59').split(':').map(Number)
   const ampmIdx = h < 12 ? 0 : 1
   const h12 = h % 12 || 12
   const hourIdx = HOURS.indexOf(h12)
-  const snapped = m < 8 ? 0 : m < 23 ? 15 : m < 38 ? 30 : m < 53 ? 45 : 0
-  const minIdx = MINUTES.indexOf(snapped)
   return {
     hourIdx: hourIdx >= 0 ? hourIdx : 0,
-    minIdx: minIdx >= 0 ? minIdx : 0,
+    minIdx: m,
     ampmIdx,
   }
 }
@@ -396,9 +394,9 @@ export default function EFDateTimePicker({
   const [slideKey, setSlideKey] = useState(0)
 
   // Wheel state (12-hour)
-  const [hourIdx, setHourIdx] = useState(0)   // index into HOURS=[12,1,2,...,11]
-  const [minIdx,  setMinIdx]  = useState(2)   // index into MINUTES=[0,15,30,45]; default=30
-  const [ampmIdx, setAmpmIdx] = useState(0)   // 0=AM, 1=PM
+  const [hourIdx, setHourIdx] = useState(11)  // index into HOURS=[12,1,...,11]; 11=11h
+  const [minIdx,  setMinIdx]  = useState(59)  // index into MINUTES=[0..59]; default=59
+  const [ampmIdx, setAmpmIdx] = useState(1)   // 0=AM, 1=PM; default=PM
 
   // ── Open / position ────────────────────────────────────────────────────────
   const computePos = useCallback(() => {
@@ -431,7 +429,7 @@ export default function EFDateTimePicker({
     if (mode === 'datetime') {
       const hhmm = src
         ? `${String(src.getHours()).padStart(2, '0')}:${String(src.getMinutes()).padStart(2, '0')}`
-        : '08:00'
+        : '23:59'
       const { hourIdx: hi, minIdx: mi, ampmIdx: ai } = h24ToWheels(hhmm)
       setHourIdx(hi)
       setMinIdx(mi)
