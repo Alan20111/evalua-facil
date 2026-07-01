@@ -19,10 +19,10 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
-import DateTimePicker from '../../components/DateTimePicker'
 import FileTypeSelect from '../../components/FileTypeSelect'
 import RichTextEditor from '../../components/RichTextEditor'
 import VisibilitySelect from '../../components/VisibilitySelect'
+import EFDateTimePicker from '../../components/EFDateTimePicker'
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
@@ -2159,11 +2159,12 @@ export default function SubjectPage() {
                     <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
                     <>
-                      <DateTimePicker
+                      <EFDateTimePicker
+                        mode="datetime"
                         value={form.fechaLimite}
-                        onChange={(v) => setForm((f) => ({ ...f, fechaLimite: v }))}
-                        placeholder="Sin fecha límite"
-                        minDateTime={form.visibilidadMode === 'schedule' ? form.publishAt : undefined}
+                        onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
+                        placeholder="Sin fecha límite…"
+                        clearable
                       />
                       <p className="text-xs text-slate-400 mt-1">
                         Luego de esta fecha y hora ya no se reciben entregas.
@@ -2654,10 +2655,11 @@ export default function SubjectPage() {
                 </div>
               </label>
               {activateMode === 'schedule' && (
-                <DateTimePicker
+                <EFDateTimePicker
+                  mode="datetime"
                   value={activateDate}
                   onChange={setActivateDate}
-                  placeholder="Elegir fecha y hora"
+                  clearable={false}
                 />
               )}
             </div>
@@ -2705,13 +2707,11 @@ export default function SubjectPage() {
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
-                    <input type="date" value={editSubjectForm.fechaInicio} onChange={(e) => setEditSubjectForm((f) => ({ ...f, fechaInicio: e.target.value }))}
-                      className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    <EFDateTimePicker mode="date" value={editSubjectForm.fechaInicio} onChange={v => setEditSubjectForm(f => ({ ...f, fechaInicio: v }))} />
                   </div>
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
-                    <input type="date" value={editSubjectForm.fechaFin} onChange={(e) => setEditSubjectForm((f) => ({ ...f, fechaFin: e.target.value }))}
-                      className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    <EFDateTimePicker mode="date" value={editSubjectForm.fechaFin} onChange={v => setEditSubjectForm(f => ({ ...f, fechaFin: v }))} />
                   </div>
                 </div>
               </div>
@@ -2771,13 +2771,11 @@ export default function SubjectPage() {
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
-                    <input type="date" value={copyFechas.fechaInicio} onChange={(e) => setCopyFechas((f) => ({ ...f, fechaInicio: e.target.value }))}
-                      className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    <EFDateTimePicker mode="date" value={copyFechas.fechaInicio} onChange={v => setCopyFechas(f => ({ ...f, fechaInicio: v }))} />
                   </div>
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
-                    <input type="date" value={copyFechas.fechaFin} onChange={(e) => setCopyFechas((f) => ({ ...f, fechaFin: e.target.value }))}
-                      className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    <EFDateTimePicker mode="date" value={copyFechas.fechaFin} onChange={v => setCopyFechas(f => ({ ...f, fechaFin: v }))} />
                   </div>
                 </div>
               </div>
@@ -2909,13 +2907,11 @@ export default function SubjectPage() {
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <span className="block text-sm text-slate-500 mb-1">Inicio</span>
-                      <input type="date" value={unarchiveEdits.fechaInicio} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, fechaInicio: e.target.value }))}
-                        className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                      <EFDateTimePicker mode="date" value={unarchiveEdits.fechaInicio} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaInicio: v }))} />
                     </div>
                     <div className="flex-1">
                       <span className="block text-sm text-slate-500 mb-1">Fin</span>
-                      <input type="date" value={unarchiveEdits.fechaFin} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, fechaFin: e.target.value }))}
-                        className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                      <EFDateTimePicker mode="date" value={unarchiveEdits.fechaFin} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaFin: v }))} />
                     </div>
                   </div>
                   <select value={unarchiveEdits.parciales} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, parciales: e.target.value }))}

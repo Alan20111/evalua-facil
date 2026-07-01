@@ -9,6 +9,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { Plus, Pencil, Ban, Trash2, X } from 'lucide-react'
+import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
@@ -300,27 +301,18 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1">Inicio</label>
-                  <input
-                    type="date"
+                  <EFDateTimePicker
+                    mode="date"
                     value={modal.form.fechaInicio}
-                    onChange={(e) =>
-                      setModal({ ...modal, form: { ...modal.form, fechaInicio: e.target.value } })
-                    }
-                    className={inputCls}
+                    onChange={v => setModal({ ...modal, form: { ...modal.form, fechaInicio: v } })}
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted mb-1">Vencimiento</label>
-                  <input
-                    type="date"
+                  <EFDateTimePicker
+                    mode="date"
                     value={modal.form.fechaVencimiento}
-                    onChange={(e) =>
-                      setModal({
-                        ...modal,
-                        form: { ...modal.form, fechaVencimiento: e.target.value },
-                      })
-                    }
-                    className={inputCls}
+                    onChange={v => setModal({ ...modal, form: { ...modal.form, fechaVencimiento: v } })}
                   />
                 </div>
               </div>

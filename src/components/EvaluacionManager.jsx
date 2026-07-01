@@ -8,6 +8,7 @@ import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { subjectDisplayName } from '../utils/subjectName'
 import { uploadToCloudinary } from '../utils/cloudinary'
+import EFDateTimePicker from './EFDateTimePicker'
 import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
 } from '../utils/evaluacionGrading'
@@ -807,9 +808,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               </select>
             </div>
             {configForm.publicarResultados === 'fecha' && (
-              <input type="datetime-local" value={configForm.publicarResultadosFecha || ''}
-                onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultadosFecha: e.target.value }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+              <EFDateTimePicker
+                mode="datetime"
+                value={configForm.publicarResultadosFecha || ''}
+                onChange={v => setConfigForm(f => ({ ...f, publicarResultadosFecha: v }))}
+                placeholder="Elegir fecha de publicación…"
+                clearable={false}
+              />
             )}
             <div className="pt-1 border-t border-outline-variant">
               <p className="text-xs font-medium text-muted uppercase tracking-wide pt-2 mb-2">Qué ve el alumno en sus resultados</p>

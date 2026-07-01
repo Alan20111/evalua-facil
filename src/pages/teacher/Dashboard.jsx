@@ -19,6 +19,7 @@ import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown } from 'lucide-reac
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
+import EFDateTimePicker from '../../components/EFDateTimePicker'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -323,21 +324,11 @@ export default function TeacherDashboard() {
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
-                    <input
-                      type="date"
-                      value={newSubjectFechaInicio}
-                      onChange={(e) => setNewSubjectFechaInicio(e.target.value)}
-                      className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
-                    />
+                    <EFDateTimePicker mode="date" value={newSubjectFechaInicio} onChange={setNewSubjectFechaInicio} />
                   </div>
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
-                    <input
-                      type="date"
-                      value={newSubjectFechaFin}
-                      onChange={(e) => setNewSubjectFechaFin(e.target.value)}
-                      className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
-                    />
+                    <EFDateTimePicker mode="date" value={newSubjectFechaFin} onChange={setNewSubjectFechaFin} />
                   </div>
                 </div>
               </div>

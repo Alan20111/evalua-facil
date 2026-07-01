@@ -1,8 +1,9 @@
+import EFDateTimePicker from './EFDateTimePicker'
+
 // Visibility radio-group (Mostrar ahora / Ocultar / Programar) shared by any
 // content type that needs the oculta/publishAt fields — activities first,
 // now also support materials. Extracted so both forms read from one place:
 // any future tweak (copy, a new mode, the schedule input) changes once.
-import DateTimePicker from './DateTimePicker'
 
 export default function VisibilitySelect({ mode, publishAt, onModeChange, onPublishAtChange }) {
   return (
@@ -38,10 +39,12 @@ export default function VisibilitySelect({ mode, publishAt, onModeChange, onPubl
         </div>
       </label>
       {mode === 'schedule' && (
-        <DateTimePicker
+        <EFDateTimePicker
+          mode="datetime"
           value={publishAt}
           onChange={onPublishAtChange}
-          placeholder="Elegir fecha de publicación"
+          placeholder="Elegir fecha de publicación…"
+          clearable={false}
         />
       )}
     </div>

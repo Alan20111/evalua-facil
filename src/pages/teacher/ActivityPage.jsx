@@ -25,6 +25,7 @@ import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import EFDateTimePicker from '../../components/EFDateTimePicker'
 import { formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch } from '../../utils/studentSearch'
@@ -594,12 +595,14 @@ export default function ActivityPage() {
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-muted">Nueva fecha límite para este estudiante</p>
                   <div className="flex gap-2">
-                    <input
-                      type="date"
-                      value={extendDate}
-                      onChange={(e) => setExtendDate(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
-                    />
+                    <div className="flex-1">
+                      <EFDateTimePicker
+                        mode="date"
+                        value={extendDate}
+                        onChange={setExtendDate}
+                        clearable={false}
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={saveExtension}
