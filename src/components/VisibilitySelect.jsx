@@ -1,15 +1,19 @@
 import EFDateTimePicker from './EFDateTimePicker'
 
-// Visibility radio-group (Mostrar ahora / Ocultar / Programar) shared by any
+// Visibility radio-group (Publicar ahora / Ocultar / Programar) shared by any
 // content type that needs the oculta/publishAt fields — activities first,
 // now also support materials. Extracted so both forms read from one place:
 // any future tweak (copy, a new mode, the schedule input) changes once.
 //
 // Modes:
-//   'show'      — new activity; will publish now when saved
+//   'show'      — new activity; will publish now when saved (sets publishedAt)
 //   'published' — existing activity already published; shows real date, not re-selectable
-//   'hide'      — hidden
+//   'hide'      — hidden (oculta=true)
 //   'schedule'  — scheduled for a future date (publishAt picker shown)
+//
+// NOTE: The eye icon (ocultar/mostrar) is a VISIBILITY-ONLY toggle and NEVER
+// modifies publishedAt. This component handles PUBLICATION (show/schedule),
+// not visibility toggling — those are handled by hideActivity/showMaterialNow.
 
 const MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
@@ -27,7 +31,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, onModeC
   const publishedLabel = formatPublishedAt(publishedAt)
 
   // When the activity is already published, show a different UI:
-  // a read-only info block + "Ocultar" and "Programar" options (no "Mostrar ahora")
+  // a read-only info block + "Ocultar" and "Programar" options (no "Publicar ahora")
   if (mode === 'published') {
     return (
       <div className="space-y-2">
@@ -71,15 +75,15 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, onModeC
 
   return (
     <div className="space-y-2">
-      {/* "Mostrar ahora" only for non-published activities */}
+      {/* "Publicar ahora" only for non-published activities — sets publishedAt on save */}
       <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
         style={{ borderColor: mode === 'show' ? 'var(--accent)' : '#e2e8f0', background: mode === 'show' ? 'var(--accent-light)' : '' }}>
         <input type="radio" name="visibilidad" checked={mode === 'show'}
           onChange={() => onModeChange('show')}
           className="accent-[var(--accent)]" />
         <div>
-          <p className="text-sm font-medium text-on-surface">Mostrar ahora</p>
-          <p className="text-xs text-muted">Visible para estudiantes al guardar</p>
+          <p className="text-sm font-medium text-on-surface">Publicar ahora</p>
+          <p className="text-xs text-muted">Se publica de inmediato al guardar</p>
         </div>
       </label>
       <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
