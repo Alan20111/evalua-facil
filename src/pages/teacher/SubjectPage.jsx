@@ -36,7 +36,7 @@ import {
   FileSpreadsheet, Search,
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
-  Eye, EyeOff, BookOpen, Paperclip,
+  Eye, EyeOff, BookOpen, Paperclip, Inbox,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
@@ -1571,7 +1571,7 @@ export default function SubjectPage() {
                                 <span
                                   data-tooltip={`Entregas\n${counts.delivered} de ${totalStudents} alumno${totalStudents !== 1 ? 's' : ''} ya entregaron su actividad.\n${totalStudents - counts.delivered} alumno${(totalStudents - counts.delivered) !== 1 ? 's' : ''} aún no realizan la entrega.`}
                                   className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <Upload size={11} /> {counts.delivered}/{totalStudents}
+                                  <Inbox size={11} /> {counts.delivered}/{totalStudents}
                                 </span>
                                 <span
                                   data-tooltip={`Calificaciones\n${counts.graded} entrega${counts.graded !== 1 ? 's' : ''} ya fue${counts.graded !== 1 ? 'ron' : ''} calificada${counts.graded !== 1 ? 's' : ''}.\n${counts.delivered - counts.graded} entrega${(counts.delivered - counts.graded) !== 1 ? 's' : ''} está${(counts.delivered - counts.graded) !== 1 ? 'n' : ''} pendiente${(counts.delivered - counts.graded) !== 1 ? 's' : ''} de calificación.`}
