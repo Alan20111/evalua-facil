@@ -414,6 +414,22 @@ export default function EFDateTimePicker({
     return new Date(minFull.getFullYear(), minFull.getMonth(), minFull.getDate())
   }, [minFull])
 
+  // Draft: only the date portion. Time comes from wheel indices.
+  const [draft, setDraft]       = useState(null)
+  const [viewDate, setViewDate] = useState(() => {
+    const src = parseValue(value, mode)
+    return src
+      ? new Date(src.getFullYear(), src.getMonth(), 1)
+      : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  })
+  const [slideDir, setSlideDir] = useState(null)
+  const [slideKey, setSlideKey] = useState(0)
+
+  // Wheel state (12-hour)
+  const [hourIdx, setHourIdx] = useState(11)  // index into HOURS=[12,1,...,11]; 11=11h
+  const [minIdx,  setMinIdx]  = useState(59)  // index into MINUTES=[0..59]; default=59
+  const [ampmIdx, setAmpmIdx] = useState(1)   // 0=AM, 1=PM; default=PM
+
   // ── Disabled wheel indices (same day as minFull) ─────────────────────────────
   const disabledAmpmIndices = useMemo(() => {
     if (!minFull || !draft || !isSameDay(draft, minFull)) return new Set()
@@ -443,22 +459,6 @@ export default function EFDateTimePicker({
     for (let i = 0; i < minM; i++) s.add(i)
     return s
   }, [minFull, draft, hourIdx, ampmIdx])
-
-  // Draft: only the date portion. Time comes from wheel indices.
-  const [draft, setDraft]       = useState(null)
-  const [viewDate, setViewDate] = useState(() => {
-    const src = parseValue(value, mode)
-    return src
-      ? new Date(src.getFullYear(), src.getMonth(), 1)
-      : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-  })
-  const [slideDir, setSlideDir] = useState(null)
-  const [slideKey, setSlideKey] = useState(0)
-
-  // Wheel state (12-hour)
-  const [hourIdx, setHourIdx] = useState(11)  // index into HOURS=[12,1,...,11]; 11=11h
-  const [minIdx,  setMinIdx]  = useState(59)  // index into MINUTES=[0..59]; default=59
-  const [ampmIdx, setAmpmIdx] = useState(1)   // 0=AM, 1=PM; default=PM
 
   // ── Snap effects: when a wheel lands on a disabled index, advance to nearest valid ──
   useEffect(() => {
