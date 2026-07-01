@@ -125,6 +125,7 @@ export default function EFDateTimePicker({
 
   const [open, setOpen] = useState(false)
   const [openUpward, setOpenUpward] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [pos, setPos] = useState({ top: 0, left: 0 })
 
   const parsed = useMemo(() => parseValue(value, mode), [value, mode])
@@ -147,13 +148,24 @@ export default function EFDateTimePicker({
   const computePos = useCallback(() => {
     if (!triggerRef.current) return
     const rect = triggerRef.current.getBoundingClientRect()
-    const popH = mode === 'datetime' ? 530 : 380
     const vw = window.innerWidth
     const vh = window.innerHeight
-    const goUp = (vh - rect.bottom - 8) < popH && rect.top > popH
+    const mobile = vw < 640
+    setIsMobile(mobile)
+    if (mobile) {
+      setPos({ top: 0, left: 0 })
+      return
+    }
+    const popH = mode === 'datetime' ? 520 : 370
+    const spaceBelow = vh - rect.bottom - 8
+    const spaceAbove = rect.top - 8
+    const goUp = spaceBelow < popH && spaceAbove > spaceBelow
     const left = Math.max(8, Math.min(rect.left, vw - 336 - 8))
+    const top = goUp
+      ? Math.max(8, rect.top - Math.min(popH, spaceAbove) - 4)
+      : rect.bottom + 4
     setOpenUpward(goUp)
-    setPos({ top: goUp ? rect.top : rect.bottom + 4, left })
+    setPos({ top, left })
   }, [mode])
 
   function openPicker() {
@@ -286,29 +298,53 @@ export default function EFDateTimePicker({
   const placeholderText = placeholder || (mode === 'date' ? 'Seleccionar fecha…' : 'Seleccionar fecha y hora…')
 
   // ── Popover ─────────────────────────────────────────────────────────────────
-  const popTop = openUpward
-    ? pos.top - (mode === 'datetime' ? 530 : 380) - 4
-    : pos.top
+  const desktopPopoverStyle = {
+    position: 'fixed',
+    top: pos.top,
+    left: pos.left,
+    width: 328,
+    zIndex: 9999,
+    background: 'var(--surface-card)',
+    borderRadius: 14,
+    boxShadow: '0 8px 40px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.08)',
+    border: '1px solid var(--outline-variant)',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    maxHeight: typeof window !== 'undefined' ? Math.min(window.innerHeight - 80, mode === 'datetime' ? 530 : 380) : 530,
+  }
+
+  const mobilePopoverStyle = {
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    zIndex: 9999,
+    background: 'var(--surface-card)',
+    borderRadius: '16px 16px 0 0',
+    boxShadow: '0 -4px 32px rgba(0,0,0,.18)',
+    border: '1px solid var(--outline-variant)',
+    borderBottom: 'none',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    maxHeight: '92vh',
+  }
 
   const popover = open && createPortal(
-    <div
-      ref={popoverRef}
-      className={openUpward ? 'ef-pop-in-up' : 'ef-pop-in'}
-      style={{
-        position: 'fixed',
-        top: Math.max(8, popTop),
-        left: pos.left,
-        width: 328,
-        zIndex: 9999,
-        background: 'var(--surface-card)',
-        borderRadius: 14,
-        boxShadow: '0 8px 40px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.08)',
-        border: '1px solid var(--outline-variant)',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
+    <>
+      {isMobile && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 9998 }}
+        />
+      )}
+      <div
+        ref={popoverRef}
+        className={isMobile ? 'ef-pop-in-up' : openUpward ? 'ef-pop-in-up' : 'ef-pop-in'}
+        style={isMobile ? mobilePopoverStyle : desktopPopoverStyle}
+      >
       {/* Header */}
       <div style={{
         background: 'color-mix(in srgb, var(--accent) 10%, var(--surface-card))',
@@ -338,6 +374,9 @@ export default function EFDateTimePicker({
           </p>
         )}
       </div>
+
+      {/* Scrollable body — header + footer are sticky, this middle section scrolls */}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
 
       {/* Shortcuts */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '9px 12px 4px' }}>
@@ -554,6 +593,8 @@ export default function EFDateTimePicker({
         </div>
       )}
 
+      </div>{/* end scrollable body */}
+
       {/* Footer */}
       <div style={{ display: 'flex', gap: 6, padding: '8px 12px 10px', borderTop: '1px solid var(--outline-variant)', alignItems: 'center' }}>
         {clearable && (
@@ -588,7 +629,8 @@ export default function EFDateTimePicker({
           Confirmar
         </button>
       </div>
-    </div>,
+    </div>
+    </>,
     document.body
   )
 

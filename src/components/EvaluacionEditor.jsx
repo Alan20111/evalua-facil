@@ -13,7 +13,7 @@ import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy,
   Search, Image as ImageIcon, X, ChevronDown as CollapseIcon,
 } from 'lucide-react'
-import DateTimePicker from './DateTimePicker'
+import EFDateTimePicker from './EFDateTimePicker'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -481,11 +481,12 @@ export default function EvaluacionEditor({
                   {infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
                     <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
-                    <DateTimePicker
+                    <EFDateTimePicker
+                      mode="datetime"
                       value={infoForm.fechaLimite}
-                      onChange={(v) => setInfoForm((f) => ({ ...f, fechaLimite: v }))}
-                      placeholder="Sin fecha límite"
-                      minDateTime={infoForm.visibilidadMode === 'schedule' ? infoForm.publishAt : undefined}
+                      onChange={v => setInfoForm(f => ({ ...f, fechaLimite: v }))}
+                      placeholder="Sin fecha límite…"
+                      clearable
                     />
                   )}
                 </div>
@@ -565,10 +566,12 @@ export default function EvaluacionEditor({
               </select>
             </div>
             {configForm.publicarResultados === 'fecha' && (
-              <DateTimePicker
+              <EFDateTimePicker
+                mode="datetime"
                 value={configForm.publicarResultadosFecha || ''}
-                onChange={(v) => setConfigForm((f) => ({ ...f, publicarResultadosFecha: v }))}
-                placeholder="Elegir fecha de publicación"
+                onChange={v => setConfigForm(f => ({ ...f, publicarResultadosFecha: v }))}
+                placeholder="Elegir fecha de publicación…"
+                clearable={false}
               />
             )}
             <div className="pt-1 border-t border-outline-variant">

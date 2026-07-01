@@ -10,7 +10,7 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, toRichHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../config/fileTypes'
 import { ArrowLeft, Plus, Pencil, X } from 'lucide-react'
-import DateTimePicker from './DateTimePicker'
+import EFDateTimePicker from './EFDateTimePicker'
 
 const MAX_ATTACH = 15 * 1024 * 1024
 
@@ -186,11 +186,12 @@ export default function EntregableEditor({
                 {form.visibilidadMode === 'schedule' && !form.publishAt ? (
                   <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                 ) : (
-                  <DateTimePicker
+                  <EFDateTimePicker
+                    mode="datetime"
                     value={form.fechaLimite}
-                    onChange={(v) => setForm((f) => ({ ...f, fechaLimite: v }))}
-                    placeholder="Sin fecha límite"
-                    minDateTime={form.visibilidadMode === 'schedule' ? form.publishAt : undefined}
+                    onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
+                    placeholder="Sin fecha límite…"
+                    clearable
                   />
                 )}
               </div>
