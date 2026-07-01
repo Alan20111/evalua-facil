@@ -407,8 +407,8 @@ export default function EFDateTimePicker({
     const vw     = window.innerWidth
     const vh     = window.innerHeight
     const PAD    = 8
-    const W      = 330
-    const idealH = mode === 'datetime' ? 540 : 360
+    const W      = mode === 'datetime' ? 460 : 330
+    const idealH = mode === 'datetime' ? 420 : 360
     const spaceBelow = vh - rect.bottom - PAD
     const spaceAbove = rect.top - PAD
     const goUp   = spaceBelow < idealH && spaceAbove > spaceBelow
@@ -636,8 +636,11 @@ export default function EFDateTimePicker({
           {clearable && chip('Sin límite', clear, false)}
         </div>
 
-        {/* Calendar */}
-        <div style={{ padding: '4px 10px 8px' }}>
+        {/* Calendar + Time wheels side by side */}
+        <div style={{ display: 'flex' }}>
+
+        {/* Left: Calendar */}
+        <div style={{ flex: 1, minWidth: 0, padding: '4px 10px 8px' }}>
           {/* Month navigation */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <button
@@ -728,11 +731,18 @@ export default function EFDateTimePicker({
               })}
             </div>
           </div>
-        </div>
+        </div>{/* end calendar column */}
 
-        {/* ── Time wheels ── */}
+        {/* Right: Time wheels */}
         {mode === 'datetime' && (
-          <div style={{ borderTop: '1px solid var(--outline-variant)', padding: '10px 14px 4px' }}>
+          <div style={{
+            width: 158,
+            flexShrink: 0,
+            borderLeft: '1px solid var(--outline-variant)',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '10px 6px 8px',
+          }}>
             <p style={{
               fontSize: 10,
               fontWeight: 700,
@@ -740,10 +750,11 @@ export default function EFDateTimePicker({
               textTransform: 'uppercase',
               letterSpacing: '0.07em',
               marginBottom: 4,
+              textAlign: 'center',
             }}>
               Hora
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
               <WheelPicker
                 items={HOURS}
                 selectedIdx={hourIdx}
@@ -752,13 +763,13 @@ export default function EFDateTimePicker({
                 formatItem={v => String(v).padStart(2, '0')}
               />
               <div style={{
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: 200,
                 color: 'var(--on-surface-variant)',
-                paddingBottom: 4,
                 flexShrink: 0,
-                width: 18,
+                width: 12,
                 textAlign: 'center',
+                paddingBottom: 3,
               }}>:</div>
               <WheelPicker
                 items={MINUTES}
@@ -767,7 +778,7 @@ export default function EFDateTimePicker({
                 label="Minutos"
                 formatItem={v => String(v).padStart(2, '0')}
               />
-              <div style={{ width: 12, flexShrink: 0 }} />
+              <div style={{ width: 6, flexShrink: 0 }} />
               <WheelPicker
                 items={AMPM}
                 selectedIdx={ampmIdx}
@@ -778,6 +789,8 @@ export default function EFDateTimePicker({
             </div>
           </div>
         )}
+
+        </div>{/* end flex row */}
 
       </div>{/* end scrollable body */}
 
