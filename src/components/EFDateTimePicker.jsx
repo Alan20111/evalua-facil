@@ -142,7 +142,10 @@ function wheelsToH24(hourIdx, minIdx, ampmIdx) {
 // onChange(newIdx): called when selection changes.
 // The wheel renders 7 items, the 4th being the selected one (centered in 5 visible).
 // Normal transform: translateY(-ITEM_H) → items [idx-2..idx+2] fill the 5-row viewport.
-function WheelPicker({ items, selectedIdx, onChange, label, formatItem }) {
+// disabledIndices: Set<number> of item indices that cannot be selected.
+// When the wheel settles on a disabled index, onChange is called with the nearest
+// valid index instead (always snaps forward / to higher index).
+function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabledIndices = new Set() }) {
   const n          = items.length
   const listRef    = useRef(null)
   const wrapRef    = useRef(null)
@@ -161,6 +164,15 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem }) {
 
   const resetTransform = useCallback(() => setTransform(-ITEM_H, false), [setTransform])
 
+  // Find nearest non-disabled index starting from `from`, searching in `dir` (+1/-1)
+  const nearestValid = useCallback((from, dir = 1) => {
+    for (let i = 0; i < n; i++) {
+      const candidate = ((from + dir * i) % n + n) % n
+      if (!disabledIndices.has(candidate)) return candidate
+    }
+    return from // fallback: all disabled (shouldn't happen)
+  }, [n, disabledIndices])
+
   // Step: delta=+1 moves to next item (scroll down), delta=-1 to previous.
   const step = useCallback((delta) => {
     if (animRef.current) return
@@ -168,7 +180,8 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem }) {
     // Animate: move the list opposite to delta (next item comes from below when delta=+1)
     setTransform(-(1 + delta) * ITEM_H, true)
     setTimeout(() => {
-      const newIdx = ((selectedIdx + delta) % n + n) % n
+      const raw = ((selectedIdx + delta) % n + n) % n
+      const newIdx = nearestValid(raw, delta > 0 ? 1 : -1)
       onChange(newIdx)
       // Reset transform in the same frame as the new render to avoid flash
       requestAnimationFrame(() => {
@@ -176,7 +189,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem }) {
         animRef.current = false
       })
     }, ANIM_MS)
-  }, [selectedIdx, n, onChange, setTransform, resetTransform])
+  }, [selectedIdx, n, onChange, setTransform, resetTransform, nearestValid])
 
   // Wheel event — non-passive so we can preventDefault and block popup scroll
   useEffect(() => {
@@ -216,7 +229,8 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem }) {
       // Snap to the nearest item with a short inertia-like settle
       setTransform(-ITEM_H - steps * ITEM_H, true)
       setTimeout(() => {
-        const newIdx = ((selectedIdx + steps) % n + n) % n
+        const raw = ((selectedIdx + steps) % n + n) % n
+        const newIdx = nearestValid(raw, steps > 0 ? 1 : -1)
         onChange(newIdx)
         requestAnimationFrame(() => {
           resetTransform()
@@ -307,16 +321,18 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem }) {
       >
         {rendered.map(({ key, offset, value, itemIdx }) => {
           const isSelected = offset === 0
+          const isDisabled = disabledIndices.has(itemIdx)
           const dist = Math.abs(offset)
           return (
             <div
               key={key}
               role="option"
               aria-selected={isSelected}
+              aria-disabled={isDisabled}
               onClick={() => {
-                if (offset === 0) return
+                if (offset === 0 || isDisabled) return
                 if (Math.abs(offset) === 1) step(offset)
-                else onChange(itemIdx)
+                else onChange(nearestValid(itemIdx, 1))
               }}
               style={{
                 height: ITEM_H,
@@ -325,12 +341,16 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem }) {
                 justifyContent: 'center',
                 fontSize: isSelected ? 18 : dist === 1 ? 15 : 12,
                 fontWeight: isSelected ? 700 : 400,
-                color: isSelected
-                  ? 'var(--accent)'
-                  : dist === 1
-                    ? 'var(--on-surface-variant)'
-                    : 'var(--outline-variant)',
-                cursor: offset !== 0 ? 'pointer' : 'default',
+                color: isDisabled
+                  ? 'var(--outline-variant)'
+                  : isSelected
+                    ? 'var(--accent)'
+                    : dist === 1
+                      ? 'var(--on-surface-variant)'
+                      : 'var(--outline-variant)',
+                opacity: isDisabled ? 0.35 : 1,
+                textDecoration: isDisabled ? 'line-through' : 'none',
+                cursor: offset !== 0 && !isDisabled ? 'pointer' : 'default',
                 position: 'relative',
                 zIndex: 1,
                 letterSpacing: isSelected ? '0.02em' : 0,
@@ -381,13 +401,47 @@ export default function EFDateTimePicker({
 
   const parsed = useMemo(() => parseValue(value, mode), [value, mode])
 
+  // Full minDateTime as Date object (for hour/minute comparisons)
+  const minFull = useMemo(() => {
+    if (!minDateTime) return null
+    return parseValue(minDateTime, 'datetime')
+  }, [minDateTime])
+
   // Normalize minDateTime to midnight so we can compare date-only
   const minDateOnly = useMemo(() => {
-    if (!minDateTime) return null
-    const p = parseValue(minDateTime, 'datetime')
-    if (!p) return null
-    return new Date(p.getFullYear(), p.getMonth(), p.getDate())
-  }, [minDateTime])
+    if (!minFull) return null
+    return new Date(minFull.getFullYear(), minFull.getMonth(), minFull.getDate())
+  }, [minFull])
+
+  // ── Disabled wheel indices (same day as minFull) ─────────────────────────────
+  const disabledAmpmIndices = useMemo(() => {
+    if (!minFull || !draft || !isSameDay(draft, minFull)) return new Set()
+    // If minDateTime is PM, AM (index 0) is disabled
+    return minFull.getHours() >= 12 ? new Set([0]) : new Set()
+  }, [minFull, draft])
+
+  const disabledHourIndices = useMemo(() => {
+    if (!minFull || !draft || !isSameDay(draft, minFull)) return new Set()
+    const minH24  = minFull.getHours()
+    const minAmpm = minH24 >= 12 ? 1 : 0
+    if (ampmIdx < minAmpm) return new Set(HOURS.map((_, i) => i)) // whole AM section is before PM
+    if (ampmIdx > minAmpm) return new Set()                        // PM selected, min is AM: no restriction
+    // Same period: disable indices whose hour comes before minH12 in the wheel
+    const minH12 = minH24 % 12 || 12
+    const minPos = HOURS.indexOf(minH12)
+    return new Set(HOURS.reduce((acc, _, i) => { if (i < minPos) acc.push(i); return acc }, []))
+  }, [minFull, draft, ampmIdx])
+
+  const disabledMinIndices = useMemo(() => {
+    if (!minFull || !draft || !isSameDay(draft, minFull)) return new Set()
+    const minH24    = minFull.getHours()
+    const curH24    = HOURS[hourIdx] % 12 + ampmIdx * 12
+    if (curH24 !== minH24) return new Set()
+    const minM = minFull.getMinutes()
+    const s = new Set()
+    for (let i = 0; i < minM; i++) s.add(i)
+    return s
+  }, [minFull, draft, hourIdx, ampmIdx])
 
   // Draft: only the date portion. Time comes from wheel indices.
   const [draft, setDraft]       = useState(null)
@@ -404,6 +458,30 @@ export default function EFDateTimePicker({
   const [hourIdx, setHourIdx] = useState(11)  // index into HOURS=[12,1,...,11]; 11=11h
   const [minIdx,  setMinIdx]  = useState(59)  // index into MINUTES=[0..59]; default=59
   const [ampmIdx, setAmpmIdx] = useState(1)   // 0=AM, 1=PM; default=PM
+
+  // ── Snap effects: when a wheel lands on a disabled index, advance to nearest valid ──
+  useEffect(() => {
+    if (!disabledAmpmIndices.size || !disabledAmpmIndices.has(ampmIdx)) return
+    for (let i = 0; i < AMPM.length; i++) {
+      const c = (ampmIdx + i) % AMPM.length
+      if (!disabledAmpmIndices.has(c)) { setAmpmIdx(c); break }
+    }
+  }, [ampmIdx, disabledAmpmIndices]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!disabledHourIndices.size || !disabledHourIndices.has(hourIdx)) return
+    for (let i = 0; i < HOURS.length; i++) {
+      const c = (hourIdx + i) % HOURS.length
+      if (!disabledHourIndices.has(c)) { setHourIdx(c); break }
+    }
+  }, [hourIdx, disabledHourIndices]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!disabledMinIndices.size || !disabledMinIndices.has(minIdx)) return
+    // Snap to the first valid minute (minFull.getMinutes())
+    const minM = minFull ? minFull.getMinutes() : 0
+    setMinIdx(minM)
+  }, [minIdx, disabledMinIndices]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Open / position ────────────────────────────────────────────────────────
   const computePos = useCallback(() => {
@@ -776,6 +854,7 @@ export default function EFDateTimePicker({
                 onChange={setHourIdx}
                 label="Hora"
                 formatItem={v => String(v).padStart(2, '0')}
+                disabledIndices={disabledHourIndices}
               />
               <div style={{
                 fontSize: 20,
@@ -792,6 +871,7 @@ export default function EFDateTimePicker({
                 onChange={setMinIdx}
                 label="Minutos"
                 formatItem={v => String(v).padStart(2, '0')}
+                disabledIndices={disabledMinIndices}
               />
               <div style={{ width: 6, flexShrink: 0 }} />
               <WheelPicker
@@ -800,6 +880,7 @@ export default function EFDateTimePicker({
                 onChange={setAmpmIdx}
                 label="AM o PM"
                 formatItem={v => v}
+                disabledIndices={disabledAmpmIndices}
               />
             </div>
           </div>

@@ -789,7 +789,8 @@ export default function SubjectPage() {
         extensionesCustom: activity.extensionesCustom || '',
         oculta: activity.oculta || false,
         publishAt: activity.publishAt || '',
-        visibilidadMode: !activity.oculta ? 'show' : activity.publishAt ? 'schedule' : 'hide',
+        publishedAt: activity.publishedAt || '',
+        visibilidadMode: (activity.publishedAt || !activity.oculta) ? 'published' : activity.publishAt ? 'schedule' : 'hide',
       },
     })
   }

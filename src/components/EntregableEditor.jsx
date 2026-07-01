@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
@@ -40,13 +40,10 @@ export default function EntregableEditor({
   const toast = useToast()
   const isNew = !activityId
 
-  // Capture the moment the editor opens — used as minDateTime when mode is 'show'
-  const openedAt = useRef(toIsoNow()).current
-
   const [form, setForm] = useState(initialForm || {
     nombre: '', instrucciones: '', fechaLimite: '',
     tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '',
-    oculta: false, publishAt: '', visibilidadMode: 'show',
+    oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
   })
   const [existingFiles, setExistingFiles] = useState(initialExistingFiles || [])
   const [newFiles, setNewFiles] = useState([])
@@ -75,6 +72,18 @@ export default function EntregableEditor({
     if (!htmlToPlainText(form.instrucciones)) {
       toast('Escribe las instrucciones de la actividad', 'error'); return
     }
+    // Backend validation: fechaLimite must be strictly after the effective publish datetime
+    const effectivePublishAt =
+      form.visibilidadMode === 'show'      ? toIsoNow() :
+      form.visibilidadMode === 'published' ? (form.publishedAt || null) :
+      form.visibilidadMode === 'schedule'  ? (form.publishAt || null) :
+      null
+    if (form.fechaLimite && effectivePublishAt) {
+      if (form.fechaLimite <= effectivePublishAt) {
+        toast('La fecha límite debe ser posterior a la fecha de publicación', 'error'); return
+      }
+    }
+
     setSaving(true)
     try {
       const uploaded = await Promise.all(
@@ -83,6 +92,11 @@ export default function EntregableEditor({
           nombre: file.name, tamano: file.size,
         }))
       )
+      // Determine publishedAt for this save
+      const newPublishedAt =
+        form.visibilidadMode === 'show'      ? toIsoNow() :
+        form.visibilidadMode === 'published' ? (form.publishedAt || null) :
+        null  // schedule/hide clears it
       const payload = {
         nombre: form.nombre.trim(),
         categoria: categoria || 'entregable',
@@ -92,8 +106,9 @@ export default function EntregableEditor({
         fechaLimite: form.fechaLimite || null,
         tiposArchivo,
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
-        oculta: form.oculta || !!form.publishAt,
-        publishAt: form.publishAt || null,
+        oculta: form.visibilidadMode === 'schedule' || form.visibilidadMode === 'hide',
+        publishAt: form.visibilidadMode === 'schedule' ? (form.publishAt || null) : null,
+        publishedAt: newPublishedAt,
       }
       if (isNew) {
         const orden = existingActivities.filter((a) => a.parcial === parcial).length + 1
@@ -178,9 +193,9 @@ export default function EntregableEditor({
               <VisibilitySelect
                 mode={form.visibilidadMode}
                 publishAt={form.publishAt}
+                publishedAt={form.publishedAt}
                 onModeChange={(mode) => setForm((f) => ({
                   ...f, visibilidadMode: mode,
-                  oculta: mode !== 'show',
                   publishAt: mode === 'schedule' ? f.publishAt : '',
                   fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
                 }))}
@@ -191,7 +206,9 @@ export default function EntregableEditor({
             {form.visibilidadMode !== 'hide' && (
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
-                {form.visibilidadMode === 'schedule' && !form.publishAt ? (
+                {form.visibilidadMode === 'show' ? (
+                  <p className="text-xs text-slate-400 px-1">Guarda primero para establecer la fecha de publicación y luego podrás asignar una fecha límite.</p>
+                ) : form.visibilidadMode === 'schedule' && !form.publishAt ? (
                   <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                 ) : (
                   <EFDateTimePicker
@@ -201,8 +218,8 @@ export default function EntregableEditor({
                     placeholder="Sin fecha límite…"
                     clearable
                     minDateTime={
-                      form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
-                      form.visibilidadMode === 'show'     ? openedAt :
+                      form.visibilidadMode === 'published' ? (form.publishedAt || undefined) :
+                      form.visibilidadMode === 'schedule'  ? (form.publishAt  || undefined) :
                       undefined
                     }
                   />
