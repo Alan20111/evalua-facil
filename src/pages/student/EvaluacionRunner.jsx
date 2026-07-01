@@ -7,7 +7,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ChevronLeft, ChevronRight, Timer, CheckCircle2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Timer, CheckCircle2, LogOut } from 'lucide-react'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import {
   calcularPuntosPregunta, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
@@ -44,13 +44,16 @@ export default function EvaluacionRunner() {
 
   const [activity, setActivity] = useState(null)
   const [subject, setSubject] = useState(null)
+  const [student, setStudent] = useState(null)
+  const [teacherName, setTeacherName] = useState('')
   const [submission, setSubmission] = useState(null)
-  const [preguntas, setPreguntas] = useState([]) // ordered, with shuffled `opciones` already applied
-  const [respuestas, setRespuestas] = useState({}) // preguntaId -> opcionId | texto
+  const [preguntas, setPreguntas] = useState([])
+  const [respuestas, setRespuestas] = useState({})
   const [idx, setIdx] = useState(0)
   const [loading, setLoading] = useState(true)
   const [finishing, setFinishing] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(null)
+  const [showExitModal, setShowExitModal] = useState(false)
   const finishedRef = useRef(false)
 
   async function load() {
@@ -66,6 +69,12 @@ export default function EvaluacionRunner() {
       setSubject({ id: subSnap.id, ...subSnap.data() })
 
       const studData = await getEnrollmentForSubject(currentUser, userProfile, actData.asignaturaId)
+      if (studData) setStudent(studData)
+      if (actData.docenteId) {
+        getDoc(doc(db, 'users', actData.docenteId))
+          .then((s) => { if (s.exists()) { const d = s.data(); setTeacherName(d.nombreMostrar || d.nombre || d.username || '') } })
+          .catch(() => {})
+      }
       const subsSnap = await getDocs(query(
         collection(db, 'submissions'), where('actividadId', '==', activityId), where('alumnoId', '==', studData.id)
       ))
@@ -220,17 +229,64 @@ export default function EvaluacionRunner() {
 
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto" data-subject-palette={subject?.colorPalette || 'default'}>
-        <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between shadow-card sticky top-0 z-10">
-          <div className="min-w-0">
-            <h1 className="text-base font-bold text-on-surface truncate">{activity.nombre}</h1>
-            <p className="text-xs text-muted">Pregunta {idx + 1} de {preguntas.length}</p>
+        <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xl font-bold truncate">
+                {subject ? `${subject.nombre}${subject.grupo ? ` — ${subject.grupo}` : ''}` : ''}
+                {teacherName ? ` · ${teacherName}` : ''}
+              </p>
+              {student && (
+                <p className="text-sm text-white/80 font-medium truncate">
+                  {[student.apellidoPaterno, student.apellidoMaterno, student.nombre].filter(Boolean).join(' ')}
+                </p>
+              )}
+              <p className="text-xs text-white/60 mt-0.5">
+                {activity.nombre} — Pregunta {idx + 1} de {preguntas.length}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {secondsLeft != null && (
+                <span className={`flex items-center gap-1 text-sm font-semibold ${secondsLeft < 60 ? 'text-red-200' : 'text-white/90'}`}>
+                  <Timer size={16} /> {mm}:{String(ss).padStart(2, '0')}
+                </span>
+              )}
+              <button onClick={() => setShowExitModal(true)}
+                className="flex items-center gap-1 text-xs text-white/70 hover:text-white border border-white/30 rounded px-2 py-1 hover:bg-white/10">
+                <LogOut size={13} /> Salir
+              </button>
+            </div>
           </div>
-          {secondsLeft != null && (
-            <span className={`flex items-center gap-1 text-sm font-semibold flex-shrink-0 ${secondsLeft < 60 ? 'text-error' : 'text-accent'}`}>
-              <Timer size={18} /> {mm}:{String(ss).padStart(2, '0')}
-            </span>
-          )}
         </header>
+
+        {showExitModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="bg-surface-card rounded-card shadow-2xl p-6 max-w-sm w-full">
+              <h3 className="text-base font-bold text-on-surface mb-2">¿Salir de la evaluación?</h3>
+              <p className="text-sm text-muted mb-1">
+                Puedes salir y continuar después desde donde lo dejaste — tus respuestas ya están guardadas.
+              </p>
+              {activity.evaluacion?.tiempoLimiteMin && (
+                <p className="text-sm text-amber-600 font-medium mb-3">
+                  ⚠ El tiempo sigue corriendo aunque salgas. Tienes {activity.evaluacion.tiempoLimiteMin} min en total y el cronómetro no se detiene.
+                </p>
+              )}
+              {!activity.evaluacion?.tiempoLimiteMin && (
+                <p className="text-sm text-muted mb-3">Esta evaluación no tiene límite de tiempo.</p>
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => setShowExitModal(false)}
+                  className="flex-1 py-2 text-sm text-muted border border-outline-variant rounded">
+                  Continuar respondiendo
+                </button>
+                <button onClick={() => navigate(`/alumno/actividad/${activityId}`)}
+                  className="flex-1 py-2 text-sm font-medium bg-error text-white rounded">
+                  Salir ahora
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="px-4 py-6 max-w-xl mx-auto">
           <div className="w-full h-1.5 bg-surface-container rounded-full mb-5 overflow-hidden">
