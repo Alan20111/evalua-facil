@@ -914,115 +914,71 @@ export default function EFDateTimePicker({
             }}>
               Hora
             </p>
-            <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, gap: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, gap: 1, height: 180 }}>
               {/* Hora col */}
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                <button
-                  type="button"
-                  onMouseDown={() => {
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: 1 }}>
+                <HoldButton
+                  onPress={() => {
                     const newIdx = (hourIdx - 1 + HOURS.length) % HOURS.length
                     if (!disabledHourIndices.has(newIdx)) setHourIdx(newIdx)
                   }}
-                  style={{
-                    padding: '4px 2px',
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--on-surface-variant)',
-                    fontSize: 16,
-                    fontWeight: 300,
-                    height: 20,
-                  }}
-                >
-                  −
-                </button>
-                <WheelPicker
-                  items={HOURS}
-                  selectedIdx={hourIdx}
-                  onChange={setHourIdx}
-                  label="Hora"
-                  formatItem={v => String(v).padStart(2, '0')}
-                  disabledIndices={disabledHourIndices}
+                  label="−"
                 />
-                <button
-                  type="button"
-                  onMouseDown={() => {
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <WheelPicker
+                    items={HOURS}
+                    selectedIdx={hourIdx}
+                    onChange={setHourIdx}
+                    label="Hora"
+                    formatItem={v => String(v).padStart(2, '0')}
+                    disabledIndices={disabledHourIndices}
+                  />
+                </div>
+                <HoldButton
+                  onPress={() => {
                     const newIdx = (hourIdx + 1) % HOURS.length
                     if (!disabledHourIndices.has(newIdx)) setHourIdx(newIdx)
                   }}
-                  style={{
-                    padding: '4px 2px',
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--on-surface-variant)',
-                    fontSize: 16,
-                    fontWeight: 300,
-                    height: 20,
-                  }}
-                >
-                  +
-                </button>
+                  label="+"
+                />
               </div>
               {/* Colon */}
               <div style={{
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: 200,
                 color: 'var(--on-surface-variant)',
                 flexShrink: 0,
-                width: 12,
+                width: 10,
                 textAlign: 'center',
                 display: 'flex',
                 alignItems: 'center',
               }}>:</div>
               {/* Minutos col */}
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-                <button
-                  type="button"
-                  onMouseDown={() => {
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: 1 }}>
+                <HoldButton
+                  onPress={() => {
                     const newIdx = (minIdx - 1 + MINUTES.length) % MINUTES.length
                     if (!disabledMinIndices.has(newIdx)) setMinIdx(newIdx)
                   }}
-                  style={{
-                    padding: '4px 2px',
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--on-surface-variant)',
-                    fontSize: 16,
-                    fontWeight: 300,
-                    height: 20,
-                  }}
-                >
-                  −
-                </button>
-                <WheelPicker
-                  items={MINUTES}
-                  selectedIdx={minIdx}
-                  onChange={setMinIdx}
-                  label="Minutos"
-                  formatItem={v => String(v).padStart(2, '0')}
-                  disabledIndices={disabledMinIndices}
+                  label="−"
                 />
-                <button
-                  type="button"
-                  onMouseDown={() => {
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  <WheelPicker
+                    items={MINUTES}
+                    selectedIdx={minIdx}
+                    onChange={setMinIdx}
+                    label="Minutos"
+                    formatItem={v => String(v).padStart(2, '0')}
+                    disabledIndices={disabledMinIndices}
+                  />
+                </div>
+                <HoldButton
+                  onPress={() => {
                     const newIdx = (minIdx + 1) % MINUTES.length
                     if (!disabledMinIndices.has(newIdx)) setMinIdx(newIdx)
                   }}
-                  style={{
-                    padding: '4px 2px',
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--on-surface-variant)',
-                    fontSize: 16,
-                    fontWeight: 300,
-                    height: 20,
-                  }}
-                >
-                  +
-                </button>
+                  label="+"
+                />
               </div>
               {/* AM/PM col */}
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: 2, justifyContent: 'center' }}>
@@ -1034,12 +990,12 @@ export default function EFDateTimePicker({
                   }}
                   disabled={disabledAmpmIndices.size > 0}
                   style={{
-                    padding: '8px 6px',
+                    padding: '6px 4px',
                     border: '1px solid var(--outline-variant)',
                     background: 'transparent',
-                    borderRadius: 6,
+                    borderRadius: 4,
                     color: 'var(--accent)',
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: 600,
                     cursor: disabledAmpmIndices.size > 0 ? 'not-allowed' : 'pointer',
                     opacity: disabledAmpmIndices.size > 0 ? 0.5 : 1,
