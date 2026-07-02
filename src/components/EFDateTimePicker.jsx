@@ -596,11 +596,23 @@ export default function EFDateTimePicker({
     const PAD    = 8
     const W      = mode === 'datetime' ? 390 : 310
     const idealH = mode === 'datetime' ? 460 : 360
+    // Prefer opening BESIDE the field (to its right) so the popup never
+    // covers the inputs below it; fall back to below/above, right-aligned.
+    const spaceRight = vw - rect.right
+    if (spaceRight >= W + PAD * 2) {
+      const maxH = Math.min(idealH, vh - PAD * 2)
+      const top  = Math.max(PAD, Math.min(rect.top, vh - maxH - PAD))
+      setOpenUpward(false)
+      setPos({ top, left: rect.right + PAD, maxH, W })
+      return
+    }
     const spaceBelow = vh - rect.bottom - PAD
     const spaceAbove = rect.top - PAD
     const goUp   = spaceBelow < idealH && spaceAbove > spaceBelow
     const maxH   = Math.min(idealH, goUp ? spaceAbove : spaceBelow)
-    const left   = Math.max(PAD, Math.min(rect.left, vw - W - PAD))
+    // Right edge of popup aligned with right edge of the field — keeps the
+    // left side of the form (labels + values below) visible
+    const left   = Math.max(PAD, Math.min(rect.right - W, vw - W - PAD))
     const top    = goUp ? rect.top - maxH - 4 : rect.bottom + 4
     setOpenUpward(goUp)
     setPos({ top, left, maxH, W })
