@@ -124,7 +124,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps
   }, [open, method, config?.paypal?.clientId])
 
   // ── Bank transfer: manual, creates a pending payment for admin approval ──

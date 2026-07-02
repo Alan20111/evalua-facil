@@ -13,7 +13,7 @@ const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sáb
 // 12-hour wheel: starts at 12 so 12→1→2→...→11 wraps naturally
 const HOURS   = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 const MINUTES = Array.from({ length: 60 }, (_, i) => i)
-const AMPM    = ['AM', 'PM']
+const AMPM    = ['am', 'pm']
 const ITEM_H  = 40   // px per wheel row
 const ANIM_MS = 200  // wheel animation duration
 
@@ -76,7 +76,7 @@ function formatDisplay(d, mode) {
   if (mode === 'date') return { date: dateStr, time: null }
   const h = d.getHours()
   const h12 = h % 12 || 12
-  const ap = h < 12 ? 'a.m.' : 'p.m.'
+  const ap = h < 12 ? 'am' : 'pm'
   return {
     date: dateStr,
     time: `${String(h12).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ${ap}`,
@@ -134,6 +134,65 @@ function wheelsToH24(hourIdx, minIdx, ampmIdx) {
   const mm  = MINUTES[minIdx]
   const h24 = h12 % 12 + ampmIdx * 12
   return `${String(h24).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+}
+
+// ── HoldButton ─────────────────────────────────────────────────────────────────
+// Button that fires on click, and repeats while held down
+function HoldButton({ onPress, label }) {
+  const holdRef = useRef(null)
+  const [pressing, setPressing] = useState(false)
+
+  const startHold = useCallback(() => {
+    setPressing(true)
+    onPress()
+    let count = 0
+    holdRef.current = setInterval(() => {
+      count++
+      if (count >= 3) onPress()
+    }, 100)
+  }, [onPress])
+
+  const stopHold = useCallback(() => {
+    setPressing(false)
+    if (holdRef.current) {
+      clearInterval(holdRef.current)
+      holdRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (holdRef.current) clearInterval(holdRef.current)
+    }
+  }, [])
+
+  return (
+    <button
+      type="button"
+      onMouseDown={startHold}
+      onMouseUp={stopHold}
+      onMouseLeave={stopHold}
+      onTouchStart={startHold}
+      onTouchEnd={stopHold}
+      style={{
+        padding: '4px 2px',
+        border: 'none',
+        background: pressing ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'transparent',
+        cursor: 'pointer',
+        color: pressing ? 'var(--accent)' : 'var(--on-surface-variant)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 16,
+        fontWeight: 300,
+        height: 20,
+        transition: 'all .08s',
+        borderRadius: 4,
+      }}
+    >
+      {label}
+    </button>
+  )
 }
 
 // ── WheelPicker ────────────────────────────────────────────────────────────────
@@ -660,7 +719,7 @@ export default function EFDateTimePicker({
     if (mode === 'date') return { date: dateStr, time: null }
     const h12 = HOURS[hourIdx]
     const mm  = MINUTES[minIdx]
-    const ap  = ampmIdx === 0 ? 'a.m.' : 'p.m.'
+    const ap  = ampmIdx === 0 ? 'am' : 'pm'
     return {
       date: dateStr,
       time: `${String(h12).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${ap}`,
@@ -802,7 +861,7 @@ export default function EFDateTimePicker({
           {/* Day headers — gray background strip */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
             {DIAS_HEADER.map((d, i) => (
-              <div key={i} style={{
+              <div key={d} style={{
                 textAlign: 'center',
                 fontSize: 10,
                 fontWeight: 600,
@@ -819,7 +878,7 @@ export default function EFDateTimePicker({
           {/* Day grid */}
           <div key={slideKey} className={slideDir === 'left' ? 'ef-slide-l' : slideDir === 'right' ? 'ef-slide-r' : ''}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px 0' }}>
-              {grid.map((d, i) => {
+              {grid.map((d) => {
                 const inMonth    = d.getMonth() === viewDate.getMonth()
                 const isToday    = isSameDay(d, todayD)
                 const isSel      = isSameDay(d, draft)
@@ -827,7 +886,7 @@ export default function EFDateTimePicker({
                 const isDisabled = minDateOnly && dn < minDateOnly
                 return (
                   <button
-                    key={i}
+                    key={toIsoDate(d)}
                     type="button"
                     onClick={() => selectDay(d)}
                     disabled={isDisabled}
@@ -872,7 +931,7 @@ export default function EFDateTimePicker({
           </div>
         </div>{/* end calendar column */}
 
-        {/* Right: Time wheels */}
+        {/* Right: Time wheels + buttons */}
         {mode === 'datetime' && (
           <div style={{
             width: 136,

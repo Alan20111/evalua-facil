@@ -25,7 +25,7 @@ export function ToastProvider({ children }) {
           >
             {t.type === 'error' ? <XCircle size={20} /> : <CheckCircle size={20} />}
             <span className="flex-1">{t.msg}</span>
-            <button onClick={() => setToasts((ts) => ts.filter((x) => x.id !== t.id))}>
+            <button type="button" onClick={() => setToasts((ts) => ts.filter((x) => x.id !== t.id))}>
               <X size={16} />
             </button>
           </div>

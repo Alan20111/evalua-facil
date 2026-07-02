@@ -99,6 +99,7 @@ export default function StudentSubjectPage() {
     // the Firestore query before then gets rejected by security rules and, since this
     // effect didn't depend on `currentUser`, never retried once auth was ready.
     if (currentUser) loadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [subjectId, currentUser])
 
   async function loadAll() {
@@ -191,6 +192,7 @@ export default function StudentSubjectPage() {
       {/* Page header */}
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
+          type="button"
           onClick={() => navigate('/alumno/dashboard')}
           className="md:hidden p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >
@@ -236,6 +238,7 @@ export default function StudentSubjectPage() {
             return (
               <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                 <button
+                  type="button"
                   onClick={() => setOpenParcial(isOpen ? 0 : p)}
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface transition-colors"
                 >
@@ -267,6 +270,7 @@ export default function StudentSubjectPage() {
                       const fechaLimiteLabel = formatFechaLimite(a.fechaLimite)
                       return (
                         <button
+                          type="button"
                           key={a.id}
                           onClick={() => navigate(`/alumno/actividad/${a.id}`)}
                           className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-surface transition-colors border border-outline-variant text-left"

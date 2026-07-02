@@ -62,6 +62,7 @@ export default function EvaluacionRevision() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   useEffect(() => { if (currentUser) load() }, [activityId, currentUser])
 
   if (loading || !activity) return (
@@ -76,7 +77,7 @@ export default function EvaluacionRevision() {
     <StudentLayout>
       <div className="bg-surface min-h-screen" data-subject-palette={subject?.colorPalette || 'default'}>
         <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-          <button onClick={() => navigate(`/alumno/actividad/${activityId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+          <button type="button" onClick={() => navigate(`/alumno/actividad/${activityId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="min-w-0">

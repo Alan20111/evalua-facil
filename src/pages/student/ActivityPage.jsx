@@ -27,6 +27,7 @@ import { isActivityPublished } from '../../utils/activityVisibility'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import AttachmentList from '../../components/AttachmentList'
+import { downloadUrl } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
 import { PlayCircle, ListChecks, Timer, RotateCcw } from 'lucide-react'
 
@@ -82,6 +83,7 @@ export default function StudentActivityPage() {
   // `currentUser` — on a fresh/incognito session Firebase Auth may not have restored
   // yet on first mount, and firing these reads before then gets rejected by Firestore
   // rules with no retry since this effect didn't depend on `currentUser`.
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   useEffect(() => { if (currentUser) loadOther() }, [activityId, userProfile?.studentId, currentUser])
 
   async function loadOther() {
@@ -288,7 +290,7 @@ export default function StudentActivityPage() {
       <StudentLayout>
         <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="min-w-0">
@@ -422,6 +424,7 @@ export default function StudentActivityPage() {
     <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
+          type="button"
           onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}
           className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >
@@ -464,8 +467,8 @@ export default function StudentActivityPage() {
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <p className="text-xs font-medium text-muted mb-2">Tu entrega</p>
             <a
-              href={submission.archivoURL}
-              target="_blank"
+              href={downloadUrl(submission.archivoURL, submission.nombreArchivo)}
+              download={submission.nombreArchivo}
               rel="noopener noreferrer"
               className="flex items-center gap-3 px-3 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
             >

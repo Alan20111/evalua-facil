@@ -17,8 +17,10 @@ import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, CheckCircle, Clock, Circle, X,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
-  ChevronLeft, ChevronRight, FolderDown,
+  ChevronLeft, ChevronRight, FolderDown, Eye,
 } from 'lucide-react'
+import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
+import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -57,6 +59,7 @@ export default function ActivityPage() {
   const [submissions, setSubmissions] = useState({})
   const [filter, setFilter] = useState('todos')
   const [selected, setSelected] = useState(null)
+  const [subPreviewFor, setSubPreviewFor] = useState(null)
   const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '' })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -275,6 +278,7 @@ export default function ActivityPage() {
         <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => navigate(`/subject/${activity?.asignaturaId}`)}
               className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
             >
@@ -333,6 +337,7 @@ export default function ActivityPage() {
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
             {['todos', 'pendiente', 'entregado', 'calificado'].map((f) => (
               <button
+                type="button"
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
@@ -357,6 +362,7 @@ export default function ActivityPage() {
             />
           </div>
           <button
+            type="button"
             onClick={() => setSortAlpha((v) => !v)}
             data-tooltip="Ordenar por nombre"
             className={`p-2 rounded border transition-colors ${
@@ -371,6 +377,7 @@ export default function ActivityPage() {
         {Object.values(submissions).some((s) => s.archivoURL && !s.completadoSinArchivo) && (
           <div className="px-4 pb-2">
             <button
+              type="button"
               onClick={handleZipDownload}
               disabled={zipDownloading}
               className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
@@ -395,6 +402,7 @@ export default function ActivityPage() {
                 const hasExtension = !!activity?.extensiones?.[s.id]
                 return (
                   <button
+                    type="button"
                     key={s.id}
                     onClick={() => openGrade(s)}
                     className={`w-full flex items-center gap-2 px-2 py-1 text-left hover:bg-[var(--accent-tint)] transition-colors cursor-pointer ${
@@ -451,7 +459,7 @@ export default function ActivityPage() {
                     : 'Sin entrega aún'}
                 </p>
               </div>
-              <button onClick={closeModal} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+              <button type="button" onClick={closeModal} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
             </div>
 
             {/* Prev / next navigation across the student row */}
@@ -492,14 +500,35 @@ export default function ActivityPage() {
             {/* Current submission */}
             {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
               <a
-                href={selected.sub.archivoURL}
-                target="_blank"
+                href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
+                download={selected.sub.nombreArchivo}
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors mb-2"
               >
                 <Download size={18} className="text-accent" />
-                Ver / Descargar entrega
+                Descargar entrega
               </a>
+            )}
+
+            {/* Inline document preview (PDF/Office) — images already preview above */}
+            {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL &&
+              !isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) &&
+              canPreviewFile(selected.sub.nombreArchivo) && (
+              <div className="mb-2">
+                <button
+                  type="button"
+                  onClick={() => setSubPreviewFor(subPreviewFor === selected.student?.id ? null : selected.student?.id)}
+                  className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors w-full"
+                >
+                  <Eye size={18} className="text-accent" />
+                  {subPreviewFor === selected.student?.id ? 'Ocultar vista previa' : 'Vista previa de la entrega'}
+                </button>
+                {subPreviewFor === selected.student?.id && (
+                  <div className="mt-2 rounded border border-outline-variant overflow-hidden bg-surface">
+                    <FilePreview url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo} />
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Submission history */}
@@ -508,7 +537,7 @@ export default function ActivityPage() {
                 <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
                 <div className="space-y-1.5">
                   {[...selected.sub.historial].reverse().map((v, i) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
+                    <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
                       <span className="text-slate-400 flex-shrink-0">
                         {v.fechaEntrega?.seconds
                           ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -517,7 +546,7 @@ export default function ActivityPage() {
                       {v.completadoSinArchivo
                         ? <span className="text-slate-400 italic">sin archivo</span>
                         : v.archivoURL
-                          ? <a href={v.archivoURL} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
+                          ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
                               <Download size={14} /> {v.nombreArchivo}
                             </a>
                           : <span className="text-slate-300 italic">sin archivo</span>

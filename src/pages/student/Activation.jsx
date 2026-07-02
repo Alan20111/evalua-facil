@@ -38,6 +38,7 @@ export default function StudentActivation() {
 
   useEffect(() => {
     loadSubject()
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [accessCode])
 
   // Auto-advance to password step when prefillUsername is set (teacher reset flow)
@@ -61,6 +62,7 @@ export default function StudentActivation() {
       }
     }
     autoFind()
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [subject])
 
   async function loadSubject() {
@@ -233,6 +235,7 @@ export default function StudentActivation() {
           {loadError || 'No encontramos una asignatura con ese código de acceso.'}
         </p>
         <button
+          type="button"
           onClick={() => navigate('/alumno')}
           className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
         >
