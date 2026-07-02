@@ -60,7 +60,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show', esEvaluacion: false }
+const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show', esEvaluacion: false }
 
 // Defaults for a new evaluación's config — Cuestionario favors repeated
 // practice (unlimited attempts, keep best); Examen favors a single formal
@@ -134,6 +134,7 @@ export default function SubjectPage() {
   const [entregableEditor, setEntregableEditor] = useState(null) // null | { activityId, parcial, categoria, activityLabel, initialForm, initialExistingFiles }
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [publishDraftConfirm, setPublishDraftConfirm] = useState(null) // draft activity | null
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -811,7 +812,7 @@ export default function SubjectPage() {
     }
   }
 
-  async function handleSaveActivity(e) {
+  async function handleSaveActivity(e, asDraft = false) {
     e.preventDefault()
     if (modalMode === 'create' && !canCreate) {
       toast('Activa tu suscripción mensual para crear nuevas actividades — toda tu información sigue disponible')
@@ -827,9 +828,9 @@ export default function SubjectPage() {
       return
     }
     // fechaLimite must be strictly after the effective publish datetime
-    {
-      const now = new Date()
-      const nowIso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+    const now = new Date()
+    const nowIso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+    if (!asDraft) {
       const effectivePublishAt =
         form.visibilidadMode === 'show'     ? nowIso :
         form.visibilidadMode === 'schedule' ? (form.publishAt || null) :
@@ -857,8 +858,10 @@ export default function SubjectPage() {
         fechaLimite: form.fechaLimite || null,
         tiposArchivo,
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
-        oculta: form.oculta || !!form.publishAt,
-        publishAt: form.publishAt || null,
+        oculta: asDraft ? true : form.visibilidadMode !== 'show',
+        publishAt: !asDraft && form.visibilidadMode === 'schedule' ? (form.publishAt || null) : null,
+        // publishedAt is permanent once set; only 'Publicar ahora' stamps it
+        publishedAt: !asDraft && form.visibilidadMode === 'show' ? nowIso : (form.publishedAt || null),
       }
       if (modalMode === 'create') {
         // `orden` is only a sort key (Firestore gives no ordering guarantee
@@ -882,11 +885,11 @@ export default function SubjectPage() {
           navigate(`/activity/${ref.id}`)
           return
         }
-        toast('Actividad creada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad creada')
       } else {
         await updateDoc(doc(db, 'activities', editActivityId), payload)
         setActivities((prev) => prev.map((a) => a.id === editActivityId ? { ...a, ...payload } : a))
-        toast('Actividad actualizada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad actualizada')
       }
       setShowModal(false); setForm(EMPTY_FORM)
       setActivityExistingFiles([]); setActivityNewFiles([])
@@ -1150,13 +1153,27 @@ export default function SubjectPage() {
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
-  // Eye toggle: show a hidden activity immediately — no modal, mirror of
-  // hideActivity. Scheduling belongs to the editor, not to the eye icon.
+  // Eye toggle: show a hidden (already published) activity immediately —
+  // no modal, mirror of hideActivity.
   async function showActivityNow(act) {
     try {
       await updateDoc(doc(db, 'activities', act.id), { oculta: false, publishAt: null })
       setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, oculta: false, publishAt: null } : a))
       toast('Actividad visible para estudiantes')
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
+  // First publication of a draft (no publishedAt yet): the eye asks for
+  // confirmation and stamps the publication datetime.
+  async function publishDraftNow() {
+    if (!publishDraftConfirm) return
+    const d = new Date()
+    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+    try {
+      await updateDoc(doc(db, 'activities', publishDraftConfirm.id), { oculta: false, publishAt: null, publishedAt: iso })
+      setActivities((prev) => prev.map((a) => a.id === publishDraftConfirm.id ? { ...a, oculta: false, publishAt: null, publishedAt: iso } : a))
+      toast('Actividad publicada para estudiantes')
+      setPublishDraftConfirm(null)
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
@@ -1567,7 +1584,7 @@ export default function SubjectPage() {
                                     )}
                                     {visState === 'hidden' && (
                                       <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                        <EyeOff size={13} /> Oculta
+                                        <EyeOff size={13} /> {(!a.publishedAt && a.oculta && !a.publishAt) ? 'Borrador' : 'Oculta'}
                                       </span>
                                     )}
                                   </div>
@@ -1586,11 +1603,12 @@ export default function SubjectPage() {
                                 </span>
                               </div>
                             </button>
-                            {/* Visibility toggle — only shown once the activity has been published */}
-                            {(!!a.publishedAt || !a.oculta) && (isHidden ? (
+                            {/* Visibility toggle. Published → direct show/hide.
+                                Draft (no publishedAt) → confirm first publication. */}
+                            {isHidden ? (
                               <button type="button"
-                                onClick={(e) => { e.stopPropagation(); showActivityNow(a) }}
-                                data-tooltip="Mostrar a estudiantes"
+                                onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
+                                data-tooltip={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
                                 className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                               >
                                 <EyeOff size={16} />
@@ -1603,7 +1621,7 @@ export default function SubjectPage() {
                               >
                                 <Eye size={16} />
                               </button>
-                            ))}
+                            )}
                             <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} data-tooltip="Editar"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
@@ -2189,9 +2207,36 @@ export default function SubjectPage() {
                   ? (tipoActividad === 'cuestionario' || tipoActividad === 'examen') ? 'Crear y agregar preguntas' : 'Crear actividad'
                   : 'Guardar cambios'}
               </button>
+              {!form.publishedAt && (
+                <button type="button" disabled={saving} onClick={(e) => handleSaveActivity(e, true)}
+                  className="w-full py-2 mt-2 border border-accent text-accent font-medium rounded transition-colors hover:bg-[var(--accent-tint)] disabled:opacity-60">
+                  Guardar como borrador
+                </button>
+              )}
             </form>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Publish draft confirmation ── */}
+      {publishDraftConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setPublishDraftConfirm(null)} />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-on-surface mb-1">¿Publicar actividad?</h3>
+            <p className="text-sm text-muted mb-4">
+              "<strong>{publishDraftConfirm.nombre}</strong>" es un borrador. Al publicarla, los estudiantes podrán verla y se registrará la fecha y hora de publicación.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setPublishDraftConfirm(null)}
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <button type="button" onClick={publishDraftNow}
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover flex items-center justify-center gap-2">
+                <Eye size={16} /> Publicar
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -69,7 +69,9 @@ export default function EntregableEditor({
     }
   }
 
-  async function handleSave(e) {
+  // asDraft: save hidden with NO publication — a borrador. It only becomes
+  // published when the teacher publishes it (here or via the card's eye icon).
+  async function handleSave(e, asDraft = false) {
     e.preventDefault()
     const tiposArchivo = normalizeFileTypeKeys(form.tiposArchivo)
     if (tiposArchivo.includes(CUSTOM_FILE_TYPE) && parseCustomExts(form.extensionesCustom).length === 0) {
@@ -79,7 +81,7 @@ export default function EntregableEditor({
       toast('Escribe las instrucciones de la actividad', 'error'); return
     }
     // Backend validation: fechaLimite must be strictly after the effective publish datetime
-    const effectivePublishAt =
+    const effectivePublishAt = asDraft ? null :
       form.visibilidadMode === 'show'      ? toIsoNow() :
       form.visibilidadMode === 'published' ? (form.publishedAt || null) :
       form.visibilidadMode === 'schedule'  ? (form.publishAt || null) :
@@ -101,7 +103,7 @@ export default function EntregableEditor({
       // Determine publishedAt for this save — once set it is permanent:
       // hiding a published activity keeps the original publication date
       const newPublishedAt =
-        form.visibilidadMode === 'show' ? toIsoNow() : (form.publishedAt || null)
+        !asDraft && form.visibilidadMode === 'show' ? toIsoNow() : (form.publishedAt || null)
       const payload = {
         nombre: form.nombre.trim(),
         categoria: categoria || 'entregable',
@@ -111,8 +113,8 @@ export default function EntregableEditor({
         fechaLimite: form.fechaLimite || null,
         tiposArchivo,
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
-        oculta: form.visibilidadMode === 'schedule' || form.visibilidadMode === 'hide',
-        publishAt: form.visibilidadMode === 'schedule' ? (form.publishAt || null) : null,
+        oculta: asDraft || form.visibilidadMode === 'schedule' || form.visibilidadMode === 'hide',
+        publishAt: !asDraft && form.visibilidadMode === 'schedule' ? (form.publishAt || null) : null,
         publishedAt: newPublishedAt,
       }
       if (isNew) {
@@ -122,11 +124,11 @@ export default function EntregableEditor({
           asignaturaId: subjectId, docenteId, createdAt: serverTimestamp(),
         })
         onActivityCreated?.({ id: ref.id, ...payload, tipo: 'archivo', parcial, orden, asignaturaId: subjectId, docenteId })
-        toast('Actividad creada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad creada')
       } else {
         await updateDoc(doc(db, 'activities', activityId), payload)
         onActivityUpdated?.({ id: activityId, ...payload })
-        toast('Actividad actualizada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad actualizada')
       }
       onClose()
     } catch (err) {
@@ -245,6 +247,12 @@ export default function EntregableEditor({
             {saving ? <Spinner size="sm" /> : isNew ? <Plus size={18} /> : <Pencil size={18} />}
             {saving ? 'Guardando…' : isNew ? 'Crear actividad' : 'Guardar cambios'}
           </button>
+          {!form.publishedAt && (
+            <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving}
+              className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+              Guardar como borrador
+            </button>
+          )}
           {!isNew && (
             <button type="button" onClick={onClose} disabled={saving}
               className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">

@@ -157,13 +157,15 @@ export default function EvaluacionEditor({
   }
 
   // ── Save basic info (create or update) ───────────────────────────
-  async function handleSaveInfo(e) {
+  // asDraft: save hidden with NO publication — a borrador. It only becomes
+  // published when the teacher publishes it (here or via the card's eye icon).
+  async function handleSaveInfo(e, asDraft = false) {
     e.preventDefault()
     if (!htmlToPlainText(infoForm.instrucciones) && !infoForm.nombre.trim()) {
       toast('Escribe al menos el nombre de la evaluación', 'error'); return
     }
     // Backend validation: fechaLimite must be strictly after the effective publish datetime
-    const effectivePublishAt =
+    const effectivePublishAt = asDraft ? null :
       infoForm.visibilidadMode === 'show'      ? toIsoNow() :
       infoForm.visibilidadMode === 'published' ? (infoForm.publishedAt || null) :
       infoForm.visibilidadMode === 'schedule'  ? (infoForm.publishAt || null) :
@@ -184,15 +186,15 @@ export default function EvaluacionEditor({
       )
       // publishedAt is permanent once set — hiding keeps the original date
       const newPublishedAt =
-        infoForm.visibilidadMode === 'show' ? toIsoNow() : (infoForm.publishedAt || null)
+        !asDraft && infoForm.visibilidadMode === 'show' ? toIsoNow() : (infoForm.publishedAt || null)
       const payload = {
         nombre: infoForm.nombre.trim(),
         categoria,
         instrucciones: sanitizeHtml(infoForm.instrucciones),
         archivosAdjuntos: [...attachExisting, ...uploaded],
         fechaLimite: infoForm.fechaLimite || null,
-        oculta: infoForm.visibilidadMode === 'schedule' || infoForm.visibilidadMode === 'hide',
-        publishAt: infoForm.visibilidadMode === 'schedule' ? (infoForm.publishAt || null) : null,
+        oculta: asDraft || infoForm.visibilidadMode === 'schedule' || infoForm.visibilidadMode === 'hide',
+        publishAt: !asDraft && infoForm.visibilidadMode === 'schedule' ? (infoForm.publishAt || null) : null,
         publishedAt: newPublishedAt,
         maxCalif: 10,
       }
@@ -207,13 +209,13 @@ export default function EvaluacionEditor({
         setCurrentActivityId(ref.id)
         setAttachNew([])
         onActivityCreated?.({ id: ref.id, ...payload, tipo: 'evaluacion', evaluacion: EVALUACION_DEFAULTS[categoria], parcial, orden, asignaturaId: subjectId, docenteId })
-        toast('Evaluación guardada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Evaluación guardada')
         loadPreguntas(ref.id)
       } else {
         await updateDoc(doc(db, 'activities', currentActivityId), payload)
         setAttachNew([])
         onActivityUpdated?.({ id: currentActivityId, ...payload })
-        toast('Cambios guardados')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Cambios guardados')
       }
       onClose()
     } catch (err) {
@@ -845,6 +847,13 @@ export default function EvaluacionEditor({
             {savingInfo ? <Spinner size="sm" /> : null}
             {savingInfo ? 'Guardando…' : 'Guardar y regresar a la asignatura'}
           </button>
+          {!infoForm.publishedAt && (
+            <button type="button" disabled={savingInfo}
+              onClick={() => handleSaveInfo({ preventDefault: () => {} }, true)}
+              className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+              Guardar como borrador
+            </button>
+          )}
           {!isNew && (
             <button type="button" onClick={onClose} disabled={savingInfo}
               className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">
