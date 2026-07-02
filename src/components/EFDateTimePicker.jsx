@@ -196,22 +196,19 @@ function HoldButton({ onPress, label }) {
 }
 
 // ── WheelPicker ────────────────────────────────────────────────────────────────
-// Renders an infinite scroll wheel (iOS-style).
-// selectedIdx: index into `items` array for the currently selected value.
-// onChange(newIdx): called when selection changes.
-// The wheel renders 7 items, the 4th being the selected one (centered in 5 visible).
-// Normal transform: translateY(-ITEM_H) → items [idx-2..idx+2] fill the 5-row viewport.
-// disabledIndices: Set<number> of item indices that cannot be selected.
-// When the wheel settles on a disabled index, onChange is called with the nearest
-// valid index instead (always snaps forward / to higher index).
+// Scroll wheel with explicit −/+ buttons that support click-and-hold.
+// Shows 3 items (selected ± 1). Buttons sit above/below the wheel.
+// disabledIndices: Set<number> — items that cannot be selected; snaps past them.
 function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabledIndices = new Set() }) {
-  const n          = items.length
-  const listRef    = useRef(null)
-  const wrapRef    = useRef(null)
-  const animRef    = useRef(false)   // true while an animation is in flight
-  const dragRef    = useRef(null)    // active drag state
+  const n               = items.length
+  const listRef         = useRef(null)
+  const wrapRef         = useRef(null)
+  const animRef         = useRef(false)
+  const dragRef         = useRef(null)
+  const holdRef         = useRef(null)
+  const selectedIdxRef  = useRef(selectedIdx)
+  useEffect(() => { selectedIdxRef.current = selectedIdx }, [selectedIdx])
 
-  // Apply transform directly on the DOM node to avoid React re-renders during animation
   const setTransform = useCallback((y, animated) => {
     const el = listRef.current
     if (!el) return
@@ -223,26 +220,22 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
 
   const resetTransform = useCallback(() => setTransform(-ITEM_H, false), [setTransform])
 
-  // Find nearest non-disabled index starting from `from`, searching in `dir` (+1/-1)
   const nearestValid = useCallback((from, dir = 1) => {
     for (let i = 0; i < n; i++) {
       const candidate = ((from + dir * i) % n + n) % n
       if (!disabledIndices.has(candidate)) return candidate
     }
-    return from // fallback: all disabled (shouldn't happen)
+    return from
   }, [n, disabledIndices])
 
-  // Step: delta=+1 moves to next item (scroll down), delta=-1 to previous.
   const step = useCallback((delta) => {
     if (animRef.current) return
     animRef.current = true
-    // Animate: move the list opposite to delta (next item comes from below when delta=+1)
     setTransform(-(1 + delta) * ITEM_H, true)
     setTimeout(() => {
       const raw = ((selectedIdx + delta) % n + n) % n
       const newIdx = nearestValid(raw, delta > 0 ? 1 : -1)
       onChange(newIdx)
-      // Reset transform in the same frame as the new render to avoid flash
       requestAnimationFrame(() => {
         resetTransform()
         animRef.current = false
@@ -250,7 +243,29 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
     }, ANIM_MS)
   }, [selectedIdx, n, onChange, setTransform, resetTransform, nearestValid])
 
-  // Wheel event — non-passive so we can preventDefault and block popup scroll
+  // Reads from ref to avoid stale closure inside setInterval
+  const stepRaw = useCallback((delta) => {
+    const cur = selectedIdxRef.current
+    const raw = ((cur + delta) % n + n) % n
+    onChange(nearestValid(raw, delta > 0 ? 1 : -1))
+  }, [n, nearestValid, onChange])
+
+  const stopHold = useCallback(() => {
+    clearTimeout(holdRef.current)
+    clearInterval(holdRef.current)
+    holdRef.current = null
+  }, [])
+
+  const startHold = useCallback((delta) => {
+    if (animRef.current) return
+    step(delta)
+    holdRef.current = setTimeout(() => {
+      holdRef.current = setInterval(() => stepRaw(delta), 150)
+    }, 380)
+  }, [step, stepRaw])
+
+  useEffect(() => stopHold, [stopHold])
+
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
@@ -263,7 +278,6 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
     return () => el.removeEventListener('wheel', onWheel)
   }, [step])
 
-  // Pointer drag (works for mouse and touch via Pointer Events API)
   const onPointerDown = useCallback((e) => {
     if (e.button > 0) return
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -283,9 +297,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
     const dy    = dragRef.current.dy
     const steps = -Math.round(dy / ITEM_H)
     dragRef.current = null
-
     if (steps !== 0) {
-      // Snap to the nearest item with a short inertia-like settle
       setTransform(-ITEM_H - steps * ITEM_H, true)
       setTimeout(() => {
         const raw = ((selectedIdx + steps) % n + n) % n
@@ -302,25 +314,23 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
     }
   }, [selectedIdx, n, onChange, setTransform, resetTransform])
 
-  // Keyboard: arrow keys, Home, End
   const onKeyDown = useCallback((e) => {
     if (e.key === 'ArrowDown')  { e.preventDefault(); step(1) }
-    else if (e.key === 'ArrowUp')    { e.preventDefault(); step(-1) }
-    else if (e.key === 'Home')       { e.preventDefault(); onChange(0) }
-    else if (e.key === 'End')        { e.preventDefault(); onChange(n - 1) }
-    else if (e.key === 'PageDown')   { e.preventDefault(); step(1) }
-    else if (e.key === 'PageUp')     { e.preventDefault(); step(-1) }
+    else if (e.key === 'ArrowUp')  { e.preventDefault(); step(-1) }
+    else if (e.key === 'Home')     { e.preventDefault(); onChange(0) }
+    else if (e.key === 'End')      { e.preventDefault(); onChange(n - 1) }
+    else if (e.key === 'PageDown') { e.preventDefault(); step(1) }
+    else if (e.key === 'PageUp')   { e.preventDefault(); step(-1) }
   }, [step, onChange, n])
 
-  // Sync transform when selectedIdx changes externally (shortcuts, open picker)
   useEffect(() => {
     if (!animRef.current) resetTransform()
   }, [selectedIdx, resetTransform])
 
-  // Build 7 rendered items: [idx-3 .. idx+3], all wrapped mod n
+  // 5 rendered items (offsets -2..+2); 3-item viewport shows -1, 0, +1
   const rendered = useMemo(() =>
-    Array.from({ length: 7 }, (_, i) => {
-      const offset  = i - 3
+    Array.from({ length: 5 }, (_, i) => {
+      const offset  = i - 2
       const itemIdx = ((selectedIdx + offset) % n + n) % n
       return { key: i, offset, value: items[itemIdx], itemIdx }
     }), [selectedIdx, items, n])
@@ -330,111 +340,139 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
     return typeof v === 'number' ? String(v).padStart(2, '0') : String(v)
   }
 
-  return (
-    <div
-      ref={wrapRef}
-      role="listbox"
-      aria-label={label}
-      tabIndex={0}
-      onKeyDown={onKeyDown}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      style={{
-        position: 'relative',
-        height: ITEM_H * 5,
-        overflow: 'hidden',
-        cursor: 'ns-resize',
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        outline: 'none',
-        flex: 1,
-        touchAction: 'none',
-      }}
-    >
-      {/* Center-item highlight band */}
-      <div style={{
-        position: 'absolute',
-        top: ITEM_H * 2,
-        left: 4,
-        right: 4,
-        height: ITEM_H,
-        background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
-        borderRadius: 8,
-        pointerEvents: 'none',
-        zIndex: 0,
-      }} />
+  const navBtnStyle = {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    height: 24, border: 'none', background: 'transparent',
+    cursor: 'pointer', color: 'var(--accent)',
+    fontSize: 20, fontWeight: 300, lineHeight: 1,
+    userSelect: 'none', WebkitUserSelect: 'none', borderRadius: 6,
+    flexShrink: 0,
+  }
 
-      {/* Scrolling item list */}
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', flex: 1 }}>
+
+      {/* − button */}
+      <button
+        type="button"
+        style={navBtnStyle}
+        onMouseDown={() => startHold(-1)}
+        onMouseUp={stopHold}
+        onMouseLeave={stopHold}
+        onTouchStart={e => { e.preventDefault(); startHold(-1) }}
+        onTouchEnd={stopHold}
+        onMouseEnter={e => { e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)' }}
+      >
+        −
+      </button>
+
+      {/* Scroll wheel — 3-item viewport */}
       <div
-        ref={listRef}
+        ref={wrapRef}
+        role="listbox"
+        aria-label={label}
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          willChange: 'transform',
-          transform: `translateY(${-ITEM_H}px)`,
+          position: 'relative',
+          height: ITEM_H * 3,
+          overflow: 'hidden',
+          cursor: 'ns-resize',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          outline: 'none',
+          touchAction: 'none',
         }}
       >
-        {rendered.map(({ key, offset, value, itemIdx }) => {
-          const isSelected = offset === 0
-          const isDisabled = disabledIndices.has(itemIdx)
-          const dist = Math.abs(offset)
-          return (
-            <div
-              key={key}
-              role="option"
-              aria-selected={isSelected}
-              aria-disabled={isDisabled}
-              onClick={() => {
-                if (offset === 0 || isDisabled) return
-                if (Math.abs(offset) === 1) step(offset)
-                else onChange(nearestValid(itemIdx, 1))
-              }}
-              style={{
-                height: ITEM_H,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: isSelected ? 18 : dist === 1 ? 15 : 12,
-                fontWeight: isSelected ? 700 : 400,
-                color: isDisabled
-                  ? 'var(--outline-variant)'
-                  : isSelected
-                    ? 'var(--accent)'
-                    : dist === 1
-                      ? 'var(--on-surface-variant)'
-                      : 'var(--outline-variant)',
-                opacity: isDisabled ? 0.35 : 1,
-                textDecoration: isDisabled ? 'line-through' : 'none',
-                cursor: offset !== 0 && !isDisabled ? 'pointer' : 'default',
-                position: 'relative',
-                zIndex: 1,
-                letterSpacing: isSelected ? '0.02em' : 0,
-              }}
-            >
-              {fmt(value)}
-            </div>
-          )
-        })}
+        {/* Center-item highlight */}
+        <div style={{
+          position: 'absolute',
+          top: ITEM_H * 1,
+          left: 2,
+          right: 2,
+          height: ITEM_H,
+          background: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+          borderRadius: 8,
+          pointerEvents: 'none',
+          zIndex: 0,
+        }} />
+
+        {/* Scrolling list */}
+        <div
+          ref={listRef}
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0,
+            willChange: 'transform',
+            transform: `translateY(${-ITEM_H}px)`,
+          }}
+        >
+          {rendered.map(({ key, offset, value, itemIdx }) => {
+            const isSelected = offset === 0
+            const isDisabled = disabledIndices.has(itemIdx)
+            return (
+              <div
+                key={key}
+                role="option"
+                aria-selected={isSelected}
+                aria-disabled={isDisabled}
+                onClick={() => {
+                  if (offset === 0 || isDisabled) return
+                  step(offset)
+                }}
+                style={{
+                  height: ITEM_H,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: isSelected ? 17 : 13,
+                  fontWeight: isSelected ? 700 : 400,
+                  color: isDisabled
+                    ? 'var(--outline-variant)'
+                    : isSelected ? 'var(--accent)' : 'var(--on-surface-variant)',
+                  opacity: isDisabled ? 0.35 : isSelected ? 1 : 0.6,
+                  textDecoration: isDisabled ? 'line-through' : 'none',
+                  cursor: offset !== 0 && !isDisabled ? 'pointer' : 'default',
+                  position: 'relative', zIndex: 1,
+                  letterSpacing: isSelected ? '0.02em' : 0,
+                }}
+              >
+                {fmt(value)}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Gradient fade */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `linear-gradient(to bottom,
+            var(--surface-card) 0%,
+            color-mix(in srgb, var(--surface-card) 40%, transparent) 28%,
+            transparent 42%,
+            transparent 58%,
+            color-mix(in srgb, var(--surface-card) 40%, transparent) 72%,
+            var(--surface-card) 100%)`,
+          pointerEvents: 'none', zIndex: 2,
+        }} />
       </div>
 
-      {/* Gradient fade — top and bottom fade to card background */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        background: `linear-gradient(to bottom,
-          var(--surface-card) 0%,
-          color-mix(in srgb, var(--surface-card) 55%, transparent) 22%,
-          transparent 38%,
-          transparent 62%,
-          color-mix(in srgb, var(--surface-card) 55%, transparent) 78%,
-          var(--surface-card) 100%)`,
-        pointerEvents: 'none',
-        zIndex: 2,
-      }} />
+      {/* + button */}
+      <button
+        type="button"
+        style={navBtnStyle}
+        onMouseDown={() => startHold(1)}
+        onMouseUp={stopHold}
+        onMouseLeave={stopHold}
+        onTouchStart={e => { e.preventDefault(); startHold(1) }}
+        onTouchEnd={stopHold}
+        onMouseEnter={e => { e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)' }}
+      >
+        +
+      </button>
+
     </div>
   )
 }
@@ -550,8 +588,8 @@ export default function EFDateTimePicker({
     const vw     = window.innerWidth
     const vh     = window.innerHeight
     const PAD    = 8
-    const W      = mode === 'datetime' ? 460 : 330
-    const idealH = mode === 'datetime' ? 420 : 360
+    const W      = mode === 'datetime' ? 390 : 310
+    const idealH = mode === 'datetime' ? 350 : 340
     const spaceBelow = vh - rect.bottom - PAD
     const spaceAbove = rect.top - PAD
     const goUp   = spaceBelow < idealH && spaceAbove > spaceBelow
@@ -896,12 +934,12 @@ export default function EFDateTimePicker({
         {/* Right: Time wheels + buttons */}
         {mode === 'datetime' && (
           <div style={{
-            width: 158,
+            width: 136,
             flexShrink: 0,
             borderLeft: '1px solid var(--outline-variant)',
             display: 'flex',
             flexDirection: 'column',
-            padding: '10px 6px 8px',
+            padding: '8px 4px 6px',
           }}>
             <p style={{
               fontSize: 10,
@@ -909,112 +947,48 @@ export default function EFDateTimePicker({
               color: 'var(--outline)',
               textTransform: 'uppercase',
               letterSpacing: '0.07em',
-              marginBottom: 4,
+              marginBottom: 2,
               textAlign: 'center',
             }}>
               Hora
             </p>
-            <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, gap: 1, height: 180 }}>
-              {/* Hora col */}
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: 1 }}>
-                <HoldButton
-                  onPress={() => {
-                    const newIdx = (hourIdx - 1 + HOURS.length) % HOURS.length
-                    if (!disabledHourIndices.has(newIdx)) setHourIdx(newIdx)
-                  }}
-                  label="−"
-                />
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <WheelPicker
-                    items={HOURS}
-                    selectedIdx={hourIdx}
-                    onChange={setHourIdx}
-                    label="Hora"
-                    formatItem={v => String(v).padStart(2, '0')}
-                    disabledIndices={disabledHourIndices}
-                  />
-                </div>
-                <HoldButton
-                  onPress={() => {
-                    const newIdx = (hourIdx + 1) % HOURS.length
-                    if (!disabledHourIndices.has(newIdx)) setHourIdx(newIdx)
-                  }}
-                  label="+"
-                />
-              </div>
-              {/* Colon */}
+            {/* alignItems:stretch so the colon div can center itself vertically */}
+            <div style={{ display: 'flex', alignItems: 'stretch', flex: 1 }}>
+              <WheelPicker
+                items={HOURS}
+                selectedIdx={hourIdx}
+                onChange={setHourIdx}
+                label="Hora"
+                formatItem={v => String(v).padStart(2, '0')}
+                disabledIndices={disabledHourIndices}
+              />
               <div style={{
-                fontSize: 16,
-                fontWeight: 200,
-                color: 'var(--on-surface-variant)',
                 flexShrink: 0,
                 width: 10,
-                textAlign: 'center',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                fontWeight: 200,
+                color: 'var(--on-surface-variant)',
               }}>:</div>
-              {/* Minutos col */}
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: 1 }}>
-                <HoldButton
-                  onPress={() => {
-                    const newIdx = (minIdx - 1 + MINUTES.length) % MINUTES.length
-                    if (!disabledMinIndices.has(newIdx)) setMinIdx(newIdx)
-                  }}
-                  label="−"
-                />
-                <div style={{ flex: 1, minHeight: 0 }}>
-                  <WheelPicker
-                    items={MINUTES}
-                    selectedIdx={minIdx}
-                    onChange={setMinIdx}
-                    label="Minutos"
-                    formatItem={v => String(v).padStart(2, '0')}
-                    disabledIndices={disabledMinIndices}
-                  />
-                </div>
-                <HoldButton
-                  onPress={() => {
-                    const newIdx = (minIdx + 1) % MINUTES.length
-                    if (!disabledMinIndices.has(newIdx)) setMinIdx(newIdx)
-                  }}
-                  label="+"
-                />
-              </div>
-              {/* AM/PM col */}
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: 2, justifyContent: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newIdx = (ampmIdx + 1) % AMPM.length
-                    if (!disabledAmpmIndices.has(newIdx)) setAmpmIdx(newIdx)
-                  }}
-                  disabled={disabledAmpmIndices.size > 0}
-                  style={{
-                    padding: '6px 4px',
-                    border: '1px solid var(--outline-variant)',
-                    background: 'transparent',
-                    borderRadius: 4,
-                    color: 'var(--accent)',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: disabledAmpmIndices.size > 0 ? 'not-allowed' : 'pointer',
-                    opacity: disabledAmpmIndices.size > 0 ? 0.5 : 1,
-                    transition: 'all .1s',
-                  }}
-                  onMouseEnter={e => {
-                    if (disabledAmpmIndices.size === 0) {
-                      e.currentTarget.style.borderColor = 'var(--accent)'
-                      e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)'
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = 'var(--outline-variant)'
-                    e.currentTarget.style.background = 'transparent'
-                  }}
-                >
-                  {AMPM[ampmIdx]}
-                </button>
-              </div>
+              <WheelPicker
+                items={MINUTES}
+                selectedIdx={minIdx}
+                onChange={setMinIdx}
+                label="Minutos"
+                formatItem={v => String(v).padStart(2, '0')}
+                disabledIndices={disabledMinIndices}
+              />
+              <div style={{ width: 3, flexShrink: 0 }} />
+              <WheelPicker
+                items={AMPM}
+                selectedIdx={ampmIdx}
+                onChange={setAmpmIdx}
+                label="AM o PM"
+                formatItem={v => v}
+                disabledIndices={disabledAmpmIndices}
+              />
             </div>
           </div>
         )}
