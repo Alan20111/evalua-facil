@@ -245,6 +245,12 @@ export default function EntregableEditor({
             {saving ? <Spinner size="sm" /> : isNew ? <Plus size={18} /> : <Pencil size={18} />}
             {saving ? 'Guardando…' : isNew ? 'Crear actividad' : 'Guardar cambios'}
           </button>
+          {!isNew && (
+            <button type="button" onClick={onClose} disabled={saving}
+              className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">
+              Salir sin guardar cambios
+            </button>
+          )}
           <div className="h-6" />
         </form>
       </div>
