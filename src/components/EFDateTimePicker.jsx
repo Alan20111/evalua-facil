@@ -914,7 +914,7 @@ export default function EFDateTimePicker({
             }}>
               Hora
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 2 }}>
+            <div style={{ display: 'flex', flex: 1, gap: 2, alignItems: 'flex-start' }}>
               {/* Hora */}
               <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
                 <HoldButton
@@ -948,7 +948,6 @@ export default function EFDateTimePicker({
                 flexShrink: 0,
                 width: 12,
                 textAlign: 'center',
-                paddingBottom: 3,
               }}>:</div>
 
               {/* Minutos */}
@@ -978,41 +977,42 @@ export default function EFDateTimePicker({
               </div>
 
               {/* AM/PM Toggle */}
-              <button
-                type="button"
-                onClick={() => {
-                  const newIdx = (ampmIdx + 1) % AMPM.length
-                  if (!disabledAmpmIndices.has(newIdx)) setAmpmIdx(newIdx)
-                }}
-                disabled={disabledAmpmIndices.size > 0}
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  padding: '8px 6px',
-                  border: '1px solid var(--outline-variant)',
-                  background: 'transparent',
-                  borderRadius: 6,
-                  color: 'var(--accent)',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: disabledAmpmIndices.size > 0 ? 'not-allowed' : 'pointer',
-                  opacity: disabledAmpmIndices.size > 0 ? 0.5 : 1,
-                  transition: 'all .1s',
-                  height: 'auto',
-                }}
-                onMouseEnter={e => {
-                  if (disabledAmpmIndices.size === 0) {
-                    e.currentTarget.style.borderColor = 'var(--accent)'
-                    e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)'
-                  }
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = 'var(--outline-variant)'
-                  e.currentTarget.style.background = 'transparent'
-                }}
-              >
-                {AMPM[ampmIdx]}
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, gap: 2 }}>
+                <div style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (ampmIdx + 1) % AMPM.length
+                    if (!disabledAmpmIndices.has(newIdx)) setAmpmIdx(newIdx)
+                  }}
+                  disabled={disabledAmpmIndices.size > 0}
+                  style={{
+                    padding: '8px 6px',
+                    border: '1px solid var(--outline-variant)',
+                    background: 'transparent',
+                    borderRadius: 6,
+                    color: 'var(--accent)',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    cursor: disabledAmpmIndices.size > 0 ? 'not-allowed' : 'pointer',
+                    opacity: disabledAmpmIndices.size > 0 ? 0.5 : 1,
+                    transition: 'all .1s',
+                  }}
+                  onMouseEnter={e => {
+                    if (disabledAmpmIndices.size === 0) {
+                      e.currentTarget.style.borderColor = 'var(--accent)'
+                      e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)'
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = 'var(--outline-variant)'
+                    e.currentTarget.style.background = 'transparent'
+                  }}
+                >
+                  {AMPM[ampmIdx]}
+                </button>
+                <div style={{ flex: 1 }} />
+              </div>
             </div>
           </div>
         )}
