@@ -30,9 +30,11 @@ function formatPublishedAt(str) {
 export default function VisibilitySelect({ mode, publishAt, publishedAt, onModeChange, onPublishAtChange }) {
   const publishedLabel = formatPublishedAt(publishedAt)
 
-  // When the activity is already published, show a different UI:
-  // a read-only info block + "Ocultar" and "Programar" options (no "Publicar ahora")
-  if (mode === 'published') {
+  // Editing an already-published activity: publication is a done fact — no
+  // "Publicar ahora" (redundant) and no "Programar" (it's already out).
+  // Only offer keeping it visible or hiding it; fecha límite stays editable
+  // in the parent form.
+  if (mode === 'published' || publishedAt) {
     return (
       <div className="space-y-2">
         {/* Published info card */}
@@ -48,25 +50,24 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, onModeC
           </div>
         </div>
 
-        {/* Available mode changes */}
         <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-          style={{ borderColor: '#e2e8f0' }}>
-          <input type="radio" name="visibilidad" checked={false}
-            onChange={() => onModeChange('hide')}
+          style={{ borderColor: mode === 'published' ? 'var(--accent)' : '#e2e8f0', background: mode === 'published' ? 'var(--accent-light)' : '' }}>
+          <input type="radio" name="visibilidad" checked={mode === 'published'}
+            onChange={() => onModeChange('published')}
             className="accent-[var(--accent)]" />
           <div>
-            <p className="text-sm font-medium text-on-surface">Guardar y publicar luego</p>
-            <p className="text-xs text-muted">Guarda sin publicar; el ícono del ojo aparece al publicar</p>
+            <p className="text-sm font-medium text-on-surface">Mantener publicada</p>
+            <p className="text-xs text-muted">Los estudiantes la siguen viendo; solo se guardan tus cambios</p>
           </div>
         </label>
         <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-          style={{ borderColor: '#e2e8f0' }}>
-          <input type="radio" name="visibilidad" checked={false}
-            onChange={() => onModeChange('schedule')}
+          style={{ borderColor: mode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: mode === 'hide' ? 'var(--accent-light)' : '' }}>
+          <input type="radio" name="visibilidad" checked={mode === 'hide'}
+            onChange={() => onModeChange('hide')}
             className="accent-[var(--accent)]" />
           <div>
-            <p className="text-sm font-medium text-on-surface">Reprogramar publicación</p>
-            <p className="text-xs text-muted">Elige una nueva fecha y hora de publicación</p>
+            <p className="text-sm font-medium text-on-surface">Ocultar</p>
+            <p className="text-xs text-muted">Deja de mostrarse a los estudiantes hasta que la vuelvas a mostrar</p>
           </div>
         </label>
       </div>

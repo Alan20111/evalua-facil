@@ -119,7 +119,7 @@ export default function EvaluacionEditor({
           oculta: d.oculta || false,
           publishAt: d.publishAt || '',
           publishedAt: d.publishedAt || '',
-          visibilidadMode: (d.publishedAt || !d.oculta) ? 'published' : d.publishAt ? 'schedule' : 'hide',
+          visibilidadMode: !d.oculta ? 'published' : d.publishAt ? 'schedule' : 'hide',
         })
         setAttachExisting(d.archivosAdjuntos || [])
         setInfoCollapsed(false)
@@ -163,7 +163,7 @@ export default function EvaluacionEditor({
       infoForm.visibilidadMode === 'show'      ? toIsoNow() :
       infoForm.visibilidadMode === 'published' ? (infoForm.publishedAt || null) :
       infoForm.visibilidadMode === 'schedule'  ? (infoForm.publishAt || null) :
-      null
+      (infoForm.publishedAt || null)  // hide: published-then-hidden still validates vs original date
     if (infoForm.fechaLimite && effectivePublishAt) {
       if (infoForm.fechaLimite <= effectivePublishAt) {
         toast('La fecha límite debe ser posterior a la fecha de publicación', 'error'); return
@@ -178,10 +178,9 @@ export default function EvaluacionEditor({
           nombre: file.name, tamano: file.size,
         }))
       )
+      // publishedAt is permanent once set — hiding keeps the original date
       const newPublishedAt =
-        infoForm.visibilidadMode === 'show'      ? toIsoNow() :
-        infoForm.visibilidadMode === 'published' ? (infoForm.publishedAt || null) :
-        null
+        infoForm.visibilidadMode === 'show' ? toIsoNow() : (infoForm.publishedAt || null)
       const payload = {
         nombre: infoForm.nombre.trim(),
         categoria,
@@ -497,12 +496,14 @@ export default function EvaluacionEditor({
                   onModeChange={(mode) => setInfoForm((f) => ({
                     ...f, visibilidadMode: mode,
                     publishAt: mode === 'schedule' ? (f.publishAt || computeScheduleDefault()) : '',
-                    fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
+                    // hiding a never-published draft clears the deadline; a published
+                    // activity keeps it (hide is temporary, deadline still applies)
+                    fechaLimite: mode === 'hide' && !f.publishedAt ? '' : f.fechaLimite,
                   }))}
                   onPublishAtChange={(v) => setInfoForm((f) => ({ ...f, publishAt: v }))}
                 />
               </div>
-              {infoForm.visibilidadMode !== 'hide' && (
+              {(infoForm.visibilidadMode !== 'hide' || infoForm.publishedAt) && (
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
                   {infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
@@ -520,9 +521,8 @@ export default function EvaluacionEditor({
                         (infoForm.publishAt || infoForm.publishedAt || '').split('T')[0] || undefined
                       }
                       minDateTime={
-                        infoForm.visibilidadMode === 'published' ? (infoForm.publishedAt || undefined) :
-                        infoForm.visibilidadMode === 'schedule'  ? (infoForm.publishAt  || undefined) :
-                        undefined
+                        infoForm.visibilidadMode === 'schedule' ? (infoForm.publishAt || undefined) :
+                        (infoForm.publishedAt || undefined)
                       }
                     />
                   )}
