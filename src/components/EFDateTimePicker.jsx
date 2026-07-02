@@ -427,7 +427,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
                 style={{
                   height: ITEM_H,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: isSelected ? 17 : 13,
+                  fontSize: isSelected ? 13 : 10,
                   fontWeight: isSelected ? 700 : 400,
                   color: isDisabled
                     ? 'var(--outline-variant)'
@@ -589,7 +589,7 @@ export default function EFDateTimePicker({
     const vh     = window.innerHeight
     const PAD    = 8
     const W      = mode === 'datetime' ? 390 : 310
-    const idealH = mode === 'datetime' ? 350 : 340
+    const idealH = mode === 'datetime' ? 460 : 360
     const spaceBelow = vh - rect.bottom - PAD
     const spaceAbove = rect.top - PAD
     const goUp   = spaceBelow < idealH && spaceAbove > spaceBelow
@@ -793,28 +793,21 @@ export default function EFDateTimePicker({
       <div style={{
         background: 'color-mix(in srgb, var(--accent) 10%, var(--surface-card))',
         borderBottom: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)',
-        padding: '10px 14px 8px',
+        padding: '7px 14px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-          <Calendar size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)' }}>
-            {mode === 'date' ? 'Fecha seleccionada' : 'Fecha y hora'}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Calendar size={12} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--on-surface)', textTransform: 'capitalize', margin: 0, flex: 1 }}>
+            {draftDisplay
+              ? draftDisplay.date
+              : <span style={{ color: 'var(--outline)', fontStyle: 'italic', fontWeight: 400 }}>Sin selección</span>}
+          </p>
+          {draftDisplay?.time && (
+            <span style={{ fontSize: 11, color: 'var(--on-surface-variant)', flexShrink: 0 }}>
+              {draftDisplay.time}
+            </span>
+          )}
         </div>
-        {draftDisplay ? (
-          <>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--on-surface)', textTransform: 'capitalize', margin: 0 }}>
-              {draftDisplay.date}
-            </p>
-            {draftDisplay.time && (
-              <p style={{ fontSize: 12, color: 'var(--on-surface-variant)', margin: '2px 0 0' }}>
-                {draftDisplay.time}
-              </p>
-            )}
-          </>
-        ) : (
-          <p style={{ fontSize: 13, color: 'var(--outline)', fontStyle: 'italic', margin: 0 }}>Sin selección</p>
-        )}
       </div>
 
       {/* ── Scrollable body ── */}
@@ -825,7 +818,6 @@ export default function EFDateTimePicker({
           {shortcuts
             .filter(({ d }) => !minDateOnly || new Date(d.getFullYear(), d.getMonth(), d.getDate()) >= minDateOnly)
             .map(({ label, d }) => chip(label, () => applyShortcut(d)))}
-          {clearable && chip('Sin límite', clear, false)}
         </div>
 
         {/* Calendar + Time wheels side by side */}
@@ -894,7 +886,7 @@ export default function EFDateTimePicker({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      height: 32,
+                      height: 28,
                       borderRadius: '50%',
                       border: 'none',
                       cursor: isDisabled ? 'not-allowed' : 'pointer',
