@@ -49,7 +49,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
           {mode === 'hide' && (
             <p className="text-xs mt-0.5 text-muted">Actualmente oculta para estudiantes (usa el ojito para mostrarla)</p>
           )}
-          <p className="text-xs mt-0.5 text-muted">Tus cambios se guardan sin afectar la publicación</p>
+          <p className="text-xs mt-0.5 text-muted">Tus cambios se guardarán sin afectar la fecha de publicación original</p>
         </div>
       </div>
     )
