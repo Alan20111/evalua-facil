@@ -55,9 +55,35 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
     )
   }
 
+  // Editing an activity that was already scheduled (not yet published):
+  // republishing/hiding make no sense — only allow moving the scheduled date.
+  if (wasScheduled) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 p-3 rounded border"
+          style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
+          <div>
+            <p className="text-sm font-medium text-on-surface">Reprogramar publicación</p>
+            <p className="text-xs text-muted">Modifica la fecha y hora en que se publicará</p>
+          </div>
+        </div>
+        <EFDateTimePicker
+          mode="datetime"
+          headerLabel="Fecha y hora de publicación"
+          value={publishAt}
+          onChange={onPublishAtChange}
+          placeholder="Elegir fecha de publicación…"
+          clearable={false}
+          defaultTime="07:00"
+        />
+      </div>
+    )
+  }
+
+  // New content: publish immediately or schedule. No "hide" option here —
+  // showing/hiding an existing item is the eye icon's job on the card.
   return (
     <div className="space-y-2">
-      {/* "Publicar ahora" only for non-published activities — sets publishedAt on save */}
       <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
         style={{ borderColor: mode === 'show' ? 'var(--accent)' : '#e2e8f0', background: mode === 'show' ? 'var(--accent-light)' : '' }}>
         <input type="radio" name="visibilidad" checked={mode === 'show'}
@@ -69,23 +95,13 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
         </div>
       </label>
       <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-        style={{ borderColor: mode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: mode === 'hide' ? 'var(--accent-light)' : '' }}>
-        <input type="radio" name="visibilidad" checked={mode === 'hide'}
-          onChange={() => onModeChange('hide')}
-          className="accent-[var(--accent)]" />
-        <div>
-          <p className="text-sm font-medium text-on-surface">Ocultar</p>
-          <p className="text-xs text-muted">Solo tú lo ves, hasta que lo muestres o programes</p>
-        </div>
-      </label>
-      <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
         style={{ borderColor: mode === 'schedule' ? 'var(--accent)' : '#e2e8f0', background: mode === 'schedule' ? 'var(--accent-light)' : '' }}>
         <input type="radio" name="visibilidad" checked={mode === 'schedule'}
           onChange={() => onModeChange('schedule')}
           className="accent-[var(--accent)]" />
         <div>
-          <p className="text-sm font-medium text-on-surface">{wasScheduled ? 'Reprogramar publicación' : 'Programar publicación'}</p>
-          <p className="text-xs text-muted">{wasScheduled ? 'Modifica la fecha y hora en que se publicará' : 'Se activa automáticamente en la fecha y hora elegidas'}</p>
+          <p className="text-sm font-medium text-on-surface">Programar publicación</p>
+          <p className="text-xs text-muted">Se activa automáticamente en la fecha y hora elegidas</p>
         </div>
       </label>
       {mode === 'schedule' && (

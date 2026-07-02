@@ -605,7 +605,8 @@ export default function EFDateTimePicker({
     const spaceAbove = rect.top - PAD
     if (spaceAbove >= 280) {
       setOpenUpward(true)
-      setPos({ bottom: vh - rect.top + 4, top: undefined, left, maxH: Math.min(idealH, spaceAbove), W })
+      // Slight overlap over the trigger row so the popup sits as low as possible
+      setPos({ bottom: vh - rect.top - 10, top: undefined, left, maxH: Math.min(idealH, spaceAbove), W })
       return
     }
     // Fallback: below the field (not enough room above)
