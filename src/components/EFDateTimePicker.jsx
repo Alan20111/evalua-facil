@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronLeft, ChevronRight, Calendar, Check, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Calendar, Check, X } from 'lucide-react'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const DIAS_HEADER = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -855,15 +855,63 @@ export default function EFDateTimePicker({
             }}>
               Hora
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <WheelPicker
-                items={HOURS}
-                selectedIdx={hourIdx}
-                onChange={setHourIdx}
-                label="Hora"
-                formatItem={v => String(v).padStart(2, '0')}
-                disabledIndices={disabledHourIndices}
-              />
+            <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 2 }}>
+              {/* Hora */}
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (hourIdx - 1 + HOURS.length) % HOURS.length
+                    if (!disabledHourIndices.has(newIdx)) setHourIdx(newIdx)
+                  }}
+                  style={{
+                    padding: '2px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--on-surface-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 20,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <WheelPicker
+                  items={HOURS}
+                  selectedIdx={hourIdx}
+                  onChange={setHourIdx}
+                  label="Hora"
+                  formatItem={v => String(v).padStart(2, '0')}
+                  disabledIndices={disabledHourIndices}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (hourIdx + 1) % HOURS.length
+                    if (!disabledHourIndices.has(newIdx)) setHourIdx(newIdx)
+                  }}
+                  style={{
+                    padding: '2px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--on-surface-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 20,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
+                >
+                  <ChevronDown size={16} />
+                </button>
+              </div>
+
               <div style={{
                 fontSize: 20,
                 fontWeight: 200,
@@ -873,23 +921,118 @@ export default function EFDateTimePicker({
                 textAlign: 'center',
                 paddingBottom: 3,
               }}>:</div>
-              <WheelPicker
-                items={MINUTES}
-                selectedIdx={minIdx}
-                onChange={setMinIdx}
-                label="Minutos"
-                formatItem={v => String(v).padStart(2, '0')}
-                disabledIndices={disabledMinIndices}
-              />
-              <div style={{ width: 6, flexShrink: 0 }} />
-              <WheelPicker
-                items={AMPM}
-                selectedIdx={ampmIdx}
-                onChange={setAmpmIdx}
-                label="AM o PM"
-                formatItem={v => v}
-                disabledIndices={disabledAmpmIndices}
-              />
+
+              {/* Minutos */}
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (minIdx - 1 + MINUTES.length) % MINUTES.length
+                    if (!disabledMinIndices.has(newIdx)) setMinIdx(newIdx)
+                  }}
+                  style={{
+                    padding: '2px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--on-surface-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 20,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <WheelPicker
+                  items={MINUTES}
+                  selectedIdx={minIdx}
+                  onChange={setMinIdx}
+                  label="Minutos"
+                  formatItem={v => String(v).padStart(2, '0')}
+                  disabledIndices={disabledMinIndices}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (minIdx + 1) % MINUTES.length
+                    if (!disabledMinIndices.has(newIdx)) setMinIdx(newIdx)
+                  }}
+                  style={{
+                    padding: '2px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--on-surface-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 20,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
+                >
+                  <ChevronDown size={16} />
+                </button>
+              </div>
+
+              {/* AM/PM */}
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (ampmIdx - 1 + AMPM.length) % AMPM.length
+                    if (!disabledAmpmIndices.has(newIdx)) setAmpmIdx(newIdx)
+                  }}
+                  style={{
+                    padding: '2px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--on-surface-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 20,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--accent)'}
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <WheelPicker
+                  items={AMPM}
+                  selectedIdx={ampmIdx}
+                  onChange={setAmpmIdx}
+                  label="AM o PM"
+                  formatItem={v => v}
+                  disabledIndices={disabledAmpmIndices}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (ampmIdx + 1) % AMPM.length
+                    if (!disabledAmpmIndices.has(newIdx)) setAmpmIdx(newIdx)
+                  }}
+                  style={{
+                    padding: '2px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--on-surface-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 20,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
+                >
+                  <ChevronDown size={16} />
+                </button>
+              </div>
             </div>
           </div>
         )}
