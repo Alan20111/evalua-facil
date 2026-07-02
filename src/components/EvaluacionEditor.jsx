@@ -533,17 +533,6 @@ export default function EvaluacionEditor({
                   )}
                 </div>
               )}
-              <button type="submit" disabled={savingInfo}
-                className="w-full py-2 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
-                {savingInfo ? <Spinner size="sm" /> : null}
-                {savingInfo ? 'Guardando…' : 'Guardar y regresar a la asignatura'}
-              </button>
-              {!isNew && (
-                <button type="button" onClick={onClose} disabled={savingInfo}
-                  className="w-full py-2 mt-2 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors disabled:opacity-60">
-                  Salir sin guardar cambios
-                </button>
-              )}
             </form>
           )}
           {infoCollapsed && (
@@ -846,6 +835,22 @@ export default function EvaluacionEditor({
               </>
             )}
           </div>
+        </div>
+
+        {/* ── Acciones finales — al fondo, después de los reactivos ── */}
+        <div className="space-y-2">
+          <button type="button" disabled={savingInfo}
+            onClick={() => handleSaveInfo({ preventDefault: () => {} })}
+            className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+            {savingInfo ? <Spinner size="sm" /> : null}
+            {savingInfo ? 'Guardando…' : 'Guardar y regresar a la asignatura'}
+          </button>
+          {!isNew && (
+            <button type="button" onClick={onClose} disabled={savingInfo}
+              className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">
+              Salir sin guardar cambios
+            </button>
+          )}
         </div>
 
         <div className="h-6" />
