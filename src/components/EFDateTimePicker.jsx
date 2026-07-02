@@ -13,7 +13,7 @@ const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sáb
 // 12-hour wheel: starts at 12 so 12→1→2→...→11 wraps naturally
 const HOURS   = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 const MINUTES = Array.from({ length: 60 }, (_, i) => i)
-const AMPM    = ['AM', 'PM']
+const AMPM    = ['am', 'pm']
 const ITEM_H  = 40   // px per wheel row
 const ANIM_MS = 200  // wheel animation duration
 
@@ -76,7 +76,7 @@ function formatDisplay(d, mode) {
   if (mode === 'date') return { date: dateStr, time: null }
   const h = d.getHours()
   const h12 = h % 12 || 12
-  const ap = h < 12 ? 'a.m.' : 'p.m.'
+  const ap = h < 12 ? 'am' : 'pm'
   return {
     date: dateStr,
     time: `${String(h12).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ${ap}`,
@@ -622,7 +622,7 @@ export default function EFDateTimePicker({
     if (mode === 'date') return { date: dateStr, time: null }
     const h12 = HOURS[hourIdx]
     const mm  = MINUTES[minIdx]
-    const ap  = ampmIdx === 0 ? 'a.m.' : 'p.m.'
+    const ap  = ampmIdx === 0 ? 'am' : 'pm'
     return {
       date: dateStr,
       time: `${String(h12).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${ap}`,
