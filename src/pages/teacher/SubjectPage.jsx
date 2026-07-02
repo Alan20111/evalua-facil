@@ -829,6 +829,19 @@ export default function SubjectPage() {
       toast('Escribe las instrucciones de la actividad', 'error')
       return
     }
+    // fechaLimite must be strictly after the effective publish datetime
+    {
+      const now = new Date()
+      const nowIso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+      const effectivePublishAt =
+        form.visibilidadMode === 'show'     ? nowIso :
+        form.visibilidadMode === 'schedule' ? (form.publishAt || null) :
+        (form.publishedAt || null)
+      if (form.fechaLimite && effectivePublishAt && form.fechaLimite <= effectivePublishAt) {
+        toast('La fecha límite debe ser posterior a la fecha de publicación', 'error')
+        return
+      }
+    }
     setSaving(true)
     try {
       const uploaded = await Promise.all(
@@ -2166,6 +2179,10 @@ export default function SubjectPage() {
                         onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                         placeholder="Sin fecha límite…"
                         clearable
+                        minDateTime={
+                          form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
+                          (form.publishedAt || undefined)
+                        }
                       />
                       <p className="text-xs text-slate-400 mt-1">
                         Luego de esta fecha y hora ya no se reciben entregas.

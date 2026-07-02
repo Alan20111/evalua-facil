@@ -543,10 +543,12 @@ export default function EFDateTimePicker({
     const minAmpm = minH24 >= 12 ? 1 : 0
     if (ampmIdx < minAmpm) return new Set(HOURS.map((_, i) => i)) // whole AM section is before PM
     if (ampmIdx > minAmpm) return new Set()                        // PM selected, min is AM: no restriction
-    // Same period: disable indices whose hour comes before minH12 in the wheel
+    // Same period: disable indices whose hour comes before minH12 in the wheel.
+    // If min minute is 59, the min hour itself has no valid minute left — disable it too.
     const minH12 = minH24 % 12 || 12
     const minPos = HOURS.indexOf(minH12)
-    return new Set(HOURS.reduce((acc, _, i) => { if (i < minPos) acc.push(i); return acc }, []))
+    const cutoff = minFull.getMinutes() === 59 ? minPos + 1 : minPos
+    return new Set(HOURS.reduce((acc, _, i) => { if (i < cutoff) acc.push(i); return acc }, []))
   }, [minFull, draft, ampmIdx])
 
   const disabledMinIndices = useMemo(() => {
@@ -554,9 +556,10 @@ export default function EFDateTimePicker({
     const minH24    = minFull.getHours()
     const curH24    = HOURS[hourIdx] % 12 + ampmIdx * 12
     if (curH24 !== minH24) return new Set()
+    // Strictly after: the minute equal to minDateTime is also invalid
     const minM = minFull.getMinutes()
     const s = new Set()
-    for (let i = 0; i < minM; i++) s.add(i)
+    for (let i = 0; i <= minM && i < 60; i++) s.add(i)
     return s
   }, [minFull, draft, hourIdx, ampmIdx])
 
@@ -579,9 +582,9 @@ export default function EFDateTimePicker({
 
   useEffect(() => {
     if (!disabledMinIndices.size || !disabledMinIndices.has(minIdx)) return
-    // Snap to the first valid minute (minFull.getMinutes())
+    // Snap to the first valid minute — one past the min (strictly after)
     const minM = minFull ? minFull.getMinutes() : 0
-    setMinIdx(minM)
+    setMinIdx(minM + 1 < 60 ? minM + 1 : 0)
   }, [minIdx, disabledMinIndices]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Open / position ────────────────────────────────────────────────────────
@@ -876,7 +879,12 @@ export default function EFDateTimePicker({
                 const isToday    = isSameDay(d, todayD)
                 const isSel      = isSameDay(d, draft)
                 const dn         = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-                const isDisabled = minDateOnly && dn < minDateOnly
+                // Strictly after min: if min falls at 11:59 pm, that whole day has
+                // no selectable time left in datetime mode — disable it too
+                const noSlotLeft = mode === 'datetime' && minFull &&
+                  dn.getTime() === minDateOnly?.getTime() &&
+                  minFull.getHours() === 23 && minFull.getMinutes() === 59
+                const isDisabled = (minDateOnly && dn < minDateOnly) || noSlotLeft
                 return (
                   <button
                     key={toIsoDate(d)}
@@ -1067,7 +1075,7 @@ export default function EFDateTimePicker({
         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
           {display ? (
             <>
-              <span style={{ color: 'var(--on-surface)', fontWeight: 500, textTransform: 'capitalize' }}>
+              <span style={{ color: 'var(--on-surface)', fontWeight: 500 }}>
                 {display.date}
               </span>
               {display.time && (
