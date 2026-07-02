@@ -76,6 +76,9 @@ export default function EvaluacionEditor({
   const [infoCollapsed, setInfoCollapsed] = useState(false)
   const [savingInfo, setSavingInfo] = useState(false)
   const [currentActivityId, setCurrentActivityId] = useState(activityId)
+  // True when the loaded activity was scheduled but not yet published —
+  // the schedule option then reads "Reprogramar publicación"
+  const [wasScheduled, setWasScheduled] = useState(false)
   const [attachExisting, setAttachExisting] = useState([])
   const [attachNew, setAttachNew] = useState([])
 
@@ -121,6 +124,7 @@ export default function EvaluacionEditor({
           publishedAt: d.publishedAt || '',
           visibilidadMode: !d.oculta ? 'published' : d.publishAt ? 'schedule' : 'hide',
         })
+        setWasScheduled(!!d.publishAt && !d.publishedAt)
         setAttachExisting(d.archivosAdjuntos || [])
         setInfoCollapsed(false)
         if (d.evaluacion) setConfigForm({ ...EVALUACION_DEFAULTS[categoria], ...d.evaluacion })
@@ -493,6 +497,7 @@ export default function EvaluacionEditor({
                   mode={infoForm.visibilidadMode}
                   publishAt={infoForm.publishAt}
                   publishedAt={infoForm.publishedAt}
+                  wasScheduled={wasScheduled}
                   onModeChange={(mode) => setInfoForm((f) => ({
                     ...f, visibilidadMode: mode,
                     publishAt: mode === 'schedule' ? (f.publishAt || computeScheduleDefault()) : '',

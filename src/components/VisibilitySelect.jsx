@@ -27,49 +27,30 @@ function formatPublishedAt(str) {
   return `${String(d.getDate()).padStart(2,'0')} ${MESES_CORTO[d.getMonth()]} ${d.getFullYear()} · ${String(h12).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ap}`
 }
 
-export default function VisibilitySelect({ mode, publishAt, publishedAt, onModeChange, onPublishAtChange }) {
+export default function VisibilitySelect({ mode, publishAt, publishedAt, wasScheduled = false, onModeChange, onPublishAtChange }) {
   const publishedLabel = formatPublishedAt(publishedAt)
 
-  // Editing an already-published activity: publication is a done fact — no
-  // "Publicar ahora" (redundant) and no "Programar" (it's already out).
-  // Only offer keeping it visible or hiding it; fecha límite stays editable
+  // Editing an already-published activity: publication is a done fact.
+  // No options here at all — republishing, hiding or scheduling make no
+  // sense in the edit form (show/hide lives in the eye icon on the card).
+  // Saving simply keeps the current state; fecha límite stays editable
   // in the parent form.
   if (mode === 'published' || publishedAt) {
     return (
-      <div className="space-y-2">
-        {/* Published info card */}
-        <div className="flex items-start gap-3 p-3 rounded border"
-          style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
-          <span style={{ color: 'var(--accent)', marginTop: 2, fontSize: 16, flexShrink: 0 }}>✓</span>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>Publicada</p>
-            {publishedLabel
-              ? <p className="text-xs mt-0.5" style={{ color: 'var(--accent)' }}>{publishedLabel}</p>
-              : <p className="text-xs mt-0.5 opacity-70" style={{ color: 'var(--accent)' }}>Fecha de publicación no disponible</p>
-            }
-          </div>
+      <div className="flex items-start gap-3 p-3 rounded border"
+        style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
+        <span style={{ color: 'var(--accent)', marginTop: 2, fontSize: 16, flexShrink: 0 }}>✓</span>
+        <div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>Publicada</p>
+          {publishedLabel
+            ? <p className="text-xs mt-0.5" style={{ color: 'var(--accent)' }}>{publishedLabel}</p>
+            : <p className="text-xs mt-0.5 opacity-70" style={{ color: 'var(--accent)' }}>Fecha de publicación no disponible</p>
+          }
+          {mode === 'hide' && (
+            <p className="text-xs mt-0.5 text-muted">Actualmente oculta para estudiantes (usa el ojito para mostrarla)</p>
+          )}
+          <p className="text-xs mt-0.5 text-muted">Tus cambios se guardan sin afectar la publicación</p>
         </div>
-
-        <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-          style={{ borderColor: mode === 'published' ? 'var(--accent)' : '#e2e8f0', background: mode === 'published' ? 'var(--accent-light)' : '' }}>
-          <input type="radio" name="visibilidad" checked={mode === 'published'}
-            onChange={() => onModeChange('published')}
-            className="accent-[var(--accent)]" />
-          <div>
-            <p className="text-sm font-medium text-on-surface">Mantener publicada</p>
-            <p className="text-xs text-muted">Los estudiantes la siguen viendo; solo se guardan tus cambios</p>
-          </div>
-        </label>
-        <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-          style={{ borderColor: mode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: mode === 'hide' ? 'var(--accent-light)' : '' }}>
-          <input type="radio" name="visibilidad" checked={mode === 'hide'}
-            onChange={() => onModeChange('hide')}
-            className="accent-[var(--accent)]" />
-          <div>
-            <p className="text-sm font-medium text-on-surface">Ocultar</p>
-            <p className="text-xs text-muted">Deja de mostrarse a los estudiantes hasta que la vuelvas a mostrar</p>
-          </div>
-        </label>
       </div>
     )
   }
@@ -103,8 +84,8 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, onModeC
           onChange={() => onModeChange('schedule')}
           className="accent-[var(--accent)]" />
         <div>
-          <p className="text-sm font-medium text-on-surface">Programar publicación</p>
-          <p className="text-xs text-muted">Se activa automáticamente en la fecha y hora elegidas</p>
+          <p className="text-sm font-medium text-on-surface">{wasScheduled ? 'Reprogramar publicación' : 'Programar publicación'}</p>
+          <p className="text-xs text-muted">{wasScheduled ? 'Modifica la fecha y hora en que se publicará' : 'Se activa automáticamente en la fecha y hora elegidas'}</p>
         </div>
       </label>
       {mode === 'schedule' && (

@@ -199,6 +199,7 @@ export default function EntregableEditor({
                 mode={form.visibilidadMode}
                 publishAt={form.publishAt}
                 publishedAt={form.publishedAt}
+                wasScheduled={!isNew && !!initialForm?.publishAt && !initialForm?.publishedAt}
                 onModeChange={(mode) => setForm((f) => ({
                   ...f, visibilidadMode: mode,
                   // 9.1: auto-fill publishAt with now+2h when switching to schedule for the first time
