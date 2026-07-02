@@ -799,8 +799,8 @@ export default function EFDateTimePicker({
         padding: '6px 14px 5px',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
-          <Calendar size={11} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)' }}>
+          <Calendar size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--accent)' }}>
             {headerLabel || (mode === 'date' ? 'Fecha seleccionada' : 'Fecha y hora')}
           </span>
         </div>
