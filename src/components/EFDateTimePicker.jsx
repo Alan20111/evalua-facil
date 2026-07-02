@@ -596,26 +596,22 @@ export default function EFDateTimePicker({
     const PAD    = 8
     const W      = mode === 'datetime' ? 390 : 310
     const idealH = mode === 'datetime' ? 460 : 360
-    // Prefer opening BESIDE the field (to its right) so the popup never
-    // covers the inputs below it; fall back to below/above, right-aligned.
-    const spaceRight = vw - rect.right
-    if (spaceRight >= W + PAD * 2) {
-      const maxH = Math.min(idealH, vh - PAD * 2)
-      const top  = Math.max(PAD, Math.min(rect.top, vh - maxH - PAD))
-      setOpenUpward(false)
-      setPos({ top, left: rect.right + PAD, maxH, W })
-      return
-    }
-    const spaceBelow = vh - rect.bottom - PAD
-    const spaceAbove = rect.top - PAD
-    const goUp   = spaceBelow < idealH && spaceAbove > spaceBelow
-    const maxH   = Math.min(idealH, goUp ? spaceAbove : spaceBelow)
     // Right edge of popup aligned with right edge of the field — keeps the
     // left side of the form (labels + values below) visible
-    const left   = Math.max(PAD, Math.min(rect.right - W, vw - W - PAD))
-    const top    = goUp ? rect.top - maxH - 4 : rect.bottom + 4
-    setOpenUpward(goUp)
-    setPos({ top, left, maxH, W })
+    const left = Math.max(PAD, Math.min(rect.right - W, vw - W - PAD))
+    // Preferred: ABOVE the field, bottom edge sitting just above the row that
+    // opened it — never covers the inputs below. Anchored via `bottom` so the
+    // popup hugs the row regardless of its actual content height.
+    const spaceAbove = rect.top - PAD
+    if (spaceAbove >= 280) {
+      setOpenUpward(true)
+      setPos({ bottom: vh - rect.top + 4, top: undefined, left, maxH: Math.min(idealH, spaceAbove), W })
+      return
+    }
+    // Fallback: below the field (not enough room above)
+    const spaceBelow = vh - rect.bottom - PAD
+    setOpenUpward(false)
+    setPos({ top: rect.bottom + 4, bottom: undefined, left, maxH: Math.min(idealH, spaceBelow), W })
   }, [mode])
 
   function openPicker() {
@@ -754,7 +750,9 @@ export default function EFDateTimePicker({
   const W = pos.W || 330
   const popoverStyle = {
     position: 'fixed',
-    top: pos.top,
+    // Anchored by bottom when opening above (hugs the trigger row), by top otherwise
+    top: pos.bottom != null ? 'auto' : pos.top,
+    bottom: pos.bottom != null ? pos.bottom : 'auto',
     left: pos.left,
     width: W,
     zIndex: 9999,
@@ -1060,7 +1058,7 @@ export default function EFDateTimePicker({
       <button
         type="button"
         ref={triggerRef}
-        onClick={openPicker}
+        onClick={() => (open ? setOpen(false) : openPicker())}
         disabled={disabled}
         className={className}
         style={{
