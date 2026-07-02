@@ -40,7 +40,7 @@ function FileRow({ f, onRemove, index }) {
           {f.tamano != null ? formatFileSize(f.tamano) : ''}
         </span>
         {f.url && canView && (
-          <button onClick={() => setOpen((v) => !v)}
+          <button type="button" onClick={() => setOpen((v) => !v)}
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Ver archivo">
             <Eye size={15} />
           </button>
@@ -82,7 +82,8 @@ function FileRow({ f, onRemove, index }) {
             >
               <iframe
                 src={docsViewerUrl(viewUrl)}
-                data-tooltip={f.nombre}
+                title={`Vista previa: ${f.nombre}`}
+                sandbox="allow-scripts allow-same-origin allow-popups"
                 className="w-full h-full"
                 style={{ border: 'none' }}
               />
@@ -90,7 +91,8 @@ function FileRow({ f, onRemove, index }) {
           ) : (
             <iframe
               src={docsViewerUrl(viewUrl)}
-              data-tooltip={f.nombre}
+              title={`Vista previa: ${f.nombre}`}
+              sandbox="allow-scripts allow-same-origin allow-popups"
               className="w-full h-[70vh]"
               style={{ border: 'none' }}
             />
@@ -111,7 +113,7 @@ export default function AttachmentList({ files, onRemove, title = 'Archivos adju
       )}
       <div className="space-y-1">
         {files.map((f, i) => (
-          <FileRow key={i} f={f} onRemove={onRemove} index={i} />
+          <FileRow key={f.url || `${f.nombre}-${i}`} f={f} onRemove={onRemove} index={i} />
         ))}
       </div>
     </div>

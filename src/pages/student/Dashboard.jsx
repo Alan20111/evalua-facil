@@ -64,6 +64,7 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     if (currentUser) loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [currentUser])
 
   async function loadData() {
@@ -166,6 +167,7 @@ export default function StudentDashboard() {
           <div className="space-y-2">
             {subjects.map((s) => (
               <button
+                type="button"
                 key={s.id}
                 data-subject-palette={s.colorPalette || 'default'}
                 onClick={() => navigate(`/alumno/materia/${s.id}`)}
@@ -194,6 +196,7 @@ export default function StudentDashboard() {
 
         {/* Join another subject */}
         <button
+          type="button"
           onClick={() => { setJoinCode(''); setShowJoin(true) }}
           className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-card border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
         >
@@ -208,7 +211,7 @@ export default function StudentDashboard() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-on-surface truncate">Unirme a otra asignatura</h3>
-              <button onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+              <button type="button" onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-3">
               Ingresa el <strong>código de acceso</strong> de tu nueva asignatura (o escanea su QR). Como ya tienes cuenta, solo confirmarás tu contraseña.

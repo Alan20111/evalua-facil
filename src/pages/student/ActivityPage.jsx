@@ -82,6 +82,7 @@ export default function StudentActivityPage() {
   // `currentUser` — on a fresh/incognito session Firebase Auth may not have restored
   // yet on first mount, and firing these reads before then gets rejected by Firestore
   // rules with no retry since this effect didn't depend on `currentUser`.
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   useEffect(() => { if (currentUser) loadOther() }, [activityId, userProfile?.studentId, currentUser])
 
   async function loadOther() {
@@ -288,7 +289,7 @@ export default function StudentActivityPage() {
       <StudentLayout>
         <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="min-w-0">
@@ -422,6 +423,7 @@ export default function StudentActivityPage() {
     <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
+          type="button"
           onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}
           className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >

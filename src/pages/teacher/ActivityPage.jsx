@@ -275,6 +275,7 @@ export default function ActivityPage() {
         <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => navigate(`/subject/${activity?.asignaturaId}`)}
               className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
             >
@@ -333,6 +334,7 @@ export default function ActivityPage() {
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
             {['todos', 'pendiente', 'entregado', 'calificado'].map((f) => (
               <button
+                type="button"
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
@@ -357,6 +359,7 @@ export default function ActivityPage() {
             />
           </div>
           <button
+            type="button"
             onClick={() => setSortAlpha((v) => !v)}
             data-tooltip="Ordenar por nombre"
             className={`p-2 rounded border transition-colors ${
@@ -371,6 +374,7 @@ export default function ActivityPage() {
         {Object.values(submissions).some((s) => s.archivoURL && !s.completadoSinArchivo) && (
           <div className="px-4 pb-2">
             <button
+              type="button"
               onClick={handleZipDownload}
               disabled={zipDownloading}
               className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
@@ -395,6 +399,7 @@ export default function ActivityPage() {
                 const hasExtension = !!activity?.extensiones?.[s.id]
                 return (
                   <button
+                    type="button"
                     key={s.id}
                     onClick={() => openGrade(s)}
                     className={`w-full flex items-center gap-2 px-2 py-1 text-left hover:bg-[var(--accent-tint)] transition-colors cursor-pointer ${
@@ -451,7 +456,7 @@ export default function ActivityPage() {
                     : 'Sin entrega aún'}
                 </p>
               </div>
-              <button onClick={closeModal} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+              <button type="button" onClick={closeModal} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
             </div>
 
             {/* Prev / next navigation across the student row */}
@@ -508,7 +513,7 @@ export default function ActivityPage() {
                 <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
                 <div className="space-y-1.5">
                   {[...selected.sub.historial].reverse().map((v, i) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
+                    <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
                       <span className="text-slate-400 flex-shrink-0">
                         {v.fechaEntrega?.seconds
                           ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })

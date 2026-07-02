@@ -442,7 +442,7 @@ export default function EvaluacionEditor({
       {/* ── Header ── */}
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button onClick={onClose} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
+          <button type="button" onClick={onClose} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -720,10 +720,10 @@ export default function EvaluacionEditor({
                             <p className="text-base font-semibold text-on-surface">{i + 1}. {p.enunciado}</p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
-                            <button onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
-                            <button onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
-                            <button onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
-                            <button onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={18} /></button>
+                            <button type="button" onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
+                            <button type="button" onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
+                            <button type="button" onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
+                            <button type="button" onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={18} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-36 rounded border border-outline-variant" />}
@@ -821,11 +821,11 @@ export default function EvaluacionEditor({
                 ) : (
                   <div className="pt-2 mt-2 border-t border-outline-variant">
                     <div className="flex gap-2">
-                      <button onClick={() => setShowPreguntaForm(true)}
+                      <button type="button" onClick={() => setShowPreguntaForm(true)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm bg-accent text-white font-medium rounded-card">
                         <Plus size={15} /> Crear reactivo nuevo
                       </button>
-                      <button onClick={() => { setShowBanco(true); loadBanco() }}
+                      <button type="button" onClick={() => { setShowBanco(true); loadBanco() }}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm border border-accent text-accent font-medium rounded-card">
                         <Library size={15} /> Agregar desde el Banco
                       </button>
@@ -909,9 +909,9 @@ export default function EvaluacionEditor({
                               <p className="text-sm font-semibold text-on-surface">{item.enunciado}</p>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
-                              <button onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
-                              <button onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
-                              <button onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
+                              <button type="button" onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
+                              <button type="button" onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
+                              <button type="button" onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
                             </div>
                           </div>
                           {item.opciones && Array.isArray(item.opciones) && (
@@ -928,7 +928,7 @@ export default function EvaluacionEditor({
                               Correcta: <span className="font-semibold text-emerald-700">{item.respuestaCorrecta === 'v' ? 'Verdadero' : 'Falso'}</span>
                             </p>
                           )}
-                          <button onClick={() => { handleAddFromBanco(item); setShowBanco(false) }}
+                          <button type="button" onClick={() => { handleAddFromBanco(item); setShowBanco(false) }}
                             className="mt-2 w-full py-1.5 text-xs font-medium bg-accent text-white rounded">
                             + Agregar a la evaluación
                           </button>
@@ -942,7 +942,7 @@ export default function EvaluacionEditor({
 
             {/* Footer fijo */}
             <div className="p-3 border-t border-outline-variant flex-shrink-0">
-              <button onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full py-2 text-sm text-muted">Cerrar</button>
+              <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full py-2 text-sm text-muted">Cerrar</button>
             </div>
           </div>
         </div>

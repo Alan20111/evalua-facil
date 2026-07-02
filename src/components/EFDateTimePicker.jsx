@@ -764,7 +764,7 @@ export default function EFDateTimePicker({
           {/* Day headers — gray background strip */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
             {DIAS_HEADER.map((d, i) => (
-              <div key={i} style={{
+              <div key={d} style={{
                 textAlign: 'center',
                 fontSize: 10,
                 fontWeight: 600,
@@ -781,7 +781,7 @@ export default function EFDateTimePicker({
           {/* Day grid */}
           <div key={slideKey} className={slideDir === 'left' ? 'ef-slide-l' : slideDir === 'right' ? 'ef-slide-r' : ''}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px 0' }}>
-              {grid.map((d, i) => {
+              {grid.map((d) => {
                 const inMonth    = d.getMonth() === viewDate.getMonth()
                 const isToday    = isSameDay(d, todayD)
                 const isSel      = isSameDay(d, draft)
@@ -789,7 +789,7 @@ export default function EFDateTimePicker({
                 const isDisabled = minDateOnly && dn < minDateOnly
                 return (
                   <button
-                    key={i}
+                    key={toIsoDate(d)}
                     type="button"
                     onClick={() => selectDay(d)}
                     disabled={isDisabled}

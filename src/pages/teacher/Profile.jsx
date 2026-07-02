@@ -512,7 +512,7 @@ export default function Profile() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => !confirming && setConfirm(null)} />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
-            <button onClick={() => !confirming && setConfirm(null)}
+            <button type="button" onClick={() => !confirming && setConfirm(null)}
               className="absolute top-4 right-4 p-1 text-slate-400 hover:text-muted rounded">
               <X size={20} />
             </button>
@@ -545,7 +545,7 @@ export default function Profile() {
                   placeholder="Nombre, CCT o municipio…"
                   className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
-              <button onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
+              <button type="button" onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
             </div>
             {addingCustomSchool && customSchoolStep === 'similar' ? (
               <div className="p-3 space-y-2 overflow-y-auto">
@@ -554,7 +554,7 @@ export default function Profile() {
                 </p>
                 <ul className="space-y-2">
                   {similarSchools.map((c, i) => (
-                    <li key={i}>
+                    <li key={`${c.claveSEP || c.nombre}-${i}`}>
                       <button type="button" onClick={() => chooseSimilarSchool(c)} disabled={savingSchool}
                         className="w-full text-left px-3 py-2 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                         <p className="text-sm font-medium text-on-surface leading-tight">{c.nombre}</p>

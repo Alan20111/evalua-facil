@@ -41,6 +41,7 @@ export default function PagoResultado() {
         <h2 className="text-xl font-bold text-on-surface mb-2">{v.title}</h2>
         <p className="text-muted text-sm mb-6">{v.text}</p>
         <button
+          type="button"
           onClick={() => navigate('/profile', { replace: true })}
           className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors"
         >

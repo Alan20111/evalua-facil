@@ -1417,7 +1417,7 @@ export default function SubjectPage() {
         {/* ── Header ── */}
         <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
@@ -1481,7 +1481,7 @@ export default function SubjectPage() {
           {/* Tabs */}
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
             {['actividades', 'calificaciones', 'alumnos', 'recursos'].map((t) => (
-              <button key={t} onClick={() => switchTab(t)}
+              <button type="button" key={t} onClick={() => switchTab(t)}
                 className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                   activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}>
@@ -1504,7 +1504,7 @@ export default function SubjectPage() {
               return (
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                   <div className="w-full flex items-center gap-1">
-                    <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
+                    <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
                       <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
                         <span className={`font-bold text-sm ${parcialOculto ? 'text-slate-400' : 'text-accent'}`}>{p}</span>
@@ -1516,14 +1516,14 @@ export default function SubjectPage() {
                         <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                       </div>
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => toggleParcialVisibility(p)}
                       data-tooltip={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                     >
                       {parcialOculto ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
-                    <button onClick={() => setOpenParcial(isOpen ? 0 : p)} className="p-2 mr-2 flex-shrink-0">
+                    <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} className="p-2 mr-2 flex-shrink-0">
                       {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
                     </button>
                   </div>
@@ -1540,7 +1540,7 @@ export default function SubjectPage() {
                         const isHidden = visState !== 'visible'
                         return (
                           <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
-                            <button onClick={() => navigate(`/activity/${a.id}`)}
+                            <button type="button" onClick={() => navigate(`/activity/${a.id}`)}
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
                               <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
@@ -1583,7 +1583,7 @@ export default function SubjectPage() {
                             </button>
                             {/* Visibility toggle */}
                             {isHidden ? (
-                              <button
+                              <button type="button"
                                 onClick={(e) => { e.stopPropagation(); setActivateMode('now'); setActivateDate(''); setActivateModal(a) }}
                                 data-tooltip="Activar para estudiantes"
                                 className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
@@ -1591,7 +1591,7 @@ export default function SubjectPage() {
                                 <EyeOff size={16} />
                               </button>
                             ) : (
-                              <button
+                              <button type="button"
                                 onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
                                 data-tooltip="Ocultar para estudiantes"
                                 className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
@@ -1599,11 +1599,11 @@ export default function SubjectPage() {
                                 <Eye size={16} />
                               </button>
                             )}
-                            <button onClick={() => openEdit(a, activityLabelById[a.id])} data-tooltip="Editar"
+                            <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} data-tooltip="Editar"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
                             </button>
-                            <button onClick={() => setDeleteConfirm(a)} data-tooltip="Eliminar"
+                            <button type="button" onClick={() => setDeleteConfirm(a)} data-tooltip="Eliminar"
                               className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
                               <Trash2 size={16} />
                             </button>
@@ -1624,7 +1624,7 @@ export default function SubjectPage() {
                             return (
                               <div key={m.id} className={`w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
                                 <div className="flex items-center gap-1">
-                                  <button onClick={() => setExpandedMaterialId(isExpanded ? null : m.id)}
+                                  <button type="button" onClick={() => setExpandedMaterialId(isExpanded ? null : m.id)}
                                     className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left hover:bg-[var(--accent-tint)] rounded transition-colors">
                                     <BookOpen size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-amber-500'}`} />
                                     <div className="flex-1 min-w-0">
@@ -1648,21 +1648,21 @@ export default function SubjectPage() {
                                     {isExpanded ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
                                   </button>
                                   {isHidden ? (
-                                    <button onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} data-tooltip="Mostrar a estudiantes"
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} data-tooltip="Mostrar a estudiantes"
                                       className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                       <EyeOff size={16} />
                                     </button>
                                   ) : (
-                                    <button onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} data-tooltip="Ocultar a estudiantes"
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} data-tooltip="Ocultar a estudiantes"
                                       className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                       <Eye size={16} />
                                     </button>
                                   )}
-                                  <button onClick={() => openEditMaterial(m)} data-tooltip="Editar"
+                                  <button type="button" onClick={() => openEditMaterial(m)} data-tooltip="Editar"
                                     className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                                     <Pencil size={16} />
                                   </button>
-                                  <button onClick={() => setDeleteMaterialConfirm(m)} data-tooltip="Eliminar"
+                                  <button type="button" onClick={() => setDeleteMaterialConfirm(m)} data-tooltip="Eliminar"
                                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
                                     <Trash2 size={16} />
                                   </button>
@@ -1677,7 +1677,7 @@ export default function SubjectPage() {
                                       {(m.archivos || []).map((f, i) => {
                                         const { icon: FileIconComp, color } = getResourceIcon(f.nombre)
                                         return (
-                                          <a key={i} href={f.url} target="_blank" rel="noreferrer"
+                                          <a key={f.url || `${f.nombre}-${i}`} href={f.url} target="_blank" rel="noreferrer"
                                             className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors">
                                             <FileIconComp size={18} className={`flex-shrink-0 ${color}`} />
                                             <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
@@ -1695,14 +1695,14 @@ export default function SubjectPage() {
                         </>
                       )}
 
-                      <button onClick={() => openAdd(p)}
+                      <button type="button" onClick={() => openAdd(p)}
                         data-tooltip={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevas actividades'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Plus size={17} /> Agregar actividad
                       </button>
-                      <button onClick={() => openAddMaterial(p)}
+                      <button type="button" onClick={() => openAddMaterial(p)}
                         data-tooltip={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevo material de apoyo'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
@@ -1727,7 +1727,7 @@ export default function SubjectPage() {
             <div>
               <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
               <div className="flex gap-2">
-                <button
+                <button type="button"
                   onClick={handleExport}
                   disabled={exporting}
                   data-tooltip="Descarga las calificaciones de todos los estudiantes en una hoja de Excel"
@@ -1735,7 +1735,7 @@ export default function SubjectPage() {
                 >
                   {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
                 </button>
-                <button
+                <button type="button"
                   onClick={handleExportGradesPDF}
                   disabled={exportingGradesPdf}
                   data-tooltip="Descarga las calificaciones de todos los estudiantes en un PDF imprimible"
@@ -1927,7 +1927,7 @@ export default function SubjectPage() {
                 className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card"
               />
             </div>
-            <button
+            <button type="button"
               onClick={() => setShowAddStudent(true)}
               data-tooltip="Agregar nuevo estudiante"
               className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
@@ -1969,7 +1969,7 @@ export default function SubjectPage() {
                       <span className="text-[11px] leading-none bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">sin activar</span>
                     )}
                   </span>
-                  <button
+                  <button type="button"
                     onClick={() => openEditStudent(s)}
                     className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
                     data-tooltip="Editar estudiante"
@@ -2025,11 +2025,11 @@ export default function SubjectPage() {
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                       <Download size={18} />
                     </a>
-                    <button onClick={() => openEditResource(r)} data-tooltip="Editar"
+                    <button type="button" onClick={() => openEditResource(r)} data-tooltip="Editar"
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                       <Pencil size={18} />
                     </button>
-                    <button onClick={() => setDeleteResourceConfirm(r)} data-tooltip="Eliminar"
+                    <button type="button" onClick={() => setDeleteResourceConfirm(r)} data-tooltip="Eliminar"
                       className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
                       <Trash2 size={18} />
                     </button>
@@ -2055,7 +2055,7 @@ export default function SubjectPage() {
                     ? `${tipoActividad === 'entregable' ? 'Entregable' : tipoActividad === 'cuestionario' ? 'Cuestionario' : 'Examen'} — Parcial ${modalParcial}`
                     : 'Editar actividad'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
 
             {/* ── Tipo picker (only on create, before choosing type) ── */}
@@ -2194,9 +2194,9 @@ export default function SubjectPage() {
               "<strong>{deleteConfirm.nombre}</strong>" se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setDeleteConfirm(null)}
+              <button type="button" onClick={() => setDeleteConfirm(null)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleDeleteActivity} disabled={deleting}
+              <button type="button" onClick={handleDeleteActivity} disabled={deleting}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deleting ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deleting ? 'Eliminando…' : 'Eliminar'}
@@ -2215,7 +2215,7 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">
                 {materialModalMode === 'create' ? `Nuevo material de apoyo — Parcial ${materialParcial}` : 'Editar material de apoyo'}
               </h3>
-              <button onClick={() => setShowMaterialModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowMaterialModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleSaveMaterial} className="space-y-2">
               <div>
@@ -2243,7 +2243,7 @@ export default function SubjectPage() {
                 {(materialExistingFiles.length > 0 || materialNewFiles.length > 0) && (
                   <div className="space-y-1 mt-2">
                     {materialExistingFiles.map((f, i) => (
-                      <div key={`existing-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant">
+                      <div key={f.url || `existing-${f.nombre}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant">
                         <Paperclip size={16} className="text-slate-400 flex-shrink-0" />
                         <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
                         <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
@@ -2254,7 +2254,7 @@ export default function SubjectPage() {
                       </div>
                     ))}
                     {materialNewFiles.map((f, i) => (
-                      <div key={`new-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-accent bg-[var(--accent-tint)]">
+                      <div key={`new-${f.name}-${f.size}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-accent bg-[var(--accent-tint)]">
                         <Paperclip size={16} className="text-accent flex-shrink-0" />
                         <span className="text-sm text-on-surface truncate flex-1">{f.name}</span>
                         <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.size)}</span>
@@ -2303,9 +2303,9 @@ export default function SubjectPage() {
               "<strong>{deleteMaterialConfirm.nombre}</strong>" se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setDeleteMaterialConfirm(null)}
+              <button type="button" onClick={() => setDeleteMaterialConfirm(null)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleDeleteMaterial} disabled={deletingMaterial}
+              <button type="button" onClick={handleDeleteMaterial} disabled={deletingMaterial}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deletingMaterial ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deletingMaterial ? 'Eliminando…' : 'Eliminar'}
@@ -2322,7 +2322,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Agregar estudiante</h3>
-              <button onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={addStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
@@ -2360,7 +2360,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar estudiante</h3>
-              <button onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={saveEditStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
@@ -2429,7 +2429,7 @@ export default function SubjectPage() {
                 <h3 className="text-xl font-semibold leading-tight">{subject.nombre}</h3>
                 {subject.grupo && <p className="text-base text-muted">Grupo: {subject.grupo}</p>}
               </div>
-              <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={22} /></button>
+              <button type="button" onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={22} /></button>
             </div>
             <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-4">
               <QRCode value={activationUrl} size={280} className="max-w-full h-auto" />
@@ -2437,7 +2437,7 @@ export default function SubjectPage() {
             {subject.accessCode && (
               <p className="text-5xl font-bold tracking-wide text-accent mb-4">{subject.accessCode}</p>
             )}
-            <button
+            <button type="button"
               onClick={handleExportQRPDF}
               disabled={exportingPdf}
               className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-50"
@@ -2464,13 +2464,13 @@ export default function SubjectPage() {
               «Recuperar contraseña» en su pantalla de acceso. No necesitas darle ninguna clave.
             </p>
             <div className="flex gap-2 mt-4">
-              <button
+              <button type="button"
                 onClick={() => setStudentToReset(null)}
                 className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors"
               >
                 Cancelar
               </button>
-              <button
+              <button type="button"
                 onClick={confirmResetStudentPassword}
                 className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded transition-colors flex items-center justify-center gap-2"
               >
@@ -2499,14 +2499,14 @@ export default function SubjectPage() {
               Cada estudiante elige su propia contraseña la primera vez que entra. No se generan claves temporales.
             </p>
             <div className="flex gap-2 mt-4">
-              <button
+              <button type="button"
                 onClick={() => setShowCredentialsModal(false)}
                 disabled={generatingCredentials}
                 className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
                 Cancelar
               </button>
-              <button
+              <button type="button"
                 onClick={handleGenerateCredentials}
                 disabled={generatingCredentials}
                 className="flex-1 py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
@@ -2542,7 +2542,7 @@ export default function SubjectPage() {
               <span className="font-mono"> {linkCandidate.identity.username}</span>). Si es <strong>otra persona</strong> con el mismo nombre, se crea una cuenta nueva.
             </p>
             <div className="flex flex-col gap-2 mt-4">
-              <button
+              <button type="button"
                 onClick={() => resolveLinkCandidate(true)}
                 disabled={savingStudent}
                 className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
@@ -2550,14 +2550,14 @@ export default function SubjectPage() {
                 {savingStudent ? <Spinner size="sm" /> : <CheckIcon size={18} />}
                 Sí, es el mismo estudiante
               </button>
-              <button
+              <button type="button"
                 onClick={() => resolveLinkCandidate(false)}
                 disabled={savingStudent}
                 className="w-full py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
                 No, es otro estudiante (cuenta nueva)
               </button>
-              <button
+              <button type="button"
                 onClick={() => setLinkCandidate(null)}
                 disabled={savingStudent}
                 className="w-full py-2 text-sm text-muted hover:text-on-surface transition-colors disabled:opacity-60"
@@ -2583,7 +2583,7 @@ export default function SubjectPage() {
               de estudiantes, tocar <strong>«Recuperar contraseña»</strong>, escribir su usuario y elegir una
               nueva contraseña.
             </p>
-            <button
+            <button type="button"
               onClick={() => setResetPwdResult(null)}
               className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
             >
@@ -2608,13 +2608,13 @@ export default function SubjectPage() {
               ({studentToDelete.username}). Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-2 mt-4">
-              <button
+              <button type="button"
                 onClick={() => setStudentToDelete(null)}
                 className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors"
               >
                 Cancelar
               </button>
-              <button
+              <button type="button"
                 onClick={confirmDeleteStudent}
                 disabled={savingStudent}
                 className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
@@ -2660,9 +2660,9 @@ export default function SubjectPage() {
               )}
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setActivateModal(null)}
+              <button type="button" onClick={() => setActivateModal(null)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleActivateConfirm}
+              <button type="button" onClick={handleActivateConfirm}
                 disabled={activateMode === 'schedule' && !activateDate}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 flex items-center justify-center gap-2">
                 <Eye size={16} /> Activar
@@ -2679,7 +2679,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
-              <button onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleEditSubject} className="space-y-2">
               <div>
@@ -2743,7 +2743,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
-              <button onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleCopySubject} className="space-y-2">
               <div>
@@ -2824,9 +2824,9 @@ export default function SubjectPage() {
               placeholder={subject?.nombre}
             />
             <div className="flex gap-2">
-              <button onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
+              <button type="button" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleDeleteSubject}
+              <button type="button" onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 flex items-center justify-center gap-2">
                 {deletingSubject ? <Spinner size="sm" /> : <Trash2 size={16} />}
@@ -2845,7 +2845,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
-              <button onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-2">
               Al archivar se conservan las actividades y la lista de estudiantes, pero <strong>se eliminan las entregas</strong>. ¿Qué hacemos con ellas?
@@ -2865,9 +2865,9 @@ export default function SubjectPage() {
               ))}
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setShowArchiveModal(false)} disabled={archiving}
+              <button type="button" onClick={() => setShowArchiveModal(false)} disabled={archiving}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
-              <button onClick={handleArchiveConfirm} disabled={archiving}
+              <button type="button" onClick={handleArchiveConfirm} disabled={archiving}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {archiving ? <Spinner size="sm" /> : <Archive size={16} />}
                 {archiving
@@ -2888,7 +2888,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
-              <button onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-2">Puedes editar los datos y elegir cómo restaurar:</p>
 
@@ -2963,9 +2963,9 @@ export default function SubjectPage() {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => setShowUnarchiveModal(false)}
+              <button type="button" onClick={() => setShowUnarchiveModal(false)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}
+              <button type="button" onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {unarchivedSaving ? <Spinner size="sm" /> : null}
                 {unarchivedSaving ? 'Guardando…' : 'Desarchivar'}
@@ -2982,7 +2982,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{resourceModalMode === 'create' ? 'Agregar recurso' : 'Editar recurso'}</h3>
-              <button onClick={() => setShowResourceModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowResourceModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleSaveResource} className="space-y-2">
               <div>
@@ -3042,9 +3042,9 @@ export default function SubjectPage() {
               "<strong>{deleteResourceConfirm.nombre}</strong>" se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setDeleteResourceConfirm(null)}
+              <button type="button" onClick={() => setDeleteResourceConfirm(null)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleDeleteResource} disabled={deletingResource}
+              <button type="button" onClick={handleDeleteResource} disabled={deletingResource}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deletingResource ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deletingResource ? 'Eliminando…' : 'Eliminar'}
