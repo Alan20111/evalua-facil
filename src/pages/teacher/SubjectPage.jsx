@@ -27,7 +27,7 @@ import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
-import { uploadToCloudinary } from '../../utils/cloudinary'
+import { uploadToCloudinary, downloadUrl } from '../../utils/cloudinary'
 import { RESOURCE_ACCEPT, getResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import AttachmentList, { FilePreview, canPreviewFile } from '../../components/AttachmentList'
@@ -2019,7 +2019,7 @@ export default function SubjectPage() {
                           <Eye size={18} />
                         </button>
                       )}
-                      <a href={r.url} target="_blank" rel="noreferrer" data-tooltip="Ver / descargar"
+                      <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" data-tooltip="Descargar"
                         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <Download size={18} />
                       </a>

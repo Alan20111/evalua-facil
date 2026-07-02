@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Download, X, Eye, ExternalLink } from 'lucide-react'
 import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
+import { downloadUrl } from '../utils/cloudinary'
 
 const PDF_EXTS = ['pdf']
 const OFFICE_EXTS = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt']
@@ -29,7 +30,7 @@ function FileRow({ f, onRemove, index }) {
   const { icon: Icon, color } = getResourceIcon(f.nombre)
 
   const viewUrl = isPdf ? pdfUrl(f.url) : f.url
-  const downloadUrl = isPdf ? pdfUrl(f.url) : f.url
+  const downloadHref = downloadUrl(f.url, f.nombre)
 
   return (
     <div className="rounded border border-outline-variant bg-surface-card overflow-hidden">
@@ -53,7 +54,7 @@ function FileRow({ f, onRemove, index }) {
           </a>
         )}
         {f.url && (
-          <a href={downloadUrl} target="_blank" rel="noreferrer" data-tooltip="Descargar"
+          <a href={downloadHref} download={f.nombre} rel="noreferrer" data-tooltip="Descargar"
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <Download size={15} />
           </a>

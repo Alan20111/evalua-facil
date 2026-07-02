@@ -27,6 +27,7 @@ import { isActivityPublished } from '../../utils/activityVisibility'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import AttachmentList from '../../components/AttachmentList'
+import { downloadUrl } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
 import { PlayCircle, ListChecks, Timer, RotateCcw } from 'lucide-react'
 
@@ -466,8 +467,8 @@ export default function StudentActivityPage() {
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <p className="text-xs font-medium text-muted mb-2">Tu entrega</p>
             <a
-              href={submission.archivoURL}
-              target="_blank"
+              href={downloadUrl(submission.archivoURL, submission.nombreArchivo)}
+              download={submission.nombreArchivo}
               rel="noopener noreferrer"
               className="flex items-center gap-3 px-3 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
             >

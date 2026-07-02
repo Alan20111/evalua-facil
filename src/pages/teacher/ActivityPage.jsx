@@ -20,6 +20,7 @@ import {
   ChevronLeft, ChevronRight, FolderDown, Eye,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
+import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -499,13 +500,13 @@ export default function ActivityPage() {
             {/* Current submission */}
             {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
               <a
-                href={selected.sub.archivoURL}
-                target="_blank"
+                href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
+                download={selected.sub.nombreArchivo}
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors mb-2"
               >
                 <Download size={18} className="text-accent" />
-                Ver / Descargar entrega
+                Descargar entrega
               </a>
             )}
 
@@ -545,7 +546,7 @@ export default function ActivityPage() {
                       {v.completadoSinArchivo
                         ? <span className="text-slate-400 italic">sin archivo</span>
                         : v.archivoURL
-                          ? <a href={v.archivoURL} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
+                          ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
                               <Download size={14} /> {v.nombreArchivo}
                             </a>
                           : <span className="text-slate-300 italic">sin archivo</span>

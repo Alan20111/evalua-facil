@@ -25,3 +25,23 @@ export async function uploadToCloudinary(file, folder = 'evalua-facil/uploads') 
   if (!res.ok) throw new Error('Error al subir el archivo')
   return (await res.json()).secure_url
 }
+
+// Turn a Cloudinary delivery URL into a forced-download URL by injecting the
+// `fl_attachment` flag right after `/upload/`. This makes Cloudinary respond
+// with `Content-Disposition: attachment`, so clicking the link saves the file
+// directly instead of navigating the browser to the raw URL (which fails to
+// render for xlsx/docx/zip and shows a broken page). Works on Mac and Windows,
+// any file type. Non-Cloudinary URLs are returned unchanged.
+export function downloadUrl(url, filename) {
+  if (!url || !url.includes('/upload/')) return url
+  let flag = 'fl_attachment'
+  if (filename) {
+    const base = filename
+      .replace(/\.[^.]+$/, '')                       // drop extension (Cloudinary re-adds it)
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')             // safe URL chars only
+      .replace(/^_+|_+$/g, '')                       // trim underscores
+    if (base) flag = `fl_attachment:${base}`
+  }
+  return url.replace('/upload/', `/upload/${flag}/`)
+}
