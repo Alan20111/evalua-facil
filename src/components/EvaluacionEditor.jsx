@@ -505,13 +505,12 @@ export default function EvaluacionEditor({
               {infoForm.visibilidadMode !== 'hide' && (
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
-                  {infoForm.visibilidadMode === 'show' ? (
-                    <p className="text-xs text-slate-400 px-1">Guarda primero para establecer la fecha de publicación y luego podrás asignar una fecha límite.</p>
-                  ) : infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
+                  {infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
                     <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
                     <EFDateTimePicker
                       mode="datetime"
+                      headerLabel="Fecha y hora límite"
                       value={infoForm.fechaLimite}
                       onChange={v => setInfoForm(f => ({ ...f, fechaLimite: v }))}
                       placeholder="Sin fecha límite…"
@@ -606,6 +605,7 @@ export default function EvaluacionEditor({
             {configForm.publicarResultados === 'fecha' && (
               <EFDateTimePicker
                 mode="datetime"
+                headerLabel="Fecha y hora de publicación de resultados"
                 value={configForm.publicarResultadosFecha || ''}
                 onChange={v => setConfigForm(f => ({ ...f, publicarResultadosFecha: v }))}
                 placeholder="Elegir fecha de publicación…"

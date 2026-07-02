@@ -14,7 +14,7 @@ const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sáb
 const HOURS   = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 const MINUTES = Array.from({ length: 60 }, (_, i) => i)
 const AMPM    = ['am', 'pm']
-const ITEM_H  = 40   // px per wheel row
+const ITEM_H  = 26   // px per wheel row
 const ANIM_MS = 200  // wheel animation duration
 
 // ── Inject keyframes once ──────────────────────────────────────────────────────
@@ -40,6 +40,8 @@ function ensureStyles() {
   from { opacity:0; transform:translateX(-20px); }
   to   { opacity:1; transform:translateX(0);     }
 }
+.ef-noscroll { scrollbar-width: none; -ms-overflow-style: none; }
+.ef-noscroll::-webkit-scrollbar { display: none; }
 .ef-pop-in    { animation: ef-pop-in    .18s cubic-bezier(.22,1,.36,1) both; }
 .ef-pop-in-up { animation: ef-pop-in-up .18s cubic-bezier(.22,1,.36,1) both; }
 .ef-slide-l   { animation: ef-slide-l   .16s ease both; }
@@ -72,7 +74,7 @@ function toIsoDatetime(d) {
 function formatDisplay(d, mode) {
   if (!d) return null
   const dayName = DIAS_SEMANA[(d.getDay() + 6) % 7]
-  const dateStr = `${dayName} ${d.getDate()} de ${MESES[d.getMonth()].toLowerCase()} de ${d.getFullYear()}`
+  const dateStr = `${dayName} ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
   if (mode === 'date') return { date: dateStr, time: null }
   const h = d.getHours()
   const h12 = h % 12 || 12
@@ -342,9 +344,9 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
 
   const navBtnStyle = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    height: 24, border: 'none', background: 'transparent',
+    height: 18, border: 'none', background: 'transparent',
     cursor: 'pointer', color: 'var(--accent)',
-    fontSize: 20, fontWeight: 300, lineHeight: 1,
+    fontSize: 15, fontWeight: 300, lineHeight: 1,
     userSelect: 'none', WebkitUserSelect: 'none', borderRadius: 6,
     flexShrink: 0,
   }
@@ -427,7 +429,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
                 style={{
                   height: ITEM_H,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: isSelected ? 17 : 13,
+                  fontSize: isSelected ? 12 : 9,
                   fontWeight: isSelected ? 700 : 400,
                   color: isDisabled
                     ? 'var(--outline-variant)'
@@ -489,6 +491,7 @@ export default function EFDateTimePicker({
   minDateTime,
   defaultTime = '23:59',  // HH:MM 24h — used when opening with no existing value
   defaultDate,             // YYYY-MM-DD — calendar opens here when no value is set
+  headerLabel,             // e.g. "Fecha y hora de publicación" — popup header caption
 }) {
   const triggerRef  = useRef(null)
   const popoverRef  = useRef(null)
@@ -589,7 +592,7 @@ export default function EFDateTimePicker({
     const vh     = window.innerHeight
     const PAD    = 8
     const W      = mode === 'datetime' ? 390 : 310
-    const idealH = mode === 'datetime' ? 350 : 340
+    const idealH = mode === 'datetime' ? 460 : 360
     const spaceBelow = vh - rect.bottom - PAD
     const spaceAbove = rect.top - PAD
     const goUp   = spaceBelow < idealH && spaceAbove > spaceBelow
@@ -715,7 +718,7 @@ export default function EFDateTimePicker({
   const draftDisplay = useMemo(() => {
     if (!draft) return null
     const dayName = DIAS_SEMANA[(draft.getDay() + 6) % 7]
-    const dateStr = `${dayName} ${draft.getDate()} de ${MESES[draft.getMonth()].toLowerCase()} de ${draft.getFullYear()}`
+    const dateStr = `${dayName} ${draft.getDate()} de ${MESES[draft.getMonth()]} de ${draft.getFullYear()}`
     if (mode === 'date') return { date: dateStr, time: null }
     const h12 = HOURS[hourIdx]
     const mm  = MINUTES[minIdx]
@@ -793,39 +796,29 @@ export default function EFDateTimePicker({
       <div style={{
         background: 'color-mix(in srgb, var(--accent) 10%, var(--surface-card))',
         borderBottom: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)',
-        padding: '10px 14px 8px',
+        padding: '6px 14px 5px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-          <Calendar size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)' }}>
-            {mode === 'date' ? 'Fecha seleccionada' : 'Fecha y hora'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
+          <Calendar size={11} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--accent)' }}>
+            {headerLabel || (mode === 'date' ? 'Fecha seleccionada' : 'Fecha y hora')}
           </span>
         </div>
-        {draftDisplay ? (
-          <>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--on-surface)', textTransform: 'capitalize', margin: 0 }}>
-              {draftDisplay.date}
-            </p>
-            {draftDisplay.time && (
-              <p style={{ fontSize: 12, color: 'var(--on-surface-variant)', margin: '2px 0 0' }}>
-                {draftDisplay.time}
-              </p>
-            )}
-          </>
-        ) : (
-          <p style={{ fontSize: 13, color: 'var(--outline)', fontStyle: 'italic', margin: 0 }}>Sin selección</p>
-        )}
+        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--on-surface)', margin: 0 }}>
+          {draftDisplay
+            ? <>{draftDisplay.date}{draftDisplay.time && <span style={{ fontWeight: 500, color: 'var(--on-surface-variant)' }}> – {draftDisplay.time}</span>}</>
+            : <span style={{ color: 'var(--outline)', fontStyle: 'italic', fontWeight: 400 }}>Sin selección</span>}
+        </p>
       </div>
 
-      {/* ── Scrollable body ── */}
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+      {/* ── Scrollable body — scrollbar hidden; idealH sized so nothing clips ── */}
+      <div className="ef-noscroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
 
         {/* Shortcuts */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '9px 12px 4px' }}>
           {shortcuts
             .filter(({ d }) => !minDateOnly || new Date(d.getFullYear(), d.getMonth(), d.getDate()) >= minDateOnly)
             .map(({ label, d }) => chip(label, () => applyShortcut(d)))}
-          {clearable && chip('Sin límite', clear, false)}
         </div>
 
         {/* Calendar + Time wheels side by side */}
@@ -894,7 +887,7 @@ export default function EFDateTimePicker({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      height: 32,
+                      height: 28,
                       borderRadius: '50%',
                       border: 'none',
                       cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -934,7 +927,7 @@ export default function EFDateTimePicker({
         {/* Right: Time wheels + buttons */}
         {mode === 'datetime' && (
           <div style={{
-            width: 136,
+            width: 112,
             flexShrink: 0,
             borderLeft: '1px solid var(--outline-variant)',
             display: 'flex',
@@ -964,11 +957,11 @@ export default function EFDateTimePicker({
               />
               <div style={{
                 flexShrink: 0,
-                width: 10,
+                width: 8,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 18,
+                fontSize: 13,
                 fontWeight: 200,
                 color: 'var(--on-surface-variant)',
               }}>:</div>

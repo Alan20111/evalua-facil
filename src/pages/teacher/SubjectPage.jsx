@@ -1583,8 +1583,8 @@ export default function SubjectPage() {
                                 </span>
                               </div>
                             </button>
-                            {/* Visibility toggle */}
-                            {isHidden ? (
+                            {/* Visibility toggle — only shown once the activity has been published */}
+                            {(!!a.publishedAt || !a.oculta) && (isHidden ? (
                               <button type="button"
                                 onClick={(e) => { e.stopPropagation(); setActivateMode('now'); setActivateDate(''); setActivateModal(a) }}
                                 data-tooltip="Activar para estudiantes"
@@ -1600,7 +1600,7 @@ export default function SubjectPage() {
                               >
                                 <Eye size={16} />
                               </button>
-                            )}
+                            ))}
                             <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} data-tooltip="Editar"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
@@ -2161,6 +2161,7 @@ export default function SubjectPage() {
                     <>
                       <EFDateTimePicker
                         mode="datetime"
+                        headerLabel="Fecha y hora límite"
                         value={form.fechaLimite}
                         onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                         placeholder="Sin fecha límite…"
@@ -2657,6 +2658,7 @@ export default function SubjectPage() {
               {activateMode === 'schedule' && (
                 <EFDateTimePicker
                   mode="datetime"
+                  headerLabel="Fecha y hora de publicación"
                   value={activateDate}
                   onChange={setActivateDate}
                   clearable={false}

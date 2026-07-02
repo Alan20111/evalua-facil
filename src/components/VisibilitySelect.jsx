@@ -55,8 +55,8 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, onModeC
             onChange={() => onModeChange('hide')}
             className="accent-[var(--accent)]" />
           <div>
-            <p className="text-sm font-medium text-on-surface">Ocultar</p>
-            <p className="text-xs text-muted">Solo tú lo ves, hasta que lo muestres o programes</p>
+            <p className="text-sm font-medium text-on-surface">Guardar y publicar luego</p>
+            <p className="text-xs text-muted">Guarda sin publicar; el ícono del ojo aparece al publicar</p>
           </div>
         </label>
         <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
@@ -102,13 +102,14 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, onModeC
           onChange={() => onModeChange('schedule')}
           className="accent-[var(--accent)]" />
         <div>
-          <p className="text-sm font-medium text-on-surface">Programar</p>
-          <p className="text-xs text-muted">Se activa automáticamente en una fecha</p>
+          <p className="text-sm font-medium text-on-surface">Programar publicación</p>
+          <p className="text-xs text-muted">Se activa automáticamente en la fecha y hora elegidas</p>
         </div>
       </label>
       {mode === 'schedule' && (
         <EFDateTimePicker
           mode="datetime"
+          headerLabel="Fecha y hora de publicación"
           value={publishAt}
           onChange={onPublishAtChange}
           placeholder="Elegir fecha de publicación…"

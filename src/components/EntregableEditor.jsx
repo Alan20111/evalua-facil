@@ -213,13 +213,12 @@ export default function EntregableEditor({
             {form.visibilidadMode !== 'hide' && (
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
-                {form.visibilidadMode === 'show' ? (
-                  <p className="text-xs text-slate-400 px-1">Guarda primero para establecer la fecha de publicación y luego podrás asignar una fecha límite.</p>
-                ) : form.visibilidadMode === 'schedule' && !form.publishAt ? (
+                {form.visibilidadMode === 'schedule' && !form.publishAt ? (
                   <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                 ) : (
                   <EFDateTimePicker
                     mode="datetime"
+                    headerLabel="Fecha y hora límite"
                     value={form.fechaLimite}
                     onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                     placeholder="Sin fecha límite…"
