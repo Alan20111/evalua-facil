@@ -136,6 +136,65 @@ function wheelsToH24(hourIdx, minIdx, ampmIdx) {
   return `${String(h24).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
 }
 
+// ── HoldButton ─────────────────────────────────────────────────────────────────
+// Button that fires on click, and repeats while held down
+function HoldButton({ onPress, label }) {
+  const holdRef = useRef(null)
+  const [pressing, setPressing] = useState(false)
+
+  const startHold = useCallback(() => {
+    setPressing(true)
+    onPress()
+    let count = 0
+    holdRef.current = setInterval(() => {
+      count++
+      if (count >= 3) onPress()
+    }, 100)
+  }, [onPress])
+
+  const stopHold = useCallback(() => {
+    setPressing(false)
+    if (holdRef.current) {
+      clearInterval(holdRef.current)
+      holdRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (holdRef.current) clearInterval(holdRef.current)
+    }
+  }, [])
+
+  return (
+    <button
+      type="button"
+      onMouseDown={startHold}
+      onMouseUp={stopHold}
+      onMouseLeave={stopHold}
+      onTouchStart={startHold}
+      onTouchEnd={stopHold}
+      style={{
+        padding: '4px 2px',
+        border: 'none',
+        background: pressing ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'transparent',
+        cursor: 'pointer',
+        color: pressing ? 'var(--accent)' : 'var(--on-surface-variant)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 16,
+        fontWeight: 300,
+        height: 20,
+        transition: 'all .08s',
+        borderRadius: 4,
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
 // ── WheelPicker ────────────────────────────────────────────────────────────────
 // Renders an infinite scroll wheel (iOS-style).
 // selectedIdx: index into `items` array for the currently selected value.
@@ -834,7 +893,7 @@ export default function EFDateTimePicker({
           </div>
         </div>{/* end calendar column */}
 
-        {/* Right: Time controls */}
+        {/* Right: Time wheels + buttons */}
         {mode === 'datetime' && (
           <div style={{
             width: 158,
@@ -857,68 +916,29 @@ export default function EFDateTimePicker({
             </p>
             <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 2 }}>
               {/* Hora */}
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, alignItems: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => {
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <HoldButton
+                  onPress={() => {
                     const newIdx = (hourIdx - 1 + HOURS.length) % HOURS.length
                     if (!disabledHourIndices.has(newIdx)) setHourIdx(newIdx)
                   }}
-                  style={{
-                    padding: '4px 8px',
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--on-surface-variant)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 18,
-                    fontWeight: 300,
-                    height: 24,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
-                >
-                  −
-                </button>
-                <div style={{
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color: 'var(--accent)',
-                  minHeight: 40,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}>
-                  {String(HOURS[hourIdx]).padStart(2, '0')}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
+                  label="−"
+                />
+                <WheelPicker
+                  items={HOURS}
+                  selectedIdx={hourIdx}
+                  onChange={setHourIdx}
+                  label="Hora"
+                  formatItem={v => String(v).padStart(2, '0')}
+                  disabledIndices={disabledHourIndices}
+                />
+                <HoldButton
+                  onPress={() => {
                     const newIdx = (hourIdx + 1) % HOURS.length
                     if (!disabledHourIndices.has(newIdx)) setHourIdx(newIdx)
                   }}
-                  style={{
-                    padding: '4px 8px',
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--on-surface-variant)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 18,
-                    fontWeight: 300,
-                    height: 24,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
-                >
-                  +
-                </button>
+                  label="+"
+                />
               </div>
 
               <div style={{
@@ -928,77 +948,42 @@ export default function EFDateTimePicker({
                 flexShrink: 0,
                 width: 12,
                 textAlign: 'center',
+                paddingBottom: 3,
               }}>:</div>
 
               {/* Minutos */}
-              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, alignItems: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => {
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <HoldButton
+                  onPress={() => {
                     const newIdx = (minIdx - 1 + MINUTES.length) % MINUTES.length
                     if (!disabledMinIndices.has(newIdx)) setMinIdx(newIdx)
                   }}
-                  style={{
-                    padding: '4px 8px',
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--on-surface-variant)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 18,
-                    fontWeight: 300,
-                    height: 24,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
-                >
-                  −
-                </button>
-                <div style={{
-                  fontSize: 24,
-                  fontWeight: 700,
-                  color: 'var(--accent)',
-                  minHeight: 40,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}>
-                  {String(MINUTES[minIdx]).padStart(2, '0')}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
+                  label="−"
+                />
+                <WheelPicker
+                  items={MINUTES}
+                  selectedIdx={minIdx}
+                  onChange={setMinIdx}
+                  label="Minutos"
+                  formatItem={v => String(v).padStart(2, '0')}
+                  disabledIndices={disabledMinIndices}
+                />
+                <HoldButton
+                  onPress={() => {
                     const newIdx = (minIdx + 1) % MINUTES.length
                     if (!disabledMinIndices.has(newIdx)) setMinIdx(newIdx)
                   }}
-                  style={{
-                    padding: '4px 8px',
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--on-surface-variant)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 18,
-                    fontWeight: 300,
-                    height: 24,
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
-                >
-                  +
-                </button>
+                  label="+"
+                />
               </div>
 
               {/* AM/PM Toggle */}
               <button
                 type="button"
-                onClick={() => setAmpmIdx((ampmIdx + 1) % AMPM.length)}
+                onClick={() => {
+                  const newIdx = (ampmIdx + 1) % AMPM.length
+                  if (!disabledAmpmIndices.has(newIdx)) setAmpmIdx(newIdx)
+                }}
                 disabled={disabledAmpmIndices.size > 0}
                 style={{
                   flex: 1,
@@ -1013,7 +998,7 @@ export default function EFDateTimePicker({
                   cursor: disabledAmpmIndices.size > 0 ? 'not-allowed' : 'pointer',
                   opacity: disabledAmpmIndices.size > 0 ? 0.5 : 1,
                   transition: 'all .1s',
-                  textTransform: 'lowercase',
+                  height: 'auto',
                 }}
                 onMouseEnter={e => {
                   if (disabledAmpmIndices.size === 0) {
