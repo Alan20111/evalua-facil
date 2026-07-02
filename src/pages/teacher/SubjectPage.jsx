@@ -2161,6 +2161,7 @@ export default function SubjectPage() {
                     <>
                       <EFDateTimePicker
                         mode="datetime"
+                        headerLabel="Fecha y hora límite"
                         value={form.fechaLimite}
                         onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                         placeholder="Sin fecha límite…"
@@ -2657,6 +2658,7 @@ export default function SubjectPage() {
               {activateMode === 'schedule' && (
                 <EFDateTimePicker
                   mode="datetime"
+                  headerLabel="Fecha y hora de publicación"
                   value={activateDate}
                   onChange={setActivateDate}
                   clearable={false}

@@ -810,6 +810,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             {configForm.publicarResultados === 'fecha' && (
               <EFDateTimePicker
                 mode="datetime"
+                headerLabel="Fecha y hora de publicación de resultados"
                 value={configForm.publicarResultadosFecha || ''}
                 onChange={v => setConfigForm(f => ({ ...f, publicarResultadosFecha: v }))}
                 placeholder="Elegir fecha de publicación…"

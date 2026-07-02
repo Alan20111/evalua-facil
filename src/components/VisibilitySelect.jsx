@@ -109,6 +109,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, onModeC
       {mode === 'schedule' && (
         <EFDateTimePicker
           mode="datetime"
+          headerLabel="Fecha y hora de publicación"
           value={publishAt}
           onChange={onPublishAtChange}
           placeholder="Elegir fecha de publicación…"

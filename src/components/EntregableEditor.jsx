@@ -218,6 +218,7 @@ export default function EntregableEditor({
                 ) : (
                   <EFDateTimePicker
                     mode="datetime"
+                    headerLabel="Fecha y hora límite"
                     value={form.fechaLimite}
                     onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                     placeholder="Sin fecha límite…"

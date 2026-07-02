@@ -510,6 +510,7 @@ export default function EvaluacionEditor({
                   ) : (
                     <EFDateTimePicker
                       mode="datetime"
+                      headerLabel="Fecha y hora límite"
                       value={infoForm.fechaLimite}
                       onChange={v => setInfoForm(f => ({ ...f, fechaLimite: v }))}
                       placeholder="Sin fecha límite…"
@@ -604,6 +605,7 @@ export default function EvaluacionEditor({
             {configForm.publicarResultados === 'fecha' && (
               <EFDateTimePicker
                 mode="datetime"
+                headerLabel="Fecha y hora de publicación de resultados"
                 value={configForm.publicarResultadosFecha || ''}
                 onChange={v => setConfigForm(f => ({ ...f, publicarResultadosFecha: v }))}
                 placeholder="Elegir fecha de publicación…"
