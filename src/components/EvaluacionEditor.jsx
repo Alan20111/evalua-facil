@@ -510,7 +510,7 @@ export default function EvaluacionEditor({
               </div>
               {(infoForm.visibilidadMode !== 'hide' || infoForm.publishedAt) && (
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
+                  <label className="block text-sm font-medium text-muted mb-1">{infoForm.fechaLimite ? 'Modificar fecha límite' : 'Fecha límite (opcional)'}</label>
                   {infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
                     <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (

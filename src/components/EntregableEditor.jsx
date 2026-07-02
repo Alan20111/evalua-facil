@@ -214,7 +214,7 @@ export default function EntregableEditor({
 
             {(form.visibilidadMode !== 'hide' || form.publishedAt) && (
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
+                <label className="block text-sm font-medium text-muted mb-1">{form.fechaLimite ? 'Modificar fecha límite' : 'Fecha límite (opcional)'}</label>
                 {form.visibilidadMode === 'schedule' && !form.publishAt ? (
                   <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                 ) : (

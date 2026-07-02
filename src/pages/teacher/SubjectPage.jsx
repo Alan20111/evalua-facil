@@ -2166,7 +2166,7 @@ export default function SubjectPage() {
               {form.visibilidadMode !== 'hide' && (
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">
-                    Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
+                    {form.fechaLimite ? 'Modificar fecha límite' : <>Fecha límite <span className="text-slate-400 font-normal">(opcional)</span></>}
                   </label>
                   {form.visibilidadMode === 'schedule' && !form.publishAt ? (
                     <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
