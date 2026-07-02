@@ -169,9 +169,6 @@ export default function SubjectPage() {
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
 
   // Activity visibility
-  const [activateModal, setActivateModal] = useState(null) // activity | null
-  const [activateMode, setActivateMode] = useState('now') // 'now' | 'schedule'
-  const [activateDate, setActivateDate] = useState('')
 
   // Subject CRUD
   const [showEditSubjectModal, setShowEditSubjectModal] = useState(false)
@@ -1153,20 +1150,13 @@ export default function SubjectPage() {
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
-  async function handleActivateConfirm() {
-    if (!activateModal) return
+  // Eye toggle: show a hidden activity immediately — no modal, mirror of
+  // hideActivity. Scheduling belongs to the editor, not to the eye icon.
+  async function showActivityNow(act) {
     try {
-      if (activateMode === 'now') {
-        await updateDoc(doc(db, 'activities', activateModal.id), { oculta: false, publishAt: null })
-        setActivities((prev) => prev.map((a) => a.id === activateModal.id ? { ...a, oculta: false, publishAt: null } : a))
-        toast('Actividad visible para estudiantes')
-      } else {
-        if (!activateDate) { toast('Elige una fecha', 'error'); return }
-        await updateDoc(doc(db, 'activities', activateModal.id), { oculta: true, publishAt: activateDate })
-        setActivities((prev) => prev.map((a) => a.id === activateModal.id ? { ...a, oculta: true, publishAt: activateDate } : a))
-        toast('Activación programada')
-      }
-      setActivateModal(null)
+      await updateDoc(doc(db, 'activities', act.id), { oculta: false, publishAt: null })
+      setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, oculta: false, publishAt: null } : a))
+      toast('Actividad visible para estudiantes')
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
@@ -1599,8 +1589,8 @@ export default function SubjectPage() {
                             {/* Visibility toggle — only shown once the activity has been published */}
                             {(!!a.publishedAt || !a.oculta) && (isHidden ? (
                               <button type="button"
-                                onClick={(e) => { e.stopPropagation(); setActivateMode('now'); setActivateDate(''); setActivateModal(a) }}
-                                data-tooltip="Activar para estudiantes"
+                                onClick={(e) => { e.stopPropagation(); showActivityNow(a) }}
+                                data-tooltip="Mostrar a estudiantes"
                                 className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                               >
                                 <EyeOff size={16} />
@@ -2648,53 +2638,6 @@ export default function SubjectPage() {
           </div>
         </div>
       )}
-      {/* ── Activate activity modal ── */}
-      {activateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setActivateModal(null)} />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
-            <h3 className="text-base font-semibold text-on-surface mb-1">Activar actividad</h3>
-            <p className="text-sm text-muted mb-2">
-              "<strong>{activateModal.nombre}</strong>" está oculta. ¿Cómo quieres activarla?
-            </p>
-            <div className="space-y-2 mb-2">
-              <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${activateMode === 'now' ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
-                <input type="radio" name="activateMode" value="now" checked={activateMode === 'now'} onChange={() => setActivateMode('now')} className="accent-[var(--accent)]" />
-                <div>
-                  <p className="text-sm font-medium text-on-surface">Mostrar</p>
-                  <p className="text-sm text-slate-500">Visible de inmediato para estudiantes</p>
-                </div>
-              </label>
-              <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${activateMode === 'schedule' ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
-                <input type="radio" name="activateMode" value="schedule" checked={activateMode === 'schedule'} onChange={() => setActivateMode('schedule')} className="accent-[var(--accent)]" />
-                <div>
-                  <p className="text-sm font-medium text-on-surface">Programar</p>
-                  <p className="text-sm text-slate-500">Se activa en fecha y hora específicas</p>
-                </div>
-              </label>
-              {activateMode === 'schedule' && (
-                <EFDateTimePicker
-                  mode="datetime"
-                  headerLabel="Fecha y hora de publicación"
-                  value={activateDate}
-                  onChange={setActivateDate}
-                  clearable={false}
-                />
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setActivateModal(null)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button type="button" onClick={handleActivateConfirm}
-                disabled={activateMode === 'schedule' && !activateDate}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 flex items-center justify-center gap-2">
-                <Eye size={16} /> Activar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Edit subject modal ── */}
       {showEditSubjectModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
