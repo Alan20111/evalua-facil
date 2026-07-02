@@ -30,6 +30,7 @@ import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { RESOURCE_ACCEPT, getResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
+import AttachmentList, { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, X, Pencil, Trash2, Archive, ArchiveRestore,
@@ -222,6 +223,7 @@ export default function SubjectPage() {
   // not tied to activities (see the `resources` collection in firestore.rules).
   const [resources, setResources] = useState([])
   const [resourcesLoaded, setResourcesLoaded] = useState(false)
+  const [previewResourceId, setPreviewResourceId] = useState(null)
   const [loadingResources, setLoadingResources] = useState(false)
   const [showResourceModal, setShowResourceModal] = useState(false)
   const [resourceModalMode, setResourceModalMode] = useState('create') // 'create' | 'edit'
@@ -1673,20 +1675,7 @@ export default function SubjectPage() {
                                       <div className={`text-sm text-on-surface mb-2 ${richTextContentClass}`}
                                         dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.descripcion) }} />
                                     )}
-                                    <div className="space-y-1">
-                                      {(m.archivos || []).map((f, i) => {
-                                        const { icon: FileIconComp, color } = getResourceIcon(f.nombre)
-                                        return (
-                                          <a key={f.url || `${f.nombre}-${i}`} href={f.url} target="_blank" rel="noreferrer"
-                                            className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors">
-                                            <FileIconComp size={18} className={`flex-shrink-0 ${color}`} />
-                                            <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
-                                            <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
-                                            <Download size={15} className="text-slate-400 flex-shrink-0" />
-                                          </a>
-                                        )
-                                      })}
-                                    </div>
+                                    <AttachmentList files={m.archivos} title={null} />
                                   </div>
                                 )}
                               </div>
@@ -2009,30 +1998,45 @@ export default function SubjectPage() {
             <div className="space-y-1.5">
               {resources.map((r) => {
                 const { icon: Icon, color } = getResourceIcon(r.nombreArchivo)
+                const isPreviewOpen = previewResourceId === r.id
                 return (
-                  <div key={r.id} className="flex items-center gap-3 bg-surface-card border border-outline-variant rounded-card px-3 py-2 shadow-card">
-                    <Icon size={28} className={`flex-shrink-0 ${color}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-on-surface truncate">{r.nombre}</p>
-                      {r.descripcion && (
-                        <p className="text-xs text-slate-500 truncate">{r.descripcion}</p>
+                  <div key={r.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card overflow-hidden">
+                    <div className="flex items-center gap-3 px-3 py-2">
+                      <Icon size={28} className={`flex-shrink-0 ${color}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-on-surface truncate">{r.nombre}</p>
+                        {r.descripcion && (
+                          <p className="text-xs text-slate-500 truncate">{r.descripcion}</p>
+                        )}
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {formatFileSize(r.tamano)}{r.tamano ? ' · ' : ''}{formatResourceDate(r.fechaPublicacion)}
+                        </p>
+                      </div>
+                      {canPreviewFile(r.nombreArchivo || r.nombre) && (
+                        <button type="button" onClick={() => setPreviewResourceId(isPreviewOpen ? null : r.id)}
+                          data-tooltip="Vista previa"
+                          className={`p-2 rounded transition-colors flex-shrink-0 ${isPreviewOpen ? 'text-accent bg-[var(--accent-medium)]' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
+                          <Eye size={18} />
+                        </button>
                       )}
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {formatFileSize(r.tamano)}{r.tamano ? ' · ' : ''}{formatResourceDate(r.fechaPublicacion)}
-                      </p>
+                      <a href={r.url} target="_blank" rel="noreferrer" data-tooltip="Ver / descargar"
+                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        <Download size={18} />
+                      </a>
+                      <button type="button" onClick={() => openEditResource(r)} data-tooltip="Editar"
+                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        <Pencil size={18} />
+                      </button>
+                      <button type="button" onClick={() => setDeleteResourceConfirm(r)} data-tooltip="Eliminar"
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+                        <Trash2 size={18} />
+                      </button>
                     </div>
-                    <a href={r.url} target="_blank" rel="noreferrer" data-tooltip="Ver / descargar"
-                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                      <Download size={18} />
-                    </a>
-                    <button type="button" onClick={() => openEditResource(r)} data-tooltip="Editar"
-                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                      <Pencil size={18} />
-                    </button>
-                    <button type="button" onClick={() => setDeleteResourceConfirm(r)} data-tooltip="Eliminar"
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
-                      <Trash2 size={18} />
-                    </button>
+                    {isPreviewOpen && (
+                      <div className="border-t border-outline-variant bg-surface">
+                        <FilePreview url={r.url} nombre={r.nombreArchivo || r.nombre} />
+                      </div>
+                    )}
                   </div>
                 )
               })}

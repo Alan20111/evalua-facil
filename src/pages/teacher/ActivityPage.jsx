@@ -17,8 +17,9 @@ import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, CheckCircle, Clock, Circle, X,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
-  ChevronLeft, ChevronRight, FolderDown,
+  ChevronLeft, ChevronRight, FolderDown, Eye,
 } from 'lucide-react'
+import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -57,6 +58,7 @@ export default function ActivityPage() {
   const [submissions, setSubmissions] = useState({})
   const [filter, setFilter] = useState('todos')
   const [selected, setSelected] = useState(null)
+  const [subPreviewFor, setSubPreviewFor] = useState(null)
   const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '' })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -505,6 +507,27 @@ export default function ActivityPage() {
                 <Download size={18} className="text-accent" />
                 Ver / Descargar entrega
               </a>
+            )}
+
+            {/* Inline document preview (PDF/Office) — images already preview above */}
+            {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL &&
+              !isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) &&
+              canPreviewFile(selected.sub.nombreArchivo) && (
+              <div className="mb-2">
+                <button
+                  type="button"
+                  onClick={() => setSubPreviewFor(subPreviewFor === selected.student?.id ? null : selected.student?.id)}
+                  className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors w-full"
+                >
+                  <Eye size={18} className="text-accent" />
+                  {subPreviewFor === selected.student?.id ? 'Ocultar vista previa' : 'Vista previa de la entrega'}
+                </button>
+                {subPreviewFor === selected.student?.id && (
+                  <div className="mt-2 rounded border border-outline-variant overflow-hidden bg-surface">
+                    <FilePreview url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo} />
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Submission history */}

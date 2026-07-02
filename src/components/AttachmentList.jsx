@@ -68,39 +68,57 @@ function FileRow({ f, onRemove, index }) {
 
       {open && f.url && (
         <div className="border-t border-outline-variant bg-surface">
-          {isImage ? (
-            <img src={f.url} alt={f.nombre} className="w-full max-h-[70vh] object-contain" />
-          ) : isPdf ? (
-            // Use <object> with explicit type so the browser applies application/pdf
-            // regardless of what Content-Type the server returns.
-            // Falls back to Google Docs Viewer iframe if the browser can't render it.
-            <object
-              data={viewUrl}
-              type="application/pdf"
-              className="w-full"
-              style={{ height: '70vh', border: 'none' }}
-            >
-              <iframe
-                src={docsViewerUrl(viewUrl)}
-                title={`Vista previa: ${f.nombre}`}
-                sandbox="allow-scripts allow-same-origin allow-popups"
-                className="w-full h-full"
-                style={{ border: 'none' }}
-              />
-            </object>
-          ) : (
-            <iframe
-              src={docsViewerUrl(viewUrl)}
-              title={`Vista previa: ${f.nombre}`}
-              sandbox="allow-scripts allow-same-origin allow-popups"
-              className="w-full h-[70vh]"
-              style={{ border: 'none' }}
-            />
-          )}
+          <FilePreview url={f.url} nombre={f.nombre} />
         </div>
       )}
     </div>
   )
+}
+
+// Standalone inline preview for a single file — same renderer FileRow uses.
+// Exported so any view (materiales, recursos, entregas) can toggle a preview
+// without adopting the whole AttachmentList row UI.
+export function FilePreview({ url, nombre }) {
+  const ext = resourceExtension(nombre)
+  const isPdf = PDF_EXTS.includes(ext)
+  const isImage = IMAGE_EXTS.includes(ext)
+  const viewUrl = isPdf ? pdfUrl(url) : url
+  if (!url) return null
+  return isImage ? (
+    <img src={url} alt={nombre} className="w-full max-h-[70vh] object-contain" />
+  ) : isPdf ? (
+    // Use <object> with explicit type so the browser applies application/pdf
+    // regardless of what Content-Type the server returns.
+    // Falls back to Google Docs Viewer iframe if the browser can't render it.
+    <object
+      data={viewUrl}
+      type="application/pdf"
+      className="w-full"
+      style={{ height: '70vh', border: 'none' }}
+    >
+      <iframe
+        src={docsViewerUrl(viewUrl)}
+        title={`Vista previa: ${nombre}`}
+        sandbox="allow-scripts allow-same-origin allow-popups"
+        className="w-full h-full"
+        style={{ border: 'none' }}
+      />
+    </object>
+  ) : (
+    <iframe
+      src={docsViewerUrl(viewUrl)}
+      title={`Vista previa: ${nombre}`}
+      sandbox="allow-scripts allow-same-origin allow-popups"
+      className="w-full h-[70vh]"
+      style={{ border: 'none' }}
+    />
+  )
+}
+
+// True when FilePreview can render this file inline (image, PDF u Office).
+export function canPreviewFile(nombre) {
+  const ext = resourceExtension(nombre)
+  return PDF_EXTS.includes(ext) || OFFICE_EXTS.includes(ext) || IMAGE_EXTS.includes(ext)
 }
 
 export default function AttachmentList({ files, onRemove, title = 'Archivos adjuntos' }) {
