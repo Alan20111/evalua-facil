@@ -834,7 +834,7 @@ export default function EFDateTimePicker({
           </div>
         </div>{/* end calendar column */}
 
-        {/* Right: Time wheels */}
+        {/* Right: Time controls */}
         {mode === 'datetime' && (
           <div style={{
             width: 158,
@@ -855,15 +855,72 @@ export default function EFDateTimePicker({
             }}>
               Hora
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <WheelPicker
-                items={HOURS}
-                selectedIdx={hourIdx}
-                onChange={setHourIdx}
-                label="Hora"
-                formatItem={v => String(v).padStart(2, '0')}
-                disabledIndices={disabledHourIndices}
-              />
+            <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: 2 }}>
+              {/* Hora */}
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (hourIdx - 1 + HOURS.length) % HOURS.length
+                    if (!disabledHourIndices.has(newIdx)) setHourIdx(newIdx)
+                  }}
+                  style={{
+                    padding: '4px 8px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--on-surface-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 18,
+                    fontWeight: 300,
+                    height: 24,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
+                >
+                  −
+                </button>
+                <div style={{
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: 'var(--accent)',
+                  minHeight: 40,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}>
+                  {String(HOURS[hourIdx]).padStart(2, '0')}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (hourIdx + 1) % HOURS.length
+                    if (!disabledHourIndices.has(newIdx)) setHourIdx(newIdx)
+                  }}
+                  style={{
+                    padding: '4px 8px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--on-surface-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 18,
+                    fontWeight: 300,
+                    height: 24,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
+                >
+                  +
+                </button>
+              </div>
+
               <div style={{
                 fontSize: 20,
                 fontWeight: 200,
@@ -871,25 +928,106 @@ export default function EFDateTimePicker({
                 flexShrink: 0,
                 width: 12,
                 textAlign: 'center',
-                paddingBottom: 3,
               }}>:</div>
-              <WheelPicker
-                items={MINUTES}
-                selectedIdx={minIdx}
-                onChange={setMinIdx}
-                label="Minutos"
-                formatItem={v => String(v).padStart(2, '0')}
-                disabledIndices={disabledMinIndices}
-              />
-              <div style={{ width: 6, flexShrink: 0 }} />
-              <WheelPicker
-                items={AMPM}
-                selectedIdx={ampmIdx}
-                onChange={setAmpmIdx}
-                label="AM o PM"
-                formatItem={v => v}
-                disabledIndices={disabledAmpmIndices}
-              />
+
+              {/* Minutos */}
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (minIdx - 1 + MINUTES.length) % MINUTES.length
+                    if (!disabledMinIndices.has(newIdx)) setMinIdx(newIdx)
+                  }}
+                  style={{
+                    padding: '4px 8px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--on-surface-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 18,
+                    fontWeight: 300,
+                    height: 24,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
+                >
+                  −
+                </button>
+                <div style={{
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: 'var(--accent)',
+                  minHeight: 40,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}>
+                  {String(MINUTES[minIdx]).padStart(2, '0')}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newIdx = (minIdx + 1) % MINUTES.length
+                    if (!disabledMinIndices.has(newIdx)) setMinIdx(newIdx)
+                  }}
+                  style={{
+                    padding: '4px 8px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--on-surface-variant)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 18,
+                    fontWeight: 300,
+                    height: 24,
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--accent)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--on-surface-variant)'}
+                >
+                  +
+                </button>
+              </div>
+
+              {/* AM/PM Toggle */}
+              <button
+                type="button"
+                onClick={() => setAmpmIdx((ampmIdx + 1) % AMPM.length)}
+                disabled={disabledAmpmIndices.size > 0}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  padding: '8px 6px',
+                  border: '1px solid var(--outline-variant)',
+                  background: 'transparent',
+                  borderRadius: 6,
+                  color: 'var(--accent)',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: disabledAmpmIndices.size > 0 ? 'not-allowed' : 'pointer',
+                  opacity: disabledAmpmIndices.size > 0 ? 0.5 : 1,
+                  transition: 'all .1s',
+                  textTransform: 'lowercase',
+                }}
+                onMouseEnter={e => {
+                  if (disabledAmpmIndices.size === 0) {
+                    e.currentTarget.style.borderColor = 'var(--accent)'
+                    e.currentTarget.style.background = 'color-mix(in srgb, var(--accent) 10%, transparent)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'var(--outline-variant)'
+                  e.currentTarget.style.background = 'transparent'
+                }}
+              >
+                {AMPM[ampmIdx]}
+              </button>
             </div>
           </div>
         )}
