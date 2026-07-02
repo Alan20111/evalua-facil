@@ -83,7 +83,7 @@ export default function EntregableEditor({
       form.visibilidadMode === 'show'      ? toIsoNow() :
       form.visibilidadMode === 'published' ? (form.publishedAt || null) :
       form.visibilidadMode === 'schedule'  ? (form.publishAt || null) :
-      null
+      (form.publishedAt || null)  // hide: published-then-hidden still validates vs original date
     if (form.fechaLimite && effectivePublishAt) {
       if (form.fechaLimite <= effectivePublishAt) {
         toast('La fecha límite debe ser posterior a la fecha de publicación', 'error'); return
@@ -98,11 +98,10 @@ export default function EntregableEditor({
           nombre: file.name, tamano: file.size,
         }))
       )
-      // Determine publishedAt for this save
+      // Determine publishedAt for this save — once set it is permanent:
+      // hiding a published activity keeps the original publication date
       const newPublishedAt =
-        form.visibilidadMode === 'show'      ? toIsoNow() :
-        form.visibilidadMode === 'published' ? (form.publishedAt || null) :
-        null  // schedule/hide clears it
+        form.visibilidadMode === 'show' ? toIsoNow() : (form.publishedAt || null)
       const payload = {
         nombre: form.nombre.trim(),
         categoria: categoria || 'entregable',
@@ -204,13 +203,15 @@ export default function EntregableEditor({
                   ...f, visibilidadMode: mode,
                   // 9.1: auto-fill publishAt with now+2h when switching to schedule for the first time
                   publishAt: mode === 'schedule' ? (f.publishAt || computeScheduleDefault()) : '',
-                  fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
+                  // hiding a never-published draft clears the deadline; a published
+                  // activity keeps it (hide is temporary, deadline still applies)
+                  fechaLimite: mode === 'hide' && !f.publishedAt ? '' : f.fechaLimite,
                 }))}
                 onPublishAtChange={(v) => setForm((f) => ({ ...f, publishAt: v }))}
               />
             </div>
 
-            {form.visibilidadMode !== 'hide' && (
+            {(form.visibilidadMode !== 'hide' || form.publishedAt) && (
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
                 {form.visibilidadMode === 'schedule' && !form.publishAt ? (
@@ -229,9 +230,8 @@ export default function EntregableEditor({
                       (form.publishAt || form.publishedAt || '').split('T')[0] || undefined
                     }
                     minDateTime={
-                      form.visibilidadMode === 'published' ? (form.publishedAt || undefined) :
-                      form.visibilidadMode === 'schedule'  ? (form.publishAt  || undefined) :
-                      undefined
+                      form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
+                      (form.publishedAt || undefined)
                     }
                   />
                 )}

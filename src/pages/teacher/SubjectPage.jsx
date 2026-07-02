@@ -792,7 +792,7 @@ export default function SubjectPage() {
         oculta: activity.oculta || false,
         publishAt: activity.publishAt || '',
         publishedAt: activity.publishedAt || '',
-        visibilidadMode: (activity.publishedAt || !activity.oculta) ? 'published' : activity.publishAt ? 'schedule' : 'hide',
+        visibilidadMode: !activity.oculta ? 'published' : activity.publishAt ? 'schedule' : 'hide',
       },
     })
   }
