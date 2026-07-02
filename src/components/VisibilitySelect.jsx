@@ -81,9 +81,16 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
   }
 
   // New content: publish immediately or schedule. No "hide" option here —
+  // drafts are saved with the "Guardar como borrador" button, and
   // showing/hiding an existing item is the eye icon's job on the card.
   return (
     <div className="space-y-2">
+      {mode === 'hide' && (
+        <div className="p-3 rounded border" style={{ borderColor: '#e2e8f0', background: 'var(--surface-container)' }}>
+          <p className="text-sm font-medium text-on-surface">Borrador</p>
+          <p className="text-xs text-muted">Oculta para estudiantes. Publícala eligiendo una opción abajo, guárdala de nuevo como borrador, o usa el ojito en la asignatura.</p>
+        </div>
+      )}
       <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
         style={{ borderColor: mode === 'show' ? 'var(--accent)' : '#e2e8f0', background: mode === 'show' ? 'var(--accent-light)' : '' }}>
         <input type="radio" name="visibilidad" checked={mode === 'show'}
