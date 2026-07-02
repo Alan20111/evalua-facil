@@ -538,6 +538,12 @@ export default function EvaluacionEditor({
                 {savingInfo ? <Spinner size="sm" /> : null}
                 {savingInfo ? 'Guardando…' : 'Guardar y regresar a la asignatura'}
               </button>
+              {!isNew && (
+                <button type="button" onClick={onClose} disabled={savingInfo}
+                  className="w-full py-2 mt-2 border border-outline-variant text-muted font-medium rounded hover:bg-surface-container transition-colors disabled:opacity-60">
+                  Salir sin guardar cambios
+                </button>
+              )}
             </form>
           )}
           {infoCollapsed && (
