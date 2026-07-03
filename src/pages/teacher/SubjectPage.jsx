@@ -1622,10 +1622,15 @@ export default function SubjectPage() {
                                     {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : 'Entregable'})
                                   </span>
                                 </p>
-                                {(a.fechaLimite || a.publishAt || visState === 'hidden') && (
+                                {(a.publishedAt || a.fechaLimite || a.publishAt || visState === 'hidden') && (
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    {a.publishedAt && (
+                                      <span data-tooltip="Fecha y hora de publicación" className="text-xs text-emerald-600 flex items-center gap-0.5">
+                                        <Clock size={14} /> {formatPublishAt(a.publishedAt)}
+                                      </span>
+                                    )}
                                     {a.publishAt && (
-                                      <span data-tooltip="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
+                                      <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
                                         <Clock size={14} /> {formatPublishAt(a.publishAt)}
                                       </span>
                                     )}

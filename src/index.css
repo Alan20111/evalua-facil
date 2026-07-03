@@ -131,9 +131,12 @@
   font-size: 11px;
   font-weight: 400;
   line-height: 1.3;
-  padding: 3px 6px;
+  padding: 3px 8px;
   border-radius: 2px;
-  max-width: 280px;
+  /* width:max-content lets the box grow wide (up to the cap) instead of
+     wrapping into a tall narrow column inside the tiny badge parent */
+  width: max-content;
+  max-width: 340px;
   white-space: normal;
   text-align: left;
   pointer-events: none;
