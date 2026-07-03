@@ -114,6 +114,8 @@ export default function EvaluacionEditor({
   // something actually changed
   const bancoEditSnap = useRef(null)
   const preguntaEditSnap = useRef(null)
+  // Config baseline — the save button only lights up when something changed
+  const configSnap = useRef(JSON.stringify(EVALUACION_DEFAULTS[categoria] || EVALUACION_DEFAULTS.cuestionario))
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
 
@@ -146,7 +148,11 @@ export default function EvaluacionEditor({
         setWasDraft(!!d.oculta && !d.publishedAt && !d.publishAt)
         setAttachExisting(d.archivosAdjuntos || [])
         setInfoCollapsed(false)
-        if (d.evaluacion) setConfigForm({ ...EVALUACION_DEFAULTS[categoria], ...d.evaluacion })
+        if (d.evaluacion) {
+          const merged = { ...EVALUACION_DEFAULTS[categoria], ...d.evaluacion }
+          setConfigForm(merged)
+          configSnap.current = JSON.stringify(merged)
+        }
       }
       loadPreguntas(activityId)
     } catch (err) {
@@ -178,7 +184,7 @@ export default function EvaluacionEditor({
   // ── Save basic info (create or update) ───────────────────────────
   // asDraft: save hidden with NO publication — a borrador. It only becomes
   // published when the teacher publishes it (here or via the card's eye icon).
-  async function handleSaveInfo(e, asDraft = false) {
+  async function handleSaveInfo(e, asDraft = false, exitAfter = true) {
     e.preventDefault()
     if (!htmlToPlainText(infoForm.instrucciones) && !infoForm.nombre.trim()) {
       toast('Escribe al menos el nombre de la evaluación', 'error'); return
@@ -247,7 +253,14 @@ export default function EvaluacionEditor({
         onActivityUpdated?.({ id: currentActivityId, ...payload })
         toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : wasDraft && mode === 'show' ? 'Evaluación publicada para estudiantes' : 'Cambios guardados')
       }
-      onClose()
+      if (exitAfter) {
+        onClose()
+      } else {
+        // Stay editing: absorb uploads into the existing list and reset the dirty baseline
+        setAttachExisting((prev) => [...prev, ...uploaded])
+        loadedSnapshot.current = JSON.stringify(infoForm)
+        loadedAttachCount.current = attachExisting.length + uploaded.length
+      }
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -269,6 +282,7 @@ export default function EvaluacionEditor({
     setSavingConfig(true)
     try {
       await updateDoc(doc(db, 'activities', currentActivityId), { evaluacion: configForm })
+      configSnap.current = JSON.stringify(configForm)
       toast('Configuración guardada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -633,13 +647,20 @@ export default function EvaluacionEditor({
             individualmente ── */}
         <div className="space-y-2">
           {wasDraft && infoForm.visibilidadMode === 'hide' ? (
-            // Draft with "Borrador" selected: the only save action keeps it as draft
-            <button type="button" disabled={savingInfo || !isDirty}
-              onClick={() => handleSaveInfo({ preventDefault: () => {} }, true)}
-              className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
-              {savingInfo ? <Spinner size="sm" /> : null}
-              {savingInfo ? 'Guardando…' : 'Guardar borrador'}
-            </button>
+            // Draft with "Borrador" selected: save-and-keep-editing or save-and-exit
+            <>
+              <button type="button" disabled={savingInfo || !isDirty}
+                onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, false)}
+                className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+                {savingInfo ? <Spinner size="sm" /> : null}
+                {savingInfo ? 'Guardando…' : 'Guardar borrador'}
+              </button>
+              <button type="button" disabled={savingInfo || !isDirty}
+                onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, true)}
+                className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                Guardar y salir
+              </button>
+            </>
           ) : (
             <>
               <button type="button" disabled={savingInfo || (!wasDraft && !isNew && !isDirty)}
@@ -650,7 +671,7 @@ export default function EvaluacionEditor({
               </button>
               {!infoForm.publishedAt && !wasDraft && (
                 <button type="button" disabled={savingInfo}
-                  onClick={() => handleSaveInfo({ preventDefault: () => {} }, true)}
+                  onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, false)}
                   className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                   Guardar como borrador
                 </button>
@@ -745,8 +766,8 @@ export default function EvaluacionEditor({
                 Mostrar cuál era la respuesta correcta
               </label>
             </div>
-            <button type="submit" disabled={savingConfig || !currentActivityId}
-              className="w-full py-2 bg-surface-container text-on-surface text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2">
+            <button type="submit" disabled={savingConfig || !currentActivityId || JSON.stringify(configForm) === configSnap.current}
+              className={`w-full py-2 text-sm font-medium rounded disabled:opacity-60 flex items-center justify-center gap-2 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
               {savingConfig ? <Spinner size="sm" /> : null}
               {savingConfig ? 'Guardando…' : 'Guardar configuración'}
             </button>
