@@ -38,6 +38,7 @@ import {
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, BookOpen, Paperclip, FileCheck2,
+  ListChecks, GraduationCap,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
@@ -1604,11 +1605,15 @@ export default function SubjectPage() {
                         const counts = submissionCounts[a.id] || {}
                         const visState = activityVisibilityState(a, parcialOculto)
                         const isHidden = visState !== 'visible'
+                        // Distinct icon per activity type so they're recognizable at a glance
+                        const ActIcon = a.categoria === 'examen' ? GraduationCap
+                          : a.categoria === 'cuestionario' ? ListChecks
+                          : FileText
                         return (
                           <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
                             <button type="button" onClick={() => navigate(`/activity/${a.id}`)}
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
-                              <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
+                              <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
                                   {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} · </span>}
