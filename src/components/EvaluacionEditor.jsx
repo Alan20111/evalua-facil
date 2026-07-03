@@ -881,7 +881,7 @@ export default function EvaluacionEditor({
                 onClick={() => handleSaveInfo({ preventDefault: () => {} })}
                 className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
                 {savingInfo ? <Spinner size="sm" /> : null}
-                {savingInfo ? 'Guardando…' : wasDraft ? (infoForm.visibilidadMode === 'schedule' ? 'Guardar y programar' : 'Guardar y publicar') : 'Guardar y regresar a la asignatura'}
+                {savingInfo ? 'Guardando…' : wasDraft ? (infoForm.visibilidadMode === 'schedule' ? 'Guardar' : 'Guardar y publicar') : 'Guardar y regresar a la asignatura'}
               </button>
               {!infoForm.publishedAt && !wasDraft && (
                 <button type="button" disabled={savingInfo}
