@@ -11,10 +11,10 @@ import Placeholder from '@tiptap/extension-placeholder'
 import {
   Bold, Italic, Underline as UnderlineIcon, Baseline, List, ListOrdered,
   AlignLeft, AlignCenter, AlignRight, Link2, Image as ImageIcon,
-  RemoveFormatting, Eye, Pencil, Paperclip,
+  RemoveFormatting, Paperclip,
 } from 'lucide-react'
 import { uploadToCloudinary } from '../utils/cloudinary'
-import { sanitizeHtml, richTextContentClass } from '../utils/sanitizeHtml'
+import { richTextContentClass } from '../utils/sanitizeHtml'
 import AttachmentList from './AttachmentList'
 
 // Reusable rich-text editor: a deliberately small toolbar (bold, italic,
@@ -46,7 +46,6 @@ async function insertImageFile(editor, file) {
 // dedicated file dropzone) the attach button and the "Archivos adjuntos"
 // block simply don't render, so this stays a no-op for every other caller.
 export default function RichTextEditor({ value, onChange, placeholder, attachments, onAttachFiles, onRemoveAttachment }) {
-  const [showPreview, setShowPreview] = useState(false)
 
   const editor = useEditor({
     extensions: [
@@ -213,23 +212,9 @@ export default function RichTextEditor({ value, onChange, placeholder, attachmen
           </>
         )}
 
-        <span className="flex-1" />
-
-        <button type="button" data-tooltip={showPreview ? 'Editar' : 'Vista previa'}
-          className={`${TOOLBAR_BTN} ${showPreview ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
-          onClick={() => setShowPreview((v) => !v)}>
-          {showPreview ? <Pencil size={16} /> : <Eye size={16} />}
-        </button>
       </div>
 
-      {showPreview ? (
-        <div
-          className={`p-3 min-h-[160px] max-h-[40vh] overflow-y-auto ${richTextContentClass}`}
-          dangerouslySetInnerHTML={{ __html: value ? sanitizeHtml(value) : '<p class="text-slate-400">Sin contenido</p>' }}
-        />
-      ) : (
-        <EditorContent editor={editor} className="p-3 max-h-[40vh] overflow-y-auto" />
-      )}
+      <EditorContent editor={editor} className="p-3 max-h-[40vh] overflow-y-auto" />
 
       {onAttachFiles && (
         <div className="px-3 pb-3">
