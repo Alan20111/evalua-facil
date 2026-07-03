@@ -37,7 +37,7 @@ import {
   FileSpreadsheet, Search,
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
-  Eye, EyeOff, BookOpen, Paperclip, FileCheck2,
+  Eye, EyeOff, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
@@ -1641,14 +1641,19 @@ export default function SubjectPage() {
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <span
-                                  data-tooltip={`Entregas\n${counts.delivered} de ${totalStudents} alumno${totalStudents !== 1 ? 's' : ''} ya entregaron su actividad.\n${totalStudents - counts.delivered} alumno${(totalStudents - counts.delivered) !== 1 ? 's' : ''} aún no realizan la entrega.`}
+                                  data-tooltip={`${counts.delivered} alumno${counts.delivered !== 1 ? 's entregaron' : ' entregó'}`}
                                   className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <FileCheck2 size={11} /> {counts.delivered}/{totalStudents}
+                                  <FileCheck2 size={11} /> {counts.delivered}
                                 </span>
                                 <span
-                                  data-tooltip={`Calificaciones\n${counts.graded} entrega${counts.graded !== 1 ? 's' : ''} ya fue${counts.graded !== 1 ? 'ron' : ''} calificada${counts.graded !== 1 ? 's' : ''}.\n${counts.delivered - counts.graded} entrega${(counts.delivered - counts.graded) !== 1 ? 's' : ''} está${(counts.delivered - counts.graded) !== 1 ? 'n' : ''} pendiente${(counts.delivered - counts.graded) !== 1 ? 's' : ''} de calificación.`}
+                                  data-tooltip={`${counts.graded} ${counts.graded !== 1 ? 'actividades calificadas' : 'actividad calificada'}`}
                                   className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <CheckCircle size={13} /> {counts.graded}/{counts.delivered}
+                                  <CheckCircle size={11} /> {counts.graded}
+                                </span>
+                                <span
+                                  data-tooltip={`${totalStudents - counts.delivered} alumno${(totalStudents - counts.delivered) !== 1 ? 's pendientes' : ' pendiente'}`}
+                                  className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                  <Timer size={11} /> {totalStudents - counts.delivered}
                                 </span>
                               </div>
                             </button>

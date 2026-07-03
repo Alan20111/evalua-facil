@@ -134,7 +134,7 @@
   padding: 3px 6px;
   border-radius: 2px;
   max-width: 280px;
-  white-space: pre-line;
+  white-space: normal;
   text-align: left;
   pointer-events: none;
   opacity: 0;
