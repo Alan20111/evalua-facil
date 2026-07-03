@@ -106,11 +106,14 @@ export default function EvaluacionEditor({
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
   const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')
-  // Keeps the just-edited item highlighted after Guardar/Cancelar so the
-  // teacher doesn't lose track of it in the list
-  const [lastEditedBancoId, setLastEditedBancoId] = useState(null)
-  // Same afterglow for a freshly created reactivo in the preguntas list
-  const [lastAddedPreguntaId, setLastAddedPreguntaId] = useState(null)
+  // Single afterglow: at most ONE reactivo (bank or preguntas list) keeps
+  // the accent highlight — the most recently edited/created one. Starting a
+  // new edit/creation moves the focus there.
+  const [glowId, setGlowId] = useState(null)
+  // Snapshots taken when an edit form opens — Guardar stays disabled until
+  // something actually changed
+  const bancoEditSnap = useRef(null)
+  const preguntaEditSnap = useRef(null)
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
 
@@ -321,7 +324,7 @@ export default function EvaluacionEditor({
       const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
       const updated = [...preguntas, { id: ref.id, ...data }]
       setPreguntas(updated)
-      setLastAddedPreguntaId(ref.id)
+      setGlowId(ref.id)
       await syncNumPreguntas(updated.length)
       if (preguntaForm.guardarEnBanco) {
         // already imported at top
@@ -352,6 +355,16 @@ export default function EvaluacionEditor({
       vfRespuesta: p.tipo === 'verdadero_falso' ? (p.respuestaCorrecta || 'v') : 'v',
       ponderacion: p.ponderacion ?? 1, imagenFile: null,
     })
+    setGlowId(null)
+    preguntaEditSnap.current = JSON.stringify({
+      tipo: p.tipo, enunciado: p.enunciado, retroalimentacion: p.retroalimentacion || '',
+      opciones: p.tipo === 'opcion_multiple'
+        ? { a: p.opciones?.[0]?.texto || '', b: p.opciones?.[1]?.texto || '', c: p.opciones?.[2]?.texto || '', d: p.opciones?.[3]?.texto || '' }
+        : { a: '', b: '', c: '', d: '' },
+      respuestaCorrecta: p.tipo === 'opcion_multiple' ? (p.respuestaCorrecta || 'a') : 'a',
+      vfRespuesta: p.tipo === 'verdadero_falso' ? (p.respuestaCorrecta || 'v') : 'v',
+      ponderacion: p.ponderacion ?? 1, imagenFile: null,
+    })
   }
 
   async function handleSavePreguntaEdit(e, id) {
@@ -369,7 +382,7 @@ export default function EvaluacionEditor({
       const data = { ...buildPreguntaData(preguntaEditForm), imagenUrl }
       await updateDoc(doc(db, 'activities', currentActivityId, 'preguntas', id), data)
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
-      setEditingPreguntaId(null); toast('Pregunta actualizada')
+      setEditingPreguntaId(null); setGlowId(id); toast('Pregunta actualizada')
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
   }
@@ -390,7 +403,7 @@ export default function EvaluacionEditor({
     const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
     const updated = [...preguntas, { id: ref.id, ...data }]
     setPreguntas(updated)
-    setLastAddedPreguntaId(ref.id)
+    setGlowId(ref.id)
     await syncNumPreguntas(updated.length)
     toast('Pregunta duplicada')
   }
@@ -421,7 +434,7 @@ export default function EvaluacionEditor({
     const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
     const updated = [...preguntas, { id: ref.id, ...data }]
     setPreguntas(updated)
-    setLastAddedPreguntaId(ref.id)
+    setGlowId(ref.id)
     await syncNumPreguntas(updated.length)
     toast('Pregunta agregada desde tu banco')
   }
@@ -444,6 +457,15 @@ export default function EvaluacionEditor({
       respuestaCorrecta: item.tipo === 'opcion_multiple' ? (item.respuestaCorrecta || 'a') : 'a',
       vfRespuesta: item.tipo === 'verdadero_falso' ? (item.respuestaCorrecta || 'v') : 'v',
     })
+    setGlowId(null)
+    bancoEditSnap.current = JSON.stringify({
+      tipo: item.tipo, enunciado: item.enunciado, tema: item.tema || '',
+      opciones: item.tipo === 'opcion_multiple'
+        ? { a: item.opciones?.[0]?.texto || '', b: item.opciones?.[1]?.texto || '', c: item.opciones?.[2]?.texto || '', d: item.opciones?.[3]?.texto || '' }
+        : { a: '', b: '', c: '', d: '' },
+      respuestaCorrecta: item.tipo === 'opcion_multiple' ? (item.respuestaCorrecta || 'a') : 'a',
+      vfRespuesta: item.tipo === 'verdadero_falso' ? (item.respuestaCorrecta || 'v') : 'v',
+    })
   }
 
   async function handleSaveBancoEdit(id) {
@@ -451,7 +473,7 @@ export default function EvaluacionEditor({
     const data = buildPreguntaData({ ...bancoEditForm, ponderacion: 1, retroalimentacion: '' })
     await updateDoc(doc(db, 'bancoReactivos', id), { tipo: data.tipo, enunciado: data.enunciado, opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta, tema: bancoEditForm.tema.trim() || null })
     setBanco((prev) => prev.map((b) => b.id === id ? { ...b, tipo: data.tipo, enunciado: data.enunciado, opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta, tema: bancoEditForm.tema.trim() || null } : b))
-    setEditingBancoId(null); setLastEditedBancoId(id); toast('Pregunta del banco actualizada')
+    setEditingBancoId(null); setGlowId(id); toast('Pregunta del banco actualizada')
   }
 
   async function handleDeleteBancoItem(id) {
@@ -755,7 +777,7 @@ export default function EvaluacionEditor({
 
                 {preguntas.map((p, i) => (
                   <div key={p.id} className="border rounded-card"
-                    style={p.id === lastAddedPreguntaId
+                    style={p.id === glowId
                       ? { borderColor: 'var(--accent)', background: 'var(--accent-light)' }
                       : { borderColor: 'var(--outline-variant)' }}>
                     {editingPreguntaId === p.id ? (
@@ -807,8 +829,8 @@ export default function EvaluacionEditor({
                             className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                         </div>
                         <div className="flex gap-2 pt-1">
-                          <button type="button" onClick={() => setEditingPreguntaId(null)} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                          <button type="submit" disabled={savingPregunta} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                          <button type="button" onClick={() => { setEditingPreguntaId(null); setGlowId(p.id) }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                          <button type="submit" disabled={savingPregunta || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                             {savingPregunta ? 'Guardando…' : 'Guardar cambios'}
                           </button>
                         </div>
@@ -926,7 +948,7 @@ export default function EvaluacionEditor({
                 ) : (
                   <div className="pt-2 mt-2 border-t border-outline-variant">
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => setShowPreguntaForm(true)}
+                      <button type="button" onClick={() => { setGlowId(null); setShowPreguntaForm(true) }}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm bg-accent text-white font-medium rounded-card">
                         <Plus size={15} /> Crear reactivo nuevo
                       </button>
@@ -948,7 +970,7 @@ export default function EvaluacionEditor({
       {/* ── Banco modal ── */}
       {showBanco && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null); setLastEditedBancoId(null) }} />
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} />
           <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card shadow-2xl flex flex-col" style={{height: 'min(90vh, 700px)'}}>
             {/* Header fijo */}
             <div className="p-4 border-b border-outline-variant flex-shrink-0">
@@ -986,7 +1008,7 @@ export default function EvaluacionEditor({
                     <div key={item.id} className="rounded border p-3"
                       style={editingBancoId === item.id
                         ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
-                        : lastEditedBancoId === item.id
+                        : glowId === item.id
                           ? { borderColor: 'var(--accent)', background: 'var(--accent-light)' }
                           : { borderColor: 'var(--outline-variant)' }}>
                       {editingBancoId === item.id ? (
@@ -1017,9 +1039,10 @@ export default function EvaluacionEditor({
                           <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
                             placeholder="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                           <div className="flex gap-2">
-                            <button type="button" onClick={() => { setEditingBancoId(null); setLastEditedBancoId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
+                            <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                             <button type="button" onClick={() => handleSaveBancoEdit(item.id)}
-                              className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded">Guardar</button>
+                              disabled={JSON.stringify(bancoEditForm) === bancoEditSnap.current}
+                              className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-50">Guardar</button>
                           </div>
                         </div>
                       ) : (
@@ -1067,7 +1090,7 @@ export default function EvaluacionEditor({
 
             {/* Footer fijo */}
             <div className="p-3 border-t border-outline-variant flex-shrink-0">
-              <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setLastEditedBancoId(null) }} className="w-full py-2 text-sm text-muted">Cerrar</button>
+              <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} className="w-full py-2 text-sm text-muted">Cerrar</button>
             </div>
           </div>
         </div>

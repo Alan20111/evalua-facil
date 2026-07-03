@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
@@ -68,11 +68,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
   const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')
-  // Keeps the just-edited item highlighted after Guardar/Cancelar so the
-  // teacher doesn't lose track of it in the list
-  const [lastEditedBancoId, setLastEditedBancoId] = useState(null)
-  // Same afterglow for a freshly created reactivo in the preguntas list
-  const [lastAddedPreguntaId, setLastAddedPreguntaId] = useState(null)
+  // Single afterglow: at most ONE reactivo (bank or preguntas list) keeps
+  // the accent highlight — the most recently edited/created one. Starting a
+  // new edit/creation moves the focus there.
+  const [glowId, setGlowId] = useState(null)
+  // Snapshots taken when an edit form opens — Guardar stays disabled until
+  // something actually changed
+  const bancoEditSnap = useRef(null)
+  const preguntaEditSnap = useRef(null)
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
   const [configForm, setConfigForm] = useState(activity.evaluacion)
@@ -155,7 +158,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       const data = { ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null }
       const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
       setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
-      setLastAddedPreguntaId(ref.id)
+      setGlowId(ref.id)
       await syncNumPreguntas(preguntas.length + 1)
       if (preguntaForm.guardarEnBanco) {
         await addDoc(collection(db, 'bancoReactivos'), {
@@ -188,7 +191,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       }
       const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
       setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
-      setLastAddedPreguntaId(ref.id)
+      setGlowId(ref.id)
       await syncNumPreguntas(preguntas.length + 1)
       toast('Pregunta agregada desde tu banco')
     } catch (err) {
@@ -225,6 +228,19 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       retroalimentacion: p.retroalimentacion || '',
       imagenFile: null,
     })
+    setGlowId(null)
+    preguntaEditSnap.current = JSON.stringify({
+      tipo: p.tipo,
+      enunciado: p.enunciado,
+      opciones: p.tipo === 'opcion_multiple'
+        ? { a: p.opciones?.[0]?.texto || '', b: p.opciones?.[1]?.texto || '', c: p.opciones?.[2]?.texto || '', d: p.opciones?.[3]?.texto || '' }
+        : { a: '', b: '', c: '', d: '' },
+      respuestaCorrecta: p.tipo === 'opcion_multiple' ? (p.respuestaCorrecta || 'a') : 'a',
+      vfRespuesta: p.tipo === 'verdadero_falso' ? (p.respuestaCorrecta || 'v') : 'v',
+      ponderacion: p.ponderacion ?? 1,
+      retroalimentacion: p.retroalimentacion || '',
+      imagenFile: null,
+    })
   }
 
   async function handleSavePreguntaEdit(e, id) {
@@ -240,6 +256,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       await updateDoc(doc(db, 'activities', activityId, 'preguntas', id), data)
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
       setEditingPreguntaId(null)
+      setGlowId(id)
       toast('Pregunta actualizada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -259,7 +276,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       }
       const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
       setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
-      setLastAddedPreguntaId(ref.id)
+      setGlowId(ref.id)
       await syncNumPreguntas(preguntas.length + 1)
       toast('Pregunta duplicada')
     } catch (err) {
@@ -311,6 +328,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       vfRespuesta: item.tipo === 'verdadero_falso' ? (item.respuestaCorrecta || 'v') : 'v',
       tema: item.tema || '',
     })
+    setGlowId(null)
+    bancoEditSnap.current = JSON.stringify({
+      tipo: item.tipo, enunciado: item.enunciado,
+      opciones: item.tipo === 'opcion_multiple'
+        ? { a: item.opciones?.[0]?.texto || '', b: item.opciones?.[1]?.texto || '', c: item.opciones?.[2]?.texto || '', d: item.opciones?.[3]?.texto || '' }
+        : { a: '', b: '', c: '', d: '' },
+      respuestaCorrecta: item.tipo === 'opcion_multiple' ? (item.respuestaCorrecta || 'a') : 'a',
+      vfRespuesta: item.tipo === 'verdadero_falso' ? (item.respuestaCorrecta || 'v') : 'v',
+      tema: item.tema || '',
+    })
   }
 
   async function handleSaveBancoEdit(id) {
@@ -324,7 +351,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       })
       setBanco((prev) => prev.map((b) => b.id === id ? { ...b, tipo: data.tipo, enunciado: data.enunciado, opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta, tema: bancoEditForm.tema.trim() || null } : b))
       setEditingBancoId(null)
-      setLastEditedBancoId(id)
+      setGlowId(id)
       toast('Pregunta del banco actualizada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -503,7 +530,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 {preguntas.length === 0 && <p className="text-sm text-slate-400 text-center py-6">Aún no hay preguntas</p>}
                 {preguntas.map((p, i) => (
                   <div key={p.id} className="bg-surface-card rounded-card shadow-card p-3"
-                    style={p.id === lastAddedPreguntaId
+                    style={p.id === glowId
                       ? { border: '1px solid var(--accent)', background: 'var(--accent-light)' }
                       : undefined}>
                     {editingPreguntaId === p.id ? (
@@ -556,8 +583,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           {preguntaEditForm.imagenFile && <span className="text-xs text-accent">{preguntaEditForm.imagenFile.name}</span>}
                         </label>
                         <div className="flex gap-2 pt-1">
-                          <button type="button" onClick={() => setEditingPreguntaId(null)} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
-                          <button type="submit" disabled={saving} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+                          <button type="button" onClick={() => { setEditingPreguntaId(null); setGlowId(p.id) }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                          <button type="submit" disabled={saving || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                             {saving ? 'Guardando…' : 'Guardar cambios'}
                           </button>
                         </div>
@@ -602,7 +629,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
             {!showPreguntaForm ? (
               <div className="flex gap-2">
-                <button type="button" onClick={() => setShowPreguntaForm(true)} className="flex-1 flex items-center justify-center gap-1 py-2 bg-accent text-white text-sm font-medium rounded">
+                <button type="button" onClick={() => { setGlowId(null); setShowPreguntaForm(true) }} className="flex-1 flex items-center justify-center gap-1 py-2 bg-accent text-white text-sm font-medium rounded">
                   <Plus size={17} /> Agregar pregunta
                 </button>
                 <button type="button" onClick={() => setShowBanco(true)} className="flex items-center justify-center gap-1 px-3 py-2 border border-accent text-accent text-sm font-medium rounded">
@@ -697,7 +724,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
             {showBanco && (
               <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-                <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null); setLastEditedBancoId(null) }} />
+                <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} />
                 <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
                   <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
                   <div className="flex gap-2 mb-3">
@@ -731,7 +758,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         <div key={item.id} className="rounded border p-2"
                           style={editingBancoId === item.id
                             ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
-                            : lastEditedBancoId === item.id
+                            : glowId === item.id
                               ? { borderColor: 'var(--accent)', background: 'var(--accent-light)' }
                               : { borderColor: 'var(--outline-variant)' }}>
                           {editingBancoId === item.id ? (
@@ -773,8 +800,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
                                 placeholder="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                               <div className="flex gap-2">
-                                <button type="button" onClick={() => { setEditingBancoId(null); setLastEditedBancoId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
-                                <button type="button" onClick={() => handleSaveBancoEdit(item.id)} disabled={saving}
+                                <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
+                                <button type="button" onClick={() => handleSaveBancoEdit(item.id)} disabled={saving || JSON.stringify(bancoEditForm) === bancoEditSnap.current}
                                   className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">Guardar</button>
                               </div>
                             </div>
@@ -801,7 +828,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       ))}
                     </div>
                   )}
-                  <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setLastEditedBancoId(null) }} className="w-full mt-3 py-2 text-sm text-muted">Cerrar</button>
+                  <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} className="w-full mt-3 py-2 text-sm text-muted">Cerrar</button>
                 </div>
               </div>
             )}
