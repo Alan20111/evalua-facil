@@ -269,8 +269,11 @@ export default function EntregableEditor({
             </button>
           )}
           {!isNew && (
+            // With no changes, exiting is the natural action — it takes the primary style
             <button type="button" onClick={onClose} disabled={saving}
-              className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">
+              className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && !wasDraft)
+                ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
+                : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
               Salir sin guardar cambios
             </button>
           )}
