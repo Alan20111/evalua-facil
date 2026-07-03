@@ -229,6 +229,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       imagenFile: null,
     })
     setGlowId(null)
+    // Bring the chosen reactivo to the top so the edit form is fully visible
+    setTimeout(() => document.getElementById(`preg-item-${p.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
     preguntaEditSnap.current = JSON.stringify({
       tipo: p.tipo,
       enunciado: p.enunciado,
@@ -329,6 +331,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       tema: item.tema || '',
     })
     setGlowId(null)
+    // Bring the chosen reactivo to the top so the edit form is fully visible
+    setTimeout(() => document.getElementById(`banco-item-${item.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
     bancoEditSnap.current = JSON.stringify({
       tipo: item.tipo, enunciado: item.enunciado,
       opciones: item.tipo === 'opcion_multiple'
@@ -529,12 +533,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <div className="space-y-2 mb-3">
                 {preguntas.length === 0 && <p className="text-sm text-slate-400 text-center py-6">Aún no hay preguntas</p>}
                 {preguntas.map((p, i) => (
-                  <div key={p.id} className="bg-surface-card rounded-card shadow-card p-3"
-                    style={p.id === glowId
-                      ? { border: '1px solid var(--accent)', background: 'var(--accent-light)' }
-                      : undefined}>
+                  <div key={p.id} id={`preg-item-${p.id}`} className="bg-surface-card rounded-card shadow-card p-3"
+                    style={editingPreguntaId === p.id
+                      ? { border: '2px solid var(--accent)', background: 'var(--accent-light)' }
+                      : p.id === glowId
+                        ? { border: '1px solid var(--accent)', background: 'var(--accent-light)' }
+                        : undefined}>
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
                         <div>
                           <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                           <select value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
@@ -755,7 +762,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   ) : (
                     <div className="space-y-1.5">
                       {bancoFiltrado.map((item) => (
-                        <div key={item.id} className="rounded border p-2"
+                        <div key={item.id} id={`banco-item-${item.id}`} className="rounded border p-2"
                           style={editingBancoId === item.id
                             ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
                             : glowId === item.id

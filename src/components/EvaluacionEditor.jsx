@@ -356,6 +356,8 @@ export default function EvaluacionEditor({
       ponderacion: p.ponderacion ?? 1, imagenFile: null,
     })
     setGlowId(null)
+    // Bring the chosen reactivo to the top so the edit form is fully visible
+    setTimeout(() => document.getElementById(`preg-item-${p.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
     preguntaEditSnap.current = JSON.stringify({
       tipo: p.tipo, enunciado: p.enunciado, retroalimentacion: p.retroalimentacion || '',
       opciones: p.tipo === 'opcion_multiple'
@@ -458,6 +460,8 @@ export default function EvaluacionEditor({
       vfRespuesta: item.tipo === 'verdadero_falso' ? (item.respuestaCorrecta || 'v') : 'v',
     })
     setGlowId(null)
+    // Bring the chosen reactivo to the top so the edit form is fully visible
+    setTimeout(() => document.getElementById(`banco-item-${item.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
     bancoEditSnap.current = JSON.stringify({
       tipo: item.tipo, enunciado: item.enunciado, tema: item.tema || '',
       opciones: item.tipo === 'opcion_multiple'
@@ -776,12 +780,15 @@ export default function EvaluacionEditor({
                 )}
 
                 {preguntas.map((p, i) => (
-                  <div key={p.id} className="border rounded-card"
-                    style={p.id === glowId
-                      ? { borderColor: 'var(--accent)', background: 'var(--accent-light)' }
-                      : { borderColor: 'var(--outline-variant)' }}>
+                  <div key={p.id} id={`preg-item-${p.id}`} className="border rounded-card"
+                    style={editingPreguntaId === p.id
+                      ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
+                      : p.id === glowId
+                        ? { borderColor: 'var(--accent)', background: 'var(--accent-light)' }
+                        : { borderColor: 'var(--outline-variant)' }}>
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="p-4 space-y-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
                         <div>
                           <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                           <select value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
@@ -1005,7 +1012,7 @@ export default function EvaluacionEditor({
               ) : (
                 <div className="space-y-2">
                   {bancoFiltrado.map((item) => (
-                    <div key={item.id} className="rounded border p-3"
+                    <div key={item.id} id={`banco-item-${item.id}`} className="rounded border p-3"
                       style={editingBancoId === item.id
                         ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
                         : glowId === item.id
