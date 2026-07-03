@@ -2321,6 +2321,11 @@ export default function SubjectPage() {
             <div className="flex gap-2">
               <button type="button" onClick={() => setPublishDraftConfirm(null)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <button type="button"
+                onClick={() => { const a = publishDraftConfirm; setPublishDraftConfirm(null); openEdit(a, activityLabelById[a.id]) }}
+                className="flex-1 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-1.5">
+                <Pencil size={14} /> Editar
+              </button>
               <button type="button" onClick={publishDraftNow}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover flex items-center justify-center gap-2">
                 <Eye size={16} /> Publicar
