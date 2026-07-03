@@ -34,6 +34,7 @@ export default function VerifyEmail() {
     }
 
     verify(uid, token)
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [authLoading, currentUser])
 
   async function verify(uid, token) {
@@ -91,6 +92,7 @@ export default function VerifyEmail() {
               Puedes pedir uno nuevo desde el dashboard.
             </p>
             <button
+              type="button"
               onClick={() => navigate('/dashboard', { replace: true })}
               className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors"
             >
@@ -114,6 +116,7 @@ export default function VerifyEmail() {
               Inicia sesión con la cuenta correcta.
             </p>
             <button
+              type="button"
               onClick={() => navigate('/docente', { replace: true })}
               className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors"
             >

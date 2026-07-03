@@ -165,7 +165,7 @@ function MonthView({ year, month, events, onDateClick, onEventClick }) {
 
           return (
             <div
-              key={i}
+              key={dateStr}
               onClick={() => onDateClick?.(cell)}
               className={`min-h-[88px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
             >
@@ -221,7 +221,7 @@ function WeekView({ weekStart, events, horario, subjects }) {
           {days.map((d, i) => {
             const dStr = toDateStr(d)
             return (
-              <div key={i} className="py-2 text-center text-xs border-l border-outline-variant">
+              <div key={dStr} className="py-2 text-center text-xs border-l border-outline-variant">
                 <span className="block uppercase text-muted">{DIAS_CORTO[i]}</span>
                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold mt-0.5 ${dStr === todayStr ? 'bg-accent text-white' : 'text-on-surface'}`}>
                   {d.getDate()}
@@ -244,7 +244,7 @@ function WeekView({ weekStart, events, horario, subjects }) {
               const isFirstHorHour = (b) => parseInt(b.horaInicio.split(':')[0]) === hour
 
               return (
-                <div key={i} className="border-l border-outline-variant p-0.5 space-y-0.5 min-h-[52px]">
+                <div key={dStr} className="border-l border-outline-variant p-0.5 space-y-0.5 min-h-[52px]">
                   {horBlocks.filter(isFirstHorHour).map(b => {
                     const subj = subjects[b.asignaturaId]
                     const pal = subjectColors(subj)
@@ -453,18 +453,19 @@ export default function CalendarPage() {
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {/* Date navigator */}
           <div className="flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
-            <button onClick={prev} className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
+            <button type="button" onClick={prev} className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
               <ChevronLeft size={16} />
             </button>
             <span className="text-sm font-semibold text-on-surface px-3 min-w-[180px] text-center select-none">
               {navLabel()}
             </span>
-            <button onClick={next} className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
+            <button type="button" onClick={next} className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
               <ChevronRight size={16} />
             </button>
           </div>
 
           <button
+            type="button"
             onClick={goToday}
             className="text-xs px-3 py-1.5 rounded border border-outline-variant text-muted hover:bg-accent-tint transition-colors"
           >
@@ -478,6 +479,7 @@ export default function CalendarPage() {
           <div className="flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
             {VIEWS.map(({ id, label, Icon }) => (
               <button
+                type="button"
                 key={id}
                 onClick={() => changeView(id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${view === id ? 'bg-accent text-white' : 'text-muted hover:bg-accent-tint'}`}
@@ -489,6 +491,7 @@ export default function CalendarPage() {
 
           {/* Actions */}
           <button
+            type="button"
             onClick={() => setShowHorario(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
             data-tooltip="Configurar horario de clases"
@@ -496,6 +499,7 @@ export default function CalendarPage() {
             <BookOpen size={15} /> Mi Horario
           </button>
           <button
+            type="button"
             onClick={() => openNewEvent(null)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-card bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
           >

@@ -48,7 +48,7 @@ function BarChart({ items, labelKey, valueKey, maxBars = 10 }) {
         <p className="text-sm text-slate-400">Sin datos</p>
       ) : (
         data.map((item, i) => (
-          <div key={i} className="flex items-center gap-3">
+          <div key={item[labelKey]} className="flex items-center gap-3">
             <span className="text-xs text-muted w-28 md:w-40 truncate flex-shrink-0">
               {item[labelKey]}
             </span>

@@ -123,6 +123,7 @@ export default function EvaluacionRunner() {
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   useEffect(() => { if (currentUser) load() }, [activityId, currentUser])
 
   async function handleSelectOpcion(preguntaId, opcionId) {
@@ -204,7 +205,7 @@ export default function EvaluacionRunner() {
     }
     const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000)
     return () => clearTimeout(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps
   }, [secondsLeft])
 
   if (loading || !activity) return (
@@ -251,7 +252,7 @@ export default function EvaluacionRunner() {
                   <Timer size={16} /> {mm}:{String(ss).padStart(2, '0')}
                 </span>
               )}
-              <button onClick={() => setShowExitModal(true)}
+              <button type="button" onClick={() => setShowExitModal(true)}
                 className="flex items-center gap-1 text-xs text-white/70 hover:text-white border border-white/30 rounded px-2 py-1 hover:bg-white/10">
                 <LogOut size={13} /> Salir
               </button>
@@ -275,11 +276,11 @@ export default function EvaluacionRunner() {
                 <p className="text-sm text-muted mb-3">Esta evaluación no tiene límite de tiempo.</p>
               )}
               <div className="flex gap-2">
-                <button onClick={() => setShowExitModal(false)}
+                <button type="button" onClick={() => setShowExitModal(false)}
                   className="flex-1 py-2 text-sm text-muted border border-outline-variant rounded">
                   Continuar respondiendo
                 </button>
-                <button onClick={() => navigate(`/alumno/actividad/${activityId}`)}
+                <button type="button" onClick={() => navigate(`/alumno/actividad/${activityId}`)}
                   className="flex-1 py-2 text-sm font-medium bg-error text-white rounded">
                   Salir ahora
                 </button>

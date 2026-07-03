@@ -3,6 +3,13 @@
 @tailwind utilities;
 
 @layer base {
+  /* Escala global ~10% abajo. font-size en lugar de zoom: zoom desplaza
+     position:fixed y getBoundingClientRect (popovers/modales recortados
+     y con scroll fantasma); font-size escala todo el sizing rem de
+     Tailwind sin tocar el sistema de coordenadas del viewport. */
+  html {
+    font-size: 90%;
+  }
   body {
     @apply bg-surface text-on-surface font-sans antialiased;
   }

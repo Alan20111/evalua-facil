@@ -223,6 +223,7 @@ export default function TeacherDashboard() {
                   >
                     <div className="flex flex-col flex-shrink-0">
                       <button
+                        type="button"
                         onClick={() => moveSubject(i, -1)}
                         disabled={i === 0}
                         data-tooltip="Subir"
@@ -231,6 +232,7 @@ export default function TeacherDashboard() {
                         <ArrowUp size={16} />
                       </button>
                       <button
+                        type="button"
                         onClick={() => moveSubject(i, 1)}
                         disabled={i === subjects.length - 1}
                         data-tooltip="Bajar"
@@ -240,6 +242,7 @@ export default function TeacherDashboard() {
                       </button>
                     </div>
                     <button
+                      type="button"
                       onClick={() => navigate(`/subject/${s.id}`)}
                       className="flex-1 min-w-0 text-left flex items-center gap-2"
                     >
@@ -272,6 +275,7 @@ export default function TeacherDashboard() {
 
       {/* FAB — create subject (mobile only; on web use the sidebar's "Nueva asignatura") */}
       <button
+        type="button"
         onClick={openSubjectModal}
         className="md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
       >
@@ -285,7 +289,7 @@ export default function TeacherDashboard() {
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
-              <button onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-muted rounded">
+              <button type="button" onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-muted rounded">
                 <X size={20} />
               </button>
             </div>

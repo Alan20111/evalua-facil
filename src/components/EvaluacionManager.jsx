@@ -443,7 +443,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     <div>
       <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate(`/subject/${activity.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
+          <button type="button" onClick={() => navigate(`/subject/${activity.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -458,7 +458,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         {!resultadosOnly && (
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
             {TABS.map((t) => (
-              <button key={t.key} onClick={() => { setTab(t.key); if (t.key === 'preguntas') loadBanco() }}
+              <button type="button" key={t.key} onClick={() => { setTab(t.key); if (t.key === 'preguntas') loadBanco() }}
                 className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${tab === t.key ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
                 {t.label}
               </button>
@@ -543,13 +543,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             <p className="text-sm font-medium text-on-surface">{i + 1}. {p.enunciado}</p>
                           </div>
                           <div className="flex gap-0.5 flex-shrink-0">
-                            <button onClick={() => handleMovePregunta(p.id, 'up')} disabled={i === 0}
+                            <button type="button" onClick={() => handleMovePregunta(p.id, 'up')} disabled={i === 0}
                               className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded"><ChevronUp size={15} /></button>
-                            <button onClick={() => handleMovePregunta(p.id, 'down')} disabled={i === preguntas.length - 1}
+                            <button type="button" onClick={() => handleMovePregunta(p.id, 'down')} disabled={i === preguntas.length - 1}
                               className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded"><ChevronDown size={15} /></button>
-                            <button onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={15} /></button>
-                            <button onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={15} /></button>
-                            <button onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={15} /></button>
+                            <button type="button" onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={15} /></button>
+                            <button type="button" onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={15} /></button>
+                            <button type="button" onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={15} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded border border-outline-variant" />}
@@ -573,10 +573,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
             {!showPreguntaForm ? (
               <div className="flex gap-2">
-                <button onClick={() => setShowPreguntaForm(true)} className="flex-1 flex items-center justify-center gap-1 py-2 bg-accent text-white text-sm font-medium rounded">
+                <button type="button" onClick={() => setShowPreguntaForm(true)} className="flex-1 flex items-center justify-center gap-1 py-2 bg-accent text-white text-sm font-medium rounded">
                   <Plus size={17} /> Agregar pregunta
                 </button>
-                <button onClick={() => setShowBanco(true)} className="flex items-center justify-center gap-1 px-3 py-2 border border-accent text-accent text-sm font-medium rounded">
+                <button type="button" onClick={() => setShowBanco(true)} className="flex items-center justify-center gap-1 px-3 py-2 border border-accent text-accent text-sm font-medium rounded">
                   <Library size={17} /> Mi banco
                 </button>
               </div>
@@ -730,15 +730,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             </div>
                           ) : (
                             <div className="flex items-start gap-2">
-                              <button onClick={() => handleAddFromBanco(item)} disabled={saving}
+                              <button type="button" onClick={() => handleAddFromBanco(item)} disabled={saving}
                                 className="flex-1 text-left text-sm hover:text-accent transition-colors disabled:opacity-50">
                                 {item.enunciado}
                                 {item.tema && <span className="block text-xs text-slate-400 mt-0.5">{item.tema}</span>}
                               </button>
                               <div className="flex gap-1 flex-shrink-0">
-                                <button onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={14} /></button>
-                                <button onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={14} /></button>
-                                <button onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={14} /></button>
+                                <button type="button" onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={14} /></button>
+                                <button type="button" onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={14} /></button>
+                                <button type="button" onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={14} /></button>
                               </div>
                             </div>
                           )}
@@ -746,7 +746,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       ))}
                     </div>
                   )}
-                  <button onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full mt-3 py-2 text-sm text-muted">Cerrar</button>
+                  <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full mt-3 py-2 text-sm text-muted">Cerrar</button>
                 </div>
               </div>
             )}
@@ -810,6 +810,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             {configForm.publicarResultados === 'fecha' && (
               <EFDateTimePicker
                 mode="datetime"
+                headerLabel="Fecha y hora de publicación de resultados"
                 value={configForm.publicarResultadosFecha || ''}
                 onChange={v => setConfigForm(f => ({ ...f, publicarResultadosFecha: v }))}
                 placeholder="Elegir fecha de publicación…"
@@ -847,7 +848,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               ))}
             </div>
             {configForm?.publicarResultados === 'manual' && !configForm.resultadosPublicados && (
-              <button onClick={handlePublicarResultados} className="w-full mb-3 py-2 bg-accent text-white text-sm font-medium rounded">
+              <button type="button" onClick={handlePublicarResultados} className="w-full mb-3 py-2 bg-accent text-white text-sm font-medium rounded">
                 Publicar resultados a tus estudiantes
               </button>
             )}
@@ -877,7 +878,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         </p>
                       )}
                       {estado === 'Finalizado' && (
-                        <button onClick={() => handleOpenRevision(s, sub)} className="mt-1 text-xs font-medium text-accent hover:underline">
+                        <button type="button" onClick={() => handleOpenRevision(s, sub)} className="mt-1 text-xs font-medium text-accent hover:underline">
                           Revisar respuestas abiertas
                         </button>
                       )}
@@ -898,7 +899,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <h3 className="text-base font-semibold">
                 Revisar — {reviewing.student.apellidoPaterno} {reviewing.student.nombre}
               </h3>
-              <button onClick={() => setReviewing(null)} className="p-1 text-slate-400 rounded"><X size={18} /></button>
+              <button type="button" onClick={() => setReviewing(null)} className="p-1 text-slate-400 rounded"><X size={18} /></button>
             </div>
             {reviewing.items.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-6">Esta evaluación no tiene preguntas de respuesta corta.</p>
@@ -921,7 +922,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                   </div>
                 ))}
-                <button onClick={handleSaveRevision} disabled={savingReview}
+                <button type="button" onClick={handleSaveRevision} disabled={savingReview}
                   className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                   {savingReview ? 'Guardando…' : 'Guardar revisión'}
                 </button>

@@ -78,14 +78,14 @@ export default function HorarioEditor({ horario, subjects, onClose, onSaved, onD
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-outline-variant flex-shrink-0">
           <h2 className="font-semibold text-on-surface">Mi Horario</h2>
-          <button onClick={onClose} className="p-1 text-muted hover:text-error rounded transition-colors">
+          <button type="button" onClick={onClose} className="p-1 text-muted hover:text-error rounded transition-colors">
             <X size={18} />
           </button>
         </div>
 
         <div className="overflow-y-auto flex-1 p-4 space-y-4">
-          {byDay.map(({ label, blocks }, dayIdx) => (
-            <div key={dayIdx}>
+          {byDay.map(({ label, blocks }) => (
+            <div key={label}>
               <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">{label}</p>
               {blocks.length === 0 ? (
                 <p className="text-xs text-slate-400 pl-2">Sin clases</p>
@@ -106,6 +106,7 @@ export default function HorarioEditor({ horario, subjects, onClose, onSaved, onD
                         </span>
                         <span className="text-xs opacity-80 flex-shrink-0">{b.horaInicio}–{b.horaFin}</span>
                         <button
+                          type="button"
                           onClick={() => handleDelete(b.id)}
                           className="p-0.5 rounded hover:opacity-70 transition-opacity flex-shrink-0"
                           data-tooltip="Eliminar"
@@ -185,6 +186,7 @@ export default function HorarioEditor({ horario, subjects, onClose, onSaved, onD
             </form>
           ) : (
             <button
+              type="button"
               onClick={() => setShowForm(true)}
               className="flex items-center gap-2 text-accent hover:text-accent-hover text-sm font-medium transition-colors"
             >

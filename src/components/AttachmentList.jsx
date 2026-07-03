@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Download, X, Eye, ExternalLink } from 'lucide-react'
 import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
+import { downloadUrl } from '../utils/cloudinary'
 
 const PDF_EXTS = ['pdf']
 const OFFICE_EXTS = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt']
@@ -29,7 +30,7 @@ function FileRow({ f, onRemove, index }) {
   const { icon: Icon, color } = getResourceIcon(f.nombre)
 
   const viewUrl = isPdf ? pdfUrl(f.url) : f.url
-  const downloadUrl = isPdf ? pdfUrl(f.url) : f.url
+  const downloadHref = downloadUrl(f.url, f.nombre)
 
   return (
     <div className="rounded border border-outline-variant bg-surface-card overflow-hidden">
@@ -40,7 +41,7 @@ function FileRow({ f, onRemove, index }) {
           {f.tamano != null ? formatFileSize(f.tamano) : ''}
         </span>
         {f.url && canView && (
-          <button onClick={() => setOpen((v) => !v)}
+          <button type="button" onClick={() => setOpen((v) => !v)}
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Ver archivo">
             <Eye size={15} />
           </button>
@@ -53,7 +54,7 @@ function FileRow({ f, onRemove, index }) {
           </a>
         )}
         {f.url && (
-          <a href={downloadUrl} target="_blank" rel="noreferrer" data-tooltip="Descargar"
+          <a href={downloadHref} download={f.nombre} rel="noreferrer" data-tooltip="Descargar"
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <Download size={15} />
           </a>
@@ -68,37 +69,57 @@ function FileRow({ f, onRemove, index }) {
 
       {open && f.url && (
         <div className="border-t border-outline-variant bg-surface">
-          {isImage ? (
-            <img src={f.url} alt={f.nombre} className="w-full max-h-[70vh] object-contain" />
-          ) : isPdf ? (
-            // Use <object> with explicit type so the browser applies application/pdf
-            // regardless of what Content-Type the server returns.
-            // Falls back to Google Docs Viewer iframe if the browser can't render it.
-            <object
-              data={viewUrl}
-              type="application/pdf"
-              className="w-full"
-              style={{ height: '70vh', border: 'none' }}
-            >
-              <iframe
-                src={docsViewerUrl(viewUrl)}
-                data-tooltip={f.nombre}
-                className="w-full h-full"
-                style={{ border: 'none' }}
-              />
-            </object>
-          ) : (
-            <iframe
-              src={docsViewerUrl(viewUrl)}
-              data-tooltip={f.nombre}
-              className="w-full h-[70vh]"
-              style={{ border: 'none' }}
-            />
-          )}
+          <FilePreview url={f.url} nombre={f.nombre} />
         </div>
       )}
     </div>
   )
+}
+
+// Standalone inline preview for a single file — same renderer FileRow uses.
+// Exported so any view (materiales, recursos, entregas) can toggle a preview
+// without adopting the whole AttachmentList row UI.
+export function FilePreview({ url, nombre }) {
+  const ext = resourceExtension(nombre)
+  const isPdf = PDF_EXTS.includes(ext)
+  const isImage = IMAGE_EXTS.includes(ext)
+  const viewUrl = isPdf ? pdfUrl(url) : url
+  if (!url) return null
+  return isImage ? (
+    <img src={url} alt={nombre} className="w-full max-h-[70vh] object-contain" />
+  ) : isPdf ? (
+    // Use <object> with explicit type so the browser applies application/pdf
+    // regardless of what Content-Type the server returns.
+    // Falls back to Google Docs Viewer iframe if the browser can't render it.
+    <object
+      data={viewUrl}
+      type="application/pdf"
+      className="w-full"
+      style={{ height: '70vh', border: 'none' }}
+    >
+      <iframe
+        src={docsViewerUrl(viewUrl)}
+        title={`Vista previa: ${nombre}`}
+        sandbox="allow-scripts allow-same-origin allow-popups"
+        className="w-full h-full"
+        style={{ border: 'none' }}
+      />
+    </object>
+  ) : (
+    <iframe
+      src={docsViewerUrl(viewUrl)}
+      title={`Vista previa: ${nombre}`}
+      sandbox="allow-scripts allow-same-origin allow-popups"
+      className="w-full h-[70vh]"
+      style={{ border: 'none' }}
+    />
+  )
+}
+
+// True when FilePreview can render this file inline (image, PDF u Office).
+export function canPreviewFile(nombre) {
+  const ext = resourceExtension(nombre)
+  return PDF_EXTS.includes(ext) || OFFICE_EXTS.includes(ext) || IMAGE_EXTS.includes(ext)
 }
 
 export default function AttachmentList({ files, onRemove, title = 'Archivos adjuntos' }) {
@@ -111,7 +132,7 @@ export default function AttachmentList({ files, onRemove, title = 'Archivos adju
       )}
       <div className="space-y-1">
         {files.map((f, i) => (
-          <FileRow key={i} f={f} onRemove={onRemove} index={i} />
+          <FileRow key={f.url || `${f.nombre}-${i}`} f={f} onRemove={onRemove} index={i} />
         ))}
       </div>
     </div>

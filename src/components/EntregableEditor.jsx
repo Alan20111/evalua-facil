@@ -14,6 +14,17 @@ import EFDateTimePicker from './EFDateTimePicker'
 
 const MAX_ATTACH = 15 * 1024 * 1024
 
+function toIsoNow() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+// Returns ISO datetime string for "now + 2 hours", used as smart default for scheduled publication
+function computeScheduleDefault() {
+  const d = new Date(Date.now() + 2 * 60 * 60 * 1000)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
 // Full-screen editor for Entregable activities (file submission / mark-complete).
 // Mirrors the visual pattern of EvaluacionEditor so all activity creation/editing
 // feels consistent regardless of type.
@@ -38,7 +49,7 @@ export default function EntregableEditor({
   const [form, setForm] = useState(initialForm || {
     nombre: '', instrucciones: '', fechaLimite: '',
     tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '',
-    oculta: false, publishAt: '', visibilidadMode: 'show',
+    oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
   })
   const [existingFiles, setExistingFiles] = useState(initialExistingFiles || [])
   const [newFiles, setNewFiles] = useState([])
@@ -58,7 +69,9 @@ export default function EntregableEditor({
     }
   }
 
-  async function handleSave(e) {
+  // asDraft: save hidden with NO publication — a borrador. It only becomes
+  // published when the teacher publishes it (here or via the card's eye icon).
+  async function handleSave(e, asDraft = false) {
     e.preventDefault()
     const tiposArchivo = normalizeFileTypeKeys(form.tiposArchivo)
     if (tiposArchivo.includes(CUSTOM_FILE_TYPE) && parseCustomExts(form.extensionesCustom).length === 0) {
@@ -67,6 +80,18 @@ export default function EntregableEditor({
     if (!htmlToPlainText(form.instrucciones)) {
       toast('Escribe las instrucciones de la actividad', 'error'); return
     }
+    // Backend validation: fechaLimite must be strictly after the effective publish datetime
+    const effectivePublishAt = asDraft ? null :
+      form.visibilidadMode === 'show'      ? toIsoNow() :
+      form.visibilidadMode === 'published' ? (form.publishedAt || null) :
+      form.visibilidadMode === 'schedule'  ? (form.publishAt || null) :
+      (form.publishedAt || null)  // hide: published-then-hidden still validates vs original date
+    if (form.fechaLimite && effectivePublishAt) {
+      if (form.fechaLimite <= effectivePublishAt) {
+        toast('La fecha límite debe ser posterior a la fecha de publicación', 'error'); return
+      }
+    }
+
     setSaving(true)
     try {
       const uploaded = await Promise.all(
@@ -75,6 +100,10 @@ export default function EntregableEditor({
           nombre: file.name, tamano: file.size,
         }))
       )
+      // Determine publishedAt for this save — once set it is permanent:
+      // hiding a published activity keeps the original publication date
+      const newPublishedAt =
+        !asDraft && form.visibilidadMode === 'show' ? toIsoNow() : (form.publishedAt || null)
       const payload = {
         nombre: form.nombre.trim(),
         categoria: categoria || 'entregable',
@@ -84,8 +113,9 @@ export default function EntregableEditor({
         fechaLimite: form.fechaLimite || null,
         tiposArchivo,
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
-        oculta: form.oculta || !!form.publishAt,
-        publishAt: form.publishAt || null,
+        oculta: asDraft || form.visibilidadMode === 'schedule' || form.visibilidadMode === 'hide',
+        publishAt: !asDraft && form.visibilidadMode === 'schedule' ? (form.publishAt || null) : null,
+        publishedAt: newPublishedAt,
       }
       if (isNew) {
         const orden = existingActivities.filter((a) => a.parcial === parcial).length + 1
@@ -94,11 +124,11 @@ export default function EntregableEditor({
           asignaturaId: subjectId, docenteId, createdAt: serverTimestamp(),
         })
         onActivityCreated?.({ id: ref.id, ...payload, tipo: 'archivo', parcial, orden, asignaturaId: subjectId, docenteId })
-        toast('Actividad creada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad creada')
       } else {
         await updateDoc(doc(db, 'activities', activityId), payload)
         onActivityUpdated?.({ id: activityId, ...payload })
-        toast('Actividad actualizada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad actualizada')
       }
       onClose()
     } catch (err) {
@@ -115,7 +145,7 @@ export default function EntregableEditor({
       {/* Header */}
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button onClick={onClose} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
+          <button type="button" onClick={onClose} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -170,28 +200,42 @@ export default function EntregableEditor({
               <VisibilitySelect
                 mode={form.visibilidadMode}
                 publishAt={form.publishAt}
+                publishedAt={form.publishedAt}
+                wasScheduled={!isNew && !!initialForm?.publishAt && !initialForm?.publishedAt}
                 onModeChange={(mode) => setForm((f) => ({
                   ...f, visibilidadMode: mode,
-                  oculta: mode !== 'show',
-                  publishAt: mode === 'schedule' ? f.publishAt : '',
-                  fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
+                  // 9.1: auto-fill publishAt with now+2h when switching to schedule for the first time
+                  publishAt: mode === 'schedule' ? (f.publishAt || computeScheduleDefault()) : '',
+                  // hiding a never-published draft clears the deadline; a published
+                  // activity keeps it (hide is temporary, deadline still applies)
+                  fechaLimite: mode === 'hide' && !f.publishedAt ? '' : f.fechaLimite,
                 }))}
                 onPublishAtChange={(v) => setForm((f) => ({ ...f, publishAt: v }))}
               />
             </div>
 
-            {form.visibilidadMode !== 'hide' && (
+            {(form.visibilidadMode !== 'hide' || form.publishedAt) && (
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
+                <label className="block text-sm font-medium text-muted mb-1">{form.fechaLimite ? 'Modificar fecha límite' : 'Fecha límite (opcional)'}</label>
                 {form.visibilidadMode === 'schedule' && !form.publishAt ? (
                   <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                 ) : (
                   <EFDateTimePicker
                     mode="datetime"
+                    headerLabel="Fecha y hora límite"
                     value={form.fechaLimite}
                     onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                     placeholder="Sin fecha límite…"
                     clearable
+                    defaultTime="23:59"
+                    defaultDate={
+                      // 9.2: open on publish date when no fechaLimite yet; fall back to today
+                      (form.publishAt || form.publishedAt || '').split('T')[0] || undefined
+                    }
+                    minDateTime={
+                      form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
+                      (form.publishedAt || undefined)
+                    }
                   />
                 )}
               </div>
@@ -203,6 +247,18 @@ export default function EntregableEditor({
             {saving ? <Spinner size="sm" /> : isNew ? <Plus size={18} /> : <Pencil size={18} />}
             {saving ? 'Guardando…' : isNew ? 'Crear actividad' : 'Guardar cambios'}
           </button>
+          {!form.publishedAt && (
+            <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving}
+              className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+              Guardar como borrador
+            </button>
+          )}
+          {!isNew && (
+            <button type="button" onClick={onClose} disabled={saving}
+              className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">
+              Salir sin guardar cambios
+            </button>
+          )}
           <div className="h-6" />
         </form>
       </div>

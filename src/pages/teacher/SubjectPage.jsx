@@ -27,9 +27,10 @@ import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
-import { uploadToCloudinary } from '../../utils/cloudinary'
+import { uploadToCloudinary, downloadUrl } from '../../utils/cloudinary'
 import { RESOURCE_ACCEPT, getResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
+import AttachmentList, { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, X, Pencil, Trash2, Archive, ArchiveRestore,
@@ -37,6 +38,7 @@ import {
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, BookOpen, Paperclip, FileCheck2, Timer,
+  ListChecks, GraduationCap,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
@@ -59,7 +61,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', visibilidadMode: 'show', esEvaluacion: false }
+const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show', esEvaluacion: false }
 
 // Defaults for a new evaluación's config — Cuestionario favors repeated
 // practice (unlimited attempts, keep best); Examen favors a single formal
@@ -133,6 +135,9 @@ export default function SubjectPage() {
   const [entregableEditor, setEntregableEditor] = useState(null) // null | { activityId, parcial, categoria, activityLabel, initialForm, initialExistingFiles }
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [publishDraftConfirm, setPublishDraftConfirm] = useState(null) // draft activity | null
+  const [duplicateConfirm, setDuplicateConfirm] = useState(null) // activity | null
+  const [duplicating, setDuplicating] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -168,9 +173,6 @@ export default function SubjectPage() {
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
 
   // Activity visibility
-  const [activateModal, setActivateModal] = useState(null) // activity | null
-  const [activateMode, setActivateMode] = useState('now') // 'now' | 'schedule'
-  const [activateDate, setActivateDate] = useState('')
 
   // Subject CRUD
   const [showEditSubjectModal, setShowEditSubjectModal] = useState(false)
@@ -222,6 +224,7 @@ export default function SubjectPage() {
   // not tied to activities (see the `resources` collection in firestore.rules).
   const [resources, setResources] = useState([])
   const [resourcesLoaded, setResourcesLoaded] = useState(false)
+  const [previewResourceId, setPreviewResourceId] = useState(null)
   const [loadingResources, setLoadingResources] = useState(false)
   const [showResourceModal, setShowResourceModal] = useState(false)
   const [resourceModalMode, setResourceModalMode] = useState('create') // 'create' | 'edit'
@@ -789,7 +792,8 @@ export default function SubjectPage() {
         extensionesCustom: activity.extensionesCustom || '',
         oculta: activity.oculta || false,
         publishAt: activity.publishAt || '',
-        visibilidadMode: !activity.oculta ? 'show' : activity.publishAt ? 'schedule' : 'hide',
+        publishedAt: activity.publishedAt || '',
+        visibilidadMode: !activity.oculta ? 'published' : activity.publishAt ? 'schedule' : 'hide',
       },
     })
   }
@@ -811,7 +815,7 @@ export default function SubjectPage() {
     }
   }
 
-  async function handleSaveActivity(e) {
+  async function handleSaveActivity(e, asDraft = false) {
     e.preventDefault()
     if (modalMode === 'create' && !canCreate) {
       toast('Activa tu suscripción mensual para crear nuevas actividades — toda tu información sigue disponible')
@@ -825,6 +829,19 @@ export default function SubjectPage() {
     if (!htmlToPlainText(form.instrucciones)) {
       toast('Escribe las instrucciones de la actividad', 'error')
       return
+    }
+    // fechaLimite must be strictly after the effective publish datetime
+    const now = new Date()
+    const nowIso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+    if (!asDraft) {
+      const effectivePublishAt =
+        form.visibilidadMode === 'show'     ? nowIso :
+        form.visibilidadMode === 'schedule' ? (form.publishAt || null) :
+        (form.publishedAt || null)
+      if (form.fechaLimite && effectivePublishAt && form.fechaLimite <= effectivePublishAt) {
+        toast('La fecha límite debe ser posterior a la fecha de publicación', 'error')
+        return
+      }
     }
     setSaving(true)
     try {
@@ -844,8 +861,10 @@ export default function SubjectPage() {
         fechaLimite: form.fechaLimite || null,
         tiposArchivo,
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
-        oculta: form.oculta || !!form.publishAt,
-        publishAt: form.publishAt || null,
+        oculta: asDraft ? true : form.visibilidadMode !== 'show',
+        publishAt: !asDraft && form.visibilidadMode === 'schedule' ? (form.publishAt || null) : null,
+        // publishedAt is permanent once set; only 'Publicar ahora' stamps it
+        publishedAt: !asDraft && form.visibilidadMode === 'show' ? nowIso : (form.publishedAt || null),
       }
       if (modalMode === 'create') {
         // `orden` is only a sort key (Firestore gives no ordering guarantee
@@ -869,11 +888,11 @@ export default function SubjectPage() {
           navigate(`/activity/${ref.id}`)
           return
         }
-        toast('Actividad creada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad creada')
       } else {
         await updateDoc(doc(db, 'activities', editActivityId), payload)
         setActivities((prev) => prev.map((a) => a.id === editActivityId ? { ...a, ...payload } : a))
-        toast('Actividad actualizada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad actualizada')
       }
       setShowModal(false); setForm(EMPTY_FORM)
       setActivityExistingFiles([]); setActivityNewFiles([])
@@ -1137,20 +1156,65 @@ export default function SubjectPage() {
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
-  async function handleActivateConfirm() {
-    if (!activateModal) return
+  // Eye toggle: show a hidden (already published) activity immediately —
+  // no modal, mirror of hideActivity.
+  async function showActivityNow(act) {
     try {
-      if (activateMode === 'now') {
-        await updateDoc(doc(db, 'activities', activateModal.id), { oculta: false, publishAt: null })
-        setActivities((prev) => prev.map((a) => a.id === activateModal.id ? { ...a, oculta: false, publishAt: null } : a))
-        toast('Actividad visible para estudiantes')
-      } else {
-        if (!activateDate) { toast('Elige una fecha', 'error'); return }
-        await updateDoc(doc(db, 'activities', activateModal.id), { oculta: true, publishAt: activateDate })
-        setActivities((prev) => prev.map((a) => a.id === activateModal.id ? { ...a, oculta: true, publishAt: activateDate } : a))
-        toast('Activación programada')
+      await updateDoc(doc(db, 'activities', act.id), { oculta: false, publishAt: null })
+      setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, oculta: false, publishAt: null } : a))
+      toast('Actividad visible para estudiantes')
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
+  // Duplicate an activity as a DRAFT copy: same instructions, file types,
+  // attachments and evaluación config/preguntas — but hidden, unpublished,
+  // unnumbered and without deadline, ready to rename and publish later.
+  async function handleDuplicateActivity() {
+    if (!duplicateConfirm) return
+    setDuplicating(true)
+    try {
+      const src = duplicateConfirm
+      const orden = activities.filter((a) => a.parcial === src.parcial).length + 1
+      const copy = {
+        nombre: `${src.nombre} (copia)`,
+        categoria: src.categoria || 'entregable',
+        maxCalif: src.maxCalif ?? 10,
+        instrucciones: src.instrucciones || '',
+        archivosAdjuntos: src.archivosAdjuntos || [],
+        fechaLimite: null,
+        tiposArchivo: src.tiposArchivo || [],
+        extensionesCustom: src.extensionesCustom || '',
+        tipo: src.tipo || 'archivo',
+        ...(src.evaluacion ? { evaluacion: src.evaluacion } : {}),
+        oculta: true, publishAt: null, publishedAt: null,
+        parcial: src.parcial, orden,
+        asignaturaId: subjectId, docenteId: currentUser.uid, createdAt: serverTimestamp(),
       }
-      setActivateModal(null)
+      const ref = await addDoc(collection(db, 'activities'), copy)
+      // Evaluaciones: also clone the question bank of this activity
+      if (src.tipo === 'evaluacion') {
+        const snap = await getDocs(collection(db, 'activities', src.id, 'preguntas'))
+        await Promise.all(snap.docs.map((d) => addDoc(collection(db, 'activities', ref.id, 'preguntas'), d.data())))
+      }
+      setActivities((prev) => [...prev, { id: ref.id, ...copy, createdAt: null }])
+      setSubmissionCounts((prev) => ({ ...prev, [ref.id]: { delivered: 0, graded: 0 } }))
+      toast('Copia creada como borrador — edítala para cambiarle el nombre')
+      setDuplicateConfirm(null)
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setDuplicating(false) }
+  }
+
+  // First publication of a draft (no publishedAt yet): the eye asks for
+  // confirmation and stamps the publication datetime.
+  async function publishDraftNow() {
+    if (!publishDraftConfirm) return
+    const d = new Date()
+    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+    try {
+      await updateDoc(doc(db, 'activities', publishDraftConfirm.id), { oculta: false, publishAt: null, publishedAt: iso })
+      setActivities((prev) => prev.map((a) => a.id === publishDraftConfirm.id ? { ...a, oculta: false, publishAt: null, publishedAt: iso } : a))
+      toast('Actividad publicada para estudiantes')
+      setPublishDraftConfirm(null)
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
@@ -1329,16 +1393,20 @@ export default function SubjectPage() {
   // `activities` list (kept sorted by `orden`). Computing this fresh on every
   // render means the displayed sequence can never drift out of order/gapped,
   // regardless of creation order, deletions, or stale stored values.
+  // Drafts (hidden, never published, not scheduled) get NO number until they
+  // are published — the sequence belongs to published activities only, so a
+  // deleted publication's number passes to the next thing published.
+  const isDraftActivity = (a) => a.oculta && !a.publishedAt && !a.publishAt
   const activityLabelById = {}
   PARCIALES.forEach((p) => {
-    activities.filter((a) => a.parcial === p).forEach((a, i) => {
+    activities.filter((a) => a.parcial === p && !isDraftActivity(a)).forEach((a, i) => {
       activityLabelById[a.id] = `${p}.${i + 1}`
     })
   })
 
   // Preview of the auto-assigned "Actividad" label shown (read-only) in the modal.
   const previewActividad = modalMode === 'create'
-    ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}`
+    ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial && !isDraftActivity(a)).length + 1}`
     : (activityLabelById[editActivityId] || '—')
 
   const filteredGradeStudents = groupStudents.filter((s) => matchesStudentSearch(s, searchGrade))
@@ -1416,7 +1484,7 @@ export default function SubjectPage() {
         {/* ── Header ── */}
         <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
@@ -1480,7 +1548,7 @@ export default function SubjectPage() {
           {/* Tabs */}
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
             {['actividades', 'calificaciones', 'alumnos', 'recursos'].map((t) => (
-              <button key={t} onClick={() => switchTab(t)}
+              <button type="button" key={t} onClick={() => switchTab(t)}
                 className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                   activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}>
@@ -1503,7 +1571,7 @@ export default function SubjectPage() {
               return (
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                   <div className="w-full flex items-center gap-1">
-                    <button onClick={() => setOpenParcial(isOpen ? 0 : p)}
+                    <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
                       <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
                         <span className={`font-bold text-sm ${parcialOculto ? 'text-slate-400' : 'text-accent'}`}>{p}</span>
@@ -1515,14 +1583,14 @@ export default function SubjectPage() {
                         <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                       </div>
                     </button>
-                    <button
+                    <button type="button"
                       onClick={() => toggleParcialVisibility(p)}
                       data-tooltip={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                     >
                       {parcialOculto ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
-                    <button onClick={() => setOpenParcial(isOpen ? 0 : p)} className="p-2 mr-2 flex-shrink-0">
+                    <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} className="p-2 mr-2 flex-shrink-0">
                       {isOpen ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
                     </button>
                   </div>
@@ -1537,11 +1605,15 @@ export default function SubjectPage() {
                         const counts = submissionCounts[a.id] || {}
                         const visState = activityVisibilityState(a, parcialOculto)
                         const isHidden = visState !== 'visible'
+                        // Distinct icon per activity type so they're recognizable at a glance
+                        const ActIcon = a.categoria === 'examen' ? GraduationCap
+                          : a.categoria === 'cuestionario' ? ListChecks
+                          : FileText
                         return (
                           <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
-                            <button onClick={() => navigate(`/activity/${a.id}`)}
+                            <button type="button" onClick={() => navigate(`/activity/${a.id}`)}
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
-                              <FileText size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-slate-400'}`} />
+                              <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
                                   {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} · </span>}
@@ -1561,7 +1633,7 @@ export default function SubjectPage() {
                                     )}
                                     {visState === 'hidden' && (
                                       <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                        <EyeOff size={13} /> Oculta
+                                        <EyeOff size={13} /> {(!a.publishedAt && a.oculta && !a.publishAt) ? 'Borrador' : 'Oculta'}
                                       </span>
                                     )}
                                   </div>
@@ -1585,17 +1657,18 @@ export default function SubjectPage() {
                                 </span>
                               </div>
                             </button>
-                            {/* Visibility toggle */}
+                            {/* Visibility toggle. Published → direct show/hide.
+                                Draft (no publishedAt) → confirm first publication. */}
                             {isHidden ? (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setActivateMode('now'); setActivateDate(''); setActivateModal(a) }}
-                                data-tooltip="Activar para estudiantes"
+                              <button type="button"
+                                onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
+                                data-tooltip={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
                                 className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                               >
                                 <EyeOff size={16} />
                               </button>
                             ) : (
-                              <button
+                              <button type="button"
                                 onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
                                 data-tooltip="Ocultar para estudiantes"
                                 className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
@@ -1603,11 +1676,15 @@ export default function SubjectPage() {
                                 <Eye size={16} />
                               </button>
                             )}
-                            <button onClick={() => openEdit(a, activityLabelById[a.id])} data-tooltip="Editar"
+                            <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} data-tooltip="Editar"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
                             </button>
-                            <button onClick={() => setDeleteConfirm(a)} data-tooltip="Eliminar"
+                            <button type="button" onClick={() => setDuplicateConfirm(a)} data-tooltip="Duplicar como borrador"
+                              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
+                              <Copy size={16} />
+                            </button>
+                            <button type="button" onClick={() => setDeleteConfirm(a)} data-tooltip="Eliminar"
                               className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
                               <Trash2 size={16} />
                             </button>
@@ -1628,7 +1705,7 @@ export default function SubjectPage() {
                             return (
                               <div key={m.id} className={`w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'}`}>
                                 <div className="flex items-center gap-1">
-                                  <button onClick={() => setExpandedMaterialId(isExpanded ? null : m.id)}
+                                  <button type="button" onClick={() => setExpandedMaterialId(isExpanded ? null : m.id)}
                                     className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left hover:bg-[var(--accent-tint)] rounded transition-colors">
                                     <BookOpen size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-amber-500'}`} />
                                     <div className="flex-1 min-w-0">
@@ -1652,21 +1729,21 @@ export default function SubjectPage() {
                                     {isExpanded ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
                                   </button>
                                   {isHidden ? (
-                                    <button onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} data-tooltip="Mostrar a estudiantes"
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} data-tooltip="Mostrar a estudiantes"
                                       className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                       <EyeOff size={16} />
                                     </button>
                                   ) : (
-                                    <button onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} data-tooltip="Ocultar a estudiantes"
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} data-tooltip="Ocultar a estudiantes"
                                       className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                       <Eye size={16} />
                                     </button>
                                   )}
-                                  <button onClick={() => openEditMaterial(m)} data-tooltip="Editar"
+                                  <button type="button" onClick={() => openEditMaterial(m)} data-tooltip="Editar"
                                     className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                                     <Pencil size={16} />
                                   </button>
-                                  <button onClick={() => setDeleteMaterialConfirm(m)} data-tooltip="Eliminar"
+                                  <button type="button" onClick={() => setDeleteMaterialConfirm(m)} data-tooltip="Eliminar"
                                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
                                     <Trash2 size={16} />
                                   </button>
@@ -1677,20 +1754,7 @@ export default function SubjectPage() {
                                       <div className={`text-sm text-on-surface mb-2 ${richTextContentClass}`}
                                         dangerouslySetInnerHTML={{ __html: sanitizeHtml(m.descripcion) }} />
                                     )}
-                                    <div className="space-y-1">
-                                      {(m.archivos || []).map((f, i) => {
-                                        const { icon: FileIconComp, color } = getResourceIcon(f.nombre)
-                                        return (
-                                          <a key={i} href={f.url} target="_blank" rel="noreferrer"
-                                            className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant hover:bg-[var(--accent-tint)] transition-colors">
-                                            <FileIconComp size={18} className={`flex-shrink-0 ${color}`} />
-                                            <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
-                                            <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
-                                            <Download size={15} className="text-slate-400 flex-shrink-0" />
-                                          </a>
-                                        )
-                                      })}
-                                    </div>
+                                    <AttachmentList files={m.archivos} title={null} />
                                   </div>
                                 )}
                               </div>
@@ -1699,14 +1763,14 @@ export default function SubjectPage() {
                         </>
                       )}
 
-                      <button onClick={() => openAdd(p)}
+                      <button type="button" onClick={() => openAdd(p)}
                         data-tooltip={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevas actividades'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
                         }`}>
                         <Plus size={17} /> Agregar actividad
                       </button>
-                      <button onClick={() => openAddMaterial(p)}
+                      <button type="button" onClick={() => openAddMaterial(p)}
                         data-tooltip={canCreate ? undefined : 'Activa tu suscripción mensual para crear nuevo material de apoyo'}
                         className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
@@ -1731,7 +1795,7 @@ export default function SubjectPage() {
             <div>
               <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
               <div className="flex gap-2">
-                <button
+                <button type="button"
                   onClick={handleExport}
                   disabled={exporting}
                   data-tooltip="Descarga las calificaciones de todos los estudiantes en una hoja de Excel"
@@ -1739,7 +1803,7 @@ export default function SubjectPage() {
                 >
                   {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
                 </button>
-                <button
+                <button type="button"
                   onClick={handleExportGradesPDF}
                   disabled={exportingGradesPdf}
                   data-tooltip="Descarga las calificaciones de todos los estudiantes en un PDF imprimible"
@@ -1931,7 +1995,7 @@ export default function SubjectPage() {
                 className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card"
               />
             </div>
-            <button
+            <button type="button"
               onClick={() => setShowAddStudent(true)}
               data-tooltip="Agregar nuevo estudiante"
               className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
@@ -1973,7 +2037,7 @@ export default function SubjectPage() {
                       <span className="text-[11px] leading-none bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">sin activar</span>
                     )}
                   </span>
-                  <button
+                  <button type="button"
                     onClick={() => openEditStudent(s)}
                     className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
                     data-tooltip="Editar estudiante"
@@ -2013,30 +2077,45 @@ export default function SubjectPage() {
             <div className="space-y-1.5">
               {resources.map((r) => {
                 const { icon: Icon, color } = getResourceIcon(r.nombreArchivo)
+                const isPreviewOpen = previewResourceId === r.id
                 return (
-                  <div key={r.id} className="flex items-center gap-3 bg-surface-card border border-outline-variant rounded-card px-3 py-2 shadow-card">
-                    <Icon size={28} className={`flex-shrink-0 ${color}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-on-surface truncate">{r.nombre}</p>
-                      {r.descripcion && (
-                        <p className="text-xs text-slate-500 truncate">{r.descripcion}</p>
+                  <div key={r.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card overflow-hidden">
+                    <div className="flex items-center gap-3 px-3 py-2">
+                      <Icon size={28} className={`flex-shrink-0 ${color}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-on-surface truncate">{r.nombre}</p>
+                        {r.descripcion && (
+                          <p className="text-xs text-slate-500 truncate">{r.descripcion}</p>
+                        )}
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {formatFileSize(r.tamano)}{r.tamano ? ' · ' : ''}{formatResourceDate(r.fechaPublicacion)}
+                        </p>
+                      </div>
+                      {canPreviewFile(r.nombreArchivo || r.nombre) && (
+                        <button type="button" onClick={() => setPreviewResourceId(isPreviewOpen ? null : r.id)}
+                          data-tooltip="Vista previa"
+                          className={`p-2 rounded transition-colors flex-shrink-0 ${isPreviewOpen ? 'text-accent bg-[var(--accent-medium)]' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
+                          <Eye size={18} />
+                        </button>
                       )}
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {formatFileSize(r.tamano)}{r.tamano ? ' · ' : ''}{formatResourceDate(r.fechaPublicacion)}
-                      </p>
+                      <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" data-tooltip="Descargar"
+                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        <Download size={18} />
+                      </a>
+                      <button type="button" onClick={() => openEditResource(r)} data-tooltip="Editar"
+                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        <Pencil size={18} />
+                      </button>
+                      <button type="button" onClick={() => setDeleteResourceConfirm(r)} data-tooltip="Eliminar"
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+                        <Trash2 size={18} />
+                      </button>
                     </div>
-                    <a href={r.url} target="_blank" rel="noreferrer" data-tooltip="Ver / descargar"
-                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                      <Download size={18} />
-                    </a>
-                    <button onClick={() => openEditResource(r)} data-tooltip="Editar"
-                      className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                      <Pencil size={18} />
-                    </button>
-                    <button onClick={() => setDeleteResourceConfirm(r)} data-tooltip="Eliminar"
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
-                      <Trash2 size={18} />
-                    </button>
+                    {isPreviewOpen && (
+                      <div className="border-t border-outline-variant bg-surface">
+                        <FilePreview url={r.url} nombre={r.nombreArchivo || r.nombre} />
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -2059,7 +2138,7 @@ export default function SubjectPage() {
                     ? `${tipoActividad === 'entregable' ? 'Entregable' : tipoActividad === 'cuestionario' ? 'Cuestionario' : 'Examen'} — Parcial ${modalParcial}`
                     : 'Editar actividad'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
 
             {/* ── Tipo picker (only on create, before choosing type) ── */}
@@ -2153,7 +2232,7 @@ export default function SubjectPage() {
               {form.visibilidadMode !== 'hide' && (
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">
-                    Fecha límite <span className="text-slate-400 font-normal">(opcional)</span>
+                    {form.fechaLimite ? 'Modificar fecha límite' : <>Fecha límite <span className="text-slate-400 font-normal">(opcional)</span></>}
                   </label>
                   {form.visibilidadMode === 'schedule' && !form.publishAt ? (
                     <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
@@ -2161,10 +2240,15 @@ export default function SubjectPage() {
                     <>
                       <EFDateTimePicker
                         mode="datetime"
+                        headerLabel="Fecha y hora límite"
                         value={form.fechaLimite}
                         onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                         placeholder="Sin fecha límite…"
                         clearable
+                        minDateTime={
+                          form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
+                          (form.publishedAt || undefined)
+                        }
                       />
                       <p className="text-xs text-slate-400 mt-1">
                         Luego de esta fecha y hora ya no se reciben entregas.
@@ -2181,9 +2265,59 @@ export default function SubjectPage() {
                   ? (tipoActividad === 'cuestionario' || tipoActividad === 'examen') ? 'Crear y agregar preguntas' : 'Crear actividad'
                   : 'Guardar cambios'}
               </button>
+              {!form.publishedAt && (
+                <button type="button" disabled={saving} onClick={(e) => handleSaveActivity(e, true)}
+                  className="w-full py-2 mt-2 border border-accent text-accent font-medium rounded transition-colors hover:bg-[var(--accent-tint)] disabled:opacity-60">
+                  Guardar como borrador
+                </button>
+              )}
             </form>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Duplicate activity confirmation ── */}
+      {duplicateConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDuplicateConfirm(null)} />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-on-surface mb-1">Duplicar actividad</h3>
+            <p className="text-sm text-muted mb-4">
+              Se creará una copia de "<strong>{duplicateConfirm.nombre}</strong>" como <strong>borrador</strong>, con el nombre "{duplicateConfirm.nombre} (copia)".
+              Quedará oculta para estudiantes y sin número hasta que la publiques. Edítala para cambiarle el nombre.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setDuplicateConfirm(null)}
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <button type="button" onClick={handleDuplicateActivity} disabled={duplicating}
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
+                {duplicating ? <Spinner size="sm" /> : <Copy size={16} />}
+                {duplicating ? 'Duplicando…' : 'Duplicar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Publish draft confirmation ── */}
+      {publishDraftConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setPublishDraftConfirm(null)} />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-on-surface mb-1">¿Publicar actividad?</h3>
+            <p className="text-sm text-muted mb-4">
+              "<strong>{publishDraftConfirm.nombre}</strong>" es un borrador. Al publicarla, los estudiantes podrán verla y se registrará la fecha y hora de publicación.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setPublishDraftConfirm(null)}
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <button type="button" onClick={publishDraftNow}
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover flex items-center justify-center gap-2">
+                <Eye size={16} /> Publicar
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2198,9 +2332,9 @@ export default function SubjectPage() {
               "<strong>{deleteConfirm.nombre}</strong>" se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setDeleteConfirm(null)}
+              <button type="button" onClick={() => setDeleteConfirm(null)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleDeleteActivity} disabled={deleting}
+              <button type="button" onClick={handleDeleteActivity} disabled={deleting}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deleting ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deleting ? 'Eliminando…' : 'Eliminar'}
@@ -2219,7 +2353,7 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">
                 {materialModalMode === 'create' ? `Nuevo material de apoyo — Parcial ${materialParcial}` : 'Editar material de apoyo'}
               </h3>
-              <button onClick={() => setShowMaterialModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowMaterialModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleSaveMaterial} className="space-y-2">
               <div>
@@ -2247,7 +2381,7 @@ export default function SubjectPage() {
                 {(materialExistingFiles.length > 0 || materialNewFiles.length > 0) && (
                   <div className="space-y-1 mt-2">
                     {materialExistingFiles.map((f, i) => (
-                      <div key={`existing-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant">
+                      <div key={f.url || `existing-${f.nombre}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant">
                         <Paperclip size={16} className="text-slate-400 flex-shrink-0" />
                         <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
                         <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
@@ -2258,7 +2392,7 @@ export default function SubjectPage() {
                       </div>
                     ))}
                     {materialNewFiles.map((f, i) => (
-                      <div key={`new-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-accent bg-[var(--accent-tint)]">
+                      <div key={`new-${f.name}-${f.size}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-accent bg-[var(--accent-tint)]">
                         <Paperclip size={16} className="text-accent flex-shrink-0" />
                         <span className="text-sm text-on-surface truncate flex-1">{f.name}</span>
                         <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.size)}</span>
@@ -2307,9 +2441,9 @@ export default function SubjectPage() {
               "<strong>{deleteMaterialConfirm.nombre}</strong>" se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setDeleteMaterialConfirm(null)}
+              <button type="button" onClick={() => setDeleteMaterialConfirm(null)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleDeleteMaterial} disabled={deletingMaterial}
+              <button type="button" onClick={handleDeleteMaterial} disabled={deletingMaterial}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deletingMaterial ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deletingMaterial ? 'Eliminando…' : 'Eliminar'}
@@ -2326,7 +2460,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Agregar estudiante</h3>
-              <button onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={addStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
@@ -2364,7 +2498,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar estudiante</h3>
-              <button onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={saveEditStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
@@ -2433,7 +2567,7 @@ export default function SubjectPage() {
                 <h3 className="text-xl font-semibold leading-tight">{subject.nombre}</h3>
                 {subject.grupo && <p className="text-base text-muted">Grupo: {subject.grupo}</p>}
               </div>
-              <button onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={22} /></button>
+              <button type="button" onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={22} /></button>
             </div>
             <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-4">
               <QRCode value={activationUrl} size={280} className="max-w-full h-auto" />
@@ -2441,7 +2575,7 @@ export default function SubjectPage() {
             {subject.accessCode && (
               <p className="text-5xl font-bold tracking-wide text-accent mb-4">{subject.accessCode}</p>
             )}
-            <button
+            <button type="button"
               onClick={handleExportQRPDF}
               disabled={exportingPdf}
               className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-50"
@@ -2468,13 +2602,13 @@ export default function SubjectPage() {
               «Recuperar contraseña» en su pantalla de acceso. No necesitas darle ninguna clave.
             </p>
             <div className="flex gap-2 mt-4">
-              <button
+              <button type="button"
                 onClick={() => setStudentToReset(null)}
                 className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors"
               >
                 Cancelar
               </button>
-              <button
+              <button type="button"
                 onClick={confirmResetStudentPassword}
                 className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded transition-colors flex items-center justify-center gap-2"
               >
@@ -2503,14 +2637,14 @@ export default function SubjectPage() {
               Cada estudiante elige su propia contraseña la primera vez que entra. No se generan claves temporales.
             </p>
             <div className="flex gap-2 mt-4">
-              <button
+              <button type="button"
                 onClick={() => setShowCredentialsModal(false)}
                 disabled={generatingCredentials}
                 className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
                 Cancelar
               </button>
-              <button
+              <button type="button"
                 onClick={handleGenerateCredentials}
                 disabled={generatingCredentials}
                 className="flex-1 py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
@@ -2546,7 +2680,7 @@ export default function SubjectPage() {
               <span className="font-mono"> {linkCandidate.identity.username}</span>). Si es <strong>otra persona</strong> con el mismo nombre, se crea una cuenta nueva.
             </p>
             <div className="flex flex-col gap-2 mt-4">
-              <button
+              <button type="button"
                 onClick={() => resolveLinkCandidate(true)}
                 disabled={savingStudent}
                 className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
@@ -2554,14 +2688,14 @@ export default function SubjectPage() {
                 {savingStudent ? <Spinner size="sm" /> : <CheckIcon size={18} />}
                 Sí, es el mismo estudiante
               </button>
-              <button
+              <button type="button"
                 onClick={() => resolveLinkCandidate(false)}
                 disabled={savingStudent}
                 className="w-full py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
                 No, es otro estudiante (cuenta nueva)
               </button>
-              <button
+              <button type="button"
                 onClick={() => setLinkCandidate(null)}
                 disabled={savingStudent}
                 className="w-full py-2 text-sm text-muted hover:text-on-surface transition-colors disabled:opacity-60"
@@ -2587,7 +2721,7 @@ export default function SubjectPage() {
               de estudiantes, tocar <strong>«Recuperar contraseña»</strong>, escribir su usuario y elegir una
               nueva contraseña.
             </p>
-            <button
+            <button type="button"
               onClick={() => setResetPwdResult(null)}
               className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
             >
@@ -2612,13 +2746,13 @@ export default function SubjectPage() {
               ({studentToDelete.username}). Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-2 mt-4">
-              <button
+              <button type="button"
                 onClick={() => setStudentToDelete(null)}
                 className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors"
               >
                 Cancelar
               </button>
-              <button
+              <button type="button"
                 onClick={confirmDeleteStudent}
                 disabled={savingStudent}
                 className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
@@ -2630,52 +2764,6 @@ export default function SubjectPage() {
           </div>
         </div>
       )}
-      {/* ── Activate activity modal ── */}
-      {activateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setActivateModal(null)} />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
-            <h3 className="text-base font-semibold text-on-surface mb-1">Activar actividad</h3>
-            <p className="text-sm text-muted mb-2">
-              "<strong>{activateModal.nombre}</strong>" está oculta. ¿Cómo quieres activarla?
-            </p>
-            <div className="space-y-2 mb-2">
-              <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${activateMode === 'now' ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
-                <input type="radio" name="activateMode" value="now" checked={activateMode === 'now'} onChange={() => setActivateMode('now')} className="accent-[var(--accent)]" />
-                <div>
-                  <p className="text-sm font-medium text-on-surface">Mostrar ahora</p>
-                  <p className="text-sm text-slate-500">Visible de inmediato para estudiantes</p>
-                </div>
-              </label>
-              <label className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${activateMode === 'schedule' ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
-                <input type="radio" name="activateMode" value="schedule" checked={activateMode === 'schedule'} onChange={() => setActivateMode('schedule')} className="accent-[var(--accent)]" />
-                <div>
-                  <p className="text-sm font-medium text-on-surface">Programar</p>
-                  <p className="text-sm text-slate-500">Se activa en fecha y hora específicas</p>
-                </div>
-              </label>
-              {activateMode === 'schedule' && (
-                <EFDateTimePicker
-                  mode="datetime"
-                  value={activateDate}
-                  onChange={setActivateDate}
-                  clearable={false}
-                />
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setActivateModal(null)}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleActivateConfirm}
-                disabled={activateMode === 'schedule' && !activateDate}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 flex items-center justify-center gap-2">
-                <Eye size={16} /> Activar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Edit subject modal ── */}
       {showEditSubjectModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -2683,7 +2771,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
-              <button onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleEditSubject} className="space-y-2">
               <div>
@@ -2747,7 +2835,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
-              <button onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleCopySubject} className="space-y-2">
               <div>
@@ -2828,9 +2916,9 @@ export default function SubjectPage() {
               placeholder={subject?.nombre}
             />
             <div className="flex gap-2">
-              <button onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
+              <button type="button" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleDeleteSubject}
+              <button type="button" onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 flex items-center justify-center gap-2">
                 {deletingSubject ? <Spinner size="sm" /> : <Trash2 size={16} />}
@@ -2849,7 +2937,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
-              <button onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-2">
               Al archivar se conservan las actividades y la lista de estudiantes, pero <strong>se eliminan las entregas</strong>. ¿Qué hacemos con ellas?
@@ -2869,9 +2957,9 @@ export default function SubjectPage() {
               ))}
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setShowArchiveModal(false)} disabled={archiving}
+              <button type="button" onClick={() => setShowArchiveModal(false)} disabled={archiving}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
-              <button onClick={handleArchiveConfirm} disabled={archiving}
+              <button type="button" onClick={handleArchiveConfirm} disabled={archiving}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {archiving ? <Spinner size="sm" /> : <Archive size={16} />}
                 {archiving
@@ -2892,7 +2980,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
-              <button onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-2">Puedes editar los datos y elegir cómo restaurar:</p>
 
@@ -2967,9 +3055,9 @@ export default function SubjectPage() {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => setShowUnarchiveModal(false)}
+              <button type="button" onClick={() => setShowUnarchiveModal(false)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}
+              <button type="button" onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
                 {unarchivedSaving ? <Spinner size="sm" /> : null}
                 {unarchivedSaving ? 'Guardando…' : 'Desarchivar'}
@@ -2986,7 +3074,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{resourceModalMode === 'create' ? 'Agregar recurso' : 'Editar recurso'}</h3>
-              <button onClick={() => setShowResourceModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowResourceModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleSaveResource} className="space-y-2">
               <div>
@@ -3046,9 +3134,9 @@ export default function SubjectPage() {
               "<strong>{deleteResourceConfirm.nombre}</strong>" se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setDeleteResourceConfirm(null)}
+              <button type="button" onClick={() => setDeleteResourceConfirm(null)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button onClick={handleDeleteResource} disabled={deletingResource}
+              <button type="button" onClick={handleDeleteResource} disabled={deletingResource}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deletingResource ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deletingResource ? 'Eliminando…' : 'Eliminar'}

@@ -15,6 +15,16 @@ import {
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 
+function toIsoNow() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+function computeScheduleDefault() {
+  const d = new Date(Date.now() + 2 * 60 * 60 * 1000)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
   { value: 'verdadero_falso', label: 'Verdadero / Falso' },
@@ -59,14 +69,16 @@ export default function EvaluacionEditor({
   onActivityUpdated,
 }) {
   const toast = useToast()
-
   // ── Basic info state ──────────────────────────────────────────────
   const [infoForm, setInfoForm] = useState({
-    nombre: '', instrucciones: '', fechaLimite: '', oculta: false, publishAt: '', visibilidadMode: 'show',
+    nombre: '', instrucciones: '', fechaLimite: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
   })
   const [infoCollapsed, setInfoCollapsed] = useState(false)
   const [savingInfo, setSavingInfo] = useState(false)
   const [currentActivityId, setCurrentActivityId] = useState(activityId)
+  // True when the loaded activity was scheduled but not yet published —
+  // the schedule option then reads "Reprogramar publicación"
+  const [wasScheduled, setWasScheduled] = useState(false)
   const [attachExisting, setAttachExisting] = useState([])
   const [attachNew, setAttachNew] = useState([])
 
@@ -109,8 +121,10 @@ export default function EvaluacionEditor({
             : '',
           oculta: d.oculta || false,
           publishAt: d.publishAt || '',
-          visibilidadMode: !d.oculta ? 'show' : d.publishAt ? 'schedule' : 'hide',
+          publishedAt: d.publishedAt || '',
+          visibilidadMode: !d.oculta ? 'published' : d.publishAt ? 'schedule' : 'hide',
         })
+        setWasScheduled(!!d.publishAt && !d.publishedAt)
         setAttachExisting(d.archivosAdjuntos || [])
         setInfoCollapsed(false)
         if (d.evaluacion) setConfigForm({ ...EVALUACION_DEFAULTS[categoria], ...d.evaluacion })
@@ -143,11 +157,25 @@ export default function EvaluacionEditor({
   }
 
   // ── Save basic info (create or update) ───────────────────────────
-  async function handleSaveInfo(e) {
+  // asDraft: save hidden with NO publication — a borrador. It only becomes
+  // published when the teacher publishes it (here or via the card's eye icon).
+  async function handleSaveInfo(e, asDraft = false) {
     e.preventDefault()
     if (!htmlToPlainText(infoForm.instrucciones) && !infoForm.nombre.trim()) {
       toast('Escribe al menos el nombre de la evaluación', 'error'); return
     }
+    // Backend validation: fechaLimite must be strictly after the effective publish datetime
+    const effectivePublishAt = asDraft ? null :
+      infoForm.visibilidadMode === 'show'      ? toIsoNow() :
+      infoForm.visibilidadMode === 'published' ? (infoForm.publishedAt || null) :
+      infoForm.visibilidadMode === 'schedule'  ? (infoForm.publishAt || null) :
+      (infoForm.publishedAt || null)  // hide: published-then-hidden still validates vs original date
+    if (infoForm.fechaLimite && effectivePublishAt) {
+      if (infoForm.fechaLimite <= effectivePublishAt) {
+        toast('La fecha límite debe ser posterior a la fecha de publicación', 'error'); return
+      }
+    }
+
     setSavingInfo(true)
     try {
       const uploaded = await Promise.all(
@@ -156,14 +184,18 @@ export default function EvaluacionEditor({
           nombre: file.name, tamano: file.size,
         }))
       )
+      // publishedAt is permanent once set — hiding keeps the original date
+      const newPublishedAt =
+        !asDraft && infoForm.visibilidadMode === 'show' ? toIsoNow() : (infoForm.publishedAt || null)
       const payload = {
         nombre: infoForm.nombre.trim(),
         categoria,
         instrucciones: sanitizeHtml(infoForm.instrucciones),
         archivosAdjuntos: [...attachExisting, ...uploaded],
         fechaLimite: infoForm.fechaLimite || null,
-        oculta: infoForm.oculta || !!infoForm.publishAt,
-        publishAt: infoForm.publishAt || null,
+        oculta: asDraft || infoForm.visibilidadMode === 'schedule' || infoForm.visibilidadMode === 'hide',
+        publishAt: !asDraft && infoForm.visibilidadMode === 'schedule' ? (infoForm.publishAt || null) : null,
+        publishedAt: newPublishedAt,
         maxCalif: 10,
       }
       if (isNew) {
@@ -177,13 +209,13 @@ export default function EvaluacionEditor({
         setCurrentActivityId(ref.id)
         setAttachNew([])
         onActivityCreated?.({ id: ref.id, ...payload, tipo: 'evaluacion', evaluacion: EVALUACION_DEFAULTS[categoria], parcial, orden, asignaturaId: subjectId, docenteId })
-        toast('Evaluación guardada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Evaluación guardada')
         loadPreguntas(ref.id)
       } else {
         await updateDoc(doc(db, 'activities', currentActivityId), payload)
         setAttachNew([])
         onActivityUpdated?.({ id: currentActivityId, ...payload })
-        toast('Cambios guardados')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Cambios guardados')
       }
       onClose()
     } catch (err) {
@@ -415,7 +447,7 @@ export default function EvaluacionEditor({
       {/* ── Header ── */}
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button onClick={onClose} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
+          <button type="button" onClick={onClose} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -466,36 +498,43 @@ export default function EvaluacionEditor({
                 <VisibilitySelect
                   mode={infoForm.visibilidadMode}
                   publishAt={infoForm.publishAt}
+                  publishedAt={infoForm.publishedAt}
+                  wasScheduled={wasScheduled}
                   onModeChange={(mode) => setInfoForm((f) => ({
                     ...f, visibilidadMode: mode,
-                    oculta: mode !== 'show',
-                    publishAt: mode === 'schedule' ? f.publishAt : '',
-                    fechaLimite: mode === 'hide' ? '' : f.fechaLimite,
+                    publishAt: mode === 'schedule' ? (f.publishAt || computeScheduleDefault()) : '',
+                    // hiding a never-published draft clears the deadline; a published
+                    // activity keeps it (hide is temporary, deadline still applies)
+                    fechaLimite: mode === 'hide' && !f.publishedAt ? '' : f.fechaLimite,
                   }))}
                   onPublishAtChange={(v) => setInfoForm((f) => ({ ...f, publishAt: v }))}
                 />
               </div>
-              {infoForm.visibilidadMode !== 'hide' && (
+              {(infoForm.visibilidadMode !== 'hide' || infoForm.publishedAt) && (
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Fecha límite (opcional)</label>
+                  <label className="block text-sm font-medium text-muted mb-1">{infoForm.fechaLimite ? 'Modificar fecha límite' : 'Fecha límite (opcional)'}</label>
                   {infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
                     <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
                     <EFDateTimePicker
                       mode="datetime"
+                      headerLabel="Fecha y hora límite"
                       value={infoForm.fechaLimite}
                       onChange={v => setInfoForm(f => ({ ...f, fechaLimite: v }))}
                       placeholder="Sin fecha límite…"
                       clearable
+                      defaultTime="23:59"
+                      defaultDate={
+                        (infoForm.publishAt || infoForm.publishedAt || '').split('T')[0] || undefined
+                      }
+                      minDateTime={
+                        infoForm.visibilidadMode === 'schedule' ? (infoForm.publishAt || undefined) :
+                        (infoForm.publishedAt || undefined)
+                      }
                     />
                   )}
                 </div>
               )}
-              <button type="submit" disabled={savingInfo}
-                className="w-full py-2 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
-                {savingInfo ? <Spinner size="sm" /> : null}
-                {savingInfo ? 'Guardando…' : 'Guardar y regresar a la asignatura'}
-              </button>
             </form>
           )}
           {infoCollapsed && (
@@ -568,6 +607,7 @@ export default function EvaluacionEditor({
             {configForm.publicarResultados === 'fecha' && (
               <EFDateTimePicker
                 mode="datetime"
+                headerLabel="Fecha y hora de publicación de resultados"
                 value={configForm.publicarResultadosFecha || ''}
                 onChange={v => setConfigForm(f => ({ ...f, publicarResultadosFecha: v }))}
                 placeholder="Elegir fecha de publicación…"
@@ -594,9 +634,10 @@ export default function EvaluacionEditor({
         </div>
 
         {/* ── Sección 3: Preguntas ── */}
-        <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-outline-variant flex items-center justify-between">
-            <h2 className="font-semibold text-on-surface">Preguntas</h2>
+        <div className="bg-surface-card rounded-card shadow-card overflow-hidden" style={{ border: '1px solid var(--accent)' }}>
+          <div className="px-4 py-3 flex items-center justify-between"
+            style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+            <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Preguntas</h2>
             {preguntas.length > 0 && (
               <span className={`text-sm font-semibold ${Math.abs(ponderacionUsada - 10) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
                 {parseFloat(ponderacionUsada.toFixed(2))} / 10 pts
@@ -682,10 +723,10 @@ export default function EvaluacionEditor({
                             <p className="text-base font-semibold text-on-surface">{i + 1}. {p.enunciado}</p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
-                            <button onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
-                            <button onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
-                            <button onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
-                            <button onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={18} /></button>
+                            <button type="button" onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
+                            <button type="button" onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
+                            <button type="button" onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
+                            <button type="button" onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={18} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-36 rounded border border-outline-variant" />}
@@ -783,11 +824,11 @@ export default function EvaluacionEditor({
                 ) : (
                   <div className="pt-2 mt-2 border-t border-outline-variant">
                     <div className="flex gap-2">
-                      <button onClick={() => setShowPreguntaForm(true)}
+                      <button type="button" onClick={() => setShowPreguntaForm(true)}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm bg-accent text-white font-medium rounded-card">
                         <Plus size={15} /> Crear reactivo nuevo
                       </button>
-                      <button onClick={() => { setShowBanco(true); loadBanco() }}
+                      <button type="button" onClick={() => { setShowBanco(true); loadBanco() }}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm border border-accent text-accent font-medium rounded-card">
                         <Library size={15} /> Agregar desde el Banco
                       </button>
@@ -797,6 +838,29 @@ export default function EvaluacionEditor({
               </>
             )}
           </div>
+        </div>
+
+        {/* ── Acciones finales — al fondo, después de los reactivos ── */}
+        <div className="space-y-2">
+          <button type="button" disabled={savingInfo}
+            onClick={() => handleSaveInfo({ preventDefault: () => {} })}
+            className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+            {savingInfo ? <Spinner size="sm" /> : null}
+            {savingInfo ? 'Guardando…' : 'Guardar y regresar a la asignatura'}
+          </button>
+          {!infoForm.publishedAt && (
+            <button type="button" disabled={savingInfo}
+              onClick={() => handleSaveInfo({ preventDefault: () => {} }, true)}
+              className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+              Guardar como borrador
+            </button>
+          )}
+          {!isNew && (
+            <button type="button" onClick={onClose} disabled={savingInfo}
+              className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">
+              Salir sin guardar cambios
+            </button>
+          )}
         </div>
 
         <div className="h-6" />
@@ -871,9 +935,9 @@ export default function EvaluacionEditor({
                               <p className="text-sm font-semibold text-on-surface">{item.enunciado}</p>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
-                              <button onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
-                              <button onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
-                              <button onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
+                              <button type="button" onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
+                              <button type="button" onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
+                              <button type="button" onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
                             </div>
                           </div>
                           {item.opciones && Array.isArray(item.opciones) && (
@@ -890,7 +954,7 @@ export default function EvaluacionEditor({
                               Correcta: <span className="font-semibold text-emerald-700">{item.respuestaCorrecta === 'v' ? 'Verdadero' : 'Falso'}</span>
                             </p>
                           )}
-                          <button onClick={() => { handleAddFromBanco(item); setShowBanco(false) }}
+                          <button type="button" onClick={() => { handleAddFromBanco(item); setShowBanco(false) }}
                             className="mt-2 w-full py-1.5 text-xs font-medium bg-accent text-white rounded">
                             + Agregar a la evaluación
                           </button>
@@ -904,7 +968,7 @@ export default function EvaluacionEditor({
 
             {/* Footer fijo */}
             <div className="p-3 border-t border-outline-variant flex-shrink-0">
-              <button onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full py-2 text-sm text-muted">Cerrar</button>
+              <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full py-2 text-sm text-muted">Cerrar</button>
             </div>
           </div>
         </div>
