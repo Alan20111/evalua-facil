@@ -59,6 +59,13 @@ export default function EntregableEditor({
   // the secondary keeps it as a draft.
   const wasDraft = !isNew && !!initialForm && initialForm.oculta && !initialForm.publishedAt && !initialForm.publishAt
 
+  // Dirty check: save buttons stay disabled while nothing changed. Publishing
+  // a draft is an action by itself, so "Guardar y publicar" ignores it.
+  const isDirty = isNew
+    || JSON.stringify(form) !== JSON.stringify(initialForm)
+    || newFiles.length > 0
+    || existingFiles.length !== (initialExistingFiles || []).length
+
   function addFiles(files) {
     const tooBig = files.find((f) => f.size > MAX_ATTACH)
     if (tooBig) { toast(`"${tooBig.name}" supera el máximo de 15 MB`, 'error'); return }
@@ -250,13 +257,13 @@ export default function EntregableEditor({
             )}
           </div>
 
-          <button type="submit" disabled={saving}
+          <button type="submit" disabled={saving || (!wasDraft && !isDirty)}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : isNew ? <Plus size={18} /> : <Pencil size={18} />}
             {saving ? 'Guardando…' : isNew ? 'Crear actividad' : wasDraft ? 'Guardar y publicar' : 'Guardar cambios'}
           </button>
           {!form.publishedAt && (
-            <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving}
+            <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving || (wasDraft && !isDirty)}
               className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
               {wasDraft ? 'Guardar cambios del borrador sin publicar' : 'Guardar como borrador'}
             </button>
