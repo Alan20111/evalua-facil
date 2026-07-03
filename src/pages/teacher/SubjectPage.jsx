@@ -135,6 +135,8 @@ export default function SubjectPage() {
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [publishDraftConfirm, setPublishDraftConfirm] = useState(null) // draft activity | null
+  const [duplicateConfirm, setDuplicateConfirm] = useState(null) // activity | null
+  const [duplicating, setDuplicating] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -1163,6 +1165,44 @@ export default function SubjectPage() {
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
+  // Duplicate an activity as a DRAFT copy: same instructions, file types,
+  // attachments and evaluación config/preguntas — but hidden, unpublished,
+  // unnumbered and without deadline, ready to rename and publish later.
+  async function handleDuplicateActivity() {
+    if (!duplicateConfirm) return
+    setDuplicating(true)
+    try {
+      const src = duplicateConfirm
+      const orden = activities.filter((a) => a.parcial === src.parcial).length + 1
+      const copy = {
+        nombre: `${src.nombre} (copia)`,
+        categoria: src.categoria || 'entregable',
+        maxCalif: src.maxCalif ?? 10,
+        instrucciones: src.instrucciones || '',
+        archivosAdjuntos: src.archivosAdjuntos || [],
+        fechaLimite: null,
+        tiposArchivo: src.tiposArchivo || [],
+        extensionesCustom: src.extensionesCustom || '',
+        tipo: src.tipo || 'archivo',
+        ...(src.evaluacion ? { evaluacion: src.evaluacion } : {}),
+        oculta: true, publishAt: null, publishedAt: null,
+        parcial: src.parcial, orden,
+        asignaturaId: subjectId, docenteId: currentUser.uid, createdAt: serverTimestamp(),
+      }
+      const ref = await addDoc(collection(db, 'activities'), copy)
+      // Evaluaciones: also clone the question bank of this activity
+      if (src.tipo === 'evaluacion') {
+        const snap = await getDocs(collection(db, 'activities', src.id, 'preguntas'))
+        await Promise.all(snap.docs.map((d) => addDoc(collection(db, 'activities', ref.id, 'preguntas'), d.data())))
+      }
+      setActivities((prev) => [...prev, { id: ref.id, ...copy, createdAt: null }])
+      setSubmissionCounts((prev) => ({ ...prev, [ref.id]: { delivered: 0, graded: 0 } }))
+      toast('Copia creada como borrador — edítala para cambiarle el nombre')
+      setDuplicateConfirm(null)
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setDuplicating(false) }
+  }
+
   // First publication of a draft (no publishedAt yet): the eye asks for
   // confirmation and stamps the publication datetime.
   async function publishDraftNow() {
@@ -1352,16 +1392,20 @@ export default function SubjectPage() {
   // `activities` list (kept sorted by `orden`). Computing this fresh on every
   // render means the displayed sequence can never drift out of order/gapped,
   // regardless of creation order, deletions, or stale stored values.
+  // Drafts (hidden, never published, not scheduled) get NO number until they
+  // are published — the sequence belongs to published activities only, so a
+  // deleted publication's number passes to the next thing published.
+  const isDraftActivity = (a) => a.oculta && !a.publishedAt && !a.publishAt
   const activityLabelById = {}
   PARCIALES.forEach((p) => {
-    activities.filter((a) => a.parcial === p).forEach((a, i) => {
+    activities.filter((a) => a.parcial === p && !isDraftActivity(a)).forEach((a, i) => {
       activityLabelById[a.id] = `${p}.${i + 1}`
     })
   })
 
   // Preview of the auto-assigned "Actividad" label shown (read-only) in the modal.
   const previewActividad = modalMode === 'create'
-    ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}`
+    ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial && !isDraftActivity(a)).length + 1}`
     : (activityLabelById[editActivityId] || '—')
 
   const filteredGradeStudents = groupStudents.filter((s) => matchesStudentSearch(s, searchGrade))
@@ -1625,6 +1669,10 @@ export default function SubjectPage() {
                             <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} data-tooltip="Editar"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
+                            </button>
+                            <button type="button" onClick={() => setDuplicateConfirm(a)} data-tooltip="Duplicar como borrador"
+                              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
+                              <Copy size={16} />
                             </button>
                             <button type="button" onClick={() => setDeleteConfirm(a)} data-tooltip="Eliminar"
                               className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
@@ -2216,6 +2264,29 @@ export default function SubjectPage() {
             </form>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Duplicate activity confirmation ── */}
+      {duplicateConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDuplicateConfirm(null)} />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-on-surface mb-1">Duplicar actividad</h3>
+            <p className="text-sm text-muted mb-4">
+              Se creará una copia de "<strong>{duplicateConfirm.nombre}</strong>" como <strong>borrador</strong>, con el nombre "{duplicateConfirm.nombre} (copia)".
+              Quedará oculta para estudiantes y sin número hasta que la publiques. Edítala para cambiarle el nombre.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setDuplicateConfirm(null)}
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <button type="button" onClick={handleDuplicateActivity} disabled={duplicating}
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
+                {duplicating ? <Spinner size="sm" /> : <Copy size={16} />}
+                {duplicating ? 'Duplicando…' : 'Duplicar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
