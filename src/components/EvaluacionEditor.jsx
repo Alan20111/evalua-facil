@@ -251,6 +251,13 @@ export default function EvaluacionEditor({
   async function handleSaveConfig(e) {
     e.preventDefault()
     if (!currentActivityId) { toast('Guarda la información general primero', 'error'); return }
+    // Results scheduled for a specific date must be in the future
+    if (configForm.publicarResultados === 'fecha') {
+      if (!configForm.publicarResultadosFecha) { toast('Elige la fecha de publicación de resultados', 'error'); return }
+      if (configForm.publicarResultadosFecha <= toIsoNow()) {
+        toast('La fecha de publicación de resultados debe ser posterior a este momento', 'error'); return
+      }
+    }
     setSavingConfig(true)
     try {
       await updateDoc(doc(db, 'activities', currentActivityId), { evaluacion: configForm })
@@ -691,6 +698,7 @@ export default function EvaluacionEditor({
                 headerLabel="Fecha y hora de publicación de resultados"
                 value={configForm.publicarResultadosFecha || ''}
                 onChange={v => setConfigForm(f => ({ ...f, publicarResultadosFecha: v }))}
+                minDateTime={toIsoNow()}
                 placeholder="Elegir fecha de publicación…"
                 clearable={false}
               />

@@ -20,6 +20,11 @@ const TIPOS_PREGUNTA = [
   { value: 'respuesta_corta', label: 'Respuesta corta' },
 ]
 const OPCION_IDS = ['a', 'b', 'c', 'd']
+
+function toIsoNow() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
 const EMPTY_PREGUNTA = {
   tipo: 'opcion_multiple', enunciado: '', opciones: { a: '', b: '', c: '', d: '' }, respuestaCorrecta: 'a',
   vfRespuesta: 'v', ponderacion: 1, retroalimentacion: '', imagenFile: null, guardarEnBanco: false, tema: '',
@@ -347,6 +352,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // ── Configuración ──
   async function handleSaveConfig(e) {
     e.preventDefault()
+    // Results scheduled for a specific date must be in the future
+    if (configForm.publicarResultados === 'fecha') {
+      if (!configForm.publicarResultadosFecha) { toast('Elige la fecha de publicación de resultados', 'error'); return }
+      if (configForm.publicarResultadosFecha <= toIsoNow()) {
+        toast('La fecha de publicación de resultados debe ser posterior a este momento', 'error'); return
+      }
+    }
     setSavingConfig(true)
     try {
       await updateDoc(doc(db, 'activities', activityId), { evaluacion: configForm })
@@ -840,6 +852,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 headerLabel="Fecha y hora de publicación de resultados"
                 value={configForm.publicarResultadosFecha || ''}
                 onChange={v => setConfigForm(f => ({ ...f, publicarResultadosFecha: v }))}
+                minDateTime={toIsoNow()}
                 placeholder="Elegir fecha de publicación…"
                 clearable={false}
               />
