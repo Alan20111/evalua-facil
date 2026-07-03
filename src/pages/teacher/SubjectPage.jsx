@@ -1625,7 +1625,7 @@ export default function SubjectPage() {
                                 {(a.publishedAt || a.fechaLimite || a.publishAt || visState === 'hidden') && (
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                     {a.publishedAt && (
-                                      <span data-tooltip="Fecha y hora de publicación" className="text-xs text-emerald-600 flex items-center gap-0.5">
+                                      <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
                                         <Clock size={14} /> {formatPublishAt(a.publishedAt)}
                                       </span>
                                     )}
@@ -1635,7 +1635,7 @@ export default function SubjectPage() {
                                       </span>
                                     )}
                                     {a.fechaLimite && (
-                                      <span data-tooltip="Fecha y hora de cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
+                                      <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
                                         <Clock size={14} /> {formatDeadline(a.fechaLimite)}
                                       </span>
                                     )}
