@@ -27,7 +27,7 @@ function formatPublishedAt(str) {
   return `${String(d.getDate()).padStart(2,'0')} ${MESES_CORTO[d.getMonth()]} ${d.getFullYear()} · ${String(h12).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ap}`
 }
 
-export default function VisibilitySelect({ mode, publishAt, publishedAt, wasScheduled = false, onModeChange, onPublishAtChange }) {
+export default function VisibilitySelect({ mode, publishAt, publishedAt, wasScheduled = false, isDraft = false, onModeChange, onPublishAtChange }) {
   const publishedLabel = formatPublishedAt(publishedAt)
 
   // Editing an already-published activity: publication is a done fact.
@@ -85,7 +85,20 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
   // showing/hiding an existing item is the eye icon's job on the card.
   return (
     <div className="space-y-2">
-      {mode === 'hide' && (
+      {/* Editing a saved draft: "Borrador" is a selectable option — the
+          teacher may only be reviewing/editing and not want to publish yet */}
+      {isDraft ? (
+        <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+          style={{ borderColor: mode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: mode === 'hide' ? 'var(--accent-light)' : '' }}>
+          <input type="radio" name="visibilidad" checked={mode === 'hide'}
+            onChange={() => onModeChange('hide')}
+            className="accent-[var(--accent)]" />
+          <div>
+            <p className="text-sm font-medium text-on-surface">Borrador</p>
+            <p className="text-xs text-muted">Sigue oculta para estudiantes, sin publicar</p>
+          </div>
+        </label>
+      ) : mode === 'hide' && (
         <div className="p-3 rounded border" style={{ borderColor: '#e2e8f0', background: 'var(--surface-container)' }}>
           <p className="text-sm font-medium text-on-surface">Borrador</p>
           <p className="text-xs text-muted">Oculta para estudiantes. Publícala eligiendo una opción abajo, guárdala de nuevo como borrador, o usa el ojito en la asignatura.</p>

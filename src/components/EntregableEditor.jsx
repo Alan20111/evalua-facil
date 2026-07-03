@@ -217,6 +217,7 @@ export default function EntregableEditor({
                 publishAt={form.publishAt}
                 publishedAt={form.publishedAt}
                 wasScheduled={!isNew && !!initialForm?.publishAt && !initialForm?.publishedAt}
+                isDraft={wasDraft}
                 onModeChange={(mode) => setForm((f) => ({
                   ...f, visibilidadMode: mode,
                   // 9.1: auto-fill publishAt with now+2h when switching to schedule for the first time
@@ -257,21 +258,32 @@ export default function EntregableEditor({
             )}
           </div>
 
-          <button type="submit" disabled={saving || (!wasDraft && !isDirty)}
-            className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
-            {saving ? <Spinner size="sm" /> : isNew ? <Plus size={18} /> : <Pencil size={18} />}
-            {saving ? 'Guardando…' : isNew ? 'Crear actividad' : wasDraft ? (form.visibilidadMode === 'schedule' ? 'Guardar y programar' : 'Guardar y publicar') : 'Guardar cambios'}
-          </button>
-          {!form.publishedAt && (
-            <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving || (wasDraft && !isDirty)}
-              className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-              {wasDraft ? 'Guardar cambios del borrador sin publicar' : 'Guardar como borrador'}
+          {wasDraft && form.visibilidadMode === 'hide' ? (
+            // Draft with "Borrador" selected: the only save action keeps it as draft
+            <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving || !isDirty}
+              className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+              {saving ? <Spinner size="sm" /> : <Pencil size={18} />}
+              {saving ? 'Guardando…' : 'Guardar cambios del borrador sin publicar'}
             </button>
+          ) : (
+            <>
+              <button type="submit" disabled={saving || (!wasDraft && !isDirty)}
+                className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+                {saving ? <Spinner size="sm" /> : isNew ? <Plus size={18} /> : <Pencil size={18} />}
+                {saving ? 'Guardando…' : isNew ? 'Crear actividad' : wasDraft ? (form.visibilidadMode === 'schedule' ? 'Guardar y programar' : 'Guardar y publicar') : 'Guardar cambios'}
+              </button>
+              {!form.publishedAt && !wasDraft && (
+                <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving}
+                  className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                  Guardar como borrador
+                </button>
+              )}
+            </>
           )}
           {!isNew && (
             // With no changes, exiting is the natural action — it takes the primary style
             <button type="button" onClick={onClose} disabled={saving}
-              className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && !wasDraft)
+              className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && (!wasDraft || form.visibilidadMode === 'hide'))
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
               Salir sin guardar cambios
