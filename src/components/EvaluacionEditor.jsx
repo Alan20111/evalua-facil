@@ -962,15 +962,22 @@ export default function EvaluacionEditor({
               ) : (
                 <div className="space-y-2">
                   {bancoFiltrado.map((item) => (
-                    <div key={item.id} className="rounded border border-outline-variant p-3">
+                    <div key={item.id} className="rounded border p-3"
+                      style={editingBancoId === item.id
+                        ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
+                        : { borderColor: 'var(--outline-variant)' }}>
                       {editingBancoId === item.id ? (
                         <div className="space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
                           <select value={bancoEditForm.tipo} onChange={(e) => setBancoEditForm((f) => ({ ...f, tipo: e.target.value }))}
                             className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
                             {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                           </select>
                           <textarea value={bancoEditForm.enunciado} onChange={(e) => setBancoEditForm((f) => ({ ...f, enunciado: e.target.value }))}
                             rows={2} className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                          {bancoEditForm.tipo === 'opcion_multiple' && (
+                            <p className="text-xs text-muted">Marca el círculo de la respuesta correcta:</p>
+                          )}
                           {bancoEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
                             <div key={id} className="flex items-center gap-2">
                               <input type="radio" name={`be-${item.id}`} checked={bancoEditForm.respuestaCorrecta === id}
@@ -979,10 +986,13 @@ export default function EvaluacionEditor({
                                 onChange={(e) => setBancoEditForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
                                 placeholder={`Opción ${id.toUpperCase()}`}
                                 className="flex-1 px-2 py-1 rounded border border-outline-variant text-sm bg-surface" />
+                              {bancoEditForm.respuestaCorrecta === id && (
+                                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex-shrink-0">Correcta</span>
+                              )}
                             </div>
                           ))}
                           <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
-                            placeholder="Tema (opcional)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                            placeholder="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                           <div className="flex gap-2">
                             <button type="button" onClick={() => setEditingBancoId(null)} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                             <button type="button" onClick={() => handleSaveBancoEdit(item.id)}
