@@ -11,7 +11,7 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, toRichHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy,
-  Search, Image as ImageIcon, X, ChevronDown as CollapseIcon,
+  Search, Image as ImageIcon, X,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 
@@ -73,7 +73,6 @@ export default function EvaluacionEditor({
   const [infoForm, setInfoForm] = useState({
     nombre: '', instrucciones: '', fechaLimite: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
   })
-  const [infoCollapsed, setInfoCollapsed] = useState(false)
   const [savingInfo, setSavingInfo] = useState(false)
   const [currentActivityId, setCurrentActivityId] = useState(activityId)
   // True when the loaded activity was scheduled but not yet published —
@@ -147,7 +146,6 @@ export default function EvaluacionEditor({
         setWasScheduled(!!d.publishAt && !d.publishedAt)
         setWasDraft(!!d.oculta && !d.publishedAt && !d.publishAt)
         setAttachExisting(d.archivosAdjuntos || [])
-        setInfoCollapsed(false)
         if (d.evaluacion) {
           const merged = { ...EVALUACION_DEFAULTS[categoria], ...d.evaluacion }
           setConfigForm(merged)
@@ -558,14 +556,12 @@ export default function EvaluacionEditor({
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-        {/* ── Sección 1: Información general ── */}
+        {/* ── Sección 1: Información general — always expanded, no collapse toggle ── */}
         <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-          <button type="button" onClick={() => setInfoCollapsed((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 hover:bg-[var(--accent-tint)] transition-colors">
+          <div className="w-full flex items-center px-4 py-3">
             <span className="font-semibold text-on-surface">Información general</span>
-            <CollapseIcon size={18} className={`text-muted transition-transform ${infoCollapsed ? '' : 'rotate-180'}`} />
-          </button>
-          {!infoCollapsed && (
+          </div>
+          {(
             <form onSubmit={handleSaveInfo} className="px-4 pb-4 space-y-3 border-t border-outline-variant pt-3">
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Nombre</label>
@@ -632,13 +628,6 @@ export default function EvaluacionEditor({
                 </div>
               )}
             </form>
-          )}
-          {infoCollapsed && (
-            <div className="px-4 pb-3 text-sm text-muted">
-              {infoForm.nombre || <span className="italic">Sin nombre</span>}
-              <span className="text-slate-300 mx-2">·</span>
-              <button type="button" onClick={() => setInfoCollapsed(false)} className="text-accent hover:underline text-xs">Editar</button>
-            </div>
           )}
         </div>
 
