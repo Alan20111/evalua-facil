@@ -62,6 +62,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [preguntaEditForm, setPreguntaEditForm] = useState(null)
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
+  const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
   const [configForm, setConfigForm] = useState(activity.evaluacion)
@@ -150,7 +151,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           docenteId: auth.currentUser.uid, tipo: data.tipo, enunciado: data.enunciado,
           opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta,
           tema: preguntaForm.tema.trim() || null,
-          materia: subjectDisplayName(subject), createdAt: serverTimestamp(),
+          // materia = subject name only (no grupo) — reusable across ciclos
+          materia: subject?.nombre || null, asignaturaId: activity?.asignaturaId || null,
+          createdAt: serverTimestamp(),
         })
       }
       setPreguntaForm(EMPTY_PREGUNTA)
@@ -277,9 +280,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   // ── Banco de reactivos: buscar/filtrar/editar/eliminar/duplicar ──
   const temas = [...new Set(banco.map((b) => b.tema).filter(Boolean))]
+  const materias = [...new Set(banco.map((b) => b.materia).filter(Boolean))]
   const bancoFiltrado = banco.filter((b) =>
     (!bancoSearch.trim() || b.enunciado.toLowerCase().includes(bancoSearch.trim().toLowerCase())) &&
-    (!bancoTemaFilter || b.tema === bancoTemaFilter)
+    (!bancoTemaFilter || b.tema === bancoTemaFilter) &&
+    (!bancoMateriaFilter || b.materia === bancoMateriaFilter)
   )
 
   function openEditBanco(item) {
@@ -675,6 +680,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       <input type="text" value={bancoSearch} onChange={(e) => setBancoSearch(e.target.value)}
                         placeholder="Buscar…" className="w-full pl-8 pr-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                     </div>
+                    {materias.length > 0 && (
+                      <select value={bancoMateriaFilter} onChange={(e) => setBancoMateriaFilter(e.target.value)}
+                        className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
+                        <option value="">Todas las materias</option>
+                        {materias.map((m) => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    )}
                     {temas.length > 0 && (
                       <select value={bancoTemaFilter} onChange={(e) => setBancoTemaFilter(e.target.value)}
                         className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
@@ -733,7 +745,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               <button type="button" onClick={() => handleAddFromBanco(item)} disabled={saving}
                                 className="flex-1 text-left text-sm hover:text-accent transition-colors disabled:opacity-50">
                                 {item.enunciado}
-                                {item.tema && <span className="block text-xs text-slate-400 mt-0.5">{item.tema}</span>}
+                                {(item.materia || item.tema) && (
+                                  <span className="block text-xs text-slate-400 mt-0.5">
+                                    {item.materia && <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded mr-1.5">{item.materia}</span>}
+                                    {item.tema}
+                                  </span>
+                                )}
                               </button>
                               <div className="flex gap-1 flex-shrink-0">
                                 <button type="button" onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={14} /></button>

@@ -105,6 +105,7 @@ export default function EvaluacionEditor({
   const [showBanco, setShowBanco] = useState(false)
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
+  const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
 
@@ -314,7 +315,11 @@ export default function EvaluacionEditor({
         await addDoc(collection(db, 'bancoReactivos'), {
           docenteId: auth.currentUser.uid, tipo: data.tipo, enunciado: data.enunciado,
           opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta,
-          tema: preguntaForm.tema.trim() || null, createdAt: serverTimestamp(),
+          tema: preguntaForm.tema.trim() || null,
+          // Bank is organized by materia (auto, from the subject) + tema —
+          // NOT by parcial: a question is reusable across parciales/ciclos
+          materia: subject?.nombre || null, asignaturaId: subjectId || null,
+          createdAt: serverTimestamp(),
         })
       }
       setPreguntaForm(EMPTY_PREGUNTA); setShowPreguntaForm(false)
@@ -407,9 +412,11 @@ export default function EvaluacionEditor({
   }
 
   const temas = [...new Set(banco.map((b) => b.tema).filter(Boolean))]
+  const materias = [...new Set(banco.map((b) => b.materia).filter(Boolean))]
   const bancoFiltrado = banco.filter((b) =>
     (!bancoSearch.trim() || b.enunciado.toLowerCase().includes(bancoSearch.trim().toLowerCase())) &&
-    (!bancoTemaFilter || b.tema === bancoTemaFilter)
+    (!bancoTemaFilter || b.tema === bancoTemaFilter) &&
+    (!bancoMateriaFilter || b.materia === bancoMateriaFilter)
   )
 
   function openEditBanco(item) {
@@ -439,8 +446,8 @@ export default function EvaluacionEditor({
   }
 
   async function handleDuplicateBancoItem(item) {
-    const ref = await addDoc(collection(db, 'bancoReactivos'), { docenteId: auth.currentUser.uid, tipo: item.tipo, enunciado: `${item.enunciado} (copia)`, opciones: item.opciones || null, respuestaCorrecta: item.respuestaCorrecta || null, tema: item.tema || null, createdAt: serverTimestamp() })
-    setBanco((prev) => [...prev, { id: ref.id, docenteId: auth.currentUser.uid, tipo: item.tipo, enunciado: `${item.enunciado} (copia)`, opciones: item.opciones, respuestaCorrecta: item.respuestaCorrecta, tema: item.tema }])
+    const ref = await addDoc(collection(db, 'bancoReactivos'), { docenteId: auth.currentUser.uid, tipo: item.tipo, enunciado: `${item.enunciado} (copia)`, opciones: item.opciones || null, respuestaCorrecta: item.respuestaCorrecta || null, tema: item.tema || null, materia: item.materia || null, asignaturaId: item.asignaturaId || null, createdAt: serverTimestamp() })
+    setBanco((prev) => [...prev, { id: ref.id, docenteId: auth.currentUser.uid, tipo: item.tipo, enunciado: `${item.enunciado} (copia)`, opciones: item.opciones, respuestaCorrecta: item.respuestaCorrecta, tema: item.tema, materia: item.materia || null, asignaturaId: item.asignaturaId || null }])
     toast('Pregunta duplicada')
   }
 
@@ -453,6 +460,8 @@ export default function EvaluacionEditor({
         opciones: p.opciones || null,
         respuestaCorrecta: p.respuestaCorrecta || null,
         tema: null,
+        materia: subject?.nombre || null,
+        asignaturaId: subjectId || null,
         createdAt: serverTimestamp(),
       })
       toast('Pregunta guardada en tu banco')
@@ -929,6 +938,13 @@ export default function EvaluacionEditor({
                   <input type="text" value={bancoSearch} onChange={(e) => setBancoSearch(e.target.value)}
                     placeholder="Buscar…" className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
                 </div>
+                {materias.length > 0 && (
+                  <select value={bancoMateriaFilter} onChange={(e) => setBancoMateriaFilter(e.target.value)}
+                    className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface">
+                    <option value="">Todas las materias</option>
+                    {materias.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                )}
                 {temas.length > 0 && (
                   <select value={bancoTemaFilter} onChange={(e) => setBancoTemaFilter(e.target.value)}
                     className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface">
@@ -980,6 +996,7 @@ export default function EvaluacionEditor({
                               <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent-light px-1.5 py-0.5 rounded mb-1">
                                 {TIPOS_PREGUNTA.find((t) => t.value === item.tipo)?.label}
                               </span>
+                              {item.materia && <span className="ml-2 text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">{item.materia}</span>}
                               {item.tema && <span className="ml-2 text-[10px] text-slate-400">{item.tema}</span>}
                               <p className="text-sm font-semibold text-on-surface">{item.enunciado}</p>
                             </div>
