@@ -55,6 +55,10 @@ export default function EntregableEditor({
   const [newFiles, setNewFiles] = useState([])
   const [saving, setSaving] = useState(false)
 
+  // Editing a saved draft: primary button becomes "Guardar y publicar" and
+  // the secondary keeps it as a draft.
+  const wasDraft = !isNew && !!initialForm && initialForm.oculta && !initialForm.publishedAt && !initialForm.publishAt
+
   function addFiles(files) {
     const tooBig = files.find((f) => f.size > MAX_ATTACH)
     if (tooBig) { toast(`"${tooBig.name}" supera el máximo de 15 MB`, 'error'); return }
@@ -80,11 +84,15 @@ export default function EntregableEditor({
     if (!htmlToPlainText(form.instrucciones)) {
       toast('Escribe las instrucciones de la actividad', 'error'); return
     }
+    // Effective mode: a non-draft save of a never-published hidden activity
+    // means PUBLISH NOW — keeping it draft is the explicit secondary button.
+    const mode = !asDraft && form.visibilidadMode === 'hide' && !form.publishedAt
+      ? 'show' : form.visibilidadMode
     // Backend validation: fechaLimite must be strictly after the effective publish datetime
     const effectivePublishAt = asDraft ? null :
-      form.visibilidadMode === 'show'      ? toIsoNow() :
-      form.visibilidadMode === 'published' ? (form.publishedAt || null) :
-      form.visibilidadMode === 'schedule'  ? (form.publishAt || null) :
+      mode === 'show'      ? toIsoNow() :
+      mode === 'published' ? (form.publishedAt || null) :
+      mode === 'schedule'  ? (form.publishAt || null) :
       (form.publishedAt || null)  // hide: published-then-hidden still validates vs original date
     if (form.fechaLimite && effectivePublishAt) {
       if (form.fechaLimite <= effectivePublishAt) {
@@ -103,7 +111,7 @@ export default function EntregableEditor({
       // Determine publishedAt for this save — once set it is permanent:
       // hiding a published activity keeps the original publication date
       const newPublishedAt =
-        !asDraft && form.visibilidadMode === 'show' ? toIsoNow() : (form.publishedAt || null)
+        !asDraft && mode === 'show' ? toIsoNow() : (form.publishedAt || null)
       const payload = {
         nombre: form.nombre.trim(),
         categoria: categoria || 'entregable',
@@ -113,8 +121,8 @@ export default function EntregableEditor({
         fechaLimite: form.fechaLimite || null,
         tiposArchivo,
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
-        oculta: asDraft || form.visibilidadMode === 'schedule' || form.visibilidadMode === 'hide',
-        publishAt: !asDraft && form.visibilidadMode === 'schedule' ? (form.publishAt || null) : null,
+        oculta: asDraft || mode === 'schedule' || mode === 'hide',
+        publishAt: !asDraft && mode === 'schedule' ? (form.publishAt || null) : null,
         publishedAt: newPublishedAt,
       }
       if (isNew) {
@@ -128,7 +136,7 @@ export default function EntregableEditor({
       } else {
         await updateDoc(doc(db, 'activities', activityId), payload)
         onActivityUpdated?.({ id: activityId, ...payload })
-        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad actualizada')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : wasDraft && mode === 'show' ? 'Actividad publicada para estudiantes' : 'Actividad actualizada')
       }
       onClose()
     } catch (err) {
@@ -245,12 +253,12 @@ export default function EntregableEditor({
           <button type="submit" disabled={saving}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : isNew ? <Plus size={18} /> : <Pencil size={18} />}
-            {saving ? 'Guardando…' : isNew ? 'Crear actividad' : 'Guardar cambios'}
+            {saving ? 'Guardando…' : isNew ? 'Crear actividad' : wasDraft ? 'Guardar y publicar' : 'Guardar cambios'}
           </button>
           {!form.publishedAt && (
             <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving}
               className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-              Guardar como borrador
+              {wasDraft ? 'Guardar cambios del borrador sin publicar' : 'Guardar como borrador'}
             </button>
           )}
           {!isNew && (

@@ -79,6 +79,9 @@ export default function EvaluacionEditor({
   // True when the loaded activity was scheduled but not yet published —
   // the schedule option then reads "Reprogramar publicación"
   const [wasScheduled, setWasScheduled] = useState(false)
+  // True when the loaded activity is a saved draft (hidden, never published,
+  // not scheduled) — primary button becomes "Guardar y publicar"
+  const [wasDraft, setWasDraft] = useState(false)
   const [attachExisting, setAttachExisting] = useState([])
   const [attachNew, setAttachNew] = useState([])
 
@@ -125,6 +128,7 @@ export default function EvaluacionEditor({
           visibilidadMode: !d.oculta ? 'published' : d.publishAt ? 'schedule' : 'hide',
         })
         setWasScheduled(!!d.publishAt && !d.publishedAt)
+        setWasDraft(!!d.oculta && !d.publishedAt && !d.publishAt)
         setAttachExisting(d.archivosAdjuntos || [])
         setInfoCollapsed(false)
         if (d.evaluacion) setConfigForm({ ...EVALUACION_DEFAULTS[categoria], ...d.evaluacion })
@@ -164,11 +168,15 @@ export default function EvaluacionEditor({
     if (!htmlToPlainText(infoForm.instrucciones) && !infoForm.nombre.trim()) {
       toast('Escribe al menos el nombre de la evaluación', 'error'); return
     }
+    // Effective mode: a non-draft save of a never-published hidden evaluación
+    // means PUBLISH NOW — keeping it draft is the explicit secondary button.
+    const mode = !asDraft && infoForm.visibilidadMode === 'hide' && !infoForm.publishedAt
+      ? 'show' : infoForm.visibilidadMode
     // Backend validation: fechaLimite must be strictly after the effective publish datetime
     const effectivePublishAt = asDraft ? null :
-      infoForm.visibilidadMode === 'show'      ? toIsoNow() :
-      infoForm.visibilidadMode === 'published' ? (infoForm.publishedAt || null) :
-      infoForm.visibilidadMode === 'schedule'  ? (infoForm.publishAt || null) :
+      mode === 'show'      ? toIsoNow() :
+      mode === 'published' ? (infoForm.publishedAt || null) :
+      mode === 'schedule'  ? (infoForm.publishAt || null) :
       (infoForm.publishedAt || null)  // hide: published-then-hidden still validates vs original date
     if (infoForm.fechaLimite && effectivePublishAt) {
       if (infoForm.fechaLimite <= effectivePublishAt) {
@@ -186,15 +194,15 @@ export default function EvaluacionEditor({
       )
       // publishedAt is permanent once set — hiding keeps the original date
       const newPublishedAt =
-        !asDraft && infoForm.visibilidadMode === 'show' ? toIsoNow() : (infoForm.publishedAt || null)
+        !asDraft && mode === 'show' ? toIsoNow() : (infoForm.publishedAt || null)
       const payload = {
         nombre: infoForm.nombre.trim(),
         categoria,
         instrucciones: sanitizeHtml(infoForm.instrucciones),
         archivosAdjuntos: [...attachExisting, ...uploaded],
         fechaLimite: infoForm.fechaLimite || null,
-        oculta: asDraft || infoForm.visibilidadMode === 'schedule' || infoForm.visibilidadMode === 'hide',
-        publishAt: !asDraft && infoForm.visibilidadMode === 'schedule' ? (infoForm.publishAt || null) : null,
+        oculta: asDraft || mode === 'schedule' || mode === 'hide',
+        publishAt: !asDraft && mode === 'schedule' ? (infoForm.publishAt || null) : null,
         publishedAt: newPublishedAt,
         maxCalif: 10,
       }
@@ -215,7 +223,7 @@ export default function EvaluacionEditor({
         await updateDoc(doc(db, 'activities', currentActivityId), payload)
         setAttachNew([])
         onActivityUpdated?.({ id: currentActivityId, ...payload })
-        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Cambios guardados')
+        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : wasDraft && mode === 'show' ? 'Evaluación publicada para estudiantes' : 'Cambios guardados')
       }
       onClose()
     } catch (err) {
@@ -846,13 +854,13 @@ export default function EvaluacionEditor({
             onClick={() => handleSaveInfo({ preventDefault: () => {} })}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
             {savingInfo ? <Spinner size="sm" /> : null}
-            {savingInfo ? 'Guardando…' : 'Guardar y regresar a la asignatura'}
+            {savingInfo ? 'Guardando…' : wasDraft ? 'Guardar y publicar' : 'Guardar y regresar a la asignatura'}
           </button>
           {!infoForm.publishedAt && (
             <button type="button" disabled={savingInfo}
               onClick={() => handleSaveInfo({ preventDefault: () => {} }, true)}
               className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-              Guardar como borrador
+              {wasDraft ? 'Guardar cambios del borrador sin publicar' : 'Guardar como borrador'}
             </button>
           )}
           {!isNew && (
