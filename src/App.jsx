@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './components/Toast'
 import { needsPasswordSetup } from './utils/authLinking'
+import { installDraggableOverlays } from './utils/draggableOverlays'
 
 import Landing from './pages/Landing'
 import TeacherLogin from './pages/teacher/Login'
@@ -106,6 +107,9 @@ function RoleWrapper({ children }) {
   const role = userProfile?.role === 'alumno' || isStudentRoute ? 'alumno' : 'docente'
   return <div data-role={role}>{children}</div>
 }
+
+// Every popup in the app becomes draggable (mouse) — installed once, module-level guard
+installDraggableOverlays()
 
 export default function App() {
   return (
