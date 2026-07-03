@@ -76,6 +76,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // something actually changed
   const bancoEditSnap = useRef(null)
   const preguntaEditSnap = useRef(null)
+  // Config baseline — the save button only lights up when something changed
+  const configSnap = useRef(JSON.stringify(activity.evaluacion))
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
   const [configForm, setConfigForm] = useState(activity.evaluacion)
@@ -98,7 +100,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   }
 
   useEffect(() => { loadPreguntas() }, [activityId])
-  useEffect(() => { setConfigForm(activity.evaluacion) }, [activity.evaluacion])
+  useEffect(() => {
+    setConfigForm(activity.evaluacion)
+    configSnap.current = JSON.stringify(activity.evaluacion)
+  }, [activity.evaluacion])
 
   async function loadBanco() {
     if (bancoLoaded) return
@@ -402,6 +407,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     setSavingConfig(true)
     try {
       await updateDoc(doc(db, 'activities', activityId), { evaluacion: configForm })
+      configSnap.current = JSON.stringify(configForm)
       onActivityChange((prev) => ({ ...prev, evaluacion: configForm }))
       toast('Configuración guardada')
     } catch (err) {
@@ -916,7 +922,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 Mostrar cuál era la respuesta correcta
               </label>
             </div>
-            <button type="submit" disabled={savingConfig} className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
+            <button type="submit" disabled={savingConfig || JSON.stringify(configForm) === configSnap.current}
+              className={`w-full py-2 text-sm font-medium rounded disabled:opacity-60 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
               {savingConfig ? 'Guardando…' : 'Guardar configuración'}
             </button>
           </form>
