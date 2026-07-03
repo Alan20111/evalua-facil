@@ -71,6 +71,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // Keeps the just-edited item highlighted after Guardar/Cancelar so the
   // teacher doesn't lose track of it in the list
   const [lastEditedBancoId, setLastEditedBancoId] = useState(null)
+  // Same afterglow for a freshly created reactivo in the preguntas list
+  const [lastAddedPreguntaId, setLastAddedPreguntaId] = useState(null)
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
   const [configForm, setConfigForm] = useState(activity.evaluacion)
@@ -153,6 +155,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       const data = { ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null }
       const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
       setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
+      setLastAddedPreguntaId(ref.id)
       await syncNumPreguntas(preguntas.length + 1)
       if (preguntaForm.guardarEnBanco) {
         await addDoc(collection(db, 'bancoReactivos'), {
@@ -185,6 +188,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       }
       const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
       setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
+      setLastAddedPreguntaId(ref.id)
       await syncNumPreguntas(preguntas.length + 1)
       toast('Pregunta agregada desde tu banco')
     } catch (err) {
@@ -255,6 +259,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       }
       const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
       setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
+      setLastAddedPreguntaId(ref.id)
       await syncNumPreguntas(preguntas.length + 1)
       toast('Pregunta duplicada')
     } catch (err) {
@@ -497,7 +502,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <div className="space-y-2 mb-3">
                 {preguntas.length === 0 && <p className="text-sm text-slate-400 text-center py-6">Aún no hay preguntas</p>}
                 {preguntas.map((p, i) => (
-                  <div key={p.id} className="bg-surface-card rounded-card shadow-card p-3">
+                  <div key={p.id} className="bg-surface-card rounded-card shadow-card p-3"
+                    style={p.id === lastAddedPreguntaId
+                      ? { border: '1px solid var(--accent)', background: 'var(--accent-light)' }
+                      : undefined}>
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="space-y-2">
                         <div>
@@ -602,7 +610,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleAddPregunta} className="bg-surface-card rounded-card shadow-card p-3 space-y-2">
+              <form onSubmit={handleAddPregunta} className="rounded-card shadow-card p-3 space-y-2"
+                style={{ border: '2px solid var(--accent)', background: 'var(--accent-light)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando reactivo nuevo</p>
                 <div>
                   <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                   <select value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}

@@ -109,6 +109,8 @@ export default function EvaluacionEditor({
   // Keeps the just-edited item highlighted after Guardar/Cancelar so the
   // teacher doesn't lose track of it in the list
   const [lastEditedBancoId, setLastEditedBancoId] = useState(null)
+  // Same afterglow for a freshly created reactivo in the preguntas list
+  const [lastAddedPreguntaId, setLastAddedPreguntaId] = useState(null)
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
 
@@ -319,6 +321,7 @@ export default function EvaluacionEditor({
       const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
       const updated = [...preguntas, { id: ref.id, ...data }]
       setPreguntas(updated)
+      setLastAddedPreguntaId(ref.id)
       await syncNumPreguntas(updated.length)
       if (preguntaForm.guardarEnBanco) {
         // already imported at top
@@ -387,6 +390,7 @@ export default function EvaluacionEditor({
     const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
     const updated = [...preguntas, { id: ref.id, ...data }]
     setPreguntas(updated)
+    setLastAddedPreguntaId(ref.id)
     await syncNumPreguntas(updated.length)
     toast('Pregunta duplicada')
   }
@@ -417,6 +421,7 @@ export default function EvaluacionEditor({
     const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
     const updated = [...preguntas, { id: ref.id, ...data }]
     setPreguntas(updated)
+    setLastAddedPreguntaId(ref.id)
     await syncNumPreguntas(updated.length)
     toast('Pregunta agregada desde tu banco')
   }
@@ -749,7 +754,10 @@ export default function EvaluacionEditor({
                 )}
 
                 {preguntas.map((p, i) => (
-                  <div key={p.id} className="border border-outline-variant rounded-card">
+                  <div key={p.id} className="border rounded-card"
+                    style={p.id === lastAddedPreguntaId
+                      ? { borderColor: 'var(--accent)', background: 'var(--accent-light)' }
+                      : { borderColor: 'var(--outline-variant)' }}>
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="p-4 space-y-3">
                         <div>
@@ -837,7 +845,9 @@ export default function EvaluacionEditor({
                 ))}
 
                 {showPreguntaForm ? (
-                  <form onSubmit={handleAddPregunta} className="border-2 border-accent rounded-card p-4 space-y-3">
+                  <form onSubmit={handleAddPregunta} className="border-2 border-accent rounded-card p-4 space-y-3"
+                    style={{ background: 'var(--accent-light)' }}>
+                    <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando reactivo nuevo</p>
                     <div>
                       <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                       <select value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
