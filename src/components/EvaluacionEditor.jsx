@@ -178,6 +178,13 @@ export default function EvaluacionEditor({
     // means PUBLISH NOW — keeping it draft is the explicit secondary button.
     const mode = !asDraft && infoForm.visibilidadMode === 'hide' && !infoForm.publishedAt
       ? 'show' : infoForm.visibilidadMode
+    // A scheduled publication must be in the future
+    if (!asDraft && mode === 'schedule') {
+      if (!infoForm.publishAt) { toast('Elige la fecha y hora de publicación', 'error'); return }
+      if (infoForm.publishAt <= toIsoNow()) {
+        toast('La fecha de publicación programada debe ser posterior a este momento', 'error'); return
+      }
+    }
     // Backend validation: fechaLimite must be strictly after the effective publish datetime
     const effectivePublishAt = asDraft ? null :
       mode === 'show'      ? toIsoNow() :
