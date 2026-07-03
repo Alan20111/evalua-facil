@@ -260,7 +260,7 @@ export default function EntregableEditor({
           <button type="submit" disabled={saving || (!wasDraft && !isDirty)}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : isNew ? <Plus size={18} /> : <Pencil size={18} />}
-            {saving ? 'Guardando…' : isNew ? 'Crear actividad' : wasDraft ? 'Guardar y publicar' : 'Guardar cambios'}
+            {saving ? 'Guardando…' : isNew ? 'Crear actividad' : wasDraft ? (form.visibilidadMode === 'schedule' ? 'Guardar y programar' : 'Guardar y publicar') : 'Guardar cambios'}
           </button>
           {!form.publishedAt && (
             <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving || (wasDraft && !isDirty)}
