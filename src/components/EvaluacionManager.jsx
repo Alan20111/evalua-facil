@@ -835,7 +835,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       ))}
                     </div>
                   )}
-                  <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} className="w-full mt-3 py-2 text-sm text-muted">Cerrar</button>
+                  <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}
+                    className="w-full mt-3 py-2.5 bg-accent text-white text-sm font-semibold rounded-card hover:bg-accent-hover transition-colors">Cerrar</button>
                 </div>
               </div>
             )}

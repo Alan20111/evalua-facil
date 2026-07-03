@@ -1097,7 +1097,8 @@ export default function EvaluacionEditor({
 
             {/* Footer fijo */}
             <div className="p-3 border-t border-outline-variant flex-shrink-0">
-              <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} className="w-full py-2 text-sm text-muted">Cerrar</button>
+              <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }}
+                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-card hover:bg-accent-hover transition-colors">Cerrar</button>
             </div>
           </div>
         </div>
