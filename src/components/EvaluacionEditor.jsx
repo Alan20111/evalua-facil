@@ -106,6 +106,9 @@ export default function EvaluacionEditor({
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
   const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')
+  // Keeps the just-edited item highlighted after Guardar/Cancelar so the
+  // teacher doesn't lose track of it in the list
+  const [lastEditedBancoId, setLastEditedBancoId] = useState(null)
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
 
@@ -443,7 +446,7 @@ export default function EvaluacionEditor({
     const data = buildPreguntaData({ ...bancoEditForm, ponderacion: 1, retroalimentacion: '' })
     await updateDoc(doc(db, 'bancoReactivos', id), { tipo: data.tipo, enunciado: data.enunciado, opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta, tema: bancoEditForm.tema.trim() || null })
     setBanco((prev) => prev.map((b) => b.id === id ? { ...b, tipo: data.tipo, enunciado: data.enunciado, opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta, tema: bancoEditForm.tema.trim() || null } : b))
-    setEditingBancoId(null); toast('Pregunta del banco actualizada')
+    setEditingBancoId(null); setLastEditedBancoId(id); toast('Pregunta del banco actualizada')
   }
 
   async function handleDeleteBancoItem(id) {
@@ -935,7 +938,7 @@ export default function EvaluacionEditor({
       {/* ── Banco modal ── */}
       {showBanco && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null) }} />
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null); setLastEditedBancoId(null) }} />
           <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card shadow-2xl flex flex-col" style={{height: 'min(90vh, 700px)'}}>
             {/* Header fijo */}
             <div className="p-4 border-b border-outline-variant flex-shrink-0">
@@ -973,7 +976,9 @@ export default function EvaluacionEditor({
                     <div key={item.id} className="rounded border p-3"
                       style={editingBancoId === item.id
                         ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
-                        : { borderColor: 'var(--outline-variant)' }}>
+                        : lastEditedBancoId === item.id
+                          ? { borderColor: 'var(--accent)', background: 'var(--accent-light)' }
+                          : { borderColor: 'var(--outline-variant)' }}>
                       {editingBancoId === item.id ? (
                         <div className="space-y-2">
                           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
@@ -1002,7 +1007,7 @@ export default function EvaluacionEditor({
                           <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
                             placeholder="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                           <div className="flex gap-2">
-                            <button type="button" onClick={() => setEditingBancoId(null)} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
+                            <button type="button" onClick={() => { setEditingBancoId(null); setLastEditedBancoId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                             <button type="button" onClick={() => handleSaveBancoEdit(item.id)}
                               className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded">Guardar</button>
                           </div>
@@ -1052,7 +1057,7 @@ export default function EvaluacionEditor({
 
             {/* Footer fijo */}
             <div className="p-3 border-t border-outline-variant flex-shrink-0">
-              <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full py-2 text-sm text-muted">Cerrar</button>
+              <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setLastEditedBancoId(null) }} className="w-full py-2 text-sm text-muted">Cerrar</button>
             </div>
           </div>
         </div>
