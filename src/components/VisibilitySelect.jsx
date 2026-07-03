@@ -66,24 +66,24 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
   // republishing/hiding make no sense — only allow moving the scheduled date.
   if (wasScheduled) {
     return (
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 p-3 rounded border"
-          style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
-          <div>
-            <p className="text-sm font-medium text-on-surface">Reprogramar publicación</p>
-            <p className="text-xs text-muted">Modifica la fecha y hora en que se publicará</p>
-          </div>
+      <div className="rounded border"
+        style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
+        <div className="p-3">
+          <p className="text-sm font-medium text-on-surface">Reprogramar publicación</p>
+          <p className="text-xs text-muted">Modifica la fecha y hora en que se publicará</p>
         </div>
-        <EFDateTimePicker
-          mode="datetime"
-          headerLabel="Fecha y hora de publicación"
-          value={publishAt}
-          onChange={onPublishAtChange}
-          placeholder="Elegir fecha de publicación…"
-          clearable={false}
-          defaultTime="07:00"
-          minDateTime={toIsoNowLocal()}
-        />
+        <div className="px-3 pb-3">
+          <EFDateTimePicker
+            mode="datetime"
+            headerLabel="Fecha y hora de publicación"
+            value={publishAt}
+            onChange={onPublishAtChange}
+            placeholder="Elegir fecha de publicación…"
+            clearable={false}
+            defaultTime="07:00"
+            minDateTime={toIsoNowLocal()}
+          />
+        </div>
       </div>
     )
   }
@@ -122,28 +122,34 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
           <p className="text-xs text-muted">Se publica de inmediato al guardar</p>
         </div>
       </label>
-      <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+      {/* Radio + date picker share one bordered container so they read as
+          a single option, not two separate rows */}
+      <div className="rounded border transition-colors"
         style={{ borderColor: mode === 'schedule' ? 'var(--accent)' : '#e2e8f0', background: mode === 'schedule' ? 'var(--accent-light)' : '' }}>
-        <input type="radio" name="visibilidad" checked={mode === 'schedule'}
-          onChange={() => onModeChange('schedule')}
-          className="accent-[var(--accent)]" />
-        <div>
-          <p className="text-sm font-medium text-on-surface">Programar publicación</p>
-          <p className="text-xs text-muted">Se activa automáticamente en la fecha y hora elegidas</p>
-        </div>
-      </label>
-      {mode === 'schedule' && (
-        <EFDateTimePicker
-          mode="datetime"
-          headerLabel="Fecha y hora de publicación"
-          value={publishAt}
-          onChange={onPublishAtChange}
-          placeholder="Elegir fecha de publicación…"
-          clearable={false}
-          defaultTime="07:00"
-          minDateTime={toIsoNowLocal()}
-        />
-      )}
+        <label className="flex items-center gap-2 p-3 cursor-pointer hover:bg-[var(--accent-tint)] rounded">
+          <input type="radio" name="visibilidad" checked={mode === 'schedule'}
+            onChange={() => onModeChange('schedule')}
+            className="accent-[var(--accent)]" />
+          <div>
+            <p className="text-sm font-medium text-on-surface">Programar publicación</p>
+            <p className="text-xs text-muted">Se activa automáticamente en la fecha y hora elegidas</p>
+          </div>
+        </label>
+        {mode === 'schedule' && (
+          <div className="px-3 pb-3">
+            <EFDateTimePicker
+              mode="datetime"
+              headerLabel="Fecha y hora de publicación"
+              value={publishAt}
+              onChange={onPublishAtChange}
+              placeholder="Elegir fecha de publicación…"
+              clearable={false}
+              defaultTime="07:00"
+              minDateTime={toIsoNowLocal()}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
