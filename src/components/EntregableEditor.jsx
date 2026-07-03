@@ -95,6 +95,13 @@ export default function EntregableEditor({
     // means PUBLISH NOW — keeping it draft is the explicit secondary button.
     const mode = !asDraft && form.visibilidadMode === 'hide' && !form.publishedAt
       ? 'show' : form.visibilidadMode
+    // A scheduled publication must be in the future
+    if (!asDraft && mode === 'schedule') {
+      if (!form.publishAt) { toast('Elige la fecha y hora de publicación', 'error'); return }
+      if (form.publishAt <= toIsoNow()) {
+        toast('La fecha de publicación programada debe ser posterior a este momento', 'error'); return
+      }
+    }
     // Backend validation: fechaLimite must be strictly after the effective publish datetime
     const effectivePublishAt = asDraft ? null :
       mode === 'show'      ? toIsoNow() :

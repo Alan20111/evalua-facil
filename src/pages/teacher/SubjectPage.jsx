@@ -834,6 +834,13 @@ export default function SubjectPage() {
     const now = new Date()
     const nowIso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
     if (!asDraft) {
+      // A scheduled publication must be in the future
+      if (form.visibilidadMode === 'schedule') {
+        if (!form.publishAt) { toast('Elige la fecha y hora de publicación', 'error'); return }
+        if (form.publishAt <= nowIso) {
+          toast('La fecha de publicación programada debe ser posterior a este momento', 'error'); return
+        }
+      }
       const effectivePublishAt =
         form.visibilidadMode === 'show'     ? nowIso :
         form.visibilidadMode === 'schedule' ? (form.publishAt || null) :
