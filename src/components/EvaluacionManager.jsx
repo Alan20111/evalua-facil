@@ -68,6 +68,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
   const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')
+  // Keeps the just-edited item highlighted after Guardar/Cancelar so the
+  // teacher doesn't lose track of it in the list
+  const [lastEditedBancoId, setLastEditedBancoId] = useState(null)
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
   const [configForm, setConfigForm] = useState(activity.evaluacion)
@@ -316,6 +319,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       })
       setBanco((prev) => prev.map((b) => b.id === id ? { ...b, tipo: data.tipo, enunciado: data.enunciado, opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta, tema: bancoEditForm.tema.trim() || null } : b))
       setEditingBancoId(null)
+      setLastEditedBancoId(id)
       toast('Pregunta del banco actualizada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -683,7 +687,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
             {showBanco && (
               <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-                <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null) }} />
+                <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null); setLastEditedBancoId(null) }} />
                 <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
                   <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
                   <div className="flex gap-2 mb-3">
@@ -717,7 +721,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         <div key={item.id} className="rounded border p-2"
                           style={editingBancoId === item.id
                             ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
-                            : { borderColor: 'var(--outline-variant)' }}>
+                            : lastEditedBancoId === item.id
+                              ? { borderColor: 'var(--accent)', background: 'var(--accent-light)' }
+                              : { borderColor: 'var(--outline-variant)' }}>
                           {editingBancoId === item.id ? (
                             <div className="space-y-2">
                               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
@@ -757,7 +763,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
                                 placeholder="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                               <div className="flex gap-2">
-                                <button type="button" onClick={() => setEditingBancoId(null)} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
+                                <button type="button" onClick={() => { setEditingBancoId(null); setLastEditedBancoId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                                 <button type="button" onClick={() => handleSaveBancoEdit(item.id)} disabled={saving}
                                   className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">Guardar</button>
                               </div>
@@ -785,7 +791,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       ))}
                     </div>
                   )}
-                  <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null) }} className="w-full mt-3 py-2 text-sm text-muted">Cerrar</button>
+                  <button type="button" onClick={() => { setShowBanco(false); setEditingBancoId(null); setLastEditedBancoId(null) }} className="w-full mt-3 py-2 text-sm text-muted">Cerrar</button>
                 </div>
               </div>
             )}
