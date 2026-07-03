@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   collection, query, where, doc, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, getDoc,
 } from 'firebase/firestore'
@@ -82,6 +82,9 @@ export default function EvaluacionEditor({
   // True when the loaded activity is a saved draft (hidden, never published,
   // not scheduled) — primary button becomes "Guardar y publicar"
   const [wasDraft, setWasDraft] = useState(false)
+  // Snapshot taken after load — save buttons stay disabled while nothing changed
+  const loadedSnapshot = useRef(null)
+  const loadedAttachCount = useRef(0)
   const [attachExisting, setAttachExisting] = useState([])
   const [attachNew, setAttachNew] = useState([])
 
@@ -116,7 +119,7 @@ export default function EvaluacionEditor({
       const snap = await getDoc(doc(db, 'activities', activityId))
       if (snap.exists()) {
         const d = snap.data()
-        setInfoForm({
+        const loaded = {
           nombre: d.nombre || '',
           instrucciones: toRichHtml(d.instrucciones || ''),
           fechaLimite: d.fechaLimite
@@ -126,7 +129,10 @@ export default function EvaluacionEditor({
           publishAt: d.publishAt || '',
           publishedAt: d.publishedAt || '',
           visibilidadMode: !d.oculta ? 'published' : d.publishAt ? 'schedule' : 'hide',
-        })
+        }
+        setInfoForm(loaded)
+        loadedSnapshot.current = JSON.stringify(loaded)
+        loadedAttachCount.current = (d.archivosAdjuntos || []).length
         setWasScheduled(!!d.publishAt && !d.publishedAt)
         setWasDraft(!!d.oculta && !d.publishedAt && !d.publishAt)
         setAttachExisting(d.archivosAdjuntos || [])
@@ -449,6 +455,16 @@ export default function EvaluacionEditor({
   }
 
   const tipoLabel = categoria === 'cuestionario' ? 'Cuestionario' : 'Examen'
+
+  // Dirty check for the info form: save buttons stay disabled while nothing
+  // changed. Publishing a draft is an action by itself, so "Guardar y
+  // publicar" ignores it. (Config and preguntas save separately.)
+  const isDirty = isNew
+    || attachNew.length > 0
+    || (loadedSnapshot.current !== null && (
+      JSON.stringify(infoForm) !== loadedSnapshot.current ||
+      attachExisting.length !== loadedAttachCount.current
+    ))
 
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto">
@@ -850,14 +866,14 @@ export default function EvaluacionEditor({
 
         {/* ── Acciones finales — al fondo, después de los reactivos ── */}
         <div className="space-y-2">
-          <button type="button" disabled={savingInfo}
+          <button type="button" disabled={savingInfo || (!wasDraft && !isNew && !isDirty)}
             onClick={() => handleSaveInfo({ preventDefault: () => {} })}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
             {savingInfo ? <Spinner size="sm" /> : null}
             {savingInfo ? 'Guardando…' : wasDraft ? 'Guardar y publicar' : 'Guardar y regresar a la asignatura'}
           </button>
           {!infoForm.publishedAt && (
-            <button type="button" disabled={savingInfo}
+            <button type="button" disabled={savingInfo || (wasDraft && !isDirty)}
               onClick={() => handleSaveInfo({ preventDefault: () => {} }, true)}
               className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
               {wasDraft ? 'Guardar cambios del borrador sin publicar' : 'Guardar como borrador'}
