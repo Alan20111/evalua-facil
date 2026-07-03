@@ -524,6 +524,7 @@ export default function EvaluacionEditor({
                   publishAt={infoForm.publishAt}
                   publishedAt={infoForm.publishedAt}
                   wasScheduled={wasScheduled}
+                  isDraft={wasDraft}
                   onModeChange={(mode) => setInfoForm((f) => ({
                     ...f, visibilidadMode: mode,
                     publishAt: mode === 'schedule' ? (f.publishAt || computeScheduleDefault()) : '',
@@ -866,23 +867,35 @@ export default function EvaluacionEditor({
 
         {/* ── Acciones finales — al fondo, después de los reactivos ── */}
         <div className="space-y-2">
-          <button type="button" disabled={savingInfo || (!wasDraft && !isNew && !isDirty)}
-            onClick={() => handleSaveInfo({ preventDefault: () => {} })}
-            className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
-            {savingInfo ? <Spinner size="sm" /> : null}
-            {savingInfo ? 'Guardando…' : wasDraft ? (infoForm.visibilidadMode === 'schedule' ? 'Guardar y programar' : 'Guardar y publicar') : 'Guardar y regresar a la asignatura'}
-          </button>
-          {!infoForm.publishedAt && (
-            <button type="button" disabled={savingInfo || (wasDraft && !isDirty)}
+          {wasDraft && infoForm.visibilidadMode === 'hide' ? (
+            // Draft with "Borrador" selected: the only save action keeps it as draft
+            <button type="button" disabled={savingInfo || !isDirty}
               onClick={() => handleSaveInfo({ preventDefault: () => {} }, true)}
-              className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-              {wasDraft ? 'Guardar cambios del borrador sin publicar' : 'Guardar como borrador'}
+              className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+              {savingInfo ? <Spinner size="sm" /> : null}
+              {savingInfo ? 'Guardando…' : 'Guardar cambios del borrador sin publicar'}
             </button>
+          ) : (
+            <>
+              <button type="button" disabled={savingInfo || (!wasDraft && !isNew && !isDirty)}
+                onClick={() => handleSaveInfo({ preventDefault: () => {} })}
+                className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
+                {savingInfo ? <Spinner size="sm" /> : null}
+                {savingInfo ? 'Guardando…' : wasDraft ? (infoForm.visibilidadMode === 'schedule' ? 'Guardar y programar' : 'Guardar y publicar') : 'Guardar y regresar a la asignatura'}
+              </button>
+              {!infoForm.publishedAt && !wasDraft && (
+                <button type="button" disabled={savingInfo}
+                  onClick={() => handleSaveInfo({ preventDefault: () => {} }, true)}
+                  className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                  Guardar como borrador
+                </button>
+              )}
+            </>
           )}
           {!isNew && (
             // With no changes, exiting is the natural action — it takes the primary style
             <button type="button" onClick={onClose} disabled={savingInfo}
-              className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && !wasDraft)
+              className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && (!wasDraft || infoForm.visibilidadMode === 'hide'))
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
               Salir sin guardar cambios
