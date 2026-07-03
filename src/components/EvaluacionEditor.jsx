@@ -689,10 +689,10 @@ export default function EvaluacionEditor({
           )}
         </div>
 
-        {/* ── Sección 2: Configuración ── */}
-        <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-outline-variant">
-            <h2 className="font-semibold text-on-surface">Configuración</h2>
+        {/* ── Sección 2: Configuración — same accent container as Preguntas ── */}
+        <div className="bg-surface-card rounded-card shadow-card overflow-hidden" style={{ border: '1px solid var(--accent)' }}>
+          <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+            <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Configuración</h2>
           </div>
           <form onSubmit={handleSaveConfig} className="px-4 py-4 space-y-3">
             <div>
