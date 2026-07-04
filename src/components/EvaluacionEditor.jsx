@@ -643,12 +643,12 @@ export default function EvaluacionEditor({
                 onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, false)}
                 className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
                 {savingInfo ? <Spinner size="sm" /> : null}
-                {savingInfo ? 'Guardando…' : 'Guardar borrador'}
+                {savingInfo ? 'Guardando…' : 'Guardar borrador y seguir editando'}
               </button>
               <button type="button" disabled={savingInfo || !isDirty}
                 onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, true)}
                 className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-                Guardar y salir
+                Guardar borrador y salir
               </button>
             </>
           ) : (
@@ -674,7 +674,7 @@ export default function EvaluacionEditor({
               className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && (!wasDraft || infoForm.visibilidadMode === 'hide'))
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
-              Salir sin guardar cambios
+              {isDirty ? 'Salir sin guardar cambios' : 'Salir'}
             </button>
           )}
         </div>

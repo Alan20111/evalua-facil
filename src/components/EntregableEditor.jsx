@@ -273,7 +273,7 @@ export default function EntregableEditor({
             <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving || !isDirty}
               className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
               {saving ? <Spinner size="sm" /> : <Pencil size={18} />}
-              {saving ? 'Guardando…' : 'Guardar borrador'}
+              {saving ? 'Guardando…' : 'Guardar borrador y salir'}
             </button>
           ) : (
             <>
@@ -296,7 +296,7 @@ export default function EntregableEditor({
               className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && (!wasDraft || form.visibilidadMode === 'hide'))
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
-              Salir sin guardar cambios
+              {isDirty ? 'Salir sin guardar cambios' : 'Salir'}
             </button>
           )}
           <div className="h-6" />
