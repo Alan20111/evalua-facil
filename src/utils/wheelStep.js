@@ -53,14 +53,19 @@ export function installWheelStep() {
     const dynMax = parseFloat(input.getAttribute('data-wheel-max'))
     const max = !isNaN(dynMax) ? dynMax : (input.max !== '' ? parseFloat(input.max) : Infinity)
 
+    // Normalized direction — trackpads emit tiny/jittery deltas whose sign
+    // can flip; ignore anything without a clear direction
+    const dir = e.deltaY > 0 ? 1 : e.deltaY < 0 ? -1 : 0
+    if (dir === 0) return
+
     let next
     if (input.value === '') {
       // First wheel on an empty box lands on the suggested remainder
       const suggested = parseFloat(input.placeholder)
-      next = isNaN(suggested) ? (e.deltaY > 0 ? step : 0) : suggested
+      next = isNaN(suggested) ? (dir > 0 ? step : 0) : suggested
     } else {
       // Wheel DOWN increases, wheel UP decreases
-      next = (parseFloat(input.value) || 0) + (e.deltaY > 0 ? step : -step)
+      next = (parseFloat(input.value) || 0) + dir * step
     }
     next = parseFloat(next.toFixed(2))
     // Wrap around: past the max jumps to the min and vice versa (10 → 0, 0 → 10)
@@ -69,7 +74,11 @@ export function installWheelStep() {
 
     nativeSetter.call(input, String(next))
     input.dispatchEvent(new Event('input', { bubbles: true }))
-    if (document.activeElement !== input) input.focus({ preventScroll: true })
+    // Do NOT focus here: a focused number input lets the browser apply its
+    // own wheel-spin (up = increase) on top of ours, which flipped the
+    // direction intermittently. If it happens to be focused (user clicked),
+    // blur it so only OUR handler drives the wheel from now on.
+    if (document.activeElement === input) input.blur()
 
     // Show the value above the box while wheeling
     showBubble(input, String(next))
