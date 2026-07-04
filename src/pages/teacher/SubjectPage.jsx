@@ -1939,7 +1939,7 @@ export default function SubjectPage() {
                         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
                         <th className="sticky left-8 z-10 bg-accent-light w-[150px] px-1 py-1 text-left border-r border-outline-variant">
                           <button type="button" onClick={togglePonderacion}
-                            data-tooltip="Cada actividad vale un peso"
+                            data-tooltip-follow="Cada actividad vale un peso"
                             className={`w-full px-1 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${ponderacionOn
                               ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                               : 'bg-accent text-white hover:bg-accent-hover'}`}>
