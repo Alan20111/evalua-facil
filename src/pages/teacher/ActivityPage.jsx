@@ -356,13 +356,25 @@ export default function ActivityPage() {
 
           <AttachmentList files={activity?.archivosAdjuntos} />
 
-          {/* Filter tabs — counts live in the tab labels, no separate badges */}
-          <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
+        </div>
+
+        {/* ── Entregas — same accent container as Preguntas/Configuración ── */}
+        <div id="entregas-container" className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
+          <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+            <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Entregas</h2>
+          </div>
+
+          {/* Filter tabs — they belong to the Entregas list, so they live inside
+              its container; clicking one scrolls the list into full view */}
+          <div className="flex gap-1 mx-4 mt-3 bg-surface-container p-1 rounded">
             {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
               <button
                 type="button"
                 key={f}
-                onClick={() => setFilter(f)}
+                onClick={() => {
+                  setFilter(f)
+                  setTimeout(() => document.getElementById('entregas-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+                }}
                 className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
                   filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}
@@ -370,13 +382,6 @@ export default function ActivityPage() {
                 {FILTER_LABELS[f]} ({f === 'todos' ? students.length : counts[f]})
               </button>
             ))}
-          </div>
-        </div>
-
-        {/* ── Entregas — same accent container as Preguntas/Configuración ── */}
-        <div className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
-          <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
-            <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Entregas</h2>
           </div>
 
         {/* Search + sort */}
