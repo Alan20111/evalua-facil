@@ -311,10 +311,15 @@ export default function ActivityPage() {
             </div>
           )}
           {activity?.instrucciones && (
-            <div
-              className={`text-sm text-on-surface mt-2 ${richTextContentClass}`}
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
-            />
+            <div className="mt-2 rounded-card overflow-hidden bg-surface-card" style={{ border: '1px solid var(--accent)' }}>
+              <div className="px-4 py-2" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+                <h2 className="font-semibold text-sm" style={{ color: 'var(--accent)' }}>Instrucciones</h2>
+              </div>
+              <div
+                className={`text-sm text-on-surface p-4 ${richTextContentClass}`}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+              />
+            </div>
           )}
           <AttachmentList files={activity?.archivosAdjuntos} />
 
@@ -349,6 +354,12 @@ export default function ActivityPage() {
             ))}
           </div>
         </div>
+
+        {/* ── Entregas — same accent container as Preguntas/Configuración ── */}
+        <div className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
+          <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+            <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Entregas</h2>
+          </div>
 
         {/* Search + sort */}
         <div className="px-4 pt-4 pb-2 flex gap-2">
@@ -439,6 +450,7 @@ export default function ActivityPage() {
             </div>
           )}
         </div>
+        </div>{/* end Entregas container */}
       </div>
 
       {/* Grade / detail modal */}
