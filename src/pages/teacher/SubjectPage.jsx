@@ -16,7 +16,7 @@ import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, 
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { pesoDe, promedioParcial } from '../../utils/ponderacion'
-import { showNear } from '../../utils/notify'
+import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
@@ -142,6 +142,8 @@ export default function SubjectPage() {
   const [duplicating, setDuplicating] = useState(false)
   // PONDERACIÓN: in-progress weight edits per activity id (committed on blur)
   const [pesoEdits, setPesoEdits] = useState({})
+  // Anchored confirmation panel for reverting to simple average
+  const [confirmRevertPonderacion, setConfirmRevertPonderacion] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -1523,15 +1525,23 @@ export default function SubjectPage() {
 
   // ── PONDERACIÓN (optional per-activity weights) ────────────────────
   const ponderacionOn = !!subject?.ponderacionActivada
-  async function togglePonderacion() {
+  function togglePonderacion() {
     const next = !ponderacionOn
     // Going BACK to simple average when weights already exist needs an
-    // explicit confirmation — the captured weights are ERASED
+    // explicit confirmation — shown in a panel anchored to the button
+    // (the browser's native confirm() always appears top-center)
     const conPeso = activities.filter((a) => pesoDe(a) > 0)
     if (!next && conPeso.length > 0) {
-      const ok = confirm('Al menos una actividad ya tiene ponderación. ¿Volver a promedio simple? Los pesos ya capturados se borrarán y todas las actividades valdrán lo mismo.')
-      if (!ok) return
+      setConfirmRevertPonderacion(true)
+      playAlertSound()
+      return
     }
+    applyPonderacion(next)
+  }
+
+  async function applyPonderacion(next) {
+    setConfirmRevertPonderacion(false)
+    const conPeso = activities.filter((a) => pesoDe(a) > 0)
     try {
       // Activation always starts with weights HIDDEN from students; the
       // teacher's later choice (eye toggle) persists across visits
@@ -2048,14 +2058,34 @@ export default function SubjectPage() {
                     <thead>
                       <tr className="bg-accent-light border-b border-outline-variant">
                         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
-                        <th className="sticky left-8 z-10 bg-accent-light w-[150px] px-1 py-1 text-left border-r border-outline-variant">
-                          <button type="button" onClick={togglePonderacion}
-                            data-tooltip-follow="Cada actividad vale un peso"
-                            className={`w-full px-1 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${ponderacionOn
-                              ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                              : 'bg-accent text-white hover:bg-accent-hover'}`}>
-                            {ponderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
-                          </button>
+                        <th className="sticky left-8 z-20 bg-accent-light w-[150px] px-1 py-1 text-left border-r border-outline-variant">
+                          <div className="relative">
+                            <button type="button" onClick={togglePonderacion}
+                              data-tooltip-follow="Cada actividad vale un peso"
+                              className={`w-full px-1 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${ponderacionOn
+                                ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                                : 'bg-accent text-white hover:bg-accent-hover'}`}>
+                              {ponderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
+                            </button>
+                            {/* Confirmation anchored HERE — right where the action happens */}
+                            {confirmRevertPonderacion && (
+                              <div className="absolute left-0 top-full mt-1 z-30 w-72 bg-white border-2 border-amber-400 rounded-card shadow-2xl p-3 text-left">
+                                <p className="text-xs text-amber-800 font-medium normal-case tracking-normal leading-snug">
+                                  Al menos una actividad ya tiene ponderación. Los pesos capturados se borrarán y todas las actividades valdrán lo mismo.
+                                </p>
+                                <div className="flex gap-2 mt-2">
+                                  <button type="button" onClick={() => setConfirmRevertPonderacion(false)}
+                                    className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-xs font-medium normal-case tracking-normal hover:bg-surface-container">
+                                    Cancelar
+                                  </button>
+                                  <button type="button" onClick={() => applyPonderacion(false)}
+                                    className="flex-1 py-1.5 rounded bg-amber-500 text-white text-xs font-semibold normal-case tracking-normal hover:bg-amber-600">
+                                    Sí, promedio simple
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </th>
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
