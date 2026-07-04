@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { exportSubjectGrades, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
+import { exportSubjectGrades, exportParcialGrades, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
 import { exportSubjectGradesPDF, exportCredentialsPDF, exportQRPDF } from '../../utils/pdf'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
@@ -1365,6 +1365,39 @@ export default function SubjectPage() {
     finally { setExporting(false) }
   }
 
+  // Per-parcial EXPORTAR (button in the grades-table header). With
+  // ponderación active, the parcial's weights must sum exactly 10 first —
+  // the teacher adjusts until it does, then the Excel is generated.
+  async function handleExportParcial(p) {
+    if (!subject) return
+    if (ponderacionOn) {
+      const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+      const total = pesoTotalVivo(acts)
+      if (total !== 10) {
+        toast(`La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para exportar`, 'warning')
+        return
+      }
+    }
+    setExporting(true)
+    try {
+      let students = groupStudents
+      let subMap = gradeSubMap
+      if (!groupStudentsLoaded) {
+        const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
+        students = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        setGroupStudents(students); setGroupStudentsLoaded(true)
+      }
+      if (!gradesLoaded) {
+        const subDocs = await fetchSubmissionsForActivities(activities.map((a) => a.id))
+        subMap = {}
+        subDocs.forEach((d) => { const data = d.data(); subMap[`${data.alumnoId}-${data.actividadId}`] = data })
+        setGradeSubMap(subMap); setGradesLoaded(true)
+      }
+      exportParcialGrades({ subject, activities, students, submissions: Object.values(subMap), parcial: p })
+    } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
+    finally { setExporting(false) }
+  }
+
   async function handleExportQRPDF() {
     if (!subject) return
     setExportingPdf(true)
@@ -2026,8 +2059,15 @@ export default function SubjectPage() {
                         </th>
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
-                            className="px-1.5 py-1.5 font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
-                            Parcial {p}
+                            className="px-1.5 py-1 font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-2">
+                              <span>Parcial {p}</span>
+                              <button type="button" onClick={() => handleExportParcial(p)}
+                                data-tooltip-follow={`Parcial ${p} a Excel`}
+                                className="px-1.5 py-0.5 rounded bg-accent text-white text-[10px] font-bold uppercase tracking-wide hover:bg-accent-hover transition-colors">
+                                Exportar
+                              </button>
+                            </div>
                           </th>
                         ))}
                         <th className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">

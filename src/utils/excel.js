@@ -89,6 +89,54 @@ export function parseStudentExcel(file) {
   })
 }
 
+
+// One-parcial grades export — triggered from the EXPORTAR button in the
+// grades table header. Same format as the full export but a single parcial
+// and no Final column. When ponderación is active the caller must have
+// validated the weights sum 10 before calling.
+export function exportParcialGrades({ subject, activities, students, submissions, parcial }) {
+  const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
+  const acts = activities
+    .filter((a) => a.parcial === parcial && !isDraft(a))
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+
+  const totalCols = 2 + acts.length + 1
+
+  const titleRow = Array(totalCols).fill('')
+  const periodo = subjectPeriodLabel(subject)
+  titleRow[0] = `${subjectDisplayName(subject)} — Parcial ${parcial}${periodo ? `   (${periodo})` : ''}`
+
+  const nameRow = ['#', 'NOMBRE']
+  acts.forEach((a, ai) => nameRow.push(`${parcial}.${ai + 1}`))
+  nameRow.push(`Prom. P${parcial}`)
+
+  const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  const dataRows = sorted.map((s) => {
+    const row = [s.orden, [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ')]
+    const grades = acts.map((a) => {
+      const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
+      return sub?.calificacion != null
+        ? parseFloat(((sub.calificacion / (a.maxCalif || 10)) * 10).toFixed(2))
+        : null
+    })
+    grades.forEach((g) => row.push(g !== null ? g : ''))
+    const rawAvg = promedioParcial(acts, grades, !!subject.ponderacionActivada)
+    row.push(rawAvg !== null ? parseFloat(rawAvg.toFixed(2)) : '')
+    return row
+  })
+
+  const allRows = [titleRow, [], nameRow, ...dataRows]
+  const ws = XLSX.utils.aoa_to_sheet(allRows)
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }]
+  ws['!cols'] = [{ wch: 4 }, { wch: 42 }, ...Array(totalCols - 2).fill({ wch: 10 })]
+  ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, `Parcial ${parcial}`)
+  const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
+  XLSX.writeFile(wb, `calificaciones_parcial${parcial}_${safeName}.xlsx`)
+}
+
 export function exportSubjectGrades({
   subject,
   activities,
