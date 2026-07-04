@@ -1463,6 +1463,12 @@ export default function SubjectPage() {
   const ponderacionOn = !!subject?.ponderacionActivada
   async function togglePonderacion() {
     const next = !ponderacionOn
+    // Going BACK to simple average when weights already exist needs an
+    // explicit confirmation — averages will be recalculated without pesos
+    if (!next && activities.some((a) => pesoDe(a) > 0)) {
+      const ok = confirm('Al menos una actividad ya tiene ponderación. ¿Volver a promedio simple? Los promedios se recalcularán como si todas las actividades valieran lo mismo (los pesos capturados no se borran).')
+      if (!ok) return
+    }
     try {
       await updateDoc(doc(db, 'subjects', subjectId), { ponderacionActivada: next })
       setSubject((s) => ({ ...s, ponderacionActivada: next }))
@@ -1471,6 +1477,18 @@ export default function SubjectPage() {
         : 'Ponderación desactivada — promedio simple (todas valen lo mismo)')
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
+  // Remaining points to reach 10 in the parcial, excluding one activity —
+  // offered as the default when the teacher focuses an empty weight box
+  function pesoRestante(acts, exceptId) {
+    const sum = acts.reduce((t, x) => {
+      if (x.id === exceptId) return t
+      const edit = pesoEdits[x.id]
+      const v = edit !== undefined ? parseFloat(edit) : parseFloat(x.pesoCalificacion)
+      return t + (isNaN(v) || v < 0 ? 0 : v)
+    }, 0)
+    return Math.max(0, parseFloat((10 - sum).toFixed(2)))
+  }
+
   async function savePeso(a) {
     const raw = pesoEdits[a.id]
     if (raw === undefined) return
@@ -1869,17 +1887,6 @@ export default function SubjectPage() {
               </div>
             </div>
 
-            {/* PONDERACIÓN toggle — optional weighted grading */}
-            <button type="button" onClick={togglePonderacion}
-              className={`w-full flex items-center justify-center gap-2 py-1.5 rounded border text-sm transition-colors ${ponderacionOn
-                ? 'border-amber-400 bg-amber-50 text-amber-700 font-medium'
-                : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'}`}>
-              <ArrowUpDown size={15} />
-              {ponderacionOn
-                ? 'Ponderación activada — cada actividad vale su peso (clic para volver al promedio simple)'
-                : 'Ponderar calificaciones de actividades (opcional)'}
-            </button>
-
             <div className="relative">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={searchGrade} onChange={(e) => setSearchGrade(e.target.value)}
@@ -1922,7 +1929,15 @@ export default function SubjectPage() {
                     <thead>
                       <tr className="bg-accent-light border-b border-outline-variant">
                         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
-                        <th className="sticky left-8 z-10 bg-accent-light w-[150px] px-2 py-1.5 text-left font-medium text-muted whitespace-nowrap border-r border-outline-variant" />
+                        <th className="sticky left-8 z-10 bg-accent-light w-[150px] px-1 py-1 text-left border-r border-outline-variant">
+                          <button type="button" onClick={togglePonderacion}
+                            data-tooltip="Cada actividad vale un peso"
+                            className={`w-full px-1 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${ponderacionOn
+                              ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                              : 'bg-accent text-white hover:bg-accent-hover'}`}>
+                            {ponderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
+                          </button>
+                        </th>
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
                             className="px-1.5 py-1.5 font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
@@ -1945,7 +1960,18 @@ export default function SubjectPage() {
                               <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
                                 <input type="number" min="0" max="10" step="0.1"
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
+                                  placeholder={String(pesoRestante(acts, a.id))}
                                   onChange={(e) => setPesoEdits((f) => ({ ...f, [a.id]: e.target.value }))}
+                                  onFocus={(e) => {
+                                    // Empty box: prefill with the remaining points to reach 10,
+                                    // pre-selected — type to replace it, or just leave to accept
+                                    const current = pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')
+                                    if (current === '') {
+                                      setPesoEdits((f) => ({ ...f, [a.id]: String(pesoRestante(acts, a.id)) }))
+                                    }
+                                    const el = e.target
+                                    requestAnimationFrame(() => el.select())
+                                  }}
                                   onBlur={() => savePeso(a)}
                                   data-tooltip={`Peso de la actividad ${activityLabelById[a.id] || ''}`}
                                   className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
