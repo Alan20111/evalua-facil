@@ -1319,8 +1319,30 @@ export default function SubjectPage() {
     finally { setCopyingSubject(false) }
   }
 
+  // PONDERACIÓN gate: while capturing, partial sums are fine — but grades
+  // can only be GENERATED when every weighted parcial adds up to exactly 10.
+  // Only parciales where the teacher already assigned some weight are
+  // validated; untouched parciales fall back to simple average.
+  function ponderacionIncompleta() {
+    if (!subject?.ponderacionActivada) return null
+    const PARC = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
+    for (const p of PARC) {
+      const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+      if (!acts.length || !acts.some((a) => pesoDe(a) > 0)) continue
+      const total = parseFloat(acts.reduce((t, a) => t + pesoDe(a), 0).toFixed(2))
+      if (total !== 10) return { p, total }
+    }
+    return null
+  }
+
   async function handleExport() {
-    if (!subject) return; setExporting(true)
+    if (!subject) return
+    const falta = ponderacionIncompleta()
+    if (falta) {
+      toast(`La ponderación del Parcial ${falta.p} suma ${falta.total} de 10 — complétala antes de generar las calificaciones`, 'warning')
+      return
+    }
+    setExporting(true)
     try {
       let students = groupStudents
       let subMap = gradeSubMap
@@ -1357,7 +1379,13 @@ export default function SubjectPage() {
 
   // R12: grades as PDF (same data as the Excel export).
   async function handleExportGradesPDF() {
-    if (!subject) return; setExportingGradesPdf(true)
+    if (!subject) return
+    const falta = ponderacionIncompleta()
+    if (falta) {
+      toast(`La ponderación del Parcial ${falta.p} suma ${falta.total} de 10 — complétala antes de generar las calificaciones`, 'warning')
+      return
+    }
+    setExportingGradesPdf(true)
     try {
       let students = groupStudents
       let subMap = gradeSubMap
