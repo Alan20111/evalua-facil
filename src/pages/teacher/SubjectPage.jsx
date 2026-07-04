@@ -1497,6 +1497,20 @@ export default function SubjectPage() {
     return Math.max(0, parseFloat((10 - sum).toFixed(2)))
   }
 
+  // Whether STUDENTS see the weights. The weighted average is always the
+  // official one; this only controls showing "Vale X de 10" on their view —
+  // some teachers weight privately for servicios escolares, others announce it.
+  async function togglePonderacionVisible() {
+    const next = !subject?.ponderacionVisibleAlumnos
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), { ponderacionVisibleAlumnos: next })
+      setSubject((s) => ({ ...s, ponderacionVisibleAlumnos: next }))
+      toast(next
+        ? 'Los estudiantes ahora ven el peso de cada actividad'
+        : 'Pesos ocultos para los estudiantes — solo tú los ves')
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
   async function savePeso(a) {
     const raw = pesoEdits[a.id]
     if (raw === undefined) return
@@ -1968,8 +1982,17 @@ export default function SubjectPage() {
                       {ponderacionOn && (
                         <tr className="bg-amber-50 border-b border-amber-200">
                           <th className="sticky left-0 z-10 bg-amber-50 w-8 px-1 py-1 border-r border-outline-variant" />
-                          <th className="sticky left-8 z-10 bg-amber-50 w-[150px] px-2 py-1 text-right text-[10px] font-bold text-amber-700 uppercase tracking-wide border-r border-outline-variant">
-                            Ponderación
+                          <th className="sticky left-8 z-10 bg-amber-50 w-[150px] px-2 py-1 border-r border-outline-variant">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button type="button" onClick={togglePonderacionVisible}
+                                data-tooltip-follow={subject?.ponderacionVisibleAlumnos
+                                  ? 'Los estudiantes VEN los pesos — clic para ocultárselos'
+                                  : 'Los estudiantes NO ven los pesos — clic para mostrárselos'}
+                                className={`p-0.5 rounded transition-colors ${subject?.ponderacionVisibleAlumnos ? 'text-amber-700 hover:text-amber-900' : 'text-amber-400 hover:text-amber-700'}`}>
+                                {subject?.ponderacionVisibleAlumnos ? <Eye size={14} /> : <EyeOff size={14} />}
+                              </button>
+                              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">Ponderación</span>
+                            </div>
                           </th>
                           {tableParcials.map(({ p, acts }) => [
                             ...acts.map((a) => (

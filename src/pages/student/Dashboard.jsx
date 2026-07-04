@@ -18,6 +18,7 @@ import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollments } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
+import { promedioParcial } from '../../utils/ponderacion'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -127,11 +128,18 @@ export default function StudentDashboard() {
       // Compute each subject's average in memory.
       const enriched = subs.map((s) => {
         const acts = actsBySubject[s.id] || []
-        const grades = acts
-          .filter((a) => gradeByActivity[a.id] != null)
-          .map((a) => (gradeByActivity[a.id] / (a.maxCalif || 10)) * 10)
-        const avg = grades.length
-          ? (grades.reduce((x, y) => x + y, 0) / grades.length).toFixed(1)
+        // Same math as the teacher: per-parcial (weighted when applicable),
+        // then the mean of parcial averages
+        const PARC = Array.from({ length: s.parciales || 3 }, (_, i) => i + 1)
+        const parcAvgs = PARC.map((p) => {
+          const pacts = acts.filter((a) => a.parcial === p)
+          const grades = pacts.map((a) =>
+            gradeByActivity[a.id] != null ? (gradeByActivity[a.id] / (a.maxCalif || 10)) * 10 : null
+          )
+          return promedioParcial(pacts, grades, !!s.ponderacionActivada)
+        }).filter((v) => v !== null)
+        const avg = parcAvgs.length
+          ? (parcAvgs.reduce((x, y) => x + y, 0) / parcAvgs.length).toFixed(1)
           : null
         return { ...s, teacherName: teachers[s.docenteId] || '—', avg }
       })
