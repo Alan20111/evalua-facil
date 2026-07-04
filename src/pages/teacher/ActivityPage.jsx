@@ -291,7 +291,8 @@ export default function ActivityPage() {
       <div data-subject-palette={subject?.colorPalette || 'default'}>
       <div className={TEACHER_CONTAINER_NARROW}>
         {/* Header */}
-        <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
+        {/* Header on the page background — the Instrucciones card floats like Entregas below */}
+        <div className="px-4 py-2">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -332,7 +333,7 @@ export default function ActivityPage() {
             </div>
           )}
           {activity?.instrucciones && (
-            <div className="mt-2 rounded-card overflow-hidden bg-surface-card" style={{ border: '1px solid var(--accent)' }}>
+            <div className="mt-2 rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
               <div className="px-4 py-2" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
                 <h2 className="font-semibold text-sm" style={{ color: 'var(--accent)' }}>Instrucciones</h2>
               </div>
