@@ -16,6 +16,7 @@ import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, 
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { pesoDe, pesoTotal, promedioParcial } from '../../utils/ponderacion'
+import { showNear } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
@@ -1537,7 +1538,8 @@ export default function SubjectPage() {
       const restante = pesoRestante(actsParcial, a.id)
       if (num > restante) {
         num = restante
-        toast(`El peso se ajustó a ${restante} — la suma del parcial no puede pasar de 10`)
+        // Contextual warning right where it happened, not in the far corner
+        showNear(document.getElementById(`peso-${a.id}`), `Se ajustó a ${restante} — la suma no puede pasar de 10`)
       }
     }
     setPesoEdits((f) => { const n = { ...f }; delete n[a.id]; return n })
@@ -2012,7 +2014,7 @@ export default function SubjectPage() {
                           {tableParcials.map(({ p, acts }) => [
                             ...acts.map((a) => (
                               <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
-                                <input type="number" min="0" max="10" step="0.5" data-wheel-step="0.5"
+                                <input id={`peso-${a.id}`} type="number" min="0" max="10" step="0.5" data-wheel-step="0.5"
                                   data-wheel-max={pesoRestante(acts, a.id)}
                                   data-wheel-locked={pesoRestante(acts, '__total__') <= 0 ? 'Tu suma ya es 10' : undefined}
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
