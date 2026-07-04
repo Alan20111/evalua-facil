@@ -1,6 +1,7 @@
 // Lazy-loads jsPDF + autotable + qrcode only when the teacher actually exports,
 // so these heavy libs stay out of the main bundle.
 import { subjectDisplayName } from './subjectName'
+import { promedioParcial } from './ponderacion'
 import { subjectPeriodLabel } from './dateRange'
 
 function fullName(s) {
@@ -42,14 +43,11 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
     const finals = []
     PARCIALES.forEach((p) => {
       const acts = activities.filter((a) => a.parcial === p)
-      const grades = []
-      acts.forEach((a) => {
+      const grades = acts.map((a) => {
         const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
-        if (sub?.calificacion != null) {
-          grades.push((sub.calificacion / (a.maxCalif || 10)) * 10)
-        }
+        return sub?.calificacion != null ? (sub.calificacion / (a.maxCalif || 10)) * 10 : null
       })
-      const avg = grades.length ? grades.reduce((x, y) => x + y, 0) / grades.length : null
+      const avg = promedioParcial(acts, grades, !!subject.ponderacionActivada)
       row.push(avg != null ? avg.toFixed(1) : '—')
       if (avg != null) finals.push(avg)
     })

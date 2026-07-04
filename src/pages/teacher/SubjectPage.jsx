@@ -15,6 +15,7 @@ import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloa
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
+import { pesoDe, pesoTotal, promedioParcial } from '../../utils/ponderacion'
 import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
 import IconSelect from '../../components/IconSelect'
@@ -138,6 +139,8 @@ export default function SubjectPage() {
   const [publishDraftConfirm, setPublishDraftConfirm] = useState(null) // draft activity | null
   const [duplicateConfirm, setDuplicateConfirm] = useState(null) // activity | null
   const [duplicating, setDuplicating] = useState(false)
+  // PONDERACIÓN: in-progress weight edits per activity id (committed on blur)
+  const [pesoEdits, setPesoEdits] = useState({})
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -1456,6 +1459,32 @@ export default function SubjectPage() {
       : 'bg-[var(--accent-tint)]'
   }
 
+  // ── PONDERACIÓN (optional per-activity weights) ────────────────────
+  const ponderacionOn = !!subject?.ponderacionActivada
+  async function togglePonderacion() {
+    const next = !ponderacionOn
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), { ponderacionActivada: next })
+      setSubject((s) => ({ ...s, ponderacionActivada: next }))
+      toast(next
+        ? 'Ponderación activada — asigna un peso del 1 al 10 a cada actividad'
+        : 'Ponderación desactivada — promedio simple (todas valen lo mismo)')
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+  async function savePeso(a) {
+    const raw = pesoEdits[a.id]
+    if (raw === undefined) return
+    let num = parseFloat(raw)
+    if (isNaN(num) || num < 0) num = null
+    if (num !== null && num > 10) num = 10
+    setPesoEdits((f) => { const n = { ...f }; delete n[a.id]; return n })
+    if ((a.pesoCalificacion ?? null) === num) return
+    try {
+      await updateDoc(doc(db, 'activities', a.id), { pesoCalificacion: num })
+      setActivities((prev) => prev.map((x) => x.id === a.id ? { ...x, pesoCalificacion: num } : x))
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
   // Pre-compute grade rows
   const gradeRows = filteredGradeStudents.map((s) => {
     const parcialData = tableParcials.map(({ p, acts }) => {
@@ -1465,8 +1494,8 @@ export default function SubjectPage() {
           ? parseFloat(((sub.calificacion / (a.maxCalif || 10)) * 10).toFixed(1))
           : null
       })
-      const valid = grades.filter((g) => g !== null)
-      const avg = valid.length ? parseFloat((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(1)) : null
+      const rawAvg = promedioParcial(acts, grades, ponderacionOn)
+      const avg = rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : null
       return { p, grades, avg }
     })
     const validAvgs = parcialData.map((pd) => pd.avg).filter((a) => a !== null)
@@ -1840,6 +1869,17 @@ export default function SubjectPage() {
               </div>
             </div>
 
+            {/* PONDERACIÓN toggle — optional weighted grading */}
+            <button type="button" onClick={togglePonderacion}
+              className={`w-full flex items-center justify-center gap-2 py-1.5 rounded border text-sm transition-colors ${ponderacionOn
+                ? 'border-amber-400 bg-amber-50 text-amber-700 font-medium'
+                : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'}`}>
+              <ArrowUpDown size={15} />
+              {ponderacionOn
+                ? 'Ponderación activada — cada actividad vale su peso (clic para volver al promedio simple)'
+                : 'Ponderar calificaciones de actividades (opcional)'}
+            </button>
+
             <div className="relative">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={searchGrade} onChange={(e) => setSearchGrade(e.target.value)}
@@ -1893,6 +1933,32 @@ export default function SubjectPage() {
                           Final
                         </th>
                       </tr>
+                      {/* PONDERACIÓN row — weights per activity, distinct amber tone */}
+                      {ponderacionOn && (
+                        <tr className="bg-amber-50 border-b border-amber-200">
+                          <th className="sticky left-0 z-10 bg-amber-50 w-8 px-1 py-1 border-r border-outline-variant" />
+                          <th className="sticky left-8 z-10 bg-amber-50 w-[150px] px-2 py-1 text-right text-[10px] font-bold text-amber-700 uppercase tracking-wide border-r border-outline-variant">
+                            Ponderación
+                          </th>
+                          {tableParcials.map(({ p, acts }) => [
+                            ...acts.map((a) => (
+                              <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
+                                <input type="number" min="0" max="10" step="0.1"
+                                  value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
+                                  onChange={(e) => setPesoEdits((f) => ({ ...f, [a.id]: e.target.value }))}
+                                  onBlur={() => savePeso(a)}
+                                  data-tooltip={`Peso de la actividad ${activityLabelById[a.id] || ''}`}
+                                  className="w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
+                              </th>
+                            )),
+                            <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotal(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}
+                              data-tooltip={pesoTotal(acts) === 10 ? 'Los pesos suman 10' : 'Los pesos deben sumar 10'}>
+                              {pesoTotal(acts)}
+                            </th>,
+                          ])}
+                          <th className="w-14 bg-amber-50 border-l border-outline-variant" />
+                        </tr>
+                      )}
                       <tr className="bg-accent-light border-b border-outline-variant">
                         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 text-center font-medium text-muted border-r border-outline-variant whitespace-nowrap">
                           No.
