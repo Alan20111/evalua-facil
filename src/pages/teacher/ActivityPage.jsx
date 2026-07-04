@@ -57,6 +57,14 @@ const STATUS_LABELS = {
   entregado: 'Entregado',
   calificado: 'Calificado',
 }
+// Filter-tab labels (plural, aligned with the badges): 'entregado' filters
+// what's delivered but not yet graded → 'Por calificar'
+const FILTER_LABELS = {
+  todos: 'Todos',
+  pendiente: 'Pendientes',
+  calificado: 'Calificados',
+  entregado: 'Por calificar',
+}
 
 export default function ActivityPage() {
   const { activityId } = useParams()
@@ -370,7 +378,7 @@ export default function ActivityPage() {
 
           {/* Filter tabs */}
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
-            {['todos', 'pendiente', 'entregado', 'calificado'].map((f) => (
+            {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
               <button
                 type="button"
                 key={f}
@@ -379,7 +387,7 @@ export default function ActivityPage() {
                   filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}
               >
-                {f === 'todos' ? 'Todos' : STATUS_LABELS[f]}
+                {FILTER_LABELS[f]}
               </button>
             ))}
           </div>
