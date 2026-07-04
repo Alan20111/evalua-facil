@@ -1471,7 +1471,12 @@ export default function SubjectPage() {
       if (!ok) return
     }
     try {
-      await updateDoc(doc(db, 'subjects', subjectId), { ponderacionActivada: next })
+      // Activation always starts with weights HIDDEN from students; the
+      // teacher's later choice (eye toggle) persists across visits
+      const updates = next
+        ? { ponderacionActivada: true, ponderacionVisibleAlumnos: false }
+        : { ponderacionActivada: false }
+      await updateDoc(doc(db, 'subjects', subjectId), updates)
       if (!next && conPeso.length > 0) {
         const batch = writeBatch(db)
         conPeso.forEach((a) => batch.update(doc(db, 'activities', a.id), { pesoCalificacion: null }))
@@ -1479,7 +1484,7 @@ export default function SubjectPage() {
         setActivities((prev) => prev.map((x) => x.pesoCalificacion != null ? { ...x, pesoCalificacion: null } : x))
         setPesoEdits({})
       }
-      setSubject((s) => ({ ...s, ponderacionActivada: next }))
+      setSubject((s) => ({ ...s, ponderacionActivada: next, ...(next ? { ponderacionVisibleAlumnos: false } : {}) }))
       toast(next
         ? 'Ponderación activada — asigna un peso del 1 al 10 a cada actividad'
         : 'Promedio simple activado — los pesos se borraron')
@@ -1509,6 +1514,16 @@ export default function SubjectPage() {
         ? 'Los estudiantes ahora ven el peso de cada actividad'
         : 'Pesos ocultos para los estudiantes — solo tú los ves')
     } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
+  // Clicking/focusing an empty weight box auto-fills the points missing to
+  // reach 10, pre-selected — type to replace, or leave the box to accept
+  function prefillPeso(a, acts, el) {
+    const current = pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')
+    if (current === '' || current === null) {
+      setPesoEdits((f) => ({ ...f, [a.id]: String(pesoRestante(acts, a.id)) }))
+    }
+    requestAnimationFrame(() => { try { el.select() } catch { /* number inputs on some browsers */ } })
   }
 
   async function savePeso(a) {
@@ -2001,16 +2016,8 @@ export default function SubjectPage() {
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
                                   placeholder={String(pesoRestante(acts, a.id))}
                                   onChange={(e) => setPesoEdits((f) => ({ ...f, [a.id]: e.target.value }))}
-                                  onFocus={(e) => {
-                                    // Empty box: prefill with the remaining points to reach 10,
-                                    // pre-selected — type to replace it, or just leave to accept
-                                    const current = pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')
-                                    if (current === '') {
-                                      setPesoEdits((f) => ({ ...f, [a.id]: String(pesoRestante(acts, a.id)) }))
-                                    }
-                                    const el = e.target
-                                    requestAnimationFrame(() => el.select())
-                                  }}
+                                  onFocus={(e) => prefillPeso(a, acts, e.target)}
+                                  onClick={(e) => prefillPeso(a, acts, e.target)}
                                   onBlur={() => savePeso(a)}
                                   data-tooltip={`Peso de la actividad ${activityLabelById[a.id] || ''}`}
                                   className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
