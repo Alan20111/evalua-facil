@@ -2048,7 +2048,7 @@ export default function SubjectPage() {
               <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container">
                 <span className="w-5 flex-shrink-0" />
                 <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del estudiante</p>
-                <p className="w-20 flex-shrink-0 text-xs font-semibold text-muted uppercase tracking-wide">Código</p>
+                <p className="w-44 flex-shrink-0 text-xs font-semibold text-muted uppercase tracking-wide">Código</p>
                 <p className="w-24 flex-shrink-0 text-xs font-semibold text-muted uppercase tracking-wide">Estado</p>
                 <span className="w-9 flex-shrink-0" />
               </div>
@@ -2061,7 +2061,7 @@ export default function SubjectPage() {
                   <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
                     {fullStudentName(s)}
                   </p>
-                  <span className="w-20 flex-shrink-0 text-xs font-mono text-accent font-semibold truncate">{s.username}</span>
+                  <span className="w-44 flex-shrink-0 text-xs font-mono text-accent font-semibold truncate">{s.username}</span>
                   <span className="w-24 flex-shrink-0 flex items-center">
                     {s.activado ? (
                       <span className="text-[11px] leading-none bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">activo</span>
