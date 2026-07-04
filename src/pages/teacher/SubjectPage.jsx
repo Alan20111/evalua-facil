@@ -1919,7 +1919,7 @@ export default function SubjectPage() {
                           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.orden}
                           </td>
-                          <td className={`sticky left-8 z-10 w-[150px] px-2 py-1 font-medium text-on-surface truncate border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          <td className={`sticky left-8 z-10 w-[150px] px-2 py-1 text-sm font-medium text-on-surface truncate border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.apellidoPaterno} {s.nombre}
                           </td>
                           {parcialData.map(({ p, grades, avg }, pi) => [
@@ -2058,7 +2058,7 @@ export default function SubjectPage() {
                   className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
                   <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
-                  <p className="flex-1 min-w-0 text-xs font-medium text-on-surface truncate">
+                  <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
                     {fullStudentName(s)}
                   </p>
                   <span className="w-20 flex-shrink-0 text-xs font-mono text-accent font-semibold truncate">{s.username}</span>
