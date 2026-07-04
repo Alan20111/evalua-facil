@@ -1614,6 +1614,22 @@ export default function SubjectPage() {
     return parseFloat(sum.toFixed(2))
   }
 
+  // Auto-commit: wheel adjustments never blur the input, so pending edits
+  // are clamped+saved shortly after the last change (typing still commits
+  // on blur immediately). This is what guarantees the parcial can't stay
+  // above 10.
+  useEffect(() => {
+    const ids = Object.keys(pesoEdits)
+    if (!ids.length) return
+    const t = setTimeout(() => {
+      ids.forEach((id) => {
+        const act = activities.find((x) => x.id === id)
+        if (act) savePeso(act)
+      })
+    }, 800)
+    return () => clearTimeout(t)
+  }, [pesoEdits]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function savePeso(a) {
     const raw = pesoEdits[a.id]
     if (raw === undefined) return
