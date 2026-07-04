@@ -529,11 +529,13 @@ export default function SubjectPage() {
     })
   }
 
+  // Duplicate names get a zero-padded suffix: garcia.juan, garcia.juan01,
+  // garcia.juan02… (dedupe is school-wide — usernames are the account id)
   function uniqueUsername(base, taken) {
     if (!taken.has(base)) return base
-    let i = 2
-    while (taken.has(`${base}${i}`)) i++
-    return `${base}${i}`
+    let i = 1
+    while (taken.has(`${base}${String(i).padStart(2, '0')}`)) i++
+    return `${base}${String(i).padStart(2, '0')}`
   }
 
   async function addStudent(e) {
