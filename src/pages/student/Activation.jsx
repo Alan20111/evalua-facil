@@ -321,8 +321,8 @@ export default function StudentActivation() {
                   autoCapitalize="characters"
                   spellCheck={false}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
-                  placeholder="Ej: MERK"
-                  maxLength={8}
+                  placeholder="Ej: MENDEZ.ENRIQUE"
+                  maxLength={40}
                 />
               </div>
               <button
