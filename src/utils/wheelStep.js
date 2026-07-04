@@ -43,11 +43,15 @@ export function installWheelStep() {
     if (input.value === '') {
       // First wheel on an empty box lands on the suggested remainder
       const suggested = parseFloat(input.placeholder)
-      next = isNaN(suggested) ? (e.deltaY < 0 ? step : 0) : suggested
+      next = isNaN(suggested) ? (e.deltaY > 0 ? step : 0) : suggested
     } else {
-      next = (parseFloat(input.value) || 0) + (e.deltaY < 0 ? step : -step)
+      // Wheel DOWN increases, wheel UP decreases
+      next = (parseFloat(input.value) || 0) + (e.deltaY > 0 ? step : -step)
     }
-    next = Math.min(max, Math.max(min, parseFloat(next.toFixed(2))))
+    next = parseFloat(next.toFixed(2))
+    // Wrap around: past the max jumps to the min and vice versa (10 → 0, 0 → 10)
+    if (next > max) next = isFinite(min) ? min : max
+    else if (next < min) next = isFinite(max) ? max : min
 
     nativeSetter.call(input, String(next))
     input.dispatchEvent(new Event('input', { bubbles: true }))
