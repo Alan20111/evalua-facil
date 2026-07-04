@@ -1577,8 +1577,12 @@ export default function SubjectPage() {
               const isOpen = openParcial === p
               const parcialOculto = (subject?.parcialesOcultos || []).includes(p)
               return (
-                <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
-                  <div className="w-full flex items-center gap-1">
+                // Open parcial gets the same accent container treatment as the
+                // Preguntas/Configuración sections — it's obvious you're inside it
+                <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card"
+                  style={isOpen ? { border: '1px solid var(--accent)' } : undefined}>
+                  <div className="w-full flex items-center gap-1"
+                    style={isOpen ? { background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' } : undefined}>
                     <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
                       <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
