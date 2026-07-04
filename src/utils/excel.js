@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
 import { subjectPeriodLabel } from './dateRange'
-import { promedioParcial } from './ponderacion'
+import { promedioParcial, pesoDe } from './ponderacion'
 
 // Loaded dynamically (only when actually downloading the template) because
 // it's needed for one feature `xlsx` can't do: writing real sheet protection
@@ -110,6 +110,14 @@ export function exportParcialGrades({ subject, activities, students, submissions
   acts.forEach((a, ai) => nameRow.push(`${parcial}.${ai + 1}`))
   nameRow.push(`Prom. P${parcial}`)
 
+  // PONDERACIÓN row — mirrors the on-screen weights strip (no buttons)
+  const pesoRow = ['', 'PONDERACIÓN']
+  if (subject.ponderacionActivada) {
+    let totalPesos = 0
+    acts.forEach((a) => { const w = pesoDe(a); totalPesos += w; pesoRow.push(w) })
+    pesoRow.push(parseFloat(totalPesos.toFixed(2)))
+  }
+
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const dataRows = sorted.map((s) => {
     const row = [s.orden, [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ')]
@@ -125,7 +133,9 @@ export function exportParcialGrades({ subject, activities, students, submissions
     return row
   })
 
-  const allRows = [titleRow, [], nameRow, ...dataRows]
+  const allRows = subject.ponderacionActivada
+    ? [titleRow, [], pesoRow, nameRow, ...dataRows]
+    : [titleRow, [], nameRow, ...dataRows]
   const ws = XLSX.utils.aoa_to_sheet(allRows)
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }]
   ws['!cols'] = [{ wch: 4 }, { wch: 42 }, ...Array(totalCols - 2).fill({ wch: 10 })]
@@ -175,6 +185,18 @@ export function exportSubjectGrades({
   })
   sectionRow[col] = 'FINAL'
 
+  // PONDERACIÓN row — mirrors the on-screen weights strip (no buttons)
+  const pesoRowFull = ['', 'PONDERACIÓN']
+  if (subject.ponderacionActivada) {
+    PARCIALES.forEach((p, pi) => {
+      const { acts } = parcialMeta[pi]
+      let totalPesos = 0
+      acts.forEach((a) => { const w = pesoDe(a); totalPesos += w; pesoRowFull.push(w) })
+      pesoRowFull.push(parseFloat(totalPesos.toFixed(2)))
+    })
+    pesoRowFull.push('')
+  }
+
   // Row 3: Column names — activities as their number only (1.1, 1.2…)
   const nameRow = ['#', 'NOMBRE']
   PARCIALES.forEach((p, pi) => {
@@ -220,7 +242,9 @@ export function exportSubjectGrades({
     return row
   })
 
-  const allRows = [titleRow, [], sectionRow, nameRow, ...dataRows]
+  const allRows = subject.ponderacionActivada
+    ? [titleRow, [], sectionRow, pesoRowFull, nameRow, ...dataRows]
+    : [titleRow, [], sectionRow, nameRow, ...dataRows]
   const ws = XLSX.utils.aoa_to_sheet(allRows)
 
   // Merges: title spans all + each parcial header
