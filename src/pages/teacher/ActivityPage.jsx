@@ -18,7 +18,6 @@ import {
   ArrowLeft, CheckCircle, Clock, Circle, X,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
   ChevronLeft, ChevronRight, FolderDown, Eye,
-  FileCheck2, Timer,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
@@ -357,26 +356,7 @@ export default function ActivityPage() {
 
           <AttachmentList files={activity?.archivosAdjuntos} />
 
-          {/* Stats — same compact badges (and tooltips) as the activity cards */}
-          <div className="flex items-center gap-1 mt-2">
-            <span
-              data-tooltip="Entregados"
-              className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-              <FileCheck2 size={11} /> {counts.entregado + counts.calificado}/{students.length}
-            </span>
-            <span
-              data-tooltip="Calificados"
-              className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-              <CheckCircle size={11} /> {counts.calificado}/{counts.entregado + counts.calificado}
-            </span>
-            <span
-              data-tooltip="Por calificar"
-              className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-              <Timer size={11} /> {counts.entregado}/{counts.entregado + counts.calificado}
-            </span>
-          </div>
-
-          {/* Filter tabs */}
+          {/* Filter tabs — counts live in the tab labels, no separate badges */}
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
             {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
               <button
@@ -387,7 +367,7 @@ export default function ActivityPage() {
                   filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}
               >
-                {FILTER_LABELS[f]}
+                {FILTER_LABELS[f]} ({f === 'todos' ? students.length : counts[f]})
               </button>
             ))}
           </div>
