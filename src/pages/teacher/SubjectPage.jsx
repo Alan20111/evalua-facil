@@ -1625,6 +1625,7 @@ export default function SubjectPage() {
                         return (
                           <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
                             <button type="button" onClick={() => navigate(`/activity/${a.id}`)}
+                              data-tooltip="Calificar"
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
                               <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
