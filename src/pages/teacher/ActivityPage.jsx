@@ -29,9 +29,17 @@ import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sani
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import { formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
+import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch } from '../../utils/studentSearch'
 import EvaluacionManager from '../../components/EvaluacionManager'
+
+// Short display names for the accepted file-type chips
+const FILE_TYPE_SHORT_LABELS = {
+  imagenes: 'Imágenes (JPG, PNG)', pdf: 'PDF', word: 'Word',
+  powerpoint: 'PowerPoint', excel: 'Excel',
+  [ALL_FILES_KEY]: 'Cualquier tipo de archivo',
+}
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
@@ -296,15 +304,20 @@ export default function ActivityPage() {
               </p>
             </div>
           </div>
-          {(activity?.publishAt || activity?.fechaLimite) && (
+          {(activity?.publishedAt || activity?.publishAt || activity?.fechaLimite) && (
             <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {activity?.publishedAt && (
+                <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
+                  <Clock size={14} /> {formatPublishAt(activity.publishedAt)}
+                </span>
+              )}
               {activity?.publishAt && (
-                <span data-tooltip="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
+                <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
                   <Clock size={14} /> {formatPublishAt(activity.publishAt)}
                 </span>
               )}
               {activity?.fechaLimite && (
-                <span data-tooltip="Fecha y hora de cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
+                <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
                   <Clock size={14} /> {formatDeadline(activity.fechaLimite)}
                 </span>
               )}
@@ -321,6 +334,18 @@ export default function ActivityPage() {
               />
             </div>
           )}
+          {/* Accepted file types for this entregable */}
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap text-xs text-muted">
+            <span className="font-medium">Archivos aceptados:</span>
+            {normalizeFileTypeKeys(activity?.tiposArchivo).map((k) => (
+              <span key={k} className="bg-surface-container text-on-surface-variant px-2 py-0.5 rounded-full">
+                {k === CUSTOM_FILE_TYPE
+                  ? (parseCustomExts(activity?.extensionesCustom).map((e) => `.${e}`).join(', ') || 'Personalizado')
+                  : (FILE_TYPE_SHORT_LABELS[k] || k)}
+              </span>
+            ))}
+          </div>
+
           <AttachmentList files={activity?.archivosAdjuntos} />
 
           {/* Stats */}
