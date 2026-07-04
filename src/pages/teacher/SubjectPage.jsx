@@ -2129,7 +2129,7 @@ export default function SubjectPage() {
                           {tableParcials.map(({ p, acts }) => [
                             ...acts.map((a) => (
                               <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
-                                <input id={`peso-${a.id}`} type="number" min="0" max="10" step="0.5" data-wheel-step="0.5"
+                                <input id={`peso-${a.id}`} type="text" inputMode="decimal" min="0" max="10" data-wheel-step="0.5"
                                   data-wheel-max={pesoRestante(acts, a.id)}
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
                                   placeholder={String(pesoRestante(acts, a.id))}
