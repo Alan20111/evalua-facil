@@ -147,6 +147,11 @@
 [data-tooltip]:hover::after {
   opacity: 1;
 }
+/* No-wrap variant — keeps the whole text on one line no matter how long */
+[data-tooltip][data-tooltip-nowrap]::after {
+  white-space: nowrap;
+  max-width: none;
+}
 /* Left-side variant — for triggers inside overflow-hidden cards whose top
    edge would clip the default above-the-cursor tooltip */
 [data-tooltip][data-tooltip-pos='left']::after {
