@@ -1968,6 +1968,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={downloadStudentTemplate}
                 data-tooltip="Descargar plantilla en Excel para pegar datos de estudiantes"
+                data-tooltip-nowrap=""
                 className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors text-left"
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">1</span>
@@ -1979,6 +1980,7 @@ export default function SubjectPage() {
               <ChevronRight size={18} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
               <label
                 data-tooltip="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
+                data-tooltip-nowrap=""
                 className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors cursor-pointer"
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">2</span>
@@ -1993,6 +1995,7 @@ export default function SubjectPage() {
                 type="button"
                 onClick={() => setShowCredentialsModal(true)}
                 data-tooltip="Genera tu lista actualizada de códigos de acceso cada vez que agregues estudiantes"
+                data-tooltip-nowrap=""
                 className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors text-left"
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">3</span>
