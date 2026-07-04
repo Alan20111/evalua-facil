@@ -46,8 +46,9 @@ export function installWheelStep() {
     if (!input) return
     e.preventDefault() // keep the page still — only the number moves
 
-    // Sum already complete: the wheel doesn't move the value at all
-    if (input.hasAttribute('data-wheel-locked')) {
+    // Sum already complete: INCREASING is blocked (with the note), but
+    // decreasing is allowed — it frees points to redistribute
+    if (input.hasAttribute('data-wheel-locked') && e.deltaY > 0) {
       showBubble(input, input.getAttribute('data-wheel-locked') || 'Tu suma ya es 10')
       return
     }
