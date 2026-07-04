@@ -7,13 +7,15 @@ import { db, auth } from '../firebase'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { subjectDisplayName } from '../utils/subjectName'
+import { sanitizeHtml, richTextContentClass, toRichHtml } from '../utils/sanitizeHtml'
+import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
 import { matchesStudentSearch } from '../utils/studentSearch'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
 import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
 } from '../utils/evaluacionGrading'
-import { ArrowLeft, Plus, Trash2, Library, Star, Users, Search, Pencil, Copy, X, Image as ImageIcon, ChevronUp, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Library, Star, Users, Search, Pencil, Copy, X, Image as ImageIcon, ChevronUp, ChevronDown, Clock } from 'lucide-react'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -941,6 +943,38 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
         {tab === 'resultados' && (
           <div>
+            {/* Dates + instrucciones — the teacher needs the context of what is
+                being graded, same treatment as a regular activity */}
+            {(activity.publishedAt || activity.publishAt || activity.fechaLimite) && (
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                {activity.publishedAt && (
+                  <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
+                    <Clock size={14} /> {formatPublishAt(activity.publishedAt)}
+                  </span>
+                )}
+                {activity.publishAt && (
+                  <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
+                    <Clock size={14} /> {formatPublishAt(activity.publishAt)}
+                  </span>
+                )}
+                {activity.fechaLimite && (
+                  <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
+                    <Clock size={14} /> {formatDeadline(activity.fechaLimite)}
+                  </span>
+                )}
+              </div>
+            )}
+            {activity.instrucciones && (
+              <div className="mb-3 rounded-card overflow-hidden bg-surface-card" style={{ border: '1px solid var(--accent)' }}>
+                <div className="px-4 py-2" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+                  <h2 className="font-semibold text-sm" style={{ color: 'var(--accent)' }}>Instrucciones</h2>
+                </div>
+                <div
+                  className={`text-sm text-on-surface p-4 ${richTextContentClass}`}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
+                />
+              </div>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
               {[
                 { label: 'Promedio', value: stats.promedio },
