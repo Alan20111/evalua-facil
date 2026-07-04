@@ -96,9 +96,13 @@ export function exportSubjectGrades({
 }) {
   const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
 
-  const FIXED = 4
+  const FIXED = 2
+  // Drafts are excluded — same as the on-screen grades table
+  const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
   const parcialMeta = PARCIALES.map((p) => {
-    const acts = activities.filter((a) => a.parcial === p)
+    const acts = activities
+      .filter((a) => a.parcial === p && !isDraft(a))
+      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
     return { p, acts, cols: acts.length + 1 }
   })
 
@@ -122,11 +126,11 @@ export function exportSubjectGrades({
   })
   sectionRow[col] = 'FINAL'
 
-  // Row 3: Column names
-  const nameRow = ['#', 'Apellido Paterno', 'Apellido Materno', 'Nombre(s)']
+  // Row 3: Column names — activities as their number only (1.1, 1.2…)
+  const nameRow = ['#', 'NOMBRE']
   PARCIALES.forEach((p, pi) => {
     const { acts } = parcialMeta[pi]
-    acts.forEach((a) => nameRow.push(a.nombre))
+    acts.forEach((a, ai) => nameRow.push(`${p}.${ai + 1}`))
     nameRow.push(`Prom. P${p}`)
   })
   nameRow.push('Promedio Final')
@@ -134,7 +138,7 @@ export function exportSubjectGrades({
   // Data rows
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const dataRows = sorted.map((s) => {
-    const row = [s.orden, s.apellidoPaterno, s.apellidoMaterno, s.nombre]
+    const row = [s.orden, [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ')]
     const finalGrades = []
 
     PARCIALES.forEach((p, pi) => {
@@ -182,10 +186,8 @@ export function exportSubjectGrades({
 
   ws['!cols'] = [
     { wch: 4 },
-    { wch: 20 },
-    { wch: 20 },
-    { wch: 22 },
-    ...Array(gradeCols - FIXED).fill({ wch: 13 }),
+    { wch: 42 },
+    ...Array(gradeCols - FIXED).fill({ wch: 10 }),
   ]
   ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }, { hpt: 18 }]
 
