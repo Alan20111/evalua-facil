@@ -180,12 +180,12 @@ export default function TeacherLayout({ children }) {
                   key={s.id}
                   to={`/subject/${s.id}`}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-3 py-1.5 rounded text-body-sm transition-colors ${
-                      isActive ? 'bg-white text-accent font-semibold' : 'text-white/90 hover:bg-white/10'
+                    `flex items-center gap-2 px-3 py-2.5 rounded text-body-sm transition-colors ${
+                      isActive ? 'bg-white text-accent font-bold shadow-md' : 'text-white/90 hover:bg-white/15'
                     }`
                   }
                 >
-                  <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
+                  <SubjectIcon iconKey={s.icon} size={20} className="flex-shrink-0" />
                   <span className="truncate">{subjectDisplayName(s)}</span>
                 </NavLink>
               ))
@@ -219,12 +219,12 @@ export default function TeacherLayout({ children }) {
                     key={s.id}
                     to={`/subject/${s.id}`}
                     className={({ isActive }) =>
-                      `flex items-center gap-2 px-3 py-1.5 rounded text-body-sm transition-colors ${
-                        isActive ? 'bg-white text-accent' : 'text-white/70 hover:bg-white/10'
+                      `flex items-center gap-2 px-3 py-2 rounded text-body-sm transition-colors ${
+                        isActive ? 'bg-white text-accent font-bold shadow-md' : 'text-white/70 hover:bg-white/15'
                       }`
                     }
                   >
-                    <SubjectIcon iconKey={s.icon} size={15} className="flex-shrink-0" />
+                    <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
                     <span className="truncate">{subjectDisplayName(s)}</span>
                   </NavLink>
                 ))}
