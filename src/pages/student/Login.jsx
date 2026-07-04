@@ -4,7 +4,7 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'fire
 import { collection, query, where, getDocs, doc, documentId, writeBatch } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import Spinner from '../../components/Spinner'
-import { studentEmail } from '../../utils/generate'
+import { studentEmail, usernameCandidates } from '../../utils/generate'
 import { GraduationCap, Hash, ChevronDown, ArrowLeft, KeyRound } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
 
@@ -63,15 +63,17 @@ export default function StudentLogin() {
     if (submitting.current) return
     setError(''); submitting.current = true; setLoading(true)
     try {
-      const uname = username.trim().toUpperCase()
-      const stuSnap = await getDocs(
-        query(collection(db, 'students'), where('username', '==', uname))
-      )
-      if (stuSnap.empty) {
+      // Legacy codes are UPPERCASE, new ones lowercase — search both
+      const snaps = await Promise.all(usernameCandidates(username).map((u) =>
+        getDocs(query(collection(db, 'students'), where('username', '==', u)))
+      ))
+      const stuDocs = snaps.flatMap((s) => s.docs)
+      if (stuDocs.length === 0) {
         setError('Usuario no encontrado. Verifica tu username o activa tu cuenta con el código.')
         return
       }
-      const docs = stuSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const docs = stuDocs.map((d) => ({ id: d.id, ...d.data() }))
+      const uname = docs[0].username // stored canonical form
 
       // A username can repeat across schools, so each school is a different account/email.
       // For already-activated accounts, try sign-in against each school's email — the correct
@@ -182,7 +184,7 @@ export default function StudentLogin() {
   function openRecover() {
     setMode('recover')
     setRecoverStep('username')
-    setRecoverUsername(username.trim().toUpperCase())
+    setRecoverUsername(username.trim())
     setRecoverStudent(null)
     setNewPassword('')
     setConfirmNewPassword('')
@@ -200,14 +202,16 @@ export default function StudentLogin() {
     setRecoverError('')
     setLoading(true)
     try {
-      const uname = recoverUsername.trim().toUpperCase()
-      if (!uname) return
-      const snap = await getDocs(query(collection(db, 'students'), where('username', '==', uname)))
-      if (snap.empty) {
+      if (!recoverUsername.trim()) return
+      const snaps = await Promise.all(usernameCandidates(recoverUsername).map((u) =>
+        getDocs(query(collection(db, 'students'), where('username', '==', u)))
+      ))
+      const found = snaps.flatMap((s) => s.docs)
+      if (found.length === 0) {
         setRecoverError('Usuario no encontrado. Verifica tu username con tu maestro.')
         return
       }
-      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const docs = found.map((d) => ({ id: d.id, ...d.data() }))
       const enabled = docs.find((d) => d.resetPassword)
       if (!enabled) {
         setRecoverError('La recuperación de contraseña está inhabilitada. Pídele a tu maestro que la habilite desde su panel y vuelve a intentar.')
@@ -343,15 +347,15 @@ export default function StudentLogin() {
                   <input
                     type="text"
                     value={recoverUsername}
-                    onChange={(e) => { setRecoverUsername(e.target.value.toUpperCase()); setRecoverError('') }}
+                    onChange={(e) => { setRecoverUsername(e.target.value); setRecoverError('') }}
                     required
                     autoFocus
                     autoComplete="off"
                     autoCorrect="off"
-                    autoCapitalize="characters"
+                    autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
-                    placeholder="Ej: MENDEZ.ENRIQUE"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
+                    placeholder="Ej: mendez.enrique"
                     maxLength={40}
                   />
                 </div>
@@ -432,15 +436,15 @@ export default function StudentLogin() {
                   <input
                     type="text"
                     value={username}
-                    onChange={(e) => { setUsername(e.target.value.toUpperCase()); setError('') }}
+                    onChange={(e) => { setUsername(e.target.value); setError('') }}
                     required
                     autoFocus
                     autoComplete="off"
                     autoCorrect="off"
-                    autoCapitalize="characters"
+                    autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
-                    placeholder="Ej: MENDEZ.ENRIQUE"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
+                    placeholder="Ej: mendez.enrique"
                     maxLength={40}
                   />
                 </div>

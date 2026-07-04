@@ -12,7 +12,7 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'fire
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { studentEmail } from '../../utils/generate'
+import { studentEmail, usernameCandidates } from '../../utils/generate'
 import { GraduationCap, Check } from 'lucide-react'
 import PasswordInput from '../../components/PasswordInput'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -86,17 +86,20 @@ export default function StudentActivation() {
     if (!subject) return
     setLoading(true)
     try {
-      const q = query(
-        collection(db, 'students'),
-        where('asignaturaId', '==', subject.id),
-        where('username', '==', username.trim().toUpperCase())
-      )
-      const snap = await getDocs(q)
-      if (snap.empty) {
+      // Legacy codes are UPPERCASE, new ones lowercase — search both
+      const snaps = await Promise.all(usernameCandidates(username).map((u) =>
+        getDocs(query(
+          collection(db, 'students'),
+          where('asignaturaId', '==', subject.id),
+          where('username', '==', u)
+        ))
+      ))
+      const found = snaps.flatMap((s) => s.docs)
+      if (found.length === 0) {
         toast('Username no encontrado en esta asignatura', 'error')
         return
       }
-      const data = { id: snap.docs[0].id, ...snap.docs[0].data() }
+      const data = { id: found[0].id, ...found[0].data() }
       if (data.activado) {
         toast('Esta asignatura ya está en tu cuenta. Inicia sesión.')
         navigate('/alumno')
@@ -313,15 +316,15 @@ export default function StudentActivation() {
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value.toUpperCase())}
+                  onChange={(e) => setUsername(e.target.value)}
                   required
                   autoFocus
                   autoComplete="off"
                   autoCorrect="off"
-                  autoCapitalize="characters"
+                  autoCapitalize="none"
                   spellCheck={false}
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
-                  placeholder="Ej: MENDEZ.ENRIQUE"
+                  placeholder="Ej: mendez.enrique"
                   maxLength={40}
                 />
               </div>
