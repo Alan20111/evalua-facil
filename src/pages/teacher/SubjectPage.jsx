@@ -2323,20 +2323,27 @@ export default function SubjectPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setPublishDraftConfirm(null)} />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Publicar actividad?</h3>
-            <p className="text-sm text-muted mb-4">
+            <p className="text-sm text-muted mb-2">
               "<strong>{publishDraftConfirm.nombre}</strong>" es un borrador. Al publicarla, los estudiantes podrán verla y se registrará la fecha y hora de publicación.
             </p>
+            {/(\(copia\))\s*$/i.test(publishDraftConfirm.nombre || '') && (
+              <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5 mb-3">
+                Aún tiene el nombre de copia — conviene editarla antes de publicar.
+              </p>
+            )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setPublishDraftConfirm(null)}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              {/* Editar is the primary path — a draft usually still needs changes
+                  (esp. duplicates); Publicar stays available as secondary */}
+              <button type="button" onClick={publishDraftNow}
+                className="flex-1 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-1.5">
+                <Eye size={14} /> Publicar
+              </button>
               <button type="button"
                 onClick={() => { const a = publishDraftConfirm; setPublishDraftConfirm(null); openEdit(a, activityLabelById[a.id]) }}
-                className="flex-1 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-1.5">
-                <Pencil size={14} /> Editar
-              </button>
-              <button type="button" onClick={publishDraftNow}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover flex items-center justify-center gap-2">
-                <Eye size={16} /> Publicar
+                <Pencil size={16} /> Editar
               </button>
             </div>
           </div>
