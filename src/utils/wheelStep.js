@@ -30,14 +30,34 @@ export function installWheelStep() {
 
   const zoomFactor = () => parseFloat(getComputedStyle(document.documentElement).zoom || '1') || 1
 
+  const showBubble = (input, text) => {
+    const r = input.getBoundingClientRect()
+    const z = zoomFactor()
+    bubble.textContent = text
+    bubble.style.left = `${(r.left + r.width / 2) / z}px`
+    bubble.style.top = `${r.top / z - 8}px`
+    bubble.style.opacity = '1'
+    clearTimeout(hideTimer)
+    hideTimer = setTimeout(() => { bubble.style.opacity = '0' }, 1100)
+  }
+
   document.addEventListener('wheel', (e) => {
     const input = e.target.closest?.('input[data-wheel-step]')
     if (!input) return
     e.preventDefault() // keep the page still — only the number moves
 
+    // Sum already complete: the wheel doesn't move the value at all
+    if (input.hasAttribute('data-wheel-locked')) {
+      showBubble(input, input.getAttribute('data-wheel-locked') || 'Tu suma ya es 10')
+      return
+    }
+
     const step = parseFloat(input.getAttribute('data-wheel-step')) || 1
     const min = input.min !== '' ? parseFloat(input.min) : -Infinity
-    const max = input.max !== '' ? parseFloat(input.max) : Infinity
+    // Effective ceiling (e.g. the points still available in the parcial);
+    // falls back to the static max attribute
+    const dynMax = parseFloat(input.getAttribute('data-wheel-max'))
+    const max = !isNaN(dynMax) ? dynMax : (input.max !== '' ? parseFloat(input.max) : Infinity)
 
     let next
     if (input.value === '') {
@@ -58,13 +78,6 @@ export function installWheelStep() {
     if (document.activeElement !== input) input.focus({ preventScroll: true })
 
     // Show the value above the box while wheeling
-    const r = input.getBoundingClientRect()
-    const z = zoomFactor()
-    bubble.textContent = String(next)
-    bubble.style.left = `${(r.left + r.width / 2) / z}px`
-    bubble.style.top = `${r.top / z - 8}px`
-    bubble.style.opacity = '1'
-    clearTimeout(hideTimer)
-    hideTimer = setTimeout(() => { bubble.style.opacity = '0' }, 900)
+    showBubble(input, String(next))
   }, { passive: false })
 }
