@@ -4,6 +4,7 @@ import { ToastProvider } from './components/Toast'
 import { needsPasswordSetup } from './utils/authLinking'
 import { installDraggableOverlays } from './utils/draggableOverlays'
 import { installFollowTooltips } from './utils/followTooltip'
+import { installWheelStep } from './utils/wheelStep'
 
 import Landing from './pages/Landing'
 import TeacherLogin from './pages/teacher/Login'
@@ -113,6 +114,8 @@ function RoleWrapper({ children }) {
 installDraggableOverlays()
 // Cursor-following tooltips for wide triggers ([data-tooltip-follow])
 installFollowTooltips()
+// Wheel-steps numeric inputs ([data-wheel-step]) without scrolling the page
+installWheelStep()
 
 export default function App() {
   return (
