@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
+import { promedioParcial } from '../../utils/ponderacion'
 
 function ResourceCard({ resource: r }) {
   const { icon: Icon, color } = getResourceIcon(r.nombreArchivo || r.nombre || '')
@@ -165,14 +166,13 @@ export default function StudentSubjectPage() {
 
   function calcParcialAvg(parcial) {
     const acts = activities.filter((a) => a.parcial === parcial)
-    const grades = acts
-      .map((a) => submissions[a.id])
-      .filter((s) => s?.calificacion != null)
-      .map((s) => {
-        const act = activities.find((a) => a.id === s.actividadId)
-        return (s.calificacion / (act?.maxCalif || 10)) * 10
-      })
-    return grades.length ? (grades.reduce((a, b) => a + b, 0) / grades.length).toFixed(1) : null
+    const grades = acts.map((a) => {
+      const sub = submissions[a.id]
+      return sub?.calificacion != null ? (sub.calificacion / (a.maxCalif || 10)) * 10 : null
+    })
+    // Same math as the teacher's table — weighted when the subject uses ponderación
+    const avg = promedioParcial(acts, grades, !!subject?.ponderacionActivada)
+    return avg !== null ? avg.toFixed(1) : null
   }
 
   const PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
@@ -291,6 +291,9 @@ export default function StudentSubjectPage() {
                             <p className="text-xs text-slate-500 leading-tight truncate mt-0.5">
                               {CATEGORIA_LABELS[a.categoria] || 'Entregable'}
                               {fechaLimiteLabel && ` · Vence ${fechaLimiteLabel}`}
+                              {subject?.ponderacionActivada && subject?.ponderacionVisibleAlumnos && a.pesoCalificacion != null && (
+                                <span className="text-amber-700 font-semibold"> · Vale {a.pesoCalificacion} de 10</span>
+                              )}
                             </p>
                             {sub?.comentario && (
                               <p className="text-sm text-slate-500 leading-tight truncate mt-0.5">"{sub.comentario}"</p>
