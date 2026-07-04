@@ -161,3 +161,14 @@
   right: calc(100% + 8px);
   transform: translateY(-50%);
 }
+
+/* Numeric inputs meant to be typed, not clicked — hides the spinner arrows */
+input.no-spinner::-webkit-outer-spin-button,
+input.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input.no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
