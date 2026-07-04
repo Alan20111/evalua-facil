@@ -14,9 +14,7 @@ export function installFollowTooltips() {
     'background:#f5f5f5', 'color:#111111', 'border:1px solid #c0c0c0',
     'box-shadow:0 1px 3px rgba(0,0,0,.12)', 'font-size:11px', 'line-height:1.3',
     'padding:3px 8px', 'border-radius:2px', 'width:max-content', 'max-width:340px',
-    // Same look as the CSS tooltips but a longer delay — this one covers a
-    // whole row, so it should only appear on a deliberate pause
-    'opacity:0', 'transition:opacity .12s ease .6s',
+    'opacity:0',
     // Centered above the cursor with a comfortable gap, like the others
     'transform:translate(-50%, -100%)',
   ].join(';')
@@ -36,9 +34,8 @@ export function installFollowTooltips() {
   const resolveTarget = (e) => {
     const el = e.target.closest?.('[data-tooltip-follow]') || null
     if (!el) return null
-    // Only over "empty" areas of the trigger — content (text, icons, badges,
-    // anything with its own tooltip) suppresses it
-    const content = e.target.closest?.('p, span, svg, img, [data-tooltip]')
+    // Elements with their own CSS tooltip (badges, dates) win over this one
+    const content = e.target.closest?.('[data-tooltip]')
     if (content && el.contains(content)) return null
     return el
   }
@@ -49,8 +46,11 @@ export function installFollowTooltips() {
     if (el) {
       tip.textContent = el.getAttribute('data-tooltip-follow')
       move(e)
+      // Slightly slower to appear than the CSS tooltips (.25s), instant to hide
+      tip.style.transition = 'opacity .12s ease .35s'
       tip.style.opacity = '1'
     } else {
+      tip.style.transition = 'opacity .06s ease 0s'
       tip.style.opacity = '0'
     }
   }
