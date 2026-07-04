@@ -1,3 +1,9 @@
+// Student username format: APELLIDO_PATERNO.PRIMER_NOMBRE (e.g. MENDEZ.ENRIQUE)
+// - accents stripped and n with tilde becomes n (NFD + combining-marks removal)
+// - anything non-alphabetic removed, so "Del Rio" with spaces -> DELRIO
+// - stored/compared in UPPERCASE; every input uppercases before querying,
+//   which makes the whole flow case-insensitive
+// - only the FIRST given name is used ("Juan Carlos" -> JUAN)
 export function generateUsername(apPaterno, apMaterno, nombre) {
   const clean = (s) =>
     (s || '')
@@ -5,10 +11,9 @@ export function generateUsername(apPaterno, apMaterno, nombre) {
       .replace(/[̀-ͯ]/g, '')
       .replace(/[^a-zA-Z]/g, '')
       .toUpperCase()
-  const p = clean(apPaterno)
-  const m = clean(apMaterno)
-  const n = clean(nombre)
-  return (p[0] || 'X') + (p[1] || 'X') + (m[0] || 'X') + (n[0] || 'X')
+  const paterno = clean(apPaterno)
+  const primerNombre = clean((nombre || '').trim().split(/\s+/)[0])
+  return `${paterno || 'X'}.${primerNombre || 'X'}`
 }
 
 export function generateResetPassword() {
