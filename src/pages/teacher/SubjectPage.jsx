@@ -1372,11 +1372,16 @@ export default function SubjectPage() {
   // the teacher adjusts until it does, then the Excel is generated.
   async function handleExportParcial(p) {
     if (!subject) return
-    if (ponderacionOn) {
+    // Hard gate: with ponderación active, the parcial can only be exported
+    // when its weights sum EXACTLY 10 (both saved and in-progress values)
+    if (subject?.ponderacionActivada) {
       const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
       const total = pesoTotalVivo(acts)
-      if (total !== 10) {
-        toast(`La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para exportar`, 'warning')
+      if (Math.abs(total - 10) > 0.001) {
+        const msg = `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para exportar`
+        const btn = document.getElementById(`exportar-parcial-${p}`)
+        if (btn) showNear(btn, msg)
+        else toast(msg, 'warning')
         return
       }
     }
@@ -2093,7 +2098,7 @@ export default function SubjectPage() {
                             {/* EXPORTAR sits at the right edge — right above the Prom. column */}
                             <div className="relative">
                               <span>Parcial {p}</span>
-                              <button type="button" onClick={() => handleExportParcial(p)}
+                              <button type="button" id={`exportar-parcial-${p}`} onClick={() => handleExportParcial(p)}
                                 data-tooltip-follow={`Parcial ${p} a Excel`}
                                 className="absolute right-0 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-accent text-white text-[10px] font-bold uppercase tracking-wide hover:bg-accent-hover transition-colors">
                                 Exportar
