@@ -1418,8 +1418,9 @@ export default function SubjectPage() {
 
   const filteredGradeStudents = groupStudents.filter((s) => matchesStudentSearch(s, searchGrade))
 
+  // Drafts don't grade anything — keep them out of the Calificaciones table
   const tableParcials = PARCIALES.map((p) => ({
-    p, acts: activities.filter((a) => a.parcial === p),
+    p, acts: activities.filter((a) => a.parcial === p && !isDraftActivity(a)),
   })).filter((pd) => pd.acts.length > 0)
 
   // Sequential index per real grade column (activities + parcial averages +
@@ -1658,17 +1659,17 @@ export default function SubjectPage() {
                                 <span
                                   data-tooltip="Entregados"
                                   className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <FileCheck2 size={11} /> {counts.delivered}
+                                  <FileCheck2 size={11} /> {counts.delivered}/{totalStudents}
                                 </span>
                                 <span
                                   data-tooltip="Calificados"
                                   className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <CheckCircle size={11} /> {counts.graded}
+                                  <CheckCircle size={11} /> {counts.graded}/{counts.delivered}
                                 </span>
                                 <span
-                                  data-tooltip="Pendientes"
+                                  data-tooltip="Por calificar"
                                   className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <Timer size={11} /> {totalStudents - counts.delivered}
+                                  <Timer size={11} /> {counts.delivered - counts.graded}/{counts.delivered}
                                 </span>
                               </div>
                             </button>
