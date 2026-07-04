@@ -1502,7 +1502,15 @@ export default function SubjectPage() {
     if (raw === undefined) return
     let num = parseFloat(raw)
     if (isNaN(num) || num < 0) num = null
-    if (num !== null && num > 10) num = 10
+    if (num !== null) {
+      // The parcial's weights can NEVER exceed 10 — clamp to what's left
+      const actsParcial = activities.filter((x) => x.parcial === a.parcial && !isDraftActivity(x))
+      const restante = pesoRestante(actsParcial, a.id)
+      if (num > restante) {
+        num = restante
+        toast(`El peso se ajustó a ${restante} — la suma del parcial no puede pasar de 10`)
+      }
+    }
     setPesoEdits((f) => { const n = { ...f }; delete n[a.id]; return n })
     if ((a.pesoCalificacion ?? null) === num) return
     try {
@@ -1966,7 +1974,7 @@ export default function SubjectPage() {
                           {tableParcials.map(({ p, acts }) => [
                             ...acts.map((a) => (
                               <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
-                                <input type="number" min="0" max="10" step="0.1"
+                                <input type="number" min="0" max="10" step="0.5"
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
                                   placeholder={String(pesoRestante(acts, a.id))}
                                   onChange={(e) => setPesoEdits((f) => ({ ...f, [a.id]: e.target.value }))}
