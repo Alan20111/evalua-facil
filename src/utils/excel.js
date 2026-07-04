@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
 import { subjectPeriodLabel } from './dateRange'
+import { promedioParcial } from './ponderacion'
 
 // Loaded dynamically (only when actually downloading the template) because
 // it's needed for one feature `xlsx` can't do: writing real sheet protection
@@ -154,11 +155,11 @@ export function exportSubjectGrades({
           parGrades.push(norm)
         } else {
           row.push('')
+          parGrades.push(null)
         }
       })
-      const parAvg = parGrades.length
-        ? parseFloat((parGrades.reduce((a, b) => a + b, 0) / parGrades.length).toFixed(2))
-        : ''
+      const rawAvg = promedioParcial(acts, parGrades, !!subject.ponderacionActivada)
+      const parAvg = rawAvg !== null ? parseFloat(rawAvg.toFixed(2)) : ''
       row.push(parAvg)
       if (parAvg !== '') finalGrades.push(parAvg)
     })
