@@ -1594,6 +1594,7 @@ export default function SubjectPage() {
                     <button type="button"
                       onClick={() => toggleParcialVisibility(p)}
                       data-tooltip={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
+                      data-tooltip-pos="left"
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                     >
                       {parcialOculto ? <EyeOff size={18} /> : <Eye size={18} />}
