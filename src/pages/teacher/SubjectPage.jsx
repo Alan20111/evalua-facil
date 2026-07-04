@@ -2013,6 +2013,8 @@ export default function SubjectPage() {
                             ...acts.map((a) => (
                               <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
                                 <input type="number" min="0" max="10" step="0.5" data-wheel-step="0.5"
+                                  data-wheel-max={pesoRestante(acts, a.id)}
+                                  data-wheel-locked={pesoRestante(acts, '__total__') <= 0 ? 'Tu suma ya es 10' : undefined}
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
                                   placeholder={String(pesoRestante(acts, a.id))}
                                   onChange={(e) => setPesoEdits((f) => ({ ...f, [a.id]: e.target.value }))}
