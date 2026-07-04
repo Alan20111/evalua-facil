@@ -1627,7 +1627,7 @@ export default function SubjectPage() {
                             {/* A draft has nothing to grade — its row opens the editor instead */}
                             <button type="button"
                               onClick={() => isDraftActivity(a) ? openEdit(a, activityLabelById[a.id]) : navigate(`/activity/${a.id}`)}
-                              data-tooltip={isDraftActivity(a) ? 'Editar borrador' : 'Calificar'}
+                              data-tooltip-follow={isDraftActivity(a) ? 'Editar borrador' : 'Calificar'}
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
                               <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './components/Toast'
 import { needsPasswordSetup } from './utils/authLinking'
 import { installDraggableOverlays } from './utils/draggableOverlays'
+import { installFollowTooltips } from './utils/followTooltip'
 
 import Landing from './pages/Landing'
 import TeacherLogin from './pages/teacher/Login'
@@ -110,6 +111,8 @@ function RoleWrapper({ children }) {
 
 // Every popup in the app becomes draggable (mouse) — installed once, module-level guard
 installDraggableOverlays()
+// Cursor-following tooltips for wide triggers ([data-tooltip-follow])
+installFollowTooltips()
 
 export default function App() {
   return (
