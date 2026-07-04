@@ -1464,17 +1464,25 @@ export default function SubjectPage() {
   async function togglePonderacion() {
     const next = !ponderacionOn
     // Going BACK to simple average when weights already exist needs an
-    // explicit confirmation — averages will be recalculated without pesos
-    if (!next && activities.some((a) => pesoDe(a) > 0)) {
-      const ok = confirm('Al menos una actividad ya tiene ponderación. ¿Volver a promedio simple? Los promedios se recalcularán como si todas las actividades valieran lo mismo (los pesos capturados no se borran).')
+    // explicit confirmation — the captured weights are ERASED
+    const conPeso = activities.filter((a) => pesoDe(a) > 0)
+    if (!next && conPeso.length > 0) {
+      const ok = confirm('Al menos una actividad ya tiene ponderación. ¿Volver a promedio simple? Los pesos ya capturados se borrarán y todas las actividades valdrán lo mismo.')
       if (!ok) return
     }
     try {
       await updateDoc(doc(db, 'subjects', subjectId), { ponderacionActivada: next })
+      if (!next && conPeso.length > 0) {
+        const batch = writeBatch(db)
+        conPeso.forEach((a) => batch.update(doc(db, 'activities', a.id), { pesoCalificacion: null }))
+        await batch.commit()
+        setActivities((prev) => prev.map((x) => x.pesoCalificacion != null ? { ...x, pesoCalificacion: null } : x))
+        setPesoEdits({})
+      }
       setSubject((s) => ({ ...s, ponderacionActivada: next }))
       toast(next
         ? 'Ponderación activada — asigna un peso del 1 al 10 a cada actividad'
-        : 'Ponderación desactivada — promedio simple (todas valen lo mismo)')
+        : 'Promedio simple activado — los pesos se borraron')
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
   // Remaining points to reach 10 in the parcial, excluding one activity —
