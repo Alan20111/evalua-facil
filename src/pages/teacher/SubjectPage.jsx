@@ -15,7 +15,7 @@ import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloa
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
-import { pesoDe, pesoTotal, promedioParcial } from '../../utils/ponderacion'
+import { pesoDe, promedioParcial } from '../../utils/ponderacion'
 import { showNear } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -1527,6 +1527,17 @@ export default function SubjectPage() {
     requestAnimationFrame(() => { try { el.select() } catch { /* number inputs on some browsers */ } })
   }
 
+  // Live parcial total: includes the in-progress edits (wheel/typing), so
+  // the 10 indicator reacts on every wheel tick, not only after blur
+  function pesoTotalVivo(acts) {
+    const sum = acts.reduce((t, x) => {
+      const edit = pesoEdits[x.id]
+      const v = edit !== undefined ? parseFloat(edit) : parseFloat(x.pesoCalificacion)
+      return t + (isNaN(v) || v < 0 ? 0 : v)
+    }, 0)
+    return parseFloat(sum.toFixed(2))
+  }
+
   async function savePeso(a) {
     const raw = pesoEdits[a.id]
     if (raw === undefined) return
@@ -2027,9 +2038,9 @@ export default function SubjectPage() {
                                   className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
                               </th>
                             )),
-                            <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotal(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}
-                              data-tooltip={pesoTotal(acts) === 10 ? 'Los pesos suman 10' : 'Los pesos deben sumar 10'}>
-                              {pesoTotal(acts)}
+                            <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotalVivo(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}
+                              data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : 'Los pesos deben sumar 10'}>
+                              {pesoTotalVivo(acts)}
                             </th>,
                           ])}
                           <th className="w-14 bg-amber-50 border-l border-outline-variant" />
