@@ -7,6 +7,7 @@ import { db, auth } from '../firebase'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { subjectDisplayName } from '../utils/subjectName'
+import { matchesStudentSearch } from '../utils/studentSearch'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
 import {
@@ -82,6 +83,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [bancoEditForm, setBancoEditForm] = useState(null)
   const [configForm, setConfigForm] = useState(activity.evaluacion)
   const [savingConfig, setSavingConfig] = useState(false)
+  const [filtroResultados, setFiltroResultados] = useState('todos')
+  const [searchResultados, setSearchResultados] = useState('')
   const [reviewing, setReviewing] = useState(null) // { student, submission, items: [{pregunta, respuesta}] }
   const [reviewForm, setReviewForm] = useState({}) // preguntaId -> { puntos, comentario }
   const [savingReview, setSavingReview] = useState(false)
@@ -434,6 +437,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     if (sub.estadoEvaluacion === 'en_progreso') return 'En proceso'
     if (sub.pendienteRevision) return 'Finalizado'
     return 'Calificado'
+  }
+
+  // Same filter buckets as a regular activity: Pendientes (not finished),
+  // Calificados, Por calificar (finished, open questions awaiting review)
+  function estadoFiltroKey(sub) {
+    const e = estadoEstudiante(sub)
+    return e === 'Calificado' ? 'calificado' : e === 'Finalizado' ? 'porCalificar' : 'pendiente'
   }
 
   async function handleOpenRevision(student, sub) {
@@ -950,11 +960,45 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 Publicar resultados a tus estudiantes
               </button>
             )}
-            <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-              {students.length === 0 ? (
-                <p className="text-center text-slate-400 text-sm py-8 flex items-center justify-center gap-2"><Users size={16} /> Sin estudiantes</p>
+            {/* ── Entregas — same treatment as a regular activity ── */}
+            {(() => {
+              const resultCounts = {
+                todos: students.length,
+                pendiente: students.filter((x) => estadoFiltroKey(submissions[x.id]) === 'pendiente').length,
+                calificado: students.filter((x) => estadoFiltroKey(submissions[x.id]) === 'calificado').length,
+                porCalificar: students.filter((x) => estadoFiltroKey(submissions[x.id]) === 'porCalificar').length,
+              }
+              const visibles = students.filter((x) =>
+                (filtroResultados === 'todos' || estadoFiltroKey(submissions[x.id]) === filtroResultados) &&
+                (!searchResultados.trim() || matchesStudentSearch(x, searchResultados))
+              )
+              return (
+            <div className="rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
+              <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
+                <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Entregas</h2>
+              </div>
+              <div className="p-3 pb-2 space-y-2">
+                <div className="flex gap-1 bg-surface-container p-1 rounded">
+                  {[['todos', 'Todos'], ['pendiente', 'Pendientes'], ['calificado', 'Calificados'], ['porCalificar', 'Por calificar']].map(([k, lbl]) => (
+                    <button type="button" key={k} onClick={() => setFiltroResultados(k)}
+                      className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
+                        filtroResultados === k ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
+                      }`}>
+                      {lbl} ({resultCounts[k]})
+                    </button>
+                  ))}
+                </div>
+                <div className="relative">
+                  <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input value={searchResultados} onChange={(e) => setSearchResultados(e.target.value)}
+                    placeholder="Buscar por nombre o por número de lista…"
+                    className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                </div>
+              </div>
+              {visibles.length === 0 ? (
+                <p className="text-center text-slate-400 text-sm py-8 flex items-center justify-center gap-2"><Users size={16} /> {students.length === 0 ? 'Sin estudiantes' : 'Sin estudiantes en esta categoría'}</p>
               ) : (
-                students.map((s, i) => {
+                visibles.map((s, i) => {
                   const sub = submissions[s.id]
                   const estado = estadoEstudiante(sub)
                   return (
@@ -985,6 +1029,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 })
               )}
             </div>
+              )
+            })()}
           </div>
         )}
       </div>
