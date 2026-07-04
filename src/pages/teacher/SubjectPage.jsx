@@ -1948,7 +1948,7 @@ export default function SubjectPage() {
                                   onChange={(e) => setPesoEdits((f) => ({ ...f, [a.id]: e.target.value }))}
                                   onBlur={() => savePeso(a)}
                                   data-tooltip={`Peso de la actividad ${activityLabelById[a.id] || ''}`}
-                                  className="w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
+                                  className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
                               </th>
                             )),
                             <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotal(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}
