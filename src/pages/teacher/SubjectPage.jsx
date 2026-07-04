@@ -2090,11 +2090,12 @@ export default function SubjectPage() {
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
                             className="px-1.5 py-1 font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-2">
+                            {/* EXPORTAR sits at the right edge — right above the Prom. column */}
+                            <div className="relative">
                               <span>Parcial {p}</span>
                               <button type="button" onClick={() => handleExportParcial(p)}
                                 data-tooltip-follow={`Parcial ${p} a Excel`}
-                                className="px-1.5 py-0.5 rounded bg-accent text-white text-[10px] font-bold uppercase tracking-wide hover:bg-accent-hover transition-colors">
+                                className="absolute right-0 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-accent text-white text-[10px] font-bold uppercase tracking-wide hover:bg-accent-hover transition-colors">
                                 Exportar
                               </button>
                             </div>
@@ -2125,7 +2126,6 @@ export default function SubjectPage() {
                               <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
                                 <input id={`peso-${a.id}`} type="number" min="0" max="10" step="0.5" data-wheel-step="0.5"
                                   data-wheel-max={pesoRestante(acts, a.id)}
-                                  data-wheel-locked={pesoRestante(acts, '__total__') <= 0 ? 'Tu suma ya es 10' : undefined}
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
                                   placeholder={String(pesoRestante(acts, a.id))}
                                   onChange={(e) => setPesoEdits((f) => ({ ...f, [a.id]: e.target.value }))}

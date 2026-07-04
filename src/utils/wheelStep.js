@@ -46,13 +46,6 @@ export function installWheelStep() {
     if (!input) return
     e.preventDefault() // keep the page still — only the number moves
 
-    // Sum already complete: INCREASING is blocked (with the note), but
-    // decreasing is allowed — it frees points to redistribute
-    if (input.hasAttribute('data-wheel-locked') && e.deltaY > 0) {
-      showBubble(input, input.getAttribute('data-wheel-locked') || 'Tu suma ya es 10')
-      return
-    }
-
     const step = parseFloat(input.getAttribute('data-wheel-step')) || 1
     const min = input.min !== '' ? parseFloat(input.min) : -Infinity
     // Effective ceiling (e.g. the points still available in the parcial);
