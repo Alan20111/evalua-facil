@@ -1959,37 +1959,45 @@ export default function SubjectPage() {
               live in the title tooltip instead of wrapping across two lines like before. */}
           <div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar estudiantes</p>
-            <div className="flex flex-col sm:flex-row sm:items-stretch gap-1 bg-surface-card border border-outline-variant rounded overflow-hidden">
+            {/* Prominent 3-step cards — everything starts here. No overflow-hidden
+                wrapper so the tooltips render above without clipping. */}
+            <div className="flex flex-col sm:flex-row sm:items-stretch gap-2">
               <button
                 type="button"
                 onClick={downloadStudentTemplate}
                 data-tooltip="Descargar plantilla en Excel para pegar datos de estudiantes"
-                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-medium)] transition-colors"
+                className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors text-left"
               >
-                <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-                <Download size={15} className="flex-shrink-0" />
-                <span className="truncate">Plantilla Excel</span>
+                <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">1</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5"><Download size={16} className="flex-shrink-0" /> Plantilla Excel</p>
+                  <p className="text-xs text-muted truncate">Descárgala y pega los datos</p>
+                </div>
               </button>
-              <ChevronRight size={16} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
+              <ChevronRight size={18} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
               <label
                 data-tooltip="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
-                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-medium)] transition-colors cursor-pointer"
+                className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors cursor-pointer"
               >
-                <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-                {savingStudent ? <Spinner size="sm" /> : <Upload size={15} className="flex-shrink-0" />}
-                <span className="truncate">Subir plantilla</span>
+                <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">2</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5">{savingStudent ? <Spinner size="sm" /> : <Upload size={16} className="flex-shrink-0" />} Subir plantilla</p>
+                  <p className="text-xs text-muted truncate">El archivo del paso 1, ya llenado</p>
+                </div>
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
               </label>
-              <ChevronRight size={16} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
+              <ChevronRight size={18} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
               <button
                 type="button"
                 onClick={() => setShowCredentialsModal(true)}
                 data-tooltip="Genera tu lista actualizada de códigos de acceso cada vez que agregues estudiantes"
-                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm text-accent hover:bg-[var(--accent-medium)] transition-colors"
+                className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors text-left"
               >
-                <span className="w-5 h-5 rounded-full bg-accent-light text-accent text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
-                <KeyRound size={15} className="flex-shrink-0" />
-                <span className="truncate">Generar códigos</span>
+                <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">3</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5"><KeyRound size={16} className="flex-shrink-0" /> Generar códigos</p>
+                  <p className="text-xs text-muted truncate">Accesos para tus estudiantes</p>
+                </div>
               </button>
             </div>
           </div>
