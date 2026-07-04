@@ -45,6 +45,7 @@ export function installWheelStep() {
     const input = e.target.closest?.('input[data-wheel-step]')
     if (!input) return
     e.preventDefault() // keep the page still — only the number moves
+    e.stopPropagation() // and nobody else gets to interpret this wheel
 
     const step = parseFloat(input.getAttribute('data-wheel-step')) || 1
     const min = input.min !== '' ? parseFloat(input.min) : -Infinity
@@ -74,13 +75,8 @@ export function installWheelStep() {
 
     nativeSetter.call(input, String(next))
     input.dispatchEvent(new Event('input', { bubbles: true }))
-    // Do NOT focus here: a focused number input lets the browser apply its
-    // own wheel-spin (up = increase) on top of ours, which flipped the
-    // direction intermittently. If it happens to be focused (user clicked),
-    // blur it so only OUR handler drives the wheel from now on.
-    if (document.activeElement === input) input.blur()
 
     // Show the value above the box while wheeling
     showBubble(input, String(next))
-  }, { passive: false })
+  }, { passive: false, capture: true })
 }
