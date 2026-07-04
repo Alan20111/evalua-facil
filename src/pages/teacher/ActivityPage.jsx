@@ -18,6 +18,7 @@ import {
   ArrowLeft, CheckCircle, Clock, Circle, X,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
   ChevronLeft, ChevronRight, FolderDown, Eye,
+  FileCheck2, Timer,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
@@ -348,19 +349,23 @@ export default function ActivityPage() {
 
           <AttachmentList files={activity?.archivosAdjuntos} />
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-2 mt-2">
-            {[
-              { key: 'pendiente', label: 'Pendientes', icon: Circle, color: 'text-muted', bg: 'bg-surface' },
-              { key: 'entregado', label: 'Entregados', icon: Clock, color: 'text-accent', bg: 'bg-accent-light' },
-              { key: 'calificado', label: 'Calificados', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-            ].map(({ key, label, icon: Icon, color, bg }) => (
-              <div key={key} className={`${bg} rounded p-3.5 text-center`}>
-                <Icon size={20} className={`${color} mx-auto mb-1.5`} />
-                <p className="text-2xl font-bold text-on-surface">{counts[key]}</p>
-                <p className="text-xs text-muted">{label}</p>
-              </div>
-            ))}
+          {/* Stats — same compact badges (and tooltips) as the activity cards */}
+          <div className="flex items-center gap-1 mt-2">
+            <span
+              data-tooltip="Entregados"
+              className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+              <FileCheck2 size={11} /> {counts.entregado + counts.calificado}/{students.length}
+            </span>
+            <span
+              data-tooltip="Calificados"
+              className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+              <CheckCircle size={11} /> {counts.calificado}/{counts.entregado + counts.calificado}
+            </span>
+            <span
+              data-tooltip="Por calificar"
+              className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+              <Timer size={11} /> {counts.entregado}/{counts.entregado + counts.calificado}
+            </span>
           </div>
 
           {/* Filter tabs */}
