@@ -2364,11 +2364,17 @@ export default function SubjectPage() {
                           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.orden}
                           </td>
-                          <td
-                            data-tooltip={!s.activado ? 'Este estudiante aún no ha activado su cuenta — no puede entrar ni entregar' : undefined}
-                            className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface truncate border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
-                            {s.apellidoPaterno} {s.nombre}
-                            {!s.activado && <span className="text-red-500 text-[10px] font-semibold"> (no se ha activado)</span>}
+                          {/* data-tooltip goes on an INNER span, never on this td:
+                              [data-tooltip] forces position:relative, which would
+                              override `sticky` and let left-8 shove the cell right */}
+                          <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                            <span
+                              className="block truncate"
+                              data-tooltip={!s.activado ? 'Este estudiante aún no ha activado su cuenta — no puede entrar ni entregar' : undefined}
+                            >
+                              {s.apellidoPaterno} {s.nombre}
+                              {!s.activado && <span className="text-red-500 text-[10px] font-semibold"> (no se ha activado)</span>}
+                            </span>
                           </td>
                           {parcialData.map(({ p, grades, avg }, pi) => [
                             ...tableParcials[pi].acts.map((a, ai) => (
