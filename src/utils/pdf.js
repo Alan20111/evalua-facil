@@ -73,6 +73,61 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
   doc.save(`calificaciones_${safeFile(subject)}.pdf`)
 }
 
+// Detailed grades report for a SINGLE parcial: one column per activity
+// (1.1., 1.2.…) plus the parcial average. Mirrors exportParcialGrades (Excel).
+export async function exportParcialGradesPDF({ subject, activities, students, submissions, parcial }) {
+  const [{ jsPDF }, autoTableMod] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
+  const autoTable = autoTableMod.default
+
+  const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
+  const acts = activities
+    .filter((a) => a.parcial === parcial && !isDraft(a))
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+
+  const doc = new jsPDF({ orientation: acts.length > 6 ? 'landscape' : 'portrait' })
+
+  doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
+  doc.text(`${subjectDisplayName(subject) || 'Asignatura'} — Parcial ${parcial}`, 14, 16)
+  const periodo = subjectPeriodLabel(subject)
+  if (periodo) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
+    doc.text(periodo, 14, 22)
+  }
+
+  const pondOn = ponderacionActivaEnParcial(subject, parcial)
+  const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  const body = sorted.map((s) => {
+    const row = [s.orden ?? '', fullName(s)]
+    const grades = acts.map((a) => {
+      const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
+      return sub?.calificacion != null ? (sub.calificacion / (a.maxCalif || 10)) * 10 : null
+    })
+    grades.forEach((g) => row.push(g != null ? g.toFixed(1) : '—'))
+    const avg = promedioParcial(acts, grades, pondOn)
+    row.push(avg != null ? avg.toFixed(1) : '—')
+    return row
+  })
+
+  autoTable(doc, {
+    startY: periodo ? 28 : 24,
+    head: [['#', 'Estudiante', ...acts.map((a, ai) => `${parcial}.${ai + 1}.`), 'Prom.']],
+    body,
+    styles: { fontSize: 9, cellPadding: 2, textColor: 30 },
+    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
+    alternateRowStyles: { fillColor: [241, 245, 249] },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 10 },
+      ...Object.fromEntries(acts.map((_, i) => [i + 2, { halign: 'center' }])),
+      [acts.length + 2]: { halign: 'center', fontStyle: 'bold' },
+    },
+  })
+
+  doc.save(`calificaciones_parcial${parcial}_${safeFile(subject)}.pdf`)
+}
+
 // Just the activation QR, large, with the subject name and group — nothing
 // else (no link, no code, no student list). For projecting/printing on its own.
 export async function exportQRPDF({ subject, activationUrl }) {
