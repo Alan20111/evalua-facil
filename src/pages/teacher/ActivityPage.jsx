@@ -658,14 +658,16 @@ export default function ActivityPage() {
               <div className="p-4 space-y-3">
 
                 {/* Filter tabs — same sets as the list; switching re-freezes navigation */}
-                <div className="grid grid-cols-2 gap-1 bg-surface-container p-1 rounded">
+                <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1.5 rounded-card">
                   {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
                     <button
                       type="button"
                       key={f}
                       onClick={() => changeFilterInView(f)}
-                      className={`py-1.5 px-1 text-xs font-medium rounded transition-colors ${
-                        filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
+                      className={`py-2 px-2 text-sm font-semibold rounded transition-colors ${
+                        filter === f
+                          ? 'bg-accent text-white shadow-card'
+                          : 'bg-surface-card text-muted hover:text-accent hover:bg-[var(--accent-tint)]'
                       }`}
                     >
                       {FILTER_LABELS[f]} ({f === 'todos' ? students.length : counts[f]})
@@ -735,30 +737,33 @@ export default function ActivityPage() {
                       <label className="block text-sm font-medium text-muted mb-1">
                         Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                       </label>
-                      <input
-                        type="number"
-                        value={gradeForm.calificacion}
-                        onChange={onCalifChange}
-                        required
-                        min="0"
-                        max={activity?.maxCalif}
-                        step="0.1"
-                        autoFocus
-                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
-                      />
+                      {/* Narrow input so the spinner arrows sit right next to the
+                          number; the download button fills the rest of the row */}
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          value={gradeForm.calificacion}
+                          onChange={onCalifChange}
+                          required
+                          min="0"
+                          max={activity?.maxCalif}
+                          step="0.1"
+                          autoFocus
+                          className="w-24 flex-shrink-0 px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface"
+                        />
+                        {!selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
+                          <a
+                            href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
+                            download={selected.sub.nombreArchivo}
+                            rel="noopener noreferrer"
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors min-w-0"
+                          >
+                            <Download size={18} className="text-accent flex-shrink-0" />
+                            <span className="truncate">Descargar entrega</span>
+                          </a>
+                        )}
+                      </div>
                     </div>
-
-                    {!selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
-                      <a
-                        href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
-                        download={selected.sub.nombreArchivo}
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors"
-                      >
-                        <Download size={18} className="text-accent" />
-                        Descargar entrega
-                      </a>
-                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-muted mb-1">
@@ -832,7 +837,7 @@ export default function ActivityPage() {
                     <button
                       type="button"
                       onClick={() => setExtendMode(true)}
-                      className="text-sm text-slate-500 hover:text-muted transition-colors"
+                      className="block mx-auto text-sm text-slate-500 hover:text-muted transition-colors"
                     >
                       Modificar fecha de entrega para este estudiante
                     </button>
