@@ -476,7 +476,10 @@ export default function ActivityPage() {
   // the teacher opted in via the checkbox; a save error keeps you on the current
   // student instead of silently dropping the grade.
   async function goToOffset(off) {
-    const next = navList[curIdx + off]
+    if (navList.length < 2 || curIdx < 0) return
+    // Wrap around: past the last student loops to the first, and vice versa.
+    const nextIdx = (curIdx + off + navList.length) % navList.length
+    const next = navList[nextIdx]
     if (!next) return
     if (autoSaveOnNav && isDirty()) {
       try {
@@ -868,6 +871,7 @@ export default function ActivityPage() {
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-base font-semibold text-on-surface truncate">
+                      {selected.student.orden != null && <span className="text-slate-400">{selected.student.orden}. </span>}
                       {selected.student.apellidoPaterno} {selected.student.apellidoMaterno} {selected.student.nombre}
                     </h4>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[getStatus(selected.student.id)]}`}>
@@ -909,8 +913,7 @@ export default function ActivityPage() {
                     <button
                       type="button"
                       onClick={() => goToOffset(-1)}
-                      disabled={curIdx <= 0}
-                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-30"
+                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors"
                     >
                       <ChevronLeft size={20} /> Anterior
                     </button>
@@ -918,8 +921,7 @@ export default function ActivityPage() {
                     <button
                       type="button"
                       onClick={() => goToOffset(1)}
-                      disabled={curIdx >= navList.length - 1}
-                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover transition-colors disabled:opacity-30"
+                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover transition-colors"
                     >
                       Siguiente <ChevronRight size={20} />
                     </button>
