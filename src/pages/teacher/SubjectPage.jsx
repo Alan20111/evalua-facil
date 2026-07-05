@@ -15,7 +15,7 @@ import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloa
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
-import { pesoDe, promedioParcial } from '../../utils/ponderacion'
+import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -144,6 +144,7 @@ export default function SubjectPage() {
   const [pesoEdits, setPesoEdits] = useState({})
   // Anchored confirmation panel for reverting to simple average
   const [confirmRevertPonderacion, setConfirmRevertPonderacion] = useState(false)
+  const [confirmRevertParcial, setConfirmRevertParcial] = useState(null) // parcial number | null
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -1328,9 +1329,9 @@ export default function SubjectPage() {
   // Only parciales where the teacher already assigned some weight are
   // validated; untouched parciales fall back to simple average.
   function ponderacionIncompleta() {
-    if (!subject?.ponderacionActivada) return null
     const PARC = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
     for (const p of PARC) {
+      if (!ponderacionActivaEnParcial(subject, p)) continue
       const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
       if (!acts.length || !acts.some((a) => pesoDe(a) > 0)) continue
       const total = parseFloat(acts.reduce((t, a) => t + pesoDe(a), 0).toFixed(2))
@@ -1374,9 +1375,9 @@ export default function SubjectPage() {
   // the teacher adjusts until it does, then the Excel is generated.
   async function handleExportParcial(p) {
     if (!subject) return
-    // Hard gate: with ponderación active, the parcial can only be exported
-    // when its weights sum EXACTLY 10 (both saved and in-progress values)
-    if (subject?.ponderacionActivada) {
+    // Hard gate: with ponderación active IN THIS PARCIAL, it can only be
+    // exported when its weights sum EXACTLY 10 (saved and in-progress values)
+    if (ponderacionActivaEnParcial(subject, p)) {
       const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
       const total = pesoTotalVivo(acts)
       if (Math.abs(total - 10) > 0.001) {
@@ -1530,10 +1531,17 @@ export default function SubjectPage() {
       : 'bg-[var(--accent-tint)]'
   }
 
-  // ── PONDERACIÓN (optional per-activity weights) ────────────────────
-  const ponderacionOn = !!subject?.ponderacionActivada
+  // ── PONDERACIÓN (optional per-activity weights, per PARCIAL) ────────
+  // A teacher may weight only some parciales (e.g. simple average in P1,
+  // weighted in P2). `ponderacionParciales` holds the per-parcial switches;
+  // the legacy subject-wide flag is the fallback for old subjects.
+  const pondParcial = (p) => ponderacionActivaEnParcial(subject, p)
+  const ALL_PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
+  const anyPonderacionOn = ALL_PARCIALES.some(pondParcial)
+
+  // Global button: turns EVERY parcial on/off at once
   function togglePonderacion() {
-    const next = !ponderacionOn
+    const next = !anyPonderacionOn
     // Going BACK to simple average when weights already exist needs an
     // explicit confirmation — shown in a panel anchored to the button
     // (the browser's native confirm() always appears top-center)
@@ -1550,11 +1558,13 @@ export default function SubjectPage() {
     setConfirmRevertPonderacion(false)
     const conPeso = activities.filter((a) => pesoDe(a) > 0)
     try {
+      const map = {}
+      ALL_PARCIALES.forEach((p) => { map[p] = next })
       // Activation always starts with weights HIDDEN from students; the
       // teacher's later choice (eye toggle) persists across visits
       const updates = next
-        ? { ponderacionActivada: true, ponderacionVisibleAlumnos: false }
-        : { ponderacionActivada: false }
+        ? { ponderacionActivada: true, ponderacionParciales: map, ponderacionVisibleAlumnos: false }
+        : { ponderacionActivada: false, ponderacionParciales: map }
       await updateDoc(doc(db, 'subjects', subjectId), updates)
       if (!next && conPeso.length > 0) {
         const batch = writeBatch(db)
@@ -1563,10 +1573,48 @@ export default function SubjectPage() {
         setActivities((prev) => prev.map((x) => x.pesoCalificacion != null ? { ...x, pesoCalificacion: null } : x))
         setPesoEdits({})
       }
-      setSubject((s) => ({ ...s, ponderacionActivada: next, ...(next ? { ponderacionVisibleAlumnos: false } : {}) }))
+      setSubject((s) => ({ ...s, ...updates }))
       toast(next
-        ? 'Ponderación activada — asigna un peso del 1 al 10 a cada actividad'
+        ? 'Ponderación activada en todos los parciales — asigna un peso del 1 al 10 a cada actividad'
         : 'Promedio simple activado — los pesos se borraron')
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
+  // Per-parcial switch (the button in the amber weights row)
+  function toggleParcialPonderacion(p) {
+    const next = !pondParcial(p)
+    const conPeso = activities.filter((a) => a.parcial === p && pesoDe(a) > 0)
+    if (!next && conPeso.length > 0) {
+      setConfirmRevertParcial(p)
+      playAlertSound()
+      return
+    }
+    applyParcialPonderacion(p, next)
+  }
+
+  async function applyParcialPonderacion(p, next) {
+    setConfirmRevertParcial(null)
+    try {
+      // Materialize the whole map so every parcial's state is explicit from now on
+      const map = {}
+      ALL_PARCIALES.forEach((pp) => { map[pp] = pp === p ? next : pondParcial(pp) })
+      const any = Object.values(map).some(Boolean)
+      const updates = { ponderacionParciales: map, ponderacionActivada: any }
+      if (next && !anyPonderacionOn) updates.ponderacionVisibleAlumnos = false
+      await updateDoc(doc(db, 'subjects', subjectId), updates)
+      if (!next) {
+        const conPeso = activities.filter((a) => a.parcial === p && pesoDe(a) > 0)
+        if (conPeso.length) {
+          const batch = writeBatch(db)
+          conPeso.forEach((a) => batch.update(doc(db, 'activities', a.id), { pesoCalificacion: null }))
+          await batch.commit()
+          setActivities((prev) => prev.map((x) => x.parcial === p && x.pesoCalificacion != null ? { ...x, pesoCalificacion: null } : x))
+        }
+      }
+      setSubject((s) => ({ ...s, ...updates }))
+      toast(next
+        ? `Ponderación activada en el Parcial ${p} — asigna pesos hasta sumar 10`
+        : `Parcial ${p} con promedio simple — sus pesos se borraron`)
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
   // Remaining points to reach 10 in the parcial, excluding one activity —
@@ -1664,7 +1712,7 @@ export default function SubjectPage() {
           ? parseFloat(((sub.calificacion / (a.maxCalif || 10)) * 10).toFixed(1))
           : null
       })
-      const rawAvg = promedioParcial(acts, grades, ponderacionOn)
+      const rawAvg = promedioParcial(acts, grades, pondParcial(p))
       const avg = rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : null
       return { p, grades, avg }
     })
@@ -2085,11 +2133,11 @@ export default function SubjectPage() {
                         <th className="sticky left-8 z-20 bg-accent-light w-[150px] px-1 py-1 text-left border-r border-outline-variant">
                           <div className="relative">
                             <button type="button" onClick={togglePonderacion}
-                              data-tooltip-follow="Cada actividad vale un peso"
-                              className={`w-full px-1 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${ponderacionOn
+                              data-tooltip-follow={anyPonderacionOn ? 'Quitar la ponderación de todos los parciales' : 'Cada actividad vale un peso — se activa en todos los parciales; luego puedes apagarla por parcial'}
+                              className={`w-full px-1 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${anyPonderacionOn
                                 ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                                 : 'bg-accent text-white hover:bg-accent-hover'}`}>
-                              {ponderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
+                              {anyPonderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
                             </button>
                             {/* Confirmation anchored HERE — right where the action happens */}
                             {confirmRevertPonderacion && (
@@ -2103,6 +2151,24 @@ export default function SubjectPage() {
                                     Cancelar
                                   </button>
                                   <button type="button" onClick={() => applyPonderacion(false)}
+                                    className="flex-1 py-1.5 rounded bg-amber-500 text-white text-xs font-semibold normal-case tracking-normal hover:bg-amber-600">
+                                    Sí, promedio simple
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {/* Per-parcial deactivation confirm (weights exist) */}
+                            {confirmRevertParcial != null && (
+                              <div className="absolute left-0 top-full mt-1 z-30 w-72 bg-white border-2 border-amber-400 rounded-card shadow-2xl p-3 text-left">
+                                <p className="text-xs text-amber-800 font-medium normal-case tracking-normal leading-snug">
+                                  El Parcial {confirmRevertParcial} ya tiene pesos capturados. Se borrarán y ese parcial usará promedio simple.
+                                </p>
+                                <div className="flex gap-2 mt-2">
+                                  <button type="button" onClick={() => setConfirmRevertParcial(null)}
+                                    className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-xs font-medium normal-case tracking-normal hover:bg-surface-container">
+                                    Cancelar
+                                  </button>
+                                  <button type="button" onClick={() => applyParcialPonderacion(confirmRevertParcial, false)}
                                     className="flex-1 py-1.5 rounded bg-amber-500 text-white text-xs font-semibold normal-case tracking-normal hover:bg-amber-600">
                                     Sí, promedio simple
                                   </button>
@@ -2129,8 +2195,11 @@ export default function SubjectPage() {
                           Final
                         </th>
                       </tr>
-                      {/* PONDERACIÓN row — weights per activity, distinct amber tone */}
-                      {ponderacionOn && (
+                      {/* PONDERACIÓN row — weights per activity, per PARCIAL.
+                          Active parciales show their weight inputs (with an ✕
+                          to turn just that parcial off); inactive ones show an
+                          "Activar" button instead. */}
+                      {anyPonderacionOn && (
                         <tr className="bg-amber-50 border-b border-amber-200">
                           <th className="sticky left-0 z-10 bg-amber-50 w-8 px-1 py-1 border-r border-outline-variant" />
                           <th className="sticky left-8 z-10 bg-amber-50 w-[150px] px-2 py-1 border-r border-outline-variant">
@@ -2145,7 +2214,7 @@ export default function SubjectPage() {
                               <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">Ponderación</span>
                             </div>
                           </th>
-                          {tableParcials.map(({ p, acts }) => [
+                          {tableParcials.map(({ p, acts }) => pondParcial(p) ? [
                             ...acts.map((a) => (
                               <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
                                 <input id={`peso-${a.id}`} type="text" inputMode="decimal" min="0" max="10" data-wheel-step="0.5"
@@ -2160,11 +2229,25 @@ export default function SubjectPage() {
                                   className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
                               </th>
                             )),
-                            <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotalVivo(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}
-                              data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : 'Los pesos deben sumar 10'}>
-                              {pesoTotalVivo(acts)}
+                            <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotalVivo(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}>
+                              <div className="flex items-center justify-center gap-0.5">
+                                <span data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : 'Los pesos deben sumar 10'}>{pesoTotalVivo(acts)}</span>
+                                <button type="button" onClick={() => toggleParcialPonderacion(p)}
+                                  data-tooltip={`Quitar la ponderación solo del Parcial ${p}`}
+                                  className="p-0.5 text-amber-400 hover:text-amber-800 rounded transition-colors">
+                                  <X size={12} />
+                                </button>
+                              </div>
                             </th>,
-                          ])}
+                          ] : (
+                            <th key={`pond-off-${p}`} colSpan={acts.length + 1} className="px-1 py-1 text-center border-l border-outline-variant bg-amber-50/50">
+                              <button type="button" onClick={() => toggleParcialPonderacion(p)}
+                                data-tooltip-follow={`Ponderar solo el Parcial ${p} — este parcial usa promedio simple`}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-white border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors whitespace-nowrap">
+                                Activar en P{p}
+                              </button>
+                            </th>
+                          ))}
                           <th className="w-14 bg-amber-50 border-l border-outline-variant" />
                         </tr>
                       )}
