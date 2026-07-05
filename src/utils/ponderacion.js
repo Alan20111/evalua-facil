@@ -9,6 +9,15 @@
 // Σ(nota·peso)/Σ(peso) over GRADED activities — ungraded ones don't drag the
 // average down, mirroring the simple-mean behaviour.
 
+// Per-parcial activation. The subject's `ponderacionParciales` map
+// ({ '1': true, '2': false … }) wins when it has an entry for the parcial;
+// otherwise the legacy subject-wide `ponderacionActivada` flag applies to all.
+export function ponderacionActivaEnParcial(subject, parcial) {
+  const map = subject?.ponderacionParciales
+  if (map && map[String(parcial)] !== undefined) return !!map[String(parcial)]
+  return !!subject?.ponderacionActivada
+}
+
 export const pesoDe = (a) => {
   const n = parseFloat(a?.pesoCalificacion)
   return isNaN(n) || n < 0 ? 0 : n

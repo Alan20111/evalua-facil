@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
 import { subjectPeriodLabel } from './dateRange'
-import { promedioParcial, pesoDe } from './ponderacion'
+import { promedioParcial, pesoDe, ponderacionActivaEnParcial } from './ponderacion'
 
 // Loaded dynamically (only when actually downloading the template) because
 // it's needed for one feature `xlsx` can't do: writing real sheet protection
@@ -111,8 +111,9 @@ export function exportParcialGrades({ subject, activities, students, submissions
   nameRow.push(`Prom. P${parcial}`)
 
   // PONDERACIÓN row — mirrors the on-screen weights strip (no buttons)
+  const pondOn = ponderacionActivaEnParcial(subject, parcial)
   const pesoRow = ['', 'PONDERACIÓN']
-  if (subject.ponderacionActivada) {
+  if (pondOn) {
     let totalPesos = 0
     acts.forEach((a) => { const w = pesoDe(a); totalPesos += w; pesoRow.push(w) })
     pesoRow.push(parseFloat(totalPesos.toFixed(2)))
@@ -128,12 +129,12 @@ export function exportParcialGrades({ subject, activities, students, submissions
         : null
     })
     grades.forEach((g) => row.push(g !== null ? g : ''))
-    const rawAvg = promedioParcial(acts, grades, !!subject.ponderacionActivada)
+    const rawAvg = promedioParcial(acts, grades, pondOn)
     row.push(rawAvg !== null ? parseFloat(rawAvg.toFixed(2)) : '')
     return row
   })
 
-  const allRows = subject.ponderacionActivada
+  const allRows = pondOn
     ? [titleRow, [], pesoRow, nameRow, ...dataRows]
     : [titleRow, [], nameRow, ...dataRows]
   const ws = XLSX.utils.aoa_to_sheet(allRows)
@@ -185,11 +186,18 @@ export function exportSubjectGrades({
   })
   sectionRow[col] = 'FINAL'
 
-  // PONDERACIÓN row — mirrors the on-screen weights strip (no buttons)
+  // PONDERACIÓN row — mirrors the on-screen weights strip (no buttons).
+  // Per-parcial: parciales without ponderación show blanks in this row.
+  const anyPond = PARCIALES.some((p) => ponderacionActivaEnParcial(subject, p))
   const pesoRowFull = ['', 'PONDERACIÓN']
-  if (subject.ponderacionActivada) {
+  if (anyPond) {
     PARCIALES.forEach((p, pi) => {
       const { acts } = parcialMeta[pi]
+      if (!ponderacionActivaEnParcial(subject, p)) {
+        acts.forEach(() => pesoRowFull.push(''))
+        pesoRowFull.push('')
+        return
+      }
       let totalPesos = 0
       acts.forEach((a) => { const w = pesoDe(a); totalPesos += w; pesoRowFull.push(w) })
       pesoRowFull.push(parseFloat(totalPesos.toFixed(2)))
@@ -228,7 +236,7 @@ export function exportSubjectGrades({
           parGrades.push(null)
         }
       })
-      const rawAvg = promedioParcial(acts, parGrades, !!subject.ponderacionActivada)
+      const rawAvg = promedioParcial(acts, parGrades, ponderacionActivaEnParcial(subject, p))
       const parAvg = rawAvg !== null ? parseFloat(rawAvg.toFixed(2)) : ''
       row.push(parAvg)
       if (parAvg !== '') finalGrades.push(parAvg)
@@ -242,7 +250,7 @@ export function exportSubjectGrades({
     return row
   })
 
-  const allRows = subject.ponderacionActivada
+  const allRows = anyPond
     ? [titleRow, [], sectionRow, pesoRowFull, nameRow, ...dataRows]
     : [titleRow, [], sectionRow, nameRow, ...dataRows]
   const ws = XLSX.utils.aoa_to_sheet(allRows)

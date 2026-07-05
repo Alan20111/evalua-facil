@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
-import { promedioParcial } from '../../utils/ponderacion'
+import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 
 function ResourceCard({ resource: r }) {
   const { icon: Icon, color } = getResourceIcon(r.nombreArchivo || r.nombre || '')
@@ -186,8 +186,8 @@ export default function StudentSubjectPage() {
       const sub = submissions[a.id]
       return sub?.calificacion != null ? (sub.calificacion / (a.maxCalif || 10)) * 10 : null
     })
-    // Same math as the teacher's table — weighted when the subject uses ponderación
-    const avg = promedioParcial(acts, grades, !!subject?.ponderacionActivada)
+    // Same math as the teacher's table — weighted when THIS parcial uses ponderación
+    const avg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, parcial))
     return avg !== null ? avg.toFixed(1) : null
   }
 
@@ -293,7 +293,7 @@ export default function StudentSubjectPage() {
                       const delivered = sub && !graded
                       const overdue = !graded && !delivered && isOverdue(a)
                       const fechaLimiteLabel = formatFechaLimite(a.fechaLimite)
-                      const showPeso = subject?.ponderacionActivada && subject?.ponderacionVisibleAlumnos && a.pesoCalificacion != null
+                      const showPeso = ponderacionActivaEnParcial(subject, a.parcial) && subject?.ponderacionVisibleAlumnos && a.pesoCalificacion != null
                       // Scheduled activities may only carry `publishAt` (already in the
                       // past — this list is filtered to visible ones), so that IS their
                       // publication date when `publishedAt` is absent.

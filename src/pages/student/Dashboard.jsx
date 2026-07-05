@@ -18,7 +18,7 @@ import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollments } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
-import { promedioParcial } from '../../utils/ponderacion'
+import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -136,7 +136,7 @@ export default function StudentDashboard() {
           const grades = pacts.map((a) =>
             gradeByActivity[a.id] != null ? (gradeByActivity[a.id] / (a.maxCalif || 10)) * 10 : null
           )
-          return promedioParcial(pacts, grades, !!s.ponderacionActivada)
+          return promedioParcial(pacts, grades, ponderacionActivaEnParcial(s, p))
         }).filter((v) => v !== null)
         const avg = parcAvgs.length
           ? (parcAvgs.reduce((x, y) => x + y, 0) / parcAvgs.length).toFixed(1)
