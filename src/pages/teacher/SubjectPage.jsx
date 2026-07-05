@@ -148,6 +148,8 @@ export default function SubjectPage() {
   // Cerrar parcial: null | { p, missing: [{s, a}], ungraded }
   const [closeParcialConfirm, setCloseParcialConfirm] = useState(null)
   const [closingParcial, setClosingParcial] = useState(false)
+  const [revertParcialConfirm, setRevertParcialConfirm] = useState(null) // parcial number | null
+  const [revertingParcial, setRevertingParcial] = useState(false)
   // Kebab menu per parcial header: null | { p, x, y } (fixed coords from the ⋮ button)
   const [parcialMenu, setParcialMenu] = useState(null)
   const [deleting, setDeleting] = useState(false)
@@ -1375,9 +1377,11 @@ export default function SubjectPage() {
     finally { setExporting(false) }
   }
 
-  // ── CERRAR PARCIAL: every missing submission of the parcial gets a 0 ──
+  // ── CERRAR PARCIAL ──
+  // To close, EVERYTHING must be graded. The dialog then adapts:
+  //  · delivered-but-ungraded submissions block closing (grade them manually first)
+  //  · no-entregas (no submission) are set to 0 only if the teacher proceeds
   // Gate: with ponderación active in the parcial, weights must sum 10 first.
-  // Delivered-but-ungraded submissions are NOT touched (they're entregas).
   function requestCloseParcial(p) {
     if (ponderacionActivaEnParcial(subject, p)) {
       const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
@@ -1400,14 +1404,46 @@ export default function SubjectPage() {
         else if (sub.calificacion == null) ungraded++
       })
     })
-    if (!missing.length) {
-      toast(ungraded
-        ? `No hay no-entregas en el Parcial ${p}, pero tienes ${ungraded} entrega${ungraded !== 1 ? 's' : ''} sin calificar`
-        : `El Parcial ${p} ya está completo — no hay no-entregas que poner en 0`)
-      return
-    }
     playAlertSound()
     setCloseParcialConfirm({ p, missing, ungraded })
+  }
+
+  // Revert a close: delete the 0-grades created by the close (cierreParcial=true)
+  // so those no-entregas go back to just "sin entrega". Manual grades are kept.
+  async function revertCloseParcial() {
+    if (revertParcialConfirm == null) return
+    const p = revertParcialConfirm
+    setRevertingParcial(true)
+    try {
+      const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+      const snaps = await fetchSubmissionsForActivities(acts.map((a) => a.id))
+      const toDelete = snaps.filter((d) => d.data().cierreParcial === true)
+      const removedKeys = []
+      for (let i = 0; i < toDelete.length; i += 400) {
+        const batch = writeBatch(db)
+        toDelete.slice(i, i + 400).forEach((d) => {
+          batch.delete(doc(db, 'submissions', d.id))
+          const data = d.data()
+          removedKeys.push(`${data.alumnoId}-${data.actividadId}`)
+        })
+        await batch.commit()
+      }
+      setGradeSubMap((prev) => {
+        const next = { ...prev }
+        removedKeys.forEach((k) => delete next[k])
+        return next
+      })
+      const nextClosed = { ...(subject?.parcialesCerrados || {}) }
+      delete nextClosed[p]
+      await updateDoc(doc(db, 'subjects', subjectId), { parcialesCerrados: nextClosed })
+      setSubject((s) => ({ ...s, parcialesCerrados: nextClosed }))
+      toast(`Cierre del Parcial ${p} revertido — ${removedKeys.length} no entrega${removedKeys.length !== 1 ? 's volvieron' : ' volvió'} a quedar sin calificar`)
+      setRevertParcialConfirm(null)
+    } catch (err) {
+      toast('Error al revertir el cierre: ' + err.message, 'error')
+    } finally {
+      setRevertingParcial(false)
+    }
   }
 
   async function confirmCloseParcial() {
@@ -3173,12 +3209,19 @@ export default function SubjectPage() {
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left">
               <FileSpreadsheet size={16} className="text-accent flex-shrink-0" /> Exportar a Excel
             </button>
-            <button type="button"
-              onClick={() => { const p = parcialMenu.p; setParcialMenu(null); requestCloseParcial(p) }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant">
-              <Lock size={16} className={`flex-shrink-0 ${subject?.parcialesCerrados?.[parcialMenu.p] ? 'text-emerald-600' : 'text-slate-400'}`} />
-              {subject?.parcialesCerrados?.[parcialMenu.p] ? 'Parcial cerrado — cerrar de nuevo' : 'Cerrar parcial (no entregas → 0)'}
-            </button>
+            {subject?.parcialesCerrados?.[parcialMenu.p] ? (
+              <button type="button"
+                onClick={() => { const p = parcialMenu.p; setParcialMenu(null); setRevertParcialConfirm(p) }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant">
+                <RotateCcw size={16} className="text-amber-600 flex-shrink-0" /> Revertir cierre del parcial
+              </button>
+            ) : (
+              <button type="button"
+                onClick={() => { const p = parcialMenu.p; setParcialMenu(null); requestCloseParcial(p) }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant">
+                <Lock size={16} className="text-slate-400 flex-shrink-0" /> Cerrar parcial
+              </button>
+            )}
           </div>
         </>
       )}
@@ -3229,30 +3272,70 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* ── Cerrar parcial: missing submissions become 0 ── */}
+      {/* ── Cerrar parcial: requires everything graded; no-entregas → 0 on proceed ── */}
       {closeParcialConfirm && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !closingParcial && setCloseParcialConfirm(null)} />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Cerrar el Parcial {closeParcialConfirm.p}?</h3>
+            <h3 className="text-lg font-semibold text-center text-on-surface">Cerrar el Parcial {closeParcialConfirm.p}</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Se asignará <strong className="text-red-600">0 (cero)</strong> a todas las no entregas del parcial:{' '}
-              <strong>{closeParcialConfirm.missing.length} calificación{closeParcialConfirm.missing.length !== 1 ? 'es' : ''} en cero</strong>.
+              Para cerrar el parcial, <strong>todas las calificaciones deben estar puestas</strong>.
             </p>
-            {closeParcialConfirm.ungraded > 0 && (
-              <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mt-2 leading-relaxed">
-                Además hay <strong>{closeParcialConfirm.ungraded} entrega{closeParcialConfirm.ungraded !== 1 ? 's' : ''} sin calificar</strong> —
-                a esas NO se les pondrá 0; califícalas tú antes o después de cerrar.
-              </p>
+            {closeParcialConfirm.ungraded > 0 ? (
+              <>
+                {/* Blocker: real deliveries need a manual grade, can't be auto-zeroed */}
+                <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mt-3 leading-relaxed">
+                  Hay <strong>{closeParcialConfirm.ungraded} entrega{closeParcialConfirm.ungraded !== 1 ? 's' : ''} sin calificar</strong>.
+                  Como son entregas reales, califícalas tú antes de cerrar. Cancela, ponles calificación y vuelve a cerrar.
+                </p>
+                <button type="button" onClick={() => setCloseParcialConfirm(null)}
+                  className="w-full py-2 mt-4 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors">
+                  Entendido
+                </button>
+              </>
+            ) : (
+              <>
+                {closeParcialConfirm.missing.length > 0 ? (
+                  <p className="text-sm text-muted text-center mt-2">
+                    Faltan <strong>{closeParcialConfirm.missing.length} no entrega{closeParcialConfirm.missing.length !== 1 ? 's' : ''}</strong>.
+                    Cancela si vas a poner esas calificaciones a mano, o cierra y todas las no entregadas quedarán en <strong className="text-red-600">0 (cero)</strong>.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted text-center mt-2">Todo está calificado. Puedes cerrar el parcial.</p>
+                )}
+                <div className="flex gap-2 mt-4">
+                  <button type="button" onClick={() => setCloseParcialConfirm(null)} disabled={closingParcial}
+                    className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                    Cancelar
+                  </button>
+                  <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
+                    className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors">
+                    {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? 'Cerrar y poner 0' : 'Cerrar parcial')}
+                  </button>
+                </div>
+              </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Revertir cierre del parcial: borra los ceros del cierre ── */}
+      {revertParcialConfirm != null && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !revertingParcial && setRevertParcialConfirm(null)} />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Revertir el cierre del Parcial {revertParcialConfirm}?</h3>
+            <p className="text-sm text-muted text-center mt-2">
+              Los ceros que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
+            </p>
             <div className="flex gap-2 mt-4">
-              <button type="button" onClick={() => setCloseParcialConfirm(null)} disabled={closingParcial}
+              <button type="button" onClick={() => setRevertParcialConfirm(null)} disabled={revertingParcial}
                 className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
-              <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
+              <button type="button" onClick={revertCloseParcial} disabled={revertingParcial}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors">
-                {closingParcial ? 'Cerrando…' : 'Cerrar parcial'}
+                {revertingParcial ? 'Revirtiendo…' : 'Revertir cierre'}
               </button>
             </div>
           </div>
