@@ -145,7 +145,7 @@ export default function StudentSubjectPage() {
       const countByParcial = {}
       allActs.filter((a) => !isDraft(a)).forEach((a) => {
         countByParcial[a.parcial] = (countByParcial[a.parcial] || 0) + 1
-        labels[a.id] = `${a.parcial}.${countByParcial[a.parcial]}`
+        labels[a.id] = `${a.parcial}.${countByParcial[a.parcial]}.`
       })
       setActivityLabels(labels)
       const acts = allActs
@@ -313,7 +313,7 @@ export default function StudentSubjectPage() {
                           <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
                           <div className="flex-1 min-w-0">
                             <p className="text-base font-medium leading-tight text-on-surface truncate">
-                              {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} · </span>}
+                              {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} </span>}
                               {a.nombre}
                               <span className="text-xs font-normal text-slate-400"> ({CATEGORIA_LABELS[a.categoria] || 'Entregable'})</span>
                             </p>
@@ -444,7 +444,7 @@ export default function StudentSubjectPage() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-on-surface truncate">
-                              {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} · </span>}
+                              {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} </span>}
                               {a.nombre}
                             </p>
                             <p className="text-xs text-slate-400 truncate">{CATEGORIA_LABELS[a.categoria] || 'Entregable'}</p>

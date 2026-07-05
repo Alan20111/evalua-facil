@@ -180,7 +180,7 @@ export default function EntregableEditor({
             <p className="text-xs text-white/70 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
             {/* Big name + number (only published activities have a label; drafts don't) */}
             <h1 className="text-2xl font-extrabold text-white truncate flex items-baseline gap-2">
-              {activityLabel && <span className="text-white/90">{activityLabel} ·</span>}
+              {activityLabel && <span className="text-white/90">{activityLabel}</span>}
               <span className="truncate">{form.nombre || `${isNew ? 'Nueva actividad' : 'Editar actividad'}`}</span>
             </h1>
           </div>

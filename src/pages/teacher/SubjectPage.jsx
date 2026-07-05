@@ -1566,13 +1566,14 @@ export default function SubjectPage() {
   const activityLabelById = {}
   PARCIALES.forEach((p) => {
     activities.filter((a) => a.parcial === p && !isDraftActivity(a)).forEach((a, i) => {
-      activityLabelById[a.id] = `${p}.${i + 1}`
+      // Trailing dot is part of the label everywhere: "1.2." (project-wide convention)
+      activityLabelById[a.id] = `${p}.${i + 1}.`
     })
   })
 
   // Preview of the auto-assigned "Actividad" label shown (read-only) in the modal.
   const previewActividad = modalMode === 'create'
-    ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial && !isDraftActivity(a)).length + 1}`
+    ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial && !isDraftActivity(a)).length + 1}.`
     : (activityLabelById[editActivityId] || '—')
 
   const filteredGradeStudents = groupStudents.filter((s) => matchesStudentSearch(s, searchGrade))
@@ -1939,7 +1940,7 @@ export default function SubjectPage() {
                               <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
-                                  {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} · </span>}
+                                  {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} </span>}
                                   {a.nombre}
                                   <span className={`text-xs font-normal ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>
                                     {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : 'Entregable'})
@@ -2340,8 +2341,12 @@ export default function SubjectPage() {
                         </th>
                         {tableParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
-                            <th key={a.id} data-col={colIndexByKey[`act-${a.id}`]} className={`w-9 px-0.5 py-1.5 font-normal text-slate-400 text-center border-l border-outline-variant transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
-                              <span className="block truncate" data-tooltip={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
+                            <th
+                              key={a.id}
+                              data-col={colIndexByKey[`act-${a.id}`]}
+                              onClick={() => navigate(`/activity/${a.id}`, { state: { returnTo: 'calificaciones' } })}
+                              className={`w-9 px-0.5 py-1.5 font-semibold text-on-surface text-center border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
+                              <span className="block truncate" data-tooltip={`${a.nombre} — clic para ver la actividad`}>{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
                           <th key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey[`avg-${p}`])}`}>
@@ -2641,7 +2646,7 @@ export default function SubjectPage() {
                       if (opt.key === 'entregable' || opt.key === 'observacion') {
                         setEntregableEditor({ activityId: null, parcial: modalParcial, categoria: opt.key, activityLabel: null, initialForm: null, initialExistingFiles: null })
                       } else {
-                        setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial, activityLabel: `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}` })
+                        setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial, activityLabel: `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}.` })
                       }
                     }}
                     className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">

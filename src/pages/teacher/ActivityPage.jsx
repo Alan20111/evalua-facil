@@ -169,7 +169,7 @@ export default function ActivityPage() {
         .filter((a) => a.parcial === actData.parcial && !isDraft(a))
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       const idx = siblings.findIndex((a) => a.id === activityId)
-      setActivityLabel(idx >= 0 ? `${actData.parcial}.${idx + 1}` : null)
+      setActivityLabel(idx >= 0 ? `${actData.parcial}.${idx + 1}.` : null)
       const studList = studsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
