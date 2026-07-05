@@ -127,6 +127,9 @@ export default function ActivityPage() {
   // Observación: no student submission — the teacher observes and grades directly,
   // so the grade form is always available and saving creates the submission doc.
   const isObservacion = activity?.tipo === 'observacion' || activity?.categoria === 'observacion'
+  // Evaluación (cuestionario/examen): the grade comes from the student's attempt;
+  // the grading panel allows a manual override but no prefill/annul/extension.
+  const isEvaluacion = activity?.tipo === 'evaluacion'
 
   useEffect(() => { loadAll() }, [activityId])
 
@@ -136,7 +139,7 @@ export default function ActivityPage() {
     if (loading || !pendingOpenId || !students.length) return
     const st = students.find((s) => s.id === pendingOpenId)
     setPendingOpenId(null)
-    if (st && activity?.tipo !== 'evaluacion') {
+    if (st) {
       setNavList(students)
       openGrade(st)
     }
@@ -200,7 +203,7 @@ export default function ActivityPage() {
       // by default (adjust exceptions only).
       calificacion: sub?.calificacion != null
         ? String(sub.calificacion)
-        : (sub || isObservacion) ? String(activity?.maxCalif ?? 10) : '',
+        : ((sub && !isEvaluacion) || isObservacion) ? String(activity?.maxCalif ?? 10) : '',
       comentario: sub?.comentario || '',
     })
     setExtendMode(false)
@@ -506,31 +509,27 @@ export default function ActivityPage() {
     </TeacherLayout>
   )
 
-  if (activity?.tipo === 'evaluacion') {
-    return (
-      <TeacherLayout>
-        <div data-subject-palette={subject?.colorPalette || 'default'}>
-          <EvaluacionManager
-            activity={activity}
-            subject={subject}
-            activityId={activityId}
-            activityLabel={activityLabel}
-            contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
-            students={students}
-            submissions={submissions}
-            onActivityChange={setActivity}
-            resultadosOnly
-            backState={returnToGrades ? { tab: 'calificaciones' } : null}
-            openStudentId={location.state?.openStudentId || null}
-          />
-        </div>
-      </TeacherLayout>
-    )
-  }
-
   return (
     <TeacherLayout>
       <div data-subject-palette={subject?.colorPalette || 'default'}>
+      {/* Evaluaciones render their manager as the page body, but share the
+          fullscreen per-student grading overlay below (so a grades-table cell
+          opens the SAME panel for every activity type). */}
+      {activity?.tipo === 'evaluacion' ? (
+        <EvaluacionManager
+          activity={activity}
+          subject={subject}
+          activityId={activityId}
+          activityLabel={activityLabel}
+          contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
+          students={students}
+          submissions={submissions}
+          onActivityChange={setActivity}
+          resultadosOnly
+          backState={returnToGrades ? { tab: 'calificaciones' } : null}
+          openStudentId={location.state?.openStudentId || null}
+        />
+      ) : (
       <div className={TEACHER_CONTAINER_NARROW}>
         {/* Header */}
         {/* Header on the page background — the Instrucciones card floats like Entregas below */}
@@ -713,6 +712,7 @@ export default function ActivityPage() {
         </div>
         </div>{/* end Entregas container */}
       </div>
+      )}
 
       {/* Fullscreen grading view — preview left (full height), grading panel right */}
       {selected && (
@@ -833,9 +833,11 @@ export default function ActivityPage() {
                 <div className="flex-1 flex items-center justify-center text-slate-400 text-sm p-6 text-center">
                   {isObservacion
                     ? 'Actividad de observación — no requiere entrega. Califica directamente en el panel.'
-                    : selected.sub?.completadoSinArchivo
-                      ? 'Actividad completada sin archivo.'
-                      : 'El estudiante aún no ha entregado esta tarea.'}
+                    : isEvaluacion
+                      ? 'Evaluación — la calificación proviene del intento del alumno; puedes ajustarla en el panel.'
+                      : selected.sub?.completadoSinArchivo
+                        ? 'Actividad completada sin archivo.'
+                        : 'El estudiante aún no ha entregado esta tarea.'}
                 </div>
               )}
             </div>
@@ -872,16 +874,19 @@ export default function ActivityPage() {
                       {STATUS_LABELS[getStatus(selected.student.id)]}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-500 mt-0.5 truncate">
+                  {/* Always one line tall (min-h) so Anterior/Siguiente never move */}
+                  <p className="text-sm text-slate-500 mt-0.5 truncate min-h-5">
                     {isObservacion
                       ? 'Observación — se califica sin entrega'
-                      : selFiles.length > 1
-                        ? `${selFiles.length} archivos entregados`
-                        : selected.sub
-                          ? selected.sub.completadoSinArchivo
-                            ? 'Completada sin archivo'
-                            : selected.sub.nombreArchivo
-                          : 'Sin entrega aún'}
+                      : isEvaluacion
+                        ? (selected.sub ? `Evaluación — intento ${selected.sub.intentoActual || 1}` : 'Evaluación — sin intento aún')
+                        : selFiles.length > 1
+                          ? `${selFiles.length} archivos entregados`
+                          : selected.sub
+                            ? selected.sub.completadoSinArchivo
+                              ? 'Completada sin archivo'
+                              : (selected.sub.nombreArchivo || (selected.sub.sinEntrega ? 'Sin entrega — calificada en 0' : 'Sin archivo'))
+                            : 'Sin entrega aún'}
                   </p>
                 </div>
 
@@ -1086,8 +1091,9 @@ export default function ActivityPage() {
                   </div>
                 )}
 
-                {/* Extend deadline for this student (no deadline in observación) */}
-                {!isObservacion && (
+                {/* Extend deadline for this student (no deadline in observación;
+                    evaluaciones manage attempts/deadlines in their own page) */}
+                {!isObservacion && !isEvaluacion && (
                 <div className="pt-3 border-t border-outline-variant space-y-2">
                   {/* Annul the current submission — above the extend-date action */}
                   {selected.sub && (
