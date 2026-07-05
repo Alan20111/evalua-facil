@@ -474,6 +474,23 @@ export default function ActivityPage() {
             <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Entregas</h2>
           </div>
 
+        {/* ZIP download — first thing in the container */}
+        {Object.values(submissions).some((s) => s.archivoURL && !s.completadoSinArchivo) && (
+          <div className="px-4 pt-3">
+            <button
+              type="button"
+              onClick={handleZipDownload}
+              disabled={zipDownloading}
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
+            >
+              {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
+              {zipDownloading
+                ? `Comprimiendo ${zipProgress.done}/${zipProgress.total}…`
+                : 'Descargar entregas como ZIP'}
+            </button>
+          </div>
+        )}
+
           {/* Filter tabs — they belong to the Entregas list, so they live inside
               its container; clicking one scrolls the list into full view */}
           <div className="flex gap-1 mx-4 mt-3 bg-surface-container p-1 rounded">
@@ -516,23 +533,6 @@ export default function ActivityPage() {
             <ArrowDownAZ size={20} />
           </button>
         </div>
-
-        {/* ZIP download */}
-        {Object.values(submissions).some((s) => s.archivoURL && !s.completadoSinArchivo) && (
-          <div className="px-4 pb-2">
-            <button
-              type="button"
-              onClick={handleZipDownload}
-              disabled={zipDownloading}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
-            >
-              {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
-              {zipDownloading
-                ? `Comprimiendo ${zipProgress.done}/${zipProgress.total}…`
-                : 'Descargar entregas como ZIP'}
-            </button>
-          </div>
-        )}
 
         {/* Student list */}
         <div className="px-4 pb-4">
