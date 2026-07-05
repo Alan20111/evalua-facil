@@ -38,14 +38,22 @@ import EvaluacionManager from '../../components/EvaluacionManager'
 
 // Short display names for the accepted file-type chips
 const FILE_TYPE_SHORT_LABELS = {
-  imagenes: 'Imágenes (JPG, PNG)', pdf: 'PDF', word: 'Word',
-  powerpoint: 'PowerPoint', excel: 'Excel',
+  imagenes: 'Imágenes (JPG, PNG) — hasta 5', pdf: 'PDF', word: 'Word',
+  powerpoint: 'PowerPoint', excel: 'Excel', zip: 'ZIP/RAR',
   [ALL_FILES_KEY]: 'Cualquier tipo de archivo',
 }
 
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
   return /\.(jpg|jpeg|png|gif|webp)(\?|$|\s)/.test(s) || /\.(jpg|jpeg|png|gif|webp)$/.test((name || '').toLowerCase())
+}
+
+// All files of a submission: `archivos[]` when present (multi-photo uploads),
+// falling back to the legacy single archivoURL/nombreArchivo pair.
+function submissionFiles(sub) {
+  if (!sub || sub.completadoSinArchivo) return []
+  if (sub.archivos?.length) return sub.archivos.map((f) => ({ url: f.url, nombre: f.nombre }))
+  return sub.archivoURL ? [{ url: sub.archivoURL, nombre: sub.nombreArchivo }] : []
 }
 
 const STATUS_COLORS = {
@@ -329,6 +337,8 @@ export default function ActivityPage() {
   }
 
   const curIdx = selected ? navList.findIndex((s) => s.id === selected.student.id) : -1
+  // Files of the submission being graded (multi-photo entregas have several)
+  const selFiles = selected ? submissionFiles(selected.sub) : []
   // Clamp while typing: never above maxCalif, never below 0, at most 1 decimal.
   // Partial input like "9." is left alone so decimals can still be typed.
   function onCalifChange(e) {
@@ -648,7 +658,24 @@ export default function ActivityPage() {
 
             {/* Left: file preview, top to bottom */}
             <div className="h-[45vh] md:h-auto md:flex-1 min-w-0 bg-surface-container flex flex-col">
-              {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL ? (
+              {selFiles.length > 1 ? (
+                /* Multi-photo submission: all images stacked, scrollable */
+                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+                  {selFiles.map((f, i) => (
+                    isImageFile(f.nombre, f.url) ? (
+                      <a key={`${f.url}-${i}`} href={f.url} target="_blank" rel="noopener noreferrer" className="block" data-tooltip="Abrir en tamaño completo">
+                        <img src={f.url} alt={f.nombre} className="max-w-full rounded mx-auto" />
+                      </a>
+                    ) : (
+                      <a key={`${f.url}-${i}`} href={downloadUrl(f.url, f.nombre)} download={f.nombre} rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors">
+                        <Download size={18} className="text-accent flex-shrink-0" />
+                        <span className="truncate">{f.nombre}</span>
+                      </a>
+                    )
+                  ))}
+                </div>
+              ) : selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL ? (
                 isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) ? (
                   <a
                     href={selected.sub.archivoURL}
@@ -727,11 +754,13 @@ export default function ActivityPage() {
                   <p className="text-sm text-slate-500 mt-0.5 truncate">
                     {isObservacion
                       ? 'Observación — se califica sin entrega'
-                      : selected.sub
-                        ? selected.sub.completadoSinArchivo
-                          ? 'Completada sin archivo'
-                          : selected.sub.nombreArchivo
-                        : 'Sin entrega aún'}
+                      : selFiles.length > 1
+                        ? `${selFiles.length} archivos entregados`
+                        : selected.sub
+                          ? selected.sub.completadoSinArchivo
+                            ? 'Completada sin archivo'
+                            : selected.sub.nombreArchivo
+                          : 'Sin entrega aún'}
                   </p>
                 </div>
 
@@ -777,11 +806,23 @@ export default function ActivityPage() {
                   <form onSubmit={saveGrade} className="space-y-3">
                     {/* Download on the left, grade (with its own header) on the
                         right — narrow input keeps the spinner arrows by the number */}
+                    {/* Several files → one compact download link per file */}
+                    {selFiles.length > 1 && (
+                      <div className="space-y-1">
+                        {selFiles.map((f, i) => (
+                          <a key={`${f.url}-${i}`} href={downloadUrl(f.url, f.nombre)} download={f.nombre} rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-3 py-1.5 bg-surface rounded border border-outline-variant text-xs text-muted hover:bg-[var(--accent-tint)] transition-colors">
+                            <Download size={14} className="text-accent flex-shrink-0" />
+                            <span className="truncate">{i + 1}. {f.nombre}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex gap-2 items-end">
-                      {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
+                      {selFiles.length === 1 && (
                         <a
-                          href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
-                          download={selected.sub.nombreArchivo}
+                          href={downloadUrl(selFiles[0].url, selFiles[0].nombre)}
+                          download={selFiles[0].nombre}
                           rel="noopener noreferrer"
                           className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors min-w-0"
                         >

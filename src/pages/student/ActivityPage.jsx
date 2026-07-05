@@ -21,7 +21,7 @@ import {
   ArrowLeft, Upload, CheckCircle, Clock, FileText, Star,
   MessageSquare, Download,
 } from 'lucide-react'
-import { resolveFileTypes, isFileAllowed } from '../../config/fileTypes'
+import { resolveFileTypes, isFileAllowed, allowsMultipleFiles, MAX_IMAGES_PER_SUBMISSION } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
@@ -64,7 +64,8 @@ export default function StudentActivityPage() {
   const [subject, setSubject] = useState(null)
   const [student, setStudent] = useState(null)
   const [submission, setSubmission] = useState(null)
-  const [file, setFile] = useState(null)
+  // Up to MAX_IMAGES_PER_SUBMISSION images per submission; 1 file for other types
+  const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
@@ -138,31 +139,62 @@ export default function StudentActivityPage() {
     return {
       archivoURL: submission?.archivoURL ?? null,
       nombreArchivo: submission?.nombreArchivo ?? null,
+      archivos: submission?.archivos ?? null,
       completadoSinArchivo: !!submission?.completadoSinArchivo,
       fechaEntrega: submission?.fechaEntrega ?? null,
     }
   }
 
-  async function handleUpload() {
-    if (!file) return
-    if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
-    if (!isFileAllowed(file, activity?.tiposArchivo || 'todos', activity?.extensionesCustom)) {
-      toast(`Solo se permiten: ${resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}`, 'error'); return
+  // Validates a fresh selection from the file input. Several files at once is
+  // only for photos (all images, up to the max); any other type goes alone.
+  function selectFiles(list) {
+    if (!list.length) return
+    let picked = list
+    if (picked.length > 1) {
+      const allImages = picked.every((f) => (f.type || '').startsWith('image/') || /\.(jpe?g|png)$/i.test(f.name))
+      if (!allImages) {
+        toast('Para subir varios archivos a la vez, todos deben ser imágenes (JPG, PNG). Otros tipos se suben de uno en uno.', 'error')
+        return
+      }
+      if (picked.length > MAX_IMAGES_PER_SUBMISSION) {
+        toast(`Máximo ${MAX_IMAGES_PER_SUBMISSION} imágenes por entrega — se tomaron las primeras ${MAX_IMAGES_PER_SUBMISSION}`, 'error')
+        picked = picked.slice(0, MAX_IMAGES_PER_SUBMISSION)
+      }
     }
-    if (file.size > 5 * 1024 * 1024) { toast('El archivo no puede superar 5 MB', 'error'); return }
+    setFiles(picked)
+  }
+
+  async function handleUpload() {
+    if (!files.length) return
+    if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
+    for (const f of files) {
+      if (!isFileAllowed(f, activity?.tiposArchivo || 'todos', activity?.extensionesCustom)) {
+        toast(`Solo se permiten: ${resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}`, 'error'); return
+      }
+      if (f.size > 5 * 1024 * 1024) { toast(`"${f.name}" supera los 5 MB — cada archivo debe pesar menos de 5 MB`, 'error'); return }
+    }
     setUploading(true)
     try {
-      const url = await uploadToCloudinary(file)
+      const uploaded = await Promise.all(
+        files.map(async (f) => ({ url: await uploadToCloudinary(f), nombre: f.name, tamano: f.size }))
+      )
+      // `archivoURL`/`nombreArchivo` stay as the FIRST file so every existing
+      // reader (teacher list, previews, ZIP export) keeps working; `archivos`
+      // carries the full set when there is more than one.
+      const payload = {
+        archivoURL: uploaded[0].url,
+        nombreArchivo: uploaded[0].nombre,
+        archivos: uploaded,
+        completadoSinArchivo: false,
+        fechaEntrega: serverTimestamp(),
+        calificacion: null,
+        comentario: '',
+        estado: 'entregado',
+      }
       if (submission) {
         // Re-submit: archive current version, update doc
         await updateDoc(doc(db, 'submissions', submission.id), {
-          archivoURL: url,
-          nombreArchivo: file.name,
-          completadoSinArchivo: false,
-          fechaEntrega: serverTimestamp(),
-          calificacion: null,
-          comentario: '',
-          estado: 'entregado',
+          ...payload,
           historial: arrayUnion(buildHistoryEntry()),
         })
         toast('Versión corregida entregada')
@@ -170,18 +202,12 @@ export default function StudentActivityPage() {
         await addDoc(collection(db, 'submissions'), {
           alumnoId: student.id,
           actividadId: activityId,
-          archivoURL: url,
-          nombreArchivo: file.name,
-          completadoSinArchivo: false,
-          fechaEntrega: serverTimestamp(),
-          calificacion: null,
-          comentario: '',
-          estado: 'entregado',
+          ...payload,
           historial: [],
         })
-        toast('Tarea entregada')
+        toast(files.length > 1 ? `Tarea entregada — ${files.length} imágenes` : 'Tarea entregada')
       }
-      setFile(null)
+      setFiles([])
       loadOther()
     } catch (err) {
       toast('Error al subir: ' + err.message, 'error')
@@ -198,6 +224,7 @@ export default function StudentActivityPage() {
         await updateDoc(doc(db, 'submissions', submission.id), {
           archivoURL: null,
           nombreArchivo: null,
+          archivos: null,
           completadoSinArchivo: true,
           fechaEntrega: serverTimestamp(),
           calificacion: null,
@@ -465,19 +492,26 @@ export default function StudentActivityPage() {
           </div>
         </div>
 
-        {/* View submitted file */}
+        {/* View submitted file(s) */}
         {submission && !submission.completadoSinArchivo && submission.archivoURL && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
-            <p className="text-xs font-medium text-muted mb-2">Tu entrega</p>
-            <a
-              href={downloadUrl(submission.archivoURL, submission.nombreArchivo)}
-              download={submission.nombreArchivo}
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 px-3 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
-            >
-              <Download size={17} className="text-accent flex-shrink-0" />
-              <span className="truncate">{submission.nombreArchivo}</span>
-            </a>
+            <p className="text-xs font-medium text-muted mb-2">
+              Tu entrega{submission.archivos?.length > 1 ? ` — ${submission.archivos.length} imágenes` : ''}
+            </p>
+            <div className="space-y-1.5">
+              {(submission.archivos?.length ? submission.archivos : [{ url: submission.archivoURL, nombre: submission.nombreArchivo }]).map((f, i) => (
+                <a
+                  key={`${f.url}-${i}`}
+                  href={downloadUrl(f.url, f.nombre)}
+                  download={f.nombre}
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-3 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
+                >
+                  <Download size={17} className="text-accent flex-shrink-0" />
+                  <span className="truncate">{f.nombre}</span>
+                </a>
+              ))}
+            </div>
           </div>
         )}
 
@@ -549,30 +583,51 @@ export default function StudentActivityPage() {
             )}
             <div className="space-y-3">
               <label className={`flex flex-col items-center justify-center w-full h-28 sm:h-32 px-3 border-2 border-dashed rounded cursor-pointer transition-colors ${
-                file ? 'border-accent bg-accent-light' : 'border-outline-variant hover:border-accent hover:bg-surface'
+                files.length ? 'border-accent bg-accent-light' : 'border-outline-variant hover:border-accent hover:bg-surface'
               }`}>
                 <input
                   type="file"
                   accept={resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}
+                  multiple={allowsMultipleFiles(activity?.tiposArchivo || 'todos')}
                   className="hidden"
-                  onChange={(e) => setFile(e.target.files[0] || null)}
+                  onChange={(e) => selectFiles(Array.from(e.target.files || []))}
                 />
-                <Upload size={26} className={`flex-shrink-0 ${file ? 'text-accent' : 'text-slate-400'}`} />
+                <Upload size={26} className={`flex-shrink-0 ${files.length ? 'text-accent' : 'text-slate-400'}`} />
                 <p className="text-sm mt-2 font-medium text-muted text-center break-words line-clamp-2 max-w-full">
-                  {file ? file.name : 'Toca para seleccionar archivo'}
+                  {files.length === 0
+                    ? (allowsMultipleFiles(activity?.tiposArchivo || 'todos')
+                        ? `Toca para seleccionar hasta ${MAX_IMAGES_PER_SUBMISSION} fotos o un archivo`
+                        : 'Toca para seleccionar archivo')
+                    : files.length === 1
+                      ? files[0].name
+                      : `${files.length} imágenes seleccionadas`}
                 </p>
-                <p className="text-sm text-slate-500 mt-1 text-center break-words max-w-full">{resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept} · máx 5 MB</p>
+                <p className="text-sm text-slate-500 mt-1 text-center break-words max-w-full">
+                  {resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept} · máx 5 MB cada uno
+                </p>
+                {allowsMultipleFiles(activity?.tiposArchivo || 'todos') && files.length === 0 && (
+                  <p className="text-xs text-accent mt-0.5 text-center max-w-full">
+                    Puedes subir hasta {MAX_IMAGES_PER_SUBMISSION} imágenes a la vez
+                  </p>
+                )}
               </label>
+              {files.length > 1 && (
+                <div className="text-xs text-muted space-y-0.5">
+                  {files.map((f, i) => (
+                    <p key={`${f.name}-${i}`} className="truncate">{i + 1}. {f.name}</p>
+                  ))}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={handleUpload}
                 onMouseDown={(e) => e.preventDefault()}
-                disabled={!file || uploading}
+                disabled={!files.length || uploading}
                 style={{ touchAction: 'manipulation' }}
                 className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {uploading ? <Spinner size="sm" /> : <Upload size={18} />}
-                {uploading ? 'Subiendo…' : 'Entregar'}
+                {uploading ? 'Subiendo…' : files.length > 1 ? `Entregar ${files.length} imágenes` : 'Entregar'}
               </button>
               <button
                 type="button"
