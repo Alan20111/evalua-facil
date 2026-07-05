@@ -7,9 +7,9 @@ import VisibilitySelect from './VisibilitySelect'
 import RichTextEditor from './RichTextEditor'
 import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
-import { sanitizeHtml, toRichHtml, htmlToPlainText } from '../utils/sanitizeHtml'
+import { sanitizeHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil, X } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 
 const MAX_ATTACH = 15 * 1024 * 1024
@@ -25,13 +25,14 @@ function computeScheduleDefault() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
 }
 
-// Full-screen editor for Entregable activities (file submission / mark-complete).
-// Mirrors the visual pattern of EvaluacionEditor so all activity creation/editing
-// feels consistent regardless of type.
+// Full-screen editor for Entregable activities (file submission / mark-complete)
+// and Observación activities (no student submission — the teacher observes and
+// grades directly: actitud, exposición, participación…). Mirrors the visual
+// pattern of EvaluacionEditor so all activity creation/editing feels consistent.
 export default function EntregableEditor({
   activityId,         // null = new, string = editing existing
   parcial,
-  categoria,          // 'entregable' or legacy value
+  categoria,          // 'entregable', 'observacion' or legacy value
   subjectId,
   docenteId,
   existingActivities,
@@ -45,6 +46,9 @@ export default function EntregableEditor({
 }) {
   const toast = useToast()
   const isNew = !activityId
+  // Observación: no file submission → file types and deadline don't apply,
+  // and instructions are optional (the name alone often says it all).
+  const isObservacion = categoria === 'observacion'
 
   const [form, setForm] = useState(initialForm || {
     nombre: '', instrucciones: '', fechaLimite: '',
@@ -88,7 +92,7 @@ export default function EntregableEditor({
     if (tiposArchivo.includes(CUSTOM_FILE_TYPE) && parseCustomExts(form.extensionesCustom).length === 0) {
       toast('Escribe al menos una extensión para "Personalizado"', 'error'); return
     }
-    if (!htmlToPlainText(form.instrucciones)) {
+    if (!isObservacion && !htmlToPlainText(form.instrucciones)) {
       toast('Escribe las instrucciones de la actividad', 'error'); return
     }
     // Effective mode: a non-draft save of a never-published hidden activity
@@ -132,20 +136,21 @@ export default function EntregableEditor({
         maxCalif: 10,
         instrucciones: sanitizeHtml(form.instrucciones),
         archivosAdjuntos: [...existingFiles, ...uploaded],
-        fechaLimite: form.fechaLimite || null,
+        fechaLimite: isObservacion ? null : (form.fechaLimite || null),
         tiposArchivo,
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
         oculta: asDraft || mode === 'schedule' || mode === 'hide',
         publishAt: !asDraft && mode === 'schedule' ? (form.publishAt || null) : null,
         publishedAt: newPublishedAt,
       }
+      const tipo = isObservacion ? 'observacion' : 'archivo'
       if (isNew) {
         const orden = existingActivities.filter((a) => a.parcial === parcial).length + 1
         const ref = await addDoc(collection(db, 'activities'), {
-          ...payload, tipo: 'archivo', parcial, orden,
+          ...payload, tipo, parcial, orden,
           asignaturaId: subjectId, docenteId, createdAt: serverTimestamp(),
         })
-        onActivityCreated?.({ id: ref.id, ...payload, tipo: 'archivo', parcial, orden, asignaturaId: subjectId, docenteId })
+        onActivityCreated?.({ id: ref.id, ...payload, tipo, parcial, orden, asignaturaId: subjectId, docenteId })
         toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : 'Actividad creada')
       } else {
         await updateDoc(doc(db, 'activities', activityId), payload)
@@ -160,7 +165,7 @@ export default function EntregableEditor({
     }
   }
 
-  const tipoLabel = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable' }[categoria] || 'Entregable'
+  const tipoLabel = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', observacion: 'Observación' }[categoria] || 'Entregable'
 
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto">
@@ -188,16 +193,19 @@ export default function EntregableEditor({
             <div>
               <label className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
               <input type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-                required autoFocus placeholder="Ej: Tarea 1, Proyecto final"
+                required autoFocus
+                placeholder={isObservacion ? 'Ej: Actitud, Exposición de tema, Participación' : 'Ej: Tarea 1, Proyecto final'}
                 className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
+              <label className="block text-sm font-medium text-muted mb-1">
+                Instrucciones{isObservacion && <span className="text-slate-400 font-normal"> (opcional)</span>}
+              </label>
               <RichTextEditor
                 value={form.instrucciones}
                 onChange={(html) => setForm((f) => ({ ...f, instrucciones: html }))}
-                placeholder="Describe la tarea para tus estudiantes…"
+                placeholder={isObservacion ? 'Describe qué vas a observar y cómo lo calificas…' : 'Describe la tarea para tus estudiantes…'}
                 attachments={[
                   ...existingFiles,
                   ...newFiles.map((f) => ({ nombre: f.name, tamano: f.size })),
@@ -209,14 +217,16 @@ export default function EntregableEditor({
 
             <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
 
-            <div>
-              <FileTypeSelect
-                value={form.tiposArchivo}
-                onChange={(v) => setForm((f) => ({ ...f, tiposArchivo: v }))}
-                customExts={form.extensionesCustom}
-                onCustomChange={(v) => setForm((f) => ({ ...f, extensionesCustom: v }))}
-              />
-            </div>
+            {!isObservacion && (
+              <div>
+                <FileTypeSelect
+                  value={form.tiposArchivo}
+                  onChange={(v) => setForm((f) => ({ ...f, tiposArchivo: v }))}
+                  customExts={form.extensionesCustom}
+                  onCustomChange={(v) => setForm((f) => ({ ...f, extensionesCustom: v }))}
+                />
+              </div>
+            )}
           </div>
 
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
@@ -240,7 +250,7 @@ export default function EntregableEditor({
               />
             </div>
 
-            {(form.visibilidadMode !== 'hide' || form.publishedAt) && (
+            {!isObservacion && (form.visibilidadMode !== 'hide' || form.publishedAt) && (
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">{form.fechaLimite ? 'Modificar fecha límite' : 'Fecha límite (opcional)'}</label>
                 {form.visibilidadMode === 'schedule' && !form.publishAt ? (
