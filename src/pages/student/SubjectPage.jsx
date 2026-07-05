@@ -22,6 +22,7 @@ import AttachmentList from '../../components/AttachmentList'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
   Clock, Circle, Star, FolderOpen, BookOpen, Paperclip,
+  GraduationCap, ListChecks, FileText,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
@@ -84,6 +85,7 @@ export default function StudentSubjectPage() {
   const { currentUser, userProfile } = useAuth()
   const [subject, setSubject] = useState(null)
   const [activities, setActivities] = useState([])
+  const [activityLabels, setActivityLabels] = useState({})
   const [submissions, setSubmissions] = useState({})
   const [resources, setResources] = useState([])
   const [materials, setMaterials] = useState([])
@@ -132,7 +134,21 @@ export default function StudentSubjectPage() {
       }
 
       const parcialesOcultos = subData.parcialesOcultos || []
-      const acts = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const allActs = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      // Same "Actividad" numbering as the teacher's view: position within the
+      // parcial over ALL non-draft activities — computed before the visibility
+      // filter so numbers match the teacher's even when a scheduled or hidden
+      // activity isn't visible to the student yet.
+      const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
+      const labels = {}
+      const countByParcial = {}
+      allActs.filter((a) => !isDraft(a)).forEach((a) => {
+        countByParcial[a.parcial] = (countByParcial[a.parcial] || 0) + 1
+        labels[a.id] = `${a.parcial}.${countByParcial[a.parcial]}`
+      })
+      setActivityLabels(labels)
+      const acts = allActs
         .filter((a) => isActivityPublished(a, parcialesOcultos.includes(a.parcial)))
       setActivities(acts)
 
@@ -258,7 +274,8 @@ export default function StudentSubjectPage() {
                 </button>
 
                 {isOpen && (
-                  <div className="border-t border-outline-variant px-4 py-2 space-y-1.5">
+                  <div className="border-t border-outline-variant pr-4 py-2">
+                    <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
                     {acts.length === 0 && mats.length === 0 && (
                       <p className="text-slate-400 text-sm text-center py-2">Sin actividades</p>
                     )}
@@ -268,33 +285,37 @@ export default function StudentSubjectPage() {
                       const delivered = sub && !graded
                       const overdue = !graded && !delivered && isOverdue(a)
                       const fechaLimiteLabel = formatFechaLimite(a.fechaLimite)
+                      const showPeso = subject?.ponderacionActivada && subject?.ponderacionVisibleAlumnos && a.pesoCalificacion != null
+                      // Same icon-per-type as the teacher's list so both views read alike
+                      const ActIcon = a.categoria === 'examen' ? GraduationCap
+                        : a.categoria === 'cuestionario' ? ListChecks
+                        : FileText
                       return (
                         <button
                           type="button"
                           key={a.id}
                           onClick={() => navigate(`/alumno/actividad/${a.id}`)}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-surface transition-colors border border-outline-variant text-left"
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded border border-outline-variant bg-surface-card hover:border-accent hover:bg-[var(--accent-tint)] transition-colors duration-200 text-left"
                         >
-                          <div className="flex-shrink-0">
-                            {graded ? (
-                              <CheckCircle size={20} className="text-emerald-500" />
-                            ) : delivered ? (
-                              <Clock size={20} className="text-accent" />
-                            ) : overdue ? (
-                              <Circle size={20} className="text-red-400" />
-                            ) : (
-                              <Circle size={20} className="text-slate-300" />
-                            )}
-                          </div>
+                          <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : 'text-slate-400'}`} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium leading-tight text-on-surface truncate">{a.nombre}</p>
-                            <p className="text-xs text-slate-500 leading-tight truncate mt-0.5">
-                              {CATEGORIA_LABELS[a.categoria] || 'Entregable'}
-                              {fechaLimiteLabel && ` · Vence ${fechaLimiteLabel}`}
-                              {subject?.ponderacionActivada && subject?.ponderacionVisibleAlumnos && a.pesoCalificacion != null && (
-                                <span className="text-amber-700 font-semibold"> · Vale {a.pesoCalificacion} de 10</span>
-                              )}
+                            <p className="text-base font-medium leading-tight text-on-surface truncate">
+                              {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} · </span>}
+                              {a.nombre}
+                              <span className="text-xs font-normal text-slate-400"> ({CATEGORIA_LABELS[a.categoria] || 'Entregable'})</span>
                             </p>
+                            {(fechaLimiteLabel || showPeso) && (
+                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                {fechaLimiteLabel && (
+                                  <span className={`text-xs flex items-center gap-0.5 ${overdue ? 'text-red-500' : 'text-amber-600'}`}>
+                                    <Clock size={14} /> Vence {fechaLimiteLabel}
+                                  </span>
+                                )}
+                                {showPeso && (
+                                  <span className="text-xs text-amber-700 font-semibold">Vale {a.pesoCalificacion} de 10</span>
+                                )}
+                              </div>
+                            )}
                             {sub?.comentario && (
                               <p className="text-sm text-slate-500 leading-tight truncate mt-0.5">"{sub.comentario}"</p>
                             )}
@@ -339,6 +360,7 @@ export default function StudentSubjectPage() {
                         </div>
                       </div>
                     ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -398,7 +420,10 @@ export default function StudentSubjectPage() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm text-on-surface truncate">{a.nombre}</p>
+                            <p className="text-sm text-on-surface truncate">
+                              {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} · </span>}
+                              {a.nombre}
+                            </p>
                             <p className="text-xs text-slate-400 truncate">{CATEGORIA_LABELS[a.categoria] || 'Entregable'}</p>
                           </div>
                           <div className="flex-shrink-0 text-right">
