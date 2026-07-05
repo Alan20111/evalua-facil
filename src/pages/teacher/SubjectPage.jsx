@@ -1617,17 +1617,6 @@ export default function SubjectPage() {
         : `Parcial ${p} con promedio simple — sus pesos se borraron`)
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
-  // Remaining points to reach 10 in the parcial, excluding one activity —
-  // offered as the default when the teacher focuses an empty weight box
-  function pesoRestante(acts, exceptId) {
-    const sum = acts.reduce((t, x) => {
-      if (x.id === exceptId) return t
-      const edit = pesoEdits[x.id]
-      const v = edit !== undefined ? parseFloat(edit) : parseFloat(x.pesoCalificacion)
-      return t + (isNaN(v) || v < 0 ? 0 : v)
-    }, 0)
-    return Math.max(0, parseFloat((10 - sum).toFixed(2)))
-  }
 
   // Whether STUDENTS see the weights. The weighted average is always the
   // official one; this only controls showing "Vale X de 10" on their view —
@@ -1643,15 +1632,6 @@ export default function SubjectPage() {
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
-  // Clicking/focusing an empty weight box auto-fills the points missing to
-  // reach 10, pre-selected — type to replace, or leave the box to accept
-  function prefillPeso(a, acts, el) {
-    const current = pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')
-    if (current === '' || current === null) {
-      setPesoEdits((f) => ({ ...f, [a.id]: String(pesoRestante(acts, a.id)) }))
-    }
-    requestAnimationFrame(() => { try { el.select() } catch { /* number inputs on some browsers */ } })
-  }
 
   // Live parcial total: includes the in-progress edits (wheel/typing), so
   // the 10 indicator reacts on every wheel tick, not only after blur
@@ -1685,16 +1665,11 @@ export default function SubjectPage() {
     if (raw === undefined) return
     let num = parseFloat(raw)
     if (isNaN(num) || num < 0) num = null
-    if (num !== null) {
-      // The parcial's weights can NEVER exceed 10 — clamp to what's left
-      const actsParcial = activities.filter((x) => x.parcial === a.parcial && !isDraftActivity(x))
-      const restante = pesoRestante(actsParcial, a.id)
-      if (num > restante) {
-        num = restante
-        // Contextual warning right where it happened, not in the far corner
-        showNear(document.getElementById(`peso-${a.id}`), `Se ajustó a ${restante} — la suma no puede pasar de 10`)
-      }
-    }
+    // No cross-clamping: the teacher types whatever weights they want and the
+    // sum shows live (green at 10). The "must sum 10" rule is enforced ONLY at
+    // export time — the weighted mean normalizes by the sum, so on-screen
+    // averages are correct even when the total isn't 10.
+    if (num !== null && num > 10) num = 10
     setPesoEdits((f) => { const n = { ...f }; delete n[a.id]; return n })
     if ((a.pesoCalificacion ?? null) === num) return
     try {
@@ -2217,18 +2192,17 @@ export default function SubjectPage() {
                           {tableParcials.map(({ p, acts }) => pondParcial(p) ? [
                             ...acts.map((a) => (
                               <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
-                                {/* Typing only — no mouse wheel (it changed values by
-                                    accident while scrolling). Clamps LIVE so the
-                                    parcial can never exceed 10. */}
+                                {/* Typing only — no wheel, no auto-fill, no forced
+                                    sum: the teacher writes the weights they want;
+                                    "must sum 10" is asked only when exporting. */}
                                 <input id={`peso-${a.id}`} type="text" inputMode="decimal" min="0" max="10"
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
-                                  placeholder={String(pesoRestante(acts, a.id))}
+                                  placeholder="0"
                                   onChange={(e) => {
                                     let raw = e.target.value
                                     const n = parseFloat(raw)
                                     if (!isNaN(n)) {
-                                      const maxAllowed = pesoRestante(acts, a.id)
-                                      if (n > maxAllowed) raw = String(maxAllowed)
+                                      if (n > 10) raw = '10'
                                       else if (n < 0) raw = '0'
                                       else {
                                         const m = raw.match(/^(\d+\.\d)\d+$/)
@@ -2237,16 +2211,15 @@ export default function SubjectPage() {
                                     }
                                     setPesoEdits((f) => ({ ...f, [a.id]: raw }))
                                   }}
-                                  onFocus={(e) => prefillPeso(a, acts, e.target)}
-                                  onClick={(e) => prefillPeso(a, acts, e.target)}
+                                  onFocus={(e) => { try { e.target.select() } catch { /* algunos navegadores */ } }}
                                   onBlur={() => savePeso(a)}
-                                  data-tooltip={`Peso de la actividad ${activityLabelById[a.id] || ''} — escribe el número; el parcial no pasa de 10`}
+                                  data-tooltip={`Peso de la actividad ${activityLabelById[a.id] || ''}`}
                                   className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
                               </th>
                             )),
                             <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotalVivo(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}>
                               <div className="flex items-center justify-center gap-0.5">
-                                <span data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : 'Los pesos deben sumar 10'}>{pesoTotalVivo(acts)}</span>
+                                <span data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : 'Suma libre — para exportar este parcial deberá sumar 10'}>{pesoTotalVivo(acts)}</span>
                                 <button type="button" onClick={() => toggleParcialPonderacion(p)}
                                   data-tooltip={`Quitar la ponderación solo del Parcial ${p}`}
                                   className="p-0.5 text-amber-400 hover:text-amber-800 rounded transition-colors">
