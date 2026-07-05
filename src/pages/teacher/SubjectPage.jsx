@@ -1716,8 +1716,22 @@ export default function SubjectPage() {
   }
 
 
-  // Live parcial total: includes the in-progress edits (wheel/typing), so
-  // the 10 indicator reacts on every wheel tick, not only after blur
+  // Points still available in the parcial (10 − sum of the OTHER activities),
+  // using in-progress edits. Used ONLY to cap each box so the total can never
+  // exceed 10 — NOT to pre-fill or suggest a value (the teacher types freely,
+  // any sum ≤ 10 is fine; exactly 10 is required only to export).
+  function pesoRestante(acts, exceptId) {
+    const sum = acts.reduce((t, x) => {
+      if (x.id === exceptId) return t
+      const edit = pesoEdits[x.id]
+      const v = edit !== undefined ? parseFloat(edit) : parseFloat(x.pesoCalificacion)
+      return t + (isNaN(v) || v < 0 ? 0 : v)
+    }, 0)
+    return Math.max(0, parseFloat((10 - sum).toFixed(2)))
+  }
+
+  // Live parcial total: includes the in-progress edits (typing), so the 10
+  // indicator reacts on every keystroke, not only after blur
   function pesoTotalVivo(acts) {
     const sum = acts.reduce((t, x) => {
       const edit = pesoEdits[x.id]
@@ -1748,11 +1762,13 @@ export default function SubjectPage() {
     if (raw === undefined) return
     let num = parseFloat(raw)
     if (isNaN(num) || num < 0) num = null
-    // No cross-clamping: the teacher types whatever weights they want and the
-    // sum shows live (green at 10). The "must sum 10" rule is enforced ONLY at
-    // export time — the weighted mean normalizes by the sum, so on-screen
-    // averages are correct even when the total isn't 10.
-    if (num !== null && num > 10) num = 10
+    // Cap so the parcial total can NEVER exceed 10 (the teacher can go under —
+    // exactly 10 is only required to export). No auto-fill or suggestions.
+    if (num !== null) {
+      const actsParcial = activities.filter((x) => x.parcial === a.parcial && !isDraftActivity(x))
+      const restante = pesoRestante(actsParcial, a.id)
+      if (num > restante) num = restante
+    }
     setPesoEdits((f) => { const n = { ...f }; delete n[a.id]; return n })
     if ((a.pesoCalificacion ?? null) === num) return
     try {
@@ -2295,7 +2311,9 @@ export default function SubjectPage() {
                                     let raw = e.target.value
                                     const n = parseFloat(raw)
                                     if (!isNaN(n)) {
-                                      if (n > 10) raw = '10'
+                                      // Cap to what's left so the parcial never passes 10
+                                      const maxAllowed = pesoRestante(acts, a.id)
+                                      if (n > maxAllowed) raw = String(maxAllowed)
                                       else if (n < 0) raw = '0'
                                       else {
                                         const m = raw.match(/^(\d+\.\d)\d+$/)
@@ -2345,8 +2363,12 @@ export default function SubjectPage() {
                               key={a.id}
                               data-col={colIndexByKey[`act-${a.id}`]}
                               onClick={() => navigate(`/activity/${a.id}`, { state: { returnTo: 'calificaciones' } })}
+                              data-tooltip={a.nombre}
+                              data-tooltip-pos="bottom"
                               className={`w-9 px-0.5 py-1.5 font-semibold text-on-surface text-center border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
-                              <span className="block truncate" data-tooltip={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
+                              {/* Tooltip lives on the <th>, not this span: `truncate`
+                                  sets overflow:hidden, which would clip the ::after. */}
+                              <span className="block truncate">{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
                           <th key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey[`avg-${p}`])}`}>
