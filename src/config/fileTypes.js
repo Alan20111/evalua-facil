@@ -3,7 +3,7 @@
 export const FILE_TYPE_BASE_OPTIONS = [
   {
     key: 'imagenes',
-    label: 'Imágenes (JPG, PNG) — hasta un máximo de 3; para más de 3 fotos o imágenes se sugiere que estén dentro de un archivo PDF',
+    label: 'Imágenes (JPG, PNG) — el estudiante puede subir hasta 5 fotos o imágenes, cada una de menos de 5 MB',
     mimes: ['image/jpeg', 'image/jpg', 'image/png'],
     exts: ['jpg', 'jpeg', 'png'],
   },
@@ -40,7 +40,26 @@ export const FILE_TYPE_BASE_OPTIONS = [
     ],
     exts: ['xls', 'xlsx'],
   },
+  {
+    key: 'zip',
+    label: '1 archivo comprimido (ZIP o RAR)',
+    mimes: [
+      'application/zip',
+      'application/x-zip-compressed',
+      'application/x-rar-compressed',
+      'application/vnd.rar',
+    ],
+    exts: ['zip', 'rar'],
+  },
 ]
+
+// How many files a single submission may contain for the given selection:
+// images allow up to 5 (photos from a phone); everything else is 1 file.
+export const MAX_IMAGES_PER_SUBMISSION = 5
+export function allowsMultipleFiles(value) {
+  const keys = normalizeFileTypeKeys(value)
+  return keys.includes('imagenes') || keys.includes(ALL_FILES_KEY)
+}
 
 export const ALL_FILES_KEY = 'todos'
 export const CUSTOM_FILE_TYPE = 'personalizado'

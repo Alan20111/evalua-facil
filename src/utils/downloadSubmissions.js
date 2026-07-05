@@ -10,6 +10,13 @@ function sanitize(name) {
   return (name || '').replace(/[/\\?%*:|"<>]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+// All downloadable files of a submission: `archivos[]` (multi-photo uploads)
+// or the legacy single archivoURL/nombreArchivo pair.
+function filesOf(sub) {
+  if (sub.archivos?.length) return sub.archivos.map((f) => ({ url: f.url, nombre: f.nombre }))
+  return sub.archivoURL ? [{ url: sub.archivoURL, nombre: sub.nombreArchivo }] : []
+}
+
 // ── Job builders (pure functions, no Firestore) ──────────────────────────
 
 // Per-activity ZIP: flat (no folders — fewer clicks for the teacher), each file
@@ -34,9 +41,10 @@ export function buildJobsForActivity({ students, submissions }) {
     let baseName = sanitize(fullName(student)) || (student.username || student.id)
     if (usedNames.has(baseName)) baseName = `${baseName} (${student.username || student.id})`
     usedNames.add(baseName)
-    subs.forEach((sub, i) => {
-      const fileBaseName = subs.length > 1 ? `${baseName} ${String(i + 1).padStart(2, '0')}` : baseName
-      jobs.push({ path: [], fileBaseName, url: sub.archivoURL, nombreArchivo: sub.nombreArchivo })
+    const allFiles = subs.flatMap(filesOf)
+    allFiles.forEach((f, i) => {
+      const fileBaseName = allFiles.length > 1 ? `${baseName} ${String(i + 1).padStart(2, '0')}` : baseName
+      jobs.push({ path: [], fileBaseName, url: f.url, nombreArchivo: f.nombre })
     })
   }
   return jobs
@@ -73,7 +81,11 @@ export function buildJobsForSubject({ subject, activities, submissions, students
         let baseName = sanitize(fullName(student))
         if (usedNames.has(baseName)) baseName = `${baseName} (${student.username || student.id})`
         usedNames.add(baseName)
-        jobs.push({ path: [folderBase, folderParcial, folderAct], fileBaseName: baseName, url: sub.archivoURL, nombreArchivo: sub.nombreArchivo })
+        const subFiles = filesOf(sub)
+        subFiles.forEach((f, i) => {
+          const fileBaseName = subFiles.length > 1 ? `${baseName} ${String(i + 1).padStart(2, '0')}` : baseName
+          jobs.push({ path: [folderBase, folderParcial, folderAct], fileBaseName, url: f.url, nombreArchivo: f.nombre })
+        })
       }
     }
   }
