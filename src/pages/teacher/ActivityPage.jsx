@@ -90,8 +90,11 @@ export default function ActivityPage() {
   // remove the student from the active filter (e.g. "Por calificar"), which would
   // otherwise reshuffle Anterior/Siguiente mid-session.
   const [navList, setNavList] = useState([])
-  // Which file of a multi-photo submission is showing in the preview pane
-  const [previewIdx, setPreviewIdx] = useState(0)
+  // Which file of a multi-photo submission is showing in the preview pane.
+  // -1 = ALL images stacked (scrollable) — the default overview.
+  const [previewIdx, setPreviewIdx] = useState(-1)
+  // ZIP of the current student's files only
+  const [studentZipDownloading, setStudentZipDownloading] = useState(false)
   // Opt-in: when checked, Anterior/Siguiente save the grade; when unchecked the
   // teacher is just browsing and only the explicit Guardar button saves.
   // Remembered across sessions so it's a one-time choice.
@@ -181,7 +184,7 @@ export default function ActivityPage() {
     setExtendMode(false)
     setExtendDate(activity?.extensiones?.[student.id] || '')
     setExtendMotivo(activity?.extensionesMotivo?.[student.id] || '')
-    setPreviewIdx(0)
+    setPreviewIdx(-1)
     setAnnulMode(false)
   }
 
@@ -273,6 +276,32 @@ export default function ActivityPage() {
       toast('Error: ' + err.message, 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // ZIP with just the current student's files, named "1.3 Actividad - Alumno.zip"
+  async function downloadStudentZip() {
+    if (!selected || selFiles.length < 2) return
+    setStudentZipDownloading(true)
+    try {
+      const studentName = `${selected.student.apellidoPaterno} ${selected.student.apellidoMaterno || ''} ${selected.student.nombre}`.replace(/\s+/g, ' ').trim()
+      const jobs = selFiles.map((f, i) => ({
+        path: [],
+        fileBaseName: `${studentName} ${String(i + 1).padStart(2, '0')}`,
+        url: f.url,
+        nombreArchivo: f.nombre,
+      }))
+      const { escritos, errores } = await downloadSubmissionsZip({
+        zipName: [activityLabel, activity?.nombre, '-', studentName].filter(Boolean).join(' '),
+        jobs,
+      })
+      toast(errores > 0
+        ? `Descargadas ${escritos} de ${escritos + errores} imágenes (${errores} con error)`
+        : `${escritos} imágenes en ZIP`)
+    } catch (err) {
+      toast('Error al generar ZIP: ' + err.message, 'error')
+    } finally {
+      setStudentZipDownloading(false)
     }
   }
 
@@ -689,9 +718,25 @@ export default function ActivityPage() {
 
             {/* Left: file preview, top to bottom */}
             <div className="h-[45vh] md:h-auto md:flex-1 min-w-0 bg-surface-container flex flex-col">
-              {selFiles.length > 1 ? (
-                /* Multi-photo submission: preview ONE image at a time — the one
-                   picked from the file list in the panel */
+              {selFiles.length > 1 && previewIdx === -1 ? (
+                /* "Todas las imágenes": every file stacked, scrollable */
+                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
+                  {selFiles.map((f, i) => (
+                    isImageFile(f.nombre, f.url) ? (
+                      <a key={`${f.url}-${i}`} href={f.url} target="_blank" rel="noopener noreferrer" className="block" data-tooltip="Abrir en tamaño completo">
+                        <img src={f.url} alt={f.nombre} className="max-w-full rounded mx-auto" />
+                      </a>
+                    ) : (
+                      <a key={`${f.url}-${i}`} href={downloadUrl(f.url, f.nombre)} download={f.nombre} rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors">
+                        <Download size={18} className="text-accent flex-shrink-0" />
+                        <span className="truncate">{f.nombre}</span>
+                      </a>
+                    )
+                  ))}
+                </div>
+              ) : selFiles.length > 1 ? (
+                /* Preview ONE image — the one picked from the file list */
                 (() => {
                   const f = selFiles[Math.min(previewIdx, selFiles.length - 1)]
                   return isImageFile(f.nombre, f.url) ? (
@@ -889,6 +934,33 @@ export default function ActivityPage() {
                         left; only the download icon downloads it */}
                     {selFiles.length > 1 && (
                       <div className="space-y-1">
+                        {/* All images: icon downloads everything as a ZIP; the
+                            name shows them all stacked in the preview */}
+                        <div
+                          className={`flex items-center gap-1 rounded border text-xs font-semibold transition-colors ${
+                            previewIdx === -1
+                              ? 'border-accent bg-[var(--accent-tint)] text-on-surface'
+                              : 'border-outline-variant bg-surface text-muted hover:border-accent'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={downloadStudentZip}
+                            disabled={studentZipDownloading}
+                            data-tooltip="Descargar todas en ZIP"
+                            className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0 disabled:opacity-50"
+                          >
+                            {studentZipDownloading ? <Spinner size="sm" /> : <Download size={15} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewIdx(-1)}
+                            data-tooltip="Ver todas las imágenes"
+                            className="flex-1 min-w-0 py-2 pr-2 text-left truncate"
+                          >
+                            Todas las imágenes entregadas ({selFiles.length})
+                          </button>
+                        </div>
                         {selFiles.map((f, i) => (
                           <div
                             key={`${f.url}-${i}`}
