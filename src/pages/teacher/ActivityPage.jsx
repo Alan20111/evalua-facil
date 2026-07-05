@@ -118,8 +118,10 @@ export default function ActivityPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
-  // Grade-table cells navigate here with the student to open right away
+  // Grade-table cells navigate here with the student to open right away —
+  // and closing the grading view must land back on that Calificaciones screen.
   const [pendingOpenId, setPendingOpenId] = useState(location.state?.openStudentId || null)
+  const returnToGrades = location.state?.returnTo === 'calificaciones'
   const { subscription } = useSubscription()
   const canCreate = canCreateContent(subscription)
   // Observación: no student submission — the teacher observes and grades directly,
@@ -224,6 +226,10 @@ export default function ActivityPage() {
     setSelected(null)
     setExtendMode(false)
     setExtendDate('')
+    // Opened from a Calificaciones cell → Regresar goes back to that screen
+    if (returnToGrades) {
+      navigate(`/subject/${activity?.asignaturaId}`, { state: { tab: 'calificaciones' } })
+    }
   }
 
   // True when the form differs from what's stored — this is what makes
@@ -526,7 +532,7 @@ export default function ActivityPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => navigate(`/subject/${activity?.asignaturaId}`)}
+              onClick={() => navigate(`/subject/${activity?.asignaturaId}`, returnToGrades ? { state: { tab: 'calificaciones' } } : undefined)}
               className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
             >
               <ArrowLeft size={22} />
