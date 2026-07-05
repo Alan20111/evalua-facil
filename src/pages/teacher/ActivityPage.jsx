@@ -599,11 +599,17 @@ export default function ActivityPage() {
             >
               <ArrowLeft size={20} /> Regresar
             </button>
+            {/* Same header pattern as the activity page: activity title with its
+                accent number, then "Asignatura — Profesor · Parcial N" below */}
             <div className="flex-1 min-w-0 text-right sm:text-left">
-              <h3 className="text-base font-bold text-on-surface truncate">{subjectDisplayName(subject)}</h3>
-              <p className="text-xs text-slate-500 truncate">
-                {activityLabel && <span className="text-accent font-semibold">{activityLabel} · </span>}
+              <h3 className="text-xl font-bold text-on-surface truncate">
+                {activityLabel && <span className="text-accent">{activityLabel} </span>}
                 {activity?.nombre}
+              </h3>
+              <p className="text-slate-400 text-xs truncate">
+                {subjectDisplayName(subject)}
+                {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
+                {' · '}Parcial {activity?.parcial}
               </p>
             </div>
           </div>
