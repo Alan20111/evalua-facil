@@ -107,7 +107,7 @@ export function exportParcialGrades({ subject, activities, students, submissions
   titleRow[0] = `${subjectDisplayName(subject)} — Parcial ${parcial}${periodo ? `   (${periodo})` : ''}`
 
   const nameRow = ['#', 'NOMBRE']
-  acts.forEach((a, ai) => nameRow.push(`${parcial}.${ai + 1}`))
+  acts.forEach((a, ai) => nameRow.push(`${parcial}.${ai + 1}.`))
   nameRow.push(`Prom. P${parcial}`)
 
   // PONDERACIÓN row — mirrors the on-screen weights strip (no buttons)
@@ -209,7 +209,7 @@ export function exportSubjectGrades({
   const nameRow = ['#', 'NOMBRE']
   PARCIALES.forEach((p, pi) => {
     const { acts } = parcialMeta[pi]
-    acts.forEach((a, ai) => nameRow.push(`${p}.${ai + 1}`))
+    acts.forEach((a, ai) => nameRow.push(`${p}.${ai + 1}.`))
     nameRow.push(`Prom. P${p}`)
   })
   nameRow.push('Promedio Final')
