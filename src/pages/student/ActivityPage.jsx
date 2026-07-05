@@ -19,7 +19,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, Upload, CheckCircle, Clock, FileText, Star,
-  MessageSquare, Download,
+  MessageSquare, Download, X,
 } from 'lucide-react'
 import { resolveFileTypes, isFileAllowed, allowsMultipleFiles, MAX_IMAGES_PER_SUBMISSION } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -145,23 +145,35 @@ export default function StudentActivityPage() {
     }
   }
 
-  // Validates a fresh selection from the file input. Several files at once is
-  // only for photos (all images, up to the max); any other type goes alone.
+  const isImageFile = (f) => (f.type || '').startsWith('image/') || /\.(jpe?g|png)$/i.test(f.name)
+
+  // Handles a fresh selection from the file input. Photos ADD to the current
+  // selection (several rounds allowed, up to the max) so the student can remove
+  // one and browse for another; any non-image pick replaces the selection and
+  // goes alone.
   function selectFiles(list) {
     if (!list.length) return
-    let picked = list
-    if (picked.length > 1) {
-      const allImages = picked.every((f) => (f.type || '').startsWith('image/') || /\.(jpe?g|png)$/i.test(f.name))
-      if (!allImages) {
+    if (!list.every(isImageFile) || !files.every(isImageFile)) {
+      if (list.length > 1) {
         toast('Para subir varios archivos a la vez, todos deben ser imágenes (JPG, PNG). Otros tipos se suben de uno en uno.', 'error')
         return
       }
-      if (picked.length > MAX_IMAGES_PER_SUBMISSION) {
-        toast(`Máximo ${MAX_IMAGES_PER_SUBMISSION} imágenes por entrega — se tomaron las primeras ${MAX_IMAGES_PER_SUBMISSION}`, 'error')
-        picked = picked.slice(0, MAX_IMAGES_PER_SUBMISSION)
-      }
+      setFiles([list[0]])
+      return
     }
-    setFiles(picked)
+    // Merge, ignoring files already in the selection (same name and size)
+    let combined = [...files, ...list].filter(
+      (f, i, arr) => arr.findIndex((g) => g.name === f.name && g.size === f.size) === i
+    )
+    if (combined.length > MAX_IMAGES_PER_SUBMISSION) {
+      toast(`Máximo ${MAX_IMAGES_PER_SUBMISSION} imágenes por entrega — se tomaron las primeras ${MAX_IMAGES_PER_SUBMISSION}`, 'error')
+      combined = combined.slice(0, MAX_IMAGES_PER_SUBMISSION)
+    }
+    setFiles(combined)
+  }
+
+  function removeSelectedFile(index) {
+    setFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
   async function handleUpload() {
@@ -590,7 +602,11 @@ export default function StudentActivityPage() {
                   accept={resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}
                   multiple={allowsMultipleFiles(activity?.tiposArchivo || 'todos')}
                   className="hidden"
-                  onChange={(e) => selectFiles(Array.from(e.target.files || []))}
+                  onChange={(e) => {
+                    selectFiles(Array.from(e.target.files || []))
+                    // Reset so picking the same file again still fires onChange
+                    e.target.value = ''
+                  }}
                 />
                 <Upload size={26} className={`flex-shrink-0 ${files.length ? 'text-accent' : 'text-slate-400'}`} />
                 <p className="text-sm mt-2 font-medium text-muted text-center break-words line-clamp-2 max-w-full">
@@ -611,11 +627,26 @@ export default function StudentActivityPage() {
                   </p>
                 )}
               </label>
-              {files.length > 1 && (
-                <div className="text-xs text-muted space-y-0.5">
+              {files.length > 0 && (
+                <div className="space-y-1">
                   {files.map((f, i) => (
-                    <p key={`${f.name}-${i}`} className="truncate">{i + 1}. {f.name}</p>
+                    <div key={`${f.name}-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-surface rounded border border-outline-variant text-xs text-muted">
+                      <span className="flex-1 truncate">{i + 1}. {f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeSelectedFile(i)}
+                        aria-label={`Quitar ${f.name}`}
+                        className="p-1 -mr-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
                   ))}
+                  {allowsMultipleFiles(activity?.tiposArchivo || 'todos') && files.length < MAX_IMAGES_PER_SUBMISSION && files.every(isImageFile) && (
+                    <p className="text-xs text-slate-400 text-center pt-0.5">
+                      Puedes tocar arriba para agregar más fotos ({files.length}/{MAX_IMAGES_PER_SUBMISSION})
+                    </p>
+                  )}
                 </div>
               )}
               <button
