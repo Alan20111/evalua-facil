@@ -40,7 +40,7 @@ import {
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, BookOpen, Paperclip, FileCheck2, Timer,
-  ListChecks, GraduationCap, ClipboardCheck,
+  ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
@@ -148,6 +148,8 @@ export default function SubjectPage() {
   // Cerrar parcial: null | { p, missing: [{s, a}], ungraded }
   const [closeParcialConfirm, setCloseParcialConfirm] = useState(null)
   const [closingParcial, setClosingParcial] = useState(false)
+  // Kebab menu per parcial header: null | { p, x, y } (fixed coords from the ⋮ button)
+  const [parcialMenu, setParcialMenu] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -1382,7 +1384,7 @@ export default function SubjectPage() {
       const total = pesoTotalVivo(acts)
       if (Math.abs(total - 10) > 0.001) {
         const msg = `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para cerrar el parcial`
-        const btn = document.getElementById(`cerrar-parcial-${p}`)
+        const btn = document.getElementById(`parcial-menu-${p}`)
         if (btn) showNear(btn, msg)
         else toast(msg, 'warning')
         return
@@ -1464,7 +1466,7 @@ export default function SubjectPage() {
       const total = pesoTotalVivo(acts)
       if (Math.abs(total - 10) > 0.001) {
         const msg = `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para exportar`
-        const btn = document.getElementById(`exportar-parcial-${p}`)
+        const btn = document.getElementById(`parcial-menu-${p}`)
         if (btn) showNear(btn, msg)
         else toast(msg, 'warning')
         return
@@ -2177,6 +2179,21 @@ export default function SubjectPage() {
               <p className="text-center text-slate-400 text-sm py-12">No hay estudiantes en este grupo</p>
             ) : (
               <>
+                {/* Action bar above the table — ponderación toggle lives here now
+                    (moved out of the crowded table header) */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button type="button" onClick={togglePonderacion}
+                    data-tooltip={anyPonderacionOn ? 'Quitar la ponderación de todos los parciales' : 'Cada actividad vale un peso — se activa en todos los parciales; luego puedes apagarla por parcial'}
+                    className={`px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wide transition-colors ${anyPonderacionOn
+                      ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                      : 'bg-accent text-white hover:bg-accent-hover'}`}>
+                    {anyPonderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
+                  </button>
+                  {anyPonderacionOn && (
+                    <span className="text-xs text-muted">Asigna un peso a cada actividad (deben sumar 10 por parcial para exportar).</span>
+                  )}
+                </div>
+
                 <div className="overflow-x-auto rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
                   {/* table-fixed + explicit narrow per-column widths (no forced
                       min-w on the table itself) — the table only takes the
@@ -2204,72 +2221,26 @@ export default function SubjectPage() {
                     <thead>
                       <tr className="bg-accent-light border-b border-outline-variant">
                         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
-                        <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-1 py-1 text-left border-r border-outline-variant">
-                          <div className="relative">
-                            <button type="button" onClick={togglePonderacion}
-                              data-tooltip-follow={anyPonderacionOn ? 'Quitar la ponderación de todos los parciales' : 'Cada actividad vale un peso — se activa en todos los parciales; luego puedes apagarla por parcial'}
-                              className={`w-full px-1 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${anyPonderacionOn
-                                ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                                : 'bg-accent text-white hover:bg-accent-hover'}`}>
-                              {anyPonderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
-                            </button>
-                            {/* Confirmation anchored HERE — right where the action happens */}
-                            {confirmRevertPonderacion && (
-                              <div className="absolute left-0 top-full mt-1 z-30 w-72 bg-white border-2 border-amber-400 rounded-card shadow-2xl p-3 text-left">
-                                <p className="text-xs text-amber-800 font-medium normal-case tracking-normal leading-snug">
-                                  Al menos una actividad ya tiene ponderación. Los pesos capturados se borrarán y todas las actividades valdrán lo mismo.
-                                </p>
-                                <div className="flex gap-2 mt-2">
-                                  <button type="button" onClick={() => setConfirmRevertPonderacion(false)}
-                                    className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-xs font-medium normal-case tracking-normal hover:bg-surface-container">
-                                    Cancelar
-                                  </button>
-                                  <button type="button" onClick={() => applyPonderacion(false)}
-                                    className="flex-1 py-1.5 rounded bg-amber-500 text-white text-xs font-semibold normal-case tracking-normal hover:bg-amber-600">
-                                    Sí, promedio simple
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                            {/* Per-parcial deactivation confirm (weights exist) */}
-                            {confirmRevertParcial != null && (
-                              <div className="absolute left-0 top-full mt-1 z-30 w-72 bg-white border-2 border-amber-400 rounded-card shadow-2xl p-3 text-left">
-                                <p className="text-xs text-amber-800 font-medium normal-case tracking-normal leading-snug">
-                                  El Parcial {confirmRevertParcial} ya tiene pesos capturados. Se borrarán y ese parcial usará promedio simple.
-                                </p>
-                                <div className="flex gap-2 mt-2">
-                                  <button type="button" onClick={() => setConfirmRevertParcial(null)}
-                                    className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-xs font-medium normal-case tracking-normal hover:bg-surface-container">
-                                    Cancelar
-                                  </button>
-                                  <button type="button" onClick={() => applyParcialPonderacion(confirmRevertParcial, false)}
-                                    className="flex-1 py-1.5 rounded bg-amber-500 text-white text-xs font-semibold normal-case tracking-normal hover:bg-amber-600">
-                                    Sí, promedio simple
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </th>
+                        <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant" />
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
                             className="px-1.5 py-1 font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
-                            {/* CERRAR at the left edge, EXPORTAR at the right — above the Prom. column */}
-                            <div className="relative">
-                              <button type="button" id={`cerrar-parcial-${p}`} onClick={() => requestCloseParcial(p)}
-                                data-tooltip-follow={subject?.parcialesCerrados?.[p]
-                                  ? `Parcial cerrado — vuelve a cerrarlo si hay nuevas no entregas`
-                                  : `Cerrar el Parcial ${p}: todas las no entregas quedarán en 0`}
-                                className={`absolute left-0 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${subject?.parcialesCerrados?.[p]
-                                  ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                                  : 'bg-surface-container text-muted hover:bg-accent hover:text-white'}`}>
-                                {subject?.parcialesCerrados?.[p] ? 'Cerrado' : 'Cerrar'}
-                              </button>
+                            {/* Clean header: "Parcial N" + a ⋮ menu (Exportar / Cerrar),
+                                so 2-3-activity parciales never crowd. A lock shows the
+                                closed state at a glance. */}
+                            <div className="flex items-center justify-center gap-1">
+                              {subject?.parcialesCerrados?.[p] && (
+                                <Lock size={12} className="text-emerald-600 flex-shrink-0" data-tooltip="Parcial cerrado" />
+                              )}
                               <span>Parcial {p}</span>
-                              <button type="button" id={`exportar-parcial-${p}`} onClick={() => handleExportParcial(p)}
-                                data-tooltip-follow={`Parcial ${p} a Excel`}
-                                className="absolute right-0 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-accent text-white text-[10px] font-bold uppercase tracking-wide hover:bg-accent-hover transition-colors">
-                                Exportar
+                              <button type="button" id={`parcial-menu-${p}`}
+                                onClick={(e) => {
+                                  const r = e.currentTarget.getBoundingClientRect()
+                                  setParcialMenu((m) => m?.p === p ? null : { p, x: r.right, y: r.bottom })
+                                }}
+                                data-tooltip-follow="Acciones del parcial"
+                                className="p-0.5 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors flex-shrink-0">
+                                <MoreVertical size={15} />
                               </button>
                             </div>
                           </th>
@@ -3181,6 +3152,77 @@ export default function SubjectPage() {
               >
                 {generatingCredentials ? <Spinner size="sm" /> : <Download size={18} />}
                 {generatingCredentials ? 'Descargando…' : 'Descargar lista'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Kebab menu per parcial (Exportar / Cerrar) — fixed-positioned so the
+          table's overflow container can't clip it ── */}
+      {parcialMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setParcialMenu(null)} />
+          <div
+            className="fixed z-50 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden"
+            style={{ top: parcialMenu.y + 4, left: Math.max(8, parcialMenu.x - 208) }}
+          >
+            <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Parcial {parcialMenu.p}</div>
+            <button type="button"
+              onClick={() => { const p = parcialMenu.p; setParcialMenu(null); handleExportParcial(p) }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left">
+              <FileSpreadsheet size={16} className="text-accent flex-shrink-0" /> Exportar a Excel
+            </button>
+            <button type="button"
+              onClick={() => { const p = parcialMenu.p; setParcialMenu(null); requestCloseParcial(p) }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant">
+              <Lock size={16} className={`flex-shrink-0 ${subject?.parcialesCerrados?.[parcialMenu.p] ? 'text-emerald-600' : 'text-slate-400'}`} />
+              {subject?.parcialesCerrados?.[parcialMenu.p] ? 'Parcial cerrado — cerrar de nuevo' : 'Cerrar parcial (no entregas → 0)'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ── Revertir ponderación (todos los parciales) ── */}
+      {confirmRevertPonderacion && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmRevertPonderacion(false)} />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Volver a promedio simple?</h3>
+            <p className="text-sm text-muted text-center mt-2">
+              Al menos una actividad ya tiene ponderación. Los pesos capturados se borrarán y todas las actividades valdrán lo mismo.
+            </p>
+            <div className="flex gap-2 mt-4">
+              <button type="button" onClick={() => setConfirmRevertPonderacion(false)}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={() => applyPonderacion(false)}
+                className="flex-1 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors">
+                Sí, promedio simple
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Revertir ponderación de UN parcial ── */}
+      {confirmRevertParcial != null && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmRevertParcial(null)} />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Parcial {confirmRevertParcial} con promedio simple?</h3>
+            <p className="text-sm text-muted text-center mt-2">
+              El Parcial {confirmRevertParcial} ya tiene pesos capturados. Se borrarán y ese parcial usará promedio simple.
+            </p>
+            <div className="flex gap-2 mt-4">
+              <button type="button" onClick={() => setConfirmRevertParcial(null)}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={() => applyParcialPonderacion(confirmRevertParcial, false)}
+                className="flex-1 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors">
+                Sí, promedio simple
               </button>
             </div>
           </div>
