@@ -39,7 +39,9 @@ export function downloadUrl(url, filename) {
     const base = filename
       .replace(/\.[^.]+$/, '')                       // drop extension (Cloudinary re-adds it)
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
-      .replace(/[^a-zA-Z0-9._-]+/g, '_')             // safe URL chars only
+      // Only letters/digits/underscore/hyphen: a DOT inside fl_attachment makes
+      // Cloudinary return HTTP 400 (e.g. WhatsApp's "at 5.50.26 PM" filenames)
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
       .replace(/^_+|_+$/g, '')                       // trim underscores
     if (base) flag = `fl_attachment:${base}`
   }
