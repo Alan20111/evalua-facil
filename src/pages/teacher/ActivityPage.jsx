@@ -796,7 +796,7 @@ export default function ActivityPage() {
                     ) : (
                       <button
                         type="submit"
-                        disabled={saving || !canCreate}
+                        disabled={saving || !canCreate || !isDirty()}
                         className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                       >
                         {saving ? <Spinner size="sm" /> : <Star size={18} />}
