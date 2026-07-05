@@ -733,13 +733,24 @@ export default function ActivityPage() {
                 {/* Grade form (only when submission exists) */}
                 {selected.sub ? (
                   <form onSubmit={saveGrade} className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-muted mb-1">
-                        Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
-                      </label>
-                      {/* Narrow input so the spinner arrows sit right next to the
-                          number; the download button fills the rest of the row */}
-                      <div className="flex gap-2">
+                    {/* Download on the left, grade (with its own header) on the
+                        right — narrow input keeps the spinner arrows by the number */}
+                    <div className="flex gap-2 items-end">
+                      {!selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
+                        <a
+                          href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
+                          download={selected.sub.nombreArchivo}
+                          rel="noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors min-w-0"
+                        >
+                          <Download size={18} className="text-accent flex-shrink-0" />
+                          <span className="truncate">Descargar entrega</span>
+                        </a>
+                      )}
+                      <div className="flex-shrink-0">
+                        <label className="block text-sm font-medium text-muted mb-1">
+                          Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
+                        </label>
                         <input
                           type="number"
                           value={gradeForm.calificacion}
@@ -749,19 +760,8 @@ export default function ActivityPage() {
                           max={activity?.maxCalif}
                           step="0.1"
                           autoFocus
-                          className="w-24 flex-shrink-0 px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface"
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface"
                         />
-                        {!selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
-                          <a
-                            href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
-                            download={selected.sub.nombreArchivo}
-                            rel="noopener noreferrer"
-                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors min-w-0"
-                          >
-                            <Download size={18} className="text-accent flex-shrink-0" />
-                            <span className="truncate">Descargar entrega</span>
-                          </a>
-                        )}
                       </div>
                     </div>
 
