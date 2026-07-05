@@ -639,7 +639,7 @@ export default function ActivityPage() {
                         onChange={toggleAutoSave}
                         className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
                       />
-                      Guardar calificación al avanzar
+                      Guardar calificación al avanzar o al retroceder
                     </label>
                   )}
                   <div className="flex items-center justify-between rounded border border-outline-variant px-2 py-1.5">
@@ -717,7 +717,7 @@ export default function ActivityPage() {
                         this button too would be redundant and confusing. */}
                     {autoSaveOnNav && navList.length > 1 ? (
                       <p className="text-xs text-slate-400 text-center py-1">
-                        La calificación se guarda al avanzar con Anterior/Siguiente.
+                        La calificación se guarda al avanzar o al retroceder.
                       </p>
                     ) : (
                       <button
