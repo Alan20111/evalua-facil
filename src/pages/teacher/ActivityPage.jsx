@@ -9,6 +9,7 @@ import {
   getDoc,
   updateDoc,
   addDoc,
+  deleteDoc,
   doc,
   serverTimestamp,
 } from 'firebase/firestore'
@@ -105,6 +106,9 @@ export default function ActivityPage() {
   const [extendDate, setExtendDate] = useState('')
   const [extendMotivo, setExtendMotivo] = useState('')
   const [savingExtension, setSavingExtension] = useState(false)
+  // Annul the current submission (student sent the wrong thing → back to Pendiente)
+  const [annulMode, setAnnulMode] = useState(false)
+  const [annulling, setAnnulling] = useState(false)
   // ZIP download
   const [zipDownloading, setZipDownloading] = useState(false)
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
@@ -178,6 +182,7 @@ export default function ActivityPage() {
     setExtendDate(activity?.extensiones?.[student.id] || '')
     setExtendMotivo(activity?.extensionesMotivo?.[student.id] || '')
     setPreviewIdx(0)
+    setAnnulMode(false)
   }
 
   // Entry point from the student list: freezes the navigation order.
@@ -268,6 +273,29 @@ export default function ActivityPage() {
       toast('Error: ' + err.message, 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Deletes the current submission doc: the student goes back to "Pendiente"
+  // and can submit again (any grade it had is removed with it).
+  async function annulSubmission() {
+    if (!selected?.sub) return
+    setAnnulling(true)
+    try {
+      await deleteDoc(doc(db, 'submissions', selected.sub.id))
+      setSubmissions((prev) => {
+        const next = { ...prev }
+        delete next[selected.student.id]
+        return next
+      })
+      setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: undefined } : sel))
+      setGradeForm({ calificacion: isObservacion ? String(activity?.maxCalif ?? 10) : '', comentario: '' })
+      setAnnulMode(false)
+      toast('Entrega anulada — el estudiante queda en Pendiente y puede volver a entregar')
+    } catch (err) {
+      toast('Error al anular: ' + err.message, 'error')
+    } finally {
+      setAnnulling(false)
     }
   }
 
@@ -961,6 +989,44 @@ export default function ActivityPage() {
                 {/* Extend deadline for this student (no deadline in observación) */}
                 {!isObservacion && (
                 <div className="pt-3 border-t border-outline-variant space-y-2">
+                  {/* Annul the current submission — above the extend-date action */}
+                  {selected.sub && (
+                    !annulMode ? (
+                      <button
+                        type="button"
+                        onClick={() => setAnnulMode(true)}
+                        className="block mx-auto text-sm text-slate-500 hover:text-red-600 transition-colors"
+                      >
+                        Anular la entrega actual para este estudiante
+                      </button>
+                    ) : (
+                      <div className="rounded border border-red-200 bg-red-50 p-3 space-y-2">
+                        <p className="text-sm text-red-700">
+                          ¿Anular la entrega de <strong>{selected.student.apellidoPaterno} {selected.student.nombre}</strong>?
+                          Volverá a quedar <strong>Pendiente</strong> y podrá entregar de nuevo.
+                          {selected.sub.calificacion != null && ' La calificación actual se eliminará.'}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setAnnulMode(false)}
+                            disabled={annulling}
+                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={annulSubmission}
+                            disabled={annulling}
+                            className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
+                          >
+                            {annulling ? 'Anulando…' : 'Anular entrega'}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  )}
                   {!extendMode ? (
                     <button
                       type="button"
