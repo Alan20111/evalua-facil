@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
   collection,
@@ -116,7 +116,10 @@ export default function ActivityPage() {
   const [zipDownloading, setZipDownloading] = useState(false)
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
   const navigate = useNavigate()
+  const location = useLocation()
   const toast = useToast()
+  // Grade-table cells navigate here with the student to open right away
+  const [pendingOpenId, setPendingOpenId] = useState(location.state?.openStudentId || null)
   const { subscription } = useSubscription()
   const canCreate = canCreateContent(subscription)
   // Observación: no student submission — the teacher observes and grades directly,
@@ -124,6 +127,19 @@ export default function ActivityPage() {
   const isObservacion = activity?.tipo === 'observacion' || activity?.categoria === 'observacion'
 
   useEffect(() => { loadAll() }, [activityId])
+
+  // Coming from a grade-table cell: open that student's grading view once the
+  // data is committed (openGrade reads `submissions`/`activity` from state).
+  useEffect(() => {
+    if (loading || !pendingOpenId || !students.length) return
+    const st = students.find((s) => s.id === pendingOpenId)
+    setPendingOpenId(null)
+    if (st && activity?.tipo !== 'evaluacion') {
+      setNavList(students)
+      openGrade(st)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, pendingOpenId, students])
 
   async function loadAll() {
     setLoading(true)

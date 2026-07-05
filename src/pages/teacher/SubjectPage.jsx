@@ -2199,7 +2199,13 @@ export default function SubjectPage() {
                           </td>
                           {parcialData.map(({ p, grades, avg }, pi) => [
                             ...tableParcials[pi].acts.map((a, ai) => (
-                              <td key={a.id} data-col={colIndexByKey[`act-${a.id}`]} className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 ${gradeColor(grades[ai])} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}>
+                              <td
+                                key={a.id}
+                                data-col={colIndexByKey[`act-${a.id}`]}
+                                data-tooltip="Ver entrega"
+                                onClick={() => navigate(`/activity/${a.id}`, { state: { openStudentId: s.id } })}
+                                className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeColor(grades[ai])} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
+                              >
                                 {grades[ai] !== null ? grades[ai] : '—'}
                               </td>
                             )),
