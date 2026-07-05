@@ -12,7 +12,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { isActivityPublished } from '../../utils/activityVisibility'
+import { isActivityPublished, formatPublishAt } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { getResourceIcon } from '../../utils/resourceTypes'
@@ -294,6 +294,10 @@ export default function StudentSubjectPage() {
                       const overdue = !graded && !delivered && isOverdue(a)
                       const fechaLimiteLabel = formatFechaLimite(a.fechaLimite)
                       const showPeso = subject?.ponderacionActivada && subject?.ponderacionVisibleAlumnos && a.pesoCalificacion != null
+                      // Scheduled activities may only carry `publishAt` (already in the
+                      // past — this list is filtered to visible ones), so that IS their
+                      // publication date when `publishedAt` is absent.
+                      const publishDate = a.publishedAt || a.publishAt
                       // Same icon-per-type as the teacher's list so both views read alike
                       const ActIcon = a.categoria === 'examen' ? GraduationCap
                         : a.categoria === 'cuestionario' ? ListChecks
@@ -312,11 +316,16 @@ export default function StudentSubjectPage() {
                               {a.nombre}
                               <span className="text-xs font-normal text-slate-400"> ({CATEGORIA_LABELS[a.categoria] || 'Entregable'})</span>
                             </p>
-                            {(fechaLimiteLabel || showPeso) && (
+                            {(publishDate || fechaLimiteLabel || showPeso) && (
                               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                {publishDate && (
+                                  <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
+                                    <Clock size={14} /> {formatPublishAt(publishDate)}
+                                  </span>
+                                )}
                                 {fechaLimiteLabel && (
-                                  <span className={`text-xs flex items-center gap-0.5 ${overdue ? 'text-red-500' : 'text-amber-600'}`}>
-                                    <Clock size={14} /> Vence {fechaLimiteLabel}
+                                  <span data-tooltip="Cierre" className={`text-xs flex items-center gap-0.5 ${overdue ? 'text-red-500' : 'text-amber-600'}`}>
+                                    <Clock size={14} /> {fechaLimiteLabel}
                                   </span>
                                 )}
                                 {showPeso && (
