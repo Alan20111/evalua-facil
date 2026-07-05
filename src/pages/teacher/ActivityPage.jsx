@@ -89,6 +89,8 @@ export default function ActivityPage() {
   // remove the student from the active filter (e.g. "Por calificar"), which would
   // otherwise reshuffle Anterior/Siguiente mid-session.
   const [navList, setNavList] = useState([])
+  // Which file of a multi-photo submission is showing in the preview pane
+  const [previewIdx, setPreviewIdx] = useState(0)
   // Opt-in: when checked, Anterior/Siguiente save the grade; when unchecked the
   // teacher is just browsing and only the explicit Guardar button saves.
   // Remembered across sessions so it's a one-time choice.
@@ -175,6 +177,7 @@ export default function ActivityPage() {
     setExtendMode(false)
     setExtendDate(activity?.extensiones?.[student.id] || '')
     setExtendMotivo(activity?.extensionesMotivo?.[student.id] || '')
+    setPreviewIdx(0)
   }
 
   // Entry point from the student list: freezes the navigation order.
@@ -659,22 +662,39 @@ export default function ActivityPage() {
             {/* Left: file preview, top to bottom */}
             <div className="h-[45vh] md:h-auto md:flex-1 min-w-0 bg-surface-container flex flex-col">
               {selFiles.length > 1 ? (
-                /* Multi-photo submission: all images stacked, scrollable */
-                <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
-                  {selFiles.map((f, i) => (
-                    isImageFile(f.nombre, f.url) ? (
-                      <a key={`${f.url}-${i}`} href={f.url} target="_blank" rel="noopener noreferrer" className="block" data-tooltip="Abrir en tamaño completo">
-                        <img src={f.url} alt={f.nombre} className="max-w-full rounded mx-auto" />
+                /* Multi-photo submission: preview ONE image at a time — the one
+                   picked from the file list in the panel */
+                (() => {
+                  const f = selFiles[Math.min(previewIdx, selFiles.length - 1)]
+                  return isImageFile(f.nombre, f.url) ? (
+                    <a
+                      href={f.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 min-h-0 flex items-center justify-center p-3"
+                      data-tooltip="Abrir en tamaño completo"
+                    >
+                      <img src={f.url} alt={f.nombre} className="max-w-full max-h-full object-contain rounded" />
+                    </a>
+                  ) : canPreviewFile(f.nombre) ? (
+                    <div className="flex-1 min-h-0">
+                      <FilePreview url={f.url} nombre={f.nombre} fill />
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
+                      <p>Sin vista previa disponible para este archivo.</p>
+                      <a
+                        href={downloadUrl(f.url, f.nombre)}
+                        download={f.nombre}
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors"
+                      >
+                        <Download size={18} className="text-accent" />
+                        Descargar archivo
                       </a>
-                    ) : (
-                      <a key={`${f.url}-${i}`} href={downloadUrl(f.url, f.nombre)} download={f.nombre} rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors">
-                        <Download size={18} className="text-accent flex-shrink-0" />
-                        <span className="truncate">{f.nombre}</span>
-                      </a>
-                    )
-                  ))}
-                </div>
+                    </div>
+                  )
+                })()
               ) : selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL ? (
                 isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) ? (
                   <a
@@ -806,18 +826,7 @@ export default function ActivityPage() {
                   <form onSubmit={saveGrade} className="space-y-3">
                     {/* Download on the left, grade (with its own header) on the
                         right — narrow input keeps the spinner arrows by the number */}
-                    {/* Several files → one compact download link per file */}
-                    {selFiles.length > 1 && (
-                      <div className="space-y-1">
-                        {selFiles.map((f, i) => (
-                          <a key={`${f.url}-${i}`} href={downloadUrl(f.url, f.nombre)} download={f.nombre} rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-1.5 bg-surface rounded border border-outline-variant text-xs text-muted hover:bg-[var(--accent-tint)] transition-colors">
-                            <Download size={14} className="text-accent flex-shrink-0" />
-                            <span className="truncate">{i + 1}. {f.nombre}</span>
-                          </a>
-                        ))}
-                      </div>
-                    )}
+                    {/* Grade on its own row; the file list (if several) goes below */}
                     <div className="flex gap-2 items-end">
                       {selFiles.length === 1 && (
                         <a
@@ -830,7 +839,7 @@ export default function ActivityPage() {
                           <span className="truncate">Descargar entrega</span>
                         </a>
                       )}
-                      <div className="flex-shrink-0">
+                      <div className={selFiles.length === 1 ? 'flex-shrink-0' : 'flex-1'}>
                         <label className="block text-sm font-medium text-muted mb-1">
                           Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                         </label>
@@ -847,6 +856,41 @@ export default function ActivityPage() {
                         />
                       </div>
                     </div>
+
+                    {/* Several files: click the name to PREVIEW that image on the
+                        left; only the download icon downloads it */}
+                    {selFiles.length > 1 && (
+                      <div className="space-y-1">
+                        {selFiles.map((f, i) => (
+                          <div
+                            key={`${f.url}-${i}`}
+                            className={`flex items-center gap-1 rounded border text-xs transition-colors ${
+                              i === previewIdx
+                                ? 'border-accent bg-[var(--accent-tint)] text-on-surface'
+                                : 'border-outline-variant bg-surface text-muted hover:border-accent'
+                            }`}
+                          >
+                            <a
+                              href={downloadUrl(f.url, f.nombre)}
+                              download={f.nombre}
+                              rel="noopener noreferrer"
+                              data-tooltip="Descargar esta imagen"
+                              className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0"
+                            >
+                              <Download size={15} />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewIdx(i)}
+                              data-tooltip="Ver esta imagen"
+                              className="flex-1 min-w-0 py-2 pr-2 text-left truncate"
+                            >
+                              {i + 1}. {f.nombre}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-muted mb-1">
