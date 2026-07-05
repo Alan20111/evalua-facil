@@ -699,30 +699,11 @@ export default function ActivityPage() {
                   </p>
                 </div>
 
-                {/* Prev/next navigation + autosave opt-in below it. The checkbox
-                    keeps its space (invisible) when there's no submission so the
-                    layout doesn't jump while paging through students. */}
+                {/* Autosave opt-in above the navigation. The checkbox keeps its
+                    space (invisible) when there's no submission so Anterior/
+                    Siguiente — and the grade right below — never jump around. */}
                 {navList.length > 1 && (
                   <div className="space-y-1.5">
-                  <div className="flex items-center justify-between rounded border border-outline-variant px-2 py-1.5">
-                    <button
-                      type="button"
-                      onClick={() => goToOffset(-1)}
-                      disabled={curIdx <= 0}
-                      className="flex items-center gap-1 text-sm font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
-                    >
-                      <ChevronLeft size={18} /> Anterior
-                    </button>
-                    <span className="text-sm text-slate-500">{curIdx + 1} / {navList.length}</span>
-                    <button
-                      type="button"
-                      onClick={() => goToOffset(1)}
-                      disabled={curIdx >= navList.length - 1}
-                      className="flex items-center gap-1 text-sm font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
-                    >
-                      Siguiente <ChevronRight size={18} />
-                    </button>
-                  </div>
                   <label className={`flex items-center gap-2 text-sm text-muted select-none ${selected.sub ? 'cursor-pointer' : 'invisible'}`}>
                     <input
                       type="checkbox"
@@ -732,6 +713,26 @@ export default function ActivityPage() {
                     />
                     Guardar calificación al avanzar o al retroceder
                   </label>
+                  {/* Big, prominent prev/next — the most used controls here */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => goToOffset(-1)}
+                      disabled={curIdx <= 0}
+                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-30"
+                    >
+                      <ChevronLeft size={20} /> Anterior
+                    </button>
+                    <span className="text-sm text-slate-500 flex-shrink-0 px-1 whitespace-nowrap">{curIdx + 1} / {navList.length}</span>
+                    <button
+                      type="button"
+                      onClick={() => goToOffset(1)}
+                      disabled={curIdx >= navList.length - 1}
+                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover transition-colors disabled:opacity-30"
+                    >
+                      Siguiente <ChevronRight size={20} />
+                    </button>
+                  </div>
                   </div>
                 )}
 
