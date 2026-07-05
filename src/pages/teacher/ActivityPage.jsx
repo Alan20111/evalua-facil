@@ -79,6 +79,10 @@ export default function ActivityPage() {
   // remove the student from the active filter (e.g. "Por calificar"), which would
   // otherwise reshuffle Anterior/Siguiente mid-session.
   const [navList, setNavList] = useState([])
+  // Opt-in: when checked, Anterior/Siguiente save the grade; when unchecked the
+  // teacher is just browsing and only the explicit Guardar button saves.
+  // Remembered across sessions so it's a one-time choice.
+  const [autoSaveOnNav, setAutoSaveOnNav] = useState(() => localStorage.getItem('ef-autosave-nav') === '1')
   const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '' })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -163,7 +167,17 @@ export default function ActivityPage() {
     openGrade(student)
   }
 
-  function closeModal() {
+  async function closeModal() {
+    // With autosave on, closing counts as leaving the student (otherwise the
+    // LAST student in the list — who has no Siguiente — would lose their grade).
+    if (autoSaveOnNav && isDirty()) {
+      try {
+        await persistGrade()
+      } catch (err) {
+        toast('Error al guardar: ' + err.message, 'error')
+        return
+      }
+    }
     setSelected(null)
     setExtendMode(false)
     setExtendDate('')
@@ -274,12 +288,20 @@ export default function ActivityPage() {
   }
 
   const curIdx = selected ? navList.findIndex((s) => s.id === selected.student.id) : -1
-  // Navigating away saves pending changes first (shared persistGrade); a save
-  // error keeps you on the current student instead of silently dropping the grade.
+  function toggleAutoSave() {
+    setAutoSaveOnNav((v) => {
+      localStorage.setItem('ef-autosave-nav', v ? '0' : '1')
+      return !v
+    })
+  }
+
+  // Navigating away saves pending changes first (shared persistGrade) — only when
+  // the teacher opted in via the checkbox; a save error keeps you on the current
+  // student instead of silently dropping the grade.
   async function goToOffset(off) {
     const next = navList[curIdx + off]
     if (!next) return
-    if (isDirty()) {
+    if (autoSaveOnNav && isDirty()) {
       try {
         await persistGrade()
       } catch (err) {
@@ -302,7 +324,7 @@ export default function ActivityPage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, navList, gradeForm, submissions])
+  }, [selected, navList, gradeForm, submissions, autoSaveOnNav])
 
   if (loading) return (
     <TeacherLayout>
@@ -606,8 +628,20 @@ export default function ActivityPage() {
                   </p>
                 </div>
 
-                {/* Prev / next navigation — saves pending changes before moving */}
+                {/* Autosave opt-in + prev/next navigation */}
                 {navList.length > 1 && (
+                  <div className="space-y-1.5">
+                  {selected.sub && (
+                    <label className="flex items-center gap-2 text-sm text-muted cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={autoSaveOnNav}
+                        onChange={toggleAutoSave}
+                        className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
+                      />
+                      Guardar calificación al avanzar
+                    </label>
+                  )}
                   <div className="flex items-center justify-between rounded border border-outline-variant px-2 py-1.5">
                     <button
                       type="button"
@@ -626,6 +660,7 @@ export default function ActivityPage() {
                     >
                       Siguiente <ChevronRight size={18} />
                     </button>
+                  </div>
                   </div>
                 )}
 
@@ -678,14 +713,22 @@ export default function ActivityPage() {
                         Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
                       </p>
                     )}
-                    <button
-                      type="submit"
-                      disabled={saving || !canCreate}
-                      className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                    >
-                      {saving ? <Spinner size="sm" /> : <Star size={18} />}
-                      {saving ? 'Guardando…' : 'Guardar calificación'}
-                    </button>
+                    {/* With autosave on, Siguiente/Anterior already save — showing
+                        this button too would be redundant and confusing. */}
+                    {autoSaveOnNav && navList.length > 1 ? (
+                      <p className="text-xs text-slate-400 text-center py-1">
+                        La calificación se guarda al avanzar con Anterior/Siguiente.
+                      </p>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={saving || !canCreate}
+                        className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {saving ? <Spinner size="sm" /> : <Star size={18} />}
+                        {saving ? 'Guardando…' : 'Guardar calificación'}
+                      </button>
+                    )}
                   </form>
                 ) : (
                   <p className="text-sm text-slate-400 text-center py-2">
