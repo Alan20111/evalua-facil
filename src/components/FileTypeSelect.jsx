@@ -28,7 +28,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
     <div>
       <label className="block text-sm font-medium text-muted mb-1">Archivos permitidos</label>
       <p className="text-xs text-accent font-medium mb-2">
-        Ejemplo: al elegir imágenes y 1 Word, el estudiante podrá subir hasta 3 imágenes o un archivo de Word.
+        Ejemplo: al elegir imágenes y 1 Word, el estudiante podrá subir hasta 5 imágenes o un archivo de Word.
       </p>
       <div className="border border-outline-variant rounded divide-y divide-outline-variant overflow-hidden">
         {FILE_TYPE_BASE_OPTIONS.map((o) => (
