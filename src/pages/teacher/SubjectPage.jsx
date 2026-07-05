@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
   addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch,
@@ -202,8 +202,10 @@ export default function SubjectPage() {
   const [showArchiveModal, setShowArchiveModal] = useState(false)
   const [archiveExportChoice, setArchiveExportChoice] = useState('save') // 'save' | 'skip'
 
-  // Tab
-  const [activeTab, setActiveTab] = useState('actividades')
+  // Tab — navigation state can request a specific tab (e.g. coming back from a
+  // grading view opened from a Calificaciones cell)
+  const routerLocation = useLocation()
+  const [activeTab, setActiveTab] = useState(routerLocation.state?.tab || 'actividades')
 
   // Shared students (used by calificaciones + alumnos tab)
   const [groupStudents, setGroupStudents] = useState([])
@@ -2203,7 +2205,7 @@ export default function SubjectPage() {
                                 key={a.id}
                                 data-col={colIndexByKey[`act-${a.id}`]}
                                 data-tooltip="Ver entrega"
-                                onClick={() => navigate(`/activity/${a.id}`, { state: { openStudentId: s.id } })}
+                                onClick={() => navigate(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
                                 className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeColor(grades[ai])} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
                               >
                                 {grades[ai] !== null ? grades[ai] : '—'}
