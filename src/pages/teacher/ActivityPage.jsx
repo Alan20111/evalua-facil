@@ -160,9 +160,13 @@ export default function ActivityPage() {
       // "Actividad" (1.1, 1.2…) is presentation, derived from this activity's
       // position among its parcial siblings — never trusted from the stored
       // field, so it always matches what the subject page currently shows.
+      // Drafts are EXCLUDED from the numbering, same rule as the subject page
+      // (otherwise clicking "1.6" in the grades table lands on a page titled
+      // "1.9" when drafts sit earlier in the orden).
+      const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
       const siblings = siblingActsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((a) => a.parcial === actData.parcial)
+        .filter((a) => a.parcial === actData.parcial && !isDraft(a))
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       const idx = siblings.findIndex((a) => a.id === activityId)
       setActivityLabel(idx >= 0 ? `${actData.parcial}.${idx + 1}` : null)
@@ -516,6 +520,7 @@ export default function ActivityPage() {
             submissions={submissions}
             onActivityChange={setActivity}
             resultadosOnly
+            backState={returnToGrades ? { tab: 'calificaciones' } : null}
           />
         </div>
       </TeacherLayout>
