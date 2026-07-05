@@ -145,6 +145,9 @@ export default function SubjectPage() {
   // Anchored confirmation panel for reverting to simple average
   const [confirmRevertPonderacion, setConfirmRevertPonderacion] = useState(false)
   const [confirmRevertParcial, setConfirmRevertParcial] = useState(null) // parcial number | null
+  // Cerrar parcial: null | { p, missing: [{s, a}], ungraded }
+  const [closeParcialConfirm, setCloseParcialConfirm] = useState(null)
+  const [closingParcial, setClosingParcial] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -1370,6 +1373,85 @@ export default function SubjectPage() {
     finally { setExporting(false) }
   }
 
+  // ── CERRAR PARCIAL: every missing submission of the parcial gets a 0 ──
+  // Gate: with ponderación active in the parcial, weights must sum 10 first.
+  // Delivered-but-ungraded submissions are NOT touched (they're entregas).
+  function requestCloseParcial(p) {
+    if (ponderacionActivaEnParcial(subject, p)) {
+      const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+      const total = pesoTotalVivo(acts)
+      if (Math.abs(total - 10) > 0.001) {
+        const msg = `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para cerrar el parcial`
+        const btn = document.getElementById(`cerrar-parcial-${p}`)
+        if (btn) showNear(btn, msg)
+        else toast(msg, 'warning')
+        return
+      }
+    }
+    const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+    const missing = []
+    let ungraded = 0
+    groupStudents.forEach((s) => {
+      acts.forEach((a) => {
+        const sub = gradeSubMap[`${s.id}-${a.id}`]
+        if (!sub) missing.push({ s, a })
+        else if (sub.calificacion == null) ungraded++
+      })
+    })
+    if (!missing.length) {
+      toast(ungraded
+        ? `No hay no-entregas en el Parcial ${p}, pero tienes ${ungraded} entrega${ungraded !== 1 ? 's' : ''} sin calificar`
+        : `El Parcial ${p} ya está completo — no hay no-entregas que poner en 0`)
+      return
+    }
+    playAlertSound()
+    setCloseParcialConfirm({ p, missing, ungraded })
+  }
+
+  async function confirmCloseParcial() {
+    if (!closeParcialConfirm) return
+    const { p, missing } = closeParcialConfirm
+    setClosingParcial(true)
+    try {
+      // Batched creates (Firestore caps batches at 500 writes)
+      const newSubs = []
+      for (let i = 0; i < missing.length; i += 400) {
+        const batch = writeBatch(db)
+        missing.slice(i, i + 400).forEach(({ s, a }) => {
+          const ref = doc(collection(db, 'submissions'))
+          const data = {
+            alumnoId: s.id,
+            actividadId: a.id,
+            calificacion: 0,
+            comentario: '',
+            estado: 'calificado',
+            sinEntrega: true,
+            cierreParcial: true,
+            fechaEntrega: serverTimestamp(),
+          }
+          batch.set(ref, data)
+          newSubs.push({ key: `${s.id}-${a.id}`, data })
+        })
+        await batch.commit()
+      }
+      setGradeSubMap((prev) => {
+        const next = { ...prev }
+        newSubs.forEach(({ key, data }) => { next[key] = data })
+        return next
+      })
+      await updateDoc(doc(db, 'subjects', subjectId), {
+        [`parcialesCerrados.${p}`]: new Date().toISOString(),
+      })
+      setSubject((s) => ({ ...s, parcialesCerrados: { ...(s.parcialesCerrados || {}), [p]: new Date().toISOString() } }))
+      toast(`Parcial ${p} cerrado — ${missing.length} no entrega${missing.length !== 1 ? 's quedaron' : ' quedó'} en 0`)
+      setCloseParcialConfirm(null)
+    } catch (err) {
+      toast('Error al cerrar el parcial: ' + err.message, 'error')
+    } finally {
+      setClosingParcial(false)
+    }
+  }
+
   // Per-parcial EXPORTAR (button in the grades-table header). With
   // ponderación active, the parcial's weights must sum exactly 10 first —
   // the teacher adjusts until it does, then the Excel is generated.
@@ -2155,8 +2237,17 @@ export default function SubjectPage() {
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
                             className="px-1.5 py-1 font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
-                            {/* EXPORTAR sits at the right edge — right above the Prom. column */}
+                            {/* CERRAR at the left edge, EXPORTAR at the right — above the Prom. column */}
                             <div className="relative">
+                              <button type="button" id={`cerrar-parcial-${p}`} onClick={() => requestCloseParcial(p)}
+                                data-tooltip-follow={subject?.parcialesCerrados?.[p]
+                                  ? `Parcial cerrado — vuelve a cerrarlo si hay nuevas no entregas`
+                                  : `Cerrar el Parcial ${p}: todas las no entregas quedarán en 0`}
+                                className={`absolute left-0 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide transition-colors ${subject?.parcialesCerrados?.[p]
+                                  ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                                  : 'bg-surface-container text-muted hover:bg-accent hover:text-white'}`}>
+                                {subject?.parcialesCerrados?.[p] ? 'Cerrado' : 'Cerrar'}
+                              </button>
                               <span>Parcial {p}</span>
                               <button type="button" id={`exportar-parcial-${p}`} onClick={() => handleExportParcial(p)}
                                 data-tooltip-follow={`Parcial ${p} a Excel`}
@@ -3053,6 +3144,36 @@ export default function SubjectPage() {
               >
                 {generatingCredentials ? <Spinner size="sm" /> : <Download size={18} />}
                 {generatingCredentials ? 'Descargando…' : 'Descargar lista'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cerrar parcial: missing submissions become 0 ── */}
+      {closeParcialConfirm && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !closingParcial && setCloseParcialConfirm(null)} />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-center text-on-surface">¿Cerrar el Parcial {closeParcialConfirm.p}?</h3>
+            <p className="text-sm text-muted text-center mt-2">
+              Se asignará <strong className="text-red-600">0 (cero)</strong> a todas las no entregas del parcial:{' '}
+              <strong>{closeParcialConfirm.missing.length} calificación{closeParcialConfirm.missing.length !== 1 ? 'es' : ''} en cero</strong>.
+            </p>
+            {closeParcialConfirm.ungraded > 0 && (
+              <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mt-2 leading-relaxed">
+                Además hay <strong>{closeParcialConfirm.ungraded} entrega{closeParcialConfirm.ungraded !== 1 ? 's' : ''} sin calificar</strong> —
+                a esas NO se les pondrá 0; califícalas tú antes o después de cerrar.
+              </p>
+            )}
+            <div className="flex gap-2 mt-4">
+              <button type="button" onClick={() => setCloseParcialConfirm(null)} disabled={closingParcial}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors">
+                {closingParcial ? 'Cerrando…' : 'Cerrar parcial'}
               </button>
             </div>
           </div>
