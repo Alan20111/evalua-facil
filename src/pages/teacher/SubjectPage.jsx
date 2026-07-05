@@ -2217,15 +2217,30 @@ export default function SubjectPage() {
                           {tableParcials.map(({ p, acts }) => pondParcial(p) ? [
                             ...acts.map((a) => (
                               <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
-                                <input id={`peso-${a.id}`} type="text" inputMode="decimal" min="0" max="10" data-wheel-step="0.5"
-                                  data-wheel-max={pesoRestante(acts, a.id)}
+                                {/* Typing only — no mouse wheel (it changed values by
+                                    accident while scrolling). Clamps LIVE so the
+                                    parcial can never exceed 10. */}
+                                <input id={`peso-${a.id}`} type="text" inputMode="decimal" min="0" max="10"
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
                                   placeholder={String(pesoRestante(acts, a.id))}
-                                  onChange={(e) => setPesoEdits((f) => ({ ...f, [a.id]: e.target.value }))}
+                                  onChange={(e) => {
+                                    let raw = e.target.value
+                                    const n = parseFloat(raw)
+                                    if (!isNaN(n)) {
+                                      const maxAllowed = pesoRestante(acts, a.id)
+                                      if (n > maxAllowed) raw = String(maxAllowed)
+                                      else if (n < 0) raw = '0'
+                                      else {
+                                        const m = raw.match(/^(\d+\.\d)\d+$/)
+                                        if (m) raw = m[1]
+                                      }
+                                    }
+                                    setPesoEdits((f) => ({ ...f, [a.id]: raw }))
+                                  }}
                                   onFocus={(e) => prefillPeso(a, acts, e.target)}
                                   onClick={(e) => prefillPeso(a, acts, e.target)}
                                   onBlur={() => savePeso(a)}
-                                  data-tooltip={`Peso de la actividad ${activityLabelById[a.id] || ''}`}
+                                  data-tooltip={`Peso de la actividad ${activityLabelById[a.id] || ''} — escribe el número; el parcial no pasa de 10`}
                                   className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
                               </th>
                             )),

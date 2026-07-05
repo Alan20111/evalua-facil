@@ -54,7 +54,9 @@ function fmtDuracion(inicio, fin) {
 // of open-ended (respuesta_corta) answers. Lives outside teacher/ActivityPage.jsx
 // (already very large) and is rendered in its place whenever the activity is
 // an evaluación.
-export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, resultadosOnly = false }) {
+// `backState` (optional): router state for the back arrow — e.g. { tab: 'calificaciones' }
+// when the teacher arrived from a grades-table cell, so going back lands there.
+export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, resultadosOnly = false, backState = null }) {
   const navigate = useNavigate()
   const toast = useToast()
   const [tab, setTab] = useState(resultadosOnly ? 'resultados' : 'preguntas')
@@ -518,7 +520,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     <div>
       <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => navigate(`/subject/${activity.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
+          <button type="button" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
