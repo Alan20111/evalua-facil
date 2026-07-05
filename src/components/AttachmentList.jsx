@@ -79,14 +79,16 @@ function FileRow({ f, onRemove, index }) {
 // Standalone inline preview for a single file — same renderer FileRow uses.
 // Exported so any view (materiales, recursos, entregas) can toggle a preview
 // without adopting the whole AttachmentList row UI.
-export function FilePreview({ url, nombre }) {
+// `fill` makes the preview take the full height of its container (used by the
+// fullscreen grading view); default keeps the inline 70vh behavior.
+export function FilePreview({ url, nombre, fill = false }) {
   const ext = resourceExtension(nombre)
   const isPdf = PDF_EXTS.includes(ext)
   const isImage = IMAGE_EXTS.includes(ext)
   const viewUrl = isPdf ? pdfUrl(url) : url
   if (!url) return null
   return isImage ? (
-    <img src={url} alt={nombre} className="w-full max-h-[70vh] object-contain" />
+    <img src={url} alt={nombre} className={`w-full object-contain ${fill ? 'h-full' : 'max-h-[70vh]'}`} />
   ) : isPdf ? (
     // Use <object> with explicit type so the browser applies application/pdf
     // regardless of what Content-Type the server returns.
@@ -95,7 +97,7 @@ export function FilePreview({ url, nombre }) {
       data={viewUrl}
       type="application/pdf"
       className="w-full"
-      style={{ height: '70vh', border: 'none' }}
+      style={{ height: fill ? '100%' : '70vh', border: 'none' }}
     >
       <iframe
         src={docsViewerUrl(viewUrl)}
@@ -110,7 +112,7 @@ export function FilePreview({ url, nombre }) {
       src={docsViewerUrl(viewUrl)}
       title={`Vista previa: ${nombre}`}
       sandbox="allow-scripts allow-same-origin allow-popups"
-      className="w-full h-[70vh]"
+      className={`w-full ${fill ? 'h-full' : 'h-[70vh]'}`}
       style={{ border: 'none' }}
     />
   )
