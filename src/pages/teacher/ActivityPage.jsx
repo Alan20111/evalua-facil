@@ -555,7 +555,7 @@ export default function ActivityPage() {
                   >
                     <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-on-surface truncate">
+                      <p className="text-sm font-medium text-on-surface truncate">
                         {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
                       </p>
                       {sub?.fechaEntrega?.seconds && (
