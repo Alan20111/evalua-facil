@@ -694,20 +694,11 @@ export default function ActivityPage() {
                   </p>
                 </div>
 
-                {/* Autosave opt-in + prev/next navigation */}
+                {/* Prev/next navigation + autosave opt-in below it. The checkbox
+                    keeps its space (invisible) when there's no submission so the
+                    layout doesn't jump while paging through students. */}
                 {navList.length > 1 && (
                   <div className="space-y-1.5">
-                  {selected.sub && (
-                    <label className="flex items-center gap-2 text-sm text-muted cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={autoSaveOnNav}
-                        onChange={toggleAutoSave}
-                        className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
-                      />
-                      Guardar calificación al avanzar o al retroceder
-                    </label>
-                  )}
                   <div className="flex items-center justify-between rounded border border-outline-variant px-2 py-1.5">
                     <button
                       type="button"
@@ -727,6 +718,15 @@ export default function ActivityPage() {
                       Siguiente <ChevronRight size={18} />
                     </button>
                   </div>
+                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${selected.sub ? 'cursor-pointer' : 'invisible'}`}>
+                    <input
+                      type="checkbox"
+                      checked={autoSaveOnNav}
+                      onChange={toggleAutoSave}
+                      className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
+                    />
+                    Guardar calificación al avanzar o al retroceder
+                  </label>
                   </div>
                 )}
 
