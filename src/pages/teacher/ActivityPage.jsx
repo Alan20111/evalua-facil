@@ -278,7 +278,7 @@ export default function ActivityPage() {
       const jobs = buildJobsForActivity({ students, submissions: submissionsArr })
       if (jobs.length === 0) { toast('No hay archivos entregados para descargar'); return }
       const { escritos, errores } = await downloadSubmissionsZip({
-        zipName: activity?.nombre || 'Entregas',
+        zipName: [activityLabel, activity?.nombre || 'Entregas'].filter(Boolean).join(' '),
         jobs,
         onProgress: (done, total) => setZipProgress({ done, total }),
       })
