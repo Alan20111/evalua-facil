@@ -15,9 +15,9 @@ import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import {
-  ArrowLeft, CheckCircle, Clock, Circle, X,
+  ArrowLeft, Clock, X,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
-  ChevronLeft, ChevronRight, FolderDown, Eye,
+  ChevronLeft, ChevronRight, FolderDown,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
@@ -75,7 +75,10 @@ export default function ActivityPage() {
   const [submissions, setSubmissions] = useState({})
   const [filter, setFilter] = useState('todos')
   const [selected, setSelected] = useState(null)
-  const [subPreviewFor, setSubPreviewFor] = useState(null)
+  // Navigation order frozen when the grading view opens — autosaving a grade can
+  // remove the student from the active filter (e.g. "Por calificar"), which would
+  // otherwise reshuffle Anterior/Siguiente mid-session.
+  const [navList, setNavList] = useState([])
   const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '' })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -143,17 +146,55 @@ export default function ActivityPage() {
     const sub = submissions[student.id]
     setSelected({ student, sub })
     setGradeForm({
-      calificacion: sub?.calificacion != null ? String(sub.calificacion) : '',
+      // Delivered but ungraded → prefill the max grade so paging with
+      // Siguiente/Anterior grades with 10 by default (adjust exceptions only).
+      calificacion: sub?.calificacion != null
+        ? String(sub.calificacion)
+        : sub ? String(activity?.maxCalif ?? 10) : '',
       comentario: sub?.comentario || '',
     })
     setExtendMode(false)
     setExtendDate(activity?.extensiones?.[student.id] || '')
   }
 
+  // Entry point from the student list: freezes the navigation order.
+  function openGradeFromList(student) {
+    setNavList(filtered)
+    openGrade(student)
+  }
+
   function closeModal() {
     setSelected(null)
     setExtendMode(false)
     setExtendDate('')
+  }
+
+  // True when the form differs from what's stored — this is what makes
+  // Siguiente/Anterior save without duplicating the Guardar logic.
+  function isDirty() {
+    if (!selected?.sub) return false
+    const cal = parseFloat(gradeForm.calificacion)
+    const calChanged = !isNaN(cal) && cal !== selected.sub.calificacion
+    const comChanged = gradeForm.comentario.trim() !== (selected.sub.comentario || '')
+    return calChanged || comChanged
+  }
+
+  // Single save path shared by the Guardar button and Anterior/Siguiente.
+  // Updates local state in place (no reload) so navigation stays fluid.
+  async function persistGrade() {
+    if (!selected?.sub || !canCreate) return false
+    const cal = parseFloat(gradeForm.calificacion)
+    if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) return false
+    const comentario = gradeForm.comentario.trim()
+    await updateDoc(doc(db, 'submissions', selected.sub.id), {
+      calificacion: cal,
+      comentario,
+      estado: 'calificado',
+    })
+    const updated = { ...selected.sub, calificacion: cal, comentario, estado: 'calificado' }
+    setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
+    setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
+    return true
   }
 
   async function saveGrade(e) {
@@ -165,14 +206,7 @@ export default function ActivityPage() {
     }
     setSaving(true)
     try {
-      await updateDoc(doc(db, 'submissions', selected.sub.id), {
-        calificacion: parseFloat(gradeForm.calificacion),
-        comentario: gradeForm.comentario.trim(),
-        estado: 'calificado',
-      })
-      toast('Calificación guardada')
-      closeModal()
-      loadAll()
+      if (await persistGrade()) toast('Calificación guardada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -239,26 +273,36 @@ export default function ActivityPage() {
     }
   }
 
-  const curIdx = selected ? filtered.findIndex((s) => s.id === selected.student.id) : -1
-  function goToOffset(off) {
-    const next = filtered[curIdx + off]
-    if (next) openGrade(next)
+  const curIdx = selected ? navList.findIndex((s) => s.id === selected.student.id) : -1
+  // Navigating away saves pending changes first (shared persistGrade); a save
+  // error keeps you on the current student instead of silently dropping the grade.
+  async function goToOffset(off) {
+    const next = navList[curIdx + off]
+    if (!next) return
+    if (isDirty()) {
+      try {
+        await persistGrade()
+      } catch (err) {
+        toast('Error al guardar: ' + err.message, 'error')
+        return
+      }
+    }
+    openGrade(next)
   }
 
-  // Navigate submissions with the keyboard arrows while the modal is open.
+  // Navigate submissions with the keyboard arrows while the grading view is open.
   useEffect(() => {
     if (!selected) return
     function onKey(e) {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-      const idx = filtered.findIndex((s) => s.id === selected.student.id)
-      if (idx === -1) return
-      const next = filtered[idx + (e.key === 'ArrowRight' ? 1 : -1)]
-      if (next) openGrade(next)
+      // Don't hijack the caret while typing in the grade/comment fields
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return
+      goToOffset(e.key === 'ArrowRight' ? 1 : -1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, filtered])
+  }, [selected, navList, gradeForm, submissions])
 
   if (loading) return (
     <TeacherLayout>
@@ -439,7 +483,7 @@ export default function ActivityPage() {
                   <button
                     type="button"
                     key={s.id}
-                    onClick={() => openGrade(s)}
+                    onClick={() => openGradeFromList(s)}
                     className={`w-full flex items-center gap-2 px-2 py-1 text-left hover:bg-[var(--accent-tint)] transition-colors cursor-pointer ${
                       i > 0 ? 'border-t border-outline-variant' : ''
                     }`}
@@ -477,217 +521,248 @@ export default function ActivityPage() {
         </div>{/* end Entregas container */}
       </div>
 
-      {/* Grade / detail modal */}
+      {/* Fullscreen grading view — preview left (full height), grading panel right */}
       {selected && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <div className="min-w-0 flex-1">
-                <h3 className="text-base font-semibold text-on-surface truncate">
-                  {selected.student.apellidoPaterno} {selected.student.nombre}
-                </h3>
-                <p className="text-sm text-slate-500 mt-0.5 truncate">
-                  {selected.sub
-                    ? selected.sub.completadoSinArchivo
-                      ? 'Completada sin archivo'
-                      : selected.sub.nombreArchivo
-                    : 'Sin entrega aún'}
-                </p>
-              </div>
-              <button type="button" onClick={closeModal} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
-            </div>
+        <div className="fixed inset-0 z-40 flex flex-col bg-surface">
 
-            {/* Prev / next navigation across the student row */}
-            {filtered.length > 1 && (
-              <div className="flex items-center justify-between mb-2">
-                <button
-                  type="button"
-                  onClick={() => goToOffset(-1)}
-                  disabled={curIdx <= 0}
-                  className="flex items-center gap-1 text-xs font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
-                >
-                  <ChevronLeft size={18} /> Anterior
-                </button>
-                <span className="text-sm text-slate-500">{curIdx + 1} / {filtered.length}</span>
-                <button
-                  type="button"
-                  onClick={() => goToOffset(1)}
-                  disabled={curIdx >= filtered.length - 1}
-                  className="flex items-center gap-1 text-xs font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
-                >
-                  Siguiente <ChevronRight size={18} />
-                </button>
-              </div>
-            )}
-
-            {/* Image preview (when the submission is an image) */}
-            {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL &&
-              isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) && (
-              <a href={selected.sub.archivoURL} target="_blank" rel="noopener noreferrer" className="block mb-2">
-                <img
-                  src={selected.sub.archivoURL}
-                  alt="Entrega del estudiante"
-                  className="w-full max-h-72 object-contain rounded border border-outline-variant bg-surface"
-                />
-              </a>
-            )}
-
-            {/* Current submission */}
-            {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
-              <a
-                href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
-                download={selected.sub.nombreArchivo}
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors mb-2"
-              >
-                <Download size={18} className="text-accent" />
-                Descargar entrega
-              </a>
-            )}
-
-            {/* Inline document preview (PDF/Office) — images already preview above */}
-            {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL &&
-              !isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) &&
-              canPreviewFile(selected.sub.nombreArchivo) && (
-              <div className="mb-2">
-                <button
-                  type="button"
-                  onClick={() => setSubPreviewFor(subPreviewFor === selected.student?.id ? null : selected.student?.id)}
-                  className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors w-full"
-                >
-                  <Eye size={18} className="text-accent" />
-                  {subPreviewFor === selected.student?.id ? 'Ocultar vista previa' : 'Vista previa de la entrega'}
-                </button>
-                {subPreviewFor === selected.student?.id && (
-                  <div className="mt-2 rounded border border-outline-variant overflow-hidden bg-surface">
-                    <FilePreview url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo} />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Submission history */}
-            {selected.sub?.historial?.length > 0 && (
-              <div className="mb-2">
-                <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
-                <div className="space-y-1.5">
-                  {[...selected.sub.historial].reverse().map((v, i) => (
-                    <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
-                      <span className="text-slate-400 flex-shrink-0">
-                        {v.fechaEntrega?.seconds
-                          ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                          : '—'}
-                      </span>
-                      {v.completadoSinArchivo
-                        ? <span className="text-slate-400 italic">sin archivo</span>
-                        : v.archivoURL
-                          ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
-                              <Download size={14} /> {v.nombreArchivo}
-                            </a>
-                          : <span className="text-slate-300 italic">sin archivo</span>
-                      }
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Grade form (only when submission exists) */}
-            {selected.sub ? (
-              <form onSubmit={saveGrade} className="space-y-2">
-                <div>
-                  <label className="block text-sm font-medium text-muted mb-1">
-                    Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={gradeForm.calificacion}
-                    onChange={(e) => setGradeForm((f) => ({ ...f, calificacion: e.target.value }))}
-                    required
-                    min="0"
-                    max={activity?.maxCalif}
-                    step="0.1"
-                    autoFocus
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-muted mb-1">
-                    Comentario <span className="text-slate-400">(opcional)</span>
-                  </label>
-                  <textarea
-                    value={gradeForm.comentario}
-                    onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
-                    rows={2}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
-                    placeholder="Retroalimentación para el estudiante…"
-                  />
-                </div>
-                {!canCreate && (
-                  <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
-                    Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
-                  </p>
-                )}
-                <button
-                  type="submit"
-                  disabled={saving || !canCreate}
-                  className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {saving ? <Spinner size="sm" /> : <Star size={18} />}
-                  {saving ? 'Guardando…' : 'Guardar calificación'}
-                </button>
-              </form>
-            ) : (
-              <p className="text-sm text-slate-400 text-center py-2">
-                El estudiante aún no ha entregado esta tarea.
+          {/* Top bar: subject being graded */}
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-bold text-on-surface truncate">{subjectDisplayName(subject)}</h3>
+              <p className="text-xs text-slate-500 truncate">
+                {activityLabel && <span className="text-accent font-semibold">{activityLabel} · </span>}
+                {activity?.nombre}
               </p>
-            )}
+            </div>
+            <button type="button" onClick={closeModal} className="p-2 text-slate-400 hover:text-muted rounded flex-shrink-0"><X size={22} /></button>
+          </div>
 
-            {/* Bottom actions — extend date */}
-            <div className="mt-2 pt-3 border-t border-outline-variant space-y-2">
+          <div className="flex-1 min-h-0 flex flex-col md:flex-row">
 
-              {/* Extend deadline */}
-              {!extendMode ? (
-                <button
-                  type="button"
-                  onClick={() => setExtendMode(true)}
-                  className="text-sm text-slate-500 hover:text-muted transition-colors"
-                >
-                  Modificar fecha de entrega
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted">Nueva fecha límite para este estudiante</p>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <EFDateTimePicker
-                        mode="date"
-                        value={extendDate}
-                        onChange={setExtendDate}
-                        clearable={false}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={saveExtension}
-                      disabled={!extendDate || savingExtension}
-                      className="px-4 py-2 bg-accent text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors"
-                    >
-                      {savingExtension ? '…' : 'Guardar'}
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setExtendMode(false)}
-                    className="text-sm text-slate-500"
+            {/* Left: file preview, top to bottom */}
+            <div className="h-[45vh] md:h-auto md:flex-1 min-w-0 bg-surface-container flex flex-col">
+              {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL ? (
+                isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) ? (
+                  <a
+                    href={selected.sub.archivoURL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 min-h-0 flex items-center justify-center p-3"
+                    data-tooltip="Abrir en tamaño completo"
                   >
-                    Cancelar
-                  </button>
+                    <img
+                      src={selected.sub.archivoURL}
+                      alt="Entrega del estudiante"
+                      className="max-w-full max-h-full object-contain rounded"
+                    />
+                  </a>
+                ) : canPreviewFile(selected.sub.nombreArchivo) ? (
+                  <div className="flex-1 min-h-0">
+                    <FilePreview url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo} fill />
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
+                    <p>Sin vista previa disponible para este tipo de archivo.</p>
+                    <a
+                      href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
+                      download={selected.sub.nombreArchivo}
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors"
+                    >
+                      <Download size={18} className="text-accent" />
+                      Descargar entrega
+                    </a>
+                  </div>
+                )
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-slate-400 text-sm p-6 text-center">
+                  {selected.sub?.completadoSinArchivo
+                    ? 'Actividad completada sin archivo.'
+                    : 'El estudiante aún no ha entregado esta tarea.'}
                 </div>
               )}
             </div>
 
+            {/* Right: grading panel */}
+            <div className="flex-1 md:flex-none w-full md:w-[380px] bg-surface-card border-t md:border-t-0 md:border-l border-outline-variant overflow-y-auto">
+              <div className="p-4 space-y-3">
+
+                {/* Student */}
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="text-base font-semibold text-on-surface truncate">
+                      {selected.student.apellidoPaterno} {selected.student.apellidoMaterno} {selected.student.nombre}
+                    </h4>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[getStatus(selected.student.id)]}`}>
+                      {STATUS_LABELS[getStatus(selected.student.id)]}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-500 mt-0.5 truncate">
+                    {selected.sub
+                      ? selected.sub.completadoSinArchivo
+                        ? 'Completada sin archivo'
+                        : selected.sub.nombreArchivo
+                      : 'Sin entrega aún'}
+                  </p>
+                </div>
+
+                {/* Prev / next navigation — saves pending changes before moving */}
+                {navList.length > 1 && (
+                  <div className="flex items-center justify-between rounded border border-outline-variant px-2 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => goToOffset(-1)}
+                      disabled={curIdx <= 0}
+                      className="flex items-center gap-1 text-sm font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
+                    >
+                      <ChevronLeft size={18} /> Anterior
+                    </button>
+                    <span className="text-sm text-slate-500">{curIdx + 1} / {navList.length}</span>
+                    <button
+                      type="button"
+                      onClick={() => goToOffset(1)}
+                      disabled={curIdx >= navList.length - 1}
+                      className="flex items-center gap-1 text-sm font-medium text-muted hover:text-accent disabled:opacity-30 disabled:hover:text-muted transition-colors"
+                    >
+                      Siguiente <ChevronRight size={18} />
+                    </button>
+                  </div>
+                )}
+
+                {/* Grade form (only when submission exists) */}
+                {selected.sub ? (
+                  <form onSubmit={saveGrade} className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-muted mb-1">
+                        Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={gradeForm.calificacion}
+                        onChange={(e) => setGradeForm((f) => ({ ...f, calificacion: e.target.value }))}
+                        required
+                        min="0"
+                        max={activity?.maxCalif}
+                        step="0.1"
+                        autoFocus
+                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                      />
+                    </div>
+
+                    {!selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
+                      <a
+                        href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
+                        download={selected.sub.nombreArchivo}
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors"
+                      >
+                        <Download size={18} className="text-accent" />
+                        Descargar entrega
+                      </a>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-muted mb-1">
+                        Comentario <span className="text-slate-400">(opcional)</span>
+                      </label>
+                      <textarea
+                        value={gradeForm.comentario}
+                        onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
+                        rows={3}
+                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                        placeholder="Retroalimentación para el estudiante…"
+                      />
+                    </div>
+                    {!canCreate && (
+                      <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
+                        Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
+                      </p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={saving || !canCreate}
+                      className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                    >
+                      {saving ? <Spinner size="sm" /> : <Star size={18} />}
+                      {saving ? 'Guardando…' : 'Guardar calificación'}
+                    </button>
+                  </form>
+                ) : (
+                  <p className="text-sm text-slate-400 text-center py-2">
+                    El estudiante aún no ha entregado esta tarea.
+                  </p>
+                )}
+
+                {/* Submission history */}
+                {selected.sub?.historial?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
+                    <div className="space-y-1.5">
+                      {[...selected.sub.historial].reverse().map((v, i) => (
+                        <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
+                          <span className="text-slate-400 flex-shrink-0">
+                            {v.fechaEntrega?.seconds
+                              ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                              : '—'}
+                          </span>
+                          {v.completadoSinArchivo
+                            ? <span className="text-slate-400 italic">sin archivo</span>
+                            : v.archivoURL
+                              ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
+                                  <Download size={14} /> {v.nombreArchivo}
+                                </a>
+                              : <span className="text-slate-300 italic">sin archivo</span>
+                          }
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Extend deadline for this student */}
+                <div className="pt-3 border-t border-outline-variant space-y-2">
+                  {!extendMode ? (
+                    <button
+                      type="button"
+                      onClick={() => setExtendMode(true)}
+                      className="text-sm text-slate-500 hover:text-muted transition-colors"
+                    >
+                      Modificar fecha de entrega para este estudiante
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted">Nueva fecha límite para este estudiante</p>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <EFDateTimePicker
+                            mode="date"
+                            value={extendDate}
+                            onChange={setExtendDate}
+                            clearable={false}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={saveExtension}
+                          disabled={!extendDate || savingExtension}
+                          className="px-4 py-2 bg-accent text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors"
+                        >
+                          {savingExtension ? '…' : 'Guardar'}
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setExtendMode(false)}
+                        className="text-sm text-slate-500"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
           </div>
         </div>
       )}
