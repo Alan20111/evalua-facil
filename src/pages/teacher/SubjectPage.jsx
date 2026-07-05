@@ -2346,7 +2346,7 @@ export default function SubjectPage() {
                               data-col={colIndexByKey[`act-${a.id}`]}
                               onClick={() => navigate(`/activity/${a.id}`, { state: { returnTo: 'calificaciones' } })}
                               className={`w-9 px-0.5 py-1.5 font-semibold text-on-surface text-center border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
-                              <span className="block truncate" data-tooltip={`${a.nombre} — clic para ver la actividad`}>{activityLabelById[a.id] || a.nombre}</span>
+                              <span className="block truncate" data-tooltip={a.nombre}>{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
                           <th key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey[`avg-${p}`])}`}>
