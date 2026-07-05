@@ -558,13 +558,6 @@ export default function ActivityPage() {
                       <p className="text-sm font-medium text-on-surface truncate">
                         {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
                       </p>
-                      {sub?.fechaEntrega?.seconds && (
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {new Date(sub.fechaEntrega.seconds * 1000).toLocaleString('es-MX', {
-                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                          })}
-                        </p>
-                      )}
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {hasExtension && <CalendarDays size={15} className="text-orange-400" />}
