@@ -15,7 +15,7 @@ import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import {
-  ArrowLeft, Clock, X,
+  ArrowLeft, Clock,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
   ChevronLeft, ChevronRight, FolderDown,
 } from 'lucide-react'
@@ -254,15 +254,21 @@ export default function ActivityPage() {
     calificado: students.filter((s) => getStatus(s.id) === 'calificado').length,
   }
 
-  let filtered = filter === 'todos' ? students : students.filter((s) => getStatus(s.id) === filter)
-  if (searchStudents.trim()) {
-    filtered = filtered.filter((s) => matchesStudentSearch(s, searchStudents))
+  // Shared by the list page and the fullscreen grading view (its filter tabs
+  // need the would-be list for a filter BEFORE the state re-renders).
+  function applyStudentFilters(f) {
+    let list = f === 'todos' ? students : students.filter((s) => getStatus(s.id) === f)
+    if (searchStudents.trim()) {
+      list = list.filter((s) => matchesStudentSearch(s, searchStudents))
+    }
+    if (sortAlpha) {
+      list = [...list].sort((a, b) =>
+        `${a.apellidoPaterno} ${a.nombre}`.localeCompare(`${b.apellidoPaterno} ${b.nombre}`, 'es')
+      )
+    }
+    return list
   }
-  if (sortAlpha) {
-    filtered = [...filtered].sort((a, b) =>
-      `${a.apellidoPaterno} ${a.nombre}`.localeCompare(`${b.apellidoPaterno} ${b.nombre}`, 'es')
-    )
-  }
+  const filtered = applyStudentFilters(filter)
 
   async function handleZipDownload() {
     setZipDownloading(true)
@@ -293,6 +299,26 @@ export default function ActivityPage() {
       localStorage.setItem('ef-autosave-nav', v ? '0' : '1')
       return !v
     })
+  }
+
+  // Filter tabs inside the grading view: re-freeze the navigation list to the new
+  // filter and, if the current student doesn't belong to it, jump to its first
+  // student (saving pending changes first when autosave is on).
+  async function changeFilterInView(f) {
+    const list = applyStudentFilters(f)
+    setFilter(f)
+    setNavList(list)
+    if (list.length && !list.some((s) => s.id === selected.student.id)) {
+      if (autoSaveOnNav && isDirty()) {
+        try {
+          await persistGrade()
+        } catch (err) {
+          toast('Error al guardar: ' + err.message, 'error')
+          return
+        }
+      }
+      openGrade(list[0])
+    }
   }
 
   // Navigating away saves pending changes first (shared persistGrade) — only when
@@ -547,16 +573,22 @@ export default function ActivityPage() {
       {selected && (
         <div className="fixed inset-0 z-40 flex flex-col bg-surface">
 
-          {/* Top bar: subject being graded */}
+          {/* Top bar: back + subject being graded */}
           <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0">
-            <div className="flex-1 min-w-0">
+            <button
+              type="button"
+              onClick={closeModal}
+              className="flex items-center gap-1 p-2 -ml-2 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
+            >
+              <ArrowLeft size={20} /> Regresar
+            </button>
+            <div className="flex-1 min-w-0 text-right sm:text-left">
               <h3 className="text-base font-bold text-on-surface truncate">{subjectDisplayName(subject)}</h3>
               <p className="text-xs text-slate-500 truncate">
                 {activityLabel && <span className="text-accent font-semibold">{activityLabel} · </span>}
                 {activity?.nombre}
               </p>
             </div>
-            <button type="button" onClick={closeModal} className="p-2 text-slate-400 hover:text-muted rounded flex-shrink-0"><X size={22} /></button>
           </div>
 
           <div className="flex-1 min-h-0 flex flex-col md:flex-row">
@@ -608,6 +640,22 @@ export default function ActivityPage() {
             {/* Right: grading panel */}
             <div className="flex-1 md:flex-none w-full md:w-[380px] bg-surface-card border-t md:border-t-0 md:border-l border-outline-variant overflow-y-auto">
               <div className="p-4 space-y-3">
+
+                {/* Filter tabs — same sets as the list; switching re-freezes navigation */}
+                <div className="grid grid-cols-2 gap-1 bg-surface-container p-1 rounded">
+                  {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
+                    <button
+                      type="button"
+                      key={f}
+                      onClick={() => changeFilterInView(f)}
+                      className={`py-1.5 px-1 text-xs font-medium rounded transition-colors ${
+                        filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
+                      }`}
+                    >
+                      {FILTER_LABELS[f]} ({f === 'todos' ? students.length : counts[f]})
+                    </button>
+                  ))}
+                </div>
 
                 {/* Student */}
                 <div>
