@@ -22,7 +22,7 @@ import AttachmentList from '../../components/AttachmentList'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
   Clock, Circle, Star, FolderOpen, BookOpen, Paperclip,
-  GraduationCap, ListChecks, FileText,
+  GraduationCap, ListChecks, FileText, ClipboardCheck,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
@@ -65,7 +65,7 @@ const TABS = ['Actividades', 'Calificaciones', 'Recursos']
 // 'actividad'/'tarea' are legacy categoria values from before they were
 // merged into a single "Entregable" option — still mapped here so old
 // activities keep showing a correct label without needing a data migration.
-const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', cuestionario: 'Cuestionario', examen: 'Examen' }
+const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', cuestionario: 'Cuestionario', examen: 'Examen', observacion: 'Observación' }
 
 function formatFechaLimite(value) {
   if (!value) return ''
@@ -301,6 +301,7 @@ export default function StudentSubjectPage() {
                       // Same icon-per-type as the teacher's list so both views read alike
                       const ActIcon = a.categoria === 'examen' ? GraduationCap
                         : a.categoria === 'cuestionario' ? ListChecks
+                        : a.categoria === 'observacion' ? ClipboardCheck
                         : FileText
                       return (
                         <button
@@ -309,7 +310,7 @@ export default function StudentSubjectPage() {
                           onClick={() => navigate(`/alumno/actividad/${a.id}`)}
                           className="w-full flex items-center gap-2 px-3 py-2 rounded border border-outline-variant bg-surface-card hover:border-accent hover:bg-[var(--accent-tint)] transition-colors duration-200 text-left"
                         >
-                          <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                          <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
                           <div className="flex-1 min-w-0">
                             <p className="text-base font-medium leading-tight text-on-surface truncate">
                               {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} · </span>}

@@ -40,7 +40,7 @@ import {
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, BookOpen, Paperclip, FileCheck2, Timer,
-  ListChecks, GraduationCap,
+  ListChecks, GraduationCap, ClipboardCheck,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
@@ -1820,6 +1820,7 @@ export default function SubjectPage() {
                         // Distinct icon per activity type so they're recognizable at a glance
                         const ActIcon = a.categoria === 'examen' ? GraduationCap
                           : a.categoria === 'cuestionario' ? ListChecks
+                          : a.categoria === 'observacion' ? ClipboardCheck
                           : FileText
                         return (
                           <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
@@ -1828,13 +1829,13 @@ export default function SubjectPage() {
                               onClick={() => isDraftActivity(a) ? openEdit(a, activityLabelById[a.id]) : navigate(`/activity/${a.id}`)}
                               data-tooltip-follow={isDraftActivity(a) ? 'Editar borrador' : 'Calificar'}
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
-                              <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                              <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
                                 <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-slate-400' : 'text-on-surface'}`}>
                                   {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} · </span>}
                                   {a.nombre}
                                   <span className={`text-xs font-normal ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>
-                                    {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : 'Entregable'})
+                                    {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : 'Entregable'})
                                   </span>
                                 </p>
                                 {(a.publishedAt || a.fechaLimite || a.publishAt || visState === 'hidden') && (
@@ -2458,12 +2459,13 @@ export default function SubjectPage() {
                   { key: 'entregable', label: 'Entregable', desc: 'El alumno sube un archivo o la marca como completada.' },
                   { key: 'cuestionario', label: 'Cuestionario', desc: 'Preguntas con calificación automática. Ideal para práctica o aprendizaje.' },
                   { key: 'examen', label: 'Examen', desc: 'Preguntas con calificación automática. Para evaluación formal.' },
+                  { key: 'observacion', label: 'Observación', desc: 'Sin entrega del alumno: tú observas y calificas. Ej.: actitud, exposición de tema, realización de ejercicio.' },
                 ].map((opt) => (
                   <button key={opt.key} type="button"
                     onClick={() => {
                       setShowModal(false)
-                      if (opt.key === 'entregable') {
-                        setEntregableEditor({ activityId: null, parcial: modalParcial, categoria: 'entregable', activityLabel: null, initialForm: null, initialExistingFiles: null })
+                      if (opt.key === 'entregable' || opt.key === 'observacion') {
+                        setEntregableEditor({ activityId: null, parcial: modalParcial, categoria: opt.key, activityLabel: null, initialForm: null, initialExistingFiles: null })
                       } else {
                         setEvalEditor({ activityId: null, categoria: opt.key, parcial: modalParcial, activityLabel: `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial).length + 1}` })
                       }

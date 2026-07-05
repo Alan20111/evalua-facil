@@ -408,6 +408,8 @@ export default function StudentActivityPage() {
   const isGraded = submission?.calificacion != null
   const isDelivered = !!submission && !isGraded
   const noFile = submission?.completadoSinArchivo
+  // Observación: no delivery from the student — the teacher grades directly
+  const isObservacion = activity?.tipo === 'observacion' || activity?.categoria === 'observacion'
 
   // Extended deadline for this student (set by teacher)
   const extendedDate = activity?.extensiones?.[student?.id]
@@ -450,6 +452,7 @@ export default function StudentActivityPage() {
             <p className="font-semibold text-on-surface text-sm">
               {isGraded ? 'Calificado'
                 : isDelivered ? 'Entregado — pendiente de calificación'
+                : isObservacion ? 'Por calificar — tu profesor evalúa esta actividad directamente, no requiere entrega'
                 : 'Pendiente de entrega'}
             </p>
             {isDelivered && (
@@ -528,13 +531,13 @@ export default function StudentActivityPage() {
           )}
         </div>
 
-        {/* Upload */}
-        {(!submission || canResubmit) && isPastDeadline && (
+        {/* Upload (never shown for observación — nothing to deliver) */}
+        {!isObservacion && (!submission || canResubmit) && isPastDeadline && (
           <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
             El plazo de entrega para esta actividad ya cerró.
           </div>
         )}
-        {(!submission || canResubmit) && !isPastDeadline && (
+        {!isObservacion && (!submission || canResubmit) && !isPastDeadline && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <h2 className="font-semibold text-on-surface mb-1">
               {canResubmit ? 'Subir versión corregida' : 'Subir entrega'}

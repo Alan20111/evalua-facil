@@ -8,7 +8,9 @@ import {
   getDocs,
   getDoc,
   updateDoc,
+  addDoc,
   doc,
+  serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useToast } from '../../components/Toast'
@@ -100,6 +102,9 @@ export default function ActivityPage() {
   const toast = useToast()
   const { subscription } = useSubscription()
   const canCreate = canCreateContent(subscription)
+  // Observación: no student submission — the teacher observes and grades directly,
+  // so the grade form is always available and saving creates the submission doc.
+  const isObservacion = activity?.tipo === 'observacion' || activity?.categoria === 'observacion'
 
   useEffect(() => { loadAll() }, [activityId])
 
@@ -151,11 +156,12 @@ export default function ActivityPage() {
     const sub = submissions[student.id]
     setSelected({ student, sub })
     setGradeForm({
-      // Delivered but ungraded → prefill the max grade so paging with
-      // Siguiente/Anterior grades with 10 by default (adjust exceptions only).
+      // Delivered but ungraded (or observación, which never has a delivery) →
+      // prefill the max grade so paging with Siguiente/Anterior grades with 10
+      // by default (adjust exceptions only).
       calificacion: sub?.calificacion != null
         ? String(sub.calificacion)
-        : sub ? String(activity?.maxCalif ?? 10) : '',
+        : (sub || isObservacion) ? String(activity?.maxCalif ?? 10) : '',
       comentario: sub?.comentario || '',
     })
     setExtendMode(false)
@@ -188,7 +194,13 @@ export default function ActivityPage() {
   // True when the form differs from what's stored — this is what makes
   // Siguiente/Anterior save without duplicating the Guardar logic.
   function isDirty() {
-    if (!selected?.sub) return false
+    if (!selected) return false
+    if (!selected.sub) {
+      // Observación without a grade yet: any valid grade in the box is unsaved
+      if (!isObservacion) return false
+      const cal = parseFloat(gradeForm.calificacion)
+      return !isNaN(cal) || !!gradeForm.comentario.trim()
+    }
     const cal = parseFloat(gradeForm.calificacion)
     const calChanged = !isNaN(cal) && cal !== selected.sub.calificacion
     const comChanged = gradeForm.comentario.trim() !== (selected.sub.comentario || '')
@@ -197,17 +209,35 @@ export default function ActivityPage() {
 
   // Single save path shared by the Guardar button and Anterior/Siguiente.
   // Updates local state in place (no reload) so navigation stays fluid.
+  // For observación, the first grade CREATES the submission doc (there is no
+  // student delivery to attach to).
   async function persistGrade() {
-    if (!selected?.sub || !canCreate) return false
+    if (!selected || !canCreate) return false
+    if (!selected.sub && !isObservacion) return false
     const cal = parseFloat(gradeForm.calificacion)
     if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) return false
     const comentario = gradeForm.comentario.trim()
-    await updateDoc(doc(db, 'submissions', selected.sub.id), {
-      calificacion: cal,
-      comentario,
-      estado: 'calificado',
-    })
-    const updated = { ...selected.sub, calificacion: cal, comentario, estado: 'calificado' }
+    let updated
+    if (selected.sub) {
+      await updateDoc(doc(db, 'submissions', selected.sub.id), {
+        calificacion: cal,
+        comentario,
+        estado: 'calificado',
+      })
+      updated = { ...selected.sub, calificacion: cal, comentario, estado: 'calificado' }
+    } else {
+      const data = {
+        actividadId: activityId,
+        alumnoId: selected.student.id,
+        calificacion: cal,
+        comentario,
+        estado: 'calificado',
+        sinEntrega: true,
+        fechaEntrega: serverTimestamp(),
+      }
+      const ref = await addDoc(collection(db, 'submissions'), data)
+      updated = { id: ref.id, ...data }
+    }
     setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
     setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
     return true
@@ -215,7 +245,7 @@ export default function ActivityPage() {
 
   async function saveGrade(e) {
     e.preventDefault()
-    if (!selected?.sub) return
+    if (!selected?.sub && !isObservacion) return
     if (!canCreate) {
       toast('Activa tu suscripción mensual para registrar calificaciones — toda tu información sigue disponible')
       return
@@ -457,7 +487,8 @@ export default function ActivityPage() {
               />
             </div>
           )}
-          {/* Accepted file types for this entregable */}
+          {/* Accepted file types for this entregable (observación has no delivery) */}
+          {!isObservacion && (
           <div className="flex items-center gap-1.5 mt-2 flex-wrap text-xs text-muted">
             <span className="font-medium">Archivos aceptados:</span>
             {normalizeFileTypeKeys(activity?.tiposArchivo).map((k) => (
@@ -468,6 +499,7 @@ export default function ActivityPage() {
               </span>
             ))}
           </div>
+          )}
 
           <AttachmentList files={activity?.archivosAdjuntos} />
 
@@ -651,9 +683,11 @@ export default function ActivityPage() {
                 )
               ) : (
                 <div className="flex-1 flex items-center justify-center text-slate-400 text-sm p-6 text-center">
-                  {selected.sub?.completadoSinArchivo
-                    ? 'Actividad completada sin archivo.'
-                    : 'El estudiante aún no ha entregado esta tarea.'}
+                  {isObservacion
+                    ? 'Actividad de observación — no requiere entrega. Califica directamente en el panel.'
+                    : selected.sub?.completadoSinArchivo
+                      ? 'Actividad completada sin archivo.'
+                      : 'El estudiante aún no ha entregado esta tarea.'}
                 </div>
               )}
             </div>
@@ -691,11 +725,13 @@ export default function ActivityPage() {
                     </span>
                   </div>
                   <p className="text-sm text-slate-500 mt-0.5 truncate">
-                    {selected.sub
-                      ? selected.sub.completadoSinArchivo
-                        ? 'Completada sin archivo'
-                        : selected.sub.nombreArchivo
-                      : 'Sin entrega aún'}
+                    {isObservacion
+                      ? 'Observación — se califica sin entrega'
+                      : selected.sub
+                        ? selected.sub.completadoSinArchivo
+                          ? 'Completada sin archivo'
+                          : selected.sub.nombreArchivo
+                        : 'Sin entrega aún'}
                   </p>
                 </div>
 
@@ -704,7 +740,7 @@ export default function ActivityPage() {
                     Siguiente — and the grade right below — never jump around. */}
                 {navList.length > 1 && (
                   <div className="space-y-1.5">
-                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${selected.sub ? 'cursor-pointer' : 'invisible'}`}>
+                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion) ? 'cursor-pointer' : 'invisible'}`}>
                     <input
                       type="checkbox"
                       checked={autoSaveOnNav}
@@ -736,13 +772,13 @@ export default function ActivityPage() {
                   </div>
                 )}
 
-                {/* Grade form (only when submission exists) */}
-                {selected.sub ? (
+                {/* Grade form (when a submission exists — or always for observación) */}
+                {(selected.sub || isObservacion) ? (
                   <form onSubmit={saveGrade} className="space-y-3">
                     {/* Download on the left, grade (with its own header) on the
                         right — narrow input keeps the spinner arrows by the number */}
                     <div className="flex gap-2 items-end">
-                      {!selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
+                      {selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL && (
                         <a
                           href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
                           download={selected.sub.nombreArchivo}
@@ -837,7 +873,8 @@ export default function ActivityPage() {
                   </div>
                 )}
 
-                {/* Extend deadline for this student */}
+                {/* Extend deadline for this student (no deadline in observación) */}
+                {!isObservacion && (
                 <div className="pt-3 border-t border-outline-variant space-y-2">
                   {!extendMode ? (
                     <button
@@ -886,6 +923,7 @@ export default function ActivityPage() {
                     </div>
                   )}
                 </div>
+                )}
 
               </div>
             </div>
