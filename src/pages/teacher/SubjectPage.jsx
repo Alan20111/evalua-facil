@@ -10,7 +10,7 @@ import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { exportSubjectGrades, exportParcialGrades, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
-import { exportSubjectGradesPDF, exportCredentialsPDF, exportQRPDF } from '../../utils/pdf'
+import { exportSubjectGradesPDF, exportParcialGradesPDF, exportCredentialsPDF, exportQRPDF } from '../../utils/pdf'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
@@ -61,6 +61,20 @@ async function fetchSubmissionsForActivities(actIds) {
     )
   )
   return snaps.flatMap((s) => s.docs)
+}
+
+// Distributes 10 points equally across n activities, 1 decimal, summing to
+// exactly 10 (cumulative rounding). Used as the default when ponderación is
+// activated — every activity weighs the same (a simple average, in points).
+function equalWeights(n) {
+  const out = []
+  let prev = 0
+  for (let i = 1; i <= n; i++) {
+    const cum = Math.round((10 * i / n) * 10) / 10
+    out.push(Math.round((cum - prev) * 10) / 10)
+    prev = cum
+  }
+  return out
 }
 
 const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show', esEvaluacion: false }
@@ -152,6 +166,8 @@ export default function SubjectPage() {
   const [revertingParcial, setRevertingParcial] = useState(false)
   // Kebab menu per parcial header: null | { p, x, y } (fixed coords from the ⋮ button)
   const [parcialMenu, setParcialMenu] = useState(null)
+  // Top export split-buttons ⋮ dropdown: null | 'excel' | 'pdf'
+  const [topExportMenu, setTopExportMenu] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -1490,42 +1506,56 @@ export default function SubjectPage() {
     }
   }
 
-  // Per-parcial EXPORTAR (button in the grades-table header). With
-  // ponderación active, the parcial's weights must sum exactly 10 first —
-  // the teacher adjusts until it does, then the Excel is generated.
-  async function handleExportParcial(p) {
-    if (!subject) return
-    // Hard gate: with ponderación active IN THIS PARCIAL, it can only be
-    // exported when its weights sum EXACTLY 10 (saved and in-progress values)
-    if (ponderacionActivaEnParcial(subject, p)) {
-      const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
-      const total = pesoTotalVivo(acts)
-      if (Math.abs(total - 10) > 0.001) {
-        const msg = `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para exportar`
-        const btn = document.getElementById(`parcial-menu-${p}`)
-        if (btn) showNear(btn, msg)
-        else toast(msg, 'warning')
-        return
-      }
+  // Loads students + grades if not already in state, returns them for export.
+  async function ensureGradesData() {
+    let students = groupStudents
+    let subMap = gradeSubMap
+    if (!groupStudentsLoaded) {
+      const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
+      students = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      setGroupStudents(students); setGroupStudentsLoaded(true)
     }
+    if (!gradesLoaded) {
+      const subDocs = await fetchSubmissionsForActivities(activities.map((a) => a.id))
+      subMap = {}
+      subDocs.forEach((d) => { const data = d.data(); subMap[`${data.alumnoId}-${data.actividadId}`] = data })
+      setGradeSubMap(subMap); setGradesLoaded(true)
+    }
+    return { students, submissions: Object.values(subMap) }
+  }
+
+  // Ungated per-parcial exports (used by the top Excel/PDF ⋮ menus for a
+  // "progress" print at any time).
+  async function doExportParcialExcel(p) {
+    if (!subject) return
     setExporting(true)
     try {
-      let students = groupStudents
-      let subMap = gradeSubMap
-      if (!groupStudentsLoaded) {
-        const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
-        students = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-        setGroupStudents(students); setGroupStudentsLoaded(true)
-      }
-      if (!gradesLoaded) {
-        const subDocs = await fetchSubmissionsForActivities(activities.map((a) => a.id))
-        subMap = {}
-        subDocs.forEach((d) => { const data = d.data(); subMap[`${data.alumnoId}-${data.actividadId}`] = data })
-        setGradeSubMap(subMap); setGradesLoaded(true)
-      }
-      exportParcialGrades({ subject, activities, students, submissions: Object.values(subMap), parcial: p })
+      const { students, submissions } = await ensureGradesData()
+      exportParcialGrades({ subject, activities, students, submissions, parcial: p })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExporting(false) }
+  }
+  async function doExportParcialPDF(p) {
+    if (!subject) return
+    setExportingGradesPdf(true)
+    try {
+      const { students, submissions } = await ensureGradesData()
+      await exportParcialGradesPDF({ subject, activities, students, submissions, parcial: p })
+    } catch (err) { toast('Error al exportar PDF: ' + err.message, 'error') }
+    finally { setExportingGradesPdf(false) }
+  }
+
+  // Per-parcial EXPORTAR from the parcial's ⋮ menu — the FORMAL export, only
+  // available once the parcial is CLOSED (all grades finalized).
+  async function handleExportParcial(p) {
+    if (!subject) return
+    if (!subject?.parcialesCerrados?.[p]) {
+      const msg = `Cierra el Parcial ${p} para poder exportarlo a Excel`
+      const btn = document.getElementById(`parcial-menu-${p}`)
+      if (btn) showNear(btn, msg); else toast(msg, 'warning')
+      return
+    }
+    await doExportParcialExcel(p)
   }
 
   async function handleExportQRPDF() {
@@ -1659,6 +1689,8 @@ export default function SubjectPage() {
   const pondParcial = (p) => ponderacionActivaEnParcial(subject, p)
   const ALL_PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
   const anyPonderacionOn = ALL_PARCIALES.some(pondParcial)
+  // Parciales that actually have activities — offered in the per-parcial export menus
+  const parcialesConActividades = ALL_PARCIALES.filter((p) => activities.some((a) => a.parcial === p && !isDraftActivity(a)))
 
   // Global button: turns EVERY parcial on/off at once
   function togglePonderacion() {
@@ -1687,7 +1719,19 @@ export default function SubjectPage() {
         ? { ponderacionActivada: true, ponderacionParciales: map, ponderacionVisibleAlumnos: false }
         : { ponderacionActivada: false, ponderacionParciales: map }
       await updateDoc(doc(db, 'subjects', subjectId), updates)
-      if (!next && conPeso.length > 0) {
+      if (next) {
+        // Default: every activity of every parcial weighs the same (sum 10)
+        const batch = writeBatch(db)
+        const updated = {}
+        ALL_PARCIALES.forEach((p) => {
+          const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a)).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+          const w = equalWeights(acts.length)
+          acts.forEach((a, i) => { batch.update(doc(db, 'activities', a.id), { pesoCalificacion: w[i] }); updated[a.id] = w[i] })
+        })
+        await batch.commit()
+        setActivities((prev) => prev.map((x) => updated[x.id] !== undefined ? { ...x, pesoCalificacion: updated[x.id] } : x))
+        setPesoEdits({})
+      } else if (conPeso.length > 0) {
         const batch = writeBatch(db)
         conPeso.forEach((a) => batch.update(doc(db, 'activities', a.id), { pesoCalificacion: null }))
         await batch.commit()
@@ -1696,7 +1740,7 @@ export default function SubjectPage() {
       }
       setSubject((s) => ({ ...s, ...updates }))
       toast(next
-        ? 'Ponderación activada en todos los parciales — asigna un peso del 1 al 10 a cada actividad'
+        ? 'Ponderación activada — todas las actividades valen lo mismo (puedes ajustar los pesos)'
         : 'Promedio simple activado — los pesos se borraron')
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
@@ -1723,7 +1767,19 @@ export default function SubjectPage() {
       const updates = { ponderacionParciales: map, ponderacionActivada: any }
       if (next && !anyPonderacionOn) updates.ponderacionVisibleAlumnos = false
       await updateDoc(doc(db, 'subjects', subjectId), updates)
-      if (!next) {
+      if (next) {
+        // Default equal weights (sum 10) for this parcial's activities
+        const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a)).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        const w = equalWeights(acts.length)
+        const updated = {}
+        if (acts.length) {
+          const batch = writeBatch(db)
+          acts.forEach((a, i) => { batch.update(doc(db, 'activities', a.id), { pesoCalificacion: w[i] }); updated[a.id] = w[i] })
+          await batch.commit()
+          setActivities((prev) => prev.map((x) => updated[x.id] !== undefined ? { ...x, pesoCalificacion: updated[x.id] } : x))
+          setPesoEdits((f) => { const n = { ...f }; acts.forEach((a) => delete n[a.id]); return n })
+        }
+      } else {
         const conPeso = activities.filter((a) => a.parcial === p && pesoDe(a) > 0)
         if (conPeso.length) {
           const batch = writeBatch(db)
@@ -1734,7 +1790,7 @@ export default function SubjectPage() {
       }
       setSubject((s) => ({ ...s, ...updates }))
       toast(next
-        ? `Ponderación activada en el Parcial ${p} — asigna pesos hasta sumar 10`
+        ? `Ponderación activada en el Parcial ${p} — todas valen lo mismo (puedes ajustar)`
         : `Parcial ${p} con promedio simple — sus pesos se borraron`)
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
@@ -2177,26 +2233,75 @@ export default function SubjectPage() {
         ══════════════════════════════════════════════════════════ */}
         {activeTab === 'calificaciones' && (
           <div className="px-4 py-2 space-y-2">
-            {/* 1 — Descargar calificaciones (Excel / PDF) */}
+            {/* 1 — Descargar calificaciones. El botón grande baja TODO; el ⋮
+                 ofrece una descarga por parcial (progreso, sin cerrar). */}
             <div>
               <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
               <div className="flex gap-2">
-                <button type="button"
-                  onClick={handleExport}
-                  disabled={exporting}
-                  data-tooltip="Descarga las calificaciones de todos los estudiantes en una hoja de Excel"
-                  className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
-                >
-                  {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
-                </button>
-                <button type="button"
-                  onClick={handleExportGradesPDF}
-                  disabled={exportingGradesPdf}
-                  data-tooltip="Descarga las calificaciones de todos los estudiantes en un PDF imprimible"
-                  className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
-                >
-                  {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
-                </button>
+                {/* Excel split-button */}
+                <div className="flex-1 relative flex">
+                  <button type="button"
+                    onClick={handleExport}
+                    disabled={exporting}
+                    data-tooltip="Descarga TODAS las calificaciones en una hoja de Excel"
+                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
+                  >
+                    {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
+                  </button>
+                  <button type="button"
+                    onClick={() => setTopExportMenu((m) => m === 'excel' ? null : 'excel')}
+                    data-tooltip="Excel por parcial"
+                    className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] transition-colors">
+                    <MoreVertical size={16} />
+                  </button>
+                  {topExportMenu === 'excel' && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setTopExportMenu(null)} />
+                      <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden">
+                        <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Excel de un parcial</div>
+                        {parcialesConActividades.map((p) => (
+                          <button key={p} type="button"
+                            onClick={() => { setTopExportMenu(null); doExportParcialExcel(p) }}
+                            className="w-full text-left px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors">
+                            Parcial {p}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {/* PDF split-button */}
+                <div className="flex-1 relative flex">
+                  <button type="button"
+                    onClick={handleExportGradesPDF}
+                    disabled={exportingGradesPdf}
+                    data-tooltip="Descarga TODAS las calificaciones en un PDF imprimible"
+                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
+                  >
+                    {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
+                  </button>
+                  <button type="button"
+                    onClick={() => setTopExportMenu((m) => m === 'pdf' ? null : 'pdf')}
+                    data-tooltip="PDF por parcial"
+                    className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] transition-colors">
+                    <MoreVertical size={16} />
+                  </button>
+                  {topExportMenu === 'pdf' && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setTopExportMenu(null)} />
+                      <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden">
+                        <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">PDF de un parcial</div>
+                        {parcialesConActividades.map((p) => (
+                          <button key={p} type="button"
+                            onClick={() => { setTopExportMenu(null); doExportParcialPDF(p) }}
+                            className="w-full text-left px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors">
+                            Parcial {p}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -2318,9 +2423,13 @@ export default function SubjectPage() {
                                     let raw = e.target.value
                                     const n = parseFloat(raw)
                                     if (!isNaN(n)) {
-                                      // Cap to what's left so the parcial never passes 10
+                                      // Cap to what's left so the parcial never passes 10;
+                                      // show a message right on the box when they try more
                                       const maxAllowed = pesoRestante(acts, a.id)
-                                      if (n > maxAllowed) raw = String(maxAllowed)
+                                      if (n > maxAllowed) {
+                                        raw = String(maxAllowed)
+                                        showNear(e.target, 'La suma del parcial debe ser 10 — no puedes poner más aquí')
+                                      }
                                       else if (n < 0) raw = '0'
                                       else {
                                         const m = raw.match(/^(\d+\.\d)\d+$/)
@@ -3204,24 +3313,29 @@ export default function SubjectPage() {
             style={{ top: parcialMenu.y + 4, left: Math.max(8, parcialMenu.x - 208) }}
           >
             <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Parcial {parcialMenu.p}</div>
-            <button type="button"
-              onClick={() => { const p = parcialMenu.p; setParcialMenu(null); handleExportParcial(p) }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left">
-              <FileSpreadsheet size={16} className="text-accent flex-shrink-0" /> Exportar a Excel
-            </button>
+            {/* 1 — Cerrar / Revertir cierre (habilita Exportar a Excel) */}
             {subject?.parcialesCerrados?.[parcialMenu.p] ? (
               <button type="button"
                 onClick={() => { const p = parcialMenu.p; setParcialMenu(null); setRevertParcialConfirm(p) }}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant">
-                <RotateCcw size={16} className="text-amber-600 flex-shrink-0" /> Revertir cierre del parcial
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left">
+                <RotateCcw size={16} className="text-amber-600 flex-shrink-0" /> Revertir cierre del Parcial {parcialMenu.p}
               </button>
             ) : (
               <button type="button"
                 onClick={() => { const p = parcialMenu.p; setParcialMenu(null); requestCloseParcial(p) }}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant">
-                <Lock size={16} className="text-slate-400 flex-shrink-0" /> Cerrar parcial
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left">
+                <Lock size={16} className="text-slate-400 flex-shrink-0" /> Cerrar Parcial {parcialMenu.p}
               </button>
             )}
+            {/* 2 — Exportar a Excel (solo si el parcial está cerrado) */}
+            <button type="button"
+              disabled={!subject?.parcialesCerrados?.[parcialMenu.p]}
+              onClick={() => { const p = parcialMenu.p; setParcialMenu(null); handleExportParcial(p) }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+              <FileSpreadsheet size={16} className="text-accent flex-shrink-0" />
+              <span className="flex-1">Exportar a Excel</span>
+              {!subject?.parcialesCerrados?.[parcialMenu.p] && <span className="text-[10px] text-slate-400">cierra primero</span>}
+            </button>
           </div>
         </>
       )}
