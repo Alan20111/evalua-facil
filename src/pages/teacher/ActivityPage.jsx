@@ -294,6 +294,23 @@ export default function ActivityPage() {
   }
 
   const curIdx = selected ? navList.findIndex((s) => s.id === selected.student.id) : -1
+  // Clamp while typing: never above maxCalif, never below 0, at most 1 decimal.
+  // Partial input like "9." is left alone so decimals can still be typed.
+  function onCalifChange(e) {
+    let raw = e.target.value
+    const max = activity?.maxCalif ?? 10
+    const n = parseFloat(raw)
+    if (!isNaN(n)) {
+      if (n > max) raw = String(max)
+      else if (n < 0) raw = '0'
+      else {
+        const m = raw.match(/^(\d+\.\d)\d+$/)
+        if (m) raw = m[1]
+      }
+    }
+    setGradeForm((f) => ({ ...f, calificacion: raw }))
+  }
+
   function toggleAutoSave() {
     setAutoSaveOnNav((v) => {
       localStorage.setItem('ef-autosave-nav', v ? '0' : '1')
@@ -722,7 +739,7 @@ export default function ActivityPage() {
                       <input
                         type="number"
                         value={gradeForm.calificacion}
-                        onChange={(e) => setGradeForm((f) => ({ ...f, calificacion: e.target.value }))}
+                        onChange={onCalifChange}
                         required
                         min="0"
                         max={activity?.maxCalif}
