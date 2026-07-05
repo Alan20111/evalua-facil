@@ -191,7 +191,10 @@ export default function StudentSubjectPage() {
     return avg !== null ? avg.toFixed(1) : null
   }
 
+  // Parciales hidden by the teacher must not appear AT ALL in student views —
+  // not even as an empty card (their activities are already filtered out above).
   const PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
+    .filter((p) => !(subject?.parcialesOcultos || []).includes(p))
 
   if (loading) return (
     <StudentLayout>
@@ -246,6 +249,11 @@ export default function StudentSubjectPage() {
       {/* Tab: Actividades */}
       {activeTab === 'Actividades' && (
         <div className="px-4 py-5 max-w-2xl mx-auto space-y-3">
+          {PARCIALES.length === 0 && (
+            <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
+              <p className="text-muted text-sm">El docente aún no ha publicado contenido.</p>
+            </div>
+          )}
           {PARCIALES.map((p) => {
             const acts = activities.filter((a) => a.parcial === p)
             const mats = materials.filter((m) => m.parcial === p)
@@ -372,6 +380,11 @@ export default function StudentSubjectPage() {
       {/* Tab: Calificaciones */}
       {activeTab === 'Calificaciones' && (
         <div className="px-4 py-5 max-w-2xl mx-auto space-y-3">
+          {PARCIALES.length === 0 && (
+            <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
+              <p className="text-muted text-sm">El docente aún no ha publicado calificaciones.</p>
+            </div>
+          )}
           {PARCIALES.map((p) => {
             const acts = activities.filter((a) => a.parcial === p)
             const avg = calcParcialAvg(p)
