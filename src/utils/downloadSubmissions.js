@@ -12,23 +12,32 @@ function sanitize(name) {
 
 // ── Job builders (pure functions, no Firestore) ──────────────────────────
 
-// Per-activity ZIP: one folder per student (named with their full name), and
-// inside it the student's submitted file(s) keeping the ORIGINAL filename.
+// Per-activity ZIP: flat (no folders — fewer clicks for the teacher), each file
+// renamed to the student's full name keeping its extension. A student with
+// several files gets numbered copies ("Juan Perez 01.jpg", "Juan Perez 02.jpg");
+// two students with the same full name are disambiguated with their username.
 // submissions: flat array of submission objects { alumnoId, archivoURL, nombreArchivo, completadoSinArchivo }
 export function buildJobsForActivity({ students, submissions }) {
   const studentMap = Object.fromEntries(students.map((s) => [s.id, s]))
-  const jobs = []
 
+  const byStudent = {}
   for (const sub of submissions) {
     if (!sub.archivoURL || sub.completadoSinArchivo) continue
     const student = studentMap[sub.alumnoId]
     if (!student) continue
-    const folder = sanitize(fullName(student)) || (student.username || student.id)
-    // Keep the original filename the student gave (resolvePath re-adds the extension).
-    const original = sub.nombreArchivo || 'entrega'
-    const dot = original.lastIndexOf('.')
-    const base = dot > 0 ? original.slice(0, dot) : original
-    jobs.push({ path: [folder], fileBaseName: sanitize(base) || 'entrega', url: sub.archivoURL, nombreArchivo: sub.nombreArchivo })
+    ;(byStudent[student.id] ||= { student, subs: [] }).subs.push(sub)
+  }
+
+  const usedNames = new Set()
+  const jobs = []
+  for (const { student, subs } of Object.values(byStudent)) {
+    let baseName = sanitize(fullName(student)) || (student.username || student.id)
+    if (usedNames.has(baseName)) baseName = `${baseName} (${student.username || student.id})`
+    usedNames.add(baseName)
+    subs.forEach((sub, i) => {
+      const fileBaseName = subs.length > 1 ? `${baseName} ${String(i + 1).padStart(2, '0')}` : baseName
+      jobs.push({ path: [], fileBaseName, url: sub.archivoURL, nombreArchivo: sub.nombreArchivo })
+    })
   }
   return jobs
 }
@@ -87,7 +96,8 @@ export async function downloadSubmissionsZip({ zipName, jobs, onProgress }) {
   // Build unique file path for a job
   function resolvePath(job) {
     const ext = (job.nombreArchivo || job.url || '').split('.').pop()?.split('?')[0]?.toLowerCase() || ''
-    const base = `${job.path.join('/')}/${job.fileBaseName}`
+    const dir = job.path.length ? `${job.path.join('/')}/` : ''
+    const base = `${dir}${job.fileBaseName}`
     let candidate = ext ? `${base}.${ext}` : base
     if (!usedPaths.has(candidate)) { usedPaths.add(candidate); return candidate }
     let i = 2
