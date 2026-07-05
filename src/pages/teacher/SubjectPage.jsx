@@ -2177,7 +2177,7 @@ export default function SubjectPage() {
                         column regardless of the header's rowspan/colspan. */}
                     <colgroup>
                       <col className="w-8" />
-                      <col className="w-[150px]" />
+                      <col className="w-[210px]" />
                       {tableParcials.map(({ p, acts }) => [
                         ...acts.map((a) => <col key={a.id} className="w-9" />),
                         <col key={`avgcol-${p}`} className="w-14" />,
@@ -2187,7 +2187,7 @@ export default function SubjectPage() {
                     <thead>
                       <tr className="bg-accent-light border-b border-outline-variant">
                         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
-                        <th className="sticky left-8 z-20 bg-accent-light w-[150px] px-1 py-1 text-left border-r border-outline-variant">
+                        <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-1 py-1 text-left border-r border-outline-variant">
                           <div className="relative">
                             <button type="button" onClick={togglePonderacion}
                               data-tooltip-follow={anyPonderacionOn ? 'Quitar la ponderación de todos los parciales' : 'Cada actividad vale un peso — se activa en todos los parciales; luego puedes apagarla por parcial'}
@@ -2268,7 +2268,7 @@ export default function SubjectPage() {
                       {anyPonderacionOn && (
                         <tr className="bg-amber-50 border-b border-amber-200">
                           <th className="sticky left-0 z-10 bg-amber-50 w-8 px-1 py-1 border-r border-outline-variant" />
-                          <th className="sticky left-8 z-10 bg-amber-50 w-[150px] px-2 py-1 border-r border-outline-variant">
+                          <th className="sticky left-8 z-10 bg-amber-50 w-[210px] px-2 py-1 border-r border-outline-variant">
                             <div className="flex items-center justify-end gap-1.5">
                               <button type="button" onClick={togglePonderacionVisible}
                                 data-tooltip-follow={subject?.ponderacionVisibleAlumnos
@@ -2287,6 +2287,7 @@ export default function SubjectPage() {
                                     sum: the teacher writes the weights they want;
                                     "must sum 10" is asked only when exporting. */}
                                 <input id={`peso-${a.id}`} type="text" inputMode="decimal" min="0" max="10"
+                                  autoComplete="off"
                                   value={pesoEdits[a.id] ?? (a.pesoCalificacion ?? '')}
                                   placeholder="0"
                                   onChange={(e) => {
@@ -2334,7 +2335,7 @@ export default function SubjectPage() {
                         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 text-center font-medium text-muted border-r border-outline-variant whitespace-nowrap">
                           No.
                         </th>
-                        <th className="sticky left-8 z-10 bg-accent-light w-[150px] px-2 py-1.5 text-left font-medium text-muted border-r border-outline-variant whitespace-nowrap">
+                        <th className="sticky left-8 z-10 bg-accent-light w-[210px] px-2 py-1.5 text-left font-medium text-muted border-r border-outline-variant whitespace-nowrap">
                           Estudiante / Actividad
                         </th>
                         {tableParcials.map(({ p, acts }) => [
@@ -2360,7 +2361,7 @@ export default function SubjectPage() {
                           </td>
                           <td
                             data-tooltip={!s.activado ? 'Este estudiante aún no ha activado su cuenta — no puede entrar ni entregar' : undefined}
-                            className={`sticky left-8 z-10 w-[150px] px-2 py-1 text-sm font-medium text-on-surface truncate border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                            className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface truncate border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.apellidoPaterno} {s.nombre}
                             {!s.activado && <span className="text-red-500 text-[10px] font-semibold"> (no se ha activado)</span>}
                           </td>
