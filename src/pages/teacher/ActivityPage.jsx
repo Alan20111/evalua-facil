@@ -91,6 +91,7 @@ export default function ActivityPage() {
   // Per-student deadline extension
   const [extendMode, setExtendMode] = useState(false)
   const [extendDate, setExtendDate] = useState('')
+  const [extendMotivo, setExtendMotivo] = useState('')
   const [savingExtension, setSavingExtension] = useState(false)
   // ZIP download
   const [zipDownloading, setZipDownloading] = useState(false)
@@ -159,6 +160,7 @@ export default function ActivityPage() {
     })
     setExtendMode(false)
     setExtendDate(activity?.extensiones?.[student.id] || '')
+    setExtendMotivo(activity?.extensionesMotivo?.[student.id] || '')
   }
 
   // Entry point from the student list: freezes the navigation order.
@@ -232,12 +234,15 @@ export default function ActivityPage() {
     if (!selected || !extendDate) return
     setSavingExtension(true)
     try {
+      const motivo = extendMotivo.trim()
       await updateDoc(doc(db, 'activities', activityId), {
         [`extensiones.${selected.student.id}`]: extendDate,
+        [`extensionesMotivo.${selected.student.id}`]: motivo,
       })
       setActivity((prev) => ({
         ...prev,
         extensiones: { ...(prev.extensiones || {}), [selected.student.id]: extendDate },
+        extensionesMotivo: { ...(prev.extensionesMotivo || {}), [selected.student.id]: motivo },
       }))
       toast('Fecha de entrega actualizada')
       setExtendMode(false)
@@ -843,32 +848,40 @@ export default function ActivityPage() {
                     </button>
                   ) : (
                     <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted">Nueva fecha límite para este estudiante</p>
+                      <p className="text-sm font-medium text-on-surface">Nueva fecha y hora límite para este estudiante</p>
+                      <EFDateTimePicker
+                        mode="datetime"
+                        value={extendDate}
+                        onChange={setExtendDate}
+                        clearable={false}
+                      />
+                      <div>
+                        <label className="block text-sm font-medium text-muted mb-1">Motivo</label>
+                        <textarea
+                          value={extendMotivo}
+                          onChange={(e) => setExtendMotivo(e.target.value)}
+                          rows={2}
+                          placeholder="Motivo de la extensión…"
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                        />
+                      </div>
                       <div className="flex gap-2">
-                        <div className="flex-1">
-                          <EFDateTimePicker
-                            mode="date"
-                            value={extendDate}
-                            onChange={setExtendDate}
-                            clearable={false}
-                          />
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setExtendMode(false)}
+                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                        >
+                          Cancelar
+                        </button>
                         <button
                           type="button"
                           onClick={saveExtension}
                           disabled={!extendDate || savingExtension}
-                          className="px-4 py-2 bg-accent text-white text-xs font-semibold rounded disabled:opacity-50 transition-colors"
+                          className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-50 transition-colors"
                         >
-                          {savingExtension ? '…' : 'Guardar'}
+                          {savingExtension ? 'Guardando…' : 'Guardar'}
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setExtendMode(false)}
-                        className="text-sm text-slate-500"
-                      >
-                        Cancelar
-                      </button>
                     </div>
                   )}
                 </div>
