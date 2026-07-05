@@ -56,7 +56,9 @@ function fmtDuracion(inicio, fin) {
 // an evaluación.
 // `backState` (optional): router state for the back arrow — e.g. { tab: 'calificaciones' }
 // when the teacher arrived from a grades-table cell, so going back lands there.
-export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, resultadosOnly = false, backState = null }) {
+// `openStudentId` (optional): scroll to and highlight that student's result row
+// (set when the teacher clicked that student's cell in the grades table).
+export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, resultadosOnly = false, backState = null, openStudentId = null }) {
   const navigate = useNavigate()
   const toast = useToast()
   const [tab, setTab] = useState(resultadosOnly ? 'resultados' : 'preguntas')
@@ -91,6 +93,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [searchResultados, setSearchResultados] = useState('')
   const [reviewing, setReviewing] = useState(null) // { student, submission, items: [{pregunta, respuesta}] }
   const [reviewForm, setReviewForm] = useState({}) // preguntaId -> { puntos, comentario }
+  // Student to highlight in Resultados (arrived from a grades-table cell)
+  const [highlightId] = useState(openStudentId)
+
+  useEffect(() => {
+    if (!highlightId) return
+    // Give the results list a moment to render before scrolling to the row
+    const t = setTimeout(() => {
+      document.getElementById(`resultado-${highlightId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 350)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightId])
   const [savingReview, setSavingReview] = useState(false)
 
   async function loadPreguntas() {
@@ -1038,7 +1052,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   const sub = submissions[s.id]
                   const estado = estadoEstudiante(sub)
                   return (
-                    <div key={s.id} className={`px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
+                    <div key={s.id} id={`resultado-${s.id}`}
+                      className={`px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''} ${s.id === highlightId ? 'bg-[var(--accent-tint)] ring-2 ring-inset ring-[var(--accent)] rounded' : ''}`}>
                       <div className="flex items-center gap-2">
                         <p className="flex-1 text-sm text-on-surface truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${

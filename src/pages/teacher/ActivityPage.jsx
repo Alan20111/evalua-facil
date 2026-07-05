@@ -521,6 +521,7 @@ export default function ActivityPage() {
             onActivityChange={setActivity}
             resultadosOnly
             backState={returnToGrades ? { tab: 'calificaciones' } : null}
+            openStudentId={location.state?.openStudentId || null}
           />
         </div>
       </TeacherLayout>
