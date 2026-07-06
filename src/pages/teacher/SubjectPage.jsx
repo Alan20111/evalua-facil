@@ -2784,7 +2784,7 @@ export default function SubjectPage() {
                 const { icon: Icon, color } = getResourceIcon(r.nombreArchivo)
                 const isPreviewOpen = previewResourceId === r.id
                 return (
-                  <div key={r.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card overflow-hidden">
+                  <div key={r.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card">
                     <div className="flex items-center gap-3 px-3 py-2">
                       <Icon size={28} className={`flex-shrink-0 ${color}`} />
                       <div className="flex-1 min-w-0">

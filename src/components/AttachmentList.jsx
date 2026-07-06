@@ -34,7 +34,7 @@ function FileRow({ f, onRemove, index }) {
   const downloadHref = downloadUrl(f.url, f.nombre)
 
   return (
-    <div className="rounded border border-outline-variant bg-surface-card overflow-hidden">
+    <div className="rounded border border-outline-variant bg-surface-card">
       <div className="flex items-center gap-2 px-2 py-1.5">
         <Icon size={18} className={`flex-shrink-0 ${color}`} />
         <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>

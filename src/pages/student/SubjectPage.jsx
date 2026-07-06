@@ -31,7 +31,7 @@ import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/pondera
 function ResourceCard({ resource: r }) {
   const { icon: Icon, color } = getResourceIcon(r.nombreArchivo || r.nombre || '')
   return (
-    <div className="border border-outline-variant rounded overflow-hidden">
+    <div className="border border-outline-variant rounded">
       <div className="flex items-start gap-3 px-3 py-2.5">
         <Icon size={22} className={`flex-shrink-0 mt-0.5 ${color}`} />
         <div className="flex-1 min-w-0">
