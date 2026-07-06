@@ -112,6 +112,11 @@ export default function ActivityPage() {
   // Annul the current submission (student sent the wrong thing → back to Pendiente)
   const [annulMode, setAnnulMode] = useState(false)
   const [annulling, setAnnulling] = useState(false)
+  // Grade a student who has no submission (e.g. handed the file on a USB stick)
+  const [sinEntregaMode, setSinEntregaMode] = useState(false)
+  const [sinEntregaGrade, setSinEntregaGrade] = useState('')
+  const [sinEntregaMotivo, setSinEntregaMotivo] = useState('')
+  const [savingSinEntrega, setSavingSinEntrega] = useState(false)
   // ZIP download
   const [zipDownloading, setZipDownloading] = useState(false)
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
@@ -213,6 +218,9 @@ export default function ActivityPage() {
     setExtendMotivo(activity?.extensionesMotivo?.[student.id] || '')
     setPreviewIdx(-1)
     setAnnulMode(false)
+    setSinEntregaMode(false)
+    setSinEntregaGrade('')
+    setSinEntregaMotivo('')
   }
 
   // Entry point from the student list: freezes the navigation order.
@@ -365,6 +373,50 @@ export default function ActivityPage() {
       toast('Error al anular: ' + err.message, 'error')
     } finally {
       setAnnulling(false)
+    }
+  }
+
+  // Grade a student with no submission (e.g. handed it in on a USB stick).
+  // Creates a submission marked sinEntrega with the reason, so it counts and
+  // shows in the grades. NOT cierreParcial → it stays as a manual (black) grade.
+  async function saveSinEntrega() {
+    if (!selected || selected.sub) return
+    if (parcialCerrado) {
+      toast('El parcial está cerrado. Primero revierte el cierre del parcial.', 'error')
+      return
+    }
+    if (!canCreate) {
+      toast('Activa tu suscripción mensual para registrar calificaciones — toda tu información sigue disponible')
+      return
+    }
+    const cal = parseFloat(sinEntregaGrade)
+    if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) {
+      toast(`Escribe una calificación válida (0 a ${activity?.maxCalif ?? 10})`, 'error')
+      return
+    }
+    setSavingSinEntrega(true)
+    try {
+      const data = {
+        actividadId: activityId,
+        alumnoId: selected.student.id,
+        calificacion: cal,
+        comentario: '',
+        motivoSinEntrega: sinEntregaMotivo.trim(),
+        estado: 'calificado',
+        sinEntrega: true,
+        fechaEntrega: serverTimestamp(),
+      }
+      const ref = await addDoc(collection(db, 'submissions'), data)
+      const updated = { id: ref.id, ...data }
+      setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
+      setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
+      setGradeForm({ calificacion: String(cal), comentario: '' })
+      setSinEntregaMode(false)
+      toast('Calificación sin entrega guardada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingSinEntrega(false)
     }
   }
 
@@ -900,9 +952,12 @@ export default function ActivityPage() {
                           : selected.sub
                             ? selected.sub.completadoSinArchivo
                               ? 'Completada sin archivo'
-                              : (selected.sub.nombreArchivo || (selected.sub.sinEntrega ? 'Sin entrega — calificada en 0' : 'Sin archivo'))
+                              : (selected.sub.nombreArchivo || (selected.sub.sinEntrega ? `Sin entrega — calificada en ${selected.sub.calificacion ?? 0}` : 'Sin archivo'))
                             : 'Sin entrega aún'}
                   </p>
+                  {selected.sub?.motivoSinEntrega && (
+                    <p className="text-xs text-slate-500 mt-0.5 italic">Motivo: {selected.sub.motivoSinEntrega}</p>
+                  )}
                 </div>
 
                 {/* Autosave opt-in above the navigation. The checkbox keeps its
@@ -1200,6 +1255,65 @@ export default function ActivityPage() {
                         </button>
                       </div>
                     </div>
+                  )}
+
+                  {/* Grade a student who never submitted (e.g. handed it in on a USB) */}
+                  {!selected.sub && !parcialCerrado && (
+                    !sinEntregaMode ? (
+                      <button
+                        type="button"
+                        onClick={() => setSinEntregaMode(true)}
+                        className="block mx-auto text-sm text-slate-500 hover:text-accent transition-colors"
+                      >
+                        Calificar sin entrega
+                      </button>
+                    ) : (
+                      <div className="space-y-2 rounded border border-outline-variant bg-surface p-3">
+                        <p className="text-sm font-medium text-on-surface">Calificar sin entrega</p>
+                        <div>
+                          <label className="block text-sm font-medium text-muted mb-1">
+                            Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
+                          </label>
+                          <input
+                            type="number"
+                            value={sinEntregaGrade}
+                            onChange={(e) => setSinEntregaGrade(e.target.value)}
+                            min="0"
+                            max={activity?.maxCalif}
+                            step="0.1"
+                            autoFocus
+                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-muted mb-1">Motivo</label>
+                          <textarea
+                            value={sinEntregaMotivo}
+                            onChange={(e) => setSinEntregaMotivo(e.target.value)}
+                            rows={2}
+                            placeholder="Ej.: Entregó el archivo en memoria USB"
+                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSinEntregaMode(false)}
+                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={saveSinEntrega}
+                            disabled={savingSinEntrega || sinEntregaGrade === ''}
+                            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-50 transition-colors"
+                          >
+                            {savingSinEntrega ? 'Guardando…' : 'Guardar'}
+                          </button>
+                        </div>
+                      </div>
+                    )
                   )}
                 </div>
                 )}
