@@ -92,7 +92,7 @@ export default function TeacherLayout({ children }) {
           {/* Logo — bloque blanco a todo el ancho arriba (de aquí para abajo es azul);
               línea azul (#0967F0) rodeando el logo, con poco espacio */}
           <div className="bg-white px-2 pt-2 pb-1.5">
-            <div className="rounded-lg border-2 border-[#0967F0] p-1">
+            <div className="rounded-lg border-2 border-[#0967F0] overflow-hidden">
               <EFLogo className="w-full h-auto" />
             </div>
           </div>
