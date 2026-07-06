@@ -1277,7 +1277,12 @@ export default function SubjectPage() {
     try {
       await updateDoc(doc(db, 'activities', act.id), { oculta: false, publishAt: null })
       setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, oculta: false, publishAt: null } : a))
-      toast('Actividad visible para estudiantes')
+      // If the whole parcial is hidden, publishing the activity isn't enough —
+      // students still won't see it until the parcial is shown.
+      const parcialOculto = (subject?.parcialesOcultos || []).includes(act.parcial)
+      toast(parcialOculto
+        ? `Actividad publicada, pero el Parcial ${act.parcial} está oculto a estudiantes — muéstralo para que la vean`
+        : 'Actividad visible para estudiantes')
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
@@ -2123,8 +2128,10 @@ export default function SubjectPage() {
                                       </span>
                                     )}
                                     {visState === 'hidden' && (
-                                      <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                        <EyeOff size={13} /> {(!a.publishedAt && a.oculta && !a.publishAt) ? 'Borrador' : 'Oculta'}
+                                      <span
+                                        data-tooltip={parcialOculto ? 'La actividad está publicada, pero el Parcial completo está oculto a estudiantes. Muéstralo con el ojo del encabezado del parcial.' : undefined}
+                                        className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${parcialOculto ? 'bg-amber-100 text-amber-700' : 'bg-surface-container text-muted'}`}>
+                                        <EyeOff size={13} /> {parcialOculto ? 'Parcial oculto' : (!a.publishedAt && a.oculta && !a.publishAt) ? 'Borrador' : 'Oculta'}
                                       </span>
                                     )}
                                   </div>
