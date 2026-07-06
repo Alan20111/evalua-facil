@@ -149,6 +149,8 @@ export default function SubjectPage() {
   // Cerrar parcial: null | { p, missing: [{s, a}], ungraded }
   const [closeParcialConfirm, setCloseParcialConfirm] = useState(null)
   const [closingParcial, setClosingParcial] = useState(false)
+  // Grade applied to all no-entregas when closing a parcial (default 5)
+  const [closeParcialGrade, setCloseParcialGrade] = useState('5')
   const [revertParcialConfirm, setRevertParcialConfirm] = useState(null) // parcial number | null
   const [revertingParcial, setRevertingParcial] = useState(false)
   // Kebab menu per parcial header: null | { p, x, y } (fixed coords from the ⋮ button)
@@ -1495,6 +1497,7 @@ export default function SubjectPage() {
       })
     })
     playAlertSound()
+    setCloseParcialGrade('5')
     setCloseParcialConfirm({ p, missing, ungraded, pondError })
   }
 
@@ -1539,6 +1542,8 @@ export default function SubjectPage() {
   async function confirmCloseParcial() {
     if (!closeParcialConfirm) return
     const { p, missing } = closeParcialConfirm
+    // Grade to assign to every no-entrega (default 0 if the field is left blank)
+    const grade = Math.max(0, parseFloat(closeParcialGrade) || 0)
     setClosingParcial(true)
     try {
       // Batched creates (Firestore caps batches at 500 writes)
@@ -1550,7 +1555,7 @@ export default function SubjectPage() {
           const data = {
             alumnoId: s.id,
             actividadId: a.id,
-            calificacion: 0,
+            calificacion: grade,
             comentario: '',
             estado: 'calificado',
             sinEntrega: true,
@@ -1571,7 +1576,7 @@ export default function SubjectPage() {
         [`parcialesCerrados.${p}`]: new Date().toISOString(),
       })
       setSubject((s) => ({ ...s, parcialesCerrados: { ...(s.parcialesCerrados || {}), [p]: new Date().toISOString() } }))
-      toast(`Parcial ${p} cerrado — ${missing.length} no entrega${missing.length !== 1 ? 's quedaron' : ' quedó'} en 0`)
+      toast(`Parcial ${p} cerrado — ${missing.length} no entrega${missing.length !== 1 ? 's quedaron' : ' quedó'} en ${grade}`)
       setCloseParcialConfirm(null)
     } catch (err) {
       toast('Error al cerrar el parcial: ' + err.message, 'error')
@@ -3611,10 +3616,24 @@ export default function SubjectPage() {
             ) : (
               <>
                 {closeParcialConfirm.missing.length > 0 ? (
-                  <p className="text-sm text-muted text-center mt-2">
-                    Faltan <strong>{closeParcialConfirm.missing.length} no entrega{closeParcialConfirm.missing.length !== 1 ? 's' : ''}</strong>.
-                    Cancela si vas a poner esas calificaciones a mano, o cierra y todas las no entregadas quedarán en <strong className="text-red-600">0 (cero)</strong>.
-                  </p>
+                  <>
+                    <p className="text-sm text-muted text-center mt-2">
+                      Faltan <strong>{closeParcialConfirm.missing.length} entrega{closeParcialConfirm.missing.length !== 1 ? 's' : ''}</strong> o
+                      asigna desde aquí una misma calificación a todas juntas.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 mt-3">
+                      <label className="text-sm text-muted">Calificación para todas:</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={closeParcialGrade}
+                        onChange={(e) => setCloseParcialGrade(e.target.value)}
+                        disabled={closingParcial}
+                        className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-accent"
+                      />
+                    </div>
+                  </>
                 ) : (
                   <p className="text-sm text-muted text-center mt-2">Todo está calificado. Puedes cerrar el parcial.</p>
                 )}
@@ -3625,7 +3644,7 @@ export default function SubjectPage() {
                   </button>
                   <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
                     className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors">
-                    {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? 'Cerrar y poner 0' : 'Cerrar parcial')}
+                    {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? `Cerrar y poner ${Math.max(0, parseFloat(closeParcialGrade) || 0)}` : 'Cerrar parcial')}
                   </button>
                 </div>
               </>
