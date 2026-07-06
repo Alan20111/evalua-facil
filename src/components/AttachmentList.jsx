@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Download, X, Eye, ExternalLink } from 'lucide-react'
 import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
-import { downloadUrl } from '../utils/cloudinary'
+import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
 
 const PDF_EXTS = ['pdf']
 const OFFICE_EXTS = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt']
@@ -86,6 +86,11 @@ export function FilePreview({ url, nombre, fill = false }) {
   const isImage = IMAGE_EXTS.includes(ext)
   const viewUrl = isPdf ? pdfUrl(url) : url
   if (!url) return null
+  // PDFs uploaded as an image resource → render their pages as JPGs. This works
+  // even when the Cloudinary account has PDF delivery disabled.
+  if (isPdf && isImageDeliveredPdf(url)) {
+    return <PdfPagesPreview url={url} nombre={nombre} fill={fill} />
+  }
   return isImage ? (
     <img src={url} alt={nombre} className={`w-full object-contain ${fill ? 'h-full' : 'max-h-[70vh]'}`} />
   ) : isPdf ? (
@@ -114,6 +119,35 @@ export function FilePreview({ url, nombre, fill = false }) {
       className={`w-full ${fill ? 'h-full' : 'h-[70vh]'}`}
       style={{ border: 'none' }}
     />
+  )
+}
+
+// Renders a PDF (uploaded as an image resource) page by page as JPGs. Loads
+// pages progressively: when the last shown page loads, it asks for the next;
+// when a page 404s (past the end) it stops. Works with PDF delivery disabled.
+function PdfPagesPreview({ url, nombre, fill }) {
+  const [count, setCount] = useState(1)
+  const [ended, setEnded] = useState(false)
+  const [anyLoaded, setAnyLoaded] = useState(false)
+  const pages = Array.from({ length: count }, (_, i) => i + 1)
+  return (
+    <div className={`w-full overflow-auto bg-neutral-800 ${fill ? 'h-full' : 'max-h-[70vh]'}`}>
+      {pages.map((p) => (
+        <img
+          key={p}
+          src={pdfPageImageUrl(url, p)}
+          alt={`${nombre} — página ${p}`}
+          className="w-full block mx-auto mb-1 bg-white"
+          onLoad={() => { setAnyLoaded(true); if (p === count && !ended) setCount((c) => c + 1) }}
+          onError={(e) => { e.currentTarget.style.display = 'none'; setEnded(true) }}
+        />
+      ))}
+      {ended && !anyLoaded && (
+        <div className="text-center text-slate-300 text-sm p-6">
+          No se pudo mostrar la vista previa de este PDF.
+        </div>
+      )}
+    </div>
   )
 }
 
