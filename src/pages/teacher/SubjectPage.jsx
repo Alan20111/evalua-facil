@@ -156,6 +156,8 @@ export default function SubjectPage() {
   const [topExportMenu, setTopExportMenu] = useState(null)
   // Activity-name tooltip over the grades-table number headers: null | { text, x, y }
   const [actTip, setActTip] = useState(null)
+  // Per-activity ⋮ menu (Duplicar / Eliminar): null | { a, x, y }
+  const [activityMenu, setActivityMenu] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -2090,13 +2092,12 @@ export default function SubjectPage() {
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
                             </button>
-                            <button type="button" onClick={() => setDuplicateConfirm(a)} data-tooltip="Duplicar como borrador"
-                              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
-                              <Copy size={16} />
-                            </button>
-                            <button type="button" onClick={() => setDeleteConfirm(a)} data-tooltip="Eliminar"
-                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
-                              <Trash2 size={16} />
+                            {/* Less-used actions (Duplicar / Eliminar) tucked into a ⋮ menu */}
+                            <button type="button"
+                              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
+                              data-tooltip="Más acciones"
+                              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
+                              <MoreVertical size={16} />
                             </button>
                           </div>
                         )
@@ -3279,6 +3280,28 @@ export default function SubjectPage() {
         >
           {actTip.text}
         </div>
+      )}
+
+      {/* ── Per-activity ⋮ menu: Duplicar / Eliminar (fixed → never clipped) ── */}
+      {activityMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setActivityMenu(null)} />
+          <div
+            className="fixed z-50 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden"
+            style={{ top: activityMenu.y + 4, left: Math.max(8, activityMenu.x - 208) }}
+          >
+            <button type="button"
+              onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDuplicateConfirm(a) }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left">
+              <Copy size={16} className="text-slate-400 flex-shrink-0" /> Duplicar como borrador
+            </button>
+            <button type="button"
+              onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDeleteConfirm(a) }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left border-t border-outline-variant">
+              <Trash2 size={16} className="flex-shrink-0" /> Eliminar
+            </button>
+          </div>
+        </>
       )}
 
       {/* ── Kebab menu per parcial (Exportar / Cerrar) — fixed-positioned so the
