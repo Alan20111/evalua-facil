@@ -30,8 +30,14 @@ function FileRow({ f, onRemove, index }) {
   const canView = isPdf || isOffice || isImage
   const { icon: Icon, color } = getResourceIcon(f.nombre)
 
-  const viewUrl = isPdf ? pdfUrl(f.url) : f.url
+  const isImgPdf = isPdf && isImageDeliveredPdf(f.url)
+  const viewUrl = isPdf && !isImgPdf ? pdfUrl(f.url) : f.url
   const downloadHref = downloadUrl(f.url, f.nombre)
+  // "Open in a new tab": image-delivered PDFs can't go through Google Docs
+  // (their raw URL is blocked), so open page 1 as an image instead.
+  const openInTabUrl = isImgPdf
+    ? pdfPageImageUrl(f.url, 1)
+    : (isPdf || isOffice) ? docsViewerUrl(viewUrl) : null
 
   return (
     <div className="rounded border border-outline-variant bg-surface-card">
@@ -47,9 +53,9 @@ function FileRow({ f, onRemove, index }) {
             <FileSearch size={15} />
           </button>
         )}
-        {f.url && (isPdf || isOffice) && (
-          <a href={docsViewerUrl(viewUrl)} target="_blank" rel="noreferrer"
-            data-tooltip="Abrir en Google Docs"
+        {f.url && openInTabUrl && (
+          <a href={openInTabUrl} target="_blank" rel="noreferrer"
+            data-tooltip={isImgPdf ? 'Abrir página 1 en pestaña nueva' : 'Abrir en Google Docs'}
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <ExternalLink size={15} />
           </a>
@@ -163,13 +169,16 @@ export function FilePreviewModal({ url, nombre, onClose }) {
   }, [onClose])
   if (!url) return null
   const downloadHref = downloadUrl(url, nombre)
+  // Image-delivered PDFs can't be opened directly (raw URL blocked) → open the
+  // first page as an image instead.
+  const openInTabUrl = isImageDeliveredPdf(url) ? pdfPageImageUrl(url, 1) : url
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">
           <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
-          <a href={url} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva"
+          <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva"
             className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
             <ExternalLink size={18} />
           </a>
