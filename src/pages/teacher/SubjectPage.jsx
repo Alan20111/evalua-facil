@@ -2593,7 +2593,7 @@ export default function SubjectPage() {
                                 data-col={colIndexByKey[`act-${a.id}`]}
                                 data-tooltip={gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó)' : 'Ver entrega'}
                                 onClick={() => navigate(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
-                                className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : gradeColor(grades[ai])} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
+                                className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] === null ? 'text-slate-300' : 'text-on-surface'} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
                               >
                                 {grades[ai] !== null ? grades[ai] : '—'}
                               </td>
