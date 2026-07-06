@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Download, X, Eye, ExternalLink } from 'lucide-react'
 import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
@@ -41,8 +42,8 @@ function FileRow({ f, onRemove, index }) {
           {f.tamano != null ? formatFileSize(f.tamano) : ''}
         </span>
         {f.url && canView && (
-          <button type="button" onClick={() => setOpen((v) => !v)}
-            className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Ver archivo">
+          <button type="button" onClick={() => setOpen(true)}
+            className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Vista previa">
             <Eye size={15} />
           </button>
         )}
@@ -68,9 +69,7 @@ function FileRow({ f, onRemove, index }) {
       </div>
 
       {open && f.url && (
-        <div className="border-t border-outline-variant bg-surface">
-          <FilePreview url={f.url} nombre={f.nombre} />
-        </div>
+        <FilePreviewModal url={f.url} nombre={f.nombre} onClose={() => setOpen(false)} />
       )}
     </div>
   )
@@ -115,6 +114,42 @@ export function FilePreview({ url, nombre, fill = false }) {
       className={`w-full ${fill ? 'h-full' : 'h-[70vh]'}`}
       style={{ border: 'none' }}
     />
+  )
+}
+
+// Windowed (modal) preview — opens the file in a centered overlay with a header
+// that shows the name, a download button and a close button. Used by materiales
+// and recursos in both the teacher and student shells. Distinct from the
+// visibility eye (mostrar/ocultar a estudiantes).
+export function FilePreviewModal({ url, nombre, onClose }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  if (!url) return null
+  const downloadHref = downloadUrl(url, nombre)
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">
+          <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
+          <a href={downloadHref} download={nombre} rel="noreferrer" data-tooltip="Descargar"
+            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+            <Download size={18} />
+          </a>
+          <button type="button" onClick={onClose} data-tooltip="Cerrar"
+            className="p-2 text-slate-400 hover:text-on-surface hover:bg-surface rounded transition-colors flex-shrink-0">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto bg-surface">
+          <FilePreview url={url} nombre={nombre} fill />
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }
 

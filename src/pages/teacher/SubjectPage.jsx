@@ -33,7 +33,7 @@ import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout
 import { uploadToCloudinary, downloadUrl } from '../../utils/cloudinary'
 import { RESOURCE_ACCEPT, getResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
-import AttachmentList, { FilePreview, canPreviewFile } from '../../components/AttachmentList'
+import AttachmentList, { FilePreviewModal, canPreviewFile } from '../../components/AttachmentList'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, X, Pencil, Trash2, Archive, ArchiveRestore,
@@ -2817,9 +2817,11 @@ export default function SubjectPage() {
                       </button>
                     </div>
                     {isPreviewOpen && (
-                      <div className="border-t border-outline-variant bg-surface">
-                        <FilePreview url={r.url} nombre={r.nombreArchivo || r.nombre} />
-                      </div>
+                      <FilePreviewModal
+                        url={r.url}
+                        nombre={r.nombreArchivo || r.nombre}
+                        onClose={() => setPreviewResourceId(null)}
+                      />
                     )}
                   </div>
                 )
