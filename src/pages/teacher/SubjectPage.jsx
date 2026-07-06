@@ -63,20 +63,6 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-// Distributes 10 points equally across n activities, 1 decimal, summing to
-// exactly 10 (cumulative rounding). Used as the default when ponderación is
-// activated — every activity weighs the same (a simple average, in points).
-function equalWeights(n) {
-  const out = []
-  let prev = 0
-  for (let i = 1; i <= n; i++) {
-    const cum = Math.round((10 * i / n) * 10) / 10
-    out.push(Math.round((cum - prev) * 10) / 10)
-    prev = cum
-  }
-  return out
-}
-
 const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show', esEvaluacion: false }
 
 // Defaults for a new evaluación's config — Cuestionario favors repeated
@@ -1719,19 +1705,9 @@ export default function SubjectPage() {
         ? { ponderacionActivada: true, ponderacionParciales: map, ponderacionVisibleAlumnos: false }
         : { ponderacionActivada: false, ponderacionParciales: map }
       await updateDoc(doc(db, 'subjects', subjectId), updates)
-      if (next) {
-        // Default: every activity of every parcial weighs the same (sum 10)
-        const batch = writeBatch(db)
-        const updated = {}
-        ALL_PARCIALES.forEach((p) => {
-          const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a)).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-          const w = equalWeights(acts.length)
-          acts.forEach((a, i) => { batch.update(doc(db, 'activities', a.id), { pesoCalificacion: w[i] }); updated[a.id] = w[i] })
-        })
-        await batch.commit()
-        setActivities((prev) => prev.map((x) => updated[x.id] !== undefined ? { ...x, pesoCalificacion: updated[x.id] } : x))
-        setPesoEdits({})
-      } else if (conPeso.length > 0) {
+      // On activation weights start at 0 — the teacher types them. Only clear
+      // existing weights when going back to simple average.
+      if (!next && conPeso.length > 0) {
         const batch = writeBatch(db)
         conPeso.forEach((a) => batch.update(doc(db, 'activities', a.id), { pesoCalificacion: null }))
         await batch.commit()
@@ -1740,7 +1716,7 @@ export default function SubjectPage() {
       }
       setSubject((s) => ({ ...s, ...updates }))
       toast(next
-        ? 'Ponderación activada — todas las actividades valen lo mismo (puedes ajustar los pesos)'
+        ? 'Ponderación activada — escribe el peso de cada actividad (deben sumar 10 para exportar)'
         : 'Promedio simple activado — los pesos se borraron')
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
@@ -1767,19 +1743,9 @@ export default function SubjectPage() {
       const updates = { ponderacionParciales: map, ponderacionActivada: any }
       if (next && !anyPonderacionOn) updates.ponderacionVisibleAlumnos = false
       await updateDoc(doc(db, 'subjects', subjectId), updates)
-      if (next) {
-        // Default equal weights (sum 10) for this parcial's activities
-        const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a)).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-        const w = equalWeights(acts.length)
-        const updated = {}
-        if (acts.length) {
-          const batch = writeBatch(db)
-          acts.forEach((a, i) => { batch.update(doc(db, 'activities', a.id), { pesoCalificacion: w[i] }); updated[a.id] = w[i] })
-          await batch.commit()
-          setActivities((prev) => prev.map((x) => updated[x.id] !== undefined ? { ...x, pesoCalificacion: updated[x.id] } : x))
-          setPesoEdits((f) => { const n = { ...f }; acts.forEach((a) => delete n[a.id]); return n })
-        }
-      } else {
+      // On activation weights start at 0 — the teacher types them. Only clear
+      // this parcial's weights when going back to simple average.
+      if (!next) {
         const conPeso = activities.filter((a) => a.parcial === p && pesoDe(a) > 0)
         if (conPeso.length) {
           const batch = writeBatch(db)
@@ -1790,7 +1756,7 @@ export default function SubjectPage() {
       }
       setSubject((s) => ({ ...s, ...updates }))
       toast(next
-        ? `Ponderación activada en el Parcial ${p} — todas valen lo mismo (puedes ajustar)`
+        ? `Ponderación activada en el Parcial ${p} — escribe los pesos (deben sumar 10 para exportar)`
         : `Parcial ${p} con promedio simple — sus pesos se borraron`)
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
