@@ -1385,22 +1385,17 @@ export default function SubjectPage() {
 
   // ── CERRAR PARCIAL ──
   // To close, EVERYTHING must be graded. The dialog then adapts:
+  //  · ponderación that doesn't sum 10 blocks closing (shown in the dialog; a
+  //    tooltip on the "Cerrar" menu item previews it — no fleeting toast)
   //  · delivered-but-ungraded submissions block closing (grade them manually first)
   //  · no-entregas (no submission) are set to 0 only if the teacher proceeds
-  // Gate: with ponderación active in the parcial, weights must sum 10 first.
   function requestCloseParcial(p) {
-    if (ponderacionActivaEnParcial(subject, p)) {
-      const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
-      const total = pesoTotalVivo(acts)
-      if (Math.abs(total - 10) > 0.001) {
-        const msg = `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para cerrar el parcial`
-        const btn = document.getElementById(`parcial-menu-${p}`)
-        if (btn) showNear(btn, msg)
-        else toast(msg, 'warning')
-        return
-      }
-    }
     const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+    let pondError = null
+    if (ponderacionActivaEnParcial(subject, p)) {
+      const total = pesoTotalVivo(acts)
+      if (Math.abs(total - 10) > 0.001) pondError = { total }
+    }
     const missing = []
     let ungraded = 0
     groupStudents.forEach((s) => {
@@ -1411,7 +1406,7 @@ export default function SubjectPage() {
       })
     })
     playAlertSound()
-    setCloseParcialConfirm({ p, missing, ungraded })
+    setCloseParcialConfirm({ p, missing, ungraded, pondError })
   }
 
   // Revert a close: delete the 0-grades created by the close (cierreParcial=true)
@@ -3309,8 +3304,10 @@ export default function SubjectPage() {
       {parcialMenu && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setParcialMenu(null)} />
+          {/* No overflow-hidden here: the "Cerrar" item's tooltip must be able to
+              escape the menu box when ponderación doesn't sum 10 */}
           <div
-            className="fixed z-50 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden"
+            className="fixed z-50 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl"
             style={{ top: parcialMenu.y + 4, left: Math.max(8, parcialMenu.x - 208) }}
           >
             <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Parcial {parcialMenu.p}</div>
@@ -3318,21 +3315,30 @@ export default function SubjectPage() {
             {subject?.parcialesCerrados?.[parcialMenu.p] ? (
               <button type="button"
                 onClick={() => { const p = parcialMenu.p; setParcialMenu(null); setRevertParcialConfirm(p) }}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left">
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-t-card">
                 <RotateCcw size={16} className="text-amber-600 flex-shrink-0" /> Revertir cierre del Parcial {parcialMenu.p}
               </button>
-            ) : (
-              <button type="button"
-                onClick={() => { const p = parcialMenu.p; setParcialMenu(null); requestCloseParcial(p) }}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left">
-                <Lock size={16} className="text-slate-400 flex-shrink-0" /> Cerrar Parcial {parcialMenu.p}
-              </button>
-            )}
+            ) : (() => {
+              const p = parcialMenu.p
+              const pondOn = ponderacionActivaEnParcial(subject, p)
+              const total = pondOn ? pesoTotalVivo(activities.filter((a) => a.parcial === p && !isDraftActivity(a))) : 10
+              const sumOk = !pondOn || Math.abs(total - 10) <= 0.001
+              return (
+                <button type="button"
+                  onClick={() => { setParcialMenu(null); requestCloseParcial(p) }}
+                  data-tooltip={!sumOk ? `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para poder cerrar` : undefined}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-t-card">
+                  <Lock size={16} className="text-slate-400 flex-shrink-0" />
+                  <span className="flex-1">Cerrar Parcial {p}</span>
+                  {!sumOk && <span className="text-[10px] font-semibold text-amber-600">{total}/10</span>}
+                </button>
+              )
+            })()}
             {/* 2 — Exportar a Excel (solo si el parcial está cerrado) */}
             <button type="button"
               disabled={!subject?.parcialesCerrados?.[parcialMenu.p]}
               onClick={() => { const p = parcialMenu.p; setParcialMenu(null); handleExportParcial(p) }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant rounded-b-card disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
               <FileSpreadsheet size={16} className="text-accent flex-shrink-0" />
               <span className="flex-1">Exportar a Excel</span>
               {!subject?.parcialesCerrados?.[parcialMenu.p] && <span className="text-[10px] text-slate-400">cierra primero</span>}
@@ -3396,7 +3402,19 @@ export default function SubjectPage() {
             <p className="text-sm text-muted text-center mt-2">
               Para cerrar el parcial, <strong>todas las calificaciones deben estar puestas</strong>.
             </p>
-            {closeParcialConfirm.ungraded > 0 ? (
+            {closeParcialConfirm.pondError ? (
+              <>
+                {/* Blocker: ponderación must sum exactly 10 */}
+                <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mt-3 leading-relaxed">
+                  La ponderación del Parcial {closeParcialConfirm.p} suma <strong>{closeParcialConfirm.pondError.total} de 10</strong>.
+                  Ajusta los pesos hasta que sumen 10 y vuelve a cerrar.
+                </p>
+                <button type="button" onClick={() => setCloseParcialConfirm(null)}
+                  className="w-full py-2 mt-4 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors">
+                  Entendido
+                </button>
+              </>
+            ) : closeParcialConfirm.ungraded > 0 ? (
               <>
                 {/* Blocker: real deliveries need a manual grade, can't be auto-zeroed */}
                 <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mt-3 leading-relaxed">
