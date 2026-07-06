@@ -147,9 +147,13 @@ export default function StudentLayout({ children }) {
           data-role="docente"
           className="hidden md:flex flex-col w-[280px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20"
         >
-          {/* Logo — recuadro blanco con marco azul (#0967F0); el rol va debajo */}
-          <div className="m-3 rounded-xl border-2 border-[#0967F0] bg-white px-3 py-3">
-            <EFLogo className="w-full h-auto" />
+          {/* Logo — tarjeta blanca con un rectángulo de líneas azul (#0967F0)
+              alrededor del logo (el borde va sobre el blanco para que se vea);
+              el rol va debajo */}
+          <div className="m-3 rounded-xl bg-white p-2">
+            <div className="rounded-lg border-2 border-[#0967F0] px-2 py-2">
+              <EFLogo className="w-full h-auto" />
+            </div>
           </div>
           <div className="px-4 pt-2.5 pb-0.5">
             <PortalBadge role="alumno" />
