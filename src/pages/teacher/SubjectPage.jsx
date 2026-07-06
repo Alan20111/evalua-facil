@@ -1939,9 +1939,14 @@ export default function SubjectPage() {
           ? parseFloat(((sub.calificacion / (a.maxCalif || 10)) * 10).toFixed(1))
           : null
       })
+      // Which grades were auto-assigned by closing the parcial (shown in red)
+      const gradesCierre = acts.map((a) => {
+        const sub = gradeSubMap[`${s.id}-${a.id}`]
+        return !!(sub && sub.cierreParcial)
+      })
       const rawAvg = promedioParcial(acts, grades, pondParcial(p))
       const avg = rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : null
-      return { p, grades, avg }
+      return { p, grades, gradesCierre, avg }
     })
     const validAvgs = parcialData.map((pd) => pd.avg).filter((a) => a !== null)
     const finalAvg = validAvgs.length
@@ -2581,14 +2586,14 @@ export default function SubjectPage() {
                               {!s.activado && <span className="text-red-500 text-[10px] font-semibold"> (no se ha activado)</span>}
                             </span>
                           </td>
-                          {parcialData.map(({ p, grades, avg }, pi) => [
+                          {parcialData.map(({ p, grades, gradesCierre, avg }, pi) => [
                             ...tableParcials[pi].acts.map((a, ai) => (
                               <td
                                 key={a.id}
                                 data-col={colIndexByKey[`act-${a.id}`]}
-                                data-tooltip="Ver entrega"
+                                data-tooltip={gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó)' : 'Ver entrega'}
                                 onClick={() => navigate(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
-                                className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeColor(grades[ai])} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
+                                className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : gradeColor(grades[ai])} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
                               >
                                 {grades[ai] !== null ? grades[ai] : '—'}
                               </td>
@@ -3653,14 +3658,14 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* ── Revertir cierre del parcial: borra los ceros del cierre ── */}
+      {/* ── Revertir cierre del parcial: borra las calificaciones del cierre ── */}
       {revertParcialConfirm != null && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !revertingParcial && setRevertParcialConfirm(null)} />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Revertir el cierre del Parcial {revertParcialConfirm}?</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Los ceros que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
+              Las calificaciones que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setRevertParcialConfirm(null)} disabled={revertingParcial}
