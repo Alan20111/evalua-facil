@@ -154,6 +154,8 @@ export default function SubjectPage() {
   const [parcialMenu, setParcialMenu] = useState(null)
   // Top export split-buttons ⋮ dropdown: null | 'excel' | 'pdf'
   const [topExportMenu, setTopExportMenu] = useState(null)
+  // Activity-name tooltip over the grades-table number headers: null | { text, x, y }
+  const [actTip, setActTip] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -2445,11 +2447,11 @@ export default function SubjectPage() {
                               key={a.id}
                               data-col={colIndexByKey[`act-${a.id}`]}
                               onClick={() => navigate(`/activity/${a.id}`, { state: { returnTo: 'calificaciones' } })}
-                              data-tooltip={a.nombre}
-                              data-tooltip-pos="bottom"
+                              onMouseEnter={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActTip({ text: a.nombre, x: r.left + r.width / 2, y: r.top }) }}
+                              onMouseLeave={() => setActTip(null)}
                               className={`w-9 px-0.5 py-1.5 font-semibold text-on-surface text-center border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
-                              {/* Tooltip lives on the <th>, not this span: `truncate`
-                                  sets overflow:hidden, which would clip the ::after. */}
+                              {/* Tooltip is a fixed-positioned element (below), so the
+                                  table's scroll container can't clip it — always ABOVE. */}
                               <span className="block truncate">{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
@@ -3266,6 +3268,16 @@ export default function SubjectPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Activity-name tooltip ABOVE the number header (fixed → never clipped) ── */}
+      {actTip && (
+        <div
+          className="fixed z-[9999] -translate-x-1/2 -translate-y-full px-2 py-1 rounded border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] whitespace-nowrap shadow pointer-events-none"
+          style={{ left: actTip.x, top: actTip.y - 6 }}
+        >
+          {actTip.text}
         </div>
       )}
 
