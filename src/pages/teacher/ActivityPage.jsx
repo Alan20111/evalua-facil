@@ -130,6 +130,8 @@ export default function ActivityPage() {
   // Evaluación (cuestionario/examen): the grade comes from the student's attempt;
   // the grading panel allows a manual override but no prefill/annul/extension.
   const isEvaluacion = activity?.tipo === 'evaluacion'
+  // Parcial cerrado: no grade can be changed until the teacher reverts the close.
+  const parcialCerrado = !!(subject?.parcialesCerrados && activity?.parcial != null && subject.parcialesCerrados[activity.parcial])
 
   useEffect(() => { loadAll() }, [activityId])
 
@@ -261,6 +263,7 @@ export default function ActivityPage() {
   // student delivery to attach to).
   async function persistGrade() {
     if (!selected || !canCreate) return false
+    if (parcialCerrado) return false
     if (!selected.sub && !isObservacion) return false
     const cal = parseFloat(gradeForm.calificacion)
     if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) return false
@@ -294,6 +297,10 @@ export default function ActivityPage() {
   async function saveGrade(e) {
     e.preventDefault()
     if (!selected?.sub && !isObservacion) return
+    if (parcialCerrado) {
+      toast('El parcial está cerrado. Primero revierte el cierre del parcial para cambiar calificaciones.', 'error')
+      return
+    }
     if (!canCreate) {
       toast('Activa tu suscripción mensual para registrar calificaciones — toda tu información sigue disponible')
       return
@@ -338,6 +345,10 @@ export default function ActivityPage() {
   // and can submit again (any grade it had is removed with it).
   async function annulSubmission() {
     if (!selected?.sub) return
+    if (parcialCerrado) {
+      toast('El parcial está cerrado. Primero revierte el cierre del parcial.', 'error')
+      return
+    }
     setAnnulling(true)
     try {
       await deleteDoc(doc(db, 'submissions', selected.sub.id))
@@ -932,6 +943,13 @@ export default function ActivityPage() {
                 {/* Grade form (when a submission exists — or always for observación) */}
                 {(selected.sub || isObservacion) ? (
                   <form onSubmit={saveGrade} className="space-y-3">
+                    {parcialCerrado && (
+                      <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
+                        <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
+                        Para modificarlas, primero <strong>revierte el cierre del parcial</strong> desde Calificaciones.
+                        Al revertir, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
+                      </div>
+                    )}
                     {/* Download on the left, grade (with its own header) on the
                         right — narrow input keeps the spinner arrows by the number */}
                     {/* Grade on its own row; the file list (if several) goes below */}
@@ -959,8 +977,9 @@ export default function ActivityPage() {
                           min="0"
                           max={activity?.maxCalif}
                           step="0.1"
-                          autoFocus
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface"
+                          autoFocus={!parcialCerrado}
+                          disabled={parcialCerrado}
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -1035,7 +1054,8 @@ export default function ActivityPage() {
                         value={gradeForm.comentario}
                         onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                         rows={3}
-                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                        disabled={parcialCerrado}
+                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="Retroalimentación para el estudiante…"
                       />
                     </div>
@@ -1046,7 +1066,7 @@ export default function ActivityPage() {
                     )}
                     {/* With autosave on, Siguiente/Anterior already save — showing
                         this button too would be redundant and confusing. */}
-                    {autoSaveOnNav && navList.length > 1 ? (
+                    {parcialCerrado ? null : autoSaveOnNav && navList.length > 1 ? (
                       <p className="text-xs text-slate-400 text-center py-1">
                         La calificación se guarda al avanzar o al retroceder.
                       </p>
@@ -1098,7 +1118,7 @@ export default function ActivityPage() {
                 {!isObservacion && !isEvaluacion && (
                 <div className="pt-3 border-t border-outline-variant space-y-2">
                   {/* Annul the current submission — above the extend-date action */}
-                  {selected.sub && (
+                  {selected.sub && !parcialCerrado && (
                     !annulMode ? (
                       <button
                         type="button"
