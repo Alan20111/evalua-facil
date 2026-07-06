@@ -871,7 +871,7 @@ export default function ActivityPage() {
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-base font-semibold text-on-surface truncate">
-                      {selected.student.orden != null && <span className="text-slate-400">{selected.student.orden}. </span>}
+                      {selected.student.orden != null && <span className="text-on-surface">{selected.student.orden}. </span>}
                       {selected.student.apellidoPaterno} {selected.student.apellidoMaterno} {selected.student.nombre}
                     </h4>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[getStatus(selected.student.id)]}`}>
