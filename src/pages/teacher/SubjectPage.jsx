@@ -30,7 +30,7 @@ import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
-import { uploadToCloudinary, downloadUrl } from '../../utils/cloudinary'
+import { uploadToCloudinary, downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../../utils/cloudinary'
 import { RESOURCE_ACCEPT, getResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import AttachmentList, { FilePreviewModal, canPreviewFile } from '../../components/AttachmentList'
@@ -40,7 +40,7 @@ import {
   FileSpreadsheet, Search,
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
-  Eye, EyeOff, FileSearch, BookOpen, Paperclip, FileCheck2, Timer,
+  Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
@@ -2803,6 +2803,11 @@ export default function SubjectPage() {
                           <FileSearch size={18} />
                         </button>
                       )}
+                      <a href={isImageDeliveredPdf(r.url) ? pdfPageImageUrl(r.url, 1) : r.url} target="_blank" rel="noreferrer"
+                        data-tooltip={isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva'}
+                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        <ExternalLink size={18} />
+                      </a>
                       <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" data-tooltip="Descargar"
                         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <Download size={18} />
