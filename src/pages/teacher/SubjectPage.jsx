@@ -64,7 +64,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show', esEvaluacion: false }
+const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', recibirTarde: false, tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show', esEvaluacion: false }
 
 // Defaults for a new evaluación's config — Cuestionario favors repeated
 // practice (unlimited attempts, keep best); Examen favors a single formal
@@ -898,6 +898,7 @@ export default function SubjectPage() {
         fechaLimite: activity.fechaLimite
           ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)
           : '',
+        recibirTarde: activity.recibirTarde || false,
         tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
         extensionesCustom: activity.extensionesCustom || '',
         oculta: activity.oculta || false,
@@ -976,6 +977,8 @@ export default function SubjectPage() {
         instrucciones: sanitizeHtml(form.instrucciones),
         archivosAdjuntos: [...activityExistingFiles, ...uploaded],
         fechaLimite: form.fechaLimite || null,
+        // Keep receiving submissions after the deadline (marked as "tarde")
+        recibirTarde: form.fechaLimite ? !!form.recibirTarde : false,
         tiposArchivo,
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
         oculta: asDraft ? true : form.visibilidadMode !== 'show',
@@ -2963,9 +2966,24 @@ export default function SubjectPage() {
                           (form.publishedAt || undefined)
                         }
                       />
-                      <p className="text-xs text-slate-400 mt-1">
-                        Luego de esta fecha y hora ya no se reciben entregas.
-                      </p>
+                      {form.fechaLimite ? (
+                        <label className="flex items-start gap-2 mt-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={!!form.recibirTarde}
+                            onChange={e => setForm(f => ({ ...f, recibirTarde: e.target.checked }))}
+                            className="w-4 h-4 mt-0.5 accent-[var(--accent)] flex-shrink-0"
+                          />
+                          <span className="text-xs text-muted leading-snug">
+                            Seguir recibiendo entregas después de la fecha límite
+                            <span className="text-slate-400"> (se marcarán como <strong>entrega tarde</strong>). Si no la marcas, al pasar la fecha ya no se reciben.</span>
+                          </span>
+                        </label>
+                      ) : (
+                        <p className="text-xs text-slate-400 mt-1">
+                          Luego de esta fecha y hora ya no se reciben entregas.
+                        </p>
+                      )}
                     </>
                   )}
                 </div>

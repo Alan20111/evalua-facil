@@ -20,7 +20,7 @@ import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, Clock,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
-  ChevronLeft, ChevronRight, FolderDown,
+  ChevronLeft, ChevronRight, FolderDown, Lock, LockOpen,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
@@ -36,6 +36,27 @@ import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts
 import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch } from '../../utils/studentSearch'
 import EvaluacionManager from '../../components/EvaluacionManager'
+
+// How late a submission was, relative to that student's effective deadline
+// (their extension if any, otherwise the activity deadline).
+function formatLateness(sub, student, activity) {
+  if (!sub?.tarde) return null
+  const dl = activity?.extensiones?.[student?.id] || activity?.fechaLimite
+  const submitMs = sub.fechaEntrega?.seconds ? sub.fechaEntrega.seconds * 1000 : null
+  if (!dl || !submitMs) return 'Entrega tarde'
+  const dlMs = new Date(dl.includes('T') ? dl : `${dl}T23:59:59`).getTime()
+  const diff = submitMs - dlMs
+  if (diff <= 60000) return 'Entrega tarde'
+  const mins = Math.floor(diff / 60000)
+  const days = Math.floor(mins / 1440)
+  const hours = Math.floor((mins % 1440) / 60)
+  const rem = mins % 60
+  const parts = []
+  if (days) parts.push(`${days} día${days !== 1 ? 's' : ''}`)
+  if (hours) parts.push(`${hours} h`)
+  if (!days && rem) parts.push(`${rem} min`)
+  return `Entrega tarde — ${parts.join(' ') || 'menos de 1 min'}`
+}
 
 // Short display names for the accepted file-type chips
 const FILE_TYPE_SHORT_LABELS = {
@@ -81,6 +102,7 @@ export default function ActivityPage() {
   const { userProfile } = useAuth()
   const [activity, setActivity] = useState(null)
   const [activityLabel, setActivityLabel] = useState(null)
+  const [closingActivity, setClosingActivity] = useState(false)
   const [subject, setSubject] = useState(null)
   const [students, setStudents] = useState([])
   const [submissions, setSubmissions] = useState({})
@@ -443,6 +465,22 @@ export default function ActivityPage() {
     }
   }
 
+  // Manually open/close the activity to new submissions (any time).
+  async function toggleActivityClosed() {
+    if (!activity) return
+    const next = !activity.cerradaManual
+    setClosingActivity(true)
+    try {
+      await updateDoc(doc(db, 'activities', activityId), { cerradaManual: next })
+      setActivity((prev) => ({ ...prev, cerradaManual: next }))
+      toast(next ? 'Actividad cerrada — ya no se reciben entregas' : 'Actividad reabierta — se reciben entregas')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setClosingActivity(false)
+    }
+  }
+
   const counts = {
     pendiente: students.filter((s) => getStatus(s.id) === 'pendiente').length,
     entregado: students.filter((s) => getStatus(s.id) === 'entregado').length,
@@ -637,6 +675,33 @@ export default function ActivityPage() {
                   <Clock size={14} /> {formatDeadline(activity.fechaLimite)}
                 </span>
               )}
+              {activity?.recibirTarde && !activity?.cerradaManual && (
+                <span data-tooltip="Se aceptan entregas tarde" className="text-xs text-slate-500 flex items-center gap-0.5">
+                  Recibe entregas tarde
+                </span>
+              )}
+            </div>
+          )}
+          {/* Manual close: stop/allow submissions at any moment */}
+          {!isObservacion && (
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={toggleActivityClosed}
+                disabled={closingActivity}
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded border transition-colors disabled:opacity-60 ${
+                  activity?.cerradaManual
+                    ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                    : 'border-outline-variant text-muted hover:border-accent hover:text-accent'
+                }`}
+              >
+                {activity?.cerradaManual
+                  ? <><LockOpen size={14} /> Actividad cerrada — Reabrir</>
+                  : <><Lock size={14} /> Cerrar actividad ahora</>}
+              </button>
+              {activity?.cerradaManual && (
+                <span className="text-xs text-amber-600">Ya no se reciben entregas.</span>
+              )}
             </div>
           )}
           {activity?.instrucciones && (
@@ -761,6 +826,11 @@ export default function ActivityPage() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {hasExtension && <CalendarDays size={15} className="text-orange-400" />}
+                      {sub?.tarde && (
+                        <span data-tooltip="Entregó después de la fecha límite" className="text-[11px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                          Tarde
+                        </span>
+                      )}
                       {sub?.calificacion != null && (
                         <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
                           <Star size={14} /> {sub.calificacion}/{activity?.maxCalif}
@@ -957,6 +1027,11 @@ export default function ActivityPage() {
                   </p>
                   {/* Always reserve one line so Anterior/Siguiente don't jump
                       between students with and without a motivo */}
+                  {selected.sub?.tarde && (
+                    <p className="text-xs text-amber-600 font-medium mt-0.5 truncate">
+                      {formatLateness(selected.sub, selected.student, activity)}
+                    </p>
+                  )}
                   <p className={`text-xs text-slate-500 mt-0.5 italic truncate min-h-4 ${selected.sub?.motivoSinEntrega ? '' : 'invisible'}`}>
                     {selected.sub?.motivoSinEntrega ? `Motivo: ${selected.sub.motivoSinEntrega}` : ' '}
                   </p>
