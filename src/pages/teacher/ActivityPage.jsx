@@ -103,6 +103,14 @@ export default function ActivityPage() {
   const [activity, setActivity] = useState(null)
   const [activityLabel, setActivityLabel] = useState(null)
   const [closingActivity, setClosingActivity] = useState(false)
+  // New deadline flow (offered once the deadline has passed)
+  const [newDateOpen, setNewDateOpen] = useState(false)
+  const [newDateMode, setNewDateMode] = useState('todos') // 'todos' | 'algunos'
+  const [newDate, setNewDate] = useState('')
+  const [newDateMotivo, setNewDateMotivo] = useState('')
+  const [newDateSearch, setNewDateSearch] = useState('')
+  const [newDateSelected, setNewDateSelected] = useState(() => new Set())
+  const [savingNewDate, setSavingNewDate] = useState(false)
   const [subject, setSubject] = useState(null)
   const [students, setStudents] = useState([])
   const [submissions, setSubmissions] = useState({})
@@ -481,6 +489,65 @@ export default function ActivityPage() {
     }
   }
 
+  // Deadline (for the whole group) already passed?
+  const isPastActivityDeadline = !!activity?.fechaLimite && new Date(
+    activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T23:59:59`
+  ).getTime() < Date.now()
+
+  function openNewDate() {
+    setNewDateMode('todos')
+    setNewDate('')
+    setNewDateMotivo('')
+    setNewDateSearch('')
+    setNewDateSelected(new Set())
+    setNewDateOpen(true)
+  }
+
+  function toggleNewDateStudent(id) {
+    setNewDateSelected((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id); else n.add(id)
+      return n
+    })
+  }
+
+  // New deadline: for everyone (updates the activity deadline) or for the
+  // selected students (per-student extension). Only offered after the deadline.
+  async function saveNewDate() {
+    if (!newDate) { toast('Elige la nueva fecha y hora', 'error'); return }
+    if (newDateMode === 'algunos' && newDateSelected.size === 0) {
+      toast('Selecciona al menos un estudiante', 'error'); return
+    }
+    setSavingNewDate(true)
+    try {
+      if (newDateMode === 'todos') {
+        await updateDoc(doc(db, 'activities', activityId), { fechaLimite: newDate, cerradaManual: false })
+        setActivity((prev) => ({ ...prev, fechaLimite: newDate, cerradaManual: false }))
+        toast('Nueva fecha de entrega para todo el grupo')
+      } else {
+        const motivo = newDateMotivo.trim()
+        const patch = {}
+        newDateSelected.forEach((id) => {
+          patch[`extensiones.${id}`] = newDate
+          patch[`extensionesMotivo.${id}`] = motivo
+        })
+        await updateDoc(doc(db, 'activities', activityId), patch)
+        setActivity((prev) => {
+          const ext = { ...(prev.extensiones || {}) }
+          const em = { ...(prev.extensionesMotivo || {}) }
+          newDateSelected.forEach((id) => { ext[id] = newDate; em[id] = motivo })
+          return { ...prev, extensiones: ext, extensionesMotivo: em }
+        })
+        toast(`Nueva fecha para ${newDateSelected.size} estudiante${newDateSelected.size !== 1 ? 's' : ''}`)
+      }
+      setNewDateOpen(false)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingNewDate(false)
+    }
+  }
+
   const counts = {
     pendiente: students.filter((s) => getStatus(s.id) === 'pendiente').length,
     entregado: students.filter((s) => getStatus(s.id) === 'entregado').length,
@@ -699,6 +766,15 @@ export default function ActivityPage() {
                   ? <><LockOpen size={14} /> Actividad cerrada — Reabrir</>
                   : <><Lock size={14} /> Cerrar actividad ahora</>}
               </button>
+              {isPastActivityDeadline && (
+                <button
+                  type="button"
+                  onClick={openNewDate}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded border border-accent text-accent hover:bg-[var(--accent-tint)] transition-colors"
+                >
+                  <CalendarDays size={14} /> Nueva fecha de entrega
+                </button>
+              )}
               {activity?.cerradaManual && (
                 <span className="text-xs text-amber-600">Ya no se reciben entregas.</span>
               )}
@@ -1396,6 +1472,79 @@ export default function ActivityPage() {
                 )}
 
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New deadline: for the whole group or for selected students */}
+      {newDateOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !savingNewDate && setNewDateOpen(false)} />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card p-4 shadow-2xl max-h-[90vh] flex flex-col">
+            <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
+            <div className="flex gap-2 mt-3 flex-shrink-0">
+              <button type="button" onClick={() => setNewDateMode('todos')}
+                className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${newDateMode === 'todos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
+                Para todos
+              </button>
+              <button type="button" onClick={() => setNewDateMode('algunos')}
+                className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${newDateMode === 'algunos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
+                Para algunos
+              </button>
+            </div>
+
+            <div className="mt-3 overflow-auto">
+              <label className="block text-sm font-medium text-muted mb-1">Nueva fecha y hora límite</label>
+              <EFDateTimePicker mode="datetime" value={newDate} onChange={setNewDate} clearable={false} />
+
+              {newDateMode === 'todos' && (
+                <p className="text-xs text-slate-400 mt-2">
+                  Se aplicará a <strong>todo el grupo</strong> y se reabrirá la actividad si estaba cerrada.
+                </p>
+              )}
+
+              {newDateMode === 'algunos' && (
+                <div className="mt-3">
+                  <div className="relative mb-2">
+                    <Search size={15} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input value={newDateSearch} onChange={(e) => setNewDateSearch(e.target.value)}
+                      placeholder="Buscar por nombre o número de lista…"
+                      className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent" />
+                  </div>
+                  <div className="border border-outline-variant rounded max-h-52 overflow-auto divide-y divide-outline-variant">
+                    {students.filter((s) => !newDateSearch.trim() || matchesStudentSearch(s, newDateSearch)).map((s) => (
+                      <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-[var(--accent-tint)]">
+                        <input type="checkbox" checked={newDateSelected.has(s.id)} onChange={() => toggleNewDateStudent(s.id)}
+                          className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
+                        <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
+                        <span className="truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {newDateSelected.size} seleccionado{newDateSelected.size !== 1 ? 's' : ''}
+                  </p>
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>
+                    <textarea value={newDateMotivo} onChange={(e) => setNewDateMotivo(e.target.value)} rows={2}
+                      placeholder="Ej.: Falta justificada por duelo familiar"
+                      className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus:ring-2 focus:ring-accent" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 mt-4 flex-shrink-0">
+              <button type="button" onClick={() => setNewDateOpen(false)} disabled={savingNewDate}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={saveNewDate}
+                disabled={savingNewDate || !newDate || (newDateMode === 'algunos' && newDateSelected.size === 0)}
+                className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-50 transition-colors">
+                {savingNewDate ? 'Guardando…' : 'Guardar'}
+              </button>
             </div>
           </div>
         </div>
