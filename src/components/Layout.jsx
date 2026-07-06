@@ -8,7 +8,6 @@ import {
   Archive,
   ChevronRight,
   Timer,
-  GraduationCap,
   CalendarDays,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
@@ -26,6 +25,7 @@ import { getTrialBannerMessage } from '../utils/subscriptionHelpers'
 import { subjectDisplayName } from '../utils/subjectName'
 import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
+import EFLogo from './EFLogo'
 
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
@@ -72,11 +72,8 @@ export default function TeacherLayout({ children }) {
     <div className="min-h-screen bg-surface">
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white">
-            <GraduationCap size={20} />
-          </div>
-          <span className="font-semibold text-on-surface text-body-sm">Evalúa Fácil</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
           <PortalBadge role="docente" />
         </div>
         <button
@@ -92,12 +89,11 @@ export default function TeacherLayout({ children }) {
       <div className="flex">
         {/* Sidebar — desktop only (solid accent plane) */}
         <aside className="hidden md:flex flex-col w-[280px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
-          {/* Logo */}
-          <div className="px-4 py-2.5 flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded bg-white flex items-center justify-center flex-shrink-0">
-              <GraduationCap size={22} className="text-accent" />
-            </div>
-            <span className="font-bold text-white">Evalúa Fácil</span>
+          {/* Logo — franja blanca a todo el ancho; el rol va debajo */}
+          <div className="bg-white px-3 py-3">
+            <EFLogo className="w-full h-auto" />
+          </div>
+          <div className="px-4 pt-2.5 pb-0.5">
             <PortalBadge role="docente" />
           </div>
 
