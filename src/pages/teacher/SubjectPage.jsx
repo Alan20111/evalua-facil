@@ -10,6 +10,7 @@ import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { exportSubjectGrades, exportParcialGrades, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
+import { importActivitiesToSubject } from '../../utils/importActivities'
 import { exportSubjectGradesPDF, exportParcialGradesPDF, exportCredentialsPDF, exportQRPDF } from '../../utils/pdf'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
@@ -158,6 +159,14 @@ export default function SubjectPage() {
   const [actTip, setActTip] = useState(null)
   // Per-activity ⋮ menu (Duplicar / Eliminar): null | { a, x, y }
   const [activityMenu, setActivityMenu] = useState(null)
+  // "Traer actividad de otra asignatura" flow
+  const [importFor, setImportFor] = useState(null)        // target parcial | null (modal open)
+  const [importSubjects, setImportSubjects] = useState([]) // teacher's other subjects
+  const [importSrc, setImportSrc] = useState(null)         // chosen source subject
+  const [importSrcActs, setImportSrcActs] = useState([])   // that subject's activities
+  const [importSel, setImportSel] = useState(new Set())    // selected activity ids
+  const [importLoading, setImportLoading] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   // Files attached to the activity's instructions (RichTextEditor's "Adjuntar
@@ -793,6 +802,81 @@ export default function SubjectPage() {
     setTipoActividad(null)
     setShowModal(true)
   }
+
+  // ── Traer actividad de otra asignatura ─────────────────────────────
+  const isDraftAct = (a) => a.oculta && !a.publishedAt && !a.publishAt
+  async function openImport(parcial) {
+    if (!canCreate) {
+      toast('Activa tu suscripción mensual para crear nuevas actividades — toda tu información sigue disponible')
+      return
+    }
+    setImportFor(parcial)
+    setImportSrc(null); setImportSrcActs([]); setImportSel(new Set())
+    setImportLoading(true)
+    try {
+      const snap = await getDocs(query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid)))
+      const subs = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((s) => s.id !== subjectId)
+        .sort((a, b) => subjectDisplayName(a).localeCompare(subjectDisplayName(b), 'es'))
+      setImportSubjects(subs)
+    } catch (err) {
+      toast('Error al cargar tus asignaturas: ' + err.message, 'error')
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
+  async function pickImportSubject(sub) {
+    setImportSrc(sub)
+    setImportSel(new Set())
+    setImportLoading(true)
+    try {
+      const snap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', sub.id)))
+      const acts = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((a) => !isDraftAct(a))
+        .sort((a, b) => (a.parcial - b.parcial) || ((a.orden ?? 0) - (b.orden ?? 0)))
+      setImportSrcActs(acts)
+    } catch (err) {
+      toast('Error al cargar las actividades: ' + err.message, 'error')
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
+  function toggleImportSel(id) {
+    setImportSel((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function confirmImport() {
+    if (!importSel.size) return
+    setImporting(true)
+    try {
+      const chosen = importSrcActs.filter((a) => importSel.has(a.id))
+      const startOrden = activities.filter((a) => a.parcial === importFor).length + 1
+      const created = await importActivitiesToSubject({
+        sourceActivities: chosen,
+        targetSubjectId: subjectId,
+        targetParcial: importFor,
+        docenteId: currentUser.uid,
+        startOrden,
+      })
+      setActivities((prev) => [...prev, ...created])
+      created.forEach((a) => setSubmissionCounts((prev) => ({ ...prev, [a.id]: { delivered: 0, graded: 0 } })))
+      toast(`${created.length} actividad${created.length !== 1 ? 'es' : ''} traída${created.length !== 1 ? 's' : ''} como borrador al Parcial ${importFor}`)
+      setImportFor(null)
+    } catch (err) {
+      toast('Error al traer las actividades: ' + err.message, 'error')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   function openEdit(activity, labelOverride) {
     if (activity.tipo === 'evaluacion') {
       setEvalEditor({ activityId: activity.id, categoria: activity.categoria, parcial: activity.parcial, activityLabel: labelOverride || null })
@@ -2183,6 +2267,13 @@ export default function SubjectPage() {
                         }`}>
                         <BookOpen size={17} /> Agregar material de apoyo
                       </button>
+                      <button type="button" onClick={() => openImport(p)}
+                        data-tooltip="Copia actividades de otra de tus asignaturas a este parcial"
+                        className={`w-full py-2 border-2 border-dashed rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                          canCreate ? 'border-accent text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-slate-400 hover:bg-[var(--accent-medium)]'
+                        }`}>
+                        <Copy size={17} /> Traer de otra asignatura
+                      </button>
                       </div>
                     </div>
                   )}
@@ -3297,6 +3388,90 @@ export default function SubjectPage() {
             </button>
           </div>
         </>
+      )}
+
+      {/* ── Traer actividad de otra asignatura ── */}
+      {importFor != null && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !importing && setImportFor(null)} />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="px-4 py-3 border-b border-outline-variant flex items-center gap-2">
+              {importSrc && (
+                <button type="button" onClick={() => { setImportSrc(null); setImportSrcActs([]); setImportSel(new Set()) }}
+                  className="p-1 -ml-1 text-slate-400 hover:text-accent rounded flex-shrink-0"><ArrowLeft size={18} /></button>
+              )}
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-semibold text-on-surface truncate">Traer al Parcial {importFor}</h3>
+                <p className="text-xs text-slate-500 truncate">
+                  {importSrc ? `De: ${subjectDisplayName(importSrc)}` : 'Elige de cuál de tus asignaturas'}
+                </p>
+              </div>
+              <button type="button" onClick={() => !importing && setImportFor(null)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3">
+              {importLoading ? (
+                <div className="flex justify-center py-10"><Spinner size="lg" /></div>
+              ) : !importSrc ? (
+                importSubjects.length === 0 ? (
+                  <p className="text-center text-sm text-slate-400 py-8">No tienes otras asignaturas de dónde traer.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {importSubjects.map((s) => (
+                      <button key={s.id} type="button" onClick={() => pickImportSubject(s)}
+                        className="w-full flex items-center gap-3 p-3 rounded border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                        <div className="w-8 h-8 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                          <SubjectIcon iconKey={s.icon} size={18} className="text-accent" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-on-surface truncate">{subjectDisplayName(s)}</p>
+                          {s.archived && <p className="text-xs text-amber-600">Archivada</p>}
+                        </div>
+                        <ChevronRight size={18} className="text-slate-300 flex-shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )
+              ) : (
+                importSrcActs.length === 0 ? (
+                  <p className="text-center text-sm text-slate-400 py-8">Esta asignatura no tiene actividades publicadas para traer.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {[...new Set(importSrcActs.map((a) => a.parcial))].sort((a, b) => a - b).map((pp) => (
+                      <div key={pp}>
+                        <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1">Parcial {pp}</p>
+                        <div className="space-y-1">
+                          {importSrcActs.filter((a) => a.parcial === pp).map((a) => {
+                            const tipoLbl = a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : 'Entregable'
+                            const checked = importSel.has(a.id)
+                            return (
+                              <label key={a.id} className={`flex items-center gap-2 px-3 py-2 rounded border cursor-pointer transition-colors ${checked ? 'border-accent bg-[var(--accent-tint)]' : 'border-outline-variant hover:border-accent'}`}>
+                                <input type="checkbox" checked={checked} onChange={() => toggleImportSel(a.id)} className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
+                                <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{a.nombre}</span>
+                                <span className="text-xs text-slate-400 flex-shrink-0">{tipoLbl}</span>
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
+
+            {importSrc && importSrcActs.length > 0 && (
+              <div className="px-4 py-3 border-t border-outline-variant flex items-center gap-2">
+                <span className="text-xs text-muted flex-1">{importSel.size} seleccionada{importSel.size !== 1 ? 's' : ''}</span>
+                <button type="button" onClick={confirmImport} disabled={!importSel.size || importing}
+                  className="px-4 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:bg-accent-hover transition-colors flex items-center gap-2">
+                  {importing ? <Spinner size="sm" /> : <Copy size={16} />}
+                  {importing ? 'Trayendo…' : 'Traer como borrador'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── Kebab menu per parcial (Exportar / Cerrar) — fixed-positioned so the
