@@ -910,7 +910,7 @@ export default function ActivityPage() {
                     Siguiente — and the grade right below — never jump around. */}
                 {navList.length > 1 && (
                   <div className="space-y-1.5">
-                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion) ? 'cursor-pointer' : 'invisible'}`}>
+                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
                     <input
                       type="checkbox"
                       checked={autoSaveOnNav}
