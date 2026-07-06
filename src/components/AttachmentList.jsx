@@ -135,6 +135,10 @@ export function FilePreviewModal({ url, nombre, onClose }) {
       <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">
           <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
+          <a href={url} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva"
+            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+            <ExternalLink size={18} />
+          </a>
           <a href={downloadHref} download={nombre} rel="noreferrer" data-tooltip="Descargar"
             className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
             <Download size={18} />
