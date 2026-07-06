@@ -40,7 +40,7 @@ import {
   FileSpreadsheet, Search,
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
-  Eye, EyeOff, BookOpen, Paperclip, FileCheck2, Timer,
+  Eye, EyeOff, FileSearch, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
@@ -2800,7 +2800,7 @@ export default function SubjectPage() {
                         <button type="button" onClick={() => setPreviewResourceId(isPreviewOpen ? null : r.id)}
                           data-tooltip="Vista previa"
                           className={`p-2 rounded transition-colors flex-shrink-0 ${isPreviewOpen ? 'text-accent bg-[var(--accent-medium)]' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
-                          <Eye size={18} />
+                          <FileSearch size={18} />
                         </button>
                       )}
                       <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" data-tooltip="Descargar"

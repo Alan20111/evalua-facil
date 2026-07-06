@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Download, X, Eye, ExternalLink } from 'lucide-react'
+import { Download, X, FileSearch, ExternalLink } from 'lucide-react'
 import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
 import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
@@ -44,7 +44,7 @@ function FileRow({ f, onRemove, index }) {
         {f.url && canView && (
           <button type="button" onClick={() => setOpen(true)}
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Vista previa">
-            <Eye size={15} />
+            <FileSearch size={15} />
           </button>
         )}
         {f.url && (isPdf || isOffice) && (
