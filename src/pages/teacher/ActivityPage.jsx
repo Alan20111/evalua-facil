@@ -955,9 +955,11 @@ export default function ActivityPage() {
                               : (selected.sub.nombreArchivo || (selected.sub.sinEntrega ? `Sin entrega — calificada en ${selected.sub.calificacion ?? 0}` : 'Sin archivo'))
                             : 'Sin entrega aún'}
                   </p>
-                  {selected.sub?.motivoSinEntrega && (
-                    <p className="text-xs text-slate-500 mt-0.5 italic">Motivo: {selected.sub.motivoSinEntrega}</p>
-                  )}
+                  {/* Always reserve one line so Anterior/Siguiente don't jump
+                      between students with and without a motivo */}
+                  <p className={`text-xs text-slate-500 mt-0.5 italic truncate min-h-4 ${selected.sub?.motivoSinEntrega ? '' : 'invisible'}`}>
+                    {selected.sub?.motivoSinEntrega ? `Motivo: ${selected.sub.motivoSinEntrega}` : ' '}
+                  </p>
                 </div>
 
                 {/* Autosave opt-in above the navigation. The checkbox keeps its
