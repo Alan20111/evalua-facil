@@ -659,12 +659,22 @@ export default function ActivityPage() {
             >
               <ArrowLeft size={22} />
             </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 flex-wrap">
-                {activityLabel && <span className="text-accent">{activityLabel}</span>}
-                {activity?.nombre}
-                <span className="text-sm font-normal text-slate-400">(Calificar)</span>
-              </h1>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wide text-accent">Evaluar</p>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-on-surface truncate">
+                  {activityLabel && <span className="text-accent">{activityLabel} </span>}
+                  {activity?.nombre}
+                </h1>
+                <button
+                  type="button"
+                  onClick={() => setEditingActivity(true)}
+                  data-tooltip="Editar actividad"
+                  className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                >
+                  <Pencil size={18} />
+                </button>
+              </div>
               <p className="text-slate-400 text-xs">
                 {subjectDisplayName(subject)}
                 {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
@@ -811,7 +821,7 @@ export default function ActivityPage() {
                     }`}
                   >
                     <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
-                    <div className="flex-1 min-w-0" data-tooltip="Calificar">
+                    <div className="flex-1 min-w-0" data-tooltip="Evaluar" data-tooltip-pos="bottom">
                       <p className="text-sm font-medium text-on-surface truncate">
                         {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
                       </p>
@@ -858,6 +868,7 @@ export default function ActivityPage() {
             {/* Same header pattern as the activity page: activity title with its
                 accent number, then "Asignatura — Profesor · Parcial N" below */}
             <div className="flex-1 min-w-0 text-right sm:text-left">
+              <p className="text-xs font-bold uppercase tracking-wide text-accent">Evaluar</p>
               <h3 className="text-xl font-bold text-on-surface truncate">
                 {activityLabel && <span className="text-accent">{activityLabel} </span>}
                 {activity?.nombre}
@@ -1344,11 +1355,11 @@ export default function ActivityPage() {
                         onClick={() => setSinEntregaMode(true)}
                         className="block mx-auto text-sm text-slate-500 hover:text-accent transition-colors"
                       >
-                        Calificar sin entrega
+                        Evaluar sin entrega
                       </button>
                     ) : (
                       <div className="space-y-2 rounded border border-outline-variant bg-surface p-3">
-                        <p className="text-sm font-medium text-on-surface">Calificar sin entrega</p>
+                        <p className="text-sm font-medium text-on-surface">Evaluar sin entrega</p>
                         <div>
                           <label className="block text-sm font-medium text-muted mb-1">
                             Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
