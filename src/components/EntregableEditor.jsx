@@ -11,8 +11,29 @@ import { sanitizeHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../config/fileTypes'
 import { ArrowLeft, Plus, Pencil, CalendarDays } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
+import { formatDeadline } from '../utils/activityVisibility'
 
 const MAX_ATTACH = 15 * 1024 * 1024
+
+// Per-student extensions (`activity.extensiones`) are a flat studentId→date map with
+// no grouping metadata. A single "Nueva fecha límite" action writes the same date+motivo
+// to every selected student at once, so grouping by (date, motivo) reconstructs "who got
+// this override" without needing a separate history log.
+function groupExtensions(extensiones, extensionesMotivo, students) {
+  const byKey = new Map()
+  Object.entries(extensiones || {}).forEach(([studentId, date]) => {
+    if (!date) return
+    const motivo = (extensionesMotivo || {})[studentId] || ''
+    const key = `${date}|${motivo}`
+    const student = (students || []).find((s) => s.id === studentId)
+    const name = student
+      ? `${student.apellidoPaterno} ${student.apellidoMaterno || ''} ${student.nombre}`.replace(/\s+/g, ' ').trim()
+      : 'Estudiante'
+    if (!byKey.has(key)) byKey.set(key, { date, motivo, names: [] })
+    byKey.get(key).names.push(name)
+  })
+  return [...byKey.values()].sort((a, b) => a.date.localeCompare(b.date))
+}
 
 function toIsoNow() {
   const d = new Date()
@@ -47,6 +68,9 @@ export default function EntregableEditor({
                       // Provided only once the activity is published; absent when creating.
   externalFechaLimite, // activity.fechaLimite from the parent — keeps the form in sync when
                       // the modal changes the group deadline while this editor stays open.
+  students,           // full roster — resolves names for the extensiones list below
+  extensiones,        // activity.extensiones — read-only display, never edited here
+  extensionesMotivo,  // activity.extensionesMotivo — read-only display, never edited here
 }) {
   const toast = useToast()
   const isNew = !activityId
@@ -157,7 +181,9 @@ export default function EntregableEditor({
         oculta: asDraft || mode === 'schedule' || mode === 'hide',
         publishAt: !asDraft && mode === 'schedule' ? (form.publishAt || null) : null,
         publishedAt: newPublishedAt,
-        cerrarEntregasEnFecha: isObservacion ? null : (form.cerrarEntregasEnFecha ?? true),
+        // The checkbox is worded as "cerrar en la fecha programada" (positive framing),
+        // but the field the student-facing page actually reads is the inverse: recibirTarde.
+        recibirTarde: isObservacion ? null : !(form.cerrarEntregasEnFecha ?? true),
       }
       const tipo = isObservacion ? 'observacion' : 'archivo'
       if (isNew) {
@@ -309,6 +335,21 @@ export default function EntregableEditor({
                     </label>
                   </div>
                 )}
+
+                {/* Read-only: who currently has a per-student extension, to when, and
+                    why — grouped from `extensiones`/`extensionesMotivo` since a single
+                    "Nueva fecha límite" action writes the same date+motivo to everyone
+                    selected. Managed from the modal below; not editable here. */}
+                {groupExtensions(extensiones, extensionesMotivo, students).map((g, i) => (
+                  <div key={i} className="p-3 bg-amber-50 rounded border border-amber-200 text-sm">
+                    <p className="font-medium text-on-surface flex items-center gap-1.5">
+                      <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
+                      Prórroga hasta {formatDeadline(g.date)}
+                    </p>
+                    <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
+                    {g.motivo && <p className="text-xs text-muted mt-0.5">Motivo: {g.motivo}</p>}
+                  </div>
+                ))}
 
                 {/* Published activity: extend the deadline for the whole group or for
                     specific students who fell behind — opens the modal in ActivityPage. */}

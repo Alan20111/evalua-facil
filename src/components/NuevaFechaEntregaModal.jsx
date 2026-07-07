@@ -81,6 +81,8 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
           {mode === 'todos' && (
             <p className="text-xs text-slate-400 mt-2">
               Se aplicará a <strong>todo el grupo</strong> y se reabrirá la actividad si estaba cerrada.
+              Al llegar esta fecha y hora, las entregas se cerrarán otra vez automáticamente
+              (según la casilla "Cerrar entregas en la fecha y hora programada").
             </p>
           )}
 
@@ -103,7 +105,8 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                 ))}
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                {selected.size} seleccionado{selected.size !== 1 ? 's' : ''}
+                {selected.size} seleccionado{selected.size !== 1 ? 's' : ''} — podrán entregar hasta esta
+                fecha; al pasar, se cerrará también para ellos.
               </p>
               <div className="mt-2">
                 <label className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>

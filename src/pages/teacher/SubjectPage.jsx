@@ -887,6 +887,9 @@ export default function SubjectPage() {
       setEvalEditor({ activityId: activity.id, categoria: activity.categoria, parcial: activity.parcial, activityLabel: labelOverride || null })
       return
     }
+    // Roster for the editor's read-only "prórrogas" list (Nueva fecha límite → Para
+    // algunos) — load it now instead of waiting for the teacher to visit Alumnos first.
+    ensureGroupStudents()
     // Entregable (and legacy actividad/tarea) → full-screen editor
     const cat = ['actividad', 'tarea'].includes(activity.categoria) ? 'entregable' : (activity.categoria || 'entregable')
     setEntregableEditor({
@@ -901,14 +904,15 @@ export default function SubjectPage() {
         fechaLimite: activity.fechaLimite
           ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)
           : '',
-        recibirTarde: activity.recibirTarde || false,
         tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
         extensionesCustom: activity.extensionesCustom || '',
         oculta: activity.oculta || false,
         publishAt: activity.publishAt || '',
         publishedAt: activity.publishedAt || '',
         visibilidadMode: !activity.oculta ? 'published' : activity.publishAt ? 'schedule' : 'hide',
-        cerrarEntregasEnFecha: activity.cerrarEntregasEnFecha ?? true,
+        // Checkbox reads the positive framing ("cerrar en fecha"); the real DB field
+        // (recibirTarde) is the inverse — see EntregableEditor's save payload.
+        cerrarEntregasEnFecha: !activity.recibirTarde,
       },
     })
   }
@@ -920,6 +924,11 @@ export default function SubjectPage() {
       ? entregableEditor.initialForm.publishedAt
       : `${entregableEditor.initialForm.publishedAt}T00:00:00`
   ).getTime() <= Date.now()
+
+  // Live copy of the activity being edited — used to show its current
+  // extensiones/extensionesMotivo (per-student prórrogas) in the editor,
+  // since entregableEditor.initialForm doesn't carry those fields.
+  const editingActivityData = activities.find((a) => a.id === entregableEditor?.activityId)
 
   // "Para algunos" needs the group roster — load it if the teacher never
   // visited the Alumnos tab this session.
@@ -4254,6 +4263,9 @@ export default function SubjectPage() {
           }}
           onNuevaFecha={editorIsPublished ? openNewDateForEditor : undefined}
           externalFechaLimite={entregableEditor.initialForm?.fechaLimite || ''}
+          students={groupStudents}
+          extensiones={editingActivityData?.extensiones || {}}
+          extensionesMotivo={editingActivityData?.extensionesMotivo || {}}
         />
       )}
 

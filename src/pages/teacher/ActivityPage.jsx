@@ -1421,12 +1421,17 @@ export default function ActivityPage() {
             publishAt: activity.publishAt || '',
             publishedAt: activity.publishedAt || '',
             visibilidadMode: activity.publishedAt ? 'show' : (activity.publishAt ? 'schedule' : 'hide'),
-            cerrarEntregasEnFecha: activity.cerrarEntregasEnFecha ?? true,
+            // Checkbox reads the positive framing ("cerrar en fecha"); the real DB field
+            // (recibirTarde) is the inverse — see EntregableEditor's save payload.
+            cerrarEntregasEnFecha: !activity.recibirTarde,
           }}
           initialExistingFiles={activity.archivosAdjuntos || []}
           contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
           onNuevaFecha={isPublished ? () => setNewDateOpen(true) : undefined}
           externalFechaLimite={activity.fechaLimite || ''}
+          students={students}
+          extensiones={activity.extensiones || {}}
+          extensionesMotivo={activity.extensionesMotivo || {}}
         />
       )}
 
