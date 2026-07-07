@@ -30,17 +30,17 @@ import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
-import { uploadToCloudinary, downloadUrl } from '../../utils/cloudinary'
+import { uploadToCloudinary, downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../../utils/cloudinary'
 import { RESOURCE_ACCEPT, getResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
-import AttachmentList, { FilePreview, canPreviewFile } from '../../components/AttachmentList'
+import AttachmentList, { FilePreviewModal, canPreviewFile } from '../../components/AttachmentList'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet, Search,
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
-  Eye, EyeOff, BookOpen, Paperclip, FileCheck2, Timer,
+  Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
@@ -64,7 +64,7 @@ async function fetchSubmissionsForActivities(actIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show', esEvaluacion: false }
+const EMPTY_FORM = { nombre: '', categoria: 'entregable', instrucciones: '', fechaLimite: '', recibirTarde: false, tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show', esEvaluacion: false }
 
 // Defaults for a new evaluación's config — Cuestionario favors repeated
 // practice (unlimited attempts, keep best); Examen favors a single formal
@@ -149,6 +149,8 @@ export default function SubjectPage() {
   // Cerrar parcial: null | { p, missing: [{s, a}], ungraded }
   const [closeParcialConfirm, setCloseParcialConfirm] = useState(null)
   const [closingParcial, setClosingParcial] = useState(false)
+  // Grade applied to all no-entregas when closing a parcial (default 5)
+  const [closeParcialGrade, setCloseParcialGrade] = useState('5')
   const [revertParcialConfirm, setRevertParcialConfirm] = useState(null) // parcial number | null
   const [revertingParcial, setRevertingParcial] = useState(false)
   // Kebab menu per parcial header: null | { p, x, y } (fixed coords from the ⋮ button)
@@ -896,6 +898,7 @@ export default function SubjectPage() {
         fechaLimite: activity.fechaLimite
           ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)
           : '',
+        recibirTarde: activity.recibirTarde || false,
         tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
         extensionesCustom: activity.extensionesCustom || '',
         oculta: activity.oculta || false,
@@ -974,6 +977,8 @@ export default function SubjectPage() {
         instrucciones: sanitizeHtml(form.instrucciones),
         archivosAdjuntos: [...activityExistingFiles, ...uploaded],
         fechaLimite: form.fechaLimite || null,
+        // Keep receiving submissions after the deadline (marked as "tarde")
+        recibirTarde: form.fechaLimite ? !!form.recibirTarde : false,
         tiposArchivo,
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
         oculta: asDraft ? true : form.visibilidadMode !== 'show',
@@ -1495,6 +1500,7 @@ export default function SubjectPage() {
       })
     })
     playAlertSound()
+    setCloseParcialGrade('5')
     setCloseParcialConfirm({ p, missing, ungraded, pondError })
   }
 
@@ -1539,6 +1545,8 @@ export default function SubjectPage() {
   async function confirmCloseParcial() {
     if (!closeParcialConfirm) return
     const { p, missing } = closeParcialConfirm
+    // Grade to assign to every no-entrega (default 0 if the field is left blank)
+    const grade = Math.max(0, parseFloat(closeParcialGrade) || 0)
     setClosingParcial(true)
     try {
       // Batched creates (Firestore caps batches at 500 writes)
@@ -1550,7 +1558,7 @@ export default function SubjectPage() {
           const data = {
             alumnoId: s.id,
             actividadId: a.id,
-            calificacion: 0,
+            calificacion: grade,
             comentario: '',
             estado: 'calificado',
             sinEntrega: true,
@@ -1571,7 +1579,7 @@ export default function SubjectPage() {
         [`parcialesCerrados.${p}`]: new Date().toISOString(),
       })
       setSubject((s) => ({ ...s, parcialesCerrados: { ...(s.parcialesCerrados || {}), [p]: new Date().toISOString() } }))
-      toast(`Parcial ${p} cerrado — ${missing.length} no entrega${missing.length !== 1 ? 's quedaron' : ' quedó'} en 0`)
+      toast(`Parcial ${p} cerrado — ${missing.length} no entrega${missing.length !== 1 ? 's quedaron' : ' quedó'} en ${grade}`)
       setCloseParcialConfirm(null)
     } catch (err) {
       toast('Error al cerrar el parcial: ' + err.message, 'error')
@@ -1934,9 +1942,14 @@ export default function SubjectPage() {
           ? parseFloat(((sub.calificacion / (a.maxCalif || 10)) * 10).toFixed(1))
           : null
       })
+      // Which grades were auto-assigned by closing the parcial (shown in red)
+      const gradesCierre = acts.map((a) => {
+        const sub = gradeSubMap[`${s.id}-${a.id}`]
+        return !!(sub && sub.cierreParcial)
+      })
       const rawAvg = promedioParcial(acts, grades, pondParcial(p))
       const avg = rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : null
-      return { p, grades, avg }
+      return { p, grades, gradesCierre, avg }
     })
     const validAvgs = parcialData.map((pd) => pd.avg).filter((a) => a !== null)
     const finalAvg = validAvgs.length
@@ -2576,14 +2589,14 @@ export default function SubjectPage() {
                               {!s.activado && <span className="text-red-500 text-[10px] font-semibold"> (no se ha activado)</span>}
                             </span>
                           </td>
-                          {parcialData.map(({ p, grades, avg }, pi) => [
+                          {parcialData.map(({ p, grades, gradesCierre, avg }, pi) => [
                             ...tableParcials[pi].acts.map((a, ai) => (
                               <td
                                 key={a.id}
                                 data-col={colIndexByKey[`act-${a.id}`]}
-                                data-tooltip="Ver entrega"
+                                data-tooltip={gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó)' : 'Ver entrega'}
                                 onClick={() => navigate(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
-                                className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeColor(grades[ai])} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
+                                className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] === null ? 'text-slate-300' : 'text-on-surface'} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
                               >
                                 {grades[ai] !== null ? grades[ai] : '—'}
                               </td>
@@ -2774,7 +2787,7 @@ export default function SubjectPage() {
                 const { icon: Icon, color } = getResourceIcon(r.nombreArchivo)
                 const isPreviewOpen = previewResourceId === r.id
                 return (
-                  <div key={r.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card overflow-hidden">
+                  <div key={r.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card">
                     <div className="flex items-center gap-3 px-3 py-2">
                       <Icon size={28} className={`flex-shrink-0 ${color}`} />
                       <div className="flex-1 min-w-0">
@@ -2790,9 +2803,14 @@ export default function SubjectPage() {
                         <button type="button" onClick={() => setPreviewResourceId(isPreviewOpen ? null : r.id)}
                           data-tooltip="Vista previa"
                           className={`p-2 rounded transition-colors flex-shrink-0 ${isPreviewOpen ? 'text-accent bg-[var(--accent-medium)]' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
-                          <Eye size={18} />
+                          <FileSearch size={18} />
                         </button>
                       )}
+                      <a href={isImageDeliveredPdf(r.url) ? pdfPageImageUrl(r.url, 1) : r.url} target="_blank" rel="noreferrer"
+                        data-tooltip={isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva'}
+                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        <ExternalLink size={18} />
+                      </a>
                       <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" data-tooltip="Descargar"
                         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <Download size={18} />
@@ -2807,9 +2825,11 @@ export default function SubjectPage() {
                       </button>
                     </div>
                     {isPreviewOpen && (
-                      <div className="border-t border-outline-variant bg-surface">
-                        <FilePreview url={r.url} nombre={r.nombreArchivo || r.nombre} />
-                      </div>
+                      <FilePreviewModal
+                        url={r.url}
+                        nombre={r.nombreArchivo || r.nombre}
+                        onClose={() => setPreviewResourceId(null)}
+                      />
                     )}
                   </div>
                 )
@@ -2946,9 +2966,24 @@ export default function SubjectPage() {
                           (form.publishedAt || undefined)
                         }
                       />
-                      <p className="text-xs text-slate-400 mt-1">
-                        Luego de esta fecha y hora ya no se reciben entregas.
-                      </p>
+                      {form.fechaLimite ? (
+                        <label className="flex items-start gap-2 mt-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={!!form.recibirTarde}
+                            onChange={e => setForm(f => ({ ...f, recibirTarde: e.target.checked }))}
+                            className="w-4 h-4 mt-0.5 accent-[var(--accent)] flex-shrink-0"
+                          />
+                          <span className="text-xs text-muted leading-snug">
+                            Seguir recibiendo entregas después de la fecha límite
+                            <span className="text-slate-400"> (se marcarán como <strong>entrega tarde</strong>). Si no la marcas, al pasar la fecha ya no se reciben.</span>
+                          </span>
+                        </label>
+                      ) : (
+                        <p className="text-xs text-slate-400 mt-1">
+                          Luego de esta fecha y hora ya no se reciben entregas.
+                        </p>
+                      )}
                     </>
                   )}
                 </div>
@@ -3611,10 +3646,24 @@ export default function SubjectPage() {
             ) : (
               <>
                 {closeParcialConfirm.missing.length > 0 ? (
-                  <p className="text-sm text-muted text-center mt-2">
-                    Faltan <strong>{closeParcialConfirm.missing.length} no entrega{closeParcialConfirm.missing.length !== 1 ? 's' : ''}</strong>.
-                    Cancela si vas a poner esas calificaciones a mano, o cierra y todas las no entregadas quedarán en <strong className="text-red-600">0 (cero)</strong>.
-                  </p>
+                  <>
+                    <p className="text-sm text-muted text-center mt-2">
+                      Faltan <strong>{closeParcialConfirm.missing.length} entrega{closeParcialConfirm.missing.length !== 1 ? 's' : ''}</strong> o
+                      asigna desde aquí una misma calificación a todas juntas.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 mt-3">
+                      <label className="text-sm text-muted">Calificación para todas:</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={closeParcialGrade}
+                        onChange={(e) => setCloseParcialGrade(e.target.value)}
+                        disabled={closingParcial}
+                        className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-accent"
+                      />
+                    </div>
+                  </>
                 ) : (
                   <p className="text-sm text-muted text-center mt-2">Todo está calificado. Puedes cerrar el parcial.</p>
                 )}
@@ -3625,7 +3674,7 @@ export default function SubjectPage() {
                   </button>
                   <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
                     className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors">
-                    {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? 'Cerrar y poner 0' : 'Cerrar parcial')}
+                    {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? `Cerrar y poner ${Math.max(0, parseFloat(closeParcialGrade) || 0)}` : 'Cerrar parcial')}
                   </button>
                 </div>
               </>
@@ -3634,14 +3683,14 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* ── Revertir cierre del parcial: borra los ceros del cierre ── */}
+      {/* ── Revertir cierre del parcial: borra las calificaciones del cierre ── */}
       {revertParcialConfirm != null && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !revertingParcial && setRevertParcialConfirm(null)} />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Revertir el cierre del Parcial {revertParcialConfirm}?</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Los ceros que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
+              Las calificaciones que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setRevertParcialConfirm(null)} disabled={revertingParcial}

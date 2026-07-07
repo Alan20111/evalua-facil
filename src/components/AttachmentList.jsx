@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { Download, X, Eye, ExternalLink } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { Download, X, FileSearch, ExternalLink } from 'lucide-react'
 import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
-import { downloadUrl } from '../utils/cloudinary'
+import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
 
 const PDF_EXTS = ['pdf']
 const OFFICE_EXTS = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt']
@@ -29,11 +30,17 @@ function FileRow({ f, onRemove, index }) {
   const canView = isPdf || isOffice || isImage
   const { icon: Icon, color } = getResourceIcon(f.nombre)
 
-  const viewUrl = isPdf ? pdfUrl(f.url) : f.url
+  const isImgPdf = isPdf && isImageDeliveredPdf(f.url)
+  const viewUrl = isPdf && !isImgPdf ? pdfUrl(f.url) : f.url
   const downloadHref = downloadUrl(f.url, f.nombre)
+  // "Open in a new tab": image-delivered PDFs can't go through Google Docs
+  // (their raw URL is blocked), so open page 1 as an image instead.
+  const openInTabUrl = isImgPdf
+    ? pdfPageImageUrl(f.url, 1)
+    : (isPdf || isOffice) ? docsViewerUrl(viewUrl) : null
 
   return (
-    <div className="rounded border border-outline-variant bg-surface-card overflow-hidden">
+    <div className="rounded border border-outline-variant bg-surface-card">
       <div className="flex items-center gap-2 px-2 py-1.5">
         <Icon size={18} className={`flex-shrink-0 ${color}`} />
         <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
@@ -41,14 +48,14 @@ function FileRow({ f, onRemove, index }) {
           {f.tamano != null ? formatFileSize(f.tamano) : ''}
         </span>
         {f.url && canView && (
-          <button type="button" onClick={() => setOpen((v) => !v)}
-            className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Ver archivo">
-            <Eye size={15} />
+          <button type="button" onClick={() => setOpen(true)}
+            className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Vista previa">
+            <FileSearch size={15} />
           </button>
         )}
-        {f.url && (isPdf || isOffice) && (
-          <a href={docsViewerUrl(viewUrl)} target="_blank" rel="noreferrer"
-            data-tooltip="Abrir en Google Docs"
+        {f.url && openInTabUrl && (
+          <a href={openInTabUrl} target="_blank" rel="noreferrer"
+            data-tooltip={isImgPdf ? 'Abrir página 1 en pestaña nueva' : 'Abrir en Google Docs'}
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <ExternalLink size={15} />
           </a>
@@ -68,9 +75,7 @@ function FileRow({ f, onRemove, index }) {
       </div>
 
       {open && f.url && (
-        <div className="border-t border-outline-variant bg-surface">
-          <FilePreview url={f.url} nombre={f.nombre} />
-        </div>
+        <FilePreviewModal url={f.url} nombre={f.nombre} onClose={() => setOpen(false)} />
       )}
     </div>
   )
@@ -87,6 +92,11 @@ export function FilePreview({ url, nombre, fill = false }) {
   const isImage = IMAGE_EXTS.includes(ext)
   const viewUrl = isPdf ? pdfUrl(url) : url
   if (!url) return null
+  // PDFs uploaded as an image resource → render their pages as JPGs. This works
+  // even when the Cloudinary account has PDF delivery disabled.
+  if (isPdf && isImageDeliveredPdf(url)) {
+    return <PdfPagesPreview url={url} nombre={nombre} fill={fill} />
+  }
   return isImage ? (
     <img src={url} alt={nombre} className={`w-full object-contain ${fill ? 'h-full' : 'max-h-[70vh]'}`} />
   ) : isPdf ? (
@@ -115,6 +125,78 @@ export function FilePreview({ url, nombre, fill = false }) {
       className={`w-full ${fill ? 'h-full' : 'h-[70vh]'}`}
       style={{ border: 'none' }}
     />
+  )
+}
+
+// Renders a PDF (uploaded as an image resource) page by page as JPGs. Loads
+// pages progressively: when the last shown page loads, it asks for the next;
+// when a page 404s (past the end) it stops. Works with PDF delivery disabled.
+function PdfPagesPreview({ url, nombre, fill }) {
+  const [count, setCount] = useState(1)
+  const [ended, setEnded] = useState(false)
+  const [anyLoaded, setAnyLoaded] = useState(false)
+  const pages = Array.from({ length: count }, (_, i) => i + 1)
+  return (
+    <div className={`w-full overflow-auto bg-neutral-800 ${fill ? 'h-full' : 'max-h-[70vh]'}`}>
+      {pages.map((p) => (
+        <img
+          key={p}
+          src={pdfPageImageUrl(url, p)}
+          alt={`${nombre} — página ${p}`}
+          className="w-full block mx-auto mb-1 bg-white"
+          onLoad={() => { setAnyLoaded(true); if (p === count && !ended) setCount((c) => c + 1) }}
+          onError={(e) => { e.currentTarget.style.display = 'none'; setEnded(true) }}
+        />
+      ))}
+      {ended && !anyLoaded && (
+        <div className="text-center text-slate-300 text-sm p-6">
+          No se pudo mostrar la vista previa de este PDF.
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Windowed (modal) preview — opens the file in a centered overlay with a header
+// that shows the name, a download button and a close button. Used by materiales
+// and recursos in both the teacher and student shells. Distinct from the
+// visibility eye (mostrar/ocultar a estudiantes).
+export function FilePreviewModal({ url, nombre, onClose }) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  if (!url) return null
+  const downloadHref = downloadUrl(url, nombre)
+  // Image-delivered PDFs can't be opened directly (raw URL blocked) → open the
+  // first page as an image instead.
+  const openInTabUrl = isImageDeliveredPdf(url) ? pdfPageImageUrl(url, 1) : url
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">
+          <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
+          <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva"
+            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+            <ExternalLink size={18} />
+          </a>
+          <a href={downloadHref} download={nombre} rel="noreferrer" data-tooltip="Descargar"
+            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+            <Download size={18} />
+          </a>
+          <button type="button" onClick={onClose} data-tooltip="Cerrar"
+            className="p-2 text-slate-400 hover:text-on-surface hover:bg-surface rounded transition-colors flex-shrink-0">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto bg-surface">
+          <FilePreview url={url} nombre={nombre} fill />
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }
 

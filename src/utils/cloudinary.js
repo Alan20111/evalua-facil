@@ -1,7 +1,27 @@
-const NON_IMAGE_EXTS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar', 'txt', 'csv']
+// Raw-delivered types. PDF is intentionally NOT here: we upload PDFs as the
+// `image` resource type so Cloudinary can rasterize their pages to JPG. That
+// lets us preview PDFs (page by page) even when the account has "PDF and ZIP
+// delivery" disabled — delivering a JPG of a page is allowed, delivering the
+// .pdf itself is not.
+const NON_IMAGE_EXTS = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar', 'txt', 'csv']
 
 function fileExt(file) {
   return file.name.split('.').pop().toLowerCase()
+}
+
+// True when a stored URL is a PDF delivered as an image resource (so its pages
+// can be rendered as JPGs). Old PDFs uploaded as `raw` won't match.
+export function isImageDeliveredPdf(url) {
+  return !!url && url.includes('/image/upload/') && /\.pdf(\?|$)/i.test(url)
+}
+
+// Build a Cloudinary URL that renders a single PDF page as a JPG. Only valid
+// for image-delivered PDFs (see isImageDeliveredPdf). Returns null otherwise.
+export function pdfPageImageUrl(url, page = 1) {
+  if (!isImageDeliveredPdf(url)) return null
+  return url
+    .replace('/image/upload/', `/image/upload/pg_${page},f_jpg,q_auto/`)
+    .replace(/\.pdf(\?|$)/i, '.jpg$1')
 }
 
 // Shared Cloudinary upload helper. Centralizes the upload request so every

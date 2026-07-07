@@ -20,7 +20,7 @@ import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, Clock,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
-  ChevronLeft, ChevronRight, FolderDown, Pencil,
+  ChevronLeft, ChevronRight, FolderDown, Lock, LockOpen, Pencil,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
@@ -37,6 +37,27 @@ import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch } from '../../utils/studentSearch'
 import EvaluacionManager from '../../components/EvaluacionManager'
 import EntregableEditor from '../../components/EntregableEditor'
+
+// How late a submission was, relative to that student's effective deadline
+// (their extension if any, otherwise the activity deadline).
+function formatLateness(sub, student, activity) {
+  if (!sub?.tarde) return null
+  const dl = activity?.extensiones?.[student?.id] || activity?.fechaLimite
+  const submitMs = sub.fechaEntrega?.seconds ? sub.fechaEntrega.seconds * 1000 : null
+  if (!dl || !submitMs) return 'Entrega tarde'
+  const dlMs = new Date(dl.includes('T') ? dl : `${dl}T23:59:59`).getTime()
+  const diff = submitMs - dlMs
+  if (diff <= 60000) return 'Entrega tarde'
+  const mins = Math.floor(diff / 60000)
+  const days = Math.floor(mins / 1440)
+  const hours = Math.floor((mins % 1440) / 60)
+  const rem = mins % 60
+  const parts = []
+  if (days) parts.push(`${days} día${days !== 1 ? 's' : ''}`)
+  if (hours) parts.push(`${hours} h`)
+  if (!days && rem) parts.push(`${rem} min`)
+  return `Entrega tarde — ${parts.join(' ') || 'menos de 1 min'}`
+}
 
 // Short display names for the accepted file-type chips
 const FILE_TYPE_SHORT_LABELS = {
@@ -82,6 +103,15 @@ export default function ActivityPage() {
   const { userProfile } = useAuth()
   const [activity, setActivity] = useState(null)
   const [activityLabel, setActivityLabel] = useState(null)
+  const [closingActivity, setClosingActivity] = useState(false)
+  // New deadline flow (offered once the deadline has passed)
+  const [newDateOpen, setNewDateOpen] = useState(false)
+  const [newDateMode, setNewDateMode] = useState('todos') // 'todos' | 'algunos'
+  const [newDate, setNewDate] = useState('')
+  const [newDateMotivo, setNewDateMotivo] = useState('')
+  const [newDateSearch, setNewDateSearch] = useState('')
+  const [newDateSelected, setNewDateSelected] = useState(() => new Set())
+  const [savingNewDate, setSavingNewDate] = useState(false)
   const [subject, setSubject] = useState(null)
   const [students, setStudents] = useState([])
   const [submissions, setSubmissions] = useState({})
@@ -113,6 +143,11 @@ export default function ActivityPage() {
   // Annul the current submission (student sent the wrong thing → back to Pendiente)
   const [annulMode, setAnnulMode] = useState(false)
   const [annulling, setAnnulling] = useState(false)
+  // Grade a student who has no submission (e.g. handed the file on a USB stick)
+  const [sinEntregaMode, setSinEntregaMode] = useState(false)
+  const [sinEntregaGrade, setSinEntregaGrade] = useState('')
+  const [sinEntregaMotivo, setSinEntregaMotivo] = useState('')
+  const [savingSinEntrega, setSavingSinEntrega] = useState(false)
   // ZIP download
   const [zipDownloading, setZipDownloading] = useState(false)
   const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
@@ -133,6 +168,8 @@ export default function ActivityPage() {
   const isEvaluacion = activity?.tipo === 'evaluacion'
   // Edit activity modal
   const [editingActivity, setEditingActivity] = useState(false)
+  // Parcial cerrado: no grade can be changed until the teacher reverts the close.
+  const parcialCerrado = !!(subject?.parcialesCerrados && activity?.parcial != null && subject.parcialesCerrados[activity.parcial])
 
   useEffect(() => { loadAll() }, [activityId])
 
@@ -214,6 +251,9 @@ export default function ActivityPage() {
     setExtendMotivo(activity?.extensionesMotivo?.[student.id] || '')
     setPreviewIdx(-1)
     setAnnulMode(false)
+    setSinEntregaMode(false)
+    setSinEntregaGrade('')
+    setSinEntregaMotivo('')
   }
 
   // Entry point from the student list: freezes the navigation order.
@@ -264,6 +304,7 @@ export default function ActivityPage() {
   // student delivery to attach to).
   async function persistGrade() {
     if (!selected || !canCreate) return false
+    if (parcialCerrado) return false
     if (!selected.sub && !isObservacion) return false
     const cal = parseFloat(gradeForm.calificacion)
     if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) return false
@@ -297,6 +338,10 @@ export default function ActivityPage() {
   async function saveGrade(e) {
     e.preventDefault()
     if (!selected?.sub && !isObservacion) return
+    if (parcialCerrado) {
+      toast('El parcial está cerrado. Primero revierte el cierre del parcial para cambiar calificaciones.', 'error')
+      return
+    }
     if (!canCreate) {
       toast('Activa tu suscripción mensual para registrar calificaciones — toda tu información sigue disponible')
       return
@@ -341,6 +386,10 @@ export default function ActivityPage() {
   // and can submit again (any grade it had is removed with it).
   async function annulSubmission() {
     if (!selected?.sub) return
+    if (parcialCerrado) {
+      toast('El parcial está cerrado. Primero revierte el cierre del parcial.', 'error')
+      return
+    }
     setAnnulling(true)
     try {
       await deleteDoc(doc(db, 'submissions', selected.sub.id))
@@ -357,6 +406,50 @@ export default function ActivityPage() {
       toast('Error al anular: ' + err.message, 'error')
     } finally {
       setAnnulling(false)
+    }
+  }
+
+  // Grade a student with no submission (e.g. handed it in on a USB stick).
+  // Creates a submission marked sinEntrega with the reason, so it counts and
+  // shows in the grades. NOT cierreParcial → it stays as a manual (black) grade.
+  async function saveSinEntrega() {
+    if (!selected || selected.sub) return
+    if (parcialCerrado) {
+      toast('El parcial está cerrado. Primero revierte el cierre del parcial.', 'error')
+      return
+    }
+    if (!canCreate) {
+      toast('Activa tu suscripción mensual para registrar calificaciones — toda tu información sigue disponible')
+      return
+    }
+    const cal = parseFloat(sinEntregaGrade)
+    if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) {
+      toast(`Escribe una calificación válida (0 a ${activity?.maxCalif ?? 10})`, 'error')
+      return
+    }
+    setSavingSinEntrega(true)
+    try {
+      const data = {
+        actividadId: activityId,
+        alumnoId: selected.student.id,
+        calificacion: cal,
+        comentario: '',
+        motivoSinEntrega: sinEntregaMotivo.trim(),
+        estado: 'calificado',
+        sinEntrega: true,
+        fechaEntrega: serverTimestamp(),
+      }
+      const ref = await addDoc(collection(db, 'submissions'), data)
+      const updated = { id: ref.id, ...data }
+      setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
+      setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
+      setGradeForm({ calificacion: String(cal), comentario: '' })
+      setSinEntregaMode(false)
+      toast('Calificación sin entrega guardada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingSinEntrega(false)
     }
   }
 
@@ -380,6 +473,81 @@ export default function ActivityPage() {
       toast('Error: ' + err.message, 'error')
     } finally {
       setSavingExtension(false)
+    }
+  }
+
+  // Manually open/close the activity to new submissions (any time).
+  async function toggleActivityClosed() {
+    if (!activity) return
+    const next = !activity.cerradaManual
+    setClosingActivity(true)
+    try {
+      await updateDoc(doc(db, 'activities', activityId), { cerradaManual: next })
+      setActivity((prev) => ({ ...prev, cerradaManual: next }))
+      toast(next ? 'Actividad cerrada — ya no se reciben entregas' : 'Actividad reabierta — se reciben entregas')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setClosingActivity(false)
+    }
+  }
+
+  // Deadline (for the whole group) already passed?
+  const isPastActivityDeadline = !!activity?.fechaLimite && new Date(
+    activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T23:59:59`
+  ).getTime() < Date.now()
+
+  function openNewDate() {
+    setNewDateMode('todos')
+    setNewDate('')
+    setNewDateMotivo('')
+    setNewDateSearch('')
+    setNewDateSelected(new Set())
+    setNewDateOpen(true)
+  }
+
+  function toggleNewDateStudent(id) {
+    setNewDateSelected((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id); else n.add(id)
+      return n
+    })
+  }
+
+  // New deadline: for everyone (updates the activity deadline) or for the
+  // selected students (per-student extension). Only offered after the deadline.
+  async function saveNewDate() {
+    if (!newDate) { toast('Elige la nueva fecha y hora', 'error'); return }
+    if (newDateMode === 'algunos' && newDateSelected.size === 0) {
+      toast('Selecciona al menos un estudiante', 'error'); return
+    }
+    setSavingNewDate(true)
+    try {
+      if (newDateMode === 'todos') {
+        await updateDoc(doc(db, 'activities', activityId), { fechaLimite: newDate, cerradaManual: false })
+        setActivity((prev) => ({ ...prev, fechaLimite: newDate, cerradaManual: false }))
+        toast('Nueva fecha de entrega para todo el grupo')
+      } else {
+        const motivo = newDateMotivo.trim()
+        const patch = {}
+        newDateSelected.forEach((id) => {
+          patch[`extensiones.${id}`] = newDate
+          patch[`extensionesMotivo.${id}`] = motivo
+        })
+        await updateDoc(doc(db, 'activities', activityId), patch)
+        setActivity((prev) => {
+          const ext = { ...(prev.extensiones || {}) }
+          const em = { ...(prev.extensionesMotivo || {}) }
+          newDateSelected.forEach((id) => { ext[id] = newDate; em[id] = motivo })
+          return { ...prev, extensiones: ext, extensionesMotivo: em }
+        })
+        toast(`Nueva fecha para ${newDateSelected.size} estudiante${newDateSelected.size !== 1 ? 's' : ''}`)
+      }
+      setNewDateOpen(false)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingNewDate(false)
     }
   }
 
@@ -577,6 +745,42 @@ export default function ActivityPage() {
                   <Clock size={14} /> {formatDeadline(activity.fechaLimite)}
                 </span>
               )}
+              {activity?.recibirTarde && !activity?.cerradaManual && (
+                <span data-tooltip="Se aceptan entregas tarde" className="text-xs text-slate-500 flex items-center gap-0.5">
+                  Recibe entregas tarde
+                </span>
+              )}
+            </div>
+          )}
+          {/* Manual close: stop/allow submissions at any moment */}
+          {!isObservacion && (
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={toggleActivityClosed}
+                disabled={closingActivity}
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded border transition-colors disabled:opacity-60 ${
+                  activity?.cerradaManual
+                    ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                    : 'border-outline-variant text-muted hover:border-accent hover:text-accent'
+                }`}
+              >
+                {activity?.cerradaManual
+                  ? <><LockOpen size={14} /> Actividad cerrada — Reabrir</>
+                  : <><Lock size={14} /> Cerrar actividad ahora</>}
+              </button>
+              {isPastActivityDeadline && (
+                <button
+                  type="button"
+                  onClick={openNewDate}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded border border-accent text-accent hover:bg-[var(--accent-tint)] transition-colors"
+                >
+                  <CalendarDays size={14} /> Nueva fecha de entrega
+                </button>
+              )}
+              {activity?.cerradaManual && (
+                <span className="text-xs text-amber-600">Ya no se reciben entregas.</span>
+              )}
             </div>
           )}
           {activity?.instrucciones && (
@@ -694,13 +898,18 @@ export default function ActivityPage() {
                     }`}
                   >
                     <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0" data-tooltip="Calificar">
                       <p className="text-sm font-medium text-on-surface truncate">
                         {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {hasExtension && <CalendarDays size={15} className="text-orange-400" />}
+                      {sub?.tarde && (
+                        <span data-tooltip="Entregó después de la fecha límite" className="text-[11px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                          Tarde
+                        </span>
+                      )}
                       {sub?.calificacion != null && (
                         <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
                           <Star size={14} /> {sub.calificacion}/{activity?.maxCalif}
@@ -874,7 +1083,7 @@ export default function ActivityPage() {
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-base font-semibold text-on-surface truncate">
-                      {selected.student.orden != null && <span className="text-slate-400">{selected.student.orden}. </span>}
+                      {selected.student.orden != null && <span className="text-on-surface">{selected.student.orden}. </span>}
                       {selected.student.apellidoPaterno} {selected.student.apellidoMaterno} {selected.student.nombre}
                     </h4>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[getStatus(selected.student.id)]}`}>
@@ -892,8 +1101,18 @@ export default function ActivityPage() {
                           : selected.sub
                             ? selected.sub.completadoSinArchivo
                               ? 'Completada sin archivo'
-                              : (selected.sub.nombreArchivo || (selected.sub.sinEntrega ? 'Sin entrega — calificada en 0' : 'Sin archivo'))
+                              : (selected.sub.nombreArchivo || (selected.sub.sinEntrega ? `Sin entrega — calificada en ${selected.sub.calificacion ?? 0}` : 'Sin archivo'))
                             : 'Sin entrega aún'}
+                  </p>
+                  {/* Always reserve one line so Anterior/Siguiente don't jump
+                      between students with and without a motivo */}
+                  {selected.sub?.tarde && (
+                    <p className="text-xs text-amber-600 font-medium mt-0.5 truncate">
+                      {formatLateness(selected.sub, selected.student, activity)}
+                    </p>
+                  )}
+                  <p className={`text-xs text-slate-500 mt-0.5 italic truncate min-h-4 ${selected.sub?.motivoSinEntrega ? '' : 'invisible'}`}>
+                    {selected.sub?.motivoSinEntrega ? `Motivo: ${selected.sub.motivoSinEntrega}` : ' '}
                   </p>
                 </div>
 
@@ -902,7 +1121,7 @@ export default function ActivityPage() {
                     Siguiente — and the grade right below — never jump around. */}
                 {navList.length > 1 && (
                   <div className="space-y-1.5">
-                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion) ? 'cursor-pointer' : 'invisible'}`}>
+                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
                     <input
                       type="checkbox"
                       checked={autoSaveOnNav}
@@ -935,6 +1154,13 @@ export default function ActivityPage() {
                 {/* Grade form (when a submission exists — or always for observación) */}
                 {(selected.sub || isObservacion) ? (
                   <form onSubmit={saveGrade} className="space-y-3">
+                    {parcialCerrado && (
+                      <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
+                        <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
+                        Para modificarlas, primero <strong>revierte el cierre del parcial</strong> desde Calificaciones.
+                        Al revertir, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
+                      </div>
+                    )}
                     {/* Download on the left, grade (with its own header) on the
                         right — narrow input keeps the spinner arrows by the number */}
                     {/* Grade on its own row; the file list (if several) goes below */}
@@ -962,8 +1188,9 @@ export default function ActivityPage() {
                           min="0"
                           max={activity?.maxCalif}
                           step="0.1"
-                          autoFocus
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface"
+                          autoFocus={!parcialCerrado}
+                          disabled={parcialCerrado}
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -1038,7 +1265,8 @@ export default function ActivityPage() {
                         value={gradeForm.comentario}
                         onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                         rows={3}
-                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                        disabled={parcialCerrado}
+                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="Retroalimentación para el estudiante…"
                       />
                     </div>
@@ -1049,7 +1277,7 @@ export default function ActivityPage() {
                     )}
                     {/* With autosave on, Siguiente/Anterior already save — showing
                         this button too would be redundant and confusing. */}
-                    {autoSaveOnNav && navList.length > 1 ? (
+                    {parcialCerrado ? null : autoSaveOnNav && navList.length > 1 ? (
                       <p className="text-xs text-slate-400 text-center py-1">
                         La calificación se guarda al avanzar o al retroceder.
                       </p>
@@ -1111,7 +1339,7 @@ export default function ActivityPage() {
                 {!isObservacion && !isEvaluacion && (
                 <div className="pt-3 border-t border-outline-variant space-y-2">
                   {/* Annul the current submission — above the extend-date action */}
-                  {selected.sub && (
+                  {selected.sub && !parcialCerrado && (
                     !annulMode ? (
                       <button
                         type="button"
@@ -1194,6 +1422,65 @@ export default function ActivityPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Grade a student who never submitted (e.g. handed it in on a USB) */}
+                  {!selected.sub && !parcialCerrado && (
+                    !sinEntregaMode ? (
+                      <button
+                        type="button"
+                        onClick={() => setSinEntregaMode(true)}
+                        className="block mx-auto text-sm text-slate-500 hover:text-accent transition-colors"
+                      >
+                        Calificar sin entrega
+                      </button>
+                    ) : (
+                      <div className="space-y-2 rounded border border-outline-variant bg-surface p-3">
+                        <p className="text-sm font-medium text-on-surface">Calificar sin entrega</p>
+                        <div>
+                          <label className="block text-sm font-medium text-muted mb-1">
+                            Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
+                          </label>
+                          <input
+                            type="number"
+                            value={sinEntregaGrade}
+                            onChange={(e) => setSinEntregaGrade(e.target.value)}
+                            min="0"
+                            max={activity?.maxCalif}
+                            step="0.1"
+                            autoFocus
+                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-muted mb-1">Motivo</label>
+                          <textarea
+                            value={sinEntregaMotivo}
+                            onChange={(e) => setSinEntregaMotivo(e.target.value)}
+                            rows={2}
+                            placeholder="Ej.: Entregó el archivo en memoria USB"
+                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSinEntregaMode(false)}
+                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={saveSinEntrega}
+                            disabled={savingSinEntrega || sinEntregaGrade === ''}
+                            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-50 transition-colors"
+                          >
+                            {savingSinEntrega ? 'Guardando…' : 'Guardar'}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  )}
                 </div>
                 )}
 
@@ -1232,6 +1519,79 @@ export default function ActivityPage() {
           initialExistingFiles={activity.archivosAdjuntos || []}
           contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
         />
+      )}
+
+      {/* New deadline: for the whole group or for selected students */}
+      {newDateOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !savingNewDate && setNewDateOpen(false)} />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card p-4 shadow-2xl max-h-[90vh] flex flex-col">
+            <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
+            <div className="flex gap-2 mt-3 flex-shrink-0">
+              <button type="button" onClick={() => setNewDateMode('todos')}
+                className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${newDateMode === 'todos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
+                Para todos
+              </button>
+              <button type="button" onClick={() => setNewDateMode('algunos')}
+                className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${newDateMode === 'algunos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
+                Para algunos
+              </button>
+            </div>
+
+            <div className="mt-3 overflow-auto">
+              <label className="block text-sm font-medium text-muted mb-1">Nueva fecha y hora límite</label>
+              <EFDateTimePicker mode="datetime" value={newDate} onChange={setNewDate} clearable={false} />
+
+              {newDateMode === 'todos' && (
+                <p className="text-xs text-slate-400 mt-2">
+                  Se aplicará a <strong>todo el grupo</strong> y se reabrirá la actividad si estaba cerrada.
+                </p>
+              )}
+
+              {newDateMode === 'algunos' && (
+                <div className="mt-3">
+                  <div className="relative mb-2">
+                    <Search size={15} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input value={newDateSearch} onChange={(e) => setNewDateSearch(e.target.value)}
+                      placeholder="Buscar por nombre o número de lista…"
+                      className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent" />
+                  </div>
+                  <div className="border border-outline-variant rounded max-h-52 overflow-auto divide-y divide-outline-variant">
+                    {students.filter((s) => !newDateSearch.trim() || matchesStudentSearch(s, newDateSearch)).map((s) => (
+                      <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-[var(--accent-tint)]">
+                        <input type="checkbox" checked={newDateSelected.has(s.id)} onChange={() => toggleNewDateStudent(s.id)}
+                          className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
+                        <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
+                        <span className="truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {newDateSelected.size} seleccionado{newDateSelected.size !== 1 ? 's' : ''}
+                  </p>
+                  <div className="mt-2">
+                    <label className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>
+                    <textarea value={newDateMotivo} onChange={(e) => setNewDateMotivo(e.target.value)} rows={2}
+                      placeholder="Ej.: Falta justificada por duelo familiar"
+                      className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus:ring-2 focus:ring-accent" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 mt-4 flex-shrink-0">
+              <button type="button" onClick={() => setNewDateOpen(false)} disabled={savingNewDate}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={saveNewDate}
+                disabled={savingNewDate || !newDate || (newDateMode === 'algunos' && newDateSelected.size === 0)}
+                className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-50 transition-colors">
+                {savingNewDate ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       </div>

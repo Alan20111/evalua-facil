@@ -202,6 +202,7 @@ export default function StudentActivityPage() {
         calificacion: null,
         comentario: '',
         estado: 'entregado',
+        tarde: isPastDeadline,
       }
       if (submission) {
         // Re-submit: archive current version, update doc
@@ -242,6 +243,7 @@ export default function StudentActivityPage() {
           calificacion: null,
           comentario: '',
           estado: 'entregado',
+          tarde: isPastDeadline,
           historial: arrayUnion(buildHistoryEntry()),
         })
         toast('Versión corregida marcada como completada')
@@ -256,6 +258,7 @@ export default function StudentActivityPage() {
           calificacion: null,
           comentario: '',
           estado: 'entregado',
+          tarde: isPastDeadline,
           historial: [],
         })
         toast('Tarea marcada como completada')
@@ -459,6 +462,14 @@ export default function StudentActivityPage() {
   const isPastDeadline = !!displayDate && new Date(
     displayDate.includes('T') ? displayDate : `${displayDate}T23:59:59`
   ).getTime() < Date.now()
+  // A student inside their own extension can always deliver, even if the
+  // activity was closed for everyone else.
+  const withinExtension = !!extendedDate && !isPastDeadline
+  // Activity is closed to new submissions when the teacher closed it manually,
+  // or the deadline passed and late delivery is NOT enabled.
+  const cerrada = !withinExtension && (
+    !!activity?.cerradaManual || (isPastDeadline && !activity?.recibirTarde)
+  )
 
   return (
     <StudentLayout>
@@ -578,16 +589,23 @@ export default function StudentActivityPage() {
         </div>
 
         {/* Upload (never shown for observación — nothing to deliver) */}
-        {!isObservacion && (!submission || canResubmit) && isPastDeadline && (
+        {!isObservacion && (!submission || canResubmit) && cerrada && (
           <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
-            El plazo de entrega para esta actividad ya cerró.
+            {activity?.cerradaManual
+              ? 'El docente cerró esta actividad. Ya no se reciben entregas.'
+              : 'El plazo de entrega para esta actividad ya cerró.'}
           </div>
         )}
-        {!isObservacion && (!submission || canResubmit) && !isPastDeadline && (
+        {!isObservacion && (!submission || canResubmit) && !cerrada && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <h2 className="font-semibold text-on-surface mb-1">
               {canResubmit ? 'Subir versión corregida' : 'Subir entrega'}
             </h2>
+            {isPastDeadline && (
+              <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mb-3">
+                La fecha límite ya pasó. Tu entrega se registrará como <strong>entrega tarde</strong>.
+              </p>
+            )}
             {canResubmit && (
               <p className="text-xs text-orange-500 mb-3">
                 Tu maestro extendió la fecha — puedes subir una corrección.
