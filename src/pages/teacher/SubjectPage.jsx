@@ -50,6 +50,7 @@ import { matchesStudentSearch } from '../../utils/studentSearch'
 import { useSubscription } from '../../hooks/useSubscription'
 import EvaluacionEditor from '../../components/EvaluacionEditor'
 import EntregableEditor from '../../components/EntregableEditor'
+import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 
 async function fetchSubmissionsForActivities(actIds) {
@@ -136,6 +137,8 @@ export default function SubjectPage() {
   const [evalEditor, setEvalEditor] = useState(null) // null | { activityId, categoria, parcial }
   // Full-screen entregable editor
   const [entregableEditor, setEntregableEditor] = useState(null) // null | { activityId, parcial, categoria, activityLabel, initialForm, initialExistingFiles }
+  // "Nueva fecha de entrega" modal, offered from within entregableEditor once published
+  const [newDateOpen, setNewDateOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [publishDraftConfirm, setPublishDraftConfirm] = useState(null) // draft activity | null
@@ -884,6 +887,9 @@ export default function SubjectPage() {
       setEvalEditor({ activityId: activity.id, categoria: activity.categoria, parcial: activity.parcial, activityLabel: labelOverride || null })
       return
     }
+    // Roster for the editor's read-only "prórrogas" list (Nueva fecha límite → Para
+    // algunos) — load it now instead of waiting for the teacher to visit Alumnos first.
+    ensureGroupStudents()
     // Entregable (and legacy actividad/tarea) → full-screen editor
     const cat = ['actividad', 'tarea'].includes(activity.categoria) ? 'entregable' : (activity.categoria || 'entregable')
     setEntregableEditor({
@@ -898,15 +904,53 @@ export default function SubjectPage() {
         fechaLimite: activity.fechaLimite
           ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)
           : '',
-        recibirTarde: activity.recibirTarde || false,
         tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
         extensionesCustom: activity.extensionesCustom || '',
         oculta: activity.oculta || false,
         publishAt: activity.publishAt || '',
         publishedAt: activity.publishedAt || '',
         visibilidadMode: !activity.oculta ? 'published' : activity.publishAt ? 'schedule' : 'hide',
+        // Checkbox reads the positive framing ("cerrar en fecha"); the real DB field
+        // (recibirTarde) is the inverse — see EntregableEditor's save payload.
+        cerrarEntregasEnFecha: !activity.recibirTarde,
       },
     })
+  }
+
+  // Published entregable being edited? Only then does the editor offer "Nueva
+  // fecha límite de entrega" — same group/per-student extension ActivityPage uses.
+  const editorIsPublished = !!entregableEditor?.initialForm?.publishedAt && new Date(
+    entregableEditor.initialForm.publishedAt.includes('T')
+      ? entregableEditor.initialForm.publishedAt
+      : `${entregableEditor.initialForm.publishedAt}T00:00:00`
+  ).getTime() <= Date.now()
+
+  // Live copy of the activity being edited — used to show its current
+  // extensiones/extensionesMotivo (per-student prórrogas) in the editor,
+  // since entregableEditor.initialForm doesn't carry those fields.
+  const editingActivityData = activities.find((a) => a.id === entregableEditor?.activityId)
+
+  // "Para algunos" needs the group roster — load it if the teacher never
+  // visited the Alumnos tab this session.
+  async function openNewDateForEditor() {
+    await ensureGroupStudents()
+    setNewDateOpen(true)
+  }
+
+  // Merges the modal's result into the activities list AND the currently open
+  // editor's form (so its own fecha límite field reflects the change right away).
+  function applyNewDateResult(result) {
+    setActivities((prev) => prev.map((a) => {
+      if (a.id !== entregableEditor?.activityId) return a
+      if (result.mode === 'todos') return { ...a, fechaLimite: result.date, cerradaManual: false }
+      const ext = { ...(a.extensiones || {}) }
+      const em = { ...(a.extensionesMotivo || {}) }
+      result.ids.forEach((id) => { ext[id] = result.date; em[id] = result.motivo })
+      return { ...a, extensiones: ext, extensionesMotivo: em }
+    }))
+    if (result.mode === 'todos') {
+      setEntregableEditor((prev) => prev && ({ ...prev, initialForm: { ...prev.initialForm, fechaLimite: result.date } }))
+    }
   }
 
   function addInstructionFiles(files) {
@@ -4217,6 +4261,22 @@ export default function SubjectPage() {
           onActivityUpdated={(act) => {
             setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, ...act } : a))
           }}
+          onNuevaFecha={editorIsPublished ? openNewDateForEditor : undefined}
+          externalFechaLimite={entregableEditor.initialForm?.fechaLimite || ''}
+          students={groupStudents}
+          extensiones={editingActivityData?.extensiones || {}}
+          extensionesMotivo={editingActivityData?.extensionesMotivo || {}}
+        />
+      )}
+
+      {/* "Nueva fecha de entrega" opened from within the entregable editor above —
+          z-[60] so it renders on top of the editor's z-50. */}
+      {entregableEditor && newDateOpen && (
+        <NuevaFechaEntregaModal
+          activityId={entregableEditor.activityId}
+          students={groupStudents}
+          onClose={() => setNewDateOpen(false)}
+          onSaved={applyNewDateResult}
         />
       )}
 

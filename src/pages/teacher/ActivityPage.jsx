@@ -20,7 +20,7 @@ import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, Clock,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
-  ChevronLeft, ChevronRight, FolderDown, Lock, LockOpen,
+  ChevronLeft, ChevronRight, FolderDown, Pencil,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
@@ -36,6 +36,8 @@ import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts
 import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch } from '../../utils/studentSearch'
 import EvaluacionManager from '../../components/EvaluacionManager'
+import EntregableEditor from '../../components/EntregableEditor'
+import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 
 // How late a submission was, relative to that student's effective deadline
 // (their extension if any, otherwise the activity deadline).
@@ -102,15 +104,8 @@ export default function ActivityPage() {
   const { userProfile } = useAuth()
   const [activity, setActivity] = useState(null)
   const [activityLabel, setActivityLabel] = useState(null)
-  const [closingActivity, setClosingActivity] = useState(false)
-  // New deadline flow (offered once the deadline has passed)
+  // "Nueva fecha de entrega" modal, offered from within the activity editor
   const [newDateOpen, setNewDateOpen] = useState(false)
-  const [newDateMode, setNewDateMode] = useState('todos') // 'todos' | 'algunos'
-  const [newDate, setNewDate] = useState('')
-  const [newDateMotivo, setNewDateMotivo] = useState('')
-  const [newDateSearch, setNewDateSearch] = useState('')
-  const [newDateSelected, setNewDateSelected] = useState(() => new Set())
-  const [savingNewDate, setSavingNewDate] = useState(false)
   const [subject, setSubject] = useState(null)
   const [students, setStudents] = useState([])
   const [submissions, setSubmissions] = useState({})
@@ -165,6 +160,8 @@ export default function ActivityPage() {
   // Evaluación (cuestionario/examen): the grade comes from the student's attempt;
   // the grading panel allows a manual override but no prefill/annul/extension.
   const isEvaluacion = activity?.tipo === 'evaluacion'
+  // Edit activity modal
+  const [editingActivity, setEditingActivity] = useState(false)
   // Parcial cerrado: no grade can be changed until the teacher reverts the close.
   const parcialCerrado = !!(subject?.parcialesCerrados && activity?.parcial != null && subject.parcialesCerrados[activity.parcial])
 
@@ -477,79 +474,22 @@ export default function ActivityPage() {
     }
   }
 
-  // Manually open/close the activity to new submissions (any time).
-  async function toggleActivityClosed() {
-    if (!activity) return
-    const next = !activity.cerradaManual
-    setClosingActivity(true)
-    try {
-      await updateDoc(doc(db, 'activities', activityId), { cerradaManual: next })
-      setActivity((prev) => ({ ...prev, cerradaManual: next }))
-      toast(next ? 'Actividad cerrada — ya no se reciben entregas' : 'Actividad reabierta — se reciben entregas')
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setClosingActivity(false)
-    }
-  }
+  // Already published? The "Nueva fecha límite de entrega" action lives in the
+  // editor and is offered once the activity is published (a student may fall
+  // behind the group deadline and need their own extension).
+  const isPublished = !!activity?.publishedAt && new Date(
+    activity.publishedAt.includes('T') ? activity.publishedAt : `${activity.publishedAt}T00:00:00`
+  ).getTime() <= Date.now()
 
-  // Deadline (for the whole group) already passed?
-  const isPastActivityDeadline = !!activity?.fechaLimite && new Date(
-    activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T23:59:59`
-  ).getTime() < Date.now()
-
-  function openNewDate() {
-    setNewDateMode('todos')
-    setNewDate('')
-    setNewDateMotivo('')
-    setNewDateSearch('')
-    setNewDateSelected(new Set())
-    setNewDateOpen(true)
-  }
-
-  function toggleNewDateStudent(id) {
-    setNewDateSelected((prev) => {
-      const n = new Set(prev)
-      if (n.has(id)) n.delete(id); else n.add(id)
-      return n
+  // Merges the result of NuevaFechaEntregaModal into local activity state.
+  function applyNewDateResult(result) {
+    setActivity((prev) => {
+      if (result.mode === 'todos') return { ...prev, fechaLimite: result.date, cerradaManual: false }
+      const ext = { ...(prev.extensiones || {}) }
+      const em = { ...(prev.extensionesMotivo || {}) }
+      result.ids.forEach((id) => { ext[id] = result.date; em[id] = result.motivo })
+      return { ...prev, extensiones: ext, extensionesMotivo: em }
     })
-  }
-
-  // New deadline: for everyone (updates the activity deadline) or for the
-  // selected students (per-student extension). Only offered after the deadline.
-  async function saveNewDate() {
-    if (!newDate) { toast('Elige la nueva fecha y hora', 'error'); return }
-    if (newDateMode === 'algunos' && newDateSelected.size === 0) {
-      toast('Selecciona al menos un estudiante', 'error'); return
-    }
-    setSavingNewDate(true)
-    try {
-      if (newDateMode === 'todos') {
-        await updateDoc(doc(db, 'activities', activityId), { fechaLimite: newDate, cerradaManual: false })
-        setActivity((prev) => ({ ...prev, fechaLimite: newDate, cerradaManual: false }))
-        toast('Nueva fecha de entrega para todo el grupo')
-      } else {
-        const motivo = newDateMotivo.trim()
-        const patch = {}
-        newDateSelected.forEach((id) => {
-          patch[`extensiones.${id}`] = newDate
-          patch[`extensionesMotivo.${id}`] = motivo
-        })
-        await updateDoc(doc(db, 'activities', activityId), patch)
-        setActivity((prev) => {
-          const ext = { ...(prev.extensiones || {}) }
-          const em = { ...(prev.extensionesMotivo || {}) }
-          newDateSelected.forEach((id) => { ext[id] = newDate; em[id] = motivo })
-          return { ...prev, extensiones: ext, extensionesMotivo: em }
-        })
-        toast(`Nueva fecha para ${newDateSelected.size} estudiante${newDateSelected.size !== 1 ? 's' : ''}`)
-      }
-      setNewDateOpen(false)
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setSavingNewDate(false)
-    }
   }
 
   const counts = {
@@ -720,9 +660,10 @@ export default function ActivityPage() {
               <ArrowLeft size={22} />
             </button>
             <div className="flex-1">
-              <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2">
+              <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 flex-wrap">
                 {activityLabel && <span className="text-accent">{activityLabel}</span>}
                 {activity?.nombre}
+                <span className="text-sm font-normal text-slate-400">(Calificar)</span>
               </h1>
               <p className="text-slate-400 text-xs">
                 {subjectDisplayName(subject)}
@@ -752,37 +693,6 @@ export default function ActivityPage() {
                 <span data-tooltip="Se aceptan entregas tarde" className="text-xs text-slate-500 flex items-center gap-0.5">
                   Recibe entregas tarde
                 </span>
-              )}
-            </div>
-          )}
-          {/* Manual close: stop/allow submissions at any moment */}
-          {!isObservacion && (
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={toggleActivityClosed}
-                disabled={closingActivity}
-                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded border transition-colors disabled:opacity-60 ${
-                  activity?.cerradaManual
-                    ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
-                    : 'border-outline-variant text-muted hover:border-accent hover:text-accent'
-                }`}
-              >
-                {activity?.cerradaManual
-                  ? <><LockOpen size={14} /> Actividad cerrada — Reabrir</>
-                  : <><Lock size={14} /> Cerrar actividad ahora</>}
-              </button>
-              {isPastActivityDeadline && (
-                <button
-                  type="button"
-                  onClick={openNewDate}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded border border-accent text-accent hover:bg-[var(--accent-tint)] transition-colors"
-                >
-                  <CalendarDays size={14} /> Nueva fecha de entrega
-                </button>
-              )}
-              {activity?.cerradaManual && (
-                <span className="text-xs text-amber-600">Ya no se reciben entregas.</span>
               )}
             </div>
           )}
@@ -1285,14 +1195,24 @@ export default function ActivityPage() {
                         La calificación se guarda al avanzar o al retroceder.
                       </p>
                     ) : (
-                      <button
-                        type="submit"
-                        disabled={saving || !canCreate || !isDirty()}
-                        className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {saving ? <Spinner size="sm" /> : <Star size={18} />}
-                        {saving ? 'Guardando…' : 'Guardar calificación'}
-                      </button>
+                      <div className="space-y-2">
+                        <button
+                          type="submit"
+                          disabled={saving || !canCreate || !isDirty()}
+                          className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                        >
+                          {saving ? <Spinner size="sm" /> : <Star size={18} />}
+                          {saving ? 'Guardando…' : 'Guardar calificación'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingActivity(true)}
+                          className="w-full py-2 border border-accent text-accent font-semibold rounded transition-colors hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2"
+                        >
+                          <Pencil size={18} />
+                          Editar actividad
+                        </button>
+                      </div>
                     )}
                   </form>
                 ) : (
@@ -1483,77 +1403,53 @@ export default function ActivityPage() {
         </div>
       )}
 
-      {/* New deadline: for the whole group or for selected students */}
+      {editingActivity && activity && (
+        <EntregableEditor
+          activityId={activityId}
+          parcial={activity.parcial}
+          categoria={activity.categoria || 'entregable'}
+          subjectId={activity.asignaturaId}
+          docenteId={activity.docenteId}
+          existingActivities={[]}
+          activityLabel={activityLabel}
+          onClose={() => setEditingActivity(false)}
+          onActivityUpdated={(updated) => {
+            setActivity((prev) => ({ ...prev, ...updated }))
+            setEditingActivity(false)
+          }}
+          initialForm={{
+            nombre: activity.nombre || '',
+            instrucciones: activity.instrucciones || '',
+            fechaLimite: activity.fechaLimite || '',
+            tiposArchivo: activity.tiposArchivo || ['todos'],
+            extensionesCustom: activity.extensionesCustom || '',
+            oculta: activity.oculta ?? false,
+            publishAt: activity.publishAt || '',
+            publishedAt: activity.publishedAt || '',
+            visibilidadMode: activity.publishedAt ? 'show' : (activity.publishAt ? 'schedule' : 'hide'),
+            // Checkbox reads the positive framing ("cerrar en fecha"); the real DB field
+            // (recibirTarde) is the inverse — see EntregableEditor's save payload.
+            cerrarEntregasEnFecha: !activity.recibirTarde,
+          }}
+          initialExistingFiles={activity.archivosAdjuntos || []}
+          contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
+          onNuevaFecha={isPublished ? () => setNewDateOpen(true) : undefined}
+          externalFechaLimite={activity.fechaLimite || ''}
+          students={students}
+          extensiones={activity.extensiones || {}}
+          extensionesMotivo={activity.extensionesMotivo || {}}
+        />
+      )}
+
+      {/* Nueva fecha de entrega: for the whole group or for selected students.
+          Renders above the EntregableEditor (its z-[60] > editor's z-50) when opened from it. */}
       {newDateOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !savingNewDate && setNewDateOpen(false)} />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card p-4 shadow-2xl max-h-[90vh] flex flex-col">
-            <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
-            <div className="flex gap-2 mt-3 flex-shrink-0">
-              <button type="button" onClick={() => setNewDateMode('todos')}
-                className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${newDateMode === 'todos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
-                Para todos
-              </button>
-              <button type="button" onClick={() => setNewDateMode('algunos')}
-                className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${newDateMode === 'algunos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
-                Para algunos
-              </button>
-            </div>
-
-            <div className="mt-3 overflow-auto">
-              <label className="block text-sm font-medium text-muted mb-1">Nueva fecha y hora límite</label>
-              <EFDateTimePicker mode="datetime" value={newDate} onChange={setNewDate} clearable={false} />
-
-              {newDateMode === 'todos' && (
-                <p className="text-xs text-slate-400 mt-2">
-                  Se aplicará a <strong>todo el grupo</strong> y se reabrirá la actividad si estaba cerrada.
-                </p>
-              )}
-
-              {newDateMode === 'algunos' && (
-                <div className="mt-3">
-                  <div className="relative mb-2">
-                    <Search size={15} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input value={newDateSearch} onChange={(e) => setNewDateSearch(e.target.value)}
-                      placeholder="Buscar por nombre o número de lista…"
-                      className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent" />
-                  </div>
-                  <div className="border border-outline-variant rounded max-h-52 overflow-auto divide-y divide-outline-variant">
-                    {students.filter((s) => !newDateSearch.trim() || matchesStudentSearch(s, newDateSearch)).map((s) => (
-                      <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-[var(--accent-tint)]">
-                        <input type="checkbox" checked={newDateSelected.has(s.id)} onChange={() => toggleNewDateStudent(s.id)}
-                          className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
-                        <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
-                        <span className="truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {newDateSelected.size} seleccionado{newDateSelected.size !== 1 ? 's' : ''}
-                  </p>
-                  <div className="mt-2">
-                    <label className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>
-                    <textarea value={newDateMotivo} onChange={(e) => setNewDateMotivo(e.target.value)} rows={2}
-                      placeholder="Ej.: Falta justificada por duelo familiar"
-                      className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus:ring-2 focus:ring-accent" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2 mt-4 flex-shrink-0">
-              <button type="button" onClick={() => setNewDateOpen(false)} disabled={savingNewDate}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
-                Cancelar
-              </button>
-              <button type="button" onClick={saveNewDate}
-                disabled={savingNewDate || !newDate || (newDateMode === 'algunos' && newDateSelected.size === 0)}
-                className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-50 transition-colors">
-                {savingNewDate ? 'Guardando…' : 'Guardar'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <NuevaFechaEntregaModal
+          activityId={activityId}
+          students={students}
+          onClose={() => setNewDateOpen(false)}
+          onSaved={applyNewDateResult}
+        />
       )}
 
       </div>

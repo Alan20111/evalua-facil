@@ -9,10 +9,31 @@ import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, CalendarDays } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
+import { formatDeadline } from '../utils/activityVisibility'
 
 const MAX_ATTACH = 15 * 1024 * 1024
+
+// Per-student extensions (`activity.extensiones`) are a flat studentId→date map with
+// no grouping metadata. A single "Nueva fecha límite" action writes the same date+motivo
+// to every selected student at once, so grouping by (date, motivo) reconstructs "who got
+// this override" without needing a separate history log.
+function groupExtensions(extensiones, extensionesMotivo, students) {
+  const byKey = new Map()
+  Object.entries(extensiones || {}).forEach(([studentId, date]) => {
+    if (!date) return
+    const motivo = (extensionesMotivo || {})[studentId] || ''
+    const key = `${date}|${motivo}`
+    const student = (students || []).find((s) => s.id === studentId)
+    const name = student
+      ? `${student.apellidoPaterno} ${student.apellidoMaterno || ''} ${student.nombre}`.replace(/\s+/g, ' ').trim()
+      : 'Estudiante'
+    if (!byKey.has(key)) byKey.set(key, { date, motivo, names: [] })
+    byKey.get(key).names.push(name)
+  })
+  return [...byKey.values()].sort((a, b) => a.date.localeCompare(b.date))
+}
 
 function toIsoNow() {
   const d = new Date()
@@ -43,6 +64,13 @@ export default function EntregableEditor({
   initialForm,        // pre-filled when editing
   initialExistingFiles,
   contextLine,        // e.g. "Cultura digital I - 1A — Profe Kike Méndez"
+  onNuevaFecha,       // ActivityPage only: opens the "Nueva fecha de entrega" modal (todos/algunos).
+                      // Provided only once the activity is published; absent when creating.
+  externalFechaLimite, // activity.fechaLimite from the parent — keeps the form in sync when
+                      // the modal changes the group deadline while this editor stays open.
+  students,           // full roster — resolves names for the extensiones list below
+  extensiones,        // activity.extensiones — read-only display, never edited here
+  extensionesMotivo,  // activity.extensionesMotivo — read-only display, never edited here
 }) {
   const toast = useToast()
   const isNew = !activityId
@@ -54,10 +82,21 @@ export default function EntregableEditor({
     nombre: '', instrucciones: '', fechaLimite: '',
     tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '',
     oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
+    cerrarEntregasEnFecha: true,
   })
   const [existingFiles, setExistingFiles] = useState(initialExistingFiles || [])
   const [newFiles, setNewFiles] = useState([])
   const [saving, setSaving] = useState(false)
+
+  // The "Nueva fecha de entrega" modal (in ActivityPage) writes the group deadline
+  // straight to Firestore while this editor stays open. Mirror that change into the
+  // form so a later "Guardar cambios" doesn't overwrite it with the stale value.
+  // Adjusting state during render (React's recommended pattern) instead of an effect.
+  const [prevExternalFecha, setPrevExternalFecha] = useState(externalFechaLimite)
+  if (externalFechaLimite !== undefined && externalFechaLimite !== prevExternalFecha) {
+    setPrevExternalFecha(externalFechaLimite)
+    setForm((f) => (f.fechaLimite === externalFechaLimite ? f : { ...f, fechaLimite: externalFechaLimite || '' }))
+  }
 
   // Editing a saved draft: primary button becomes "Guardar y publicar" and
   // the secondary keeps it as a draft.
@@ -142,6 +181,9 @@ export default function EntregableEditor({
         oculta: asDraft || mode === 'schedule' || mode === 'hide',
         publishAt: !asDraft && mode === 'schedule' ? (form.publishAt || null) : null,
         publishedAt: newPublishedAt,
+        // The checkbox is worded as "cerrar en la fecha programada" (positive framing),
+        // but the field the student-facing page actually reads is the inverse: recibirTarde.
+        recibirTarde: isObservacion ? null : !(form.cerrarEntregasEnFecha ?? true),
       }
       const tipo = isObservacion ? 'observacion' : 'archivo'
       if (isNew) {
@@ -251,28 +293,74 @@ export default function EntregableEditor({
             </div>
 
             {!isObservacion && (form.visibilidadMode !== 'hide' || form.publishedAt) && (
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">{form.fechaLimite ? 'Modificar fecha límite' : 'Fecha límite (opcional)'}</label>
-                {form.visibilidadMode === 'schedule' && !form.publishAt ? (
-                  <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
-                ) : (
-                  <EFDateTimePicker
-                    mode="datetime"
-                    headerLabel="Fecha y hora límite"
-                    value={form.fechaLimite}
-                    onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
-                    placeholder="Sin fecha límite…"
-                    clearable
-                    defaultTime="23:59"
-                    defaultDate={
-                      // 9.2: open on publish date when no fechaLimite yet; fall back to today
-                      (form.publishAt || form.publishedAt || '').split('T')[0] || undefined
-                    }
-                    minDateTime={
-                      form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
-                      (form.publishedAt || undefined)
-                    }
-                  />
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-muted mb-1">{form.fechaLimite ? 'Fecha límite de entrega' : 'Fecha límite (opcional)'}</label>
+                  {form.visibilidadMode === 'schedule' && !form.publishAt ? (
+                    <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
+                  ) : (
+                    <EFDateTimePicker
+                      mode="datetime"
+                      headerLabel="Fecha y hora límite"
+                      value={form.fechaLimite}
+                      onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
+                      placeholder="Sin fecha límite…"
+                      clearable
+                      defaultTime="23:59"
+                      defaultDate={
+                        // 9.2: open on publish date when no fechaLimite yet; fall back to today
+                        (form.publishAt || form.publishedAt || '').split('T')[0] || undefined
+                      }
+                      minDateTime={
+                        form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
+                        (form.publishedAt || undefined)
+                      }
+                    />
+                  )}
+                </div>
+
+                {form.fechaLimite && (
+                  <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
+                    <input
+                      type="checkbox"
+                      id="cerrarEntregasEnFecha"
+                      checked={form.cerrarEntregasEnFecha ?? true}
+                      onChange={(e) => setForm(f => ({ ...f, cerrarEntregasEnFecha: e.target.checked }))}
+                      className="mt-1"
+                      data-tooltip="Desactivar para recibir tarde"
+                    />
+                    <label htmlFor="cerrarEntregasEnFecha" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
+                      Cerrar entregas en la fecha y hora programada
+                      <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
+                    </label>
+                  </div>
+                )}
+
+                {/* Read-only: who currently has a per-student extension, to when, and
+                    why — grouped from `extensiones`/`extensionesMotivo` since a single
+                    "Nueva fecha límite" action writes the same date+motivo to everyone
+                    selected. Managed from the modal below; not editable here. */}
+                {groupExtensions(extensiones, extensionesMotivo, students).map((g, i) => (
+                  <div key={i} className="p-3 bg-amber-50 rounded border border-amber-200 text-sm">
+                    <p className="font-medium text-on-surface flex items-center gap-1.5">
+                      <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
+                      Prórroga hasta {formatDeadline(g.date)}
+                    </p>
+                    <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
+                    {g.motivo && <p className="text-xs text-muted mt-0.5">Motivo: {g.motivo}</p>}
+                  </div>
+                ))}
+
+                {/* Published activity: extend the deadline for the whole group or for
+                    specific students who fell behind — opens the modal in ActivityPage. */}
+                {onNuevaFecha && (
+                  <button
+                    type="button"
+                    onClick={onNuevaFecha}
+                    className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
+                  >
+                    <CalendarDays size={16} /> Nueva fecha límite de entrega
+                  </button>
                 )}
               </div>
             )}
