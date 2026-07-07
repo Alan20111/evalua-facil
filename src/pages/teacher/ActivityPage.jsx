@@ -172,9 +172,13 @@ export default function ActivityPage() {
 
   // Coming from a grade-table cell: open that student's grading view once the
   // data is committed (openGrade reads `submissions`/`activity` from state).
+  // While pendingOpenId is set we keep showing the spinner (see the loading
+  // guard below) so the list never flashes before the grading view opens.
   useEffect(() => {
-    if (loading || !pendingOpenId || !students.length) return
+    if (loading || !pendingOpenId) return
     const st = students.find((s) => s.id === pendingOpenId)
+    // Clear it in the same commit that opens the grading view, so pendingOpenId
+    // turning false and `selected` turning true happen together (no list flash).
     setPendingOpenId(null)
     if (st) {
       setNavList(students)
@@ -674,7 +678,9 @@ export default function ActivityPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, navList, gradeForm, submissions, autoSaveOnNav])
 
-  if (loading) return (
+  // Keep the spinner while a grades-table cell is about to open a student, so the
+  // list never flashes before the grading view opens.
+  if (loading || pendingOpenId) return (
     <TeacherLayout>
       <div className="flex justify-center py-20"><Spinner size="lg" /></div>
     </TeacherLayout>
