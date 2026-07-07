@@ -54,10 +54,13 @@ export default function EntregableEditor({
     nombre: '', instrucciones: '', fechaLimite: '',
     tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '',
     oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
+    cerrarEntregasEnFecha: true,
   })
   const [existingFiles, setExistingFiles] = useState(initialExistingFiles || [])
   const [newFiles, setNewFiles] = useState([])
   const [saving, setSaving] = useState(false)
+  const [showNewDeadline, setShowNewDeadline] = useState(false)
+  const [newFechaLimite, setNewFechaLimite] = useState('')
 
   // Editing a saved draft: primary button becomes "Guardar y publicar" and
   // the secondary keeps it as a draft.
@@ -142,6 +145,7 @@ export default function EntregableEditor({
         oculta: asDraft || mode === 'schedule' || mode === 'hide',
         publishAt: !asDraft && mode === 'schedule' ? (form.publishAt || null) : null,
         publishedAt: newPublishedAt,
+        cerrarEntregasEnFecha: isObservacion ? null : (form.cerrarEntregasEnFecha ?? true),
       }
       const tipo = isObservacion ? 'observacion' : 'archivo'
       if (isNew) {
@@ -251,28 +255,99 @@ export default function EntregableEditor({
             </div>
 
             {!isObservacion && (form.visibilidadMode !== 'hide' || form.publishedAt) && (
-              <div>
-                <label className="block text-sm font-medium text-muted mb-1">{form.fechaLimite ? 'Modificar fecha límite' : 'Fecha límite (opcional)'}</label>
-                {form.visibilidadMode === 'schedule' && !form.publishAt ? (
-                  <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
-                ) : (
-                  <EFDateTimePicker
-                    mode="datetime"
-                    headerLabel="Fecha y hora límite"
-                    value={form.fechaLimite}
-                    onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
-                    placeholder="Sin fecha límite…"
-                    clearable
-                    defaultTime="23:59"
-                    defaultDate={
-                      // 9.2: open on publish date when no fechaLimite yet; fall back to today
-                      (form.publishAt || form.publishedAt || '').split('T')[0] || undefined
-                    }
-                    minDateTime={
-                      form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
-                      (form.publishedAt || undefined)
-                    }
-                  />
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-muted mb-1">{form.fechaLimite ? 'Fecha límite de entrega' : 'Fecha límite (opcional)'}</label>
+                  {form.visibilidadMode === 'schedule' && !form.publishAt ? (
+                    <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
+                  ) : (
+                    <EFDateTimePicker
+                      mode="datetime"
+                      headerLabel="Fecha y hora límite"
+                      value={form.fechaLimite}
+                      onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
+                      placeholder="Sin fecha límite…"
+                      clearable
+                      defaultTime="23:59"
+                      defaultDate={
+                        // 9.2: open on publish date when no fechaLimite yet; fall back to today
+                        (form.publishAt || form.publishedAt || '').split('T')[0] || undefined
+                      }
+                      minDateTime={
+                        form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
+                        (form.publishedAt || undefined)
+                      }
+                    />
+                  )}
+                </div>
+
+                {form.fechaLimite && (
+                  <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
+                    <input
+                      type="checkbox"
+                      id="cerrarEntregasEnFecha"
+                      checked={form.cerrarEntregasEnFecha ?? true}
+                      onChange={(e) => setForm(f => ({ ...f, cerrarEntregasEnFecha: e.target.checked }))}
+                      className="mt-1"
+                      data-tooltip="Desactivar para recibir tarde"
+                    />
+                    <label htmlFor="cerrarEntregasEnFecha" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
+                      Cerrar entregas en la fecha y hora programada
+                      <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
+                    </label>
+                  </div>
+                )}
+
+                {form.fechaLimite && (
+                  !showNewDeadline ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowNewDeadline(true)}
+                      className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors"
+                    >
+                      Nueva fecha límite de entrega
+                    </button>
+                  ) : (
+                    <div className="space-y-2 p-3 bg-slate-50 rounded border border-accent">
+                      <label className="block text-sm font-medium text-on-surface">Cambiar a una nueva fecha límite</label>
+                      <EFDateTimePicker
+                        mode="datetime"
+                        headerLabel="Nueva fecha y hora límite"
+                        value={newFechaLimite}
+                        onChange={setNewFechaLimite}
+                        placeholder="Selecciona la nueva fecha…"
+                        clearable={false}
+                        defaultTime="23:59"
+                        minDateTime={form.fechaLimite}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowNewDeadline(false)
+                            setNewFechaLimite('')
+                          }}
+                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (newFechaLimite) {
+                              setForm(f => ({ ...f, fechaLimite: newFechaLimite }))
+                              setShowNewDeadline(false)
+                              setNewFechaLimite('')
+                            }
+                          }}
+                          disabled={!newFechaLimite}
+                          className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                        >
+                          Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  )
                 )}
               </div>
             )}

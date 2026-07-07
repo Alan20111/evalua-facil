@@ -20,7 +20,7 @@ import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, Clock,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
-  ChevronLeft, ChevronRight, FolderDown,
+  ChevronLeft, ChevronRight, FolderDown, Pencil,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
@@ -36,6 +36,7 @@ import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts
 import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch } from '../../utils/studentSearch'
 import EvaluacionManager from '../../components/EvaluacionManager'
+import EntregableEditor from '../../components/EntregableEditor'
 
 // Short display names for the accepted file-type chips
 const FILE_TYPE_SHORT_LABELS = {
@@ -130,6 +131,8 @@ export default function ActivityPage() {
   // Evaluación (cuestionario/examen): the grade comes from the student's attempt;
   // the grading panel allows a manual override but no prefill/annul/extension.
   const isEvaluacion = activity?.tipo === 'evaluacion'
+  // Edit activity modal
+  const [editingActivity, setEditingActivity] = useState(false)
 
   useEffect(() => { loadAll() }, [activityId])
 
@@ -1051,14 +1054,24 @@ export default function ActivityPage() {
                         La calificación se guarda al avanzar o al retroceder.
                       </p>
                     ) : (
-                      <button
-                        type="submit"
-                        disabled={saving || !canCreate || !isDirty()}
-                        className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {saving ? <Spinner size="sm" /> : <Star size={18} />}
-                        {saving ? 'Guardando…' : 'Guardar calificación'}
-                      </button>
+                      <div className="space-y-2">
+                        <button
+                          type="submit"
+                          disabled={saving || !canCreate || !isDirty()}
+                          className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                        >
+                          {saving ? <Spinner size="sm" /> : <Star size={18} />}
+                          {saving ? 'Guardando…' : 'Guardar calificación'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingActivity(true)}
+                          className="w-full py-2 border border-accent text-accent font-semibold rounded transition-colors hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2"
+                        >
+                          <Pencil size={18} />
+                          Editar actividad
+                        </button>
+                      </div>
                     )}
                   </form>
                 ) : (
@@ -1188,6 +1201,37 @@ export default function ActivityPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {editingActivity && activity && (
+        <EntregableEditor
+          activityId={activityId}
+          parcial={activity.parcial}
+          categoria={activity.categoria || 'entregable'}
+          subjectId={activity.asignaturaId}
+          docenteId={activity.docenteId}
+          existingActivities={[]}
+          activityLabel={activityLabel}
+          onClose={() => setEditingActivity(false)}
+          onActivityUpdated={(updated) => {
+            setActivity((prev) => ({ ...prev, ...updated }))
+            setEditingActivity(false)
+          }}
+          initialForm={{
+            nombre: activity.nombre || '',
+            instrucciones: activity.instrucciones || '',
+            fechaLimite: activity.fechaLimite || '',
+            tiposArchivo: activity.tiposArchivo || ['todos'],
+            extensionesCustom: activity.extensionesCustom || '',
+            oculta: activity.oculta ?? false,
+            publishAt: activity.publishAt || '',
+            publishedAt: activity.publishedAt || '',
+            visibilidadMode: activity.publishedAt ? 'show' : (activity.publishAt ? 'schedule' : 'hide'),
+            cerrarEntregasEnFecha: activity.cerrarEntregasEnFecha ?? true,
+          }}
+          initialExistingFiles={activity.archivosAdjuntos || []}
+          contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
+        />
       )}
 
       </div>
