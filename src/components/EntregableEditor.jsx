@@ -9,7 +9,7 @@ import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, CalendarDays } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 
 const MAX_ATTACH = 15 * 1024 * 1024
@@ -43,6 +43,10 @@ export default function EntregableEditor({
   initialForm,        // pre-filled when editing
   initialExistingFiles,
   contextLine,        // e.g. "Cultura digital I - 1A — Profe Kike Méndez"
+  onNuevaFecha,       // ActivityPage only: opens the "Nueva fecha de entrega" modal (todos/algunos).
+                      // Provided only once the activity is published; absent when creating.
+  externalFechaLimite, // activity.fechaLimite from the parent — keeps the form in sync when
+                      // the modal changes the group deadline while this editor stays open.
 }) {
   const toast = useToast()
   const isNew = !activityId
@@ -59,8 +63,16 @@ export default function EntregableEditor({
   const [existingFiles, setExistingFiles] = useState(initialExistingFiles || [])
   const [newFiles, setNewFiles] = useState([])
   const [saving, setSaving] = useState(false)
-  const [showNewDeadline, setShowNewDeadline] = useState(false)
-  const [newFechaLimite, setNewFechaLimite] = useState('')
+
+  // The "Nueva fecha de entrega" modal (in ActivityPage) writes the group deadline
+  // straight to Firestore while this editor stays open. Mirror that change into the
+  // form so a later "Guardar cambios" doesn't overwrite it with the stale value.
+  // Adjusting state during render (React's recommended pattern) instead of an effect.
+  const [prevExternalFecha, setPrevExternalFecha] = useState(externalFechaLimite)
+  if (externalFechaLimite !== undefined && externalFechaLimite !== prevExternalFecha) {
+    setPrevExternalFecha(externalFechaLimite)
+    setForm((f) => (f.fechaLimite === externalFechaLimite ? f : { ...f, fechaLimite: externalFechaLimite || '' }))
+  }
 
   // Editing a saved draft: primary button becomes "Guardar y publicar" and
   // the secondary keeps it as a draft.
@@ -298,56 +310,16 @@ export default function EntregableEditor({
                   </div>
                 )}
 
-                {form.fechaLimite && (
-                  !showNewDeadline ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowNewDeadline(true)}
-                      className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors"
-                    >
-                      Nueva fecha límite de entrega
-                    </button>
-                  ) : (
-                    <div className="space-y-2 p-3 bg-slate-50 rounded border border-accent">
-                      <label className="block text-sm font-medium text-on-surface">Cambiar a una nueva fecha límite</label>
-                      <EFDateTimePicker
-                        mode="datetime"
-                        headerLabel="Nueva fecha y hora límite"
-                        value={newFechaLimite}
-                        onChange={setNewFechaLimite}
-                        placeholder="Selecciona la nueva fecha…"
-                        clearable={false}
-                        defaultTime="23:59"
-                        minDateTime={form.fechaLimite}
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowNewDeadline(false)
-                            setNewFechaLimite('')
-                          }}
-                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (newFechaLimite) {
-                              setForm(f => ({ ...f, fechaLimite: newFechaLimite }))
-                              setShowNewDeadline(false)
-                              setNewFechaLimite('')
-                            }
-                          }}
-                          disabled={!newFechaLimite}
-                          className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors"
-                        >
-                          Confirmar
-                        </button>
-                      </div>
-                    </div>
-                  )
+                {/* Published activity: extend the deadline for the whole group or for
+                    specific students who fell behind — opens the modal in ActivityPage. */}
+                {onNuevaFecha && (
+                  <button
+                    type="button"
+                    onClick={onNuevaFecha}
+                    className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
+                  >
+                    <CalendarDays size={16} /> Nueva fecha límite de entrega
+                  </button>
                 )}
               </div>
             )}

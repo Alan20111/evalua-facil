@@ -20,7 +20,7 @@ import Spinner from '../../components/Spinner'
 import {
   ArrowLeft, Clock,
   Download, Star, CalendarDays, Search, ArrowDownAZ,
-  ChevronLeft, ChevronRight, FolderDown, Lock, LockOpen, Pencil,
+  ChevronLeft, ChevronRight, FolderDown, Pencil,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
@@ -103,7 +103,6 @@ export default function ActivityPage() {
   const { userProfile } = useAuth()
   const [activity, setActivity] = useState(null)
   const [activityLabel, setActivityLabel] = useState(null)
-  const [closingActivity, setClosingActivity] = useState(false)
   // New deadline flow (offered once the deadline has passed)
   const [newDateOpen, setNewDateOpen] = useState(false)
   const [newDateMode, setNewDateMode] = useState('todos') // 'todos' | 'algunos'
@@ -476,26 +475,12 @@ export default function ActivityPage() {
     }
   }
 
-  // Manually open/close the activity to new submissions (any time).
-  async function toggleActivityClosed() {
-    if (!activity) return
-    const next = !activity.cerradaManual
-    setClosingActivity(true)
-    try {
-      await updateDoc(doc(db, 'activities', activityId), { cerradaManual: next })
-      setActivity((prev) => ({ ...prev, cerradaManual: next }))
-      toast(next ? 'Actividad cerrada — ya no se reciben entregas' : 'Actividad reabierta — se reciben entregas')
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setClosingActivity(false)
-    }
-  }
-
-  // Deadline (for the whole group) already passed?
-  const isPastActivityDeadline = !!activity?.fechaLimite && new Date(
-    activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T23:59:59`
-  ).getTime() < Date.now()
+  // Already published? The "Nueva fecha límite de entrega" action lives in the
+  // editor and is offered once the activity is published (a student may fall
+  // behind the group deadline and need their own extension).
+  const isPublished = !!activity?.publishedAt && new Date(
+    activity.publishedAt.includes('T') ? activity.publishedAt : `${activity.publishedAt}T00:00:00`
+  ).getTime() <= Date.now()
 
   function openNewDate() {
     setNewDateMode('todos')
@@ -717,9 +702,10 @@ export default function ActivityPage() {
               <ArrowLeft size={22} />
             </button>
             <div className="flex-1">
-              <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2">
+              <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 flex-wrap">
                 {activityLabel && <span className="text-accent">{activityLabel}</span>}
                 {activity?.nombre}
+                <span className="text-sm font-normal text-slate-400">(Calificar)</span>
               </h1>
               <p className="text-slate-400 text-xs">
                 {subjectDisplayName(subject)}
@@ -749,37 +735,6 @@ export default function ActivityPage() {
                 <span data-tooltip="Se aceptan entregas tarde" className="text-xs text-slate-500 flex items-center gap-0.5">
                   Recibe entregas tarde
                 </span>
-              )}
-            </div>
-          )}
-          {/* Manual close: stop/allow submissions at any moment */}
-          {!isObservacion && (
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={toggleActivityClosed}
-                disabled={closingActivity}
-                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded border transition-colors disabled:opacity-60 ${
-                  activity?.cerradaManual
-                    ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
-                    : 'border-outline-variant text-muted hover:border-accent hover:text-accent'
-                }`}
-              >
-                {activity?.cerradaManual
-                  ? <><LockOpen size={14} /> Actividad cerrada — Reabrir</>
-                  : <><Lock size={14} /> Cerrar actividad ahora</>}
-              </button>
-              {isPastActivityDeadline && (
-                <button
-                  type="button"
-                  onClick={openNewDate}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded border border-accent text-accent hover:bg-[var(--accent-tint)] transition-colors"
-                >
-                  <CalendarDays size={14} /> Nueva fecha de entrega
-                </button>
-              )}
-              {activity?.cerradaManual && (
-                <span className="text-xs text-amber-600">Ya no se reciben entregas.</span>
               )}
             </div>
           )}
@@ -1518,12 +1473,15 @@ export default function ActivityPage() {
           }}
           initialExistingFiles={activity.archivosAdjuntos || []}
           contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
+          onNuevaFecha={isPublished ? openNewDate : undefined}
+          externalFechaLimite={activity.fechaLimite || ''}
         />
       )}
 
-      {/* New deadline: for the whole group or for selected students */}
+      {/* New deadline: for the whole group or for selected students.
+          z-[60] so it layers above the EntregableEditor (z-50) when opened from it. */}
       {newDateOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !savingNewDate && setNewDateOpen(false)} />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card p-4 shadow-2xl max-h-[90vh] flex flex-col">
             <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
