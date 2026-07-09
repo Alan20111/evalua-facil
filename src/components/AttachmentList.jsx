@@ -113,7 +113,7 @@ export function FilePreview({ url, nombre, fill = false }) {
       <iframe
         src={docsViewerUrl(viewUrl)}
         title={`Vista previa: ${nombre}`}
-        sandbox="allow-scripts allow-same-origin allow-popups"
+        sandbox="allow-same-origin allow-popups"
         className="w-full h-full"
         style={{ border: 'none' }}
       />
@@ -122,7 +122,7 @@ export function FilePreview({ url, nombre, fill = false }) {
     <iframe
       src={docsViewerUrl(viewUrl)}
       title={`Vista previa: ${nombre}`}
-      sandbox="allow-scripts allow-same-origin allow-popups"
+      sandbox="allow-same-origin allow-popups"
       className={`w-full ${fill ? 'h-full' : 'h-[70vh]'}`}
       style={{ border: 'none' }}
     />
