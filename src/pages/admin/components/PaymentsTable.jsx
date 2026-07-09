@@ -38,6 +38,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
   })
 
   async function handleApprove(payment) {
+    if (!confirm('¿Confirmas que este pago fue recibido y quieres activar la suscripción?')) return
     setProcessing(payment.id)
     try {
       const plan = plansMap[payment.planId]

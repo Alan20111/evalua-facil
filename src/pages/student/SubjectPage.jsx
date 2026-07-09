@@ -161,7 +161,10 @@ export default function StudentSubjectPage() {
           .filter((m) => isActivityPublished(m, parcialesOcultos.includes(m.parcial)))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       )
-      if (!studData) return
+      if (!studData) {
+        toast('No se encontró tu inscripción en esta asignatura', 'error')
+        return
+      }
 
       const subsSnap = await getDocs(
         query(collection(db, 'submissions'), where('alumnoId', '==', studData.id))

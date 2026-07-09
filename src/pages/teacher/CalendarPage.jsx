@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import EventEditor, { EVENT_COLORS } from '../../components/calendar/EventEditor'
@@ -299,6 +300,7 @@ const VIEWS = [
 
 export default function CalendarPage() {
   const { currentUser } = useAuth()
+  const toast = useToast()
 
   const [view, setView] = useState(() => localStorage.getItem('cal_view') || 'agenda')
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -329,21 +331,21 @@ export default function CalendarPage() {
         const map = {}
         snap.docs.forEach(d => { map[d.id] = { id: d.id, ...d.data() } })
         setSubjects(map)
-      }).catch(() => {}).finally(finish)
+      }).catch(() => toast('No se pudieron cargar tus asignaturas', 'error')).finally(finish)
 
     getDocs(query(collection(db, 'activities'), where('docenteId', '==', currentUser.uid)))
       .then(snap => setActivities(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-      .catch(() => {}).finally(finish)
+      .catch(() => toast('No se pudieron cargar tus actividades', 'error')).finally(finish)
 
     const unsubEv = onSnapshot(
       query(collection(db, 'events'), where('docenteId', '==', currentUser.uid)),
       snap => { setPersonalEvents(snap.docs.map(d => ({ id: d.id, ...d.data() }))); finish() },
-      () => finish()
+      () => { toast('No se pudieron cargar tus eventos', 'error'); finish() }
     )
     const unsubH = onSnapshot(
       query(collection(db, 'horario'), where('docenteId', '==', currentUser.uid)),
       snap => { setHorario(snap.docs.map(d => ({ id: d.id, ...d.data() }))); finish() },
-      () => finish()
+      () => { toast('No se pudo cargar tu horario', 'error'); finish() }
     )
 
     return () => { unsubEv(); unsubH() }
