@@ -212,6 +212,7 @@ export default function StudentSubjectPage() {
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
           type="button"
+          aria-label="Volver"
           onClick={() => navigate('/alumno/dashboard')}
           className="md:hidden p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >

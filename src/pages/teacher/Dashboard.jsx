@@ -227,6 +227,7 @@ export default function TeacherDashboard() {
                         onClick={() => moveSubject(i, -1)}
                         disabled={i === 0}
                         data-tooltip="Subir"
+                        aria-label="Subir"
                         className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-30 rounded"
                       >
                         <ArrowUp size={16} />
@@ -236,6 +237,7 @@ export default function TeacherDashboard() {
                         onClick={() => moveSubject(i, 1)}
                         disabled={i === subjects.length - 1}
                         data-tooltip="Bajar"
+                        aria-label="Bajar"
                         className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-30 rounded"
                       >
                         <ArrowDown size={16} />
@@ -277,6 +279,7 @@ export default function TeacherDashboard() {
       <button
         type="button"
         onClick={openSubjectModal}
+        aria-label="Nueva asignatura"
         className="md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
       >
         <Plus size={26} />
@@ -289,15 +292,16 @@ export default function TeacherDashboard() {
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
-              <button type="button" onClick={() => setShowSubjectModal(false)} className="p-2 text-slate-400 hover:text-muted rounded">
+              <button type="button" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded">
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleCreateSubject} className="space-y-2">
               {/* Nombre de la asignatura */}
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Asignatura</label>
+                <label htmlFor="dash-asignatura" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input
+                  id="dash-asignatura"
                   type="text"
                   value={newSubjectName}
                   onChange={(e) => setNewSubjectName(e.target.value)}
@@ -309,8 +313,9 @@ export default function TeacherDashboard() {
               </div>
               {/* Grupo */}
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Grupo</label>
+                <label htmlFor="dash-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input
+                  id="dash-grupo"
                   type="text"
                   value={newSubjectGrupo}
                   onChange={(e) => setNewSubjectGrupo(e.target.value)}

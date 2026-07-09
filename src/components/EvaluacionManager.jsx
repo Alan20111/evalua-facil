@@ -534,7 +534,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     <div>
       <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
+          <button type="button" aria-label="Volver" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -577,8 +577,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="space-y-2">
                         <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
                         <div>
-                          <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
-                          <select value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
+                          <label htmlFor={`preg-edit-tipo-${p.id}`} className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
+                          <select id={`preg-edit-tipo-${p.id}`} value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
                             className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                             {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                           </select>
@@ -607,13 +607,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           </div>
                         )}
                         <div>
-                          <label className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
-                          <textarea value={preguntaEditForm.retroalimentacion} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
+                          <label htmlFor={`preg-edit-retro-${p.id}`} className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
+                          <textarea id={`preg-edit-retro-${p.id}`} value={preguntaEditForm.retroalimentacion} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
                             rows={2} className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-muted mb-1">Ponderación</label>
-                          <input type="number" min="0.1" step="0.1" value={preguntaEditForm.ponderacion}
+                          <label htmlFor={`preg-edit-pond-${p.id}`} className="block text-sm font-medium text-muted mb-1">Ponderación</label>
+                          <input id={`preg-edit-pond-${p.id}`} type="number" min="0.1" step="0.1" value={preguntaEditForm.ponderacion}
                             onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
                             className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                         </div>
@@ -640,13 +640,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             <p className="text-sm font-medium text-on-surface">{i + 1}. {p.enunciado}</p>
                           </div>
                           <div className="flex gap-0.5 flex-shrink-0">
-                            <button type="button" onClick={() => handleMovePregunta(p.id, 'up')} disabled={i === 0}
+                            <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={i === 0}
                               className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded"><ChevronUp size={15} /></button>
-                            <button type="button" onClick={() => handleMovePregunta(p.id, 'down')} disabled={i === preguntas.length - 1}
+                            <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={i === preguntas.length - 1}
                               className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded"><ChevronDown size={15} /></button>
-                            <button type="button" onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={15} /></button>
-                            <button type="button" onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={15} /></button>
-                            <button type="button" onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={15} /></button>
+                            <button type="button" aria-label="Editar pregunta" onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={15} /></button>
+                            <button type="button" aria-label="Duplicar pregunta" onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={15} /></button>
+                            <button type="button" aria-label="Eliminar pregunta" onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={15} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-32 rounded border border-outline-variant" />}
@@ -682,15 +682,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 style={{ border: '2px solid var(--accent)', background: 'var(--accent-light)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando reactivo nuevo</p>
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
-                  <select value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
+                  <label htmlFor="preg-nueva-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
+                  <select id="preg-nueva-tipo" value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
                     className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                     {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Enunciado</label>
-                  <textarea value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
+                  <label htmlFor="preg-nueva-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
+                  <textarea id="preg-nueva-enunciado" value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
                     rows={2} required autoFocus
                     className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                 </div>
@@ -732,14 +732,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
-                  <textarea value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
+                  <label htmlFor="preg-nueva-retro" className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
+                  <textarea id="preg-nueva-retro" value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
                     rows={2} placeholder="Se muestra al alumno después de finalizar, si la configuración lo permite"
                     className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Ponderación</label>
-                  <input type="number" min="0.1" step="0.1" value={preguntaForm.ponderacion}
+                  <label htmlFor="preg-nueva-pond" className="block text-sm font-medium text-muted mb-1">Ponderación</label>
+                  <input id="preg-nueva-pond" type="number" min="0.1" step="0.1" value={preguntaForm.ponderacion}
                     onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
                     className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                 </div>
@@ -859,9 +859,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 )}
                               </button>
                               <div className="flex gap-1 flex-shrink-0">
-                                <button type="button" onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={14} /></button>
-                                <button type="button" onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={14} /></button>
-                                <button type="button" onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={14} /></button>
+                                <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={14} /></button>
+                                <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={14} /></button>
+                                <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={14} /></button>
                               </div>
                             </div>
                           )}
@@ -880,8 +880,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         {tab === 'config' && configForm && (
           <form onSubmit={handleSaveConfig} className="bg-surface-card rounded-card shadow-card p-3 space-y-3">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Orden de las preguntas</label>
-              <select value={configForm.ordenPreguntas} onChange={(e) => setConfigForm((f) => ({ ...f, ordenPreguntas: e.target.value }))}
+              <label htmlFor="config-orden" className="block text-sm font-medium text-muted mb-1">Orden de las preguntas</label>
+              <select id="config-orden" value={configForm.ordenPreguntas} onChange={(e) => setConfigForm((f) => ({ ...f, ordenPreguntas: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                 <option value="creacion">Orden de creación</option>
                 <option value="aleatorio">Aleatorio</option>
@@ -893,28 +893,28 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               Barajar el orden de las opciones dentro de cada pregunta
             </label>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Navegación</label>
-              <select value={configForm.navegacion} onChange={(e) => setConfigForm((f) => ({ ...f, navegacion: e.target.value }))}
+              <label htmlFor="config-navegacion" className="block text-sm font-medium text-muted mb-1">Navegación</label>
+              <select id="config-navegacion" value={configForm.navegacion} onChange={(e) => setConfigForm((f) => ({ ...f, navegacion: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                 <option value="libre">Libre — puede regresar</option>
                 <option value="secuencial">Secuencial — no puede regresar</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
-              <input type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
+              <label htmlFor="config-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
+              <input id="config-tiempo" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
                 onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))}
                 placeholder="Sin límite" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
-              <input type="number" min="1" value={configForm.intentosPermitidos ?? ''}
+              <label htmlFor="config-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
+              <input id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
                 onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))}
                 placeholder="Ilimitados" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
-              <select value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
+              <label htmlFor="config-conservar" className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
+              <select id="config-conservar" value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                 <option value="primero">El primer intento</option>
                 <option value="ultimo">El último intento</option>
@@ -923,8 +923,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Publicar resultados</label>
-              <select value={configForm.publicarResultados} onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultados: e.target.value }))}
+              <label htmlFor="config-publicar" className="block text-sm font-medium text-muted mb-1">Publicar resultados</label>
+              <select id="config-publicar" value={configForm.publicarResultados} onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultados: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                 <option value="inmediato">Inmediatamente al terminar</option>
                 <option value="fecha">En una fecha específica</option>
@@ -1094,7 +1094,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <h3 className="text-base font-semibold">
                 Revisar — {reviewing.student.apellidoPaterno} {reviewing.student.nombre}
               </h3>
-              <button type="button" onClick={() => setReviewing(null)} className="p-1 text-slate-400 rounded"><X size={18} /></button>
+              <button type="button" aria-label="Cerrar" onClick={() => setReviewing(null)} className="p-1 text-slate-400 rounded"><X size={18} /></button>
             </div>
             {reviewing.items.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-6">Esta evaluación no tiene preguntas de respuesta corta.</p>
@@ -1105,8 +1105,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     <p className="text-sm font-medium text-on-surface mb-1">{pregunta.enunciado}</p>
                     <p className="text-sm text-muted bg-surface rounded p-2 mb-2 whitespace-pre-wrap">{respuesta.textoRespuesta || '(sin respuesta)'}</p>
                     <div className="flex items-center gap-2 mb-1">
-                      <label className="text-xs text-muted flex-shrink-0">Puntos (máx {pregunta.ponderacion})</label>
-                      <input type="number" min="0" max={pregunta.ponderacion} step="0.1"
+                      <label htmlFor={`rev-puntos-${pregunta.id}`} className="text-xs text-muted flex-shrink-0">Puntos (máx {pregunta.ponderacion})</label>
+                      <input id={`rev-puntos-${pregunta.id}`} type="number" min="0" max={pregunta.ponderacion} step="0.1"
                         value={reviewForm[pregunta.id]?.puntos ?? ''}
                         onChange={(e) => setReviewForm((f) => ({ ...f, [pregunta.id]: { ...f[pregunta.id], puntos: e.target.value } }))}
                         className="w-20 px-2 py-1 rounded border border-outline-variant text-sm bg-surface" />

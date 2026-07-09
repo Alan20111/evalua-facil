@@ -398,7 +398,7 @@ export default function Profile() {
                 <span className="text-2xl font-bold text-blue-600">{initials}</span>
               )}
             </div>
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading}
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading} aria-label="Cambiar foto"
               className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
               {photoUploading ? <Spinner size="sm" /> : <Camera size={15} />}
             </button>
@@ -479,18 +479,18 @@ export default function Profile() {
               {showPwdForm && (
                 <form onSubmit={requestPwdChange} className="mt-2 space-y-2">
                   <div>
-                    <label className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
-                    <PasswordInput value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
+                    <label htmlFor="prof-pwd-actual" className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
+                    <PasswordInput id="prof-pwd-actual" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
                       required autoComplete="current-password" className={inputCls} placeholder="••••••••" />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted mb-1">Nueva contraseña</label>
-                    <PasswordInput value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
+                    <label htmlFor="prof-pwd-nueva" className="block text-xs font-medium text-muted mb-1">Nueva contraseña</label>
+                    <PasswordInput id="prof-pwd-nueva" value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
                       required autoComplete="new-password" className={inputCls} placeholder="Mínimo 6 caracteres" />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-muted mb-1">Confirmar nueva contraseña</label>
-                    <PasswordInput value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
+                    <label htmlFor="prof-pwd-confirmar" className="block text-xs font-medium text-muted mb-1">Confirmar nueva contraseña</label>
+                    <PasswordInput id="prof-pwd-confirmar" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
                       required autoComplete="new-password" className={inputCls} placeholder="Repite la contraseña" />
                   </div>
                   <button type="submit" disabled={savingPwd}
@@ -512,7 +512,7 @@ export default function Profile() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => !confirming && setConfirm(null)} />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
-            <button type="button" onClick={() => !confirming && setConfirm(null)}
+            <button type="button" onClick={() => !confirming && setConfirm(null)} aria-label="Cerrar"
               className="absolute top-4 right-4 p-1 text-slate-400 hover:text-muted rounded">
               <X size={20} />
             </button>
@@ -545,7 +545,7 @@ export default function Profile() {
                   placeholder="Nombre, CCT o municipio…"
                   className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
               </div>
-              <button type="button" onClick={() => setShowSchoolPicker(false)} className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
+              <button type="button" onClick={() => setShowSchoolPicker(false)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
             </div>
             {addingCustomSchool && customSchoolStep === 'similar' ? (
               <div className="p-3 space-y-2 overflow-y-auto">
@@ -599,8 +599,9 @@ export default function Profile() {
             ) : addingCustomSchool ? (
               <form onSubmit={reviewCustomSchool} className="p-3 space-y-2 overflow-y-auto">
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
+                  <label htmlFor="prof-escuela-nombre" className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
                   <input
+                    id="prof-escuela-nombre"
                     autoFocus
                     type="text"
                     value={customSchoolName}
@@ -611,10 +612,11 @@ export default function Profile() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">
+                  <label htmlFor="prof-escuela-cct" className="block text-sm font-medium text-muted mb-1">
                     Clave del centro de trabajo (CCT) <span className="text-slate-500 font-normal text-xs">(opcional)</span>
                   </label>
                   <input
+                    id="prof-escuela-cct"
                     type="text"
                     value={customSchoolCCT}
                     onChange={(e) => setCustomSchoolCCT(e.target.value)}
@@ -624,8 +626,9 @@ export default function Profile() {
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-muted mb-1">Ciudad / municipio</label>
+                    <label htmlFor="prof-escuela-ciudad" className="block text-sm font-medium text-muted mb-1">Ciudad / municipio</label>
                     <input
+                      id="prof-escuela-ciudad"
                       type="text"
                       value={customSchoolCity}
                       onChange={(e) => setCustomSchoolCity(e.target.value)}
@@ -635,8 +638,9 @@ export default function Profile() {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-muted mb-1">Estado</label>
+                    <label htmlFor="prof-escuela-estado" className="block text-sm font-medium text-muted mb-1">Estado</label>
                     <input
+                      id="prof-escuela-estado"
                       type="text"
                       value={customSchoolState}
                       onChange={(e) => setCustomSchoolState(e.target.value)}

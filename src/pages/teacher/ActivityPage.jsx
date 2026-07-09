@@ -655,6 +655,7 @@ export default function ActivityPage() {
             <button
               type="button"
               onClick={() => navigate(`/subject/${activity?.asignaturaId}`, returnToGrades ? { state: { tab: 'calificaciones' } } : undefined)}
+              aria-label="Volver"
               className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
             >
               <ArrowLeft size={22} />
@@ -670,6 +671,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => setEditingActivity(true)}
                   data-tooltip="Editar actividad"
+                  aria-label="Editar actividad"
                   className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                 >
                   <Pencil size={18} />
@@ -793,6 +795,7 @@ export default function ActivityPage() {
             type="button"
             onClick={() => setSortAlpha((v) => !v)}
             data-tooltip="Ordenar por nombre"
+            aria-label="Ordenar por nombre"
             className={`p-2 rounded border transition-colors ${
               sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'
             }`}
@@ -1101,10 +1104,11 @@ export default function ActivityPage() {
                         </a>
                       )}
                       <div className={selFiles.length === 1 ? 'flex-shrink-0' : 'flex-1'}>
-                        <label className="block text-sm font-medium text-muted mb-1">
+                        <label htmlFor="act-calificacion" className="block text-sm font-medium text-muted mb-1">
                           Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                         </label>
                         <input
+                          id="act-calificacion"
                           type="number"
                           value={gradeForm.calificacion}
                           onChange={onCalifChange}
@@ -1137,6 +1141,7 @@ export default function ActivityPage() {
                             onClick={downloadStudentZip}
                             disabled={studentZipDownloading}
                             data-tooltip="Descargar todas en ZIP"
+                            aria-label="Descargar todas en ZIP"
                             className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0 disabled:opacity-50"
                           >
                             {studentZipDownloading ? <Spinner size="sm" /> : <Download size={15} />}
@@ -1164,6 +1169,7 @@ export default function ActivityPage() {
                               download={f.nombre}
                               rel="noopener noreferrer"
                               data-tooltip="Descargar esta imagen"
+                              aria-label="Descargar esta imagen"
                               className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0"
                             >
                               <Download size={15} />
@@ -1182,10 +1188,11 @@ export default function ActivityPage() {
                     )}
 
                     <div>
-                      <label className="block text-sm font-medium text-muted mb-1">
+                      <label htmlFor="act-comentario" className="block text-sm font-medium text-muted mb-1">
                         Comentario <span className="text-slate-400">(opcional)</span>
                       </label>
                       <textarea
+                        id="act-comentario"
                         value={gradeForm.comentario}
                         onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                         rows={3}
@@ -1318,8 +1325,9 @@ export default function ActivityPage() {
                         clearable={false}
                       />
                       <div>
-                        <label className="block text-sm font-medium text-muted mb-1">Motivo</label>
+                        <label htmlFor="act-extend-motivo" className="block text-sm font-medium text-muted mb-1">Motivo</label>
                         <textarea
+                          id="act-extend-motivo"
                           value={extendMotivo}
                           onChange={(e) => setExtendMotivo(e.target.value)}
                           rows={2}
@@ -1361,10 +1369,11 @@ export default function ActivityPage() {
                       <div className="space-y-2 rounded border border-outline-variant bg-surface p-3">
                         <p className="text-sm font-medium text-on-surface">Evaluar sin entrega</p>
                         <div>
-                          <label className="block text-sm font-medium text-muted mb-1">
+                          <label htmlFor="act-sinentrega-calif" className="block text-sm font-medium text-muted mb-1">
                             Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                           </label>
                           <input
+                            id="act-sinentrega-calif"
                             type="number"
                             value={sinEntregaGrade}
                             onChange={(e) => setSinEntregaGrade(e.target.value)}
@@ -1376,8 +1385,9 @@ export default function ActivityPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-muted mb-1">Motivo</label>
+                          <label htmlFor="act-sinentrega-motivo" className="block text-sm font-medium text-muted mb-1">Motivo</label>
                           <textarea
+                            id="act-sinentrega-motivo"
                             value={sinEntregaMotivo}
                             onChange={(e) => setSinEntregaMotivo(e.target.value)}
                             rows={2}

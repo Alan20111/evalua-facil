@@ -79,6 +79,7 @@ export default function TeacherLayout({ children }) {
         <button
           type="button"
           onClick={handleLogout}
+          aria-label="Cerrar sesión"
           className="p-2 text-muted hover:text-error rounded transition-colors"
         >
           <LogOut size={20} />

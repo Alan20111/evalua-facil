@@ -453,13 +453,13 @@ export default function CalendarPage() {
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {/* Date navigator */}
           <div className="flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
-            <button type="button" onClick={prev} className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
+            <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
               <ChevronLeft size={16} />
             </button>
             <span className="text-sm font-semibold text-on-surface px-3 min-w-[180px] text-center select-none">
               {navLabel()}
             </span>
-            <button type="button" onClick={next} className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
+            <button type="button" onClick={next} aria-label="Siguiente" className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
               <ChevronRight size={16} />
             </button>
           </div>
