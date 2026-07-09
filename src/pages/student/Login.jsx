@@ -297,8 +297,9 @@ export default function StudentLogin() {
                 de tu asignatura (el del QR o el que te dio tu maestro o maestra):
               </p>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Código de la asignatura</label>
+                <label htmlFor="login-codigo-asignatura" className="block text-sm font-medium text-muted mb-1">Código de la asignatura</label>
                 <input
+                  id="login-codigo-asignatura"
                   type="text"
                   value={subjectCodeInput}
                   onChange={(e) => { setSubjectCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); setCodeError('') }}
@@ -343,8 +344,9 @@ export default function StudentLogin() {
                   una nueva contraseña. Escribe tu username:
                 </p>
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Username</label>
+                  <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Username</label>
                   <input
+                    id="recover-username"
                     type="text"
                     value={recoverUsername}
                     onChange={(e) => { setRecoverUsername(e.target.value); setRecoverError('') }}
@@ -385,8 +387,9 @@ export default function StudentLogin() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
+                  <label htmlFor="recover-nueva-password" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
                   <PasswordInput
+                    id="recover-nueva-password"
                     value={newPassword}
                     onChange={(e) => { setNewPassword(e.target.value); setRecoverError('') }}
                     required
@@ -396,8 +399,9 @@ export default function StudentLogin() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
+                  <label htmlFor="recover-confirmar-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
                   <PasswordInput
+                    id="recover-confirmar-password"
                     value={confirmNewPassword}
                     onChange={(e) => { setConfirmNewPassword(e.target.value); setRecoverError('') }}
                     required
@@ -432,8 +436,9 @@ export default function StudentLogin() {
             <div className="bg-surface-card rounded-card shadow-card p-5">
               <form onSubmit={handleLogin} className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Username</label>
+                  <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Username</label>
                   <input
+                    id="login-username"
                     type="text"
                     value={username}
                     onChange={(e) => { setUsername(e.target.value); setError('') }}
@@ -449,8 +454,9 @@ export default function StudentLogin() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Contraseña</label>
+                  <label htmlFor="login-password" className="block text-sm font-medium text-muted mb-1">Contraseña</label>
                   <PasswordInput
+                    id="login-password"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError('') }}
                     required

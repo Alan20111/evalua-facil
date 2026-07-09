@@ -133,6 +133,7 @@ export default function StudentLayout({ children }) {
         <button
           type="button"
           onClick={handleLogout}
+          aria-label="Cerrar sesión"
           className="p-2 text-muted hover:text-error rounded transition-colors"
         >
           <LogOut size={20} />
@@ -165,6 +166,7 @@ export default function StudentLayout({ children }) {
               onClick={() => fileInputRef.current?.click()}
               className="relative w-9 h-9 rounded-full flex-shrink-0 group focus:outline-none"
               data-tooltip="Cambiar foto"
+              aria-label="Cambiar foto"
             >
               <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center">
                 {uploadingPhoto ? (

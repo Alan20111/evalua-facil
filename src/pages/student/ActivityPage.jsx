@@ -353,7 +353,7 @@ export default function StudentActivityPage() {
       <StudentLayout>
         <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button type="button" onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" aria-label="Volver" onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="min-w-0">
@@ -501,6 +501,7 @@ export default function StudentActivityPage() {
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
           type="button"
+          aria-label="Volver"
           onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}
           className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >

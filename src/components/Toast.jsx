@@ -34,7 +34,7 @@ export function ToastProvider({ children }) {
             >
               <Icon size={20} />
               <span className="flex-1">{t.msg}</span>
-              <button type="button" onClick={() => setToasts((ts) => ts.filter((x) => x.id !== t.id))}>
+              <button type="button" aria-label="Cerrar" onClick={() => setToasts((ts) => ts.filter((x) => x.id !== t.id))}>
                 <X size={16} />
               </button>
             </div>
