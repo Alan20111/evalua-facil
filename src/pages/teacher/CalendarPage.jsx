@@ -14,7 +14,7 @@ import { subjectColors } from '../../utils/subjectPalette'
 import { bloqueColor, timeToMinutes, addMinutesToTime } from '../../utils/horarioBloques'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
-  List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle,
+  List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell,
 } from 'lucide-react'
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
@@ -60,24 +60,22 @@ function fmtHour(timeStr) {
   return `${parseInt(h)}:${m}`
 }
 
-const DAY_START_HOUR = 7
-const DAY_END_HOUR = 21
-const ROW_H = 52 // px por hora en la vista semana
-const HOURS_RANGE = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, i) => i + DAY_START_HOUR)
+const ROW_H = 52        // px por hora en la vista semana
+const AGENDA_ROW_H = 64 // px por hora en la agenda del día
+const DEFAULT_DAY_START = 7
+const DEFAULT_DAY_END = 21
+const DIAS_LARGO = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
 
-// Asigna "carriles" a bloques que se solapan en un mismo día para mostrarlos
-// lado a lado en vez de encimados.
-function assignLanes(blocks) {
-  const sorted = [...blocks].sort((a, b) =>
-    timeToMinutes(a.horaInicio) - timeToMinutes(b.horaInicio))
+// Asigna "carriles" a items { start, end } (minutos desde medianoche) que se
+// solapan en un mismo día, para mostrarlos lado a lado en vez de encimados.
+function assignLanes(items) {
+  const sorted = [...items].sort((a, b) => a.start - b.start)
   const lanesEnd = [] // minuto de fin de cada carril
-  const placed = sorted.map(b => {
-    const start = timeToMinutes(b.horaInicio)
-    const end = timeToMinutes(b.horaFin)
-    let lane = lanesEnd.findIndex(e => e <= start)
-    if (lane === -1) { lane = lanesEnd.length; lanesEnd.push(end) }
-    else lanesEnd[lane] = end
-    return { b, lane, start, end }
+  const placed = sorted.map(it => {
+    let lane = lanesEnd.findIndex(e => e <= it.start)
+    if (lane === -1) { lane = lanesEnd.length; lanesEnd.push(it.end) }
+    else lanesEnd[lane] = it.end
+    return { it, lane }
   })
   const total = Math.max(1, lanesEnd.length)
   return placed.map(p => ({ ...p, total }))
@@ -105,63 +103,257 @@ function EventPill({ ev, compact, onClick }) {
 
 // ─── Agenda view ───────────────────────────────────────────────────────────
 
-function AgendaView({ events, onEventClick }) {
-  const today = new Date()
-  const todayStr = toDateStr(today)
-  const endStr = toDateStr(addDays(today, 90))
+// Agenda del día: rejilla de horas (configurable) con las clases y eventos del
+// día mostrado. Los items se pueden arrastrar verticalmente para cambiar de
+// hora, o soltarse sobre los chips de días posteriores para moverlos de día.
+function AgendaView({
+  date, events, bloques, subjects, dayStart, dayEnd,
+  onEventClick, onBlockClick, onMoveBloque, onMoveEvent, onSlotClick,
+}) {
+  const dateStr = toDateStr(date)
+  const hours = Array.from({ length: dayEnd - dayStart }, (_, i) => i + dayStart)
+  const gridH = hours.length * AGENDA_ROW_H
 
-  const filtered = events
-    .filter(ev => ev.dateStr >= todayStr && ev.dateStr <= endStr)
-    .sort((a, b) =>
-      (a.dateStr + (a.timeStr || '00:00')).localeCompare(b.dateStr + (b.timeStr || '00:00'))
-    )
+  const gridRef = useRef(null)
+  const chipRefs = useRef([])
+  const dragStartRef = useRef(null)
+  const [drag, setDrag] = useState(null)
 
-  if (filtered.length === 0) {
-    return (
-      <div className="text-center py-16 text-muted">
-        <CalendarDays size={40} className="mx-auto mb-3 opacity-30" />
-        <p className="text-sm">No hay eventos en los próximos 90 días</p>
-        <p className="text-xs mt-1 opacity-60">Las fechas límite y publicaciones de tus actividades aparecen aquí automáticamente</p>
-      </div>
-    )
+  const dayBloques = bloques.filter(b => b.fecha === dateStr)
+  const timedEvs = events.filter(ev => ev.dateStr === dateStr && ev.timeStr)
+  const allDayEvs = events.filter(ev => ev.dateStr === dateStr && !ev.timeStr)
+
+  const items = [
+    ...dayBloques.map(b => ({
+      kind: 'bloque', id: b.id,
+      start: timeToMinutes(b.horaInicio),
+      end: Math.max(timeToMinutes(b.horaFin), timeToMinutes(b.horaInicio) + 20),
+      b,
+    })),
+    ...timedEvs.map(ev => {
+      const start = timeToMinutes(ev.timeStr)
+      let end = start + 40 // duración visual mínima
+      if (ev.endTimeStr && ev.endDateStr === ev.dateStr) {
+        const e = timeToMinutes(ev.endTimeStr)
+        if (e > start + 40) end = e
+      }
+      return { kind: 'event', id: ev.id, start, end, ev }
+    }),
+  ]
+  const placed = assignLanes(items)
+
+  // Días destino (posteriores) para soltar mientras se arrastra.
+  const dayTargets = Array.from({ length: 7 }, (_, i) => addDays(date, i + 1))
+
+  const isMovable = it => it.kind === 'bloque' || it.ev?.editable
+
+  function startDrag(e, it) {
+    if (e.button != null && e.button !== 0) return
+    if (!isMovable(it)) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    dragStartRef.current = { x: e.clientX, y: e.clientY }
+    setDrag({
+      item: it,
+      x: e.clientX, y: e.clientY,
+      grabDX: e.clientX - rect.left, grabDY: e.clientY - rect.top,
+      w: rect.width, h: rect.height,
+      moved: false,
+    })
   }
 
-  const byDate = []
-  let lastDate = null
-  filtered.forEach(ev => {
-    if (ev.dateStr !== lastDate) { byDate.push({ dateStr: ev.dateStr, evs: [] }); lastDate = ev.dateStr }
-    byDate[byDate.length - 1].evs.push(ev)
-  })
-
-  function labelDate(str) {
-    const d = new Date(str + 'T12:00:00')
-    const day = d.getDate()
-    const mes = MESES[d.getMonth()]
-    const dSem = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][d.getDay()]
-    if (str === todayStr) return `Hoy · ${dSem} ${day} de ${mes}`
-    if (str === toDateStr(addDays(today, 1))) return `Mañana · ${dSem} ${day} de ${mes}`
-    return `${dSem} ${day} de ${mes}`
-  }
+  useEffect(() => {
+    if (!drag) return
+    function onMove(e) {
+      const s = dragStartRef.current
+      const moved = s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
+      setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
+    }
+    function onUp(e) {
+      setDrag(d => {
+        if (!d) return null
+        const { item } = d
+        if (!d.moved) {
+          if (item.kind === 'bloque') onBlockClick?.(item.b)
+          else onEventClick?.(item.ev)
+          return null
+        }
+        // 1) ¿Soltó sobre un chip de día posterior?
+        let chip = null
+        chipRefs.current.forEach(c => {
+          if (!c?.el) return
+          const r = c.el.getBoundingClientRect()
+          if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) chip = c
+        })
+        if (chip) {
+          if (item.kind === 'bloque') onMoveBloque?.(item.b, chip.dateStr, item.b.horaInicio)
+          else onMoveEvent?.(item.ev.rawEvent, chip.dateStr, item.ev.timeStr)
+          return null
+        }
+        // 2) ¿Soltó sobre la rejilla? → nueva hora, mismo día.
+        const g = gridRef.current?.getBoundingClientRect()
+        if (g && e.clientX >= g.left && e.clientX < g.right) {
+          const blockTop = e.clientY - d.grabDY
+          let mins = Math.round(((blockTop - g.top) / AGENDA_ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+          mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
+          const hora = minutesToTimeStr(mins)
+          if (item.kind === 'bloque') {
+            if (hora !== item.b.horaInicio) onMoveBloque?.(item.b, dateStr, hora)
+          } else if (hora !== item.ev.timeStr) {
+            onMoveEvent?.(item.ev.rawEvent, dateStr, hora)
+          }
+        }
+        return null
+      })
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [drag, dateStr, dayStart, dayEnd, onBlockClick, onEventClick, onMoveBloque, onMoveEvent])
 
   return (
-    <div className="divide-y divide-outline-variant">
-      {byDate.map(({ dateStr, evs }) => (
-        <div key={dateStr} className="flex gap-4 px-4 py-3 hover:bg-accent-tint transition-colors">
-          <div className={`flex-shrink-0 w-36 pt-0.5 text-sm font-medium ${dateStr === todayStr ? 'text-accent' : 'text-muted'}`}>
-            {labelDate(dateStr)}
-          </div>
-          <div className="flex-1 space-y-1 min-w-0">
-            {evs.map(ev => (
-              <div key={ev.id}>
-                <EventPill ev={ev} onClick={onEventClick} />
-                {ev.subtitulo && (
-                  <p className="text-xs text-muted pl-2 truncate">{ev.subtitulo}</p>
-                )}
-              </div>
-            ))}
-          </div>
+    <div>
+      {/* Chips de días posteriores, visibles mientras se arrastra */}
+      {drag?.moved && (
+        <div className="sticky top-0 z-20 flex items-center gap-1.5 flex-wrap px-3 py-2 bg-surface-card border-b border-outline-variant">
+          <span className="text-xs text-muted mr-1">Soltar en:</span>
+          {dayTargets.map((d, i) => {
+            const dStr = toDateStr(d)
+            const esManana = isToday(date) && i === 0
+            return (
+              <span
+                key={dStr}
+                ref={el => { chipRefs.current[i] = el ? { el, dateStr: dStr } : null }}
+                className="px-2.5 py-1.5 rounded-full border border-accent/40 bg-accent-tint text-accent text-xs font-medium"
+              >
+                {esManana ? 'Mañana' : `${DIAS_CORTO[(d.getDay() + 6) % 7]} ${d.getDate()}`}
+              </span>
+            )
+          })}
         </div>
-      ))}
+      )}
+
+      {/* Eventos sin hora */}
+      {allDayEvs.length > 0 && (
+        <div className="px-3 py-2 border-b border-outline-variant space-y-1">
+          {allDayEvs.map(ev => (
+            <div key={ev.id} data-tooltip={ev.editable ? 'Editar' : 'Se edita desde la actividad'}>
+              <EventPill ev={ev} onClick={onEventClick} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Rejilla del día */}
+      <div className="flex">
+        {/* Gutter de horas */}
+        <div className="relative w-14 flex-shrink-0" style={{ height: gridH }}>
+          {hours.map((h, i) => (
+            <div key={h} className="absolute right-2 text-xs text-muted" style={{ top: i * AGENDA_ROW_H + 2 }}>
+              {h}:00
+            </div>
+          ))}
+        </div>
+
+        <div ref={gridRef} className="relative flex-1 border-l border-outline-variant" style={{ height: gridH }}>
+          {/* Líneas de hora / click para crear evento */}
+          {hours.map((h, i) => (
+            <div
+              key={h}
+              onClick={() => onSlotClick?.(dateStr, `${String(h).padStart(2, '0')}:00`)}
+              className="absolute left-0 right-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
+              style={{ top: i * AGENDA_ROW_H, height: AGENDA_ROW_H }}
+              data-tooltip="Crear evento a esta hora"
+            />
+          ))}
+
+          {/* Items del día */}
+          {placed.map(({ it, lane, total }) => {
+            const isDragging = drag?.moved && drag.item.id === it.id
+            const rawTop = (it.start - dayStart * 60) / 60 * AGENDA_ROW_H
+            const height = Math.max(34, (it.end - it.start) / 60 * AGENDA_ROW_H - 2)
+            const top = Math.max(0, Math.min(rawTop, gridH - height))
+            const w = 100 / total
+            const movable = isMovable(it)
+
+            const horaIni = it.kind === 'bloque' ? it.b.horaInicio : it.ev.timeStr
+            const horaFin = it.kind === 'bloque'
+              ? it.b.horaFin
+              : (it.ev.endTimeStr && it.ev.endDateStr === it.ev.dateStr && it.ev.endTimeStr !== it.ev.timeStr ? it.ev.endTimeStr : null)
+
+            let bg, fg, titulo, sub
+            if (it.kind === 'bloque') {
+              const pal = bloqueColor(it.b.color)
+              bg = pal.bg; fg = pal.text
+              titulo = subjectDisplayName(subjects[it.b.asignaturaId]) || 'Clase'
+              sub = it.b.lugar
+            } else {
+              bg = it.ev.bg; fg = it.ev.text
+              titulo = it.ev.titulo
+              sub = it.ev.subtitulo
+            }
+
+            return (
+              <div
+                key={it.id}
+                onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, it) } : undefined}
+                onClick={!movable ? e => { e.stopPropagation(); onEventClick?.(it.ev) } : undefined}
+                className={`absolute rounded-card overflow-hidden shadow-sm select-none transition-[filter] hover:brightness-95 ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+                style={{
+                  top, height,
+                  left: `calc(${lane * w}% + 3px)`,
+                  width: `calc(${w}% - 6px)`,
+                  background: bg, color: fg,
+                  opacity: isDragging ? 0.3 : 1,
+                  touchAction: 'none',
+                }}
+                data-tooltip={movable ? 'Editar' : 'Se edita desde la actividad'}
+              >
+                <div className="flex h-full">
+                  {/* Horas a la izquierda */}
+                  <div className="w-14 flex-shrink-0 text-right pr-2 py-1.5 border-r" style={{ borderColor: `${fg}22` }}>
+                    <span className="block text-xs font-bold leading-tight">{fmtHour(horaIni)}</span>
+                    {horaFin && <span className="block text-[11px] opacity-70 leading-tight">{fmtHour(horaFin)}</span>}
+                  </div>
+                  {/* Evento y descripción a la derecha */}
+                  <div className="flex-1 min-w-0 pl-2.5 py-1.5">
+                    <span className="block text-sm font-semibold leading-tight truncate">{titulo}</span>
+                    {sub && <span className="block text-xs opacity-75 leading-tight truncate">{sub}</span>}
+                    {it.kind === 'bloque' && it.b.alarma?.activa && (
+                      <span className="inline-flex items-center gap-1 text-[10px] opacity-70 leading-tight">
+                        <Bell size={10} /> {it.b.alarma.minutosAntes} min antes
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Fantasma que sigue al cursor */}
+      {drag?.moved && (() => {
+        const it = drag.item
+        const pal = it.kind === 'bloque' ? bloqueColor(it.b.color) : { bg: it.ev.bg, text: it.ev.text }
+        const titulo = it.kind === 'bloque'
+          ? subjectDisplayName(subjects[it.b.asignaturaId])
+          : it.ev.titulo
+        return (
+          <div
+            className="fixed z-50 rounded-card px-2 py-1.5 shadow-lg pointer-events-none opacity-90"
+            style={{
+              left: drag.x - drag.grabDX, top: drag.y - drag.grabDY,
+              width: drag.w, height: drag.h,
+              background: pal.bg, color: pal.text,
+            }}
+          >
+            <span className="block text-sm font-semibold leading-tight truncate">{titulo}</span>
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -251,10 +443,11 @@ function minutesToTimeStr(mins) {
 }
 const SNAP_MIN = 15 // los bloques se sueltan alineados a 15 min
 
-function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockClick, onEventClick, onMoveBloque }) {
+function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, onSlotClick, onBlockClick, onEventClick, onMoveBloque }) {
   const days = getWeekDays(weekStart)
   const todayStr = toDateStr(new Date())
-  const gridH = HOURS_RANGE.length * ROW_H
+  const hoursRange = Array.from({ length: dayEnd - dayStart }, (_, i) => i + dayStart)
+  const gridH = hoursRange.length * ROW_H
 
   const colRefs = useRef([])
   const dragStartRef = useRef(null)
@@ -268,7 +461,7 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
   }, [bloques])
 
   function topPx(time) {
-    return (timeToMinutes(time) - DAY_START_HOUR * 60) / 60 * ROW_H
+    return (timeToMinutes(time) - dayStart * 60) / 60 * ROW_H
   }
 
   function startDrag(e, b) {
@@ -308,8 +501,8 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
           if (e.clientX >= r.left && e.clientX < r.right) target = { idx, top: r.top }
         })
         if (target) {
-          let mins = Math.round(((blockTop - target.top) / ROW_H * 60 + DAY_START_HOUR * 60) / SNAP_MIN) * SNAP_MIN
-          mins = Math.max(DAY_START_HOUR * 60, Math.min(DAY_END_HOUR * 60 - SNAP_MIN, mins))
+          let mins = Math.round(((blockTop - target.top) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+          mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
           const nuevaFecha = toDateStr(days[target.idx])
           const nuevaHora = minutesToTimeStr(mins)
           if (nuevaFecha !== d.bloque.fecha || nuevaHora !== d.bloque.horaInicio) {
@@ -325,7 +518,7 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
-  }, [drag, days, onBlockClick, onMoveBloque])
+  }, [drag, days, dayStart, dayEnd, onBlockClick, onMoveBloque])
 
   return (
     <div className="overflow-x-auto">
@@ -350,7 +543,7 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
         <div className="grid" style={{ gridTemplateColumns: '3.5rem repeat(7, 1fr)' }}>
           {/* Time gutter */}
           <div className="relative" style={{ height: gridH }}>
-            {HOURS_RANGE.map((hour, i) => (
+            {hoursRange.map((hour, i) => (
               <div key={hour} className="absolute left-0 right-0 px-2 text-xs text-muted" style={{ top: i * ROW_H }}>
                 {hour}:00
               </div>
@@ -361,7 +554,11 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
           {days.map((d, di) => {
             const dStr = toDateStr(d)
             const dayOfWeek = (d.getDay() + 6) % 7
-            const placed = assignLanes(byDate[dStr] || [])
+            const placed = assignLanes((byDate[dStr] || []).map(b => ({
+              start: timeToMinutes(b.horaInicio),
+              end: timeToMinutes(b.horaFin),
+              b,
+            })))
             const dayEvs = events.filter(ev => ev.dateStr === dStr && ev.timeStr)
             return (
               <div
@@ -371,7 +568,7 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
                 style={{ height: gridH }}
               >
                 {/* Hour gridlines / click targets */}
-                {HOURS_RANGE.map((hour, i) => (
+                {hoursRange.map((hour, i) => (
                   <div
                     key={hour}
                     onClick={() => onSlotClick?.(dayOfWeek, `${String(hour).padStart(2, '0')}:00`)}
@@ -381,7 +578,8 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
                 ))}
 
                 {/* Bloques */}
-                {placed.map(({ b, lane, total, start, end }) => {
+                {placed.map(({ it, lane, total }) => {
+                  const { b, start, end } = it
                   const pal = bloqueColor(b.color)
                   const top = Math.max(0, topPx(b.horaInicio))
                   const height = Math.max(20, (end - start) / 60 * ROW_H - 2)
@@ -483,6 +681,27 @@ export default function CalendarPage() {
 
   const [view, setView] = useState(() => localStorage.getItem('cal_view') || 'agenda')
   const [currentDate, setCurrentDate] = useState(new Date())
+
+  // Rango de horas visibles del día (Agenda y Semana), configurable.
+  const [dayStart, setDayStart] = useState(() => {
+    const v = Number(localStorage.getItem('cal_dia_ini'))
+    return Number.isFinite(v) && v >= 0 && v <= 22 ? v : DEFAULT_DAY_START
+  })
+  const [dayEnd, setDayEnd] = useState(() => {
+    const v = Number(localStorage.getItem('cal_dia_fin'))
+    return Number.isFinite(v) && v >= 1 && v <= 24 ? v : DEFAULT_DAY_END
+  })
+  const [showHoras, setShowHoras] = useState(false)
+
+  function changeDayStart(v) {
+    setDayStart(v)
+    localStorage.setItem('cal_dia_ini', String(v))
+    if (v >= dayEnd) { setDayEnd(v + 1); localStorage.setItem('cal_dia_fin', String(v + 1)) }
+  }
+  function changeDayEnd(v) {
+    setDayEnd(v)
+    localStorage.setItem('cal_dia_fin', String(v))
+  }
   const [subjects, setSubjects] = useState({})
   const [activities, setActivities] = useState([])
   const [personalEvents, setPersonalEvents] = useState([])
@@ -577,6 +796,8 @@ export default function CalendarPage() {
         tipo: 'personal',
         dateStr: (e.inicio || '').substring(0, 10),
         timeStr: (e.inicio || '').substring(11, 16),
+        endDateStr: (e.fin || '').substring(0, 10),
+        endTimeStr: (e.fin || '').substring(11, 16),
         bg: colorDef.bg, text: colorDef.text,
         editable: true,
         rawEvent: e,
@@ -594,16 +815,23 @@ export default function CalendarPage() {
   // ── Navigation ─────────────────────────────────────────────────────────
   function prev() {
     if (view === 'mes') setCurrentDate(d => addMonths(d, -1))
-    else setCurrentDate(d => addWeeks(d, -1))
+    else if (view === 'semana') setCurrentDate(d => addWeeks(d, -1))
+    else setCurrentDate(d => addDays(d, -1))
   }
   function next() {
     if (view === 'mes') setCurrentDate(d => addMonths(d, 1))
-    else setCurrentDate(d => addWeeks(d, 1))
+    else if (view === 'semana') setCurrentDate(d => addWeeks(d, 1))
+    else setCurrentDate(d => addDays(d, 1))
   }
   function goToday() { setCurrentDate(new Date()) }
 
   function navLabel() {
     if (view === 'mes') return `${MESES[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+    if (view === 'agenda') {
+      const dl = DIAS_LARGO[(currentDate.getDay() + 6) % 7]
+      const base = `${dl} ${currentDate.getDate()} de ${MESES[currentDate.getMonth()]}`
+      return isToday(currentDate) ? `Hoy · ${base}` : `${base} ${currentDate.getFullYear()}`
+    }
     const days = getWeekDays(currentDate)
     const first = days[0]; const last = days[6]
     if (first.getMonth() === last.getMonth()) {
@@ -657,6 +885,38 @@ export default function CalendarPage() {
     }
   }
 
+  // Mover un evento personal (arrastrar) → nueva fecha/hora, conservando duración.
+  async function moveEvent(rawEvent, nuevaFecha, nuevaHora) {
+    const inicio = rawEvent.inicio || ''
+    const fecha = nuevaFecha || inicio.substring(0, 10)
+    const hora = nuevaHora || inicio.substring(11, 16) || '08:00'
+    const nuevoInicio = `${fecha}T${hora}`
+    let nuevoFin = nuevoInicio
+    if (rawEvent.fin && inicio) {
+      const durMs = new Date(rawEvent.fin) - new Date(inicio)
+      if (Number.isFinite(durMs) && durMs > 0) {
+        const f = new Date(new Date(`${nuevoInicio}:00`).getTime() + durMs)
+        nuevoFin = `${toDateStr(f)}T${String(f.getHours()).padStart(2, '0')}:${String(f.getMinutes()).padStart(2, '0')}`
+      }
+    }
+    // Optimista: onSnapshot confirma después.
+    setPersonalEvents(prev => prev.map(x => x.id === rawEvent.id
+      ? { ...x, inicio: nuevoInicio, fin: nuevoFin }
+      : x))
+    try {
+      await updateDoc(doc(db, 'events', rawEvent.id), { inicio: nuevoInicio, fin: nuevoFin })
+    } catch (err) {
+      toast('No se pudo mover el evento: ' + err.message, 'error')
+    }
+  }
+
+  // Crear evento desde un hueco de la agenda del día.
+  function openNewEventAt(dateStr, hora) {
+    setEditingEvent(null)
+    setSelectedDate(`${dateStr}T${hora}`)
+    setShowEventEditor(true)
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <TeacherLayout>
@@ -702,6 +962,50 @@ export default function CalendarPage() {
             ))}
           </div>
 
+          {/* Rango de horas del día */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowHoras(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+              data-tooltip="Horas visibles de tu día (Agenda y Semana)"
+            >
+              <Clock size={14} /> {dayStart}:00–{dayEnd}:00
+            </button>
+            {showHoras && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setShowHoras(false)} />
+                <div className="absolute right-0 top-10 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-60 space-y-2">
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted w-10">Desde</span>
+                    <select
+                      value={dayStart}
+                      onChange={e => changeDayStart(Number(e.target.value))}
+                      className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                    >
+                      {Array.from({ length: 23 }, (_, h) => h).map(h => (
+                        <option key={h} value={h}>{h}:00</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted w-10">Hasta</span>
+                    <select
+                      value={dayEnd}
+                      onChange={e => changeDayEnd(Number(e.target.value))}
+                      className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                    >
+                      {Array.from({ length: 24 }, (_, h) => h + 1).filter(h => h > dayStart).map(h => (
+                        <option key={h} value={h}>{h}:00</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Actions */}
           <button
             type="button"
@@ -740,7 +1044,19 @@ export default function CalendarPage() {
           {loading ? (
             <div className="flex justify-center py-16"><Spinner /></div>
           ) : view === 'agenda' ? (
-            <AgendaView events={events} onEventClick={openEditEvent} />
+            <AgendaView
+              date={currentDate}
+              events={events}
+              bloques={bloques}
+              subjects={subjects}
+              dayStart={dayStart}
+              dayEnd={dayEnd}
+              onEventClick={openEditEvent}
+              onBlockClick={setEditingBloque}
+              onMoveBloque={moveBloque}
+              onMoveEvent={moveEvent}
+              onSlotClick={openNewEventAt}
+            />
           ) : view === 'mes' ? (
             <MonthView
               year={currentDate.getFullYear()}
@@ -758,6 +1074,8 @@ export default function CalendarPage() {
               events={events}
               bloques={bloques}
               subjects={subjects}
+              dayStart={dayStart}
+              dayEnd={dayEnd}
               onSlotClick={openProgramar}
               onBlockClick={setEditingBloque}
               onEventClick={openEditEvent}

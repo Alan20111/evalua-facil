@@ -145,17 +145,19 @@ export default function TeacherLayout({ children }) {
             </button>
           )}
 
-          {/* Calendario */}
+          {/* Horario y Agenda */}
           <NavLink
             to="/calendario"
             className={({ isActive }) =>
-              `flex items-center gap-2 mx-2 px-3 py-1.5 rounded text-body-sm transition-colors ${
-                isActive ? 'bg-white text-accent font-semibold' : 'text-white/80 hover:bg-white/10'
+              `flex items-center gap-2.5 mx-2 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
+                isActive
+                  ? 'bg-white text-accent shadow-card'
+                  : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
               }`
             }
           >
-            <CalendarDays size={17} className="flex-shrink-0" />
-            Calendario
+            <CalendarDays size={20} className="flex-shrink-0" />
+            Horario y Agenda
           </NavLink>
 
           {/* Subjects header → goes to the full subjects list */}
@@ -271,7 +273,7 @@ export default function TeacherLayout({ children }) {
             }
           >
             <CalendarDays size={24} />
-            <span>Calendario</span>
+            <span>Horario</span>
           </NavLink>
           <NavLink
             to="/profile"
