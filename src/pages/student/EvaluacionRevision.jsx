@@ -10,6 +10,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
 import EvaluacionAnswerList from '../../components/EvaluacionAnswerList'
+import { publicacionVisible } from '../../utils/evaluacionGrading'
 
 // Read-only post-evaluación review: shows the student's own answers, whether
 // each was correct (if the teacher enabled mostrarRespuestasCorrectas), and
@@ -48,6 +49,12 @@ export default function EvaluacionRevision() {
       }
       const subData = { id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() }
 
+      // The answer sheet is only reachable once the teacher publishes answers
+      // (independent from the grade). Otherwise bounce back to the activity.
+      const ev = actData.evaluacion || {}
+      const answersVisible = publicacionVisible(ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas, new Date().toISOString())
+      if (!answersVisible) { navigate(`/alumno/actividad/${activityId}`); return }
+
       const pregSnap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
       const lista = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       setPreguntas(lista)
@@ -72,8 +79,6 @@ export default function EvaluacionRevision() {
     </StudentLayout>
   )
 
-  const ev = activity.evaluacion || {}
-
   return (
     <StudentLayout>
       <div className="bg-surface min-h-screen" data-subject-palette={subject?.colorPalette || 'default'}>
@@ -88,11 +93,13 @@ export default function EvaluacionRevision() {
         </header>
 
         <div className="px-4 py-5 max-w-xl mx-auto">
+          {/* Reached only when the teacher published answers, so reveal everything:
+              the student's picks, the correct answers and any feedback. */}
           <EvaluacionAnswerList
             preguntas={preguntas}
             respuestas={respuestas}
-            mostrarCorrectas={!!ev.mostrarRespuestasCorrectas}
-            mostrarRetro={!!ev.mostrarRetroalimentacion}
+            mostrarCorrectas
+            mostrarRetro
           />
         </div>
       </div>

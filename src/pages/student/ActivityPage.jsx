@@ -24,6 +24,7 @@ import {
 import { resolveFileTypes, isFileAllowed, allowsMultipleFiles, MAX_IMAGES_PER_SUBMISSION } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { isActivityPublished } from '../../utils/activityVisibility'
+import { publicacionVisible } from '../../utils/evaluacionGrading'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import AttachmentList from '../../components/AttachmentList'
@@ -344,11 +345,12 @@ export default function StudentActivityPage() {
     const finalizado = submission?.estadoEvaluacion === 'finalizado'
     const sinIntentosRestantes = ev.intentosPermitidos != null && intentosUsados >= ev.intentosPermitidos && !enProgreso
     const ahoraISO = new Date().toISOString()
-    const resultadosVisibles = finalizado && (
-      ev.publicarResultados === 'inmediato' ||
-      (ev.publicarResultados === 'fecha' && ev.publicarResultadosFecha && ahoraISO >= ev.publicarResultadosFecha) ||
-      (ev.publicarResultados === 'manual' && ev.resultadosPublicados)
-    )
+    // Grade and answers publish independently (see teacher config). Both gate on the
+    // attempt being finished first.
+    const resultadosVisibles = finalizado &&
+      publicacionVisible(ev.publicarResultados, ev.publicarResultadosFecha, ev.resultadosPublicados, ahoraISO)
+    const respuestasVisibles = finalizado &&
+      publicacionVisible(ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas, ahoraISO)
     return (
       <StudentLayout>
         <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
@@ -368,6 +370,7 @@ export default function StudentActivityPage() {
           <div className="px-4 py-5 max-w-xl mx-auto space-y-3">
             {finalizado && (
               <div className="bg-surface-card rounded-card p-4 shadow-card">
+                {/* Grade — published independently from answers */}
                 {submission.pendienteRevision ? (
                   <p className="text-sm text-muted flex items-center gap-2">
                     <Clock size={17} className="flex-shrink-0" />
@@ -386,18 +389,19 @@ export default function StudentActivityPage() {
                         <span className="text-sm text-muted mb-1.5">({Math.round((submission.calificacion / (activity?.maxCalif || 10)) * 100)}%)</span>
                       )}
                     </div>
-                    {(ev.mostrarRespuestasCorrectas || ev.mostrarRetroalimentacion) && (
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/alumno/evaluacion/${activityId}/revision`)}
-                        className="mt-3 text-sm font-medium text-accent hover:underline"
-                      >
-                        Ver revisión de tus respuestas
-                      </button>
-                    )}
                   </>
                 ) : (
-                  <p className="text-sm text-muted flex items-center gap-2"><Clock size={17} /> Resultados pendientes de publicación</p>
+                  <p className="text-sm text-muted flex items-center gap-2"><Clock size={17} /> Calificación pendiente de publicación</p>
+                )}
+                {/* Answers — published independently from the grade */}
+                {respuestasVisibles && (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/alumno/evaluacion/${activityId}/revision`)}
+                    className="mt-3 text-sm font-medium text-accent hover:underline"
+                  >
+                    Ver revisión de tus respuestas
+                  </button>
                 )}
               </div>
             )}

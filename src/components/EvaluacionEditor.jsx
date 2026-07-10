@@ -41,12 +41,14 @@ const EVALUACION_DEFAULTS = {
     numPreguntas: 0, ordenPreguntas: 'creacion', navegacion: 'libre',
     tiempoLimiteMin: null, intentosPermitidos: null, conservar: 'mejor',
     publicarResultados: 'inmediato', publicarResultadosFecha: null, resultadosPublicados: false,
+    publicarRespuestas: 'inmediato', publicarRespuestasFecha: null, respuestasPublicadas: false,
     mostrarRetroalimentacion: true, mostrarRespuestasCorrectas: false, mostrarPorcentaje: true, barajarRespuestas: false,
   },
   examen: {
     numPreguntas: 0, ordenPreguntas: 'creacion', navegacion: 'secuencial',
     tiempoLimiteMin: 30, intentosPermitidos: 1, conservar: 'ultimo',
     publicarResultados: 'inmediato', publicarResultadosFecha: null, resultadosPublicados: false,
+    publicarRespuestas: 'inmediato', publicarRespuestasFecha: null, respuestasPublicadas: false,
     mostrarRetroalimentacion: true, mostrarRespuestasCorrectas: false, mostrarPorcentaje: true, barajarRespuestas: false,
   },
 }
@@ -610,7 +612,7 @@ export default function EvaluacionEditor({
               </div>
               {(infoForm.visibilidadMode !== 'hide' || infoForm.publishedAt) && (
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">{infoForm.fechaLimite ? 'Modificar fecha límite' : 'Fecha límite (opcional)'}</label>
+                  <label className="block text-sm font-medium text-muted mb-1">{infoForm.fechaLimite ? 'Fecha límite de entrega' : 'Fecha límite de entrega (opcional)'}</label>
                   {infoForm.visibilidadMode === 'schedule' && !infoForm.publishAt ? (
                     <p className="text-xs text-slate-400 px-1">Primero elige la fecha de publicación arriba.</p>
                   ) : (
@@ -804,7 +806,7 @@ export default function EvaluacionEditor({
                         : { borderColor: 'var(--outline-variant)' }}>
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="p-4 space-y-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {i + 1}</p>
                         <div>
                           <label htmlFor="preg-edit-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                           <select id="preg-edit-tipo" value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
@@ -892,7 +894,7 @@ export default function EvaluacionEditor({
                 {showPreguntaForm ? (
                   <form onSubmit={handleAddPregunta} className="border-2 border-accent rounded-card p-4 space-y-3"
                     style={{ background: 'var(--accent-light)' }}>
-                    <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando reactivo nuevo</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando · Pregunta {preguntas.length + 1}</p>
                     <div>
                       <label htmlFor="preg-new-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                       <select id="preg-new-tipo" value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}

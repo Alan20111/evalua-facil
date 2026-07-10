@@ -15,8 +15,9 @@ import EFDateTimePicker from './EFDateTimePicker'
 import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
 } from '../utils/evaluacionGrading'
-import { ArrowLeft, Plus, Trash2, Library, Star, Users, Search, Pencil, Copy, X, Image as ImageIcon, ChevronUp, ChevronDown, Clock } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Library, Users, Search, Pencil, Copy, X, Image as ImageIcon, ChevronUp, ChevronDown, Clock } from 'lucide-react'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
+import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -48,6 +49,40 @@ function fmtDuracion(inicio, fin) {
   if (!inicio?.seconds || !fin?.seconds) return '—'
   const min = Math.round((fin.seconds - inicio.seconds) / 60)
   return `${min} min`
+}
+
+// Shared publication scheduler — same three-way choice for "Publicar resultados"
+// (calificación) and "Publicar respuestas". Kept as one component so both blocks
+// stay identical in look and behavior.
+function PublicacionScheduler({ id, label, hint, mode, fecha, onModeChange, onFechaChange }) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-muted mb-1">{label}</label>
+      <select id={id} value={mode || 'inmediato'} onChange={(e) => onModeChange(e.target.value)}
+        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+        <option value="inmediato">Inmediatamente al terminar</option>
+        <option value="ahora">Ahora (guardar para que se publique)</option>
+        <option value="fecha">En una fecha específica</option>
+      </select>
+      {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
+      {mode === 'ahora' && (
+        <p className="text-xs text-accent mt-1">Se publicará en cuanto guardes la configuración.</p>
+      )}
+      {mode === 'fecha' && (
+        <div className="mt-2">
+          <EFDateTimePicker
+            mode="datetime"
+            headerLabel={`Fecha y hora — ${label}`}
+            value={fecha || ''}
+            onChange={onFechaChange}
+            minDateTime={toIsoNow()}
+            placeholder="Elegir fecha de publicación…"
+            clearable={false}
+          />
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Manages everything specific to `activity.tipo === 'evaluacion'`: questions,
@@ -432,18 +467,34 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // ── Configuración ──
   async function handleSaveConfig(e) {
     e.preventDefault()
-    // Results scheduled for a specific date must be in the future
+    // Anything scheduled for a specific date must be in the future
     if (configForm.publicarResultados === 'fecha') {
       if (!configForm.publicarResultadosFecha) { toast('Elige la fecha de publicación de resultados', 'error'); return }
       if (configForm.publicarResultadosFecha <= toIsoNow()) {
         toast('La fecha de publicación de resultados debe ser posterior a este momento', 'error'); return
       }
     }
+    if (configForm.publicarRespuestas === 'fecha') {
+      if (!configForm.publicarRespuestasFecha) { toast('Elige la fecha de publicación de respuestas', 'error'); return }
+      if (configForm.publicarRespuestasFecha <= toIsoNow()) {
+        toast('La fecha de publicación de respuestas debe ser posterior a este momento', 'error'); return
+      }
+    }
+    // "Ahora (guardar para que se publique)" flips the published flag on save so the
+    // student sees it immediately; the flag is sticky (once published, stays published).
+    const toSave = { ...configForm }
+    // Existing evaluaciones predate the answers-publication field — normalize so we
+    // never persist undefined (which would read as "not published" for the student).
+    toSave.publicarResultados = toSave.publicarResultados || 'inmediato'
+    toSave.publicarRespuestas = toSave.publicarRespuestas || 'inmediato'
+    if (toSave.publicarResultados === 'ahora') toSave.resultadosPublicados = true
+    if (toSave.publicarRespuestas === 'ahora') toSave.respuestasPublicadas = true
     setSavingConfig(true)
     try {
-      await updateDoc(doc(db, 'activities', activityId), { evaluacion: configForm })
-      configSnap.current = JSON.stringify(configForm)
-      onActivityChange((prev) => ({ ...prev, evaluacion: configForm }))
+      await updateDoc(doc(db, 'activities', activityId), { evaluacion: toSave })
+      configSnap.current = JSON.stringify(toSave)
+      setConfigForm(toSave)
+      onActivityChange((prev) => ({ ...prev, evaluacion: toSave }))
       toast('Configuración guardada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -619,7 +670,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         : undefined}>
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {i + 1}</p>
                         <div>
                           <label htmlFor={`preg-edit-tipo-${p.id}`} className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                           <select id={`preg-edit-tipo-${p.id}`} value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
@@ -724,7 +775,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             ) : (
               <form onSubmit={handleAddPregunta} className="rounded-card shadow-card p-3 space-y-2"
                 style={{ border: '2px solid var(--accent)', background: 'var(--accent-light)' }}>
-                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando reactivo nuevo</p>
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando · Pregunta {preguntas.length + 1}</p>
                 <div>
                   <label htmlFor="preg-nueva-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                   <select id="preg-nueva-tipo" value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
@@ -956,43 +1007,41 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))}
                 placeholder="Ilimitados" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             </div>
-            <div>
-              <label htmlFor="config-conservar" className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
-              <select id="config-conservar" value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                <option value="primero">El primer intento</option>
-                <option value="ultimo">El último intento</option>
-                <option value="mejor">La calificación más alta</option>
-                <option value="promedio">El promedio de todos los intentos</option>
-              </select>
-            </div>
-            <div>
-              <label htmlFor="config-publicar" className="block text-sm font-medium text-muted mb-1">Publicar resultados</label>
-              <select id="config-publicar" value={configForm.publicarResultados} onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultados: e.target.value }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                <option value="inmediato">Inmediatamente al terminar</option>
-                <option value="fecha">En una fecha específica</option>
-                <option value="manual">Manualmente (yo decido cuándo)</option>
-              </select>
-            </div>
-            {configForm.publicarResultados === 'fecha' && (
-              <EFDateTimePicker
-                mode="datetime"
-                headerLabel="Fecha y hora de publicación de resultados"
-                value={configForm.publicarResultadosFecha || ''}
-                onChange={v => setConfigForm(f => ({ ...f, publicarResultadosFecha: v }))}
-                minDateTime={toIsoNow()}
-                placeholder="Elegir fecha de publicación…"
-                clearable={false}
-              />
+            {/* Multi-attempt policy only matters with more than one attempt — with a
+                single attempt "conservar la mejor/última" is noise (Don't Make Me Think). */}
+            {configForm.intentosPermitidos !== 1 && (
+              <div>
+                <label htmlFor="config-conservar" className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
+                <select id="config-conservar" value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
+                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                  <option value="primero">El primer intento</option>
+                  <option value="ultimo">El último intento</option>
+                  <option value="mejor">La calificación más alta</option>
+                  <option value="promedio">El promedio de todos los intentos</option>
+                </select>
+              </div>
             )}
-            <div className="pt-1 border-t border-outline-variant">
-              <p className="text-xs font-medium text-muted uppercase tracking-wide pt-2 mb-2">Qué ve el alumno en sus resultados</p>
-              <label className="flex items-center gap-2 text-sm text-muted">
-                <input type="checkbox" checked={!!configForm.mostrarRespuestasCorrectas}
-                  onChange={(e) => setConfigForm((f) => ({ ...f, mostrarRespuestasCorrectas: e.target.checked }))} className="accent-[var(--accent)]" />
-                Mostrar cuál era la respuesta correcta
-              </label>
+            {/* Grade publication and answer publication are independent: a teacher can
+                release the score now and the answers later (or never). */}
+            <div className="pt-1 border-t border-outline-variant space-y-3">
+              <p className="text-xs font-medium text-muted uppercase tracking-wide pt-2">Publicación al estudiante</p>
+              <PublicacionScheduler
+                id="config-publicar-resultados"
+                label="Publicar resultados (calificación)"
+                mode={configForm.publicarResultados}
+                fecha={configForm.publicarResultadosFecha}
+                onModeChange={(v) => setConfigForm((f) => ({ ...f, publicarResultados: v }))}
+                onFechaChange={(v) => setConfigForm((f) => ({ ...f, publicarResultadosFecha: v }))}
+              />
+              <PublicacionScheduler
+                id="config-publicar-respuestas"
+                label="Publicar respuestas"
+                hint="El alumno verá sus respuestas, las respuestas correctas y la retroalimentación (si existe)."
+                mode={configForm.publicarRespuestas}
+                fecha={configForm.publicarRespuestasFecha}
+                onModeChange={(v) => setConfigForm((f) => ({ ...f, publicarRespuestas: v }))}
+                onFechaChange={(v) => setConfigForm((f) => ({ ...f, publicarRespuestasFecha: v }))}
+              />
             </div>
             <button type="submit" disabled={savingConfig || JSON.stringify(configForm) === configSnap.current}
               className={`w-full py-2 text-sm font-medium rounded disabled:opacity-60 ${JSON.stringify(configForm) !== configSnap.current ? 'bg-accent text-white' : 'bg-surface-container text-on-surface'}`}>
@@ -1035,20 +1084,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 />
               </div>
             )}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-              {[
-                { label: 'Promedio', value: stats.promedio },
-                { label: 'Máxima', value: stats.maxima },
-                { label: 'Mínima', value: stats.minima },
-                { label: '% Aprobados', value: `${stats.porcentajeAprobados}%` },
-              ].map((s) => (
-                <div key={s.label} className="bg-accent-light rounded p-3 text-center">
-                  <Star size={18} className="text-accent mx-auto mb-1" />
-                  <p className="text-xl font-bold text-on-surface">{s.value}</p>
-                  <p className="text-xs text-muted">{s.label}</p>
-                </div>
-              ))}
-            </div>
+            <EvaluacionStatsPanel
+              stats={stats}
+              totalEstudiantes={students.length}
+              totalEntregas={Object.values(submissions).filter((s) => s.estadoEvaluacion === 'finalizado').length}
+              totalPendientes={students.filter((x) => submissions[x.id]?.estadoEvaluacion !== 'finalizado').length}
+              maxCalif={activity.maxCalif || 10}
+            />
             {configForm?.publicarResultados === 'manual' && !configForm.resultadosPublicados && (
               <button type="button" onClick={handlePublicarResultados} className="w-full mb-3 py-2 bg-accent text-white text-sm font-medium rounded">
                 Publicar resultados a tus estudiantes

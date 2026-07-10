@@ -65,6 +65,23 @@ export function resolverCalificacionFinal(intentosPrevios, calificacionNueva, co
 }
 
 /**
+ * Whether a scheduled publication (results OR answers) is currently visible to
+ * the student. Single source of truth shared by the teacher config preview and
+ * the student views so both agree on timing.
+ *
+ * @param {string} modo   'inmediato' | 'ahora' | 'fecha' (legacy: 'manual')
+ * @param {string|null} fecha  ISO datetime for `modo === 'fecha'`
+ * @param {boolean} flag  the published flag ('ahora'/'manual' are gated by it)
+ * @param {string} ahoraISO  current time as ISO, injected so callers control "now"
+ */
+export function publicacionVisible(modo, fecha, flag, ahoraISO) {
+  if (modo === 'inmediato') return true
+  if (modo === 'fecha') return !!fecha && ahoraISO >= fecha
+  // 'ahora' and legacy 'manual': visible only once the teacher published (flag set).
+  return !!flag
+}
+
+/**
  * Group stats for the teacher view (average, max, min, pass/fail %).
  * `calificaciones` is an array of finished attempts' final scores.
  */
