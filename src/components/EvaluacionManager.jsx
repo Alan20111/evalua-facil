@@ -515,20 +515,33 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     }
   }
 
-  // ── Revisión manual de respuesta_corta ──
+  // ── Revisión manual (respuesta corta / subir documento) ──
+  // Un cuestionario/examen "se realiza o no" — el vocabulario de calificar solo
+  // aplica cuando hay reactivos que el docente debe calificar a mano.
+  const hasManual = preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo))
+
   function estadoEstudiante(sub) {
     if (!sub) return 'No iniciado'
     if (sub.estadoEvaluacion === 'en_progreso') return 'En proceso'
-    if (sub.pendienteRevision) return 'Finalizado'
-    return 'Calificado'
+    if (sub.pendienteRevision) return 'Por calificar'
+    return hasManual ? 'Calificado' : 'Realizado'
   }
 
-  // Same filter buckets as a regular activity: Pendientes (not finished),
-  // Calificados, Por calificar (finished, open questions awaiting review)
+  // Filter buckets: Pendientes (not finished), Calificados/Realizados,
+  // Por calificar (finished, manual questions awaiting review)
   function estadoFiltroKey(sub) {
     const e = estadoEstudiante(sub)
-    return e === 'Calificado' ? 'calificado' : e === 'Finalizado' ? 'porCalificar' : 'pendiente'
+    return (e === 'Calificado' || e === 'Realizado') ? 'calificado' : e === 'Por calificar' ? 'porCalificar' : 'pendiente'
   }
+
+  // Tab labels shared by the Entregas list and the review sidebar: grading
+  // vocabulary only when the teacher actually has something to grade.
+  const FILTRO_TABS = [
+    ['todos', 'Todos'],
+    ['pendiente', 'Pendientes'],
+    ['calificado', hasManual ? 'Calificados' : 'Realizados'],
+    ['porCalificar', hasManual ? 'Por calificar' : 'Por realizar'],
+  ]
 
   // Students for a review tab, in list order (students prop is already sorted).
   function studentsForFilter(filtro) {
@@ -1200,13 +1213,33 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 (!searchResultados.trim() || matchesStudentSearch(x, searchResultados))
               )
               return (
+            <>
+              {/* Con reactivos de respuesta escrita / subir documento, el docente
+                  debe intervenir: aviso + salto directo a la primera por calificar */}
+              {hasManual && resultCounts.porCalificar > 0 && (
+                <div className="mb-3 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-card flex items-center gap-2 text-sm text-amber-800">
+                  <span className="flex-1">
+                    <strong>{resultCounts.porCalificar}</strong> entrega{resultCounts.porCalificar !== 1 ? 's' : ''} con reactivos de respuesta escrita o documentos que debes calificar.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const first = studentsForFilter('porCalificar')[0]
+                      if (first) openReview(first, 'porCalificar')
+                    }}
+                    className="flex-shrink-0 px-3 py-1.5 bg-amber-500 text-white text-xs font-semibold rounded hover:bg-amber-600 transition-colors"
+                  >
+                    Calificar ahora
+                  </button>
+                </div>
+              )}
             <div className="rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
               <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
                 <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Entregas</h2>
               </div>
               <div className="p-3 pb-2 space-y-2">
                 <div className="flex gap-1 bg-surface-container p-1 rounded">
-                  {[['todos', 'Todos'], ['pendiente', 'Pendientes'], ['calificado', 'Calificados'], ['porCalificar', 'Por calificar']].map(([k, lbl]) => (
+                  {FILTRO_TABS.map(([k, lbl]) => (
                     <button type="button" key={k} onClick={() => setFiltroResultados(k)}
                       className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
                         filtroResultados === k ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
@@ -1237,8 +1270,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       <div className="flex items-center gap-2">
                         <p className="flex-1 text-sm text-on-surface truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
-                          estado === 'Calificado' ? 'bg-emerald-100 text-emerald-700' :
-                          estado === 'Finalizado' ? 'bg-amber-100 text-amber-700' :
+                          estado === 'Calificado' || estado === 'Realizado' ? 'bg-emerald-100 text-emerald-700' :
+                          estado === 'Por calificar' ? 'bg-amber-100 text-amber-700' :
                           estado === 'En proceso' ? 'bg-blue-100 text-blue-700' : 'bg-surface-container text-muted'
                         }`}>{estado}</span>
                         {sub?.estadoEvaluacion === 'finalizado' && (
@@ -1255,6 +1288,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 })
               )}
             </div>
+            </>
               )
             })()}
           </div>
@@ -1276,7 +1310,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           calificado: students.filter((x) => estadoFiltroKey(submissions[x.id]) === 'calificado').length,
           porCalificar: students.filter((x) => estadoFiltroKey(submissions[x.id]) === 'porCalificar').length,
         }
-        const REVIEW_TABS = [['todos', 'Todos'], ['pendiente', 'Pendientes'], ['calificado', 'Realizados'], ['porCalificar', 'Por realizar']]
+        const REVIEW_TABS = FILTRO_TABS
         return (
         <div className="fixed inset-0 z-50 bg-surface flex flex-col">
           {/* Neutral header (no accent-blue) so it reads as a different area */}
