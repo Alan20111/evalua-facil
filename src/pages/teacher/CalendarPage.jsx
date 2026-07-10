@@ -269,6 +269,14 @@ function AgendaView({
             />
           ))}
 
+          {/* Día sin nada programado */}
+          {placed.length === 0 && allDayEvs.length === 0 && (
+            <div className="absolute inset-x-0 top-6 text-center pointer-events-none">
+              <p className="text-sm text-muted">No hay clases ni eventos este día</p>
+              <p className="text-xs text-muted opacity-60 mt-0.5">Haz clic en una hora para crear un evento</p>
+            </div>
+          )}
+
           {/* Items del día */}
           {placed.map(({ it, lane, total }) => {
             const isDragging = drag?.moved && drag.item.id === it.id
@@ -581,8 +589,10 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, onSl
                 {placed.map(({ it, lane, total }) => {
                   const { b, start, end } = it
                   const pal = bloqueColor(b.color)
-                  const top = Math.max(0, topPx(b.horaInicio))
                   const height = Math.max(20, (end - start) / 60 * ROW_H - 2)
+                  // Acota dentro de la rejilla: lo que cae fuera del rango de
+                  // horas visible se ancla al borde en vez de desaparecer.
+                  const top = Math.max(0, Math.min(topPx(b.horaInicio), gridH - height))
                   const w = 100 / total
                   const subj = subjects[b.asignaturaId]
                   const isDragging = drag?.moved && drag.bloque.id === b.id
@@ -610,16 +620,20 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, onSl
 
                 {/* Eventos con hora */}
                 {dayEvs.map(ev => {
-                  const top = Math.max(0, topPx(ev.timeStr))
+                  const EV_H = 30
+                  // Acota dentro de la rejilla (p. ej. fechas límite a las
+                  // 23:59 se anclan al fondo en vez de quedar fuera).
+                  const top = Math.max(0, Math.min(topPx(ev.timeStr), gridH - EV_H))
                   return (
                     <button
                       key={ev.id}
                       type="button"
                       onClick={e => { e.stopPropagation(); onEventClick?.(ev) }}
-                      className="absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden border border-white/40"
-                      style={{ top, width: '46%', background: ev.bg, color: ev.text, zIndex: 5 }}
-                      data-tooltip={ev.titulo}
+                      className="absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter]"
+                      style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5 }}
+                      data-tooltip={`${ev.titulo} · ${fmtHour(ev.timeStr)}`}
                     >
+                      <span className="block text-[10px] font-bold leading-tight">{fmtHour(ev.timeStr)}</span>
                       <span className="block text-[10px] font-medium leading-tight truncate">{ev.titulo}</span>
                     </button>
                   )
@@ -683,13 +697,17 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
 
   // Rango de horas visibles del día (Agenda y Semana), configurable.
+  // Ojo: getItem devuelve null si no existe y Number(null) === 0, así que hay
+  // que distinguir "sin guardar" de un 0 guardado explícitamente.
   const [dayStart, setDayStart] = useState(() => {
-    const v = Number(localStorage.getItem('cal_dia_ini'))
-    return Number.isFinite(v) && v >= 0 && v <= 22 ? v : DEFAULT_DAY_START
+    const raw = localStorage.getItem('cal_dia_ini')
+    const v = raw == null || raw === '' ? NaN : Number(raw)
+    return Number.isInteger(v) && v >= 0 && v <= 22 ? v : DEFAULT_DAY_START
   })
   const [dayEnd, setDayEnd] = useState(() => {
-    const v = Number(localStorage.getItem('cal_dia_fin'))
-    return Number.isFinite(v) && v >= 1 && v <= 24 ? v : DEFAULT_DAY_END
+    const raw = localStorage.getItem('cal_dia_fin')
+    const v = raw == null || raw === '' ? NaN : Number(raw)
+    return Number.isInteger(v) && v >= 1 && v <= 24 ? v : DEFAULT_DAY_END
   })
   const [showHoras, setShowHoras] = useState(false)
 
