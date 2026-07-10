@@ -1023,6 +1023,7 @@ export default function CalendarPage() {
               }}
               className="text-sm font-semibold text-on-surface px-3 min-w-[180px] text-center select-none rounded hover:bg-accent-tint transition-colors py-0.5"
               data-tooltip="Ir a otra fecha"
+              data-tooltip-pos="bottom"
             >
               {navLabel()}
             </button>
@@ -1108,6 +1109,7 @@ export default function CalendarPage() {
               onClick={() => setShowHoras(v => !v)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
               data-tooltip="Horas visibles de tu día (Agenda y Semana)"
+              data-tooltip-pos="bottom"
             >
               <Clock size={14} /> {dayStart}:00–{dayEnd}:00
             </button>
@@ -1171,6 +1173,7 @@ export default function CalendarPage() {
             onClick={() => openProgramar(0, '07:00')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-card bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
             data-tooltip="Programar bloques de clases por asignatura"
+            data-tooltip-pos="bottom"
           >
             <CalendarPlus size={15} /> Crear bloques
           </button>
