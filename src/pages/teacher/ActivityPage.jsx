@@ -667,7 +667,7 @@ export default function ActivityPage() {
               <ArrowLeft size={22} />
             </button>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wide text-accent">Evaluar</p>
+              <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-on-surface truncate">
                   {activityLabel && <span className="text-accent">{activityLabel} </span>}
@@ -877,7 +877,7 @@ export default function ActivityPage() {
             {/* Same header pattern as the activity page: activity title with its
                 accent number, then "Asignatura — Profesor · Parcial N" below */}
             <div className="flex-1 min-w-0 text-right sm:text-left">
-              <p className="text-xs font-bold uppercase tracking-wide text-accent">Evaluar</p>
+              <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
               <h3 className="text-xl font-bold text-on-surface truncate">
                 {activityLabel && <span className="text-accent">{activityLabel} </span>}
                 {activity?.nombre}

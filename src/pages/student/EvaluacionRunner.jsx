@@ -7,12 +7,19 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ChevronLeft, ChevronRight, Timer, CheckCircle2, LogOut } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Timer, CheckCircle2, LogOut, Upload, FileText } from 'lucide-react'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import {
   calcularPuntosPregunta, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
 } from '../../utils/evaluacionGrading'
+import { uploadToCloudinary } from '../../utils/cloudinary'
+import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fileTypes'
 import StudentLayout from '../../components/StudentLayout'
+
+// Extensiones aceptadas para preguntas de tipo "subir documento": las mismas
+// que maneja toda la app (imágenes, PDF, Word, PowerPoint, Excel, ZIP/RAR).
+const ARCHIVO_TYPES = [ALL_FILES_KEY]
+const MAX_ARCHIVO_MB = 15
 
 // Fisher-Yates with a numeric seed so the shuffled order is reproducible
 // across reloads of the same attempt (the seed is persisted on the submission).
@@ -52,6 +59,7 @@ export default function EvaluacionRunner() {
   const [idx, setIdx] = useState(0)
   const [loading, setLoading] = useState(true)
   const [finishing, setFinishing] = useState(false)
+  const [uploadingPregunta, setUploadingPregunta] = useState(null) // pregunta.id mientras sube archivo
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [showExitModal, setShowExitModal] = useState(false)
   const finishedRef = useRef(false)
@@ -106,7 +114,9 @@ export default function EvaluacionRunner() {
       const respMap = {}
       respSnap.docs.forEach((d) => {
         const data = d.data()
-        respMap[d.id] = data.opcionSeleccionada ?? data.textoRespuesta ?? null
+        respMap[d.id] = data.opcionSeleccionada
+          ?? data.textoRespuesta
+          ?? (data.archivoURL ? { archivoURL: data.archivoURL, nombreArchivo: data.nombreArchivo || 'Documento' } : null)
       })
       setRespuestas(respMap)
 
@@ -152,6 +162,37 @@ export default function EvaluacionRunner() {
     }
   }
 
+  // Pregunta de tipo "subir documento": validar extensión/tamaño, subir a
+  // Cloudinary y persistir la referencia como respuesta de esta pregunta.
+  async function handleArchivoChange(preguntaId, file) {
+    if (!file) return
+    if (!isFileAllowed(file, ARCHIVO_TYPES, '')) {
+      toast('Tipo de archivo no permitido. Usa imágenes, PDF, Word, PowerPoint, Excel o ZIP/RAR.', 'error')
+      return
+    }
+    if (file.size > MAX_ARCHIVO_MB * 1024 * 1024) {
+      toast(`El archivo supera el máximo de ${MAX_ARCHIVO_MB} MB`, 'error')
+      return
+    }
+    setUploadingPregunta(preguntaId)
+    try {
+      const url = await uploadToCloudinary(file, 'evalua-facil/submissions')
+      await setDoc(
+        doc(db, 'submissions', submission.id, 'respuestas', preguntaId),
+        {
+          archivoURL: url, nombreArchivo: file.name, tamanoArchivo: file.size,
+          opcionSeleccionada: null, textoRespuesta: null, respondidaEn: serverTimestamp(),
+        },
+        { merge: true }
+      )
+      setRespuestas((prev) => ({ ...prev, [preguntaId]: { archivoURL: url, nombreArchivo: file.name } }))
+    } catch (err) {
+      toast('No se pudo subir tu archivo: ' + err.message, 'error')
+    } finally {
+      setUploadingPregunta(null)
+    }
+  }
+
   async function handleFinalizar() {
     if (finishedRef.current) return
     finishedRef.current = true
@@ -160,7 +201,9 @@ export default function EvaluacionRunner() {
       const respuestasPorPregunta = {}
       preguntas.forEach((p) => {
         const valor = respuestas[p.id] ?? null
-        const respuestaForm = p.tipo === 'respuesta_corta' ? { textoRespuesta: valor } : { opcionSeleccionada: valor }
+        const respuestaForm = p.tipo === 'respuesta_corta' ? { textoRespuesta: valor }
+          : p.tipo === 'subir_archivo' ? { archivoURL: valor?.archivoURL ?? null }
+          : { opcionSeleccionada: valor }
         respuestasPorPregunta[p.id] = { ...respuestaForm, puntosObtenidos: calcularPuntosPregunta(p, respuestaForm) }
       })
       // Persist each pregunta's resolved points (objective types now, respuesta_corta stays null/pending).
@@ -308,6 +351,36 @@ export default function EvaluacionRunner() {
                 placeholder="Escribe tu respuesta…"
                 className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
               />
+            ) : pregunta.tipo === 'subir_archivo' ? (
+              <div className="space-y-2">
+                {respuestas[pregunta.id]?.archivoURL && (
+                  <div className="flex items-center gap-2 p-3 rounded border border-emerald-300 bg-emerald-50 text-sm text-emerald-700">
+                    <FileText size={17} className="flex-shrink-0" />
+                    <span className="truncate flex-1">{respuestas[pregunta.id].nombreArchivo}</span>
+                    <CheckCircle2 size={16} className="flex-shrink-0" />
+                  </div>
+                )}
+                <label className={`flex flex-col items-center justify-center gap-1.5 p-5 rounded border-2 border-dashed cursor-pointer transition-colors ${
+                  uploadingPregunta === pregunta.id ? 'border-outline-variant opacity-60 pointer-events-none' : 'border-accent/40 hover:bg-[var(--accent-tint)]'
+                }`}>
+                  {uploadingPregunta === pregunta.id ? <Spinner size="sm" /> : <Upload size={22} className="text-accent" />}
+                  <span className="text-sm font-medium text-on-surface">
+                    {uploadingPregunta === pregunta.id
+                      ? 'Subiendo…'
+                      : respuestas[pregunta.id]?.archivoURL ? 'Cambiar documento' : 'Toca para subir tu documento'}
+                  </span>
+                  <span className="text-xs text-muted text-center">
+                    Imágenes, PDF, Word, PowerPoint, Excel o ZIP/RAR · máx. {MAX_ARCHIVO_MB} MB
+                  </span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept={resolveFileTypes(ARCHIVO_TYPES, '').accept}
+                    onChange={(e) => { handleArchivoChange(pregunta.id, e.target.files?.[0] || null); e.target.value = '' }}
+                  />
+                </label>
+                <p className="text-xs text-slate-400 italic">Tu maestro revisará el documento para asignar los puntos.</p>
+              </div>
             ) : (
               <div className="space-y-2">
                 {pregunta.opciones.map((o) => (

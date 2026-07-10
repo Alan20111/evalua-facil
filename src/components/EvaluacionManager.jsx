@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
+  collection, query, where, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
 } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
-import { subjectDisplayName } from '../utils/subjectName'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../utils/sanitizeHtml'
 import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
 import { matchesStudentSearch } from '../utils/studentSearch'
@@ -16,11 +15,14 @@ import { calcularEstadisticasGrupo } from '../utils/evaluacionGrading'
 import { ArrowLeft, Plus, Trash2, Library, Users, Search, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays } from 'lucide-react'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
+import PublicacionScheduler from './PublicacionScheduler'
+import EvaluacionEditor from './EvaluacionEditor'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
   { value: 'verdadero_falso', label: 'Verdadero / Falso' },
   { value: 'respuesta_corta', label: 'Respuesta corta' },
+  { value: 'subir_archivo', label: 'Subir documento' },
 ]
 const OPCION_IDS = ['a', 'b', 'c', 'd']
 
@@ -49,40 +51,6 @@ function fmtDuracion(inicio, fin) {
   return `${min} min`
 }
 
-// Shared publication scheduler — same three-way choice for "Publicar resultados"
-// (calificación) and "Publicar respuestas". Kept as one component so both blocks
-// stay identical in look and behavior.
-function PublicacionScheduler({ id, label, hint, mode, fecha, onModeChange, onFechaChange }) {
-  return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-muted mb-1">{label}</label>
-      <select id={id} value={mode || 'inmediato'} onChange={(e) => onModeChange(e.target.value)}
-        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-        <option value="inmediato">Inmediatamente al terminar</option>
-        <option value="ahora">Ahora (guardar para que se publique)</option>
-        <option value="fecha">En una fecha específica</option>
-      </select>
-      {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
-      {mode === 'ahora' && (
-        <p className="text-xs text-accent mt-1">Se publicará en cuanto guardes la configuración.</p>
-      )}
-      {mode === 'fecha' && (
-        <div className="mt-2">
-          <EFDateTimePicker
-            mode="datetime"
-            headerLabel={`Fecha y hora — ${label}`}
-            value={fecha || ''}
-            onChange={onFechaChange}
-            minDateTime={toIsoNow()}
-            placeholder="Elegir fecha de publicación…"
-            clearable={false}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Manages everything specific to `activity.tipo === 'evaluacion'`: questions,
 // the question bank, evaluación settings, group results, and manual review
 // of open-ended (respuesta_corta) answers. Lives outside teacher/ActivityPage.jsx
@@ -95,11 +63,10 @@ function PublicacionScheduler({ id, label, hint, mode, fecha, onModeChange, onFe
 export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, resultadosOnly = false, backState = null, openStudentId = null }) {
   const navigate = useNavigate()
   const toast = useToast()
-  // resultadosOnly hides the editing tabs (arrived from the grades table). "Editar
-  // actividad" flips this on so the same Preguntas/Configuración tabs become available
-  // in place — no separate route or component.
-  const [showEditor, setShowEditor] = useState(false)
-  const editingTabsVisible = !resultadosOnly || showEditor
+  // Full-screen EvaluacionEditor — the SAME editor "editar" opens from the
+  // parcial list; the header pencil opens it here too.
+  const [showEvalEditor, setShowEvalEditor] = useState(false)
+  const editingTabsVisible = !resultadosOnly
   const [tab, setTab] = useState(resultadosOnly ? 'resultados' : 'preguntas')
   // Cancel a student's submission (delete the intento + its answers)
   const [cancelConfirm, setCancelConfirm] = useState(null) // { student, sub } | null
@@ -507,6 +474,24 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     }
   }
 
+  // Cerrar el editor completo: recargar preguntas y refrescar la actividad
+  // (el editor guarda directo en Firestore — nombre, fechas, config, reactivos).
+  async function closeEvalEditor() {
+    setShowEvalEditor(false)
+    loadPreguntas()
+    try {
+      const snap = await getDoc(doc(db, 'activities', activityId))
+      if (snap.exists()) {
+        const fresh = snap.data()
+        onActivityChange((prev) => ({ ...prev, ...fresh }))
+        if (fresh.evaluacion) {
+          setConfigForm(fresh.evaluacion)
+          configSnap.current = JSON.stringify(fresh.evaluacion)
+        }
+      }
+    } catch { /* la vista sigue con los datos previos */ }
+  }
+
   async function handlePublicarResultados() {
     const nextEvaluacion = { ...activity.evaluacion, resultadosPublicados: true }
     try {
@@ -641,19 +626,25 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           </button>
           <div className="flex-1 min-w-0">
             {contextLine && <p className="text-xl font-bold text-on-surface truncate mb-0.5">{contextLine}</p>}
-            <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 truncate">
-              {activityLabel && <span className="text-2xl font-extrabold text-accent">{activityLabel}</span>}
-              <span className="truncate">{activity.nombre}</span>
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 truncate">
+                {activityLabel && <span className="text-2xl font-extrabold text-accent">{activityLabel}</span>}
+                <span className="truncate">{activity.nombre}</span>
+              </h1>
+              {/* Mismo botón editar que un entregable: lápiz inmediato al nombre.
+                  Abre el MISMO editor completo que "editar" desde el parcial. */}
+              <button
+                type="button"
+                onClick={() => setShowEvalEditor(true)}
+                data-tooltip="Editar actividad"
+                aria-label="Editar actividad"
+                className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+              >
+                <Pencil size={18} />
+              </button>
+            </div>
             <p className="text-slate-400 text-xs">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
           </div>
-          {/* Editar actividad — surfaces the editing tabs when we arrived results-only */}
-          {resultadosOnly && !showEditor && (
-            <button type="button" onClick={() => { setShowEditor(true); setTab('preguntas'); loadBanco() }}
-              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] transition-colors">
-              <Pencil size={15} /> Editar actividad
-            </button>
-          )}
         </div>
         {editingTabsVisible && (
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
@@ -769,6 +760,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           </div>
                         )}
                         {p.tipo === 'respuesta_corta' && <p className="text-xs text-slate-400 mt-1 italic">Respuesta de texto libre — se califica manualmente</p>}
+                        {p.tipo === 'subir_archivo' && <p className="text-xs text-slate-400 mt-1 italic">El alumno sube un documento — se califica manualmente</p>}
                         <p className="text-xs text-slate-400 mt-1">Ponderación: {p.ponderacion}{p.retroalimentacion ? ' · con retroalimentación' : ''}</p>
                       </>
                     )}
@@ -838,6 +830,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
                 {preguntaForm.tipo === 'respuesta_corta' && (
                   <p className="text-xs text-slate-400 italic">El alumno responderá con texto libre. Tú asignas los puntos al revisar su entrega.</p>
+                )}
+                {preguntaForm.tipo === 'subir_archivo' && (
+                  <p className="text-xs text-slate-400 italic">El alumno subirá un documento (PDF, Word, imágenes, etc.). Tú asignas los puntos al revisar su entrega.</p>
                 )}
 
                 <div>
@@ -1304,6 +1299,25 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         </div>
         )
       })()}
+
+      {/* Editor completo del cuestionario/examen — el mismo que abre "editar"
+          desde el parcial en la asignatura */}
+      {showEvalEditor && (
+        <EvaluacionEditor
+          activityId={activityId}
+          parcial={activity.parcial}
+          categoria={activity.categoria}
+          activityLabel={activityLabel}
+          contextLine={contextLine}
+          subjectId={activity.asignaturaId}
+          docenteId={activity.docenteId}
+          subject={subject}
+          existingActivities={[]}
+          students={students}
+          onClose={closeEvalEditor}
+          onActivityUpdated={(act) => onActivityChange((prev) => ({ ...prev, ...act }))}
+        />
+      )}
 
       {/* Anular-entrega confirmation */}
       {cancelConfirm && (

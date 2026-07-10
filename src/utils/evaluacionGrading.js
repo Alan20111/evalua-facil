@@ -10,6 +10,10 @@
 
 const TIPOS_OBJETIVOS = ['opcion_multiple', 'verdadero_falso']
 
+// Question types the teacher must grade by hand: free-text answers and
+// document uploads. Single source of truth for "pendiente de revisión".
+export const TIPOS_REVISION_MANUAL = ['respuesta_corta', 'subir_archivo']
+
 /**
  * Resolves the points earned for a single pregunta given the student's
  * respuesta. Objective types (opción múltiple, verdadero/falso) are scored
@@ -36,12 +40,13 @@ export function calcularCalificacion(preguntas, respuestasPorPregunta, maxCalif 
 }
 
 /**
- * True if any `respuesta_corta` pregunta in this attempt is still missing a
- * manually-assigned score — drives the "Finalizado" vs "Calificado" status
- * and the pending-review badge in the teacher view.
+ * True if any manually-graded pregunta (respuesta corta / subir documento) in
+ * this attempt is still missing a manually-assigned score — drives the
+ * "Finalizado" vs "Calificado" status and the pending-review badge in the
+ * teacher view.
  */
 export function resolverPendienteRevision(preguntas, respuestasPorPregunta) {
-  return preguntas.some((p) => p.tipo === 'respuesta_corta' && (respuestasPorPregunta[p.id]?.puntosObtenidos ?? null) == null)
+  return preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo) && (respuestasPorPregunta[p.id]?.puntosObtenidos ?? null) == null)
 }
 
 /**

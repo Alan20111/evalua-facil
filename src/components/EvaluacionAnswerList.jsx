@@ -1,4 +1,5 @@
-import { CheckCircle2, XCircle, MessageSquare } from 'lucide-react'
+import { CheckCircle2, XCircle, MessageSquare, FileText } from 'lucide-react'
+import { TIPOS_REVISION_MANUAL } from '../utils/evaluacionGrading'
 
 // Read-only per-question review shared by the student's post-evaluación review
 // (src/pages/student/EvaluacionRevision.jsx) and the teacher's specialized
@@ -22,7 +23,7 @@ export default function EvaluacionAnswerList({
     <div className="space-y-3">
       {preguntas.map((p, i) => {
         const respuesta = respuestas[p.id] || {}
-        const esObjetiva = p.tipo !== 'respuesta_corta'
+        const esObjetiva = !TIPOS_REVISION_MANUAL.includes(p.tipo)
         // Whether the student's pick was right — drives the ✓/✗ on their choice.
         const acierto = esObjetiva && respuesta.opcionSeleccionada === p.respuestaCorrecta
         return (
@@ -53,7 +54,19 @@ export default function EvaluacionAnswerList({
               </div>
             ) : (
               <div className="space-y-1.5">
-                <p className="text-sm text-muted bg-surface rounded p-2 whitespace-pre-wrap">{respuesta.textoRespuesta || '(sin respuesta)'}</p>
+                {p.tipo === 'subir_archivo' ? (
+                  respuesta.archivoURL ? (
+                    <a href={respuesta.archivoURL} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-accent bg-surface rounded p-2 hover:underline">
+                      <FileText size={16} className="flex-shrink-0" />
+                      <span className="truncate">{respuesta.nombreArchivo || 'Documento entregado'}</span>
+                    </a>
+                  ) : (
+                    <p className="text-sm text-muted bg-surface rounded p-2 italic">(sin archivo)</p>
+                  )
+                ) : (
+                  <p className="text-sm text-muted bg-surface rounded p-2 whitespace-pre-wrap">{respuesta.textoRespuesta || '(sin respuesta)'}</p>
+                )}
                 {renderGrading
                   ? renderGrading(p, respuesta)
                   : respuesta.puntosObtenidos != null
