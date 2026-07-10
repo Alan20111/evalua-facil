@@ -384,8 +384,9 @@ function BloquePill({ b, subj, onClick }) {
   )
 }
 
-function MonthView({ year, month, events, bloques, subjects, onDateClick, onEventClick, onBlockClick }) {
+function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick }) {
   const cells = getMonthGrid(year, month)
+  const selStr = selectedDate ? toDateStr(selectedDate) : null
 
   const bloquesByDate = useMemo(() => {
     const m = {}
@@ -420,8 +421,13 @@ function MonthView({ year, month, events, bloques, subjects, onDateClick, onEven
               key={dateStr}
               onClick={() => onDateClick?.(cell)}
               className={`min-h-[92px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
+              style={dateStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
             >
-              <div className={`w-6 h-6 flex items-center justify-center text-xs font-semibold mb-1 rounded-full mx-auto ${isToday(cell) ? 'bg-accent text-white' : 'text-on-surface'}`}>
+              <div className={`w-6 h-6 flex items-center justify-center text-xs font-semibold mb-1 rounded-full mx-auto ${
+                isToday(cell) ? 'bg-accent text-white'
+                  : dateStr === selStr ? 'ring-2 ring-accent text-accent'
+                  : 'text-on-surface'
+              }`}>
                 {cell.getDate()}
               </div>
               <div className="space-y-0.5">
@@ -451,9 +457,10 @@ function minutesToTimeStr(mins) {
 }
 const SNAP_MIN = 15 // los bloques se sueltan alineados a 15 min
 
-function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, onSlotClick, onBlockClick, onEventClick, onMoveBloque }) {
+function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque }) {
   const days = getWeekDays(weekStart).slice(0, numDays)
   const todayStr = toDateStr(new Date())
+  const selStr = selectedDate ? toDateStr(selectedDate) : null
   const hoursRange = Array.from({ length: dayEnd - dayStart }, (_, i) => i + dayStart)
   const gridH = hoursRange.length * ROW_H
   const gridCols = `3.5rem repeat(${numDays}, 1fr)`
@@ -538,9 +545,17 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
           {days.map((d, i) => {
             const dStr = toDateStr(d)
             return (
-              <div key={dStr} className="py-2 text-center text-xs border-l border-outline-variant">
+              <div
+                key={dStr}
+                className="py-2 text-center text-xs border-l border-outline-variant"
+                style={dStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
+              >
                 <span className="block uppercase text-muted">{DIAS_CORTO[i]}</span>
-                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold mt-0.5 ${dStr === todayStr ? 'bg-accent text-white' : 'text-on-surface'}`}>
+                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold mt-0.5 ${
+                  dStr === todayStr ? 'bg-accent text-white'
+                    : dStr === selStr ? 'ring-2 ring-accent text-accent'
+                    : 'text-on-surface'
+                }`}>
                   {d.getDate()}
                 </span>
               </div>
@@ -574,7 +589,10 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                 key={dStr}
                 ref={el => { colRefs.current[di] = el }}
                 className="relative border-l border-outline-variant"
-                style={{ height: gridH }}
+                style={{
+                  height: gridH,
+                  ...(dStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 4%, transparent)' } : {}),
+                }}
               >
                 {/* Hour gridlines / click targets */}
                 {hoursRange.map((hour, i) => (
@@ -1219,6 +1237,7 @@ export default function CalendarPage() {
               events={events}
               bloques={bloques}
               subjects={subjects}
+              selectedDate={currentDate}
               onDateClick={openProgramarFromDate}
               onEventClick={openEditEvent}
               onBlockClick={setEditingBloque}
@@ -1232,6 +1251,7 @@ export default function CalendarPage() {
               dayStart={dayStart}
               dayEnd={dayEnd}
               numDays={numDays}
+              selectedDate={currentDate}
               onSlotClick={openProgramar}
               onBlockClick={setEditingBloque}
               onEventClick={openEditEvent}
