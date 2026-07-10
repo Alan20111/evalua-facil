@@ -118,6 +118,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [savingExtension, setSavingExtension] = useState(false)
   // Student to open on arrival from a grades-table cell
   const [pendingOpenId, setPendingOpenId] = useState(openStudentId)
+  // Mientras se abre esa revisión se muestra SOLO un spinner — sin esto, la
+  // pantalla de resultados se alcanza a ver un instante (flashazo) antes de
+  // que la revisión a pantalla completa termine de cargar.
+  const [openingFromGrades, setOpeningFromGrades] = useState(!!openStudentId)
 
   // Arriving from a grades-table cell: open that student's answer review directly
   // (even with no submission → "No realizado"), once questions are loaded.
@@ -125,7 +129,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     if (!pendingOpenId || loadingPreguntas) return
     const st = students.find((s) => s.id === pendingOpenId)
     setPendingOpenId(null)
-    if (st) openReview(st, 'todos')
+    if (st) openReview(st, 'todos').finally(() => setOpeningFromGrades(false))
+    else setOpeningFromGrades(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingOpenId, loadingPreguntas, students])
 
@@ -683,6 +688,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     .filter((s) => s.estadoEvaluacion === 'finalizado' && s.calificacion != null)
     .map((s) => s.calificacion)
   const stats = calcularEstadisticasGrupo(calificaciones, activity.maxCalif || 10)
+
+  // Llegando desde una celda de Calificaciones: spinner hasta que la revisión
+  // del estudiante esté abierta — nunca se alcanza a ver la pantalla de resultados.
+  if (openingFromGrades) {
+    return (
+      <div className="fixed inset-0 z-40 bg-surface flex items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    )
+  }
 
   return (
     <div>
