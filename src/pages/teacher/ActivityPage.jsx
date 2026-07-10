@@ -1218,24 +1218,14 @@ export default function ActivityPage() {
                         La calificación se guarda al avanzar o al retroceder.
                       </p>
                     ) : (
-                      <div className="space-y-2">
-                        <button
-                          type="submit"
-                          disabled={saving || !canCreate || !isDirty()}
-                          className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                        >
-                          {saving ? <Spinner size="sm" /> : <Star size={18} />}
-                          {saving ? 'Guardando…' : 'Guardar calificación'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingActivity(true)}
-                          className="w-full py-2 border border-accent text-accent font-semibold rounded transition-colors hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2"
-                        >
-                          <Pencil size={18} />
-                          Editar actividad
-                        </button>
-                      </div>
+                      <button
+                        type="submit"
+                        disabled={saving || !canCreate || !isDirty()}
+                        className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                      >
+                        {saving ? <Spinner size="sm" /> : <Star size={18} />}
+                        {saving ? 'Guardando…' : 'Guardar calificación'}
+                      </button>
                     )}
                   </form>
                 ) : (

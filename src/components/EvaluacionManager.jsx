@@ -12,10 +12,8 @@ import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
 import { matchesStudentSearch } from '../utils/studentSearch'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
-import {
-  calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
-} from '../utils/evaluacionGrading'
-import { ArrowLeft, Plus, Trash2, Library, Users, Search, Pencil, Copy, X, Image as ImageIcon, ChevronUp, ChevronDown, Clock } from 'lucide-react'
+import { calcularEstadisticasGrupo } from '../utils/evaluacionGrading'
+import { ArrowLeft, Plus, Trash2, Library, Users, Search, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays } from 'lucide-react'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 
@@ -135,21 +133,27 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [savingConfig, setSavingConfig] = useState(false)
   const [filtroResultados, setFiltroResultados] = useState('todos')
   const [searchResultados, setSearchResultados] = useState('')
-  const [reviewing, setReviewing] = useState(null) // { student, submission, items: [{pregunta, respuesta}] }
-  const [reviewForm, setReviewForm] = useState({}) // preguntaId -> { puntos, comentario }
-  // Student to highlight in Resultados (arrived from a grades-table cell)
-  const [highlightId] = useState(openStudentId)
+  // Full-screen answer review (read-only). submission is null when "No realizado".
+  const [reviewing, setReviewing] = useState(null) // { student, submission, allRespuestas }
+  const [reviewFilter, setReviewFilter] = useState('todos') // review tab: todos|pendiente|calificado|porCalificar
+  const [reviewNav, setReviewNav] = useState([])            // frozen student order for Anterior/Siguiente
+  // Per-student deadline extension ("Modificar fecha de entrega")
+  const [extendMode, setExtendMode] = useState(false)
+  const [extendDate, setExtendDate] = useState('')
+  const [extendMotivo, setExtendMotivo] = useState('')
+  const [savingExtension, setSavingExtension] = useState(false)
+  // Student to open on arrival from a grades-table cell
+  const [pendingOpenId, setPendingOpenId] = useState(openStudentId)
 
+  // Arriving from a grades-table cell: open that student's answer review directly
+  // (even with no submission → "No realizado"), once questions are loaded.
   useEffect(() => {
-    if (!highlightId) return
-    // Give the results list a moment to render before scrolling to the row
-    const t = setTimeout(() => {
-      document.getElementById(`resultado-${highlightId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 350)
-    return () => clearTimeout(t)
+    if (!pendingOpenId || loadingPreguntas) return
+    const st = students.find((s) => s.id === pendingOpenId)
+    setPendingOpenId(null)
+    if (st) openReview(st, 'todos')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlightId])
-  const [savingReview, setSavingReview] = useState(false)
+  }, [pendingOpenId, loadingPreguntas, students])
 
   async function loadPreguntas() {
     setLoadingPreguntas(true)
@@ -529,71 +533,78 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     return e === 'Calificado' ? 'calificado' : e === 'Finalizado' ? 'porCalificar' : 'pendiente'
   }
 
-  async function handleOpenRevision(student, sub) {
-    try {
-      const respSnap = await getDocs(collection(db, 'submissions', sub.id, 'respuestas'))
-      const respMap = {}
-      respSnap.docs.forEach((d) => { respMap[d.id] = d.data() })
-      const items = preguntas
-        .filter((p) => p.tipo === 'respuesta_corta')
-        .map((p) => ({ pregunta: p, respuesta: respMap[p.id] || {} }))
-      const initialForm = {}
-      items.forEach(({ pregunta, respuesta }) => {
-        initialForm[pregunta.id] = {
-          puntos: respuesta.puntosObtenidos != null ? String(respuesta.puntosObtenidos) : '',
-          comentario: respuesta.comentarioDocente || '',
-        }
-      })
-      setReviewForm(initialForm)
-      setReviewing({ student, submission: sub, items, allRespuestas: respMap })
-    } catch (err) {
-      toast('Error al cargar respuestas: ' + err.message, 'error')
-    }
+  // Students for a review tab, in list order (students prop is already sorted).
+  function studentsForFilter(filtro) {
+    return students.filter((x) => filtro === 'todos' || estadoFiltroKey(submissions[x.id]) === filtro)
   }
 
-  async function handleSaveRevision() {
-    if (!reviewing) return
-    setSavingReview(true)
-    try {
-      const { submission, items, allRespuestas } = reviewing
-      const updatedRespuestas = { ...allRespuestas }
-      for (const { pregunta } of items) {
-        const entry = reviewForm[pregunta.id]
-        const puntos = entry?.puntos === '' ? null : Math.max(0, Math.min(pregunta.ponderacion, parseFloat(entry.puntos) || 0))
-        await updateDoc(doc(db, 'submissions', submission.id, 'respuestas', pregunta.id), {
-          puntosObtenidos: puntos,
-          comentarioDocente: entry?.comentario?.trim() || null,
-        })
-        updatedRespuestas[pregunta.id] = { ...updatedRespuestas[pregunta.id], puntosObtenidos: puntos, comentarioDocente: entry?.comentario?.trim() || null }
+  // Open the full-screen answer review for a student. Works even with no submission
+  // (shows "No realizado"). Freezes the Anterior/Siguiente order to `filtro`.
+  async function openReview(student, filtro = reviewFilter) {
+    const nav = studentsForFilter(filtro)
+    setReviewFilter(filtro)
+    setReviewNav(nav.length ? nav : [student])
+    setExtendMode(false)
+    setExtendDate(activity?.extensiones?.[student.id] || '')
+    setExtendMotivo(activity?.extensionesMotivo?.[student.id] || '')
+    const sub = submissions[student.id]
+    let allRespuestas = {}
+    if (sub?.estadoEvaluacion === 'finalizado') {
+      try {
+        const respSnap = await getDocs(collection(db, 'submissions', sub.id, 'respuestas'))
+        respSnap.docs.forEach((d) => { allRespuestas[d.id] = d.data() })
+      } catch (err) {
+        toast('Error al cargar respuestas: ' + err.message, 'error'); return
       }
-      const pendiente = resolverPendienteRevision(preguntas, updatedRespuestas)
-      const calificacionIntento = calcularCalificacion(preguntas, updatedRespuestas, activity.maxCalif || 10)
-      // Recompute the final score across all attempts, replacing this attempt's entry with the corrected score.
-      const intentosPrevios = (submission.intentos || []).filter((i) => i.numero !== submission.intentoActual)
-      const calificacionFinal = resolverCalificacionFinal(intentosPrevios, calificacionIntento, activity.evaluacion?.conservar)
-      const intentosActualizados = [
-        ...intentosPrevios,
-        { numero: submission.intentoActual || (intentosPrevios.length + 1), calificacion: calificacionIntento },
-      ]
-      await updateDoc(doc(db, 'submissions', submission.id), {
-        calificacion: calificacionFinal,
-        pendienteRevision: pendiente,
-        estado: pendiente ? 'entregado' : 'calificado',
-        intentos: intentosActualizados,
+    }
+    setReviewing({ student, submission: sub || null, allRespuestas })
+  }
+
+  // Anterior/Siguiente through the frozen nav list (wraps around).
+  function goReview(offset) {
+    if (!reviewing || reviewNav.length < 2) return
+    const idx = reviewNav.findIndex((s) => s.id === reviewing.student.id)
+    if (idx < 0) return
+    const next = reviewNav[(idx + offset + reviewNav.length) % reviewNav.length]
+    if (next) openReview(next, reviewFilter)
+  }
+
+  // Review filter tabs — re-freeze the nav and jump to its first student if the
+  // current one no longer belongs to the selected tab.
+  function changeReviewFilter(filtro) {
+    const nav = studentsForFilter(filtro)
+    setReviewFilter(filtro)
+    setReviewNav(nav)
+    if (nav.length && !nav.some((s) => s.id === reviewing?.student.id)) openReview(nav[0], filtro)
+  }
+
+  // "Modificar fecha de entrega para este estudiante" — per-student deadline
+  // extension (activity.extensiones), same shape entregables use.
+  async function saveReviewExtension() {
+    if (!reviewing || !extendDate) return
+    setSavingExtension(true)
+    try {
+      const motivo = extendMotivo.trim()
+      await updateDoc(doc(db, 'activities', activityId), {
+        [`extensiones.${reviewing.student.id}`]: extendDate,
+        [`extensionesMotivo.${reviewing.student.id}`]: motivo,
       })
-      toast('Revisión guardada')
-      setReviewing(null)
+      onActivityChange((prev) => ({
+        ...prev,
+        extensiones: { ...(prev.extensiones || {}), [reviewing.student.id]: extendDate },
+        extensionesMotivo: { ...(prev.extensionesMotivo || {}), [reviewing.student.id]: motivo },
+      }))
+      toast('Fecha de entrega actualizada para este estudiante')
+      setExtendMode(false)
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
-      setSavingReview(false)
+      setSavingExtension(false)
     }
   }
 
-  // Cancel a student's submission: same idea as annulling an entregable — remove
-  // the intento (and its answers subcollection) so the student is back to no delivery
-  // and can present again. Only this student is affected. Parent updates its map via
-  // onSubmissionRemoved so Resultados refreshes immediately.
+  // Anular la entrega actual: delete the intento (+ answers) so the student is back
+  // to "No realizado" and can present again. Only this student is affected.
   async function handleCancelSubmission() {
     if (!cancelConfirm) return
     setCancelling(true)
@@ -603,11 +614,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       await Promise.all(respSnap.docs.map((d) => deleteDoc(doc(db, 'submissions', sub.id, 'respuestas', d.id))))
       await deleteDoc(doc(db, 'submissions', sub.id))
       onSubmissionRemoved?.(cancelConfirm.student.id)
-      if (reviewing?.student?.id === cancelConfirm.student.id) setReviewing(null)
+      // Stay in the review, now showing "No realizado" for this student.
+      if (reviewing?.student?.id === cancelConfirm.student.id) {
+        setReviewing((r) => r && ({ ...r, submission: null, allRespuestas: {} }))
+      }
       setCancelConfirm(null)
-      toast('Entrega cancelada — el estudiante puede volver a presentar')
+      toast('Entrega anulada — el estudiante puede volver a presentar')
     } catch (err) {
-      toast('Error al cancelar: ' + err.message, 'error')
+      toast('Error al anular: ' + err.message, 'error')
     } finally {
       setCancelling(false)
     }
@@ -1137,13 +1151,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 visibles.map((s, i) => {
                   const sub = submissions[s.id]
                   const estado = estadoEstudiante(sub)
-                  // A finished attempt (Finalizado/Calificado) can be opened for the full
-                  // specialized review; en-proceso/pendiente have nothing to show yet.
-                  const revisable = sub?.estadoEvaluacion === 'finalizado'
+                  // Every row opens the full-screen review — even with no submission
+                  // it shows "No realizado".
                   return (
                     <div key={s.id} id={`resultado-${s.id}`}
-                      onClick={revisable ? () => handleOpenRevision(s, sub) : undefined}
-                      className={`px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''} ${revisable ? 'cursor-pointer hover:bg-[var(--accent-tint)]' : ''} ${s.id === highlightId ? 'bg-[var(--accent-tint)] ring-2 ring-inset ring-[var(--accent)] rounded' : ''}`}>
+                      onClick={() => openReview(s, filtroResultados)}
+                      className={`px-3 py-2 cursor-pointer hover:bg-[var(--accent-tint)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
                       <div className="flex items-center gap-2">
                         <p className="flex-1 text-sm text-on-surface truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
@@ -1160,16 +1173,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           {fmtHora(sub.tiempoInicio)} → {fmtHora(sub.fechaEntrega)} · {fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · intento {sub.intentoActual || 1}
                         </p>
                       )}
-                      {revisable && (
-                        <div className="flex items-center gap-3 mt-1">
-                          <button type="button" onClick={(e) => { e.stopPropagation(); handleOpenRevision(s, sub) }} className="text-xs font-medium text-accent hover:underline">
-                            {estado === 'Finalizado' ? 'Revisar respuestas' : 'Ver respuestas'}
-                          </button>
-                          <button type="button" onClick={(e) => { e.stopPropagation(); setCancelConfirm({ student: s, sub }) }} className="text-xs font-medium text-slate-500 hover:text-red-600">
-                            Cancelar entrega
-                          </button>
-                        </div>
-                      )}
                     </div>
                   )
                 })
@@ -1181,79 +1184,126 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         )}
       </div>
 
-      {/* Specialized evaluación review — full answer sheet (all questions, student's
-          answer, correct answer, ✓/✗, feedback) plus inline grading of open questions.
-          Never reuses the entregable grading view. */}
-      {reviewing && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setReviewing(null)} />
-          <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card shadow-2xl max-h-[88vh] flex flex-col">
-            {/* Header: student + score + time + submit date + attempt */}
-            <div className="flex items-start justify-between gap-2 p-4 border-b border-outline-variant flex-shrink-0">
-              <div className="min-w-0">
-                <h3 className="text-base font-semibold text-on-surface truncate">
-                  {reviewing.student.apellidoPaterno} {reviewing.student.apellidoMaterno} {reviewing.student.nombre}
-                </h3>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-muted">
-                  <span className="font-semibold text-on-surface">Calificación: {reviewing.submission.calificacion ?? '—'}/{activity.maxCalif || 10}</span>
-                  {reviewing.submission.tiempoInicio && reviewing.submission.fechaEntrega && (
-                    <span className="inline-flex items-center gap-1"><Clock size={12} /> {fmtDuracion(reviewing.submission.tiempoInicio, reviewing.submission.fechaEntrega)}</span>
-                  )}
-                  <span>Enviado: {fmtHora(reviewing.submission.fechaEntrega)}</span>
-                  <span>Intento {reviewing.submission.intentoActual || 1}</span>
-                </div>
+      {/* ── Full-screen answer review ──────────────────────────────────────────
+          Deliberately NOT the accent/blue entregable grading layout: neutral header,
+          answer sheet on the main area, actions in a right sidebar (Anterior/Siguiente,
+          read-only grade, Anular, Modificar fecha). Read-only — no grading, no comments. */}
+      {reviewing && (() => {
+        const sub = reviewing.submission
+        const st = reviewing.student
+        const done = sub?.estadoEvaluacion === 'finalizado'
+        const nombre = `${st.apellidoPaterno} ${st.apellidoMaterno || ''} ${st.nombre}`.replace(/\s+/g, ' ').trim()
+        const reviewCounts = {
+          todos: students.length,
+          pendiente: students.filter((x) => estadoFiltroKey(submissions[x.id]) === 'pendiente').length,
+          calificado: students.filter((x) => estadoFiltroKey(submissions[x.id]) === 'calificado').length,
+          porCalificar: students.filter((x) => estadoFiltroKey(submissions[x.id]) === 'porCalificar').length,
+        }
+        const REVIEW_TABS = [['todos', 'Todos'], ['pendiente', 'Pendientes'], ['calificado', 'Realizados'], ['porCalificar', 'Por realizar']]
+        return (
+        <div className="fixed inset-0 z-50 bg-surface flex flex-col">
+          {/* Neutral header (no accent-blue) so it reads as a different area */}
+          <div className="bg-surface-card border-b border-outline-variant px-4 py-2 flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <button type="button" aria-label="Cerrar revisión" onClick={() => setReviewing(null)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"><ArrowLeft size={22} /></button>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted">Revisión de respuestas</p>
+                <h1 className="text-lg font-bold text-on-surface truncate">
+                  {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
+                </h1>
               </div>
-              <button type="button" aria-label="Cerrar" onClick={() => setReviewing(null)} className="p-1 text-slate-400 rounded flex-shrink-0"><X size={18} /></button>
             </div>
-
-            {/* Answer sheet */}
-            <div className="overflow-y-auto p-4">
-              <EvaluacionAnswerList
-                preguntas={preguntas}
-                respuestas={reviewing.allRespuestas}
-                mostrarCorrectas
-                mostrarRetro
-                renderGrading={(p) => (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <label htmlFor={`rev-puntos-${p.id}`} className="text-xs text-muted flex-shrink-0">Puntos (máx {p.ponderacion})</label>
-                      <input id={`rev-puntos-${p.id}`} type="number" min="0" max={p.ponderacion} step="0.1"
-                        value={reviewForm[p.id]?.puntos ?? ''}
-                        onChange={(e) => setReviewForm((f) => ({ ...f, [p.id]: { ...f[p.id], puntos: e.target.value } }))}
-                        className="w-20 px-2 py-1 rounded border border-outline-variant text-sm bg-surface" />
-                    </div>
-                    <textarea value={reviewForm[p.id]?.comentario ?? ''}
-                      onChange={(e) => setReviewForm((f) => ({ ...f, [p.id]: { ...f[p.id], comentario: e.target.value } }))}
-                      placeholder="Comentario opcional" rows={2}
-                      className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
-                  </div>
-                )}
-              />
-            </div>
-
-            {/* Footer actions */}
-            <div className="flex-shrink-0 border-t border-outline-variant p-3 space-y-2">
-              {reviewing.items.length > 0 && (
-                <button type="button" onClick={handleSaveRevision} disabled={savingReview}
-                  className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
-                  {savingReview ? 'Guardando…' : 'Guardar revisión'}
+            <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
+              {REVIEW_TABS.map(([k, lbl]) => (
+                <button type="button" key={k} onClick={() => changeReviewFilter(k)}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${reviewFilter === k ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+                  {lbl} ({k === 'todos' ? reviewCounts.todos : reviewCounts[k]})
                 </button>
-              )}
-              <button type="button" onClick={() => setCancelConfirm({ student: reviewing.student, sub: reviewing.submission })}
-                className="w-full py-2 text-sm text-slate-500 hover:text-red-600 transition-colors">
-                Cancelar entrega de este estudiante
-              </button>
+              ))}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Cancel-submission confirmation (points 3) */}
+          {/* Body: answer sheet (main) + actions sidebar (right) */}
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            <main className="flex-1 overflow-y-auto p-4">
+              <div className="max-w-3xl mx-auto">
+                {done ? (
+                  <EvaluacionAnswerList preguntas={preguntas} respuestas={reviewing.allRespuestas} mostrarCorrectas mostrarRetro />
+                ) : (
+                  <div className="text-center py-20">
+                    <p className="text-2xl font-bold text-slate-400">No realizado</p>
+                    <p className="text-sm text-slate-400 mt-1">Este estudiante aún no ha realizado la evaluación.</p>
+                  </div>
+                )}
+              </div>
+            </main>
+
+            <aside className="w-full md:w-72 flex-shrink-0 border-t md:border-t-0 md:border-l border-outline-variant bg-surface-card overflow-y-auto p-4 space-y-3">
+              <div>
+                <p className="font-semibold text-on-surface leading-tight">{nombre}</p>
+                {done && (
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · Enviado {fmtHora(sub.fechaEntrega)} · Intento {sub.intentoActual || 1}
+                  </p>
+                )}
+              </div>
+
+              {/* Anterior / Siguiente */}
+              <div className="flex gap-2">
+                <button type="button" onClick={() => goReview(-1)} disabled={reviewNav.length < 2}
+                  className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface disabled:opacity-40 flex items-center justify-center gap-1"><ChevronLeft size={16} /> Anterior</button>
+                <button type="button" onClick={() => goReview(1)} disabled={reviewNav.length < 2}
+                  className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface disabled:opacity-40 flex items-center justify-center gap-1">Siguiente <ChevronRight size={16} /></button>
+              </div>
+
+              {/* Read-only obtained grade */}
+              <div className="rounded border border-outline-variant p-3 text-center">
+                <p className="text-xs text-muted">Calificación obtenida</p>
+                <p className="text-2xl font-bold text-on-surface">{done ? `${sub.calificacion}/${activity.maxCalif || 10}` : '—'}</p>
+              </div>
+
+              {/* Anular la entrega actual */}
+              {done && (
+                <button type="button" onClick={() => setCancelConfirm({ student: st, sub })}
+                  className="w-full text-sm text-slate-500 hover:text-red-600 transition-colors py-1">
+                  Anular la entrega actual para este estudiante
+                </button>
+              )}
+
+              {/* Modificar fecha de entrega para este estudiante */}
+              {!extendMode ? (
+                <button type="button" onClick={() => setExtendMode(true)}
+                  className="w-full text-sm text-slate-500 hover:text-muted transition-colors py-1">
+                  Modificar fecha de entrega para este estudiante
+                </button>
+              ) : (
+                <div className="space-y-2 pt-1 border-t border-outline-variant">
+                  <p className="text-sm font-medium text-on-surface flex items-center gap-1.5"><CalendarDays size={15} className="text-accent" /> Nueva fecha y hora</p>
+                  <EFDateTimePicker mode="datetime" value={extendDate} onChange={setExtendDate} clearable={false} defaultTime="23:59" />
+                  <textarea value={extendMotivo} onChange={(e) => setExtendMotivo(e.target.value)} rows={2}
+                    placeholder="Motivo (opcional)…"
+                    className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none" />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">Cancelar</button>
+                    <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension}
+                      className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-50 transition-colors">
+                      {savingExtension ? 'Guardando…' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </aside>
+          </div>
+        </div>
+        )
+      })()}
+
+      {/* Anular-entrega confirmation */}
       {cancelConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !cancelling && setCancelConfirm(null)} />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
-            <h3 className="text-base font-semibold text-on-surface">¿Cancelar la entrega?</h3>
+            <h3 className="text-base font-semibold text-on-surface">¿Anular la entrega?</h3>
             <p className="text-sm text-muted mt-2">
               Se eliminará la entrega de <strong>{cancelConfirm.student.apellidoPaterno} {cancelConfirm.student.nombre}</strong> y sus respuestas.
               Volverá a quedar sin entrega y podrá presentar de nuevo.
@@ -1263,7 +1313,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">No, conservar</button>
               <button type="button" onClick={handleCancelSubmission} disabled={cancelling}
                 className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors">
-                {cancelling ? 'Cancelando…' : 'Sí, cancelar entrega'}</button>
+                {cancelling ? 'Anulando…' : 'Sí, anular entrega'}</button>
             </div>
           </div>
         </div>

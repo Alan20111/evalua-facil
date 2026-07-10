@@ -344,6 +344,14 @@ export default function StudentActivityPage() {
     const enProgreso = submission?.estadoEvaluacion === 'en_progreso'
     const finalizado = submission?.estadoEvaluacion === 'finalizado'
     const sinIntentosRestantes = ev.intentosPermitidos != null && intentosUsados >= ev.intentosPermitidos && !enProgreso
+    // Deadline gating for evaluaciones — honors this student's per-student extension
+    // (set by the teacher via "Modificar fecha de entrega"). An attempt already in
+    // progress can always be finished; only starting a NEW one is blocked once closed.
+    const extendedDateEv = activity?.extensiones?.[student?.id]
+    const deadlineEv = extendedDateEv || activity?.fechaLimite
+    const evaluacionCerrada = !!deadlineEv && new Date(
+      deadlineEv.includes('T') ? deadlineEv : `${deadlineEv}T23:59:59`
+    ).getTime() < Date.now() && !enProgreso
     const ahoraISO = new Date().toISOString()
     // Grade and answers publish independently (see teacher config). Both gate on the
     // attempt being finished first.
@@ -457,6 +465,10 @@ export default function StudentActivityPage() {
             ) : sinIntentosRestantes ? (
               <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
                 Ya usaste todos tus intentos disponibles.
+              </div>
+            ) : evaluacionCerrada ? (
+              <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
+                La fecha límite ya pasó — esta evaluación está cerrada.
               </div>
             ) : (
               <button
