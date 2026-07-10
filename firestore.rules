@@ -236,8 +236,18 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId;
     }
 
-    // Teacher's class schedule blocks (Mi Horario).
+    // Teacher's class schedule blocks (Mi Horario — legacy recurring blocks).
     match /horario/{bloqueId} {
+      allow read, update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.docenteId;
+    }
+
+    // Programación de bloques de clases por asignatura (fechas reales generadas
+    // a partir de un rango + patrones semanales; se pueden mover/editar/eliminar
+    // individualmente).
+    match /horarioBloques/{bloqueId} {
       allow read, update, delete: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
       allow create: if request.auth != null &&

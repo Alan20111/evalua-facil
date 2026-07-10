@@ -6,12 +6,14 @@ import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import EventEditor, { EVENT_COLORS } from '../../components/calendar/EventEditor'
-import HorarioEditor from '../../components/calendar/HorarioEditor'
+import ProgramarBloquesModal from '../../components/calendar/ProgramarBloquesModal'
+import BloqueEditor from '../../components/calendar/BloqueEditor'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
+import { bloqueColor, timeToMinutes } from '../../utils/horarioBloques'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
-  List, LayoutGrid, CalendarRange, BookOpen, AlertTriangle,
+  List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle,
 } from 'lucide-react'
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
@@ -57,7 +59,28 @@ function fmtHour(timeStr) {
   return `${parseInt(h)}:${m}`
 }
 
-const HOURS_RANGE = Array.from({ length: 14 }, (_, i) => i + 7) // 7–20
+const DAY_START_HOUR = 7
+const DAY_END_HOUR = 21
+const ROW_H = 52 // px por hora en la vista semana
+const HOURS_RANGE = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, i) => i + DAY_START_HOUR)
+
+// Asigna "carriles" a bloques que se solapan en un mismo día para mostrarlos
+// lado a lado en vez de encimados.
+function assignLanes(blocks) {
+  const sorted = [...blocks].sort((a, b) =>
+    timeToMinutes(a.horaInicio) - timeToMinutes(b.horaInicio))
+  const lanesEnd = [] // minuto de fin de cada carril
+  const placed = sorted.map(b => {
+    const start = timeToMinutes(b.horaInicio)
+    const end = timeToMinutes(b.horaFin)
+    let lane = lanesEnd.findIndex(e => e <= start)
+    if (lane === -1) { lane = lanesEnd.length; lanesEnd.push(end) }
+    else lanesEnd[lane] = end
+    return { b, lane, start, end }
+  })
+  const total = Math.max(1, lanesEnd.length)
+  return placed.map(p => ({ ...p, total }))
+}
 
 // ─── Event pill component ──────────────────────────────────────────────────
 
@@ -144,9 +167,31 @@ function AgendaView({ events, onEventClick }) {
 
 // ─── Month view ────────────────────────────────────────────────────────────
 
-function MonthView({ year, month, events, onDateClick, onEventClick }) {
+function BloquePill({ b, subj, onClick }) {
+  const pal = bloqueColor(b.color)
+  return (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); onClick?.(b) }}
+      className="flex items-center gap-1 rounded w-full truncate px-1 py-0.5 text-xs hover:opacity-80 transition-opacity"
+      style={{ background: pal.bg, color: pal.text }}
+      data-tooltip={`${subjectDisplayName(subj)} · ${b.horaInicio}–${b.horaFin}${b.lugar ? ' · ' + b.lugar : ''}`}
+    >
+      <span className="truncate">{subjectDisplayName(subj)}</span>
+      <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{b.horaInicio}</span>
+    </button>
+  )
+}
+
+function MonthView({ year, month, events, bloques, subjects, onDateClick, onEventClick, onBlockClick }) {
   const cells = getMonthGrid(year, month)
-  const todayStr = toDateStr(new Date())
+
+  const bloquesByDate = useMemo(() => {
+    const m = {}
+    bloques.forEach(b => { (m[b.fecha] ||= []).push(b) })
+    Object.values(m).forEach(list => list.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)))
+    return m
+  }, [bloques])
 
   return (
     <div>
@@ -156,26 +201,33 @@ function MonthView({ year, month, events, onDateClick, onEventClick }) {
         ))}
       </div>
       <div className="grid grid-cols-7">
-        {cells.map((cell, i) => {
+        {cells.map((cell) => {
           const isThisMonth = cell.getMonth() === month
           const dateStr = toDateStr(cell)
+          const dayBloques = bloquesByDate[dateStr] || []
           const dayEvs = events
             .filter(ev => ev.dateStr === dateStr)
             .sort((a, b) => (a.timeStr || '').localeCompare(b.timeStr || ''))
-          const extra = dayEvs.length > 3 ? dayEvs.length - 3 : 0
+          const items = [
+            ...dayBloques.map(b => ({ kind: 'bloque', b })),
+            ...dayEvs.map(ev => ({ kind: 'event', ev })),
+          ]
+          const extra = items.length > 3 ? items.length - 3 : 0
 
           return (
             <div
               key={dateStr}
               onClick={() => onDateClick?.(cell)}
-              className={`min-h-[88px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
+              className={`min-h-[92px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
             >
               <div className={`w-6 h-6 flex items-center justify-center text-xs font-semibold mb-1 rounded-full mx-auto ${isToday(cell) ? 'bg-accent text-white' : 'text-on-surface'}`}>
                 {cell.getDate()}
               </div>
               <div className="space-y-0.5">
-                {dayEvs.slice(0, 3).map(ev => (
-                  <EventPill key={ev.id} ev={ev} compact onClick={onEventClick} />
+                {items.slice(0, 3).map((it) => (
+                  it.kind === 'bloque'
+                    ? <BloquePill key={it.b.id} b={it.b} subj={subjects[it.b.asignaturaId]} onClick={onBlockClick} />
+                    : <EventPill key={it.ev.id} ev={it.ev} compact onClick={onEventClick} />
                 ))}
                 {extra > 0 && (
                   <p className="text-xs text-muted pl-1">+{extra} más</p>
@@ -191,34 +243,28 @@ function MonthView({ year, month, events, onDateClick, onEventClick }) {
 
 // ─── Week view ─────────────────────────────────────────────────────────────
 
-function WeekView({ weekStart, events, horario, subjects }) {
+function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockClick, onEventClick }) {
   const days = getWeekDays(weekStart)
   const todayStr = toDateStr(new Date())
+  const gridH = HOURS_RANGE.length * ROW_H
 
-  function horarioForDayHour(dayOfWeek, hour) {
-    return horario.filter(h => {
-      if (h.diaSemana !== dayOfWeek) return false
-      const hStart = parseInt(h.horaInicio.split(':')[0])
-      const hEnd = parseInt(h.horaFin.split(':')[0])
-      return hour >= hStart && hour < hEnd
-    })
-  }
+  // Bloques agrupados por fecha.
+  const byDate = useMemo(() => {
+    const m = {}
+    bloques.forEach(b => { (m[b.fecha] ||= []).push(b) })
+    return m
+  }, [bloques])
 
-  function eventsForDayHour(dateStr, hour) {
-    return events.filter(ev => {
-      if (ev.dateStr !== dateStr) return false
-      if (!ev.timeStr) return hour === 8
-      const h = parseInt(ev.timeStr.split(':')[0])
-      return h === hour
-    })
+  function topPx(time) {
+    return (timeToMinutes(time) - DAY_START_HOUR * 60) / 60 * ROW_H
   }
 
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[560px]">
+      <div className="min-w-[620px]">
         {/* Day headers */}
-        <div className="grid grid-cols-8 border-b border-outline-variant sticky top-0 bg-surface-card z-10">
-          <div className="py-2 px-2 w-14" />
+        <div className="grid border-b border-outline-variant sticky top-0 bg-surface-card z-10" style={{ gridTemplateColumns: '3.5rem repeat(7, 1fr)' }}>
+          <div className="py-2 px-2" />
           {days.map((d, i) => {
             const dStr = toDateStr(d)
             return (
@@ -231,45 +277,84 @@ function WeekView({ weekStart, events, horario, subjects }) {
             )
           })}
         </div>
-        {/* Time rows */}
-        {HOURS_RANGE.map(hour => (
-          <div key={hour} className="grid grid-cols-8 border-b border-outline-variant" style={{ minHeight: '52px' }}>
-            <div className="px-2 py-1 text-xs text-muted w-14 flex items-start pt-1 flex-shrink-0">
-              {hour}:00
-            </div>
-            {days.map((d, i) => {
-              const dStr = toDateStr(d)
-              const dayOfWeek = (d.getDay() + 6) % 7 // 0=Mon
-              const horBlocks = horarioForDayHour(dayOfWeek, hour)
-              const dayEvs = eventsForDayHour(dStr, hour)
-              const isFirstHorHour = (b) => parseInt(b.horaInicio.split(':')[0]) === hour
 
-              return (
-                <div key={dStr} className="border-l border-outline-variant p-0.5 space-y-0.5 min-h-[52px]">
-                  {horBlocks.filter(isFirstHorHour).map(b => {
-                    const subj = subjects[b.asignaturaId]
-                    const pal = subjectColors(subj)
-                    const startH = parseInt(b.horaInicio.split(':')[0])
-                    const endH = parseInt(b.horaFin.split(':')[0])
-                    const span = Math.max(1, endH - startH)
-                    return (
-                      <div
-                        key={b.id}
-                        className="rounded px-1 py-0.5 text-xs font-medium"
-                        style={{ background: pal.bg, color: pal.text, minHeight: `${span * 52 - 4}px` }}
-                      >
-                        <span className="truncate block">{subjectDisplayName(subj)}</span>
-                        {b.aula && <span className="opacity-60 block text-xs">{b.aula}</span>}
-                        <span className="opacity-50 block text-xs">{b.horaInicio}–{b.horaFin}</span>
-                      </div>
-                    )
-                  })}
-                  {dayEvs.map(ev => <EventPill key={ev.id} ev={ev} compact />)}
-                </div>
-              )
-            })}
+        {/* Body: time gutter + day columns */}
+        <div className="grid" style={{ gridTemplateColumns: '3.5rem repeat(7, 1fr)' }}>
+          {/* Time gutter */}
+          <div className="relative" style={{ height: gridH }}>
+            {HOURS_RANGE.map((hour, i) => (
+              <div key={hour} className="absolute left-0 right-0 px-2 text-xs text-muted" style={{ top: i * ROW_H }}>
+                {hour}:00
+              </div>
+            ))}
           </div>
-        ))}
+
+          {/* Day columns */}
+          {days.map((d) => {
+            const dStr = toDateStr(d)
+            const dayOfWeek = (d.getDay() + 6) % 7
+            const placed = assignLanes(byDate[dStr] || [])
+            const dayEvs = events.filter(ev => ev.dateStr === dStr && ev.timeStr)
+            return (
+              <div key={dStr} className="relative border-l border-outline-variant" style={{ height: gridH }}>
+                {/* Hour gridlines / click targets */}
+                {HOURS_RANGE.map((hour, i) => (
+                  <div
+                    key={hour}
+                    onClick={() => onSlotClick?.(dayOfWeek, `${String(hour).padStart(2, '0')}:00`)}
+                    className="absolute left-0 right-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
+                    style={{ top: i * ROW_H, height: ROW_H }}
+                  />
+                ))}
+
+                {/* Bloques */}
+                {placed.map(({ b, lane, total, start, end }) => {
+                  const pal = bloqueColor(b.color)
+                  const top = Math.max(0, topPx(b.horaInicio))
+                  const height = Math.max(20, (end - start) / 60 * ROW_H - 2)
+                  const w = 100 / total
+                  const subj = subjects[b.asignaturaId]
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={e => { e.stopPropagation(); onBlockClick?.(b) }}
+                      className="absolute rounded px-1.5 py-1 text-left overflow-hidden shadow-sm hover:brightness-95 transition-all"
+                      style={{
+                        top, height,
+                        left: `calc(${lane * w}% + 2px)`,
+                        width: `calc(${w}% - 4px)`,
+                        background: pal.bg, color: pal.text,
+                      }}
+                      data-tooltip={`${subjectDisplayName(subj)} · ${b.horaInicio}–${b.horaFin}`}
+                    >
+                      <span className="block text-xs font-semibold leading-tight truncate">{subjectDisplayName(subj)}</span>
+                      <span className="block text-[10px] opacity-80 leading-tight">{b.horaInicio}–{b.horaFin}</span>
+                      {b.lugar && <span className="block text-[10px] opacity-70 leading-tight truncate">{b.lugar}</span>}
+                    </button>
+                  )
+                })}
+
+                {/* Eventos con hora */}
+                {dayEvs.map(ev => {
+                  const top = Math.max(0, topPx(ev.timeStr))
+                  return (
+                    <button
+                      key={ev.id}
+                      type="button"
+                      onClick={e => { e.stopPropagation(); onEventClick?.(ev) }}
+                      className="absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden border border-white/40"
+                      style={{ top, width: '46%', background: ev.bg, color: ev.text, zIndex: 5 }}
+                      data-tooltip={ev.titulo}
+                    >
+                      <span className="block text-[10px] font-medium leading-tight truncate">{ev.titulo}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
@@ -294,8 +379,8 @@ function useConflicts(events) {
 
 const VIEWS = [
   { id: 'agenda', label: 'Agenda', Icon: List },
-  { id: 'mes',    label: 'Mes',    Icon: LayoutGrid },
   { id: 'semana', label: 'Semana', Icon: CalendarRange },
+  { id: 'mes',    label: 'Mes',    Icon: LayoutGrid },
 ]
 
 export default function CalendarPage() {
@@ -307,13 +392,15 @@ export default function CalendarPage() {
   const [subjects, setSubjects] = useState({})
   const [activities, setActivities] = useState([])
   const [personalEvents, setPersonalEvents] = useState([])
-  const [horario, setHorario] = useState([])
+  const [bloques, setBloques] = useState([])
   const [loading, setLoading] = useState(true)
 
   const [showEventEditor, setShowEventEditor] = useState(false)
   const [editingEvent, setEditingEvent] = useState(null)
   const [selectedDate, setSelectedDate] = useState(null)
-  const [showHorario, setShowHorario] = useState(false)
+  const [showProgramar, setShowProgramar] = useState(false)
+  const [programarDefaults, setProgramarDefaults] = useState({ dia: 0, hora: '07:00' })
+  const [editingBloque, setEditingBloque] = useState(null)
 
   function changeView(v) {
     setView(v)
@@ -343,8 +430,8 @@ export default function CalendarPage() {
       () => { toast('No se pudieron cargar tus eventos', 'error'); finish() }
     )
     const unsubH = onSnapshot(
-      query(collection(db, 'horario'), where('docenteId', '==', currentUser.uid)),
-      snap => { setHorario(snap.docs.map(d => ({ id: d.id, ...d.data() }))); finish() },
+      query(collection(db, 'horarioBloques'), where('docenteId', '==', currentUser.uid)),
+      snap => { setBloques(snap.docs.map(d => ({ id: d.id, ...d.data() }))); finish() },
       () => { toast('No se pudo cargar tu horario', 'error'); finish() }
     )
 
@@ -446,6 +533,15 @@ export default function CalendarPage() {
     setSelectedDate(null)
   }
 
+  // ── Programación de bloques ────────────────────────────────────────────
+  function openProgramar(dia = 0, hora = '07:00') {
+    setProgramarDefaults({ dia, hora })
+    setShowProgramar(true)
+  }
+  function openProgramarFromDate(date) {
+    openProgramar((date.getDay() + 6) % 7, '07:00')
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <TeacherLayout>
@@ -494,18 +590,18 @@ export default function CalendarPage() {
           {/* Actions */}
           <button
             type="button"
-            onClick={() => setShowHorario(true)}
+            onClick={() => openNewEvent(null)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
-            data-tooltip="Configurar horario de clases"
           >
-            <BookOpen size={15} /> Mi Horario
+            <Plus size={15} /> Evento
           </button>
           <button
             type="button"
-            onClick={() => openNewEvent(null)}
+            onClick={() => openProgramar(0, '07:00')}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-card bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
+            data-tooltip="Programar bloques de clases por asignatura"
           >
-            <Plus size={15} /> Evento
+            <CalendarPlus size={15} /> Crear bloques
           </button>
         </div>
 
@@ -535,21 +631,28 @@ export default function CalendarPage() {
               year={currentDate.getFullYear()}
               month={currentDate.getMonth()}
               events={events}
-              onDateClick={openNewEvent}
+              bloques={bloques}
+              subjects={subjects}
+              onDateClick={openProgramarFromDate}
               onEventClick={openEditEvent}
+              onBlockClick={setEditingBloque}
             />
           ) : (
             <WeekView
               weekStart={startOfWeekMon(currentDate)}
               events={events}
-              horario={horario}
+              bloques={bloques}
               subjects={subjects}
+              onSlotClick={openProgramar}
+              onBlockClick={setEditingBloque}
+              onEventClick={openEditEvent}
             />
           )}
         </div>
 
         {/* Legend */}
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted px-1">
+          <span className="flex items-center gap-1"><CalendarPlus size={12} /> Bloques de clase (Semana/Mes)</span>
           <span className="flex items-center gap-1"><Clock size={12} /> Fecha límite (de actividades)</span>
           <span className="flex items-center gap-1"><Eye size={12} /> Publicación programada</span>
           <span className="flex items-center gap-1"><CalendarDays size={12} /> Evento personal</span>
@@ -566,15 +669,23 @@ export default function CalendarPage() {
           onDeleted={closeEventEditor}
         />
       )}
-      {showHorario && (
-        <HorarioEditor
-          horario={horario}
+      {showProgramar && (
+        <ProgramarBloquesModal
           subjects={subjects}
-          onClose={() => setShowHorario(false)}
-          onSaved={block => setHorario(prev =>
-            prev.some(h => h.id === block.id) ? prev : [...prev, block]
-          )}
-          onDeleted={id => setHorario(prev => prev.filter(h => h.id !== id))}
+          defaultDia={programarDefaults.dia}
+          defaultHora={programarDefaults.hora}
+          onClose={() => setShowProgramar(false)}
+          onSaved={() => { /* onSnapshot mantiene bloques sincronizados */ }}
+        />
+      )}
+      {editingBloque && (
+        <BloqueEditor
+          bloque={editingBloque}
+          bloques={bloques}
+          subjects={subjects}
+          onClose={() => setEditingBloque(null)}
+          onUpdated={() => { /* onSnapshot sincroniza */ }}
+          onDeleted={() => { /* onSnapshot sincroniza */ }}
         />
       )}
     </TeacherLayout>
