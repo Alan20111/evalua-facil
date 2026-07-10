@@ -201,6 +201,9 @@ function HoldButton({ onPress, label }) {
 // Scroll wheel with explicit −/+ buttons that support click-and-hold.
 // Shows 3 items (selected ± 1). Buttons sit above/below the wheel.
 // disabledIndices: Set<number> — items that cannot be selected; snaps past them.
+// onChange(newIdx, delta): delta is the signed number of steps the user moved,
+// so the parent can carry the movement into adjacent units (real-clock cascade);
+// absolute jumps (Home/End) pass delta=undefined.
 function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabledIndices = new Set() }) {
   const n               = items.length
   const listRef         = useRef(null)
@@ -237,7 +240,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
     setTimeout(() => {
       const raw = ((selectedIdx + delta) % n + n) % n
       const newIdx = nearestValid(raw, delta > 0 ? 1 : -1)
-      onChange(newIdx)
+      onChange(newIdx, delta)
       requestAnimationFrame(() => {
         resetTransform()
         animRef.current = false
@@ -249,7 +252,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
   const stepRaw = useCallback((delta) => {
     const cur = selectedIdxRef.current
     const raw = ((cur + delta) % n + n) % n
-    onChange(nearestValid(raw, delta > 0 ? 1 : -1))
+    onChange(nearestValid(raw, delta > 0 ? 1 : -1), delta)
   }, [n, nearestValid, onChange])
 
   const stopHold = useCallback(() => {
@@ -304,7 +307,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
       setTimeout(() => {
         const raw = ((selectedIdx + steps) % n + n) % n
         const newIdx = nearestValid(raw, steps > 0 ? 1 : -1)
-        onChange(newIdx)
+        onChange(newIdx, steps)
         requestAnimationFrame(() => {
           resetTransform()
           animRef.current = false
@@ -529,6 +532,37 @@ export default function EFDateTimePicker({
   const [hourIdx, setHourIdx] = useState(11)  // index into HOURS=[12,1,...,11]; 11=11h
   const [minIdx,  setMinIdx]  = useState(59)  // index into MINUTES=[0..59]; default=59
   const [ampmIdx, setAmpmIdx] = useState(1)   // 0=AM, 1=PM; default=PM
+
+  // Live mirror of the wheel state. Hold-to-repeat wheels fire from an interval
+  // whose callbacks are created once, so they must read fresh values from here.
+  const timeRef = useRef({ hourIdx, minIdx, ampmIdx })
+  useEffect(() => { timeRef.current = { hourIdx, minIdx, ampmIdx } })
+
+  // Real-clock cascade: the three wheels behave as one clock. A step on any
+  // wheel converts to total minutes-of-day and decomposes back, so movement
+  // carries into adjacent units — 09:59 +1min → 10:00, 09:00 −1min → 08:59,
+  // and crossing 11:59↔12:00 flips am/pm (also when stepping the hour wheel).
+  // Wraps at midnight without touching the selected date.
+  const applyTimeDelta = useCallback((unit, newIdx, delta) => {
+    if (delta == null) {  // absolute jump (Home/End) — no cascade
+      if (unit === 'hour') setHourIdx(newIdx)
+      else if (unit === 'min') setMinIdx(newIdx)
+      else setAmpmIdx(newIdx)
+      return
+    }
+    const { hourIdx: hi, minIdx: mi, ampmIdx: ai } = timeRef.current
+    const h24 = HOURS[hi] % 12 + ai * 12
+    const factor = unit === 'min' ? 1 : unit === 'hour' ? 60 : 720
+    const total = ((h24 * 60 + mi + delta * factor) % 1440 + 1440) % 1440
+    const nh24 = Math.floor(total / 60)
+    setAmpmIdx(nh24 < 12 ? 0 : 1)
+    setHourIdx(HOURS.indexOf(nh24 % 12 || 12))
+    setMinIdx(total % 60)
+  }, [])
+
+  const onHourWheel = useCallback((idx, delta) => applyTimeDelta('hour', idx, delta), [applyTimeDelta])
+  const onMinWheel  = useCallback((idx, delta) => applyTimeDelta('min', idx, delta), [applyTimeDelta])
+  const onAmpmWheel = useCallback((idx, delta) => applyTimeDelta('ampm', idx, delta), [applyTimeDelta])
 
   // ── Disabled wheel indices (same day as minFull) ─────────────────────────────
   const disabledAmpmIndices = useMemo(() => {
@@ -969,7 +1003,7 @@ export default function EFDateTimePicker({
               <WheelPicker
                 items={HOURS}
                 selectedIdx={hourIdx}
-                onChange={setHourIdx}
+                onChange={onHourWheel}
                 label="Hora"
                 formatItem={v => String(v).padStart(2, '0')}
                 disabledIndices={disabledHourIndices}
@@ -987,7 +1021,7 @@ export default function EFDateTimePicker({
               <WheelPicker
                 items={MINUTES}
                 selectedIdx={minIdx}
-                onChange={setMinIdx}
+                onChange={onMinWheel}
                 label="Minutos"
                 formatItem={v => String(v).padStart(2, '0')}
                 disabledIndices={disabledMinIndices}
@@ -996,7 +1030,7 @@ export default function EFDateTimePicker({
               <WheelPicker
                 items={AMPM}
                 selectedIdx={ampmIdx}
-                onChange={setAmpmIdx}
+                onChange={onAmpmWheel}
                 label="AM o PM"
                 formatItem={v => v}
                 disabledIndices={disabledAmpmIndices}
