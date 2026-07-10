@@ -648,6 +648,7 @@ export default function ActivityPage() {
             delete next[studentId]
             return next
           })}
+          onSubmissionUpdated={(studentId, sub) => setSubmissions((prev) => ({ ...prev, [studentId]: sub }))}
           resultadosOnly
           backState={returnToGrades ? { tab: 'calificaciones' } : null}
           openStudentId={location.state?.openStudentId || null}

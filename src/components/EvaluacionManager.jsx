@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  collection, query, where, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
+  collection, query, where, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, doc, serverTimestamp,
 } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { useToast } from './Toast'
@@ -11,7 +11,10 @@ import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
 import { matchesStudentSearch } from '../utils/studentSearch'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
-import { calcularEstadisticasGrupo } from '../utils/evaluacionGrading'
+import {
+  calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision,
+  resolverCalificacionFinal, TIPOS_REVISION_MANUAL,
+} from '../utils/evaluacionGrading'
 import { ArrowLeft, Plus, Trash2, Library, Users, Search, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays } from 'lucide-react'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
@@ -60,7 +63,7 @@ function fmtDuracion(inicio, fin) {
 // when the teacher arrived from a grades-table cell, so going back lands there.
 // `openStudentId` (optional): scroll to and highlight that student's result row
 // (set when the teacher clicked that student's cell in the grades table).
-export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, resultadosOnly = false, backState = null, openStudentId = null }) {
+export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, onSubmissionUpdated = null, resultadosOnly = false, backState = null, openStudentId = null }) {
   const navigate = useNavigate()
   const toast = useToast()
   // Full-screen EvaluacionEditor — the SAME editor "editar" opens from the
@@ -100,8 +103,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [savingConfig, setSavingConfig] = useState(false)
   const [filtroResultados, setFiltroResultados] = useState('todos')
   const [searchResultados, setSearchResultados] = useState('')
-  // Full-screen answer review (read-only). submission is null when "No realizado".
+  // Full-screen answer review. submission is null when "No realizado".
   const [reviewing, setReviewing] = useState(null) // { student, submission, allRespuestas }
+  // Calificación manual de reactivos (respuesta corta / subir documento):
+  // borrador por pregunta { puntos, comentario } mientras el docente edita.
+  const [gradeDrafts, setGradeDrafts] = useState({})
+  const [savingGradeId, setSavingGradeId] = useState(null)
   const [reviewFilter, setReviewFilter] = useState('todos') // review tab: todos|pendiente|calificado|porCalificar
   const [reviewNav, setReviewNav] = useState([])            // frozen student order for Anterior/Siguiente
   // Per-student deadline extension ("Modificar fecha de entrega")
@@ -542,6 +549,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         toast('Error al cargar respuestas: ' + err.message, 'error'); return
       }
     }
+    // Borradores de calificación manual, pre-llenados con lo ya guardado
+    const drafts = {}
+    preguntas.filter((p) => TIPOS_REVISION_MANUAL.includes(p.tipo)).forEach((p) => {
+      const r = allRespuestas[p.id] || {}
+      drafts[p.id] = { puntos: r.puntosObtenidos ?? '', comentario: r.comentarioDocente || '' }
+    })
+    setGradeDrafts(drafts)
     setReviewing({ student, submission: sub || null, allRespuestas })
   }
 
@@ -561,6 +575,59 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     setReviewFilter(filtro)
     setReviewNav(nav)
     if (nav.length && !nav.some((s) => s.id === reviewing?.student.id)) openReview(nav[0], filtro)
+  }
+
+  // ── Calificación manual de un reactivo (respuesta corta / subir documento) ──
+  // Guarda los puntos + comentario del reactivo y recalcula en cascada: la
+  // calificación del intento, la calificación final según la política
+  // `conservar`, y si la evaluación sigue pendiente de revisión.
+  async function saveGrade(pregunta) {
+    const sub = reviewing?.submission
+    if (!sub) return
+    const draft = gradeDrafts[pregunta.id] || {}
+    const puntos = parseFloat(draft.puntos)
+    const max = parseFloat(pregunta.ponderacion) || 0
+    if (!Number.isFinite(puntos) || puntos < 0 || puntos > max + 1e-9) {
+      toast(`Los puntos deben estar entre 0 y ${max}`, 'error'); return
+    }
+    setSavingGradeId(pregunta.id)
+    try {
+      const comentario = (draft.comentario || '').trim() || null
+      await setDoc(
+        doc(db, 'submissions', sub.id, 'respuestas', pregunta.id),
+        { puntosObtenidos: puntos, comentarioDocente: comentario },
+        { merge: true }
+      )
+      const allResp = {
+        ...reviewing.allRespuestas,
+        [pregunta.id]: { ...(reviewing.allRespuestas[pregunta.id] || {}), puntosObtenidos: puntos, comentarioDocente: comentario },
+      }
+      // Recalcular: intento actual (las respuestas guardadas son del último
+      // intento), calificación final según `conservar`, y estado.
+      const calIntento = calcularCalificacion(preguntas, allResp, activity.maxCalif || 10)
+      const pendiente = resolverPendienteRevision(preguntas, allResp)
+      const intentos = [...(sub.intentos || [])]
+      if (intentos.length) intentos[intentos.length - 1] = { ...intentos[intentos.length - 1], calificacion: calIntento }
+      const previas = intentos.slice(0, -1)
+      const calFinal = resolverCalificacionFinal(previas, calIntento, activity.evaluacion?.conservar)
+      const patch = {
+        calificacion: calFinal,
+        pendienteRevision: pendiente,
+        estado: pendiente ? 'entregado' : 'calificado',
+        intentos,
+      }
+      await updateDoc(doc(db, 'submissions', sub.id), patch)
+      const updatedSub = { ...sub, ...patch }
+      setReviewing((r) => r && ({ ...r, submission: updatedSub, allRespuestas: allResp }))
+      onSubmissionUpdated?.(reviewing.student.id, updatedSub)
+      toast(pendiente
+        ? 'Puntos guardados — aún hay reactivos por calificar'
+        : `Puntos guardados — calificación final: ${calFinal}/${activity.maxCalif || 10}`)
+    } catch (err) {
+      toast('Error al guardar puntos: ' + err.message, 'error')
+    } finally {
+      setSavingGradeId(null)
+    }
   }
 
   // "Modificar fecha de entrega para este estudiante" — per-student deadline
@@ -1215,7 +1282,54 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             <main className="flex-1 overflow-y-auto p-4">
               <div className="max-w-3xl mx-auto">
                 {done ? (
-                  <EvaluacionAnswerList preguntas={preguntas} respuestas={reviewing.allRespuestas} mostrarCorrectas mostrarRetro />
+                  <EvaluacionAnswerList
+                    preguntas={preguntas}
+                    respuestas={reviewing.allRespuestas}
+                    mostrarCorrectas
+                    mostrarRetro
+                    renderGrading={(p, respuesta) => {
+                      const draft = gradeDrafts[p.id] || { puntos: '', comentario: '' }
+                      const savedPuntos = respuesta.puntosObtenidos ?? ''
+                      const savedComent = respuesta.comentarioDocente || ''
+                      const dirty = String(draft.puntos) !== String(savedPuntos) || (draft.comentario || '') !== savedComent
+                      const saving = savingGradeId === p.id
+                      return (
+                        <div className="mt-1 p-3 rounded border border-accent/40 bg-[var(--accent-tint)] space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <label htmlFor={`grade-${p.id}`} className="text-sm font-medium text-on-surface">Puntos</label>
+                            <input
+                              id={`grade-${p.id}`}
+                              type="number" min="0" max={p.ponderacion} step="0.1"
+                              value={draft.puntos}
+                              onChange={(e) => setGradeDrafts((d) => ({ ...d, [p.id]: { ...draft, puntos: e.target.value } }))}
+                              placeholder="0"
+                              className="w-24 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-card"
+                            />
+                            <span className="text-sm text-muted">/ {p.ponderacion}</span>
+                            {respuesta.puntosObtenidos == null && (
+                              <span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">Pendiente de calificar</span>
+                            )}
+                          </div>
+                          <textarea
+                            value={draft.comentario}
+                            onChange={(e) => setGradeDrafts((d) => ({ ...d, [p.id]: { ...draft, comentario: e.target.value } }))}
+                            rows={2}
+                            placeholder="Comentario para el estudiante (opcional)…"
+                            className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-card resize-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveGrade(p)}
+                            disabled={saving || !dirty || draft.puntos === ''}
+                            className="w-full py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-40 flex items-center justify-center gap-2"
+                          >
+                            {saving ? <Spinner size="sm" /> : null}
+                            {saving ? 'Guardando…' : 'Guardar puntos'}
+                          </button>
+                        </div>
+                      )
+                    }}
+                  />
                 ) : (
                   <div className="text-center py-20">
                     <p className="text-2xl font-bold text-slate-400">No realizado</p>
