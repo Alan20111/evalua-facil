@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { collection, query, where, getDocs, onSnapshot, doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -8,9 +8,10 @@ import Spinner from '../../components/Spinner'
 import EventEditor, { EVENT_COLORS } from '../../components/calendar/EventEditor'
 import ProgramarBloquesModal from '../../components/calendar/ProgramarBloquesModal'
 import BloqueEditor from '../../components/calendar/BloqueEditor'
+import useAlarmas from '../../components/calendar/useAlarmas'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
-import { bloqueColor, timeToMinutes } from '../../utils/horarioBloques'
+import { bloqueColor, timeToMinutes, addMinutesToTime } from '../../utils/horarioBloques'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle,
@@ -243,10 +244,21 @@ function MonthView({ year, month, events, bloques, subjects, onDateClick, onEven
 
 // ─── Week view ─────────────────────────────────────────────────────────────
 
-function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockClick, onEventClick }) {
+function minutesToTimeStr(mins) {
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+const SNAP_MIN = 15 // los bloques se sueltan alineados a 15 min
+
+function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockClick, onEventClick, onMoveBloque }) {
   const days = getWeekDays(weekStart)
   const todayStr = toDateStr(new Date())
   const gridH = HOURS_RANGE.length * ROW_H
+
+  const colRefs = useRef([])
+  const dragStartRef = useRef(null)
+  const [drag, setDrag] = useState(null) // { bloque, x, y, grabDX, grabDY, w, h, moved }
 
   // Bloques agrupados por fecha.
   const byDate = useMemo(() => {
@@ -258,6 +270,62 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
   function topPx(time) {
     return (timeToMinutes(time) - DAY_START_HOUR * 60) / 60 * ROW_H
   }
+
+  function startDrag(e, b) {
+    if (e.button != null && e.button !== 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    dragStartRef.current = { x: e.clientX, y: e.clientY }
+    setDrag({
+      bloque: b,
+      x: e.clientX, y: e.clientY,
+      grabDX: e.clientX - rect.left,
+      grabDY: e.clientY - rect.top,
+      w: rect.width, h: rect.height,
+      moved: false,
+    })
+  }
+
+  useEffect(() => {
+    if (!drag) return
+    function onMove(e) {
+      const s = dragStartRef.current
+      const moved = s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
+      setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
+    }
+    function onUp(e) {
+      setDrag(d => {
+        if (!d) return null
+        if (!d.moved) {
+          onBlockClick?.(d.bloque)
+          return null
+        }
+        // Detecta la columna (día) bajo el cursor.
+        const blockTop = e.clientY - d.grabDY
+        let target = null
+        colRefs.current.forEach((el, idx) => {
+          if (!el) return
+          const r = el.getBoundingClientRect()
+          if (e.clientX >= r.left && e.clientX < r.right) target = { idx, top: r.top }
+        })
+        if (target) {
+          let mins = Math.round(((blockTop - target.top) / ROW_H * 60 + DAY_START_HOUR * 60) / SNAP_MIN) * SNAP_MIN
+          mins = Math.max(DAY_START_HOUR * 60, Math.min(DAY_END_HOUR * 60 - SNAP_MIN, mins))
+          const nuevaFecha = toDateStr(days[target.idx])
+          const nuevaHora = minutesToTimeStr(mins)
+          if (nuevaFecha !== d.bloque.fecha || nuevaHora !== d.bloque.horaInicio) {
+            onMoveBloque?.(d.bloque, nuevaFecha, nuevaHora)
+          }
+        }
+        return null
+      })
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [drag, days, onBlockClick, onMoveBloque])
 
   return (
     <div className="overflow-x-auto">
@@ -290,13 +358,18 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
           </div>
 
           {/* Day columns */}
-          {days.map((d) => {
+          {days.map((d, di) => {
             const dStr = toDateStr(d)
             const dayOfWeek = (d.getDay() + 6) % 7
             const placed = assignLanes(byDate[dStr] || [])
             const dayEvs = events.filter(ev => ev.dateStr === dStr && ev.timeStr)
             return (
-              <div key={dStr} className="relative border-l border-outline-variant" style={{ height: gridH }}>
+              <div
+                key={dStr}
+                ref={el => { colRefs.current[di] = el }}
+                className="relative border-l border-outline-variant"
+                style={{ height: gridH }}
+              >
                 {/* Hour gridlines / click targets */}
                 {HOURS_RANGE.map((hour, i) => (
                   <div
@@ -314,24 +387,26 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
                   const height = Math.max(20, (end - start) / 60 * ROW_H - 2)
                   const w = 100 / total
                   const subj = subjects[b.asignaturaId]
+                  const isDragging = drag?.moved && drag.bloque.id === b.id
                   return (
-                    <button
+                    <div
                       key={b.id}
-                      type="button"
-                      onClick={e => { e.stopPropagation(); onBlockClick?.(b) }}
-                      className="absolute rounded px-1.5 py-1 text-left overflow-hidden shadow-sm hover:brightness-95 transition-all"
+                      onPointerDown={e => { e.stopPropagation(); startDrag(e, b) }}
+                      className="absolute rounded px-1.5 py-1 text-left overflow-hidden shadow-sm hover:brightness-95 transition-[filter] select-none cursor-grab active:cursor-grabbing"
                       style={{
                         top, height,
                         left: `calc(${lane * w}% + 2px)`,
                         width: `calc(${w}% - 4px)`,
                         background: pal.bg, color: pal.text,
+                        opacity: isDragging ? 0.3 : 1,
+                        touchAction: 'none',
                       }}
-                      data-tooltip={`${subjectDisplayName(subj)} · ${b.horaInicio}–${b.horaFin}`}
+                      data-tooltip={`${subjectDisplayName(subj)} · ${b.horaInicio}–${b.horaFin} · arrastra para mover`}
                     >
                       <span className="block text-xs font-semibold leading-tight truncate">{subjectDisplayName(subj)}</span>
                       <span className="block text-[10px] opacity-80 leading-tight">{b.horaInicio}–{b.horaFin}</span>
                       {b.lugar && <span className="block text-[10px] opacity-70 leading-tight truncate">{b.lugar}</span>}
-                    </button>
+                    </div>
                   )
                 })}
 
@@ -356,6 +431,25 @@ function WeekView({ weekStart, events, bloques, subjects, onSlotClick, onBlockCl
           })}
         </div>
       </div>
+
+      {/* Fantasma que sigue al cursor mientras se arrastra */}
+      {drag?.moved && (() => {
+        const pal = bloqueColor(drag.bloque.color)
+        const subj = subjects[drag.bloque.asignaturaId]
+        return (
+          <div
+            className="fixed z-50 rounded px-1.5 py-1 shadow-lg pointer-events-none opacity-90"
+            style={{
+              left: drag.x - drag.grabDX, top: drag.y - drag.grabDY,
+              width: drag.w, height: drag.h,
+              background: pal.bg, color: pal.text,
+            }}
+          >
+            <span className="block text-xs font-semibold leading-tight truncate">{subjectDisplayName(subj)}</span>
+            <span className="block text-[10px] opacity-80 leading-tight">{drag.bloque.horaInicio}–{drag.bloque.horaFin}</span>
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -494,6 +588,9 @@ export default function CalendarPage() {
 
   const conflicts = useConflicts(events)
 
+  // Alarmas de los bloques (suenan con la app abierta + notificación).
+  useAlarmas(bloques, subjects)
+
   // ── Navigation ─────────────────────────────────────────────────────────
   function prev() {
     if (view === 'mes') setCurrentDate(d => addMonths(d, -1))
@@ -540,6 +637,24 @@ export default function CalendarPage() {
   }
   function openProgramarFromDate(date) {
     openProgramar((date.getDay() + 6) % 7, '07:00')
+  }
+
+  // Mover un bloque (arrastrar) → nueva fecha/hora, conservando la duración.
+  async function moveBloque(b, nuevaFecha, nuevaHora) {
+    const durMin = timeToMinutes(b.horaFin) - timeToMinutes(b.horaInicio)
+    const nuevaHoraFin = addMinutesToTime(nuevaHora, durMin)
+    const diaSemana = (new Date(nuevaFecha + 'T12:00:00').getDay() + 6) % 7
+    // Actualización optimista para que se vea al instante (onSnapshot confirma).
+    setBloques(prev => prev.map(x => x.id === b.id
+      ? { ...x, fecha: nuevaFecha, horaInicio: nuevaHora, horaFin: nuevaHoraFin, diaSemana, movido: true }
+      : x))
+    try {
+      await updateDoc(doc(db, 'horarioBloques', b.id), {
+        fecha: nuevaFecha, horaInicio: nuevaHora, horaFin: nuevaHoraFin, diaSemana, movido: true,
+      })
+    } catch (err) {
+      toast('No se pudo mover el bloque: ' + err.message, 'error')
+    }
   }
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -646,6 +761,7 @@ export default function CalendarPage() {
               onSlotClick={openProgramar}
               onBlockClick={setEditingBloque}
               onEventClick={openEditEvent}
+              onMoveBloque={moveBloque}
             />
           )}
         </div>

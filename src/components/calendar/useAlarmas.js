@@ -1,0 +1,62 @@
+import { useEffect, useRef } from 'react'
+import { reproducirSonido } from '../../utils/horarioBloques'
+import { subjectDisplayName } from '../../utils/subjectName'
+
+// Dispara las alarmas de los bloques cuya hora de aviso llega mientras la app
+// está abierta: reproduce el sonido elegido y muestra una notificación del
+// navegador (si el docente concedió el permiso).
+//
+// Limitación conocida: sólo suena con la pestaña abierta (no hay backend ni
+// push). Un bloque suena una única vez — se recuerda en localStorage para no
+// repetir la alarma al recargar dentro de la ventana de disparo.
+
+const STORAGE_KEY = 'ef_alarmas_disparadas'
+const VENTANA_MS = 2 * 60 * 1000 // sólo dispara si el aviso ocurrió en los últimos 2 min
+
+function loadFired() {
+  try { return new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')) } catch { return new Set() }
+}
+function saveFired(set) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set].slice(-500))) } catch { /* almacenamiento lleno */ }
+}
+
+export default function useAlarmas(bloques, subjects) {
+  const firedRef = useRef(loadFired())
+
+  // Pide permiso de notificaciones si hay al menos una alarma activa.
+  useEffect(() => {
+    const hayActivas = bloques.some(b => b.alarma?.activa)
+    if (hayActivas && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {})
+    }
+  }, [bloques])
+
+  useEffect(() => {
+    function tick() {
+      const now = Date.now()
+      for (const b of bloques) {
+        const a = b.alarma
+        if (!a?.activa || firedRef.current.has(b.id)) continue
+        const triggerMs = new Date(`${b.fecha}T${b.horaInicio}:00`).getTime() - (a.minutosAntes || 0) * 60000
+        if (Number.isNaN(triggerMs)) continue
+        if (now >= triggerMs && now < triggerMs + VENTANA_MS) {
+          firedRef.current.add(b.id)
+          saveFired(firedRef.current)
+          reproducirSonido(a.sonido)
+          const subj = subjects[b.asignaturaId]
+          const min = a.minutosAntes || 0
+          const lugar = b.lugar ? ` · ${b.lugar}` : ''
+          const body = min > 0
+            ? `Empieza en ${min} min (${b.horaInicio})${lugar}`
+            : `Empieza ahora (${b.horaInicio})${lugar}`
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            try { new Notification(subjectDisplayName(subj) || 'Clase', { body, tag: b.id }) } catch { /* ignore */ }
+          }
+        }
+      }
+    }
+    tick()
+    const iv = setInterval(tick, 20000)
+    return () => clearInterval(iv)
+  }, [bloques, subjects])
+}
