@@ -115,7 +115,10 @@
 }
 
 /* ── Custom tooltips — always above the cursor ───────────────────────────── */
-[data-tooltip] {
+/* :where() = especificidad 0: da position:relative como *default* sin pisar
+   utilidades como .absolute/.fixed (los items posicionados del calendario
+   llevan data-tooltip y deben conservar su posicionamiento). */
+:where([data-tooltip]) {
   position: relative;
 }
 [data-tooltip]::after {
