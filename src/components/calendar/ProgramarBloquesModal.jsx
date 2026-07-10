@@ -58,7 +58,7 @@ export default function ProgramarBloquesModal({
   const [fechaFin, setFechaFin] = useState('')
   const [diasAsueto, setDiasAsueto] = useState([])
   const [nuevoAsueto, setNuevoAsueto] = useState('')
-  const [duracionMin, setDuracionMin] = useState(50)
+  const [duracionMin, setDuracionMin] = useState(60)
   const [bloquesPorSemana, setBloquesPorSemana] = useState(1)
   const [color, setColor] = useState('blue')
   const [alarma, setAlarma] = useState({ activa: false, sonido: 'campana', minutosAntes: 10 })

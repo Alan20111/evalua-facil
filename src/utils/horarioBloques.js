@@ -80,10 +80,11 @@ export function toDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Suma minutos a una hora 'HH:MM' y devuelve 'HH:MM' (acotado a 23:59).
+// Suma minutos a una hora 'HH:MM' y devuelve 'HH:MM' (acotado a 00:00–23:59).
 export function addMinutesToTime(timeStr, minutes) {
   const [h, m] = timeStr.split(':').map(Number)
   let total = h * 60 + m + minutes
+  if (total < 0) total = 0
   if (total > 23 * 60 + 59) total = 23 * 60 + 59
   const hh = Math.floor(total / 60)
   const mm = total % 60

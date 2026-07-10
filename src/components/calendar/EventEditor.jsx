@@ -25,6 +25,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
   const [form, setForm] = useState({
     titulo: event?.titulo || '',
     descripcion: event?.descripcion || '',
+    notas: event?.notas || '',
     inicio: event?.inicio || defaultDate || '',
     fin: event?.fin || '',
     color: event?.color || 'blue',
@@ -41,6 +42,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
       const payload = {
         titulo: form.titulo.trim(),
         descripcion: form.descripcion.trim(),
+        notas: form.notas.trim(),
         inicio: form.inicio,
         fin: form.fin || form.inicio,
         color: form.color,
@@ -120,6 +122,17 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
             rows={2}
             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
           />
+
+          <div className="space-y-1">
+            <label className="text-xs text-muted font-medium">Notas</label>
+            <textarea
+              value={form.notas}
+              onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
+              placeholder="Escribe aquí tus notas del evento; se quedan guardadas"
+              rows={3}
+              className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-y"
+            />
+          </div>
 
           <div className="space-y-1">
             <label className="text-xs text-muted font-medium">Inicio</label>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { collection, query, where, getDocs, onSnapshot, doc, updateDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -451,11 +451,12 @@ function minutesToTimeStr(mins) {
 }
 const SNAP_MIN = 15 // los bloques se sueltan alineados a 15 min
 
-function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, onSlotClick, onBlockClick, onEventClick, onMoveBloque }) {
-  const days = getWeekDays(weekStart)
+function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, onSlotClick, onBlockClick, onEventClick, onMoveBloque }) {
+  const days = getWeekDays(weekStart).slice(0, numDays)
   const todayStr = toDateStr(new Date())
   const hoursRange = Array.from({ length: dayEnd - dayStart }, (_, i) => i + dayStart)
   const gridH = hoursRange.length * ROW_H
+  const gridCols = `3.5rem repeat(${numDays}, 1fr)`
 
   const colRefs = useRef([])
   const dragStartRef = useRef(null)
@@ -532,7 +533,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, onSl
     <div className="overflow-x-auto">
       <div className="min-w-[620px]">
         {/* Day headers */}
-        <div className="grid border-b border-outline-variant sticky top-0 bg-surface-card z-10" style={{ gridTemplateColumns: '3.5rem repeat(7, 1fr)' }}>
+        <div className="grid border-b border-outline-variant sticky top-0 bg-surface-card z-10" style={{ gridTemplateColumns: gridCols }}>
           <div className="py-2 px-2" />
           {days.map((d, i) => {
             const dStr = toDateStr(d)
@@ -548,7 +549,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, onSl
         </div>
 
         {/* Body: time gutter + day columns */}
-        <div className="grid" style={{ gridTemplateColumns: '3.5rem repeat(7, 1fr)' }}>
+        <div className="grid" style={{ gridTemplateColumns: gridCols }}>
           {/* Time gutter */}
           <div className="relative" style={{ height: gridH }}>
             {hoursRange.map((hour, i) => (
@@ -720,6 +721,24 @@ export default function CalendarPage() {
     setDayEnd(v)
     localStorage.setItem('cal_dia_fin', String(v))
   }
+
+  // Días visibles de la semana (5 = L-V, 6 = L-S, 7 = L-D).
+  const [numDays, setNumDays] = useState(() => {
+    const raw = localStorage.getItem('cal_dias_sem')
+    const v = raw == null ? NaN : Number(raw)
+    return [5, 6, 7].includes(v) ? v : 7
+  })
+  function changeNumDays(v) {
+    setNumDays(v)
+    localStorage.setItem('cal_dias_sem', String(v))
+  }
+
+  // Selector de fecha al hacer clic en la etiqueta de navegación.
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [pickerMonth, setPickerMonth] = useState(new Date())
+
+  // Confirmación pendiente al arrastrar un bloque de clase.
+  const [pendingMove, setPendingMove] = useState(null) // { bloque, fecha, hora }
   const [subjects, setSubjects] = useState({})
   const [activities, setActivities] = useState([])
   const [personalEvents, setPersonalEvents] = useState([])
@@ -928,6 +947,55 @@ export default function CalendarPage() {
     }
   }
 
+  // Al soltar un bloque arrastrado NO se mueve de inmediato: se pide
+  // confirmación y si el movimiento es solo de ese bloque o en cadena.
+  function requestMoveBloque(b, nuevaFecha, nuevaHora) {
+    if (nuevaFecha === b.fecha && nuevaHora === b.horaInicio) return
+    setPendingMove({ bloque: b, fecha: nuevaFecha, hora: nuevaHora })
+  }
+
+  function bloquesSiguientes(b) {
+    return bloques.filter(x => x.programacionId === b.programacionId &&
+      (x.fecha > b.fecha || (x.fecha === b.fecha && x.horaInicio >= b.horaInicio)))
+  }
+
+  // Mueve el bloque arrastrado y todos los posteriores de su programación,
+  // aplicando el mismo desplazamiento de días y minutos.
+  async function moveBloqueEnCadena(b, nuevaFecha, nuevaHora) {
+    const deltaDays = Math.round((new Date(nuevaFecha + 'T12:00:00') - new Date(b.fecha + 'T12:00:00')) / 86400000)
+    const deltaMin = timeToMinutes(nuevaHora) - timeToMinutes(b.horaInicio)
+    const siguientes = bloquesSiguientes(b)
+    try {
+      for (let i = 0; i < siguientes.length; i += 450) {
+        const batch = writeBatch(db)
+        siguientes.slice(i, i + 450).forEach(x => {
+          const d = new Date(x.fecha + 'T12:00:00')
+          d.setDate(d.getDate() + deltaDays)
+          const f = toDateStr(d)
+          batch.update(doc(db, 'horarioBloques', x.id), {
+            fecha: f,
+            horaInicio: addMinutesToTime(x.horaInicio, deltaMin),
+            horaFin: addMinutesToTime(x.horaFin, deltaMin),
+            diaSemana: (d.getDay() + 6) % 7,
+            movido: true,
+          })
+        })
+        await batch.commit()
+      }
+      toast(`${siguientes.length} bloques movidos`)
+    } catch (err) {
+      toast('No se pudieron mover los bloques: ' + err.message, 'error')
+    }
+  }
+
+  async function confirmPendingMove(scope) {
+    const pm = pendingMove
+    setPendingMove(null)
+    if (!pm) return
+    if (scope === 'cadena') await moveBloqueEnCadena(pm.bloque, pm.fecha, pm.hora)
+    else await moveBloque(pm.bloque, pm.fecha, pm.hora)
+  }
+
   // Crear evento desde un hueco de la agenda del día.
   function openNewEventAt(dateStr, hora) {
     setEditingEvent(null)
@@ -943,16 +1011,69 @@ export default function CalendarPage() {
         {/* Top controls */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {/* Date navigator */}
-          <div className="flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
+          <div className="relative flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
             <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
               <ChevronLeft size={16} />
             </button>
-            <span className="text-sm font-semibold text-on-surface px-3 min-w-[180px] text-center select-none">
+            <button
+              type="button"
+              onClick={() => {
+                setPickerMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
+                setShowDatePicker(v => !v)
+              }}
+              className="text-sm font-semibold text-on-surface px-3 min-w-[180px] text-center select-none rounded hover:bg-accent-tint transition-colors py-0.5"
+              data-tooltip="Ir a otra fecha"
+            >
               {navLabel()}
-            </span>
+            </button>
             <button type="button" onClick={next} aria-label="Siguiente" className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
               <ChevronRight size={16} />
             </button>
+
+            {/* Mini calendario para saltar a una fecha */}
+            {showDatePicker && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setShowDatePicker(false)} />
+                <div className="absolute left-1/2 -translate-x-1/2 top-11 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
+                  <div className="flex items-center justify-between mb-2">
+                    <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-1 rounded hover:bg-accent-tint text-muted">
+                      <ChevronLeft size={15} />
+                    </button>
+                    <span className="text-sm font-semibold text-on-surface">
+                      {MESES[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
+                    </span>
+                    <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="p-1 rounded hover:bg-accent-tint text-muted">
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-7 mb-1">
+                    {DIAS_CORTO.map(d => (
+                      <span key={d} className="text-center text-[10px] font-semibold text-muted uppercase">{d.charAt(0)}</span>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-y-0.5">
+                    {getMonthGrid(pickerMonth.getFullYear(), pickerMonth.getMonth()).map(cell => {
+                      const inMonth = cell.getMonth() === pickerMonth.getMonth()
+                      const sel = isSameDay(cell, currentDate)
+                      return (
+                        <button
+                          key={toDateStr(cell)}
+                          type="button"
+                          onClick={() => { setCurrentDate(cell); setShowDatePicker(false) }}
+                          className={`h-7 w-7 mx-auto rounded-full text-xs flex items-center justify-center transition-colors ${
+                            sel ? 'bg-accent text-white font-bold'
+                              : isToday(cell) ? 'ring-1 ring-accent text-accent font-semibold hover:bg-accent-tint'
+                              : inMonth ? 'text-on-surface hover:bg-accent-tint' : 'text-muted opacity-40 hover:bg-accent-tint'
+                          }`}
+                        >
+                          {cell.getDate()}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           <button
@@ -993,7 +1114,7 @@ export default function CalendarPage() {
             {showHoras && (
               <>
                 <div className="fixed inset-0 z-20" onClick={() => setShowHoras(false)} />
-                <div className="absolute right-0 top-10 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-60 space-y-2">
+                <div className="absolute right-0 top-10 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
                   <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted w-10">Desde</span>
@@ -1017,6 +1138,19 @@ export default function CalendarPage() {
                       {Array.from({ length: 24 }, (_, h) => h + 1).filter(h => h > dayStart).map(h => (
                         <option key={h} value={h}>{h}:00</option>
                       ))}
+                    </select>
+                  </div>
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-1">Días de tu semana</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted w-10">Días</span>
+                    <select
+                      value={numDays}
+                      onChange={e => changeNumDays(Number(e.target.value))}
+                      className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                    >
+                      <option value={5}>Lunes a Viernes</option>
+                      <option value={6}>Lunes a Sábado</option>
+                      <option value={7}>Lunes a Domingo</option>
                     </select>
                   </div>
                 </div>
@@ -1071,7 +1205,7 @@ export default function CalendarPage() {
               dayEnd={dayEnd}
               onEventClick={openEditEvent}
               onBlockClick={setEditingBloque}
-              onMoveBloque={moveBloque}
+              onMoveBloque={requestMoveBloque}
               onMoveEvent={moveEvent}
               onSlotClick={openNewEventAt}
             />
@@ -1094,10 +1228,11 @@ export default function CalendarPage() {
               subjects={subjects}
               dayStart={dayStart}
               dayEnd={dayEnd}
+              numDays={numDays}
               onSlotClick={openProgramar}
               onBlockClick={setEditingBloque}
               onEventClick={openEditEvent}
-              onMoveBloque={moveBloque}
+              onMoveBloque={requestMoveBloque}
             />
           )}
         </div>
@@ -1140,6 +1275,52 @@ export default function CalendarPage() {
           onDeleted={() => { /* onSnapshot sincroniza */ }}
         />
       )}
+
+      {/* Confirmación al mover un bloque arrastrado */}
+      {pendingMove && (() => {
+        const { bloque: b, fecha, hora } = pendingMove
+        const subj = subjects[b.asignaturaId]
+        const nSiguientes = bloquesSiguientes(b).length
+        const fmtF = s => {
+          const d = new Date(s + 'T12:00:00')
+          return `${DIAS_LARGO[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MESES[d.getMonth()]}`
+        }
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setPendingMove(null)}>
+            <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3" onClick={e => e.stopPropagation()}>
+              <h2 className="font-semibold text-on-surface">¿Mover este bloque de clase?</h2>
+              <div className="text-sm text-on-surface space-y-1 bg-surface rounded-card border border-outline-variant p-3">
+                <p className="font-medium">{subjectDisplayName(subj) || 'Clase'}</p>
+                <p className="text-muted text-xs">De: {fmtF(b.fecha)} · {fmtHour(b.horaInicio)}</p>
+                <p className="text-accent text-xs font-medium">A: {fmtF(fecha)} · {fmtHour(hora)}</p>
+              </div>
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => confirmPendingMove('solo')}
+                  className="w-full py-2 bg-accent text-white rounded-card text-sm font-semibold hover:bg-accent-hover transition-colors"
+                >
+                  Mover solo este bloque
+                </button>
+                <button
+                  type="button"
+                  onClick={() => confirmPendingMove('cadena')}
+                  className="w-full py-2 rounded-card border border-accent text-accent text-sm font-semibold hover:bg-accent-tint transition-colors"
+                >
+                  Mover este y los siguientes ({nSiguientes})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingMove(null)}
+                  className="w-full py-2 rounded-card border border-outline-variant text-muted text-sm hover:bg-surface transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </TeacherLayout>
   )
 }
