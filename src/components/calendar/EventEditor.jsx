@@ -82,7 +82,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
       <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <h2 className="font-semibold text-on-surface">{isNew ? 'Nuevo evento' : 'Editar evento'}</h2>
-          <button type="button" onClick={onClose} className="p-1 text-muted hover:text-error rounded transition-colors">
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -98,6 +98,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
                 className={`w-6 h-6 rounded-full border-2 transition-all ${form.color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
                 style={{ background: c.bg }}
                 data-tooltip={c.label}
+                aria-label={c.label}
               />
             ))}
           </div>
@@ -151,7 +152,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
                 </button>
               ) : (
                 <button type="button" onClick={() => setConfirmDelete(true)}
-                  className="p-2 text-muted hover:text-error rounded transition-colors" data-tooltip="Eliminar">
+                  className="p-2 text-muted hover:text-error rounded transition-colors" data-tooltip="Eliminar" aria-label="Eliminar">
                   <Trash2 size={18} />
                 </button>
               )

@@ -219,7 +219,7 @@ export default function StudentDashboard() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-on-surface truncate">Unirme a otra asignatura</h3>
-              <button type="button" onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+              <button type="button" aria-label="Cerrar" onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-3">
               Ingresa el <strong>código de acceso</strong> de tu nueva asignatura (o escanea su QR). Como ya tienes cuenta, solo confirmarás tu contraseña.

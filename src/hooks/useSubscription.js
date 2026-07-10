@@ -46,7 +46,6 @@ export function useSubscription() {
       // A failed/denied read must never crash the layout that wraps every teacher page.
       // Treat it as "no subscription info" rather than letting the error propagate.
       setSubscription(null)
-      setPlans([])
       setRecentPayments([])
     } finally {
       setLoading(false)

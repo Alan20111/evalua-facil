@@ -2042,11 +2042,13 @@ export default function SubjectPage() {
           {/* Action buttons — wrap on mobile so they never overflow */}
           <div className="flex flex-wrap items-center gap-1 mt-2">
             <button type="button" onClick={() => setShowQR(true)}
+              aria-label="Código QR de registro al curso para estudiantes"
               data-tooltip="Código QR de registro al curso para estudiantes"
               className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
               <QrCode size={21} />
             </button>
             <button type="button" onClick={copyActivationLink}
+              aria-label="Copiar link de registro al curso para estudiantes"
               data-tooltip="Copiar link de registro al curso para estudiantes"
               className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
               {copiedLink ? <CheckIcon size={21} /> : <Link size={21} />}
@@ -2060,21 +2062,25 @@ export default function SubjectPage() {
             </button>
             <div className="flex-1" />
             <button type="button" onClick={openEditSubject}
+              aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
               data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
               <Pencil size={21} />
             </button>
             <button type="button" onClick={openCopyModal}
+              aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
               data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
               <Copy size={21} />
             </button>
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
+              aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
               data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-50 flex-shrink-0">
               {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
             </button>
             <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
+              aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
               data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
               className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
               <Trash2 size={21} />
@@ -2125,6 +2131,7 @@ export default function SubjectPage() {
                     </button>
                     <button type="button"
                       onClick={() => toggleParcialVisibility(p)}
+                      aria-label={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       data-tooltip={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       data-tooltip-pos="left"
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
@@ -2156,7 +2163,7 @@ export default function SubjectPage() {
                             {/* A draft has nothing to grade — its row opens the editor instead */}
                             <button type="button"
                               onClick={() => isDraftActivity(a) ? openEdit(a, activityLabelById[a.id]) : navigate(`/activity/${a.id}`)}
-                              data-tooltip-follow={isDraftActivity(a) ? 'Editar borrador' : 'Calificar'}
+                              data-tooltip-follow={isDraftActivity(a) ? 'Editar borrador' : 'Evaluar'}
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
                               <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
                               <div className="flex-1 min-w-0">
@@ -2217,6 +2224,7 @@ export default function SubjectPage() {
                             {isHidden ? (
                               <button type="button"
                                 onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
+                                aria-label={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
                                 data-tooltip={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
                                 className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                               >
@@ -2225,19 +2233,21 @@ export default function SubjectPage() {
                             ) : (
                               <button type="button"
                                 onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
+                                aria-label="Ocultar para estudiantes"
                                 data-tooltip="Ocultar para estudiantes"
                                 className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                               >
                                 <Eye size={16} />
                               </button>
                             )}
-                            <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} data-tooltip="Editar"
+                            <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                               <Pencil size={16} />
                             </button>
                             {/* Less-used actions (Duplicar / Eliminar) tucked into a ⋮ menu */}
                             <button type="button"
                               onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
+                              aria-label="Más acciones"
                               data-tooltip="Más acciones"
                               className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
                               <MoreVertical size={16} />
@@ -2283,21 +2293,21 @@ export default function SubjectPage() {
                                     {isExpanded ? <ChevronUp size={18} className="text-slate-400 flex-shrink-0" /> : <ChevronDown size={18} className="text-slate-400 flex-shrink-0" />}
                                   </button>
                                   {isHidden ? (
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} data-tooltip="Mostrar a estudiantes"
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} aria-label="Mostrar a estudiantes" data-tooltip="Mostrar a estudiantes"
                                       className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                       <EyeOff size={16} />
                                     </button>
                                   ) : (
-                                    <button type="button" onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} data-tooltip="Ocultar a estudiantes"
+                                    <button type="button" onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} aria-label="Ocultar a estudiantes" data-tooltip="Ocultar a estudiantes"
                                       className="p-2 text-slate-400 hover:text-muted hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                                       <Eye size={16} />
                                     </button>
                                   )}
-                                  <button type="button" onClick={() => openEditMaterial(m)} data-tooltip="Editar"
+                                  <button type="button" onClick={() => openEditMaterial(m)} aria-label="Editar" data-tooltip="Editar"
                                     className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
                                     <Pencil size={16} />
                                   </button>
-                                  <button type="button" onClick={() => setDeleteMaterialConfirm(m)} data-tooltip="Eliminar"
+                                  <button type="button" onClick={() => setDeleteMaterialConfirm(m)} aria-label="Eliminar" data-tooltip="Eliminar"
                                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 mr-1">
                                     <Trash2 size={16} />
                                   </button>
@@ -2369,6 +2379,7 @@ export default function SubjectPage() {
                   </button>
                   <button type="button"
                     onClick={() => setTopExportMenu((m) => m === 'excel' ? null : 'excel')}
+                    aria-label="Excel por parcial"
                     data-tooltip="Excel por parcial"
                     className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] transition-colors">
                     <MoreVertical size={16} />
@@ -2401,6 +2412,7 @@ export default function SubjectPage() {
                   </button>
                   <button type="button"
                     onClick={() => setTopExportMenu((m) => m === 'pdf' ? null : 'pdf')}
+                    aria-label="PDF por parcial"
                     data-tooltip="PDF por parcial"
                     className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] transition-colors">
                     <MoreVertical size={16} />
@@ -2498,6 +2510,7 @@ export default function SubjectPage() {
                                   const r = e.currentTarget.getBoundingClientRect()
                                   setParcialMenu((m) => m?.p === p ? null : { p, x: r.right, y: r.bottom })
                                 }}
+                                aria-label="Acciones del parcial"
                                 data-tooltip-follow="Acciones del parcial"
                                 className="p-0.5 rounded text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors flex-shrink-0">
                                 <MoreVertical size={15} />
@@ -2519,6 +2532,9 @@ export default function SubjectPage() {
                           <th className="sticky left-8 z-10 bg-amber-50 w-[210px] px-2 py-1 border-r border-outline-variant">
                             <div className="flex items-center justify-end gap-1.5">
                               <button type="button" onClick={togglePonderacionVisible}
+                                aria-label={subject?.ponderacionVisibleAlumnos
+                                  ? 'Los estudiantes VEN los pesos — clic para ocultárselos'
+                                  : 'Los estudiantes NO ven los pesos — clic para mostrárselos'}
                                 data-tooltip-follow={subject?.ponderacionVisibleAlumnos
                                   ? 'Los estudiantes VEN los pesos — clic para ocultárselos'
                                   : 'Los estudiantes NO ven los pesos — clic para mostrárselos'}
@@ -2567,6 +2583,7 @@ export default function SubjectPage() {
                               <div className="flex items-center justify-center gap-0.5">
                                 <span data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : 'Suma libre — para exportar este parcial deberá sumar 10'}>{pesoTotalVivo(acts)}</span>
                                 <button type="button" onClick={() => toggleParcialPonderacion(p)}
+                                  aria-label={`Quitar la ponderación solo del Parcial ${p}`}
                                   data-tooltip={`Quitar la ponderación solo del Parcial ${p}`}
                                   className="p-0.5 text-amber-400 hover:text-amber-800 rounded transition-colors">
                                   <X size={12} />
@@ -2749,6 +2766,7 @@ export default function SubjectPage() {
             </div>
             <button type="button"
               onClick={() => setShowAddStudent(true)}
+              aria-label="Agregar nuevo estudiante"
               data-tooltip="Agregar nuevo estudiante"
               className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
             >
@@ -2792,6 +2810,7 @@ export default function SubjectPage() {
                   <button type="button"
                     onClick={() => openEditStudent(s)}
                     className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
+                    aria-label="Editar estudiante"
                     data-tooltip="Editar estudiante"
                   >
                     <Pencil size={16} />
@@ -2845,25 +2864,27 @@ export default function SubjectPage() {
                       </div>
                       {canPreviewFile(r.nombreArchivo || r.nombre) && (
                         <button type="button" onClick={() => setPreviewResourceId(isPreviewOpen ? null : r.id)}
+                          aria-label="Vista previa"
                           data-tooltip="Vista previa"
                           className={`p-2 rounded transition-colors flex-shrink-0 ${isPreviewOpen ? 'text-accent bg-[var(--accent-medium)]' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
                           <FileSearch size={18} />
                         </button>
                       )}
                       <a href={isImageDeliveredPdf(r.url) ? pdfPageImageUrl(r.url, 1) : r.url} target="_blank" rel="noreferrer"
+                        aria-label={isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva'}
                         data-tooltip={isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva'}
                         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <ExternalLink size={18} />
                       </a>
-                      <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" data-tooltip="Descargar"
+                      <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" aria-label="Descargar" data-tooltip="Descargar"
                         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <Download size={18} />
                       </a>
-                      <button type="button" onClick={() => openEditResource(r)} data-tooltip="Editar"
+                      <button type="button" onClick={() => openEditResource(r)} aria-label="Editar" data-tooltip="Editar"
                         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <Pencil size={18} />
                       </button>
-                      <button type="button" onClick={() => setDeleteResourceConfirm(r)} data-tooltip="Eliminar"
+                      <button type="button" onClick={() => setDeleteResourceConfirm(r)} aria-label="Eliminar" data-tooltip="Eliminar"
                         className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
                         <Trash2 size={18} />
                       </button>
@@ -2897,7 +2918,7 @@ export default function SubjectPage() {
                     ? `${tipoActividad === 'entregable' ? 'Entregable' : tipoActividad === 'cuestionario' ? 'Cuestionario' : 'Examen'} — Parcial ${modalParcial}`
                     : 'Editar actividad'}
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
 
             {/* ── Tipo picker (only on create, before choosing type) ── */}
@@ -2940,8 +2961,8 @@ export default function SubjectPage() {
                 </p>
             <form onSubmit={handleSaveActivity} className="space-y-2">
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
-                <input type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+                <label htmlFor="act-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
+                <input id="act-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: Tarea 1, Examen parcial" />
@@ -3140,12 +3161,12 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">
                 {materialModalMode === 'create' ? `Nuevo material de apoyo — Parcial ${materialParcial}` : 'Editar material de apoyo'}
               </h3>
-              <button type="button" onClick={() => setShowMaterialModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleSaveMaterial} className="space-y-2">
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
-                <input type="text" value={materialForm.nombre} onChange={(e) => setMaterialForm((f) => ({ ...f, nombre: e.target.value }))}
+                <label htmlFor="material-nombre" className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
+                <input id="material-nombre" type="text" value={materialForm.nombre} onChange={(e) => setMaterialForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: Libro de texto, Video introductorio, Guía de laboratorio" />
@@ -3173,6 +3194,7 @@ export default function SubjectPage() {
                         <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
                         <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.tamano)}</span>
                         <button type="button" onClick={() => setMaterialExistingFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                          aria-label="Quitar archivo"
                           className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
                           <X size={15} />
                         </button>
@@ -3184,6 +3206,7 @@ export default function SubjectPage() {
                         <span className="text-sm text-on-surface truncate flex-1">{f.name}</span>
                         <span className="text-xs text-slate-400 flex-shrink-0">{formatFileSize(f.size)}</span>
                         <button type="button" onClick={() => setMaterialNewFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                          aria-label="Quitar archivo"
                           className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
                           <X size={15} />
                         </button>
@@ -3247,7 +3270,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Agregar estudiante</h3>
-              <button type="button" onClick={() => setShowAddStudent(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={addStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
@@ -3285,7 +3308,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar estudiante</h3>
-              <button type="button" onClick={() => setStudentToEdit(null)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={saveEditStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
@@ -3304,8 +3327,9 @@ export default function SubjectPage() {
                 />
               ))}
               <div>
-                <label className="block text-xs font-medium text-muted mb-1">Comentarios (solo para ti, el estudiante no los ve)</label>
+                <label htmlFor="edit-student-comentarios" className="block text-xs font-medium text-muted mb-1">Comentarios (solo para ti, el estudiante no los ve)</label>
                 <textarea
+                  id="edit-student-comentarios"
                   value={editStudentForm.comentarios}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, comentarios: e.target.value }))}
                   rows={3}
@@ -3354,7 +3378,7 @@ export default function SubjectPage() {
                 <h3 className="text-xl font-semibold leading-tight">{subject.nombre}</h3>
                 {subject.grupo && <p className="text-base text-muted">Grupo: {subject.grupo}</p>}
               </div>
-              <button type="button" onClick={() => setShowQR(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={22} /></button>
+              <button type="button" onClick={() => setShowQR(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded flex-shrink-0"><X size={22} /></button>
             </div>
             <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-4">
               <QRCode value={activationUrl} size={280} className="max-w-full h-auto" />
@@ -3484,6 +3508,7 @@ export default function SubjectPage() {
             <div className="px-4 py-3 border-b border-outline-variant flex items-center gap-2">
               {importSrc && (
                 <button type="button" onClick={() => { setImportSrc(null); setImportSrcActs([]); setImportSel(new Set()) }}
+                  aria-label="Volver"
                   className="p-1 -ml-1 text-slate-400 hover:text-accent rounded flex-shrink-0"><ArrowLeft size={18} /></button>
               )}
               <div className="flex-1 min-w-0">
@@ -3492,7 +3517,7 @@ export default function SubjectPage() {
                   {importSrc ? `De: ${subjectDisplayName(importSrc)}` : 'Elige de cuál de tus asignaturas'}
                 </p>
               </div>
-              <button type="button" onClick={() => !importing && setImportFor(null)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+              <button type="button" onClick={() => !importing && setImportFor(null)} aria-label="Cerrar" className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3">
@@ -3696,8 +3721,9 @@ export default function SubjectPage() {
                       asigna desde aquí una misma calificación a todas juntas.
                     </p>
                     <div className="flex items-center justify-center gap-2 mt-3">
-                      <label className="text-sm text-muted">Calificación para todas:</label>
+                      <label htmlFor="close-parcial-grade" className="text-sm text-muted">Calificación para todas:</label>
                       <input
+                        id="close-parcial-grade"
                         type="number"
                         min="0"
                         step="0.1"
@@ -3864,19 +3890,19 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
-              <button type="button" onClick={() => setShowEditSubjectModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowEditSubjectModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleEditSubject} className="space-y-2">
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Asignatura</label>
-                <input type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
+                <label htmlFor="edit-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
+                <input id="edit-subject-nombre" type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas I" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Grupo</label>
-                <input type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
+                <label htmlFor="edit-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
+                <input id="edit-subject-grupo" type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C" />
@@ -3897,8 +3923,8 @@ export default function SubjectPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Número de parciales</label>
-                <select value={editSubjectForm.parciales} onChange={(e) => setEditSubjectForm((f) => ({ ...f, parciales: e.target.value }))}
+                <label htmlFor="edit-subject-parciales" className="block text-sm font-medium text-muted mb-1">Número de parciales</label>
+                <select id="edit-subject-parciales" value={editSubjectForm.parciales} onChange={(e) => setEditSubjectForm((f) => ({ ...f, parciales: e.target.value }))}
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface">
                   {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
                 </select>
@@ -3928,19 +3954,19 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
-              <button type="button" onClick={() => setShowCopyModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowCopyModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleCopySubject} className="space-y-2">
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Asignatura</label>
-                <input type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
+                <label htmlFor="copy-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
+                <input id="copy-subject-nombre" type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas II" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Grupo</label>
-                <input type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
+                <label htmlFor="copy-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
+                <input id="copy-subject-grupo" type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C" />
@@ -4030,7 +4056,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
-              <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-2">
               Al archivar se conservan las actividades y la lista de estudiantes, pero <strong>se eliminan las entregas</strong>. ¿Qué hacemos con ellas?
@@ -4073,7 +4099,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
-              <button type="button" onClick={() => setShowUnarchiveModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowUnarchiveModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <p className="text-sm text-muted mb-2">Puedes editar los datos y elegir cómo restaurar:</p>
 
@@ -4167,12 +4193,13 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{resourceModalMode === 'create' ? 'Agregar recurso' : 'Editar recurso'}</h3>
-              <button type="button" onClick={() => setShowResourceModal(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowResourceModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
             <form onSubmit={handleSaveResource} className="space-y-2">
               <div>
-                <label className="block text-xs font-medium text-muted mb-1">Nombre del recurso</label>
+                <label htmlFor="resource-nombre" className="block text-xs font-medium text-muted mb-1">Nombre del recurso</label>
                 <input
+                  id="resource-nombre"
                   type="text"
                   value={resourceForm.nombre}
                   onChange={(e) => setResourceForm((f) => ({ ...f, nombre: e.target.value }))}
@@ -4183,8 +4210,9 @@ export default function SubjectPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted mb-1">Descripción (opcional)</label>
+                <label htmlFor="resource-descripcion" className="block text-xs font-medium text-muted mb-1">Descripción (opcional)</label>
                 <textarea
+                  id="resource-descripcion"
                   value={resourceForm.descripcion}
                   onChange={(e) => setResourceForm((f) => ({ ...f, descripcion: e.target.value }))}
                   rows={2}
@@ -4193,10 +4221,11 @@ export default function SubjectPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted mb-1">
+                <label htmlFor="resource-archivo" className="block text-xs font-medium text-muted mb-1">
                   Archivo {resourceModalMode === 'edit' && '(déjalo vacío para conservar el actual)'}
                 </label>
                 <input
+                  id="resource-archivo"
                   type="file"
                   accept={RESOURCE_ACCEPT}
                   onChange={(e) => setResourceFile(e.target.files?.[0] || null)}

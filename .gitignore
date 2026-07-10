@@ -33,3 +33,8 @@ dist-ssr
 
 # Claude Code session/agent files
 .claude/
+
+# Firebase emulator artifacts
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

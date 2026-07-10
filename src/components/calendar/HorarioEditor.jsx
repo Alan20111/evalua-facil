@@ -78,7 +78,7 @@ export default function HorarioEditor({ horario, subjects, onClose, onSaved, onD
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-outline-variant flex-shrink-0">
           <h2 className="font-semibold text-on-surface">Mi Horario</h2>
-          <button type="button" onClick={onClose} className="p-1 text-muted hover:text-error rounded transition-colors">
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -110,6 +110,7 @@ export default function HorarioEditor({ horario, subjects, onClose, onSaved, onD
                           onClick={() => handleDelete(b.id)}
                           className="p-0.5 rounded hover:opacity-70 transition-opacity flex-shrink-0"
                           data-tooltip="Eliminar"
+                          aria-label="Eliminar"
                         >
                           <Trash2 size={14} />
                         </button>

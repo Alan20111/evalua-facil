@@ -540,7 +540,7 @@ export default function EvaluacionEditor({
       {/* ── Header ── */}
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={onClose} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
+          <button type="button" aria-label="Volver" onClick={onClose} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -565,8 +565,8 @@ export default function EvaluacionEditor({
           {(
             <form onSubmit={handleSaveInfo} className="px-4 pb-4 space-y-3 border-t border-outline-variant pt-3">
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Nombre</label>
-                <input type="text" value={infoForm.nombre} onChange={(e) => setInfoForm((f) => ({ ...f, nombre: e.target.value }))}
+                <label htmlFor="info-nombre" className="block text-sm font-medium text-muted mb-1">Nombre</label>
+                <input id="info-nombre" type="text" value={infoForm.nombre} onChange={(e) => setInfoForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus placeholder={`Ej: ${tipoLabel} parcial 1`}
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
               </div>
@@ -686,8 +686,8 @@ export default function EvaluacionEditor({
           </div>
           <form onSubmit={handleSaveConfig} className="px-4 py-4 space-y-3">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Orden de las preguntas</label>
-              <select value={configForm.ordenPreguntas} onChange={(e) => setConfigForm((f) => ({ ...f, ordenPreguntas: e.target.value }))}
+              <label htmlFor="config-orden-preguntas" className="block text-sm font-medium text-muted mb-1">Orden de las preguntas</label>
+              <select id="config-orden-preguntas" value={configForm.ordenPreguntas} onChange={(e) => setConfigForm((f) => ({ ...f, ordenPreguntas: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                 <option value="creacion">Orden de creación</option>
                 <option value="aleatorio">Aleatorio</option>
@@ -699,28 +699,28 @@ export default function EvaluacionEditor({
               Barajar el orden de las opciones dentro de cada pregunta
             </label>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Navegación</label>
-              <select value={configForm.navegacion} onChange={(e) => setConfigForm((f) => ({ ...f, navegacion: e.target.value }))}
+              <label htmlFor="config-navegacion" className="block text-sm font-medium text-muted mb-1">Navegación</label>
+              <select id="config-navegacion" value={configForm.navegacion} onChange={(e) => setConfigForm((f) => ({ ...f, navegacion: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                 <option value="libre">Libre — puede regresar</option>
                 <option value="secuencial">Secuencial — no puede regresar</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
-              <input type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
+              <label htmlFor="config-tiempo-limite" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
+              <input id="config-tiempo-limite" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
                 onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))}
                 placeholder="Sin límite" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
-              <input type="number" min="1" value={configForm.intentosPermitidos ?? ''}
+              <label htmlFor="config-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
+              <input id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
                 onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))}
                 placeholder="Ilimitados" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
-              <select value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
+              <label htmlFor="config-conservar" className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
+              <select id="config-conservar" value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                 <option value="primero">El primer intento</option>
                 <option value="ultimo">El último intento</option>
@@ -729,8 +729,8 @@ export default function EvaluacionEditor({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Publicar resultados</label>
-              <select value={configForm.publicarResultados} onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultados: e.target.value }))}
+              <label htmlFor="config-publicar-resultados" className="block text-sm font-medium text-muted mb-1">Publicar resultados</label>
+              <select id="config-publicar-resultados" value={configForm.publicarResultados} onChange={(e) => setConfigForm((f) => ({ ...f, publicarResultados: e.target.value }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                 <option value="inmediato">Inmediatamente al terminar</option>
                 <option value="fecha">En una fecha específica</option>
@@ -801,15 +801,15 @@ export default function EvaluacionEditor({
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="p-4 space-y-3">
                         <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
                         <div>
-                          <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
-                          <select value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
+                          <label htmlFor="preg-edit-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
+                          <select id="preg-edit-tipo" value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
                             className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                             {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                           </select>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-muted mb-1">Enunciado</label>
-                          <textarea value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
+                          <label htmlFor="preg-edit-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
+                          <textarea id="preg-edit-enunciado" value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
                             rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
                         </div>
                         {preguntaEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
@@ -835,14 +835,14 @@ export default function EvaluacionEditor({
                         )}
                         <div>
                           <div className="flex items-center justify-between mb-1">
-                            <label className="text-sm font-medium text-muted">Ponderación</label>
+                            <label htmlFor="preg-edit-ponderacion" className="text-sm font-medium text-muted">Ponderación</label>
                             {(() => {
                               const otras = preguntas.filter((x) => x.id !== p.id).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)
                               const disp = Math.max(0, parseFloat((10 - otras).toFixed(2)))
                               return <span className={`text-xs font-medium ${disp <= 0 ? 'text-error' : 'text-slate-400'}`}>Disponible: {disp} / 10</span>
                             })()}
                           </div>
-                          <input type="number" min="0.1" max={Math.max(0, parseFloat((10 - preguntas.filter((x) => x.id !== p.id).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)).toFixed(2)))} step="0.1" value={preguntaEditForm.ponderacion}
+                          <input id="preg-edit-ponderacion" type="number" min="0.1" max={Math.max(0, parseFloat((10 - preguntas.filter((x) => x.id !== p.id).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)).toFixed(2)))} step="0.1" value={preguntaEditForm.ponderacion}
                             onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
                             className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                         </div>
@@ -863,10 +863,10 @@ export default function EvaluacionEditor({
                             <p className="text-base font-semibold text-on-surface">{i + 1}. {p.enunciado}</p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
-                            <button type="button" onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
-                            <button type="button" onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
-                            <button type="button" onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
-                            <button type="button" onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={18} /></button>
+                            <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
+                            <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
+                            <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
+                            <button type="button" aria-label="Eliminar" onClick={() => handleDeletePregunta(p.id)} className="p-1.5 text-slate-400 hover:text-error rounded" data-tooltip="Eliminar"><Trash2 size={18} /></button>
                           </div>
                         </div>
                         {p.imagenUrl && <img src={p.imagenUrl} alt="" className="mt-2 max-h-36 rounded border border-outline-variant" />}
@@ -889,15 +889,15 @@ export default function EvaluacionEditor({
                     style={{ background: 'var(--accent-light)' }}>
                     <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando reactivo nuevo</p>
                     <div>
-                      <label className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
-                      <select value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
+                      <label htmlFor="preg-new-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
+                      <select id="preg-new-tipo" value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
                         className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
                         {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-muted mb-1">Enunciado</label>
-                      <textarea value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
+                      <label htmlFor="preg-new-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
+                      <textarea id="preg-new-enunciado" value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
                         rows={2} required autoFocus className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                     </div>
                     <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
@@ -929,19 +929,19 @@ export default function EvaluacionEditor({
                     )}
                     {preguntaForm.tipo === 'respuesta_corta' && <p className="text-xs text-slate-400 italic">El alumno responde con texto libre. Tú asignas los puntos al revisar.</p>}
                     <div>
-                      <label className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
-                      <textarea value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
+                      <label htmlFor="preg-new-retro" className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
+                      <textarea id="preg-new-retro" value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
                         rows={1} placeholder="Se muestra al alumno al finalizar, si la config lo permite"
                         className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="text-sm font-medium text-muted">Ponderación</label>
+                        <label htmlFor="preg-new-ponderacion" className="text-sm font-medium text-muted">Ponderación</label>
                         <span className={`text-xs font-medium ${ponderacionRestante <= 0 ? 'text-error' : 'text-slate-400'}`}>
                           Disponible: {ponderacionRestante} / 10
                         </span>
                       </div>
-                      <input type="number" min="0.1" max={ponderacionRestante} step="0.1" value={preguntaForm.ponderacion}
+                      <input id="preg-new-ponderacion" type="number" min="0.1" max={ponderacionRestante} step="0.1" value={preguntaForm.ponderacion}
                         onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
                         className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                     </div>
@@ -1075,9 +1075,9 @@ export default function EvaluacionEditor({
                               <p className="text-sm font-semibold text-on-surface">{item.enunciado}</p>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
-                              <button type="button" onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
-                              <button type="button" onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
-                              <button type="button" onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
+                              <button type="button" aria-label="Editar" onClick={() => openEditBanco(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={13} /></button>
+                              <button type="button" aria-label="Duplicar" onClick={() => handleDuplicateBancoItem(item)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={13} /></button>
+                              <button type="button" aria-label="Eliminar" onClick={() => handleDeleteBancoItem(item.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={13} /></button>
                             </div>
                           </div>
                           {item.opciones && Array.isArray(item.opciones) && (

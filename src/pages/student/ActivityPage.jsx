@@ -61,6 +61,7 @@ export default function StudentActivityPage() {
   const { activityId } = useParams()
   const { currentUser, userProfile } = useAuth()
   const [activity, setActivity] = useState(null)
+  const [activityLabel, setActivityLabel] = useState(null)
   const [subject, setSubject] = useState(null)
   const [student, setStudent] = useState(null)
   const [submission, setSubmission] = useState(null)
@@ -113,6 +114,26 @@ export default function StudentActivityPage() {
       }
       setActivity(actData)
       setSubject(subData)
+
+      // Número de actividad (1.1., 1.2., …): igual que en la lista y en la vista
+      // del docente — posición entre las hermanas NO borrador del mismo parcial,
+      // ordenadas por `orden`.
+      try {
+        const sibSnap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', actData.asignaturaId)))
+        const isDraftAct = (a) => a.oculta && !a.publishedAt && !a.publishAt
+        const sibs = sibSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .filter((a) => !isDraftAct(a))
+          .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        const countByParcial = {}
+        let label = null
+        for (const a of sibs) {
+          countByParcial[a.parcial] = (countByParcial[a.parcial] || 0) + 1
+          if (a.id === actData.id) { label = `${a.parcial}.${countByParcial[a.parcial]}.`; break }
+        }
+        setActivityLabel(label)
+      } catch {
+        setActivityLabel(null)
+      }
 
       // Resolve this student's enrollment record for the activity's subject.
       const studData = await getEnrollmentForSubject(currentUser, userProfile, actData.asignaturaId)
@@ -332,11 +353,14 @@ export default function StudentActivityPage() {
       <StudentLayout>
         <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button type="button" onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" aria-label="Volver" onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="min-w-0">
-              <h1 className="text-lg font-bold text-on-surface truncate">{activity?.nombre}</h1>
+              <h1 className="text-lg font-bold text-on-surface truncate">
+            {activityLabel && <span className="text-accent">{activityLabel} </span>}
+            {activity?.nombre}
+          </h1>
               <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
             </div>
           </header>
@@ -477,13 +501,17 @@ export default function StudentActivityPage() {
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
           type="button"
+          aria-label="Volver"
           onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}
           className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >
           <ArrowLeft size={22} />
         </button>
         <div className="min-w-0">
-          <h1 className="text-lg font-bold text-on-surface truncate">{activity?.nombre}</h1>
+          <h1 className="text-lg font-bold text-on-surface truncate">
+            {activityLabel && <span className="text-accent">{activityLabel} </span>}
+            {activity?.nombre}
+          </h1>
           <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
         </div>
       </header>

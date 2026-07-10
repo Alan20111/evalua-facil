@@ -169,9 +169,13 @@ export default function ActivityPage() {
 
   // Coming from a grade-table cell: open that student's grading view once the
   // data is committed (openGrade reads `submissions`/`activity` from state).
+  // While pendingOpenId is set we keep showing the spinner (see the loading
+  // guard below) so the list never flashes before the grading view opens.
   useEffect(() => {
-    if (loading || !pendingOpenId || !students.length) return
+    if (loading || !pendingOpenId) return
     const st = students.find((s) => s.id === pendingOpenId)
+    // Clear it in the same commit that opens the grading view, so pendingOpenId
+    // turning false and `selected` turning true happen together (no list flash).
     setPendingOpenId(null)
     if (st) {
       setNavList(students)
@@ -614,7 +618,9 @@ export default function ActivityPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, navList, gradeForm, submissions, autoSaveOnNav])
 
-  if (loading) return (
+  // Keep the spinner while a grades-table cell is about to open a student, so the
+  // list never flashes before the grading view opens.
+  if (loading || pendingOpenId) return (
     <TeacherLayout>
       <div className="flex justify-center py-20"><Spinner size="lg" /></div>
     </TeacherLayout>
@@ -649,16 +655,28 @@ export default function ActivityPage() {
             <button
               type="button"
               onClick={() => navigate(`/subject/${activity?.asignaturaId}`, returnToGrades ? { state: { tab: 'calificaciones' } } : undefined)}
+              aria-label="Volver"
               className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
             >
               <ArrowLeft size={22} />
             </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 flex-wrap">
-                {activityLabel && <span className="text-accent">{activityLabel}</span>}
-                {activity?.nombre}
-                <span className="text-sm font-normal text-slate-400">(Calificar)</span>
-              </h1>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wide text-accent">Evaluar</p>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-on-surface truncate">
+                  {activityLabel && <span className="text-accent">{activityLabel} </span>}
+                  {activity?.nombre}
+                </h1>
+                <button
+                  type="button"
+                  onClick={() => setEditingActivity(true)}
+                  data-tooltip="Editar actividad"
+                  aria-label="Editar actividad"
+                  className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                >
+                  <Pencil size={18} />
+                </button>
+              </div>
               <p className="text-slate-400 text-xs">
                 {subjectDisplayName(subject)}
                 {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
@@ -777,6 +795,7 @@ export default function ActivityPage() {
             type="button"
             onClick={() => setSortAlpha((v) => !v)}
             data-tooltip="Ordenar por nombre"
+            aria-label="Ordenar por nombre"
             className={`p-2 rounded border transition-colors ${
               sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'
             }`}
@@ -805,7 +824,7 @@ export default function ActivityPage() {
                     }`}
                   >
                     <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
-                    <div className="flex-1 min-w-0" data-tooltip="Calificar">
+                    <div className="flex-1 min-w-0" data-tooltip="Evaluar" data-tooltip-pos="bottom">
                       <p className="text-sm font-medium text-on-surface truncate">
                         {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
                       </p>
@@ -852,6 +871,7 @@ export default function ActivityPage() {
             {/* Same header pattern as the activity page: activity title with its
                 accent number, then "Asignatura — Profesor · Parcial N" below */}
             <div className="flex-1 min-w-0 text-right sm:text-left">
+              <p className="text-xs font-bold uppercase tracking-wide text-accent">Evaluar</p>
               <h3 className="text-xl font-bold text-on-surface truncate">
                 {activityLabel && <span className="text-accent">{activityLabel} </span>}
                 {activity?.nombre}
@@ -1084,10 +1104,11 @@ export default function ActivityPage() {
                         </a>
                       )}
                       <div className={selFiles.length === 1 ? 'flex-shrink-0' : 'flex-1'}>
-                        <label className="block text-sm font-medium text-muted mb-1">
+                        <label htmlFor="act-calificacion" className="block text-sm font-medium text-muted mb-1">
                           Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                         </label>
                         <input
+                          id="act-calificacion"
                           type="number"
                           value={gradeForm.calificacion}
                           onChange={onCalifChange}
@@ -1120,6 +1141,7 @@ export default function ActivityPage() {
                             onClick={downloadStudentZip}
                             disabled={studentZipDownloading}
                             data-tooltip="Descargar todas en ZIP"
+                            aria-label="Descargar todas en ZIP"
                             className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0 disabled:opacity-50"
                           >
                             {studentZipDownloading ? <Spinner size="sm" /> : <Download size={15} />}
@@ -1147,6 +1169,7 @@ export default function ActivityPage() {
                               download={f.nombre}
                               rel="noopener noreferrer"
                               data-tooltip="Descargar esta imagen"
+                              aria-label="Descargar esta imagen"
                               className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0"
                             >
                               <Download size={15} />
@@ -1165,10 +1188,11 @@ export default function ActivityPage() {
                     )}
 
                     <div>
-                      <label className="block text-sm font-medium text-muted mb-1">
+                      <label htmlFor="act-comentario" className="block text-sm font-medium text-muted mb-1">
                         Comentario <span className="text-slate-400">(opcional)</span>
                       </label>
                       <textarea
+                        id="act-comentario"
                         value={gradeForm.comentario}
                         onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                         rows={3}
@@ -1301,8 +1325,9 @@ export default function ActivityPage() {
                         clearable={false}
                       />
                       <div>
-                        <label className="block text-sm font-medium text-muted mb-1">Motivo</label>
+                        <label htmlFor="act-extend-motivo" className="block text-sm font-medium text-muted mb-1">Motivo</label>
                         <textarea
+                          id="act-extend-motivo"
                           value={extendMotivo}
                           onChange={(e) => setExtendMotivo(e.target.value)}
                           rows={2}
@@ -1338,16 +1363,17 @@ export default function ActivityPage() {
                         onClick={() => setSinEntregaMode(true)}
                         className="block mx-auto text-sm text-slate-500 hover:text-accent transition-colors"
                       >
-                        Calificar sin entrega
+                        Evaluar sin entrega
                       </button>
                     ) : (
                       <div className="space-y-2 rounded border border-outline-variant bg-surface p-3">
-                        <p className="text-sm font-medium text-on-surface">Calificar sin entrega</p>
+                        <p className="text-sm font-medium text-on-surface">Evaluar sin entrega</p>
                         <div>
-                          <label className="block text-sm font-medium text-muted mb-1">
+                          <label htmlFor="act-sinentrega-calif" className="block text-sm font-medium text-muted mb-1">
                             Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                           </label>
                           <input
+                            id="act-sinentrega-calif"
                             type="number"
                             value={sinEntregaGrade}
                             onChange={(e) => setSinEntregaGrade(e.target.value)}
@@ -1359,8 +1385,9 @@ export default function ActivityPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-muted mb-1">Motivo</label>
+                          <label htmlFor="act-sinentrega-motivo" className="block text-sm font-medium text-muted mb-1">Motivo</label>
                           <textarea
+                            id="act-sinentrega-motivo"
                             value={sinEntregaMotivo}
                             onChange={(e) => setSinEntregaMotivo(e.target.value)}
                             rows={2}

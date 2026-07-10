@@ -79,6 +79,7 @@ export default function TeacherLayout({ children }) {
         <button
           type="button"
           onClick={handleLogout}
+          aria-label="Cerrar sesión"
           className="p-2 text-muted hover:text-error rounded transition-colors"
         >
           <LogOut size={20} />
@@ -92,7 +93,7 @@ export default function TeacherLayout({ children }) {
           {/* Logo — bloque blanco a todo el ancho arriba (de aquí para abajo es azul);
               línea azul (#0967F0) rodeando el logo, con poco espacio */}
           <div className="bg-white px-2 pt-2 pb-1.5">
-            <div className="rounded-lg border-2 border-[#0967F0] overflow-hidden">
+            <div className="rounded-lg border-2 border-[#0967F0] px-2 py-2">
               <EFLogo className="w-full h-auto" />
             </div>
           </div>

@@ -161,7 +161,10 @@ export default function StudentSubjectPage() {
           .filter((m) => isActivityPublished(m, parcialesOcultos.includes(m.parcial)))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       )
-      if (!studData) return
+      if (!studData) {
+        toast('No se encontró tu inscripción en esta asignatura', 'error')
+        return
+      }
 
       const subsSnap = await getDocs(
         query(collection(db, 'submissions'), where('alumnoId', '==', studData.id))
@@ -212,6 +215,7 @@ export default function StudentSubjectPage() {
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
           type="button"
+          aria-label="Volver"
           onClick={() => navigate('/alumno/dashboard')}
           className="md:hidden p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >

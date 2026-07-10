@@ -48,7 +48,7 @@ function FileRow({ f, onRemove, index }) {
           {f.tamano != null ? formatFileSize(f.tamano) : ''}
         </span>
         {f.url && canView && (
-          <button type="button" onClick={() => setOpen(true)}
+          <button type="button" onClick={() => setOpen(true)} aria-label="Vista previa"
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0" data-tooltip="Vista previa">
             <FileSearch size={15} />
           </button>
@@ -56,18 +56,19 @@ function FileRow({ f, onRemove, index }) {
         {f.url && openInTabUrl && (
           <a href={openInTabUrl} target="_blank" rel="noreferrer"
             data-tooltip={isImgPdf ? 'Abrir página 1 en pestaña nueva' : 'Abrir en Google Docs'}
+            aria-label={isImgPdf ? 'Abrir página 1 en pestaña nueva' : 'Abrir en Google Docs'}
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <ExternalLink size={15} />
           </a>
         )}
         {f.url && (
-          <a href={downloadHref} download={f.nombre} rel="noreferrer" data-tooltip="Descargar"
+          <a href={downloadHref} download={f.nombre} rel="noreferrer" data-tooltip="Descargar" aria-label="Descargar"
             className="p-1 text-slate-400 hover:text-accent rounded flex-shrink-0">
             <Download size={15} />
           </a>
         )}
         {onRemove && (
-          <button type="button" onClick={() => onRemove(index)} data-tooltip="Quitar"
+          <button type="button" onClick={() => onRemove(index)} data-tooltip="Quitar" aria-label="Quitar"
             className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
             <X size={15} />
           </button>
@@ -112,7 +113,7 @@ export function FilePreview({ url, nombre, fill = false }) {
       <iframe
         src={docsViewerUrl(viewUrl)}
         title={`Vista previa: ${nombre}`}
-        sandbox="allow-scripts allow-same-origin allow-popups"
+        sandbox="allow-same-origin allow-popups"
         className="w-full h-full"
         style={{ border: 'none' }}
       />
@@ -121,7 +122,7 @@ export function FilePreview({ url, nombre, fill = false }) {
     <iframe
       src={docsViewerUrl(viewUrl)}
       title={`Vista previa: ${nombre}`}
-      sandbox="allow-scripts allow-same-origin allow-popups"
+      sandbox="allow-same-origin allow-popups"
       className={`w-full ${fill ? 'h-full' : 'h-[70vh]'}`}
       style={{ border: 'none' }}
     />
@@ -178,15 +179,15 @@ export function FilePreviewModal({ url, nombre, onClose }) {
       <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">
           <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
-          <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva"
+          <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva" aria-label="Abrir en pestaña nueva"
             className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
             <ExternalLink size={18} />
           </a>
-          <a href={downloadHref} download={nombre} rel="noreferrer" data-tooltip="Descargar"
+          <a href={downloadHref} download={nombre} rel="noreferrer" data-tooltip="Descargar" aria-label="Descargar"
             className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
             <Download size={18} />
           </a>
-          <button type="button" onClick={onClose} data-tooltip="Cerrar"
+          <button type="button" onClick={onClose} data-tooltip="Cerrar" aria-label="Cerrar"
             className="p-2 text-slate-400 hover:text-on-surface hover:bg-surface rounded transition-colors flex-shrink-0">
             <X size={18} />
           </button>
