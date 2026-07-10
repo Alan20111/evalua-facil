@@ -1213,14 +1213,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 </h1>
               </div>
             </div>
-            <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
-              {REVIEW_TABS.map(([k, lbl]) => (
-                <button type="button" key={k} onClick={() => changeReviewFilter(k)}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${reviewFilter === k ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
-                  {lbl} ({k === 'todos' ? reviewCounts.todos : reviewCounts[k]})
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Body: answer sheet (main) + actions sidebar (right) */}
@@ -1239,6 +1231,20 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </main>
 
             <aside className="w-full md:w-72 flex-shrink-0 border-t md:border-t-0 md:border-l border-outline-variant bg-surface-card overflow-y-auto p-4 space-y-3">
+              {/* Filter tabs — same 2×2 grid + styling as the entregable grading panel */}
+              <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1.5 rounded-card">
+                {REVIEW_TABS.map(([k, lbl]) => (
+                  <button type="button" key={k} onClick={() => changeReviewFilter(k)}
+                    className={`py-2 px-2 text-sm font-semibold rounded transition-colors ${
+                      reviewFilter === k
+                        ? 'bg-accent text-white shadow-card'
+                        : 'bg-surface-card text-muted hover:text-accent hover:bg-[var(--accent-tint)]'
+                    }`}>
+                    {lbl} ({k === 'todos' ? reviewCounts.todos : reviewCounts[k]})
+                  </button>
+                ))}
+              </div>
+
               <div>
                 <p className="font-semibold text-on-surface leading-tight">{nombre}</p>
                 {done && (
