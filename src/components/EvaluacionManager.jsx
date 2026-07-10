@@ -1247,11 +1247,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
               <div>
                 <p className="font-semibold text-on-surface leading-tight">{nombre}</p>
-                {done && (
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · Enviado {fmtHora(sub.fechaEntrega)} · Intento {sub.intentoActual || 1}
-                  </p>
-                )}
+                {/* Reserve the line even when not done so Anterior/Siguiente never move */}
+                <p className={`text-xs text-slate-400 mt-0.5 min-h-4 ${done ? '' : 'invisible'}`}>
+                  {done
+                    ? `${fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · Enviado ${fmtHora(sub.fechaEntrega)} · Intento ${sub.intentoActual || 1}`
+                    : ' '}
+                </p>
               </div>
 
               {/* Anterior / Siguiente */}
