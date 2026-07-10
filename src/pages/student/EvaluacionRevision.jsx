@@ -5,10 +5,11 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ArrowLeft, CheckCircle2, XCircle, MessageSquare } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
+import EvaluacionAnswerList from '../../components/EvaluacionAnswerList'
 
 // Read-only post-evaluación review: shows the student's own answers, whether
 // each was correct (if the teacher enabled mostrarRespuestasCorrectas), and
@@ -86,59 +87,13 @@ export default function EvaluacionRevision() {
           </div>
         </header>
 
-        <div className="px-4 py-5 max-w-xl mx-auto space-y-3">
-          {preguntas.map((p, i) => {
-            const respuesta = respuestas[p.id] || {}
-            const esObjetiva = p.tipo !== 'respuesta_corta'
-            const correcta = esObjetiva && respuesta.opcionSeleccionada === p.respuestaCorrecta
-            return (
-              <div key={p.id} className="bg-surface-card rounded-card p-4 shadow-card">
-                <p className="text-sm font-medium text-on-surface mb-2">{i + 1}. {p.enunciado}</p>
-                {p.imagenUrl && <img src={p.imagenUrl} alt="" className="max-h-48 rounded border border-outline-variant mb-2" />}
-
-                {esObjetiva ? (
-                  <div className="space-y-1.5">
-                    {p.opciones.map((o) => {
-                      const esSeleccion = respuesta.opcionSeleccionada === o.id
-                      const esCorrecta = ev.mostrarRespuestasCorrectas && o.id === p.respuestaCorrecta
-                      return (
-                        <div key={o.id}
-                          className={`flex items-center gap-2 px-3 py-2 rounded border text-sm ${
-                            esCorrecta ? 'border-emerald-300 bg-emerald-50 text-emerald-700' :
-                            esSeleccion ? 'border-accent bg-accent-light' : 'border-outline-variant'
-                          }`}>
-                          {esSeleccion && (correcta ? <CheckCircle2 size={15} className="text-emerald-600 flex-shrink-0" /> : <XCircle size={15} className="text-error flex-shrink-0" />)}
-                          <span>{o.texto}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <p className="text-sm text-muted bg-surface rounded p-2 whitespace-pre-wrap">{respuesta.textoRespuesta || '(sin respuesta)'}</p>
-                    {respuesta.puntosObtenidos != null ? (
-                      <p className="text-xs text-muted">Puntos: {respuesta.puntosObtenidos}/{p.ponderacion}</p>
-                    ) : (
-                      <p className="text-xs text-amber-600">Pendiente de revisión</p>
-                    )}
-                  </div>
-                )}
-
-                {ev.mostrarRetroalimentacion && p.retroalimentacion && (
-                  <div className="mt-2 bg-surface rounded p-2.5 flex gap-2">
-                    <MessageSquare size={15} className="text-slate-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-muted">{p.retroalimentacion}</p>
-                  </div>
-                )}
-                {respuesta.comentarioDocente && (
-                  <div className="mt-2 bg-surface rounded p-2.5 flex gap-2">
-                    <MessageSquare size={15} className="text-slate-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-muted italic">"{respuesta.comentarioDocente}"</p>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+        <div className="px-4 py-5 max-w-xl mx-auto">
+          <EvaluacionAnswerList
+            preguntas={preguntas}
+            respuestas={respuestas}
+            mostrarCorrectas={!!ev.mostrarRespuestasCorrectas}
+            mostrarRetro={!!ev.mostrarRetroalimentacion}
+          />
         </div>
       </div>
     </StudentLayout>

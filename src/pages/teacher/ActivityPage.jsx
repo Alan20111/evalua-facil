@@ -642,6 +642,11 @@ export default function ActivityPage() {
           students={students}
           submissions={submissions}
           onActivityChange={setActivity}
+          onSubmissionRemoved={(studentId) => setSubmissions((prev) => {
+            const next = { ...prev }
+            delete next[studentId]
+            return next
+          })}
           resultadosOnly
           backState={returnToGrades ? { tab: 'calificaciones' } : null}
           openStudentId={location.state?.openStudentId || null}

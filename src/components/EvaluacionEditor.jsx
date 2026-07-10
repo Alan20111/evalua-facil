@@ -308,6 +308,11 @@ export default function EvaluacionEditor({
     if (form.tipo === 'opcion_multiple' && OPCION_IDS.some((id) => !form.opciones[id].trim())) {
       toast('Completa las 4 opciones', 'error'); return false
     }
+    // Tema is required whenever the reactivo is saved to the bank — the bank is
+    // organized by tema, so an untagged entry is unusable. Global rule, not per subject.
+    if (form.guardarEnBanco && !form.tema.trim()) {
+      toast('Escribe el tema para guardar el reactivo en tu banco', 'error'); return false
+    }
     return true
   }
 
@@ -952,7 +957,7 @@ export default function EvaluacionEditor({
                     </label>
                     {preguntaForm.guardarEnBanco && (
                       <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
-                        placeholder="Tema (opcional, ej. Fracciones)"
+                        required placeholder="Tema (obligatorio, ej. Fracciones)"
                         className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                     )}
                     <div className="flex gap-2 pt-1">

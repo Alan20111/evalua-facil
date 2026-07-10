@@ -16,6 +16,7 @@ import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
 } from '../utils/evaluacionGrading'
 import { ArrowLeft, Plus, Trash2, Library, Star, Users, Search, Pencil, Copy, X, Image as ImageIcon, ChevronUp, ChevronDown, Clock } from 'lucide-react'
+import EvaluacionAnswerList from './EvaluacionAnswerList'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -58,10 +59,18 @@ function fmtDuracion(inicio, fin) {
 // when the teacher arrived from a grades-table cell, so going back lands there.
 // `openStudentId` (optional): scroll to and highlight that student's result row
 // (set when the teacher clicked that student's cell in the grades table).
-export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, resultadosOnly = false, backState = null, openStudentId = null }) {
+export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, resultadosOnly = false, backState = null, openStudentId = null }) {
   const navigate = useNavigate()
   const toast = useToast()
+  // resultadosOnly hides the editing tabs (arrived from the grades table). "Editar
+  // actividad" flips this on so the same Preguntas/Configuración tabs become available
+  // in place — no separate route or component.
+  const [showEditor, setShowEditor] = useState(false)
+  const editingTabsVisible = !resultadosOnly || showEditor
   const [tab, setTab] = useState(resultadosOnly ? 'resultados' : 'preguntas')
+  // Cancel a student's submission (delete the intento + its answers)
+  const [cancelConfirm, setCancelConfirm] = useState(null) // { student, sub } | null
+  const [cancelling, setCancelling] = useState(false)
   const [preguntas, setPreguntas] = useState([])
   const [loadingPreguntas, setLoadingPreguntas] = useState(true)
   const [showPreguntaForm, setShowPreguntaForm] = useState(false)
@@ -167,6 +176,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     if (!form.enunciado.trim()) { toast('Escribe el enunciado de la pregunta', 'error'); return false }
     if (form.tipo === 'opcion_multiple' && OPCION_IDS.some((id) => !form.opciones[id].trim())) {
       toast('Completa las 4 opciones', 'error'); return false
+    }
+    // Tema is required whenever the reactivo is saved to the bank — the bank is
+    // organized by tema, so an untagged entry is unusable. Global rule, not per subject.
+    if (form.guardarEnBanco && !form.tema.trim()) {
+      toast('Escribe el tema para guardar el reactivo en tu banco', 'error'); return false
     }
     return true
   }
@@ -525,6 +539,29 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     }
   }
 
+  // Cancel a student's submission: same idea as annulling an entregable — remove
+  // the intento (and its answers subcollection) so the student is back to no delivery
+  // and can present again. Only this student is affected. Parent updates its map via
+  // onSubmissionRemoved so Resultados refreshes immediately.
+  async function handleCancelSubmission() {
+    if (!cancelConfirm) return
+    setCancelling(true)
+    try {
+      const sub = cancelConfirm.sub
+      const respSnap = await getDocs(collection(db, 'submissions', sub.id, 'respuestas'))
+      await Promise.all(respSnap.docs.map((d) => deleteDoc(doc(db, 'submissions', sub.id, 'respuestas', d.id))))
+      await deleteDoc(doc(db, 'submissions', sub.id))
+      onSubmissionRemoved?.(cancelConfirm.student.id)
+      if (reviewing?.student?.id === cancelConfirm.student.id) setReviewing(null)
+      setCancelConfirm(null)
+      toast('Entrega cancelada — el estudiante puede volver a presentar')
+    } catch (err) {
+      toast('Error al cancelar: ' + err.message, 'error')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   const calificaciones = Object.values(submissions)
     .filter((s) => s.estadoEvaluacion === 'finalizado' && s.calificacion != null)
     .map((s) => s.calificacion)
@@ -545,8 +582,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </h1>
             <p className="text-slate-400 text-xs">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
           </div>
+          {/* Editar actividad — surfaces the editing tabs when we arrived results-only */}
+          {resultadosOnly && !showEditor && (
+            <button type="button" onClick={() => { setShowEditor(true); setTab('preguntas'); loadBanco() }}
+              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] transition-colors">
+              <Pencil size={15} /> Editar actividad
+            </button>
+          )}
         </div>
-        {!resultadosOnly && (
+        {editingTabsVisible && (
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
             {TABS.map((t) => (
               <button type="button" key={t.key} onClick={() => { setTab(t.key); if (t.key === 'preguntas') loadBanco() }}
@@ -750,7 +794,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 </label>
                 {preguntaForm.guardarEnBanco && (
                   <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
-                    placeholder="Tema (opcional, ej. Fracciones)"
+                    required placeholder="Tema (obligatorio, ej. Fracciones)"
                     className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
                 )}
                 <div className="flex gap-2 pt-1">
@@ -1051,9 +1095,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 visibles.map((s, i) => {
                   const sub = submissions[s.id]
                   const estado = estadoEstudiante(sub)
+                  // A finished attempt (Finalizado/Calificado) can be opened for the full
+                  // specialized review; en-proceso/pendiente have nothing to show yet.
+                  const revisable = sub?.estadoEvaluacion === 'finalizado'
                   return (
                     <div key={s.id} id={`resultado-${s.id}`}
-                      className={`px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''} ${s.id === highlightId ? 'bg-[var(--accent-tint)] ring-2 ring-inset ring-[var(--accent)] rounded' : ''}`}>
+                      onClick={revisable ? () => handleOpenRevision(s, sub) : undefined}
+                      className={`px-3 py-2 ${i > 0 ? 'border-t border-outline-variant' : ''} ${revisable ? 'cursor-pointer hover:bg-[var(--accent-tint)]' : ''} ${s.id === highlightId ? 'bg-[var(--accent-tint)] ring-2 ring-inset ring-[var(--accent)] rounded' : ''}`}>
                       <div className="flex items-center gap-2">
                         <p className="flex-1 text-sm text-on-surface truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
@@ -1070,10 +1118,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           {fmtHora(sub.tiempoInicio)} → {fmtHora(sub.fechaEntrega)} · {fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · intento {sub.intentoActual || 1}
                         </p>
                       )}
-                      {estado === 'Finalizado' && (
-                        <button type="button" onClick={() => handleOpenRevision(s, sub)} className="mt-1 text-xs font-medium text-accent hover:underline">
-                          Revisar respuestas abiertas
-                        </button>
+                      {revisable && (
+                        <div className="flex items-center gap-3 mt-1">
+                          <button type="button" onClick={(e) => { e.stopPropagation(); handleOpenRevision(s, sub) }} className="text-xs font-medium text-accent hover:underline">
+                            {estado === 'Finalizado' ? 'Revisar respuestas' : 'Ver respuestas'}
+                          </button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setCancelConfirm({ student: s, sub }) }} className="text-xs font-medium text-slate-500 hover:text-red-600">
+                            Cancelar entrega
+                          </button>
+                        </div>
                       )}
                     </div>
                   )
@@ -1086,43 +1139,90 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         )}
       </div>
 
+      {/* Specialized evaluación review — full answer sheet (all questions, student's
+          answer, correct answer, ✓/✗, feedback) plus inline grading of open questions.
+          Never reuses the entregable grading view. */}
       {reviewing && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setReviewing(null)} />
-          <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-base font-semibold">
-                Revisar — {reviewing.student.apellidoPaterno} {reviewing.student.nombre}
-              </h3>
-              <button type="button" aria-label="Cerrar" onClick={() => setReviewing(null)} className="p-1 text-slate-400 rounded"><X size={18} /></button>
+          <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card shadow-2xl max-h-[88vh] flex flex-col">
+            {/* Header: student + score + time + submit date + attempt */}
+            <div className="flex items-start justify-between gap-2 p-4 border-b border-outline-variant flex-shrink-0">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold text-on-surface truncate">
+                  {reviewing.student.apellidoPaterno} {reviewing.student.apellidoMaterno} {reviewing.student.nombre}
+                </h3>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-muted">
+                  <span className="font-semibold text-on-surface">Calificación: {reviewing.submission.calificacion ?? '—'}/{activity.maxCalif || 10}</span>
+                  {reviewing.submission.tiempoInicio && reviewing.submission.fechaEntrega && (
+                    <span className="inline-flex items-center gap-1"><Clock size={12} /> {fmtDuracion(reviewing.submission.tiempoInicio, reviewing.submission.fechaEntrega)}</span>
+                  )}
+                  <span>Enviado: {fmtHora(reviewing.submission.fechaEntrega)}</span>
+                  <span>Intento {reviewing.submission.intentoActual || 1}</span>
+                </div>
+              </div>
+              <button type="button" aria-label="Cerrar" onClick={() => setReviewing(null)} className="p-1 text-slate-400 rounded flex-shrink-0"><X size={18} /></button>
             </div>
-            {reviewing.items.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-6">Esta evaluación no tiene preguntas de respuesta corta.</p>
-            ) : (
-              <div className="space-y-3">
-                {reviewing.items.map(({ pregunta, respuesta }) => (
-                  <div key={pregunta.id} className="rounded border border-outline-variant p-3">
-                    <p className="text-sm font-medium text-on-surface mb-1">{pregunta.enunciado}</p>
-                    <p className="text-sm text-muted bg-surface rounded p-2 mb-2 whitespace-pre-wrap">{respuesta.textoRespuesta || '(sin respuesta)'}</p>
-                    <div className="flex items-center gap-2 mb-1">
-                      <label htmlFor={`rev-puntos-${pregunta.id}`} className="text-xs text-muted flex-shrink-0">Puntos (máx {pregunta.ponderacion})</label>
-                      <input id={`rev-puntos-${pregunta.id}`} type="number" min="0" max={pregunta.ponderacion} step="0.1"
-                        value={reviewForm[pregunta.id]?.puntos ?? ''}
-                        onChange={(e) => setReviewForm((f) => ({ ...f, [pregunta.id]: { ...f[pregunta.id], puntos: e.target.value } }))}
+
+            {/* Answer sheet */}
+            <div className="overflow-y-auto p-4">
+              <EvaluacionAnswerList
+                preguntas={preguntas}
+                respuestas={reviewing.allRespuestas}
+                mostrarCorrectas
+                mostrarRetro
+                renderGrading={(p) => (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <label htmlFor={`rev-puntos-${p.id}`} className="text-xs text-muted flex-shrink-0">Puntos (máx {p.ponderacion})</label>
+                      <input id={`rev-puntos-${p.id}`} type="number" min="0" max={p.ponderacion} step="0.1"
+                        value={reviewForm[p.id]?.puntos ?? ''}
+                        onChange={(e) => setReviewForm((f) => ({ ...f, [p.id]: { ...f[p.id], puntos: e.target.value } }))}
                         className="w-20 px-2 py-1 rounded border border-outline-variant text-sm bg-surface" />
                     </div>
-                    <textarea value={reviewForm[pregunta.id]?.comentario ?? ''}
-                      onChange={(e) => setReviewForm((f) => ({ ...f, [pregunta.id]: { ...f[pregunta.id], comentario: e.target.value } }))}
+                    <textarea value={reviewForm[p.id]?.comentario ?? ''}
+                      onChange={(e) => setReviewForm((f) => ({ ...f, [p.id]: { ...f[p.id], comentario: e.target.value } }))}
                       placeholder="Comentario opcional" rows={2}
                       className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                   </div>
-                ))}
+                )}
+              />
+            </div>
+
+            {/* Footer actions */}
+            <div className="flex-shrink-0 border-t border-outline-variant p-3 space-y-2">
+              {reviewing.items.length > 0 && (
                 <button type="button" onClick={handleSaveRevision} disabled={savingReview}
                   className="w-full py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                   {savingReview ? 'Guardando…' : 'Guardar revisión'}
                 </button>
-              </div>
-            )}
+              )}
+              <button type="button" onClick={() => setCancelConfirm({ student: reviewing.student, sub: reviewing.submission })}
+                className="w-full py-2 text-sm text-slate-500 hover:text-red-600 transition-colors">
+                Cancelar entrega de este estudiante
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel-submission confirmation (points 3) */}
+      {cancelConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !cancelling && setCancelConfirm(null)} />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+            <h3 className="text-base font-semibold text-on-surface">¿Cancelar la entrega?</h3>
+            <p className="text-sm text-muted mt-2">
+              Se eliminará la entrega de <strong>{cancelConfirm.student.apellidoPaterno} {cancelConfirm.student.nombre}</strong> y sus respuestas.
+              Volverá a quedar sin entrega y podrá presentar de nuevo.
+            </p>
+            <div className="flex gap-2 mt-4">
+              <button type="button" onClick={() => setCancelConfirm(null)} disabled={cancelling}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">No, conservar</button>
+              <button type="button" onClick={handleCancelSubmission} disabled={cancelling}
+                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors">
+                {cancelling ? 'Cancelando…' : 'Sí, cancelar entrega'}</button>
+            </div>
           </div>
         </div>
       )}

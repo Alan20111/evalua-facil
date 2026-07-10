@@ -107,6 +107,9 @@ export default function StudentSubjectPage() {
 
   async function loadAll() {
     setLoading(true)
+    // Default view for every subject: only the first parcial expanded. This same
+    // component is reused (not remounted) when switching subjects, so reset it here.
+    setOpenParcial(1)
     try {
       const [subSnap, studData, actsSnap, resSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),

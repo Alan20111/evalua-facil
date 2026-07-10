@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
@@ -274,7 +274,17 @@ export default function SubjectPage() {
   const [gradeSubMap, setGradeSubMap] = useState({})
   const [gradesLoaded, setGradesLoaded] = useState(false)
   const [loadingGrades, setLoadingGrades] = useState(false)
-  const [searchGrade, setSearchGrade] = useState('')
+  // Calificaciones view state persists across the round-trip to a student's
+  // activity/review (which fully navigates away and remounts this page). Saved
+  // to sessionStorage on navigate-away, restored here so search + scroll survive.
+  const califStateKey = `ef-calif-state-${subjectId}`
+  const [searchGrade, setSearchGrade] = useState(() => {
+    // Only rehydrate when we actually returned from a student's activity/review
+    // (backState carries tab: 'calificaciones'); a fresh visit starts clean.
+    if (routerLocation.state?.tab !== 'calificaciones') return ''
+    try { return JSON.parse(sessionStorage.getItem(`ef-calif-state-${subjectId}`) || '{}').search || '' } catch { return '' }
+  })
+  const califScrollRestored = useRef(false)
   // Column/row hover tracking for the grades table cross-highlight — set via
   // event delegation on the table (see handleGradeTableHover below) instead
   // of one handler per cell.
@@ -283,11 +293,36 @@ export default function SubjectPage() {
   const navigate = useNavigate()
   const toast = useToast()
 
+  // Snapshot the calificaciones search + scroll right before leaving to a student's
+  // activity, so returning (backState { tab: 'calificaciones' }) restores them.
+  function saveCalifState() {
+    try { sessionStorage.setItem(califStateKey, JSON.stringify({ search: searchGrade, scrollY: window.scrollY })) } catch { /* ignore quota */ }
+  }
+  function goToActivityFromGrades(path, state) {
+    saveCalifState()
+    navigate(path, state)
+  }
+
   // Guard on currentUser + depend on it: on a cold load the Firestore reads in loadAll()
   // (activities, students, submissions, materials) must not fire before Firebase Auth
   // restores the session, or the rules reject them and the effect never retries — the same
   // auth race that hid activities from students. Re-runs once currentUser is ready.
   useEffect(() => { if (currentUser) loadAll() }, [subjectId, currentUser])
+
+  // Restore the calificaciones scroll position once, after the grades table has
+  // rendered on return from a student's activity. Search is restored via initial state.
+  useEffect(() => {
+    if (califScrollRestored.current) return
+    if (routerLocation.state?.tab !== 'calificaciones') return
+    if (activeTab !== 'calificaciones' || !gradesLoaded) return
+    califScrollRestored.current = true
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(califStateKey) || '{}')
+      if (saved.scrollY != null) requestAnimationFrame(() => window.scrollTo(0, saved.scrollY))
+      // Consume it so a later plain visit to this subject doesn't jump unexpectedly.
+      sessionStorage.removeItem(califStateKey)
+    } catch { /* ignore */ }
+  }, [activeTab, gradesLoaded, califStateKey, routerLocation.state])
 
   async function loadAll() {
     setLoading(true)
@@ -301,6 +336,10 @@ export default function SubjectPage() {
     setGradesLoaded(false)
     setResources([])
     setResourcesLoaded(false)
+    // Default view for every subject: only the first parcial expanded. This same
+    // component is reused (not remounted) when switching subjects, so reset it here
+    // — otherwise the previously-open parcial would carry over to the new subject.
+    setOpenParcial(1)
     try {
       // `materials` is fetched separately (not inside this Promise.all): if its
       // Firestore rules aren't deployed yet, getDocs() rejects with
@@ -2614,7 +2653,7 @@ export default function SubjectPage() {
                             <th
                               key={a.id}
                               data-col={colIndexByKey[`act-${a.id}`]}
-                              onClick={() => navigate(`/activity/${a.id}`, { state: { returnTo: 'calificaciones' } })}
+                              onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { returnTo: 'calificaciones' } })}
                               onMouseEnter={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActTip({ text: a.nombre, x: r.left + r.width / 2, y: r.top }) }}
                               onMouseLeave={() => setActTip(null)}
                               className={`w-9 px-0.5 py-1.5 font-semibold text-on-surface text-center border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
@@ -2656,7 +2695,7 @@ export default function SubjectPage() {
                                 key={a.id}
                                 data-col={colIndexByKey[`act-${a.id}`]}
                                 data-tooltip={gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó)' : 'Ver entrega'}
-                                onClick={() => navigate(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
+                                onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
                                 className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] === null ? 'text-slate-300' : 'text-on-surface'} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
                               >
                                 {grades[ai] !== null ? grades[ai] : '—'}
