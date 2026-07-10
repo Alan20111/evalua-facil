@@ -1286,7 +1286,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               ) : (
                 <div className="space-y-2 pt-1 border-t border-outline-variant">
                   <p className="text-sm font-medium text-on-surface flex items-center gap-1.5"><CalendarDays size={15} className="text-accent" /> Nueva fecha y hora</p>
-                  <EFDateTimePicker mode="datetime" value={extendDate} onChange={setExtendDate} clearable={false} defaultTime="23:59" />
+                  <EFDateTimePicker mode="datetime" value={extendDate} onChange={setExtendDate} clearable={false} defaultTime="23:59" minDateTime={toIsoNow()} />
                   <textarea value={extendMotivo} onChange={(e) => setExtendMotivo(e.target.value)} rows={2}
                     placeholder="Motivo (opcional)…"
                     className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none" />

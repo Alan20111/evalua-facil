@@ -12,6 +12,7 @@ import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustom
 import { ArrowLeft, Plus, Pencil, CalendarDays } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline } from '../utils/activityVisibility'
+import { minDeadline } from '../utils/nowIso'
 
 const MAX_ATTACH = 15 * 1024 * 1024
 
@@ -311,10 +312,9 @@ export default function EntregableEditor({
                         // 9.2: open on publish date when no fechaLimite yet; fall back to today
                         (form.publishAt || form.publishedAt || '').split('T')[0] || undefined
                       }
-                      minDateTime={
-                        form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
-                        (form.publishedAt || undefined)
-                      }
+                      minDateTime={minDeadline(
+                        form.visibilidadMode === 'schedule' ? form.publishAt : form.publishedAt
+                      )}
                     />
                   )}
                 </div>

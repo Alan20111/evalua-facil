@@ -14,6 +14,7 @@ import {
   Search, Image as ImageIcon, X,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
+import { minDeadline } from '../utils/nowIso'
 
 function toIsoNow() {
   const d = new Date()
@@ -627,10 +628,9 @@ export default function EvaluacionEditor({
                       defaultDate={
                         (infoForm.publishAt || infoForm.publishedAt || '').split('T')[0] || undefined
                       }
-                      minDateTime={
-                        infoForm.visibilidadMode === 'schedule' ? (infoForm.publishAt || undefined) :
-                        (infoForm.publishedAt || undefined)
-                      }
+                      minDateTime={minDeadline(
+                        infoForm.visibilidadMode === 'schedule' ? infoForm.publishAt : infoForm.publishedAt
+                      )}
                     />
                   )}
                 </div>

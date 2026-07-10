@@ -31,6 +31,7 @@ import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
+import { nowIsoLocal } from '../../utils/nowIso'
 import { formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import AttachmentList from '../../components/AttachmentList'
@@ -1318,6 +1319,7 @@ export default function ActivityPage() {
                         value={extendDate}
                         onChange={setExtendDate}
                         clearable={false}
+                        minDateTime={nowIsoLocal()}
                       />
                       <div>
                         <label htmlFor="act-extend-motivo" className="block text-sm font-medium text-muted mb-1">Motivo</label>

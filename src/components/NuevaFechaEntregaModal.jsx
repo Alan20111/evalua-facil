@@ -5,6 +5,7 @@ import { useToast } from './Toast'
 import { Search } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import { matchesStudentSearch } from '../utils/studentSearch'
+import { nowIsoLocal } from '../utils/nowIso'
 
 // Shared by ActivityPage (grading view) and SubjectPage (activity editor):
 // extends a group's deadline, or gives specific students their own extension.
@@ -29,6 +30,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
 
   async function save() {
     if (!date) { toast('Elige la nueva fecha y hora', 'error'); return }
+    if (date <= nowIsoLocal()) { toast('La fecha límite no puede ser en el pasado', 'error'); return }
     if (mode === 'algunos' && selected.size === 0) {
       toast('Selecciona al menos un estudiante', 'error'); return
     }
@@ -76,7 +78,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
 
         <div className="mt-3 overflow-auto">
           <label className="block text-sm font-medium text-muted mb-1">Nueva fecha y hora límite</label>
-          <EFDateTimePicker mode="datetime" value={date} onChange={setDate} clearable={false} />
+          <EFDateTimePicker mode="datetime" value={date} onChange={setDate} clearable={false} minDateTime={nowIsoLocal()} />
 
           {mode === 'todos' && (
             <p className="text-xs text-slate-400 mt-2">

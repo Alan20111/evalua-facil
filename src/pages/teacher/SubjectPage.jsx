@@ -26,6 +26,7 @@ import FileTypeSelect from '../../components/FileTypeSelect'
 import RichTextEditor from '../../components/RichTextEditor'
 import VisibilitySelect from '../../components/VisibilitySelect'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
+import { minDeadline } from '../../utils/nowIso'
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
@@ -3065,10 +3066,9 @@ export default function SubjectPage() {
                         onChange={v => setForm(f => ({ ...f, fechaLimite: v }))}
                         placeholder="Sin fecha límite…"
                         clearable
-                        minDateTime={
-                          form.visibilidadMode === 'schedule' ? (form.publishAt || undefined) :
-                          (form.publishedAt || undefined)
-                        }
+                        minDateTime={minDeadline(
+                          form.visibilidadMode === 'schedule' ? form.publishAt : form.publishedAt
+                        )}
                       />
                       {form.fechaLimite ? (
                         <label className="flex items-start gap-2 mt-2 cursor-pointer select-none">
