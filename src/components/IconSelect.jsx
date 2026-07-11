@@ -55,13 +55,18 @@ export default function IconSelect({ value = 'book', onChange }) {
           </button>
         )
       })}
-      {/* Custom icon upload — always the last cell */}
+      {/* Custom icon upload — always the last cell. Colored differently from
+          the bank icons so it reads as an action, not one more icon. Tooltip
+          goes to the LEFT: this cell sits at the grid's bottom-right corner
+          inside an overflow-hidden modal, so the default centered tooltip
+          would be clipped (and widen the scroll area). */}
       <button
         type="button"
         onClick={() => !uploading && fileRef.current?.click()}
         data-tooltip="Ícono propio · sube una imagen cuadrada de 64×64 px (PNG, JPG, WebP o SVG, máx. 1 MB)"
+        data-tooltip-pos="left"
         aria-label="Subir ícono propio"
-        className={`aspect-square rounded flex items-center justify-center transition-colors ${isCustom ? 'ring-2 ring-accent bg-[var(--accent-tint)]' : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'}`}
+        className={`aspect-square rounded flex items-center justify-center transition-colors border-2 border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
       >
         {uploading
           ? <Loader2 size={19} className="animate-spin" />

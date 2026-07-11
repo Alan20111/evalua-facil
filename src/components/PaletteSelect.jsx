@@ -23,7 +23,9 @@ export default function PaletteSelect({ value = 'default', onChange }) {
   const customColor = custom ? customPaletteHex(value) : null
 
   return (
-    <div className="flex flex-wrap gap-2.5">
+    // Sized so the 7 presets + free pick always fit on ONE row, even on a
+    // mobile-width modal (8×32px + 7×8px gap = 312px).
+    <div className="flex flex-nowrap gap-2">
       {PALETTES.map((p) => {
         const selected = !custom && (value || 'default') === p.key
         return (
@@ -33,25 +35,29 @@ export default function PaletteSelect({ value = 'default', onChange }) {
             onClick={() => onChange(p.key)}
             data-tooltip={p.label}
             aria-label={p.label}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
+            className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
             style={{ backgroundColor: p.color }}
           >
-            {selected && <Check size={18} className="text-white" />}
+            {selected && <Check size={16} className="text-white" />}
           </button>
         )
       })}
-      {/* Free pick — always last. Shows a color wheel until the user picks. */}
+      {/* Free pick — always last. Shows a color wheel until the user picks.
+          Tooltip goes to the LEFT: this swatch sits at the row's right edge
+          inside an overflow-hidden modal, so the default centered tooltip
+          would be clipped (and widen the scroll area). */}
       <button
         type="button"
         onClick={() => colorInputRef.current?.click()}
         data-tooltip="Elige tu propio color (se ajusta solo para notarse sobre blanco)"
+        data-tooltip-pos="left"
         aria-label="Color personalizado"
-        className={`w-9 h-9 rounded-full flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
+        className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
         style={custom
           ? { backgroundColor: customColor }
           : { background: 'conic-gradient(#ef4444, #f97316, #eab308, #16a34a, #06b6d4, #2563eb, #9333ea, #ef4444)' }}
       >
-        {custom ? <Check size={18} className="text-white" /> : <Pipette size={15} className="text-white drop-shadow" />}
+        {custom ? <Check size={16} className="text-white" /> : <Pipette size={14} className="text-white drop-shadow" />}
       </button>
       <input
         ref={colorInputRef}
