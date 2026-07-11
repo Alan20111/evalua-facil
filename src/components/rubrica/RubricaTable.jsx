@@ -10,9 +10,10 @@ export default function RubricaTable({ rubrica, seleccion = null, onSelect = nul
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm" style={{ minWidth: `${140 + niveles.length * 130}px` }}>
+      <table className="w-full border-collapse text-sm" style={{ minWidth: `${44 + 140 + niveles.length * 130}px` }}>
         <thead>
           <tr>
+            <th className="w-9 px-1 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted align-bottom">Num</th>
             <th className="text-left align-bottom px-3 py-2 text-xs font-semibold text-muted border border-outline-variant bg-surface-container w-36">
               Criterio
             </th>
@@ -27,7 +28,8 @@ export default function RubricaTable({ rubrica, seleccion = null, onSelect = nul
         <tbody>
           {criterios.map((c, ci) => (
             <tr key={ci}>
-              {/* Solo el nombre del criterio — sin números en esta columna */}
+              <td className="border border-outline-variant bg-surface-container text-center text-xs text-muted align-middle">{ci + 1}</td>
+              {/* Solo el nombre del criterio — sin puntos en esta columna */}
               <th scope="row" className="text-left align-top px-3 py-2 border border-outline-variant bg-surface-container">
                 <p className="text-sm font-semibold text-on-surface">{c.nombre}</p>
               </th>
@@ -35,10 +37,10 @@ export default function RubricaTable({ rubrica, seleccion = null, onSelect = nul
                 const sel = seleccion?.[ci] === ni
                 const inner = (
                   <>
-                    <p className={`text-xs leading-snug whitespace-pre-wrap ${sel ? 'text-on-surface' : 'text-muted'}`}>
+                    <p className={`text-sm leading-snug whitespace-pre-wrap ${sel ? 'text-on-surface' : 'text-muted'}`}>
                       {c.descriptores?.[ni] || <span className="italic text-slate-400">—</span>}
                     </p>
-                    <p className={`text-xs font-bold mt-1.5 ${sel ? '' : 'text-slate-400'}`} style={sel ? { color: 'var(--accent)' } : undefined}>
+                    <p className={`text-sm font-bold mt-1.5 ${sel ? '' : 'text-slate-400'}`} style={sel ? { color: 'var(--accent)' } : undefined}>
                       {c.puntos?.[ni]} pts
                     </p>
                   </>

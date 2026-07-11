@@ -470,10 +470,10 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                           </p>
                         ) : (
                           <div className="flex items-center justify-center gap-1 mt-1">
-                            <input type="number" value={nv.valor} min="0.5" max="9.9" step="0.1"
+                            <input type="number" value={nv.valor} min="0" max="9.9" step="0.1"
                               onChange={(e) => setNivelValor(j, e.target.value)}
                               aria-label={`Puntos del nivel ${nv.nombre || j + 1}`}
-                              data-tooltip="Menor que el nivel anterior, mayor que 0"
+                              data-tooltip="Menor que el nivel anterior — el nivel más bajo puede ser 0 (para quien no entrega nada)"
                               className="w-14 px-1 py-0.5 text-center text-xs font-bold text-on-surface border border-outline-variant rounded bg-surface focus:outline-none focus:ring-2 focus:ring-accent" />
                             <span className="text-[10px] font-normal text-muted">puntos</span>
                           </div>
@@ -501,8 +501,8 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                             onChange={(e) => setCriterioNombre(i, e.target.value)}
                             placeholder={`Criterio ${i + 1} — ej: Ortografía y redacción`}
                             aria-label={`Nombre del criterio ${i + 1}`}
-                            className={`w-full min-w-0 h-full text-sm font-semibold text-on-surface resize-none ${inputCell}`}
-                            style={{ minHeight: '96px' }} />
+                            className={`w-full min-w-0 h-full text-base font-semibold text-on-surface resize-none ${inputCell}`}
+                            style={{ minHeight: '110px' }} />
                           {/* Los primeros 2 criterios son el mínimo — no se pueden eliminar */}
                           {i >= MIN_CRITERIOS && (
                             <button type="button" onClick={() => removeCriterio(i)}
@@ -514,21 +514,25 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                         </div>
                       </td>
                       {niveles.map((nv, j) => (
-                        <td key={j} className="border border-outline-variant px-2 py-2 align-top">
-                          <textarea value={c.descriptores[j]}
-                            onChange={(e) => setDescriptor(i, j, e.target.value)}
-                            rows={3}
-                            placeholder={`¿Cómo se ve "${c.nombre || `el criterio ${i + 1}`}" en este nivel?`}
-                            aria-label={`Descriptor de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
-                            className={`w-full text-xs text-muted resize-none ${inputCell}`} />
-                          <div className="flex items-center justify-end gap-1 mt-1">
-                            <input type="number" value={c.puntos[j]} min="0" max={RUBRICA_TOTAL} step="0.1"
-                              onChange={(e) => (j === 0 ? setExc(i, e.target.value) : setPunto(i, j, e.target.value))}
-                              aria-label={`Puntos de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
-                              data-tooltip={j === 0 ? 'Lo que vale este criterio (recalcula el renglón)' : 'Editable — la columna debe sumar los puntos del nivel'}
-                              className="w-14 px-1 py-0.5 text-center text-xs font-bold border border-outline-variant rounded bg-surface focus:outline-none focus:ring-2 focus:ring-accent"
-                              style={j === 0 ? { color: 'var(--accent)' } : undefined} />
-                            <span className="text-[10px] text-slate-400">pts</span>
+                        /* height:1px + h-full: la caja de texto llena la celda y los
+                           puntos quedan hasta abajo, arribita de la raya */
+                        <td key={j} className="border border-outline-variant p-0 align-top" style={{ height: '1px' }}>
+                          <div className="h-full flex flex-col px-2 py-2">
+                            <textarea value={c.descriptores[j]}
+                              onChange={(e) => setDescriptor(i, j, e.target.value)}
+                              rows={4}
+                              placeholder={`¿Cómo se ve "${c.nombre || `el criterio ${i + 1}`}" en este nivel?`}
+                              aria-label={`Descriptor de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
+                              className={`w-full flex-1 text-sm text-muted resize-none ${inputCell}`} />
+                            <div className="flex items-center justify-end gap-1 mt-auto pt-1.5 flex-shrink-0">
+                              <input type="number" value={c.puntos[j]} min="0" max={RUBRICA_TOTAL} step="0.1"
+                                onChange={(e) => (j === 0 ? setExc(i, e.target.value) : setPunto(i, j, e.target.value))}
+                                aria-label={`Puntos de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
+                                data-tooltip={j === 0 ? 'Lo que vale este criterio (recalcula el renglón)' : 'Editable — la columna debe sumar los puntos del nivel'}
+                                className="w-14 px-1 py-0.5 text-center text-xs font-bold border border-outline-variant rounded bg-surface focus:outline-none focus:ring-2 focus:ring-accent"
+                                style={j === 0 ? { color: 'var(--accent)' } : undefined} />
+                              <span className="text-[10px] text-slate-400">pts</span>
+                            </div>
                           </div>
                         </td>
                       ))}
