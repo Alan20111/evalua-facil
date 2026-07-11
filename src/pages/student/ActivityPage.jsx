@@ -31,6 +31,8 @@ import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sani
 import AttachmentList from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
+import RubricaTable from '../../components/rubrica/RubricaTable'
+import { ClipboardList } from 'lucide-react'
 import { PlayCircle, ListChecks, Timer, RotateCcw } from 'lucide-react'
 
 async function uploadToCloudinary(file) {
@@ -612,6 +614,30 @@ export default function StudentActivityPage() {
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(activity.instrucciones)) }}
             />
             <AttachmentList files={activity?.archivosAdjuntos} />
+          </div>
+        )}
+
+        {/* Rúbrica de evaluación: visible desde antes de entregar (así el
+            estudiante sabe cómo será evaluado); ya calificado, las celdas que
+            el docente eligió aparecen resaltadas. */}
+        {activity?.rubrica?.criterios?.length > 0 && (
+          <div className="bg-surface-card rounded-card p-4 shadow-card">
+            <div className="flex items-center gap-2 mb-1">
+              <ClipboardList size={18} className="text-accent flex-shrink-0" />
+              <h2 className="font-semibold text-on-surface">Rúbrica de evaluación</h2>
+            </div>
+            <p className="text-xs text-muted mb-3">
+              {isGraded && submission?.rubricaEval?.some((v) => v != null)
+                ? 'Tu profesor evaluó tu trabajo con esta rúbrica — los niveles que obtuviste están resaltados.'
+                : 'Tu trabajo será evaluado con esta rúbrica. La calificación total es sobre 10 puntos.'}
+            </p>
+            {activity.rubrica.descripcion && (
+              <p className="text-sm text-muted mb-3">{activity.rubrica.descripcion}</p>
+            )}
+            <RubricaTable
+              rubrica={activity.rubrica}
+              seleccion={isGraded ? submission?.rubricaEval : null}
+            />
           </div>
         )}
 

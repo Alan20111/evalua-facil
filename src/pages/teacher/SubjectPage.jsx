@@ -954,6 +954,8 @@ export default function SubjectPage() {
         // Checkbox reads the positive framing ("cerrar en fecha"); the real DB field
         // (recibirTarde) is the inverse — see EntregableEditor's save payload.
         cerrarEntregasEnFecha: !activity.recibirTarde,
+        rubrica: activity.rubrica || null,
+        rubricaId: activity.rubricaId || null,
       },
     })
   }

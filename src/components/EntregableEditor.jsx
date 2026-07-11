@@ -9,7 +9,10 @@ import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil, CalendarDays } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, Eye, EyeOff, X } from 'lucide-react'
+import RubricaPicker from './rubrica/RubricaPicker'
+import RubricaTable from './rubrica/RubricaTable'
+import { snapshotRubrica } from '../utils/rubrica'
 import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline } from '../utils/activityVisibility'
 import { minDeadline } from '../utils/nowIso'
@@ -84,10 +87,14 @@ export default function EntregableEditor({
     tiposArchivo: [DEFAULT_FILE_TYPE], extensionesCustom: '',
     oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
     cerrarEntregasEnFecha: true,
+    rubrica: null, rubricaId: null,
   })
   const [existingFiles, setExistingFiles] = useState(initialExistingFiles || [])
   const [newFiles, setNewFiles] = useState([])
   const [saving, setSaving] = useState(false)
+  // Rúbrica de evaluación (solo entregables): banco + vista previa de la elegida
+  const [rubricaPickerOpen, setRubricaPickerOpen] = useState(false)
+  const [rubricaPreview, setRubricaPreview] = useState(false)
 
   // The "Nueva fecha de entrega" modal (in ActivityPage) writes the group deadline
   // straight to Firestore while this editor stays open. Mirror that change into the
@@ -185,6 +192,10 @@ export default function EntregableEditor({
         // The checkbox is worded as "cerrar en la fecha programada" (positive framing),
         // but the field the student-facing page actually reads is the inverse: recibirTarde.
         recibirTarde: isObservacion ? null : !(form.cerrarEntregasEnFecha ?? true),
+        // La rúbrica se guarda como COPIA dentro de la actividad — editar o
+        // borrar la del banco después no afecta esta actividad ni sus calificaciones.
+        rubrica: isObservacion ? null : (form.rubrica || null),
+        rubricaId: isObservacion ? null : (form.rubricaId || null),
       }
       const tipo = isObservacion ? 'observacion' : 'archivo'
       if (isNew) {
@@ -271,6 +282,60 @@ export default function EntregableEditor({
               </div>
             )}
           </div>
+
+          {/* Rúbrica de evaluación (solo entregables): reutilizable desde el banco
+              del docente. La actividad guarda su propia copia. */}
+          {!isObservacion && (
+            <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
+              <div>
+                <h2 className="text-sm font-semibold text-on-surface flex items-center gap-1.5">
+                  <ClipboardList size={16} className="text-accent" /> Rúbrica de evaluación
+                  <span className="text-slate-400 font-normal">(opcional)</span>
+                </h2>
+                <p className="text-xs text-muted mt-0.5">
+                  Con una rúbrica calificas tocando el nivel de cada criterio y la
+                  calificación sobre 10 se calcula sola. Tus estudiantes la ven desde
+                  el inicio, para saber cómo serán evaluados.
+                </p>
+              </div>
+              {form.rubrica ? (
+                <>
+                  <div className="flex items-center gap-3 rounded border border-accent bg-[var(--accent-tint)] px-3 py-2.5">
+                    <ClipboardList size={20} className="text-accent flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-on-surface truncate">{form.rubrica.titulo}</p>
+                      <p className="text-xs text-muted">
+                        {form.rubrica.criterios?.length} criterios · {form.rubrica.niveles?.length} niveles · se califica sobre 10
+                      </p>
+                    </div>
+                    <button type="button"
+                      onClick={() => setForm((f) => ({ ...f, rubrica: null, rubricaId: null }))}
+                      aria-label="Quitar rúbrica" data-tooltip="Quitar rúbrica"
+                      className="p-1.5 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                      <X size={17} />
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setRubricaPreview((v) => !v)}
+                      className="flex-1 py-2 text-sm border border-outline-variant text-muted rounded hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-1.5">
+                      {rubricaPreview ? <EyeOff size={15} /> : <Eye size={15} />}
+                      {rubricaPreview ? 'Ocultar' : 'Ver rúbrica'}
+                    </button>
+                    <button type="button" onClick={() => setRubricaPickerOpen(true)}
+                      className="flex-1 py-2 text-sm border border-outline-variant text-muted rounded hover:border-accent hover:text-accent transition-colors">
+                      Cambiar rúbrica
+                    </button>
+                  </div>
+                  {rubricaPreview && <RubricaTable rubrica={form.rubrica} />}
+                </>
+              ) : (
+                <button type="button" onClick={() => setRubricaPickerOpen(true)}
+                  className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
+                  <ClipboardList size={16} /> Usar una rúbrica de mi banco
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
             <div>
@@ -400,6 +465,18 @@ export default function EntregableEditor({
           <div className="h-6" />
         </form>
       </div>
+
+      {/* Banco de rúbricas: elegir/crear una guarda una COPIA en el form */}
+      {rubricaPickerOpen && (
+        <RubricaPicker
+          docenteId={docenteId}
+          onClose={() => setRubricaPickerOpen(false)}
+          onSelect={(r) => {
+            setForm((f) => ({ ...f, rubrica: snapshotRubrica(r), rubricaId: r.id }))
+            setRubricaPickerOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }

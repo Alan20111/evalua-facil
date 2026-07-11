@@ -126,6 +126,15 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId;
     }
 
+    // Personal rubric bank (Entregables) — strictly owner-only. Students never
+    // read this collection: the activity stores its own COPY of the rubric.
+    match /bancoRubricas/{rubricaId} {
+      allow read, update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.docenteId;
+    }
+
     // Permanent course materials (syllabus, guides, etc.) — not tied to an
     // activity, so they never generate a submission or grade. Same
     // read/write shape as activities: any authenticated user (teacher or
