@@ -144,6 +144,9 @@ export default function ActivityPage() {
   const [rubricaViewOpen, setRubricaViewOpen] = useState(false)
   const [rubricaWinTop, setRubricaWinTop] = useState(120)
   const rubricaBtnRef = useRef(null)
+  // La ventana se ancla DEBAJO del renglón de la calificación oficial, para
+  // que ésta quede siempre a la vista mientras se marca la rúbrica
+  const califRowRef = useRef(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [searchStudents, setSearchStudents] = useState('')
@@ -316,8 +319,9 @@ export default function ActivityPage() {
   function isDirty() {
     if (!selected) return false
     if (!selected.sub) {
-      // Observación without a grade yet: any valid grade in the box is unsaved
-      if (!isObservacion) return false
+      // Sin entrega: solo observación (siempre) o entregable con rúbrica
+      // (rubricar a quien no entregó) pueden tener calificación pendiente
+      if (!isObservacion && !hasRubrica) return false
       const cal = parseFloat(gradeForm.calificacion)
       return !isNaN(cal) || !!gradeForm.comentario.trim()
     }
@@ -349,7 +353,9 @@ export default function ActivityPage() {
   async function persistGrade() {
     if (!selected || !canCreate) return false
     if (parcialCerrado) return false
-    if (!selected.sub && !isObservacion) return false
+    // Sin entrega solo se puede calificar en observación o rubricando (la
+    // rúbrica permite evaluar en cero o en lo que corresponda a quien no entregó)
+    if (!selected.sub && !isObservacion && !hasRubrica) return false
     const cal = parseFloat(gradeForm.calificacion)
     if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) return false
     const comentario = gradeForm.comentario.trim()
@@ -373,6 +379,7 @@ export default function ActivityPage() {
         estado: 'calificado',
         sinEntrega: true,
         fechaEntrega: serverTimestamp(),
+        ...rubricaEvalPayload,
       }
       const ref = await addDoc(collection(db, 'submissions'), data)
       updated = { id: ref.id, ...data }
@@ -384,7 +391,7 @@ export default function ActivityPage() {
 
   async function saveGrade(e) {
     e.preventDefault()
-    if (!selected?.sub && !isObservacion) return
+    if (!selected?.sub && !isObservacion && !hasRubrica) return
     if (parcialCerrado) {
       toast('El parcial está cerrado. Primero revierte el cierre del parcial para cambiar calificaciones.', 'error')
       return
@@ -1103,7 +1110,7 @@ export default function ActivityPage() {
                     Siguiente — and the grade right below — never jump around. */}
                 {navList.length > 1 && (
                   <div className="space-y-1.5">
-                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
+                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
                     <input
                       type="checkbox"
                       checked={autoSaveOnNav}
@@ -1133,8 +1140,10 @@ export default function ActivityPage() {
                   </div>
                 )}
 
-                {/* Grade form (when a submission exists — or always for observación) */}
-                {(selected.sub || isObservacion) ? (
+                {/* Grade form: cuando hay entrega, siempre para observación y
+                    siempre con rúbrica (así un no-entregado se puede rubricar y
+                    la sección mantiene posiciones fijas al navegar) */}
+                {(selected.sub || isObservacion || hasRubrica) ? (
                   <form onSubmit={saveGrade} className="space-y-3">
                     {parcialCerrado && (
                       <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
@@ -1155,8 +1164,10 @@ export default function ActivityPage() {
                           type="button"
                           ref={rubricaBtnRef}
                           onClick={() => {
-                            // La ventana abre justo abajo del botón
-                            const rect = rubricaBtnRef.current?.getBoundingClientRect()
+                            // La ventana abre DEBAJO de la calificación oficial,
+                            // que así queda siempre a la vista al rubricar
+                            const anchor = califRowRef.current || rubricaBtnRef.current
+                            const rect = anchor?.getBoundingClientRect()
                             if (rect) setRubricaWinTop(Math.round(rect.bottom + 6))
                             setRubricaViewOpen((v) => !v)
                           }}
@@ -1177,9 +1188,12 @@ export default function ActivityPage() {
 
                     {/* Download on the left, grade (with its own header) on the
                         right — narrow input keeps the spinner arrows by the number */}
-                    {/* Grade on its own row; the file list (if several) goes below */}
-                    <div className="flex gap-2 items-end">
-                      {selFiles.length === 1 && (
+                    {/* Grade on its own row; the file list (if several) goes below.
+                        Con rúbrica, el hueco del botón Descargar se conserva
+                        (invisible) cuando no hay archivo, para que la calificación
+                        oficial NUNCA cambie de lugar al navegar entre alumnos. */}
+                    <div ref={califRowRef} className="flex gap-2 items-end">
+                      {selFiles.length === 1 ? (
                         <a
                           href={downloadUrl(selFiles[0].url, selFiles[0].nombre)}
                           download={selFiles[0].nombre}
@@ -1189,8 +1203,12 @@ export default function ActivityPage() {
                           <Download size={18} className="text-accent flex-shrink-0" />
                           <span className="truncate">Descargar entrega</span>
                         </a>
-                      )}
-                      <div className={selFiles.length === 1 ? 'flex-shrink-0' : 'flex-1'}>
+                      ) : hasRubrica ? (
+                        <div aria-hidden="true" className="flex-1 invisible flex items-center justify-center gap-2 px-3 py-2 rounded border text-sm min-w-0">
+                          <span className="truncate">Descargar entrega</span>
+                        </div>
+                      ) : null}
+                      <div className={selFiles.length === 1 || hasRubrica ? 'flex-shrink-0' : 'flex-1'}>
                         <label htmlFor="act-calificacion" className="block text-sm font-medium text-muted mb-1">
                           Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                         </label>
@@ -1203,6 +1221,7 @@ export default function ActivityPage() {
                           min="0"
                           max={activity?.maxCalif}
                           step="0.1"
+                          placeholder="—"
                           autoFocus={!parcialCerrado}
                           disabled={parcialCerrado}
                           className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
@@ -1538,15 +1557,19 @@ export default function ActivityPage() {
                 disabled={parcialCerrado}
               />
             </div>
-            <div className="p-2 border-t border-outline-variant flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setRubricaViewOpen(false)}
-                className="w-full py-2 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors"
-              >
-                Aplicar calificación{totalR != null ? ` — ${totalR} / ${RUBRICA_TOTAL}` : ` (faltan ${faltan})`}
-              </button>
-            </div>
+            {/* Con el autoguardado activo, Siguiente/Anterior ya aplican la
+                calificación — el botón sería redundante */}
+            {!autoSaveOnNav && (
+              <div className="p-2 border-t border-outline-variant flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setRubricaViewOpen(false)}
+                  className="w-full py-2 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors"
+                >
+                  Aplicar calificación{totalR != null ? ` — ${totalR} / ${RUBRICA_TOTAL}` : ` (faltan ${faltan})`}
+                </button>
+              </div>
+            )}
           </div>
         )
       })()}
