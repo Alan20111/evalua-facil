@@ -49,10 +49,10 @@ export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect,
                         onClick={() => onSelect(ci, ni)}
                         className={`w-full h-full text-left px-3 py-2 transition-colors disabled:cursor-not-allowed ${marcado ? '' : 'hover:bg-[var(--accent-tint)]'}`}
                       >
-                        <p className={`text-xs leading-snug whitespace-pre-wrap ${marcado ? 'text-on-surface' : 'text-muted'}`}>
+                        <p className={`text-sm leading-snug whitespace-pre-wrap ${marcado ? 'text-on-surface' : 'text-muted'}`}>
                           {c.descriptores?.[ni] || <span className="italic text-slate-400">—</span>}
                         </p>
-                        <p className={`text-xs font-bold mt-1.5 ${marcado ? '' : 'text-slate-400'}`} style={marcado ? { color: 'var(--accent)' } : undefined}>
+                        <p className={`text-sm font-bold mt-1.5 ${marcado ? '' : 'text-slate-400'}`} style={marcado ? { color: 'var(--accent)' } : undefined}>
                           {c.puntos?.[ni]} pts
                         </p>
                       </button>

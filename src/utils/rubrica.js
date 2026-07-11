@@ -76,7 +76,12 @@ export function validarRubrica(r) {
   const valores = nv.map(valorNivel)
   if (valores[0] !== RUBRICA_TOTAL) return `El primer nivel siempre vale ${RUBRICA_TOTAL} puntos`
   for (let j = 1; j < nv.length; j++) {
-    if (valores[j] <= 0) return `Los puntos del nivel "${nv[j].nombre}" deben ser mayores a 0`
+    // Solo el nivel MÁS BAJO puede valer 0 — para evaluar en cero a quien no
+    // entrega nada. Los intermedios deben ser mayores a 0.
+    if (valores[j] < 0) return `Los puntos del nivel "${nv[j].nombre}" no pueden ser negativos`
+    if (valores[j] === 0 && j !== nv.length - 1) {
+      return `Solo el nivel más bajo puede valer 0 — "${nv[j].nombre}" debe ser mayor a 0`
+    }
     if (valores[j] >= valores[j - 1]) {
       return `Los puntos del nivel "${nv[j].nombre}" (${valores[j]}) deben ser menores que los de "${nv[j - 1].nombre}" (${valores[j - 1]})`
     }
