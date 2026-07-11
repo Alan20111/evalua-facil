@@ -107,13 +107,13 @@ export const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'
 // ─── Generación de bloques ───────────────────────────────────────────────────
 //
 // Recorre día a día el rango [fechaInicio, fechaFin], omitiendo los asuetos, y
-// por cada patrón que coincida con el día de la semana genera UN BLOQUE POR
-// CADA HORA/BLOQUE consecutivo (horas = 3 → tres rectángulos seguidos de
-// duracionMin cada uno, no uno solo grande). Así cada rectángulo se puede
-// mover, editar o eliminar por separado.
+// por cada patrón que coincida con el día de la semana genera UN bloque (un
+// rectángulo) de `duracionMin`. Cada tarjeta del modal = un bloque: si el
+// docente quiere varias horas seguidas, agrega varias tarjetas (07:00, 08:00…),
+// y el número de bloques por semana coincide con el número de tarjetas.
 //
-// La alarma solo queda activa en el PRIMER bloque de cada corrida consecutiva
-// (las de los siguientes sonarían en plena clase anterior).
+// La alarma queda activa solo en el PRIMER bloque de cada corrida de bloques
+// consecutivos del mismo día (los siguientes sonarían en plena clase anterior).
 //
 // Devuelve un array de bloques SIN docenteId/programacionId/createdAt (esos los
 // añade el llamador al persistir).
@@ -141,23 +141,36 @@ export function generarBloques({ fechaInicio, fechaFin, diasAsueto = [], duracio
     if (!asueto.has(fecha)) {
       const dia = diaSemanaLunes(cur)
       ;(porDia[dia] || []).forEach(p => {
-        const horas = Math.max(1, Number(p.horas) || 1)
-        for (let k = 0; k < horas; k++) {
-          bloques.push({
-            fecha,
-            diaSemana: dia,
-            horaInicio: addMinutesToTime(p.horaInicio, k * duracionMin),
-            horaFin: addMinutesToTime(p.horaInicio, (k + 1) * duracionMin),
-            horas: 1,
-            lugar: (p.lugar || '').trim(),
-            color,
-            alarma: k === 0 ? { ...alarma } : { ...alarma, activa: false },
-            movido: false,
-          })
-        }
+        bloques.push({
+          fecha,
+          diaSemana: dia,
+          horaInicio: p.horaInicio,
+          horaFin: addMinutesToTime(p.horaInicio, duracionMin),
+          horas: 1,
+          lugar: (p.lugar || '').trim(),
+          color,
+          alarma: { ...alarma },
+          movido: false,
+        })
       })
     }
     cur.setDate(cur.getDate() + 1)
   }
+
+  // Alarma solo en el primer bloque de cada corrida consecutiva del mismo día:
+  // si un bloque empieza justo cuando termina otro del mismo día, es "seguido"
+  // y su alarma se apaga (sonaría durante la clase previa).
+  if (alarma?.activa) {
+    const finPorDia = {}
+    ;[...bloques]
+      .sort((a, b) => (a.fecha + a.horaInicio).localeCompare(b.fecha + b.horaInicio))
+      .forEach(b => {
+        if (finPorDia[b.fecha] === b.horaInicio) {
+          b.alarma = { ...b.alarma, activa: false }
+        }
+        finPorDia[b.fecha] = b.horaFin
+      })
+  }
+
   return bloques
 }
