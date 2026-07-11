@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -139,8 +139,11 @@ export default function ActivityPage() {
   const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '' })
   // Nivel elegido por criterio cuando la actividad tiene rúbrica (null = sin elegir)
   const [rubricEval, setRubricEval] = useState(null)
-  // "Ver rúbrica": tabla completa para marcar una opción por renglón
+  // "Ver rúbrica": ventana flotante sobrepuesta que abre abajo del botón,
+  // hacia la izquierda hasta media pantalla — la entrega sigue visible detrás
   const [rubricaViewOpen, setRubricaViewOpen] = useState(false)
+  const [rubricaWinTop, setRubricaWinTop] = useState(120)
+  const rubricaBtnRef = useRef(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [searchStudents, setSearchStudents] = useState('')
@@ -938,39 +941,9 @@ export default function ActivityPage() {
 
           <div className="flex-1 min-h-0 flex flex-col md:flex-row">
 
-            {/* Left: file preview, top to bottom. Con la rúbrica abierta, esta
-                zona (del botón hacia la izquierda) muestra la rúbrica para
-                calificar — el panel derecho sigue visible y el guardado es el
-                de siempre (Guardar o autoguardado al navegar). */}
+            {/* Left: file preview, top to bottom */}
             <div className="h-[45vh] md:h-auto md:flex-1 min-w-0 bg-surface-container flex flex-col">
-              {rubricaViewOpen && hasRubrica ? (
-                <div className="flex-1 min-h-0 flex flex-col bg-surface">
-                  <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant bg-surface-card flex-shrink-0">
-                    <ClipboardList size={18} className="text-accent flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-on-surface truncate">Rúbrica: {activity.rubrica.titulo}</p>
-                      <p className="text-xs text-muted truncate">Marca una opción por renglón — la calificación se calcula sola</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setRubricaViewOpen(false)}
-                      aria-label="Cerrar rúbrica"
-                      data-tooltip="Cerrar rúbrica"
-                      className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-                  <div className="flex-1 min-h-0 overflow-auto p-3">
-                    <RubricaGradeTable
-                      rubrica={activity.rubrica}
-                      seleccion={rubricEval}
-                      onSelect={selectRubricaNivel}
-                      disabled={parcialCerrado}
-                    />
-                  </div>
-                </div>
-              ) : selFiles.length > 1 && previewIdx === -1 ? (
+              {selFiles.length > 1 && previewIdx === -1 ? (
                 /* "Todas las imágenes": every file stacked, scrollable */
                 <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
                   {selFiles.map((f, i) => (
@@ -1180,7 +1153,13 @@ export default function ActivityPage() {
                       return (
                         <button
                           type="button"
-                          onClick={() => setRubricaViewOpen((v) => !v)}
+                          ref={rubricaBtnRef}
+                          onClick={() => {
+                            // La ventana abre justo abajo del botón
+                            const rect = rubricaBtnRef.current?.getBoundingClientRect()
+                            if (rect) setRubricaWinTop(Math.round(rect.bottom + 6))
+                            setRubricaViewOpen((v) => !v)
+                          }}
                           className={`w-full py-2.5 text-sm font-semibold rounded transition-colors flex items-center justify-center gap-2 ${
                             rubricaViewOpen
                               ? 'bg-accent text-white hover:bg-accent-hover'
@@ -1522,6 +1501,55 @@ export default function ActivityPage() {
           </div>
         </div>
       )}
+
+      {/* Ventana flotante de la rúbrica: inicia abajo del botón "Ver rúbrica" y
+          se extiende hacia la izquierda hasta media pantalla, SOBREPUESTA a todo
+          — la entrega sigue visible detrás para no perder contexto. Se cierra
+          con el mismo botón, con la X o con "Aplicar calificación". */}
+      {rubricaViewOpen && hasRubrica && selected && (() => {
+        const totalR = totalRubrica(activity.rubrica, rubricEval)
+        const faltan = activity.rubrica.criterios.filter((_, i) => rubricEval?.[i] == null).length
+        return (
+          <div
+            className="fixed left-2 right-2 md:left-1/2 z-50 bg-surface-card border border-outline-variant rounded-card shadow-2xl flex flex-col overflow-hidden"
+            style={{ top: rubricaWinTop, maxHeight: `calc(100vh - ${rubricaWinTop + 10}px)` }}
+          >
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-outline-variant flex-shrink-0" style={{ background: 'var(--accent-light)' }}>
+              <ClipboardList size={17} className="text-accent flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-on-surface truncate">Rúbrica: {activity.rubrica.titulo}</p>
+                <p className="text-[11px] text-muted truncate">Marca una opción por renglón — la calificación se calcula sola</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRubricaViewOpen(false)}
+                aria-label="Cerrar rúbrica"
+                data-tooltip="Cerrar rúbrica"
+                className="p-1.5 text-slate-400 hover:text-accent rounded flex-shrink-0"
+              >
+                <X size={17} />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-auto p-3">
+              <RubricaGradeTable
+                rubrica={activity.rubrica}
+                seleccion={rubricEval}
+                onSelect={selectRubricaNivel}
+                disabled={parcialCerrado}
+              />
+            </div>
+            <div className="p-2 border-t border-outline-variant flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setRubricaViewOpen(false)}
+                className="w-full py-2 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors"
+              >
+                Aplicar calificación{totalR != null ? ` — ${totalR} / ${RUBRICA_TOTAL}` : ` (faltan ${faltan})`}
+              </button>
+            </div>
+          </div>
+        )
+      })()}
 
       {editingActivity && activity && (
         <EntregableEditor
