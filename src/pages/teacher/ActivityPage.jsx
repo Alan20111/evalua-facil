@@ -40,6 +40,15 @@ import { matchesStudentSearch } from '../../utils/studentSearch'
 import EvaluacionManager from '../../components/EvaluacionManager'
 import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
+import RubricaGrader from '../../components/rubrica/RubricaGrader'
+import { totalRubrica } from '../../utils/rubrica'
+
+// La evaluación con rúbrica de un alumno "no existe" hasta que se elige algún
+// nivel — un arreglo todo-null equivale a no tener rúbrica evaluada (permite
+// comparar contra submissions calificadas antes de agregar la rúbrica).
+function normRubricaEval(arr) {
+  return Array.isArray(arr) && arr.some((v) => v != null) ? arr : null
+}
 
 // How late a submission was, relative to that student's effective deadline
 // (their extension if any, otherwise the activity deadline).
@@ -127,6 +136,8 @@ export default function ActivityPage() {
   // Remembered across sessions so it's a one-time choice.
   const [autoSaveOnNav, setAutoSaveOnNav] = useState(() => localStorage.getItem('ef-autosave-nav') === '1')
   const [gradeForm, setGradeForm] = useState({ calificacion: '', comentario: '' })
+  // Nivel elegido por criterio cuando la actividad tiene rúbrica (null = sin elegir)
+  const [rubricEval, setRubricEval] = useState(null)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [searchStudents, setSearchStudents] = useState('')
@@ -162,6 +173,8 @@ export default function ActivityPage() {
   // Evaluación (cuestionario/examen): the grade comes from the student's attempt;
   // the grading panel allows a manual override but no prefill/annul/extension.
   const isEvaluacion = activity?.tipo === 'evaluacion'
+  // Rúbrica: solo entregables (nunca observación ni evaluación)
+  const hasRubrica = !!activity?.rubrica?.criterios?.length && !isObservacion && !isEvaluacion
   // Edit activity modal
   const [editingActivity, setEditingActivity] = useState(false)
   // Parcial cerrado: no grade can be changed until the teacher reverts the close.
@@ -246,6 +259,16 @@ export default function ActivityPage() {
         : ((sub && !isEvaluacion) || isObservacion) ? String(activity?.maxCalif ?? 10) : '',
       comentario: sub?.comentario || '',
     })
+    // Con rúbrica: cargar la evaluación guardada; si aún no hay calificación,
+    // prellenar todo en el nivel máximo (equivale al prellenado de 10 de arriba
+    // — el docente solo ajusta las excepciones).
+    if (activity?.rubrica?.criterios?.length && !isObservacion && !isEvaluacion) {
+      const n = activity.rubrica.criterios.length
+      const previa = Array.isArray(sub?.rubricaEval) && sub.rubricaEval.length === n ? [...sub.rubricaEval] : null
+      setRubricEval(previa || (sub && sub.calificacion == null ? Array(n).fill(0) : Array(n).fill(null)))
+    } else {
+      setRubricEval(null)
+    }
     setExtendMode(false)
     setExtendDate(activity?.extensiones?.[student.id] || '')
     setExtendMotivo(activity?.extensionesMotivo?.[student.id] || '')
@@ -295,7 +318,22 @@ export default function ActivityPage() {
     const cal = parseFloat(gradeForm.calificacion)
     const calChanged = !isNaN(cal) && cal !== selected.sub.calificacion
     const comChanged = gradeForm.comentario.trim() !== (selected.sub.comentario || '')
-    return calChanged || comChanged
+    const rubChanged = hasRubrica &&
+      JSON.stringify(normRubricaEval(rubricEval)) !== JSON.stringify(normRubricaEval(selected.sub.rubricaEval))
+    return calChanged || comChanged || rubChanged
+  }
+
+  // Tocar un nivel en la rúbrica: guarda la elección y, cuando todos los
+  // criterios tienen nivel, escribe el total calculado en la calificación.
+  function selectRubricaNivel(ci, ni) {
+    if (parcialCerrado) return
+    setRubricEval((prev) => {
+      const next = [...(prev || Array(activity.rubrica.criterios.length).fill(null))]
+      next[ci] = ni
+      const total = totalRubrica(activity.rubrica, next)
+      if (total != null) setGradeForm((f) => ({ ...f, calificacion: String(total) }))
+      return next
+    })
   }
 
   // Single save path shared by the Guardar button and Anterior/Siguiente.
@@ -309,14 +347,17 @@ export default function ActivityPage() {
     const cal = parseFloat(gradeForm.calificacion)
     if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) return false
     const comentario = gradeForm.comentario.trim()
+    // La rúbrica evaluada viaja junto con la calificación (null si no se tocó)
+    const rubricaEvalPayload = hasRubrica ? { rubricaEval: normRubricaEval(rubricEval) } : {}
     let updated
     if (selected.sub) {
       await updateDoc(doc(db, 'submissions', selected.sub.id), {
         calificacion: cal,
         comentario,
         estado: 'calificado',
+        ...rubricaEvalPayload,
       })
-      updated = { ...selected.sub, calificacion: cal, comentario, estado: 'calificado' }
+      updated = { ...selected.sub, calificacion: cal, comentario, estado: 'calificado', ...rubricaEvalPayload }
     } else {
       const data = {
         actividadId: activityId,
@@ -1096,6 +1137,17 @@ export default function ActivityPage() {
                         Al revertir, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
                       </div>
                     )}
+                    {/* Rúbrica: tocar el nivel de cada criterio calcula el total y lo
+                        escribe en la calificación (el número sigue siendo ajustable) */}
+                    {hasRubrica && (
+                      <RubricaGrader
+                        rubrica={activity.rubrica}
+                        seleccion={rubricEval}
+                        onChange={selectRubricaNivel}
+                        disabled={parcialCerrado}
+                      />
+                    )}
+
                     {/* Download on the left, grade (with its own header) on the
                         right — narrow input keeps the spinner arrows by the number */}
                     {/* Grade on its own row; the file list (if several) goes below */}
@@ -1450,6 +1502,8 @@ export default function ActivityPage() {
             // Checkbox reads the positive framing ("cerrar en fecha"); the real DB field
             // (recibirTarde) is the inverse — see EntregableEditor's save payload.
             cerrarEntregasEnFecha: !activity.recibirTarde,
+            rubrica: activity.rubrica || null,
+            rubricaId: activity.rubricaId || null,
           }}
           initialExistingFiles={activity.archivosAdjuntos || []}
           contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
