@@ -384,9 +384,13 @@ function BloquePill({ b, subj, onClick }) {
   )
 }
 
-function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick }) {
+function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick, onMoveEvent, onMoveBloque }) {
   const cells = getMonthGrid(year, month)
   const selStr = selectedDate ? toDateStr(selectedDate) : null
+
+  const cellRefs = useRef({})
+  const dragStartRef = useRef(null)
+  const [drag, setDrag] = useState(null) // { kind, b?, ev?, x, y, w, moved }
 
   const bloquesByDate = useMemo(() => {
     const m = {}
@@ -394,6 +398,55 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
     Object.values(m).forEach(list => list.sort((a, b) => a.horaInicio.localeCompare(b.horaInicio)))
     return m
   }, [bloques])
+
+  // Arrastrar una pastilla a otro día del mes: los eventos personales se
+  // mueven directo (conservan su hora); los bloques de clase preguntan si el
+  // cambio es solo para ese bloque o también para los siguientes.
+  function startDrag(e, item) {
+    if (e.button != null && e.button !== 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    dragStartRef.current = { x: e.clientX, y: e.clientY }
+    setDrag({ ...item, x: e.clientX, y: e.clientY, w: rect.width, moved: false })
+  }
+
+  useEffect(() => {
+    if (!drag) return
+    function onMove(e) {
+      const s = dragStartRef.current
+      const moved = s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
+      setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
+    }
+    function onUp(e) {
+      setDrag(d => {
+        if (!d) return null
+        if (!d.moved) {
+          if (d.kind === 'bloque') onBlockClick?.(d.b)
+          else onEventClick?.(d.ev)
+          return null
+        }
+        let target = null
+        Object.entries(cellRefs.current).forEach(([dStr, el]) => {
+          if (!el) return
+          const r = el.getBoundingClientRect()
+          if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) target = dStr
+        })
+        if (target) {
+          if (d.kind === 'bloque') {
+            if (target !== d.b.fecha) onMoveBloque?.(d.b, target, d.b.horaInicio)
+          } else if (target !== d.ev.dateStr) {
+            onMoveEvent?.(d.ev.rawEvent, target, d.ev.timeStr || null)
+          }
+        }
+        return null
+      })
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [drag, onBlockClick, onEventClick, onMoveBloque, onMoveEvent])
 
   return (
     <div>
@@ -419,6 +472,7 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
           return (
             <div
               key={dateStr}
+              ref={el => { cellRefs.current[dateStr] = el }}
               onClick={() => onDateClick?.(cell)}
               className={`min-h-[92px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
               style={dateStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
@@ -431,11 +485,29 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
                 {cell.getDate()}
               </div>
               <div className="space-y-0.5">
-                {items.slice(0, 3).map((it) => (
-                  it.kind === 'bloque'
-                    ? <BloquePill key={it.b.id} b={it.b} subj={subjects[it.b.asignaturaId]} onClick={onBlockClick} />
-                    : <EventPill key={it.ev.id} ev={it.ev} compact onClick={onEventClick} />
-                ))}
+                {items.slice(0, 3).map((it) => {
+                  // Arrastrables: bloques (pregunta al soltar) y eventos
+                  // personales (se mueven directo). Un clic sin mover, edita.
+                  const movable = it.kind === 'bloque' || it.ev?.editable
+                  const isDraggingThis = drag?.moved && (
+                    (it.kind === 'bloque' && drag.kind === 'bloque' && drag.b?.id === it.b.id) ||
+                    (it.kind === 'event' && drag.kind === 'event' && drag.ev?.id === it.ev.id)
+                  )
+                  const pill = it.kind === 'bloque'
+                    ? <BloquePill b={it.b} subj={subjects[it.b.asignaturaId]} onClick={movable ? undefined : onBlockClick} />
+                    : <EventPill ev={it.ev} compact onClick={movable ? undefined : onEventClick} />
+                  return (
+                    <div
+                      key={it.kind === 'bloque' ? it.b.id : it.ev.id}
+                      onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, it.kind === 'bloque' ? { kind: 'bloque', b: it.b } : { kind: 'event', ev: it.ev }) } : undefined}
+                      onClick={e => e.stopPropagation()}
+                      className={movable ? 'cursor-grab active:cursor-grabbing select-none' : ''}
+                      style={{ touchAction: 'none', opacity: isDraggingThis ? 0.3 : 1 }}
+                    >
+                      {pill}
+                    </div>
+                  )
+                })}
                 {extra > 0 && (
                   <p className="text-xs text-muted pl-1">+{extra} más</p>
                 )}
@@ -444,6 +516,21 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
           )
         })}
       </div>
+
+      {/* Fantasma que sigue al cursor mientras se arrastra */}
+      {drag?.moved && (() => {
+        const esEvento = drag.kind === 'event'
+        const pal = esEvento ? { bg: drag.ev.bg, text: drag.ev.text } : bloqueColor(drag.b.color)
+        const titulo = esEvento ? drag.ev.titulo : subjectDisplayName(subjects[drag.b.asignaturaId])
+        return (
+          <div
+            className="fixed z-50 rounded px-2 py-1 shadow-lg pointer-events-none opacity-90 text-xs font-semibold truncate"
+            style={{ left: drag.x + 8, top: drag.y + 8, maxWidth: drag.w, background: pal.bg, color: pal.text }}
+          >
+            {titulo}
+          </div>
+        )
+      })()}
     </div>
   )
 }
@@ -457,7 +544,7 @@ function minutesToTimeStr(mins) {
 }
 const SNAP_MIN = 15 // los bloques se sueltan alineados a 15 min
 
-function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque }) {
+function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque, onMoveEvent }) {
   const days = getWeekDays(weekStart).slice(0, numDays)
   const todayStr = toDateStr(new Date())
   const selStr = selectedDate ? toDateStr(selectedDate) : null
@@ -467,7 +554,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
 
   const colRefs = useRef([])
   const dragStartRef = useRef(null)
-  const [drag, setDrag] = useState(null) // { bloque, x, y, grabDX, grabDY, w, h, moved }
+  // { kind: 'bloque'|'event', bloque?, ev?, x, y, grabDX, grabDY, w, h, moved }
+  const [drag, setDrag] = useState(null)
 
   // Bloques agrupados por fecha.
   const byDate = useMemo(() => {
@@ -480,12 +568,12 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
     return (timeToMinutes(time) - dayStart * 60) / 60 * ROW_H
   }
 
-  function startDrag(e, b) {
+  function startDrag(e, item) {
     if (e.button != null && e.button !== 0) return
     const rect = e.currentTarget.getBoundingClientRect()
     dragStartRef.current = { x: e.clientX, y: e.clientY }
     setDrag({
-      bloque: b,
+      ...item,
       x: e.clientX, y: e.clientY,
       grabDX: e.clientX - rect.left,
       grabDY: e.clientY - rect.top,
@@ -505,7 +593,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
       setDrag(d => {
         if (!d) return null
         if (!d.moved) {
-          onBlockClick?.(d.bloque)
+          if (d.kind === 'event') onEventClick?.(d.ev)
+          else onBlockClick?.(d.bloque)
           return null
         }
         // Detecta la columna (día) bajo el cursor.
@@ -521,7 +610,12 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
           mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
           const nuevaFecha = toDateStr(days[target.idx])
           const nuevaHora = minutesToTimeStr(mins)
-          if (nuevaFecha !== d.bloque.fecha || nuevaHora !== d.bloque.horaInicio) {
+          if (d.kind === 'event') {
+            // Evento personal: se mueve directo, sin preguntar.
+            if (nuevaFecha !== d.ev.dateStr || nuevaHora !== d.ev.timeStr) {
+              onMoveEvent?.(d.ev.rawEvent, nuevaFecha, nuevaHora)
+            }
+          } else if (nuevaFecha !== d.bloque.fecha || nuevaHora !== d.bloque.horaInicio) {
             onMoveBloque?.(d.bloque, nuevaFecha, nuevaHora)
           }
         }
@@ -534,7 +628,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
     }
-  }, [drag, days, dayStart, dayEnd, onBlockClick, onMoveBloque])
+  }, [drag, days, dayStart, dayEnd, onBlockClick, onEventClick, onMoveBloque, onMoveEvent])
 
   return (
     <div className="overflow-x-auto">
@@ -614,11 +708,11 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                   const top = Math.max(0, Math.min(topPx(b.horaInicio), gridH - height))
                   const w = 100 / total
                   const subj = subjects[b.asignaturaId]
-                  const isDragging = drag?.moved && drag.bloque.id === b.id
+                  const isDragging = drag?.moved && drag.kind === 'bloque' && drag.bloque.id === b.id
                   return (
                     <div
                       key={b.id}
-                      onPointerDown={e => { e.stopPropagation(); startDrag(e, b) }}
+                      onPointerDown={e => { e.stopPropagation(); startDrag(e, { kind: 'bloque', bloque: b }) }}
                       className="absolute rounded px-1.5 py-1 text-left overflow-hidden shadow-sm hover:brightness-95 transition-[filter] select-none cursor-grab active:cursor-grabbing"
                       style={{
                         top, height,
@@ -637,20 +731,23 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                   )
                 })}
 
-                {/* Eventos con hora */}
+                {/* Eventos con hora — los personales (editables) se arrastran
+                    directo a otro horario, sin preguntar */}
                 {dayEvs.map(ev => {
                   const EV_H = 30
                   // Acota dentro de la rejilla (p. ej. fechas límite a las
                   // 23:59 se anclan al fondo en vez de quedar fuera).
                   const top = Math.max(0, Math.min(topPx(ev.timeStr), gridH - EV_H))
+                  const isDragging = drag?.moved && drag.kind === 'event' && drag.ev?.id === ev.id
                   return (
                     <button
                       key={ev.id}
                       type="button"
-                      onClick={e => { e.stopPropagation(); onEventClick?.(ev) }}
-                      className="absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter]"
-                      style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5 }}
-                      data-tooltip={`${ev.titulo} · ${fmtHour(ev.timeStr)}`}
+                      onPointerDown={ev.editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev }) } : undefined}
+                      onClick={!ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
+                      className={`absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
+                      data-tooltip={ev.editable ? `${ev.titulo} · ${fmtHour(ev.timeStr)} · arrastra para mover` : `${ev.titulo} · ${fmtHour(ev.timeStr)}`}
                     >
                       <span className="block text-[10px] font-bold leading-tight">{fmtHour(ev.timeStr)}</span>
                       <span className="block text-[10px] font-medium leading-tight truncate">{ev.titulo}</span>
@@ -665,8 +762,10 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
 
       {/* Fantasma que sigue al cursor mientras se arrastra */}
       {drag?.moved && (() => {
-        const pal = bloqueColor(drag.bloque.color)
-        const subj = subjects[drag.bloque.asignaturaId]
+        const esEvento = drag.kind === 'event'
+        const pal = esEvento ? { bg: drag.ev.bg, text: drag.ev.text } : bloqueColor(drag.bloque.color)
+        const titulo = esEvento ? drag.ev.titulo : subjectDisplayName(subjects[drag.bloque.asignaturaId])
+        const horas = esEvento ? fmtHour(drag.ev.timeStr) : `${drag.bloque.horaInicio}–${drag.bloque.horaFin}`
         return (
           <div
             className="fixed z-50 rounded px-1.5 py-1 shadow-lg pointer-events-none opacity-90"
@@ -676,8 +775,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
               background: pal.bg, color: pal.text,
             }}
           >
-            <span className="block text-xs font-semibold leading-tight truncate">{subjectDisplayName(subj)}</span>
-            <span className="block text-[10px] opacity-80 leading-tight">{drag.bloque.horaInicio}–{drag.bloque.horaFin}</span>
+            <span className="block text-xs font-semibold leading-tight truncate">{titulo}</span>
+            <span className="block text-[10px] opacity-80 leading-tight">{horas}</span>
           </div>
         )
       })()}
@@ -1241,6 +1340,8 @@ export default function CalendarPage() {
               onDateClick={openProgramarFromDate}
               onEventClick={openEditEvent}
               onBlockClick={setEditingBloque}
+              onMoveEvent={moveEvent}
+              onMoveBloque={requestMoveBloque}
             />
           ) : (
             <WeekView
@@ -1256,6 +1357,7 @@ export default function CalendarPage() {
               onBlockClick={setEditingBloque}
               onEventClick={openEditEvent}
               onMoveBloque={requestMoveBloque}
+              onMoveEvent={moveEvent}
             />
           )}
         </div>
