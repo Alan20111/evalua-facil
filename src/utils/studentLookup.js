@@ -1,5 +1,6 @@
 import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { usernameCandidates } from './generate'
 
 // A student account (one Firebase Auth uid) can be enrolled in several subjects.
 // Each enrollment is a separate `students` doc sharing the same `uid`, one per subject.
@@ -20,13 +21,18 @@ export async function getEnrollments(currentUser, userProfile) {
   }
   // Last resort: parse the fake email `username.escuelaId@evalua.local` and look up by
   // username SCOPED to that school, so identical usernames across schools never collide.
+  // The username itself can contain a dot (apellido.nombre), so the school id is
+  // everything after the LAST dot; try both case variants (legacy codes are UPPERCASE,
+  // new usernames lowercase).
   if (currentUser?.email) {
     const local = currentUser.email.split('@')[0]
-    const dot = local.indexOf('.')
-    const username = (dot >= 0 ? local.slice(0, dot) : local).toUpperCase()
+    const dot = local.lastIndexOf('.')
+    const username = dot >= 0 ? local.slice(0, dot) : local
     const escuelaId = dot >= 0 ? local.slice(dot + 1) : null
-    const snap = await getDocs(query(collection(db, 'students'), where('username', '==', username)))
-    let docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    const snaps = await Promise.all(usernameCandidates(username).map((u) =>
+      getDocs(query(collection(db, 'students'), where('username', '==', u)))
+    ))
+    let docs = snaps.flatMap((s) => s.docs).map((d) => ({ id: d.id, ...d.data() }))
     if (escuelaId) docs = docs.filter((s) => s.escuelaId === escuelaId)
     if (docs.length) return docs
   }
