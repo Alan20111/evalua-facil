@@ -20,6 +20,7 @@ import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import PaletteSelect from '../../components/PaletteSelect'
+import { subjectPaletteProps } from '../../utils/subjectPalette'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import FileTypeSelect from '../../components/FileTypeSelect'
@@ -2054,7 +2055,7 @@ export default function SubjectPage() {
 
   return (
     <TeacherLayout>
-      <div data-subject-palette={subject?.colorPalette || 'default'}>
+      <div {...subjectPaletteProps(subject?.colorPalette)}>
       <div className={TEACHER_CONTAINER}>
 
         {/* ── Header ── */}
@@ -3969,10 +3970,10 @@ export default function SubjectPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-2">Color de la asignatura</label>
+                <label className="block text-sm font-medium text-muted mb-2">Color de la asignatura <span className="text-slate-400 font-normal text-xs">(elige el color base que identificará a la asignatura)</span></label>
                 <PaletteSelect value={editSubjectForm.colorPalette} onChange={(p) => setEditSubjectForm((f) => ({ ...f, colorPalette: p }))} />
               </div>
-              <div data-subject-palette={editSubjectForm.colorPalette || 'default'}>
+              <div {...subjectPaletteProps(editSubjectForm.colorPalette)}>
                 <label className="block text-sm font-medium text-muted mb-2">Icono de la asignatura</label>
                 <IconSelect value={editSubjectForm.icon} onChange={(ic) => setEditSubjectForm((f) => ({ ...f, icon: ic }))} />
               </div>
@@ -4026,10 +4027,10 @@ export default function SubjectPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-2">Color de la asignatura</label>
+                <label className="block text-sm font-medium text-muted mb-2">Color de la asignatura <span className="text-slate-400 font-normal text-xs">(elige el color base que identificará a la asignatura)</span></label>
                 <PaletteSelect value={copyForm.colorPalette} onChange={(p) => setCopyForm((f) => ({ ...f, colorPalette: p }))} />
               </div>
-              <div data-subject-palette={copyForm.colorPalette || 'default'}>
+              <div {...subjectPaletteProps(copyForm.colorPalette)}>
                 <label className="block text-sm font-medium text-muted mb-2">Icono de la asignatura</label>
                 <IconSelect value={copyForm.icon} onChange={(ic) => setCopyForm((f) => ({ ...f, icon: ic }))} />
               </div>
@@ -4168,11 +4169,11 @@ export default function SubjectPage() {
               </div>
 
               <div>
-                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Color de la asignatura</p>
+                <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Color de la asignatura <span className="normal-case font-normal text-slate-400">(el color base que la identificará)</span></p>
                 <PaletteSelect value={unarchiveEdits.colorPalette} onChange={(p) => setUnarchiveEdits((f) => ({ ...f, colorPalette: p }))} />
               </div>
 
-              <div data-subject-palette={unarchiveEdits.colorPalette || 'default'}>
+              <div {...subjectPaletteProps(unarchiveEdits.colorPalette)}>
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Icono de la asignatura</p>
                 <IconSelect value={unarchiveEdits.icon} onChange={(ic) => setUnarchiveEdits((f) => ({ ...f, icon: ic }))} />
               </div>

@@ -13,6 +13,7 @@ import {
   calcularPuntosPregunta, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
 } from '../../utils/evaluacionGrading'
 import { uploadToCloudinary } from '../../utils/cloudinary'
+import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fileTypes'
 import StudentLayout from '../../components/StudentLayout'
 
@@ -272,7 +273,7 @@ export default function EvaluacionRunner() {
   const ss = secondsLeft != null ? secondsLeft % 60 : null
 
   return (
-    <div className="fixed inset-0 z-50 bg-surface overflow-y-auto" data-subject-palette={subject?.colorPalette || 'default'}>
+    <div className="fixed inset-0 z-50 bg-surface overflow-y-auto" {...subjectPaletteProps(subject?.colorPalette)}>
         <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">

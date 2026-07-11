@@ -106,6 +106,9 @@
   [data-subject-palette='green']   { --accent: #16a34a; --accent-hover: #15803d; --accent-light: #dcfce7; }
   [data-subject-palette='rose']    { --accent: #e11d48; --accent-hover: #be123c; --accent-light: #ffe4e6; }
   [data-subject-palette='teal']    { --accent: #14b8a6; --accent-hover: #0d9488; --accent-light: #ccfbf1; }
+  [data-subject-palette='slate']   { --accent: #475569; --accent-hover: #334155; --accent-light: #e2e8f0; }
+  /* 'custom' has no rule here: the wrapper injects --accent/--accent-hover/
+     --accent-light inline (see subjectPaletteProps in utils/subjectPalette.js) */
 }
 
 @layer utilities {

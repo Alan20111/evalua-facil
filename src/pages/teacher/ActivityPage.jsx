@@ -26,6 +26,7 @@ import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
@@ -629,7 +630,7 @@ export default function ActivityPage() {
 
   return (
     <TeacherLayout>
-      <div data-subject-palette={subject?.colorPalette || 'default'}>
+      <div {...subjectPaletteProps(subject?.colorPalette)}>
       {/* Evaluaciones render their manager as the page body, but share the
           fullscreen per-student grading overlay below (so a grades-table cell
           opens the SAME panel for every activity type). */}

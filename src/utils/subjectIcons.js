@@ -5,7 +5,7 @@ import {
   BookOpen, Calculator, FlaskConical, Atom, Globe2, Languages, Music, Palette,
   Dumbbell, Code2, PenTool, Microscope, Landmark, Map, Leaf, Brain, Camera,
   Film, Hammer, Wrench, Cpu, Database, Sigma, Ruler, Compass, Rocket, Lightbulb,
-  GraduationCap, Library, Pencil, Trophy, Star,
+  GraduationCap, Library, Pencil, Trophy,
 } from 'lucide-react'
 
 export const SUBJECT_ICONS = {
@@ -16,7 +16,7 @@ export const SUBJECT_ICONS = {
   film: Film, hammer: Hammer, wrench: Wrench, cpu: Cpu, database: Database,
   sigma: Sigma, ruler: Ruler, compass: Compass, rocket: Rocket,
   lightbulb: Lightbulb, graduation: GraduationCap, library: Library,
-  pencil: Pencil, trophy: Trophy, star: Star,
+  pencil: Pencil, trophy: Trophy,
 }
 
 export const SUBJECT_ICON_KEYS = Object.keys(SUBJECT_ICONS)
