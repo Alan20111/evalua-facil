@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../Toast'
 import EFDateTimePicker from '../EFDateTimePicker'
 import Spinner from '../Spinner'
-import { X, Trash2 } from 'lucide-react'
+import { X, Trash2, Copy } from 'lucide-react'
 
 export const EVENT_COLORS = [
   { id: 'slate',  bg: '#f1f5f9', text: '#475569', label: 'Gris' },
@@ -71,6 +71,31 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
       await deleteDoc(doc(db, 'events', event.id))
       onDeleted?.(event.id)
       toast('Evento eliminado')
+      onClose()
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Duplicar: crea una copia con lo que está en pantalla (mismo horario) —
+  // el docente después la arrastra o la edita para acomodarla.
+  async function handleDuplicate() {
+    if (!form.titulo.trim() || !form.inicio) { toast('Completa el título y el inicio para duplicar', 'error'); return }
+    setSaving(true)
+    try {
+      await addDoc(collection(db, 'events'), {
+        titulo: form.titulo.trim(),
+        descripcion: form.descripcion.trim(),
+        notas: form.notas.trim(),
+        inicio: form.inicio,
+        fin: form.fin || form.inicio,
+        color: form.color,
+        docenteId: currentUser.uid,
+        createdAt: serverTimestamp(),
+      })
+      toast('Evento duplicado — arrástralo o edítalo para cambiar su horario')
       onClose()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -169,6 +194,12 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
                   <Trash2 size={18} />
                 </button>
               )
+            )}
+            {!isNew && !confirmDelete && (
+              <button type="button" onClick={handleDuplicate} disabled={saving}
+                className="p-2 text-muted hover:text-accent rounded transition-colors" data-tooltip="Duplicar" aria-label="Duplicar">
+                <Copy size={18} />
+              </button>
             )}
             <button type="submit" disabled={saving}
               className="flex-1 py-2 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2">

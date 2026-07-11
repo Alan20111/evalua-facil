@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { doc, updateDoc, writeBatch } from 'firebase/firestore'
+import { collection, doc, addDoc, updateDoc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import EFDateTimePicker from '../EFDateTimePicker'
 import Spinner from '../Spinner'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { X, Trash2, Check, MapPin, Bell, BellOff, Play } from 'lucide-react'
+import { X, Trash2, Check, MapPin, Bell, BellOff, Play, Copy } from 'lucide-react'
 import {
   BLOQUE_COLORS, ALARMA_SONIDOS, reproducirSonido,
   addMinutesToTime, timeToMinutes,
@@ -69,6 +69,40 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
       await updateDoc(doc(db, 'horarioBloques', bloque.id), patch)
       onUpdated?.({ ...bloque, ...patch })
       toast('Bloque actualizado')
+      onClose()
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Duplicar: crea una copia del bloque (con lo que está en pantalla) que
+  // queda inmediatamente DESPUÉS de este, en el mismo día — dos rectángulos
+  // seguidos. Conserva programacionId para que "eliminar programación" y los
+  // movimientos en cadena lo incluyan.
+  async function handleDuplicate() {
+    setSaving(true)
+    try {
+      const diaSemana = (new Date(form.fecha + 'T12:00:00').getDay() + 6) % 7
+      const durTotal = Math.max(1, form.horas) * durUnit
+      await addDoc(collection(db, 'horarioBloques'), {
+        docenteId: bloque.docenteId,
+        programacionId: bloque.programacionId || null,
+        asignaturaId: bloque.asignaturaId,
+        fecha: form.fecha,
+        diaSemana,
+        horaInicio: horaFin,
+        horaFin: addMinutesToTime(horaFin, durTotal),
+        horas: Math.max(1, form.horas),
+        lugar: form.lugar.trim(),
+        color: form.color,
+        // La alarma del duplicado sonaría en plena clase anterior — apagada.
+        alarma: { ...form.alarma, activa: false },
+        movido: true,
+        createdAt: serverTimestamp(),
+      })
+      toast('Bloque duplicado — quedó justo después de este')
       onClose()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -228,6 +262,11 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
         {/* Footer */}
         <div className="border-t border-outline-variant px-4 py-3 flex items-center gap-3 flex-shrink-0">
           <span className="w-6 h-6 rounded-full flex-shrink-0" style={{ background: pal.bg, border: `1px solid ${pal.text}33` }} />
+          <button type="button" onClick={handleDuplicate} disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:text-accent hover:border-accent transition-colors disabled:opacity-60"
+            data-tooltip="Crea una copia justo después de este bloque">
+            <Copy size={14} /> Duplicar
+          </button>
           <div className="flex-1" />
           <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
             Cancelar

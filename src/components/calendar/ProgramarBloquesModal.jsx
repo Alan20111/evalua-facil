@@ -75,7 +75,25 @@ export default function ProgramarBloquesModal({
   )
 
   const pal = BLOQUE_COLORS.find(c => c.id === color) || BLOQUE_COLORS[0]
-  const completo = patrones.length >= bloquesPorSemana
+  const completo = patrones.length === bloquesPorSemana
+
+  // Al cambiar "Bloques por semana", la lista de bloques se iguala a ese
+  // número automáticamente (agrega o recorta) — después el docente puede
+  // agregar o quitar a mano si quiere que sea diferente.
+  function changeBloquesPorSemana(n) {
+    setBloquesPorSemana(n)
+    setPatrones(ps => {
+      if (ps.length === n) return ps
+      if (ps.length < n) {
+        return [
+          ...ps,
+          ...Array.from({ length: n - ps.length }, () =>
+            nuevoPatron({ diaSemana: defaultDia, horaInicio: defaultHora })),
+        ]
+      }
+      return ps.slice(0, n)
+    })
+  }
 
   // Previsualización: cuántos bloques generaría la configuración actual.
   const previewCount = useMemo(() => {
@@ -91,13 +109,13 @@ export default function ProgramarBloquesModal({
   function updatePatron(idx, patch) {
     setPatrones(ps => ps.map((p, i) => i === idx ? { ...p, ...patch } : p))
   }
+  // Agregar/duplicar no se bloquea al llegar a "Bloques por semana": ese
+  // número marca el default pero se permite que la lista sea diferente.
   function addPatron() {
-    if (completo) return
     setPatrones(ps => [...ps, nuevoPatron({ diaSemana: defaultDia, horaInicio: defaultHora })])
   }
   function duplicarPatron(idx) {
     setMenuAbierto(null)
-    if (completo) { toast(`Ya están los ${bloquesPorSemana} bloques por semana`); return }
     setPatrones(ps => {
       const copia = { ...ps[idx] }
       const next = [...ps]
@@ -293,7 +311,7 @@ export default function ProgramarBloquesModal({
               <input
                 type="number" min={1} max={7}
                 value={bloquesPorSemana}
-                onChange={e => setBloquesPorSemana(Math.max(1, Math.min(7, Number(e.target.value) || 1)))}
+                onChange={e => changeBloquesPorSemana(Math.max(1, Math.min(7, Number(e.target.value) || 1)))}
                 className={`${inputCls} w-full`}
               />
             </div>
@@ -459,15 +477,13 @@ export default function ProgramarBloquesModal({
               </div>
             ))}
 
-            {!completo && (
-              <button
-                type="button"
-                onClick={addPatron}
-                className="w-full py-2 rounded-card border border-dashed border-outline-variant text-sm text-accent hover:bg-accent-tint transition-colors flex items-center justify-center gap-1.5"
-              >
-                <Plus size={15} /> Agregar bloque
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={addPatron}
+              className="w-full py-2 rounded-card border border-dashed border-outline-variant text-sm text-accent hover:bg-accent-tint transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Plus size={15} /> Agregar bloque
+            </button>
           </div>
         </div>
 
