@@ -3,11 +3,12 @@ import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/fi
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { ArrowLeft, Plus, Trash2, Scale, Check } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Scale, Check, Eye, EyeOff } from 'lucide-react'
 import {
   RUBRICA_TOTAL, MIN_CRITERIOS, MAX_CRITERIOS, MIN_NIVELES, MAX_NIVELES,
   pesosEquitativos, validarRubrica, round1,
 } from '../../utils/rubrica'
+import RubricaTable from './RubricaTable'
 
 // ── Estado del editor ────────────────────────────────────────────────────────
 // La tabla se edita con strings (inputs numéricos sin pelear con decimales):
@@ -21,6 +22,25 @@ const NIVELES_NUEVA = [
   { nombre: 'Suficiente', valor: '6' },
   { nombre: 'Insuficiente', valor: '5' },
 ]
+
+// Concordancia con "de forma …" (femenino): Bueno → buena, Destacado → destacada
+function adjetivoNivel(nombre) {
+  const n = (nombre || '').trim().toLowerCase()
+  if (!n) return ''
+  return n.endsWith('o') ? n.slice(0, -1) + 'a' : n
+}
+
+// Texto fijo inicial de cada cruce criterio×nivel — editable por el docente.
+// Vacío mientras el nivel no tenga nombre (se llena al nombrarlo).
+function descriptorDefault(nombreNivel) {
+  const adj = adjetivoNivel(nombreNivel)
+  return adj ? `El estudiante cumplió de forma ${adj} este criterio` : ''
+}
+
+// Anchos de columna redimensionables con el mouse — con límites para no
+// exagerarlas ni encogerlas de más
+const CRIT_W = { def: 280, min: 180, max: 480 }
+const NIVEL_W = { def: 175, min: 130, max: 340 }
 
 // Celdas de un renglón derivadas de sus puntos en el nivel máximo:
 // puntos_j = exc × (valor_j / 10)
@@ -55,7 +75,7 @@ function criterioNuevo(niveles, exc) {
   return {
     nombre: '',
     puntos: filaDerivada(exc, niveles),
-    descriptores: niveles.map(() => ''),
+    descriptores: niveles.map((nv) => descriptorDefault(nv.nombre)),
   }
 }
 
@@ -103,12 +123,64 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   const isNew = !initial?.id
   const [r, setR] = useState(() => estadoInicial(initial))
   const [saving, setSaving] = useState(false)
+  const [preview, setPreview] = useState(false)
+  // Anchos por columna (px), redimensionables arrastrando el borde derecho
+  const [colW, setColW] = useState(() => ({
+    crit: CRIT_W.def,
+    niveles: (initial?.niveles || NIVELES_NUEVA).map(() => NIVEL_W.def),
+  }))
 
   const { niveles, criterios } = r
 
+  // ── Redimensionar columnas con el mouse ───────────────────────────────────
+  function startResize(e, tipo, idx) {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = tipo === 'crit' ? colW.crit : colW.niveles[idx]
+    const lim = tipo === 'crit' ? CRIT_W : NIVEL_W
+    function onMove(ev) {
+      const w = Math.min(lim.max, Math.max(lim.min, startW + (ev.clientX - startX)))
+      setColW((prev) => tipo === 'crit'
+        ? { ...prev, crit: w }
+        : { ...prev, niveles: prev.niveles.map((x, k) => (k === idx ? w : x)) })
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  // Agarradera de redimensionado (borde derecho de la columna) — función
+  // simple, no componente, para no recrear componentes en cada render
+  function resizeHandle(tipo, idx) {
+    return (
+      <span
+        onMouseDown={(e) => startResize(e, tipo, idx)}
+        title="Arrastra para cambiar el ancho"
+        className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-[var(--accent)] opacity-60"
+      />
+    )
+  }
+
   // ── Niveles (columnas) ────────────────────────────────────────────────────
+  // Renombrar un nivel también actualiza los descriptores que sigan siendo el
+  // texto fijo generado (los editados por el docente no se tocan).
   function setNivelNombre(j, v) {
-    setR((prev) => ({ ...prev, niveles: prev.niveles.map((n, k) => (k === j ? { ...n, nombre: v } : n)) }))
+    setR((prev) => {
+      const anterior = descriptorDefault(prev.niveles[j].nombre)
+      const nuevo = descriptorDefault(v)
+      const nvs = prev.niveles.map((n, k) => (k === j ? { ...n, nombre: v } : n))
+      const crs = prev.criterios.map((c) => {
+        const d = c.descriptores[j]
+        if (d !== anterior && d !== '') return c
+        const descriptores = [...c.descriptores]
+        descriptores[j] = nuevo
+        return { ...c, descriptores }
+      })
+      return { ...prev, niveles: nvs, criterios: crs }
+    })
   }
 
   // Cambiar los puntos de un nivel recalcula sus celdas en proporción
@@ -132,6 +204,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
       }))
       return { ...prev, niveles: nvs, criterios: recalcularCeldas(nvs, crs) }
     })
+    setColW((prev) => ({ ...prev, niveles: [...prev.niveles, NIVEL_W.def] }))
   }
 
   function removeNivel(j) {
@@ -147,6 +220,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
         })),
       }
     })
+    setColW((prev) => ({ ...prev, niveles: prev.niveles.filter((_, k) => k !== j) }))
   }
 
   // ── Criterios (renglones) ─────────────────────────────────────────────────
@@ -212,6 +286,8 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
     })
   }
 
+  // Reparte los 10 puntos entre criterios (columna del nivel máximo) y
+  // recalcula el resto de las celdas en proporción
   function repartirPesos() {
     setR((prev) => {
       const pesos = pesosEquitativos(prev.criterios.length)
@@ -221,6 +297,23 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
         return { ...c, puntos }
       })
       return { ...prev, criterios: recalcularCeldas(prev.niveles, crs) }
+    })
+  }
+
+  // Reparte SOLO una columna: los puntos de ese nivel en partes iguales entre
+  // los criterios (el último absorbe el residuo para que la suma sea exacta)
+  function repartirColumna(j) {
+    if (j === 0) { repartirPesos(); return }
+    setR((prev) => {
+      const n = prev.criterios.length
+      const valor = round1(parseFloat(prev.niveles[j].valor) || 0)
+      const base = round1(valor / n)
+      const criterios = prev.criterios.map((c, i) => {
+        const puntos = [...c.puntos]
+        puntos[j] = String(i < n - 1 ? base : round1(valor - base * (n - 1)))
+        return { ...c, puntos }
+      })
+      return { ...prev, criterios }
     })
   }
 
@@ -274,7 +367,9 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
     }
   }
 
-  // Subtotales en vivo por columna (la retro inmediata que guía al docente)
+  // Subtotales en vivo por columna: solo se acepta que cada columna sume
+  // exactamente los puntos de su nivel (verde cuadra, rojo no — como las
+  // ponderaciones que deben sumar 10)
   const subtotales = niveles.map((nv, j) => {
     const target = j === 0 ? RUBRICA_TOTAL : round1(parseFloat(nv.valor) || 0)
     const suma = round1(criterios.reduce((s, c) => s + (parseFloat(c.puntos[j]) || 0), 0))
@@ -283,6 +378,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   const todoOk = subtotales.every((s) => s.ok)
 
   const inputCell = 'bg-transparent focus:outline-none focus:ring-2 focus:ring-accent rounded px-1'
+  const anchoMinTabla = 44 + colW.crit + colW.niveles.reduce((s, w) => s + w, 0) + 48 + 130
 
   return (
     <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
@@ -324,24 +420,34 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
           {/* Tabla editable — espejo de la vista del estudiante */}
           <div className="bg-surface-card rounded-card shadow-card p-3">
             <div className="overflow-x-auto pb-1">
-              <table className="border-collapse text-sm" style={{ minWidth: `${220 + niveles.length * 168 + 48 + 136}px`, width: '100%' }}>
+              <table className="border-collapse text-sm" style={{ minWidth: `${anchoMinTabla}px`, width: '100%', tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '44px' }} />
+                  <col style={{ width: `${colW.crit}px` }} />
+                  {niveles.map((_, j) => <col key={j} style={{ width: `${colW.niveles[j]}px` }} />)}
+                  <col style={{ width: '48px' }} />
+                  <col style={{ width: '130px' }} />
+                </colgroup>
                 <thead>
                   <tr>
                     <th colSpan={2} className="border-0"></th>
                     <th colSpan={niveles.length} className="px-3 py-1.5 text-sm font-semibold text-emerald-800 bg-emerald-100 border border-outline-variant">
                       Niveles de desempeño
                     </th>
-                    <th className="border-0 w-12"></th>
-                    <th rowSpan={2} className="px-2 py-2 border border-outline-variant bg-[var(--accent-light)] w-36 align-middle">
+                    <th className="border-0"></th>
+                    <th rowSpan={2} className="px-2 py-2 border border-outline-variant bg-[var(--accent-light)] align-middle"
+                      data-tooltip="Al calificar, se elige un nivel por criterio y aquí cae su valor en puntos. La suma de los puntos elegidos es la calificación.">
                       <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>PUNTOS</p>
-                      <p className="text-[10px] font-normal text-muted mt-1 leading-snug">Al calificar, se elige un nivel por criterio y aquí cae su valor</p>
                     </th>
                   </tr>
                   <tr>
-                    <th className="w-9 px-1 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted align-bottom">Num</th>
-                    <th className="w-44 px-2 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted text-left align-bottom">Criterio</th>
+                    <th className="px-1 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted align-bottom">Num</th>
+                    <th className="relative px-2 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted text-left align-bottom">
+                      Criterio
+                      {resizeHandle('crit')}
+                    </th>
                     {niveles.map((nv, j) => (
-                      <th key={j} className="border border-outline-variant bg-[var(--accent-light)] px-2 py-2 align-top" style={{ minWidth: '160px' }}>
+                      <th key={j} className="relative border border-outline-variant bg-[var(--accent-light)] px-2 py-2 align-top">
                         <div className="flex items-center gap-1">
                           <input type="text" value={nv.nombre}
                             onChange={(e) => setNivelNombre(j, e.target.value)}
@@ -349,7 +455,8 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                             aria-label={`Nombre del nivel ${j + 1}`}
                             className={`w-full min-w-0 text-center text-sm font-bold ${inputCell}`}
                             style={{ color: 'var(--accent)' }} />
-                          {j > 0 && niveles.length > MIN_NIVELES && (
+                          {/* Los primeros 3 niveles son el mínimo — no se pueden eliminar */}
+                          {j >= MIN_NIVELES && (
                             <button type="button" onClick={() => removeNivel(j)}
                               aria-label={`Eliminar nivel ${nv.nombre || j + 1}`} data-tooltip="Eliminar nivel"
                               className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
@@ -371,6 +478,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                             <span className="text-[10px] font-normal text-muted">puntos</span>
                           </div>
                         )}
+                        {resizeHandle('nivel', j)}
                       </th>
                     ))}
                     {/* "+" a la derecha: agrega niveles de desempeño */}
@@ -385,14 +493,18 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                   {criterios.map((c, i) => (
                     <tr key={i}>
                       <td className="border border-outline-variant bg-surface-container text-center text-xs text-muted align-middle">{i + 1}</td>
-                      <td className="border border-outline-variant bg-surface-container px-2 py-2 align-top">
-                        <div className="flex items-start gap-1">
+                      {/* height:1px + h-full: truco para que el textarea del criterio
+                          aproveche toda la altura del renglón */}
+                      <td className="border border-outline-variant bg-surface-container px-2 py-2 align-top" style={{ height: '1px' }}>
+                        <div className="flex items-start gap-1 h-full">
                           <textarea value={c.nombre}
                             onChange={(e) => setCriterioNombre(i, e.target.value)}
-                            rows={2} placeholder={`Criterio ${i + 1} — ej: Ortografía y redacción`}
+                            placeholder={`Criterio ${i + 1} — ej: Ortografía y redacción`}
                             aria-label={`Nombre del criterio ${i + 1}`}
-                            className={`w-full min-w-0 text-xs font-semibold text-on-surface resize-none ${inputCell}`} />
-                          {criterios.length > MIN_CRITERIOS && (
+                            className={`w-full min-w-0 h-full text-sm font-semibold text-on-surface resize-none ${inputCell}`}
+                            style={{ minHeight: '96px' }} />
+                          {/* Los primeros 2 criterios son el mínimo — no se pueden eliminar */}
+                          {i >= MIN_CRITERIOS && (
                             <button type="button" onClick={() => removeCriterio(i)}
                               aria-label={`Eliminar criterio ${i + 1}`} data-tooltip="Eliminar criterio"
                               className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
@@ -440,22 +552,32 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                     </tr>
                   )}
 
-                  {/* SUBTOTAL por columna — la guía en vivo del docente */}
+                  {/* SUBTOTAL por columna — verde cuadra, rojo no (la regla vive en
+                      el tooltip; el guardado solo se acepta con todo en verde) */}
                   <tr>
                     <td colSpan={2} className="border-0 px-2 py-2 text-right text-xs font-bold text-on-surface align-top">SUBTOTAL</td>
                     {subtotales.map((s, j) => (
                       <td key={j} className="border-0 px-2 py-2 text-center align-top">
-                        <p className={`text-sm font-bold ${s.ok ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <p
+                          data-tooltip={j === 0
+                            ? 'Deben sumar 10 forzosamente'
+                            : `Deben sumar los puntos del nivel (${s.target})`}
+                          className={`text-sm font-bold ${s.ok ? 'text-emerald-600' : 'text-red-600'}`}
+                        >
                           {s.suma} / {s.target}
                         </p>
-                        <p className="text-[10px] text-muted leading-snug mt-0.5">
-                          {j === 0 ? 'Deben sumar 10 forzosamente' : 'Deben sumar los puntos del nivel'}
-                        </p>
+                        <button type="button" onClick={() => repartirColumna(j)}
+                          aria-label={`Repartir los ${s.target} puntos de esta columna en partes iguales`}
+                          data-tooltip={`Repartir los ${s.target} puntos de esta columna en partes iguales`}
+                          className="mt-1 p-1.5 rounded border border-outline-variant text-muted hover:text-accent hover:border-accent transition-colors">
+                          <Scale size={14} />
+                        </button>
                       </td>
                     ))}
                     <td className="border-0"></td>
-                    <td className="border-0 px-2 py-2 text-[10px] text-muted align-top leading-snug">
-                      La suma de los puntos elegidos es la <span className="font-semibold">calificación</span>
+                    <td className="border-0 px-2 py-2 text-center align-top">
+                      <span data-tooltip="La suma de los puntos elegidos es la calificación"
+                        className="text-xs font-semibold text-muted cursor-default">= Calificación</span>
                     </td>
                   </tr>
                 </tbody>
@@ -469,7 +591,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
               <p className={`text-xs font-medium ${todoOk ? 'text-emerald-700' : 'text-amber-800'}`}>
                 {todoOk
                   ? 'Todas las columnas cuadran — la rúbrica califica sobre 10.'
-                  : 'Hay columnas que no suman los puntos de su nivel (en rojo). Ajusta las celdas o reparte de nuevo.'}
+                  : 'Hay columnas que no suman los puntos de su nivel (en rojo). Ajusta las celdas o usa la balanza de cada columna.'}
               </p>
               <button type="button" onClick={repartirPesos}
                 className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-outline-variant rounded bg-surface-card text-muted hover:text-accent hover:border-accent transition-colors">
@@ -477,6 +599,18 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
               </button>
             </div>
           </div>
+
+          {/* Vista previa: la rúbrica exactamente como la verá el estudiante */}
+          <button type="button" onClick={() => setPreview((v) => !v)}
+            className="w-full py-2 text-sm text-accent font-medium flex items-center justify-center gap-1.5 hover:underline">
+            {preview ? <EyeOff size={16} /> : <Eye size={16} />}
+            {preview ? 'Ocultar vista del estudiante' : 'Ver cómo vería el estudiante esta rúbrica'}
+          </button>
+          {preview && (
+            <div className="bg-surface-card rounded-card shadow-card p-3">
+              <RubricaTable rubrica={normalizada()} />
+            </div>
+          )}
 
           <button type="submit" disabled={saving}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
