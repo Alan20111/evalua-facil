@@ -287,7 +287,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   return (
     <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="px-4 py-3 flex items-center gap-3">
           <button type="button" onClick={onClose} aria-label="Volver" className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
@@ -300,7 +300,8 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      {/* Pantalla completa: la tabla aprovecha todo el ancho disponible */}
+      <div className="px-4 py-6">
         <form onSubmit={handleSave} className="space-y-4">
 
           {/* Nombre — como el encabezado de la imagen: etiqueta + línea */}
