@@ -40,7 +40,6 @@ function nuevoPatron(defaults = {}) {
     diaSemana: defaults.diaSemana ?? 0,
     lugarTipo: 'aula',
     lugarDetalle: '',
-    horas: 1,
     horaInicio: defaults.horaInicio || '07:00',
   }
 }
@@ -442,16 +441,7 @@ export default function ProgramarBloquesModal({
                       {HORAS_INICIO.map(h => <option key={h} value={h}>{h}</option>)}
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted">Horas/bloques seguidos</span>
-                    <input
-                      type="number" min={1} max={12}
-                      value={p.horas}
-                      onChange={e => updatePatron(idx, { horas: Math.max(1, Number(e.target.value) || 1) })}
-                      className={`${inputCls} w-full`}
-                    />
-                  </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1 col-span-2">
                     <span className="text-xs text-muted">Lugar (opcional)</span>
                     <select
                       value={p.lugarTipo}
@@ -472,7 +462,8 @@ export default function ProgramarBloquesModal({
                   />
                 )}
                 <p className="text-xs text-muted">
-                  Termina a las <strong>{addMinutesToTime(p.horaInicio || '07:00', Math.max(1, Number(p.horas) || 1) * duracionMin)}</strong>
+                  Termina a las <strong>{addMinutesToTime(p.horaInicio || '07:00', duracionMin)}</strong>
+                  {' · '}¿Varias horas seguidas? Agrega un bloque por cada hora.
                 </p>
               </div>
             ))}

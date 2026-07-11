@@ -1387,7 +1387,16 @@ export default function CalendarPage() {
           defaultDia={programarDefaults.dia}
           defaultHora={programarDefaults.hora}
           onClose={() => setShowProgramar(false)}
-          onSaved={() => { /* onSnapshot mantiene bloques sincronizados */ }}
+          onSaved={(created) => {
+            // Salta la vista a la fecha del PRIMER bloque creado, así el docente
+            // los ve de inmediato aunque hayan quedado en otro día/semana/mes.
+            // (onSnapshot mantiene la lista de bloques sincronizada.)
+            if (created?.length) {
+              const first = created.reduce((min, b) =>
+                (b.fecha + b.horaInicio) < (min.fecha + min.horaInicio) ? b : min, created[0])
+              if (first?.fecha) setCurrentDate(new Date(first.fecha + 'T12:00:00'))
+            }
+          }}
         />
       )}
       {editingBloque && (
