@@ -3950,12 +3950,12 @@ export default function SubjectPage() {
                 <label className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-slate-400 font-normal text-xs">(opcional)</span>
                 </label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
+                <div className="space-y-2">
+                  <div>
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                     <EFDateTimePicker mode="date" value={editSubjectForm.fechaInicio} onChange={v => setEditSubjectForm(f => ({ ...f, fechaInicio: v }))} />
                   </div>
-                  <div className="flex-1">
+                  <div>
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
                     <EFDateTimePicker mode="date" value={editSubjectForm.fechaFin} onChange={v => setEditSubjectForm(f => ({ ...f, fechaFin: v }))} />
                   </div>
@@ -4014,12 +4014,12 @@ export default function SubjectPage() {
                 <label className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-slate-400 font-normal text-xs">(opcional)</span>
                 </label>
-                <div className="flex gap-2">
-                  <div className="flex-1">
+                <div className="space-y-2">
+                  <div>
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                     <EFDateTimePicker mode="date" value={copyFechas.fechaInicio} onChange={v => setCopyFechas(f => ({ ...f, fechaInicio: v }))} />
                   </div>
-                  <div className="flex-1">
+                  <div>
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
                     <EFDateTimePicker mode="date" value={copyFechas.fechaFin} onChange={v => setCopyFechas(f => ({ ...f, fechaFin: v }))} />
                   </div>
@@ -4150,12 +4150,12 @@ export default function SubjectPage() {
                     className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Asignatura" />
                   <input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))}
                     className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
-                  <div className="flex gap-2">
-                    <div className="flex-1">
+                  <div className="space-y-2">
+                    <div>
                       <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                       <EFDateTimePicker mode="date" value={unarchiveEdits.fechaInicio} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaInicio: v }))} />
                     </div>
-                    <div className="flex-1">
+                    <div>
                       <span className="block text-sm text-slate-500 mb-1">Fin</span>
                       <EFDateTimePicker mode="date" value={unarchiveEdits.fechaFin} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaFin: v }))} />
                     </div>
