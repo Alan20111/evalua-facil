@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { usernameCandidates } from '../utils/generate'
 
 const AuthContext = createContext(null)
 
@@ -55,19 +56,29 @@ export function AuthProvider({ children }) {
           }
           setUserProfile(profile)
         } else if (user.email?.endsWith('@evalua.local')) {
-          // Student account: no users/{uid} doc. Resolve from `students` using the fake email
-          // `username.escuelaId@evalua.local`, SCOPED to that school so identical usernames
-          // across schools never collide. Prefer the enrollment that already carries this uid.
+          // Student account: no users/{uid} doc. Prefer the enrollment(s) that already carry
+          // this uid (stamped at activation); fall back to parsing the fake email
+          // `username.escuelaId@evalua.local`. The username itself can contain a dot
+          // (apellido.nombre format), so the school id is everything after the LAST dot,
+          // and lookups must try both case variants (legacy codes are UPPERCASE, new
+          // usernames lowercase).
           try {
-            const emailPart = user.email.split('@')[0]
-            const dot = emailPart.indexOf('.')
-            const username = (dot >= 0 ? emailPart.slice(0, dot) : emailPart).toUpperCase()
-            const escuelaId = dot >= 0 ? emailPart.slice(dot + 1) : null
-            const studs = await getDocs(
-              query(collection(db, 'students'), where('username', '==', username))
+            let docs = []
+            const byUid = await getDocs(
+              query(collection(db, 'students'), where('uid', '==', user.uid))
             )
-            let docs = studs.docs.map((d) => ({ id: d.id, ...d.data() }))
-            if (escuelaId) docs = docs.filter((d) => d.escuelaId === escuelaId)
+            docs = byUid.docs.map((d) => ({ id: d.id, ...d.data() }))
+            if (docs.length === 0) {
+              const emailPart = user.email.split('@')[0]
+              const dot = emailPart.lastIndexOf('.')
+              const username = dot >= 0 ? emailPart.slice(0, dot) : emailPart
+              const escuelaId = dot >= 0 ? emailPart.slice(dot + 1) : null
+              const snaps = await Promise.all(usernameCandidates(username).map((u) =>
+                getDocs(query(collection(db, 'students'), where('username', '==', u)))
+              ))
+              docs = snaps.flatMap((s) => s.docs).map((d) => ({ id: d.id, ...d.data() }))
+              if (escuelaId) docs = docs.filter((d) => d.escuelaId === escuelaId)
+            }
             const s = docs.find((d) => d.uid === user.uid) || docs[0]
             if (s) {
               setUserProfile({ role: 'alumno', studentId: s.id, ...s })

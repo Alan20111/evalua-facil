@@ -44,8 +44,11 @@ service cloud.firestore {
 
     match /schools/{schoolId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      // Schools are created/edited only from teacher flows (Register/Onboarding
+      // run AFTER the users/{uid} doc exists, Profile is teacher-only), so
+      // student accounts never need write access here.
+      allow create: if isAdmin() || isDocente();
+      allow update: if isAdmin() || isDocente();
     }
 
     match /users/{userId} {
@@ -88,7 +91,9 @@ service cloud.firestore {
 
     match /subjects/{subjectId} {
       allow read: if true;
-      allow create: if request.auth != null;
+      // Only teachers create subjects, always attributed to themselves.
+      allow create: if isDocente() &&
+        request.auth.uid == request.resource.data.docenteId;
       allow update, delete: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
     }
@@ -127,7 +132,9 @@ service cloud.firestore {
     // enrolled student) can read; only the owning teacher can write/delete.
     match /resources/{resourceId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
+      // Only teachers create resources, always attributed to themselves.
+      allow create: if isDocente() &&
+        request.auth.uid == request.resource.data.docenteId;
       allow update, delete: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
     }
@@ -138,7 +145,9 @@ service cloud.firestore {
     // Same read/write shape as resources/activities.
     match /materials/{materialId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
+      // Only teachers create materials, always attributed to themselves.
+      allow create: if isDocente() &&
+        request.auth.uid == request.resource.data.docenteId;
       allow update, delete: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
     }
@@ -170,11 +179,12 @@ service cloud.firestore {
 
       // Evaluación answers (autosave + teacher revision). Only the student who
       // owns the parent submission, or the teacher who owns the parent activity,
-      // may write — closes the cross-student write hole where any authenticated
-      // account could edit anyone's answers.
+      // may READ or WRITE — closes the cross-student hole where any
+      // authenticated account could see or edit anyone's answers. Reads are
+      // always scoped to a concrete submissionId (single doc or subcollection
+      // query under it), so the parent get() resolves for list queries too.
       match /respuestas/{preguntaId} {
-        allow read: if request.auth != null;
-        allow write: if request.auth != null && (
+        allow read, write: if request.auth != null && (
           (
             exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
             ownsStudentDoc(get(/databases/$(database)/documents/submissions/$(submissionId)).data.alumnoId)
