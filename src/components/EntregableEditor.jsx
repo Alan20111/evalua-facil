@@ -11,6 +11,7 @@ import { sanitizeHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../config/fileTypes'
 import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, Eye, EyeOff, X } from 'lucide-react'
 import RubricaPicker from './rubrica/RubricaPicker'
+import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
 import { snapshotRubrica } from '../utils/rubrica'
 import EFDateTimePicker from './EFDateTimePicker'
@@ -92,8 +93,9 @@ export default function EntregableEditor({
   const [existingFiles, setExistingFiles] = useState(initialExistingFiles || [])
   const [newFiles, setNewFiles] = useState([])
   const [saving, setSaving] = useState(false)
-  // Rúbrica de evaluación (solo entregables): banco + vista previa de la elegida
+  // Rúbrica de evaluación (solo entregables): banco + creación directa + vista previa
   const [rubricaPickerOpen, setRubricaPickerOpen] = useState(false)
+  const [rubricaEditorOpen, setRubricaEditorOpen] = useState(false)
   const [rubricaPreview, setRubricaPreview] = useState(false)
 
   // The "Nueva fecha de entrega" modal (in ActivityPage) writes the group deadline
@@ -329,10 +331,17 @@ export default function EntregableEditor({
                   {rubricaPreview && <RubricaTable rubrica={form.rubrica} />}
                 </>
               ) : (
-                <button type="button" onClick={() => setRubricaPickerOpen(true)}
-                  className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
-                  <ClipboardList size={16} /> Usar una rúbrica de mi banco
-                </button>
+                <div className="space-y-2">
+                  {/* Crear directo: la rúbrica se guarda en el banco Y queda asignada aquí */}
+                  <button type="button" onClick={() => setRubricaEditorOpen(true)}
+                    className="w-full py-2.5 text-sm bg-accent text-white font-semibold rounded hover:bg-accent-hover transition-colors flex items-center justify-center gap-2">
+                    <Plus size={16} /> Crear rúbrica
+                  </button>
+                  <button type="button" onClick={() => setRubricaPickerOpen(true)}
+                    className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
+                    <ClipboardList size={16} /> Usar una rúbrica de mi banco
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -474,6 +483,18 @@ export default function EntregableEditor({
           onSelect={(r) => {
             setForm((f) => ({ ...f, rubrica: snapshotRubrica(r), rubricaId: r.id }))
             setRubricaPickerOpen(false)
+          }}
+        />
+      )}
+
+      {/* Creación directa: guarda la rúbrica en el banco y la asigna a esta actividad */}
+      {rubricaEditorOpen && (
+        <RubricaEditor
+          initial={null}
+          docenteId={docenteId}
+          onClose={() => setRubricaEditorOpen(false)}
+          onSaved={(saved) => {
+            setForm((f) => ({ ...f, rubrica: snapshotRubrica(saved), rubricaId: saved.id }))
           }}
         />
       )}
