@@ -40,8 +40,8 @@ import { matchesStudentSearch } from '../../utils/studentSearch'
 import EvaluacionManager from '../../components/EvaluacionManager'
 import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
-import RubricaTable from '../../components/rubrica/RubricaTable'
-import { ClipboardList } from 'lucide-react'
+import RubricaGradeTable from '../../components/rubrica/RubricaGradeTable'
+import { ClipboardList, X } from 'lucide-react'
 import { totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
 
 // La evaluación con rúbrica de un alumno "no existe" hasta que se elige algún
@@ -938,9 +938,39 @@ export default function ActivityPage() {
 
           <div className="flex-1 min-h-0 flex flex-col md:flex-row">
 
-            {/* Left: file preview, top to bottom */}
+            {/* Left: file preview, top to bottom. Con la rúbrica abierta, esta
+                zona (del botón hacia la izquierda) muestra la rúbrica para
+                calificar — el panel derecho sigue visible y el guardado es el
+                de siempre (Guardar o autoguardado al navegar). */}
             <div className="h-[45vh] md:h-auto md:flex-1 min-w-0 bg-surface-container flex flex-col">
-              {selFiles.length > 1 && previewIdx === -1 ? (
+              {rubricaViewOpen && hasRubrica ? (
+                <div className="flex-1 min-h-0 flex flex-col bg-surface">
+                  <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant bg-surface-card flex-shrink-0">
+                    <ClipboardList size={18} className="text-accent flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-on-surface truncate">Rúbrica: {activity.rubrica.titulo}</p>
+                      <p className="text-xs text-muted truncate">Marca una opción por renglón — la calificación se calcula sola</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRubricaViewOpen(false)}
+                      aria-label="Cerrar rúbrica"
+                      data-tooltip="Cerrar rúbrica"
+                      className="p-2 text-slate-400 hover:text-accent rounded flex-shrink-0"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-auto p-3">
+                    <RubricaGradeTable
+                      rubrica={activity.rubrica}
+                      seleccion={rubricEval}
+                      onSelect={selectRubricaNivel}
+                      disabled={parcialCerrado}
+                    />
+                  </div>
+                </div>
+              ) : selFiles.length > 1 && previewIdx === -1 ? (
                 /* "Todas las imágenes": every file stacked, scrollable */
                 <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
                   {selFiles.map((f, i) => (
@@ -1140,20 +1170,25 @@ export default function ActivityPage() {
                         Al revertir, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
                       </div>
                     )}
-                    {/* Rúbrica: abre la tabla completa para marcar una opción por
-                        renglón — el total se escribe en la calificación y se guarda
-                        del modo conocido (Guardar o autoguardado al navegar) */}
+                    {/* Rúbrica: abre la tabla en la zona izquierda (donde la vista
+                        previa) para marcar una opción por renglón — el total se
+                        escribe en la calificación y se guarda del modo conocido
+                        (Guardar o autoguardado al navegar) */}
                     {hasRubrica && (() => {
                       const totalR = totalRubrica(activity.rubrica, rubricEval)
                       const faltan = activity.rubrica.criterios.filter((_, i) => rubricEval?.[i] == null).length
                       return (
                         <button
                           type="button"
-                          onClick={() => setRubricaViewOpen(true)}
-                          className="w-full py-2.5 border border-accent text-accent text-sm font-semibold rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
+                          onClick={() => setRubricaViewOpen((v) => !v)}
+                          className={`w-full py-2.5 text-sm font-semibold rounded transition-colors flex items-center justify-center gap-2 ${
+                            rubricaViewOpen
+                              ? 'bg-accent text-white hover:bg-accent-hover'
+                              : 'border border-accent text-accent hover:bg-[var(--accent-tint)]'
+                          }`}
                         >
                           <ClipboardList size={17} />
-                          Ver rúbrica
+                          {rubricaViewOpen ? 'Ocultar rúbrica' : 'Ver rúbrica'}
                           <span className="font-bold">
                             {totalR != null ? `— ${totalR} / ${RUBRICA_TOTAL}` : `— faltan ${faltan} criterio${faltan !== 1 ? 's' : ''}`}
                           </span>
@@ -1487,64 +1522,6 @@ export default function ActivityPage() {
           </div>
         </div>
       )}
-
-      {/* Rúbrica en pantalla completa para calificar: una opción por renglón.
-          La calificación resultante queda en el formulario — se guarda con el
-          botón Guardar o con el autoguardado al avanzar/retroceder. */}
-      {rubricaViewOpen && hasRubrica && selected && (() => {
-        const totalR = totalRubrica(activity.rubrica, rubricEval)
-        const faltan = activity.rubrica.criterios.filter((_, i) => rubricEval?.[i] == null).length
-        return (
-          <div className="fixed inset-0 z-[60] bg-surface flex flex-col">
-            <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setRubricaViewOpen(false)}
-                className="flex items-center gap-1 p-2 -ml-2 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
-              >
-                <ArrowLeft size={20} /> Regresar
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold uppercase tracking-wide text-accent">Calificar con rúbrica</p>
-                <h3 className="text-lg font-bold text-on-surface truncate">{activity.rubrica.titulo}</h3>
-                <p className="text-slate-400 text-xs truncate">
-                  {selected.student.apellidoPaterno} {selected.student.apellidoMaterno} {selected.student.nombre}
-                </p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-3xl font-bold leading-none" style={{ color: 'var(--accent)' }}>
-                  {totalR != null ? totalR : '—'}<span className="text-base text-slate-400 font-normal"> / {RUBRICA_TOTAL}</span>
-                </p>
-                <p className="text-xs text-slate-400">
-                  {totalR != null ? 'calificación' : `faltan ${faltan} criterio${faltan !== 1 ? 's' : ''}`}
-                </p>
-              </div>
-            </div>
-            <div className="flex-1 min-h-0 overflow-auto p-4">
-              <p className="text-xs text-muted mb-3">
-                Marca una opción por renglón — la calificación se calcula sola y se
-                guarda del modo conocido: con <span className="font-semibold">Guardar calificación</span> o
-                al avanzar/retroceder si tienes activado el autoguardado.
-              </p>
-              <RubricaTable
-                rubrica={activity.rubrica}
-                seleccion={rubricEval}
-                onSelect={selectRubricaNivel}
-                disabled={parcialCerrado}
-              />
-            </div>
-            <div className="p-3 border-t border-outline-variant bg-surface-card flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setRubricaViewOpen(false)}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors"
-              >
-                {totalR != null ? `Listo — calificación ${totalR} / ${RUBRICA_TOTAL}` : 'Regresar'}
-              </button>
-            </div>
-          </div>
-        )
-      })()}
 
       {editingActivity && activity && (
         <EntregableEditor
