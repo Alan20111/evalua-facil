@@ -1,3 +1,5 @@
+import { valorNivel } from '../../utils/rubrica'
+
 // Tabla de rúbrica — presentacional. La usan la vista previa del docente y la
 // vista del alumno (antes de entregar y, ya calificado, con su resultado
 // resaltado vía `seleccion`). Si recibe `onSelect`, las celdas son botones
@@ -17,7 +19,7 @@ export default function RubricaTable({ rubrica, seleccion = null, onSelect = nul
             {niveles.map((nv, ni) => (
               <th key={ni} className="px-3 py-2 text-center border border-outline-variant bg-[var(--accent-light)]">
                 <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>{nv.nombre}</p>
-                <p className="text-[11px] font-normal text-muted">{nv.porcentaje}%</p>
+                <p className="text-[11px] font-normal text-muted">{valorNivel(nv)} puntos</p>
               </th>
             ))}
           </tr>
