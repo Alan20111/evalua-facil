@@ -25,45 +25,7 @@ export const MAX_CRITERIOS = 6
 export const MIN_NIVELES = 3
 export const MAX_NIVELES = 5
 
-export const NIVELES_DEFAULT = [
-  { nombre: 'Excelente', porcentaje: 100 },
-  { nombre: 'Bueno', porcentaje: 80 },
-  { nombre: 'Suficiente', porcentaje: 60 },
-  { nombre: 'Insuficiente', porcentaje: 50 },
-]
-
 export const round1 = (n) => Math.round(n * 10) / 10
-
-// Puntos automáticos de un criterio: peso × porcentaje del nivel. El primer
-// nivel (máximo) siempre vale el peso completo, para que una rúbrica toda en
-// el nivel máximo sume exactamente 10.
-export function puntosDerivados(peso, niveles) {
-  const p = parseFloat(peso) || 0
-  return niveles.map((nv, i) => (i === 0 ? round1(p) : round1((p * (parseFloat(nv.porcentaje) || 0)) / 100)))
-}
-
-export function nuevoCriterio(niveles, peso = 0) {
-  return {
-    nombre: '',
-    peso,
-    puntos: puntosDerivados(peso, niveles),
-    descriptores: niveles.map(() => ''),
-  }
-}
-
-export function rubricaNueva() {
-  const niveles = NIVELES_DEFAULT.map((n) => ({ ...n }))
-  return {
-    titulo: '',
-    descripcion: '',
-    niveles,
-    criterios: [nuevoCriterio(niveles, 5), nuevoCriterio(niveles, 5)],
-  }
-}
-
-export function sumaPesos(criterios) {
-  return round1((criterios || []).reduce((s, c) => s + (parseFloat(c.peso) || 0), 0))
-}
 
 // Reparte los 10 puntos en partes iguales entre los criterios; el último
 // absorbe el residuo de redondeo para que la suma sea exactamente 10.
@@ -87,39 +49,37 @@ export function totalRubrica(rubrica, seleccion) {
   return round1(total)
 }
 
-// Normaliza una rúbrica en edición (strings de inputs) a números listos para
-// guardar. No valida — eso lo hace validarRubrica sobre el resultado.
-export function normalizarRubrica(r) {
-  const niveles = (r.niveles || []).map((nv) => ({
-    nombre: (nv.nombre || '').trim(),
-    porcentaje: parseFloat(nv.porcentaje) || 0,
-  }))
-  return {
-    titulo: (r.titulo || '').trim(),
-    descripcion: (r.descripcion || '').trim(),
-    niveles,
-    criterios: (r.criterios || []).map((c) => ({
-      nombre: (c.nombre || '').trim(),
-      peso: parseFloat(c.peso) || 0,
-      puntos: (c.puntos || []).map((p, i) => (i === 0 ? round1(parseFloat(c.peso) || 0) : round1(parseFloat(p) || 0))),
-      descriptores: (c.descriptores || []).map((d) => (d || '').trim()),
-    })),
-  }
+// Valor en PUNTOS de un nivel (sobre 10): 100% → 10, 80% → 8… El porcentaje
+// sigue siendo el campo almacenado (compatibilidad con rúbricas ya guardadas);
+// toda la UI habla en puntos.
+export function valorNivel(nivel) {
+  return round1((parseFloat(nivel?.porcentaje) || 0) / 10)
 }
 
-// Valida una rúbrica NORMALIZADA. Devuelve el primer error encontrado como
-// texto para el docente, o null si todo está bien.
+// Valida una rúbrica NORMALIZADA (números, no strings de inputs). Devuelve el
+// primer error encontrado como texto para el docente, o null si todo está bien.
+//
+// Modelo de puntos (espejo de la tabla del editor):
+//  - El primer nivel vale 10 puntos, fijo. Los demás son editables, siempre
+//    menores que el nivel anterior y mayores que 0.
+//  - Cada celda criterio×nivel tiene puntos editables, sin subir de izquierda
+//    a derecha dentro del renglón.
+//  - Cada COLUMNA debe sumar exactamente los puntos de su nivel (la primera
+//    suma 10 forzosamente — así todo-en-el-máximo da calificación de 10).
 export function validarRubrica(r) {
-  if (!r.titulo) return 'Escribe el título de la rúbrica'
+  if (!r.titulo) return 'Escribe el nombre de la rúbrica'
   const nv = r.niveles || []
   if (nv.length < MIN_NIVELES || nv.length > MAX_NIVELES) {
     return `La rúbrica debe tener entre ${MIN_NIVELES} y ${MAX_NIVELES} niveles de desempeño`
   }
   if (nv.some((n) => !n.nombre)) return 'Todos los niveles necesitan un nombre'
-  if (nv[0].porcentaje !== 100) return 'El primer nivel siempre vale el 100%'
-  for (let i = 1; i < nv.length; i++) {
-    if (nv[i].porcentaje <= 0 || nv[i].porcentaje >= 100) return `El porcentaje de "${nv[i].nombre}" debe estar entre 1 y 99`
-    if (nv[i].porcentaje >= nv[i - 1].porcentaje) return 'Los porcentajes de los niveles deben ir de mayor a menor'
+  const valores = nv.map(valorNivel)
+  if (valores[0] !== RUBRICA_TOTAL) return `El primer nivel siempre vale ${RUBRICA_TOTAL} puntos`
+  for (let j = 1; j < nv.length; j++) {
+    if (valores[j] <= 0) return `Los puntos del nivel "${nv[j].nombre}" deben ser mayores a 0`
+    if (valores[j] >= valores[j - 1]) {
+      return `Los puntos del nivel "${nv[j].nombre}" (${valores[j]}) deben ser menores que los de "${nv[j - 1].nombre}" (${valores[j - 1]})`
+    }
   }
   const cr = r.criterios || []
   if (cr.length < MIN_CRITERIOS || cr.length > MAX_CRITERIOS) {
@@ -128,8 +88,8 @@ export function validarRubrica(r) {
   for (let ci = 0; ci < cr.length; ci++) {
     const c = cr[ci]
     if (!c.nombre) return `Escribe el nombre del criterio ${ci + 1}`
-    if (c.peso <= 0) return `El criterio "${c.nombre}" necesita un peso mayor a 0`
     if (c.puntos.length !== nv.length) return `Los puntos del criterio "${c.nombre}" no coinciden con los niveles`
+    if (c.puntos[0] <= 0) return `Los puntos de "${c.nombre}" en "${nv[0].nombre}" deben ser mayores a 0`
     for (let ni = 1; ni < c.puntos.length; ni++) {
       if (c.puntos[ni] < 0) return `Los puntos de "${c.nombre}" no pueden ser negativos`
       if (c.puntos[ni] > c.puntos[ni - 1]) {
@@ -137,9 +97,13 @@ export function validarRubrica(r) {
       }
     }
   }
-  const suma = sumaPesos(cr)
-  if (Math.abs(suma - RUBRICA_TOTAL) > 0.01) {
-    return `Los pesos de los criterios suman ${suma} — deben sumar exactamente ${RUBRICA_TOTAL}`
+  for (let j = 0; j < nv.length; j++) {
+    const suma = round1(cr.reduce((s, c) => s + (c.puntos[j] || 0), 0))
+    if (Math.abs(suma - valores[j]) > 0.01) {
+      return j === 0
+        ? `La columna "${nv[0].nombre}" suma ${suma} — debe sumar exactamente ${RUBRICA_TOTAL}`
+        : `La columna "${nv[j].nombre}" suma ${suma} — debe sumar ${valores[j]} (los puntos de ese nivel)`
+    }
   }
   return null
 }

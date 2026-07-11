@@ -3,125 +3,192 @@ import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/fi
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { ArrowLeft, Plus, Trash2, Scale, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Scale, Check } from 'lucide-react'
 import {
   RUBRICA_TOTAL, MIN_CRITERIOS, MAX_CRITERIOS, MIN_NIVELES, MAX_NIVELES,
-  rubricaNueva, nuevoCriterio, puntosDerivados, sumaPesos, pesosEquitativos,
-  normalizarRubrica, validarRubrica, round1,
+  pesosEquitativos, validarRubrica, round1,
 } from '../../utils/rubrica'
-import RubricaTable from './RubricaTable'
 
-// Editor de rúbricas del banco personal del docente. Pantalla completa por
-// encima del editor de entregables (z-[70] > picker z-[60] > editor z-50).
+// ── Estado del editor ────────────────────────────────────────────────────────
+// La tabla se edita con strings (inputs numéricos sin pelear con decimales):
+//   niveles:   [{ nombre, valor }]            valor en PUNTOS ('10' fijo el 1º)
+//   criterios: [{ nombre, puntos: [str], descriptores: [str] }]
+// Al guardar se normaliza a números y porcentaje (campo almacenado).
+
+const NIVELES_NUEVA = [
+  { nombre: 'Excelente', valor: '10' },
+  { nombre: 'Bueno', valor: '8' },
+  { nombre: 'Suficiente', valor: '6' },
+  { nombre: 'Insuficiente', valor: '5' },
+]
+
+// Celdas de un renglón derivadas de sus puntos en el nivel máximo:
+// puntos_j = exc × (valor_j / 10)
+function filaDerivada(exc, niveles) {
+  const e = parseFloat(exc) || 0
+  return niveles.map((nv, j) => (j === 0 ? String(round1(e)) : String(round1((e * (parseFloat(nv.valor) || 0)) / 10))))
+}
+
+// Recalcula TODAS las celdas (excepto la columna del nivel máximo) en
+// proporción a los puntos de cada criterio en ese nivel. El último renglón
+// absorbe el residuo de redondeo para que cada columna sume exacto.
+function recalcularCeldas(niveles, criterios) {
+  const n = criterios.length
+  const excs = criterios.map((c) => parseFloat(c.puntos[0]) || 0)
+  return criterios.map((c, i) => {
+    const puntos = [...c.puntos]
+    niveles.forEach((nv, j) => {
+      if (j === 0) return
+      const valor = parseFloat(nv.valor) || 0
+      if (i < n - 1) {
+        puntos[j] = String(round1((excs[i] * valor) / 10))
+      } else {
+        const otros = excs.slice(0, n - 1).reduce((s, e) => s + round1((e * valor) / 10), 0)
+        puntos[j] = String(round1(valor - otros))
+      }
+    })
+    return { ...c, puntos }
+  })
+}
+
+function criterioNuevo(niveles, exc) {
+  return {
+    nombre: '',
+    puntos: filaDerivada(exc, niveles),
+    descriptores: niveles.map(() => ''),
+  }
+}
+
+function estadoInicial(initial) {
+  if (!initial) {
+    const niveles = NIVELES_NUEVA.map((n) => ({ ...n }))
+    return {
+      titulo: '',
+      descripcion: '',
+      niveles,
+      criterios: [criterioNuevo(niveles, '5'), criterioNuevo(niveles, '5')],
+    }
+  }
+  return {
+    titulo: initial.titulo || '',
+    descripcion: initial.descripcion || '',
+    niveles: (initial.niveles || []).map((n) => ({
+      nombre: n.nombre || '',
+      valor: String(round1((parseFloat(n.porcentaje) || 0) / 10)),
+    })),
+    criterios: (initial.criterios || []).map((c) => ({
+      nombre: c.nombre || '',
+      puntos: (c.puntos || []).map((p) => String(p)),
+      descriptores: [...(c.descriptores || [])],
+    })),
+  }
+}
+
+// Botón circular "+" (agregar criterios hacia abajo / niveles a la derecha)
+function BotonMas({ onClick, label }) {
+  return (
+    <button type="button" onClick={onClick} aria-label={label} data-tooltip={label}
+      className="w-9 h-9 rounded-full border-2 border-on-surface bg-surface-card text-on-surface flex items-center justify-center hover:border-accent hover:text-accent transition-colors flex-shrink-0 shadow-card">
+      <Plus size={20} />
+    </button>
+  )
+}
+
+// Editor de rúbricas del banco personal del docente — misma tabla que ve el
+// estudiante, editable en el lugar (WYSIWYG). Pantalla completa por encima
+// del banco (z-[70] > picker z-[60] > editor de entregables z-50).
 // `initial` = { id, ...rubrica } para editar, null para crear.
 export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) {
   const toast = useToast()
   const isNew = !initial?.id
-  const [r, setR] = useState(() => {
-    if (!initial) return rubricaNueva()
-    // Copia profunda editable de la rúbrica existente
-    return {
-      titulo: initial.titulo || '',
-      descripcion: initial.descripcion || '',
-      niveles: (initial.niveles || []).map((n) => ({ ...n })),
-      criterios: (initial.criterios || []).map((c) => ({
-        ...c,
-        puntos: [...(c.puntos || [])],
-        descriptores: [...(c.descriptores || [])],
-      })),
-    }
-  })
+  const [r, setR] = useState(() => estadoInicial(initial))
   const [saving, setSaving] = useState(false)
-  const [preview, setPreview] = useState(false)
 
-  const suma = sumaPesos(r.criterios)
-  const sumaOk = Math.abs(suma - RUBRICA_TOTAL) <= 0.01
+  const { niveles, criterios } = r
 
-  // ── Niveles ──────────────────────────────────────────────────────────────
-  // Cambiar el porcentaje de un nivel recalcula esa columna de puntos en TODOS
-  // los criterios (el docente puede volver a afinar celdas después).
-  function setNivel(ni, field, value) {
+  // ── Niveles (columnas) ────────────────────────────────────────────────────
+  function setNivelNombre(j, v) {
+    setR((prev) => ({ ...prev, niveles: prev.niveles.map((n, k) => (k === j ? { ...n, nombre: v } : n)) }))
+  }
+
+  // Cambiar los puntos de un nivel recalcula sus celdas en proporción
+  function setNivelValor(j, v) {
     setR((prev) => {
-      const niveles = prev.niveles.map((n, i) => (i === ni ? { ...n, [field]: value } : n))
-      if (field !== 'porcentaje') return { ...prev, niveles }
-      const pct = parseFloat(value) || 0
-      const criterios = prev.criterios.map((c) => {
-        const puntos = [...c.puntos]
-        puntos[ni] = round1(((parseFloat(c.peso) || 0) * pct) / 100)
-        return { ...c, puntos }
-      })
-      return { ...prev, niveles, criterios }
+      const nvs = prev.niveles.map((n, k) => (k === j ? { ...n, valor: v } : n))
+      return { ...prev, niveles: nvs, criterios: recalcularCeldas(nvs, prev.criterios) }
     })
   }
 
   function addNivel() {
     setR((prev) => {
       if (prev.niveles.length >= MAX_NIVELES) return prev
-      const last = parseFloat(prev.niveles[prev.niveles.length - 1]?.porcentaje) || 50
-      const pct = Math.max(5, Math.round(last - 10))
-      const niveles = [...prev.niveles, { nombre: '', porcentaje: pct }]
-      const criterios = prev.criterios.map((c) => ({
+      const ultimo = parseFloat(prev.niveles[prev.niveles.length - 1]?.valor) || 2
+      const valor = String(Math.max(1, round1(ultimo - 1)))
+      const nvs = [...prev.niveles, { nombre: '', valor }]
+      const crs = prev.criterios.map((c) => ({
         ...c,
-        puntos: [...c.puntos, round1(((parseFloat(c.peso) || 0) * pct) / 100)],
+        puntos: [...c.puntos, '0'],
         descriptores: [...c.descriptores, ''],
       }))
-      return { ...prev, niveles, criterios }
+      return { ...prev, niveles: nvs, criterios: recalcularCeldas(nvs, crs) }
     })
   }
 
-  function removeNivel(ni) {
+  function removeNivel(j) {
     setR((prev) => {
       if (prev.niveles.length <= MIN_NIVELES) return prev
       return {
         ...prev,
-        niveles: prev.niveles.filter((_, i) => i !== ni),
+        niveles: prev.niveles.filter((_, k) => k !== j),
         criterios: prev.criterios.map((c) => ({
           ...c,
-          puntos: c.puntos.filter((_, i) => i !== ni),
-          descriptores: c.descriptores.filter((_, i) => i !== ni),
+          puntos: c.puntos.filter((_, k) => k !== j),
+          descriptores: c.descriptores.filter((_, k) => k !== j),
         })),
       }
     })
   }
 
-  // ── Criterios ────────────────────────────────────────────────────────────
-  function setCriterio(ci, patch) {
-    setR((prev) => ({
-      ...prev,
-      criterios: prev.criterios.map((c, i) => (i === ci ? { ...c, ...patch } : c)),
-    }))
+  // ── Criterios (renglones) ─────────────────────────────────────────────────
+  function setCriterioNombre(i, v) {
+    setR((prev) => ({ ...prev, criterios: prev.criterios.map((c, k) => (k === i ? { ...c, nombre: v } : c)) }))
   }
 
-  // Cambiar el peso recalcula automáticamente los puntos de todos los niveles
-  // de ese criterio (el docente puede afinar celdas individuales después).
-  function setPeso(ci, value) {
-    setR((prev) => ({
-      ...prev,
-      criterios: prev.criterios.map((c, i) =>
-        i === ci ? { ...c, peso: value, puntos: puntosDerivados(value, prev.niveles) } : c
-      ),
-    }))
-  }
-
-  function setPunto(ci, ni, value) {
-    setR((prev) => ({
-      ...prev,
-      criterios: prev.criterios.map((c, i) => {
-        if (i !== ci) return c
+  // Los puntos del nivel máximo son el "peso" del criterio: cambiarlos
+  // recalcula el resto del renglón (y el ajuste del último renglón por columna)
+  function setExc(i, v) {
+    setR((prev) => {
+      const crs = prev.criterios.map((c, k) => {
+        if (k !== i) return c
         const puntos = [...c.puntos]
-        puntos[ni] = value
+        puntos[0] = v
+        return { ...c, puntos }
+      })
+      return { ...prev, criterios: recalcularCeldas(prev.niveles, crs) }
+    })
+  }
+
+  // Celdas de niveles intermedios: edición directa — el subtotal en vivo
+  // avisa si la columna deja de sumar los puntos del nivel
+  function setPunto(i, j, v) {
+    setR((prev) => ({
+      ...prev,
+      criterios: prev.criterios.map((c, k) => {
+        if (k !== i) return c
+        const puntos = [...c.puntos]
+        puntos[j] = v
         return { ...c, puntos }
       }),
     }))
   }
 
-  function setDescriptor(ci, ni, value) {
+  function setDescriptor(i, j, v) {
     setR((prev) => ({
       ...prev,
-      criterios: prev.criterios.map((c, i) => {
-        if (i !== ci) return c
+      criterios: prev.criterios.map((c, k) => {
+        if (k !== i) return c
         const descriptores = [...c.descriptores]
-        descriptores[ni] = value
+        descriptores[j] = v
         return { ...c, descriptores }
       }),
     }))
@@ -131,48 +198,72 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
     setR((prev) => {
       if (prev.criterios.length >= MAX_CRITERIOS) return prev
       // El criterio nuevo nace con los puntos que faltan para llegar a 10
-      const restante = Math.max(0, round1(RUBRICA_TOTAL - sumaPesos(prev.criterios)))
-      return { ...prev, criterios: [...prev.criterios, nuevoCriterio(prev.niveles, restante)] }
+      const sumaExc = prev.criterios.reduce((s, c) => s + (parseFloat(c.puntos[0]) || 0), 0)
+      const restante = Math.max(0, round1(RUBRICA_TOTAL - sumaExc))
+      const crs = [...prev.criterios, criterioNuevo(prev.niveles, String(restante))]
+      return { ...prev, criterios: recalcularCeldas(prev.niveles, crs) }
     })
   }
 
-  function removeCriterio(ci) {
+  function removeCriterio(i) {
     setR((prev) => {
       if (prev.criterios.length <= MIN_CRITERIOS) return prev
-      return { ...prev, criterios: prev.criterios.filter((_, i) => i !== ci) }
+      return { ...prev, criterios: prev.criterios.filter((_, k) => k !== i) }
     })
   }
 
   function repartirPesos() {
     setR((prev) => {
       const pesos = pesosEquitativos(prev.criterios.length)
-      return {
-        ...prev,
-        criterios: prev.criterios.map((c, i) => ({
-          ...c, peso: pesos[i], puntos: puntosDerivados(pesos[i], prev.niveles),
-        })),
-      }
+      const crs = prev.criterios.map((c, i) => {
+        const puntos = [...c.puntos]
+        puntos[0] = String(pesos[i])
+        return { ...c, puntos }
+      })
+      return { ...prev, criterios: recalcularCeldas(prev.niveles, crs) }
     })
+  }
+
+  // ── Guardar ───────────────────────────────────────────────────────────────
+  function normalizada() {
+    return {
+      titulo: r.titulo.trim(),
+      descripcion: r.descripcion.trim(),
+      niveles: r.niveles.map((n) => ({
+        nombre: n.nombre.trim(),
+        // porcentaje es el campo almacenado (compatibilidad): 10 pts → 100%
+        porcentaje: round1((parseFloat(n.valor) || 0) * 10),
+      })),
+      criterios: r.criterios.map((c) => {
+        const puntos = c.puntos.map((p) => round1(parseFloat(p) || 0))
+        return {
+          nombre: c.nombre.trim(),
+          peso: puntos[0],
+          puntos,
+          descriptores: c.descriptores.map((d) => (d || '').trim()),
+        }
+      }),
+    }
   }
 
   async function handleSave(e) {
     e.preventDefault()
-    const normalizada = normalizarRubrica(r)
-    const error = validarRubrica(normalizada)
+    const norm = normalizada()
+    const error = validarRubrica(norm)
     if (error) { toast(error, 'error'); return }
     setSaving(true)
     try {
       if (isNew) {
         const ref = await addDoc(collection(db, 'bancoRubricas'), {
-          ...normalizada, docenteId, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+          ...norm, docenteId, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
         })
-        onSaved?.({ id: ref.id, ...normalizada, docenteId })
+        onSaved?.({ id: ref.id, ...norm, docenteId })
         toast('Rúbrica guardada en tu banco')
       } else {
         await updateDoc(doc(db, 'bancoRubricas', initial.id), {
-          ...normalizada, updatedAt: serverTimestamp(),
+          ...norm, updatedAt: serverTimestamp(),
         })
-        onSaved?.({ id: initial.id, ...normalizada, docenteId })
+        onSaved?.({ id: initial.id, ...norm, docenteId })
         toast('Rúbrica actualizada — las actividades que ya la usan no cambian')
       }
       onClose()
@@ -183,12 +274,20 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
     }
   }
 
-  const normalizadaPreview = normalizarRubrica(r)
+  // Subtotales en vivo por columna (la retro inmediata que guía al docente)
+  const subtotales = niveles.map((nv, j) => {
+    const target = j === 0 ? RUBRICA_TOTAL : round1(parseFloat(nv.valor) || 0)
+    const suma = round1(criterios.reduce((s, c) => s + (parseFloat(c.puntos[j]) || 0), 0))
+    return { suma, target, ok: Math.abs(suma - target) <= 0.01 }
+  })
+  const todoOk = subtotales.every((s) => s.ok)
+
+  const inputCell = 'bg-transparent focus:outline-none focus:ring-2 focus:ring-accent rounded px-1'
 
   return (
     <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
           <button type="button" onClick={onClose} aria-label="Volver" className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
@@ -201,171 +300,186 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-4 py-6">
         <form onSubmit={handleSave} className="space-y-4">
 
-          {/* Título + descripción */}
+          {/* Nombre — como el encabezado de la imagen: etiqueta + línea */}
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
-            <div>
-              <label htmlFor="rub-titulo" className="block text-sm font-medium text-muted mb-1">Título de la rúbrica</label>
+            <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+              <label htmlFor="rub-titulo" className="text-sm font-bold text-on-surface uppercase tracking-wide flex-shrink-0">
+                Nombre de la rúbrica:
+              </label>
               <input id="rub-titulo" type="text" value={r.titulo}
                 onChange={(e) => setR((prev) => ({ ...prev, titulo: e.target.value }))}
                 required autoFocus placeholder="Ej: Ensayo escrito, Maqueta, Proyecto final"
-                className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                className="flex-1 min-w-0 px-2 py-1 border-b-2 border-outline-variant focus:border-accent focus:outline-none text-sm bg-transparent" />
             </div>
-            <div>
-              <label htmlFor="rub-desc" className="block text-sm font-medium text-muted mb-1">
-                Descripción de la tarea <span className="text-slate-400 font-normal">(opcional)</span>
-              </label>
-              <textarea id="rub-desc" value={r.descripcion}
-                onChange={(e) => setR((prev) => ({ ...prev, descripcion: e.target.value }))}
-                rows={2} placeholder="Qué se evalúa con esta rúbrica…"
-                className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none" />
-            </div>
-            <p className="text-sm text-muted">Calificación total de la rúbrica: <span className="font-semibold text-on-surface">{RUBRICA_TOTAL}</span></p>
+            <input type="text" value={r.descripcion}
+              onChange={(e) => setR((prev) => ({ ...prev, descripcion: e.target.value }))}
+              placeholder="Descripción de la tarea (opcional)…"
+              className="w-full px-2 py-1 text-xs text-muted border-b border-outline-variant focus:border-accent focus:outline-none bg-transparent" />
           </div>
 
-          {/* Niveles de desempeño */}
-          <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
-            <div>
-              <h2 className="text-sm font-semibold text-on-surface">Niveles de desempeño</h2>
-              <p className="text-xs text-muted mt-0.5">
-                De mejor a peor. El porcentaje define cuántos puntos de cada criterio vale ese nivel — los puntos se calculan solos y puedes afinarlos abajo.
-              </p>
-            </div>
-            <div className="space-y-2">
-              {r.niveles.map((nv, ni) => (
-                <div key={ni} className="flex items-center gap-2">
-                  <input type="text" value={nv.nombre}
-                    onChange={(e) => setNivel(ni, 'nombre', e.target.value)}
-                    placeholder={`Nivel ${ni + 1}`}
-                    aria-label={`Nombre del nivel ${ni + 1}`}
-                    className="flex-1 min-w-0 px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
-                  {ni === 0 ? (
-                    <span data-tooltip="El primer nivel siempre vale el 100%" className="w-20 text-center text-sm font-semibold text-on-surface flex-shrink-0">100%</span>
-                  ) : (
-                    <div className="w-20 relative flex-shrink-0">
-                      <input type="number" value={nv.porcentaje} min="1" max="99" step="1"
-                        onChange={(e) => setNivel(ni, 'porcentaje', e.target.value)}
-                        aria-label={`Porcentaje del nivel ${ni + 1}`}
-                        className="w-full pl-2 pr-6 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm text-center bg-surface" />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
-                    </div>
-                  )}
-                  <button type="button" onClick={() => removeNivel(ni)}
-                    disabled={ni === 0 || r.niveles.length <= MIN_NIVELES}
-                    aria-label={`Eliminar nivel ${ni + 1}`} data-tooltip="Eliminar nivel"
-                    className="p-2 text-slate-400 hover:text-red-500 rounded disabled:opacity-30 disabled:hover:text-slate-400 flex-shrink-0">
-                    <Trash2 size={17} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            {r.niveles.length < MAX_NIVELES && (
-              <button type="button" onClick={addNivel}
-                className="w-full py-2 text-sm border border-dashed border-outline-variant text-muted rounded hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-1.5">
-                <Plus size={16} /> Agregar nivel ({r.niveles.length}/{MAX_NIVELES})
-              </button>
-            )}
-          </div>
-
-          {/* Suma de pesos — visible antes de los criterios para guiar al docente */}
-          <div className={`rounded-card px-4 py-3 flex items-center justify-between gap-3 border ${
-            sumaOk ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'
-          }`}>
-            <p className={`text-sm font-medium ${sumaOk ? 'text-emerald-700' : 'text-amber-800'}`}>
-              Los criterios suman <span className="font-bold">{suma}</span> de {RUBRICA_TOTAL} puntos
-              {!sumaOk && ' — ajusta los pesos para llegar exactamente a 10'}
-            </p>
-            <button type="button" onClick={repartirPesos}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-outline-variant rounded bg-surface-card text-muted hover:text-accent hover:border-accent transition-colors">
-              <Scale size={14} /> Repartir en partes iguales
-            </button>
-          </div>
-
-          {/* Criterios */}
-          {r.criterios.map((c, ci) => (
-            <div key={ci} className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold flex-shrink-0" style={{ color: 'var(--accent)' }}>Criterio {ci + 1}</h3>
-                <div className="flex-1" />
-                <button type="button" onClick={() => removeCriterio(ci)}
-                  disabled={r.criterios.length <= MIN_CRITERIOS}
-                  aria-label={`Eliminar criterio ${ci + 1}`} data-tooltip="Eliminar criterio"
-                  className="p-1.5 text-slate-400 hover:text-red-500 rounded disabled:opacity-30 disabled:hover:text-slate-400">
-                  <Trash2 size={17} />
-                </button>
-              </div>
-              <div className="flex gap-2">
-                <div className="flex-1 min-w-0">
-                  <label htmlFor={`rub-cnombre-${ci}`} className="block text-xs font-medium text-muted mb-1">Aspecto a evaluar</label>
-                  <input id={`rub-cnombre-${ci}`} type="text" value={c.nombre}
-                    onChange={(e) => setCriterio(ci, { nombre: e.target.value })}
-                    placeholder="Ej: Ortografía y redacción, Contenido, Presentación"
-                    className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
-                </div>
-                <div className="w-24 flex-shrink-0">
-                  <label htmlFor={`rub-cpeso-${ci}`} className="block text-xs font-medium text-muted mb-1">Peso (pts)</label>
-                  <input id={`rub-cpeso-${ci}`} type="number" value={c.peso} min="0.5" max={RUBRICA_TOTAL} step="0.1"
-                    onChange={(e) => setPeso(ci, e.target.value)}
-                    className="w-full px-2 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm font-semibold text-center bg-surface" />
-                </div>
-              </div>
-
-              {/* Un renglón por nivel: puntos (auto, editables) + descriptor */}
-              <div className="space-y-2">
-                {r.niveles.map((nv, ni) => (
-                  <div key={ni} className="flex gap-2 items-start">
-                    <div className="w-28 flex-shrink-0 pt-1.5">
-                      <p className="text-xs font-semibold text-on-surface truncate">{nv.nombre || `Nivel ${ni + 1}`}</p>
-                      {ni === 0 ? (
-                        <p data-tooltip="El nivel máximo siempre vale el peso completo" className="text-sm font-bold mt-0.5" style={{ color: 'var(--accent)' }}>
-                          {round1(parseFloat(c.peso) || 0)} pts
-                        </p>
-                      ) : (
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <input type="number" value={c.puntos[ni]} min="0" max={parseFloat(c.peso) || 0} step="0.1"
-                            onChange={(e) => setPunto(ci, ni, e.target.value)}
-                            aria-label={`Puntos de ${nv.nombre || `nivel ${ni + 1}`} en criterio ${ci + 1}`}
-                            className="w-14 px-1 py-1 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-xs font-semibold text-center bg-surface" />
-                          <span className="text-[11px] text-slate-400">pts</span>
+          {/* Tabla editable — espejo de la vista del estudiante */}
+          <div className="bg-surface-card rounded-card shadow-card p-3">
+            <div className="overflow-x-auto pb-1">
+              <table className="border-collapse text-sm" style={{ minWidth: `${220 + niveles.length * 168 + 48 + 136}px`, width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th colSpan={2} className="border-0"></th>
+                    <th colSpan={niveles.length} className="px-3 py-1.5 text-sm font-semibold text-emerald-800 bg-emerald-100 border border-outline-variant">
+                      Niveles de desempeño
+                    </th>
+                    <th className="border-0 w-12"></th>
+                    <th rowSpan={2} className="px-2 py-2 border border-outline-variant bg-[var(--accent-light)] w-36 align-middle">
+                      <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>PUNTOS</p>
+                      <p className="text-[10px] font-normal text-muted mt-1 leading-snug">Al calificar, se elige un nivel por criterio y aquí cae su valor</p>
+                    </th>
+                  </tr>
+                  <tr>
+                    <th className="w-9 px-1 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted align-bottom">Num</th>
+                    <th className="w-44 px-2 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted text-left align-bottom">Criterio</th>
+                    {niveles.map((nv, j) => (
+                      <th key={j} className="border border-outline-variant bg-[var(--accent-light)] px-2 py-2 align-top" style={{ minWidth: '160px' }}>
+                        <div className="flex items-center gap-1">
+                          <input type="text" value={nv.nombre}
+                            onChange={(e) => setNivelNombre(j, e.target.value)}
+                            placeholder={`Nivel ${j + 1}`}
+                            aria-label={`Nombre del nivel ${j + 1}`}
+                            className={`w-full min-w-0 text-center text-sm font-bold ${inputCell}`}
+                            style={{ color: 'var(--accent)' }} />
+                          {j > 0 && niveles.length > MIN_NIVELES && (
+                            <button type="button" onClick={() => removeNivel(j)}
+                              aria-label={`Eliminar nivel ${nv.nombre || j + 1}`} data-tooltip="Eliminar nivel"
+                              className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
+                        {j === 0 ? (
+                          <p data-tooltip="El nivel máximo siempre vale 10 puntos — fijo" className="text-xs font-normal text-muted mt-1">
+                            <span className="font-bold text-on-surface">10 puntos</span> (fijo)
+                          </p>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1 mt-1">
+                            <input type="number" value={nv.valor} min="0.5" max="9.9" step="0.1"
+                              onChange={(e) => setNivelValor(j, e.target.value)}
+                              aria-label={`Puntos del nivel ${nv.nombre || j + 1}`}
+                              data-tooltip="Menor que el nivel anterior, mayor que 0"
+                              className="w-14 px-1 py-0.5 text-center text-xs font-bold text-on-surface border border-outline-variant rounded bg-surface focus:outline-none focus:ring-2 focus:ring-accent" />
+                            <span className="text-[10px] font-normal text-muted">puntos</span>
+                          </div>
+                        )}
+                      </th>
+                    ))}
+                    {/* "+" a la derecha: agrega niveles de desempeño */}
+                    <th className="border-0 px-1 align-middle">
+                      {niveles.length < MAX_NIVELES && (
+                        <BotonMas onClick={addNivel} label={`Agregar nivel de desempeño (${niveles.length}/${MAX_NIVELES})`} />
                       )}
-                    </div>
-                    <textarea value={c.descriptores[ni]}
-                      onChange={(e) => setDescriptor(ci, ni, e.target.value)}
-                      rows={2}
-                      placeholder={`¿Cómo se ve este criterio en el nivel "${nv.nombre || `Nivel ${ni + 1}`}"?`}
-                      aria-label={`Descriptor de ${nv.nombre || `nivel ${ni + 1}`} en criterio ${ci + 1}`}
-                      className="flex-1 min-w-0 px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-xs bg-surface resize-none" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {criterios.map((c, i) => (
+                    <tr key={i}>
+                      <td className="border border-outline-variant bg-surface-container text-center text-xs text-muted align-middle">{i + 1}</td>
+                      <td className="border border-outline-variant bg-surface-container px-2 py-2 align-top">
+                        <div className="flex items-start gap-1">
+                          <textarea value={c.nombre}
+                            onChange={(e) => setCriterioNombre(i, e.target.value)}
+                            rows={2} placeholder={`Criterio ${i + 1} — ej: Ortografía y redacción`}
+                            aria-label={`Nombre del criterio ${i + 1}`}
+                            className={`w-full min-w-0 text-xs font-semibold text-on-surface resize-none ${inputCell}`} />
+                          {criterios.length > MIN_CRITERIOS && (
+                            <button type="button" onClick={() => removeCriterio(i)}
+                              aria-label={`Eliminar criterio ${i + 1}`} data-tooltip="Eliminar criterio"
+                              className="p-1 text-slate-400 hover:text-red-500 rounded flex-shrink-0">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      {niveles.map((nv, j) => (
+                        <td key={j} className="border border-outline-variant px-2 py-2 align-top">
+                          <textarea value={c.descriptores[j]}
+                            onChange={(e) => setDescriptor(i, j, e.target.value)}
+                            rows={3}
+                            placeholder={`¿Cómo se ve "${c.nombre || `el criterio ${i + 1}`}" en este nivel?`}
+                            aria-label={`Descriptor de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
+                            className={`w-full text-xs text-muted resize-none ${inputCell}`} />
+                          <div className="flex items-center justify-end gap-1 mt-1">
+                            <input type="number" value={c.puntos[j]} min="0" max={RUBRICA_TOTAL} step="0.1"
+                              onChange={(e) => (j === 0 ? setExc(i, e.target.value) : setPunto(i, j, e.target.value))}
+                              aria-label={`Puntos de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
+                              data-tooltip={j === 0 ? 'Lo que vale este criterio (recalcula el renglón)' : 'Editable — la columna debe sumar los puntos del nivel'}
+                              className="w-14 px-1 py-0.5 text-center text-xs font-bold border border-outline-variant rounded bg-surface focus:outline-none focus:ring-2 focus:ring-accent"
+                              style={j === 0 ? { color: 'var(--accent)' } : undefined} />
+                            <span className="text-[10px] text-slate-400">pts</span>
+                          </div>
+                        </td>
+                      ))}
+                      <td className="border-0"></td>
+                      <td className="border border-outline-variant px-2 py-2 text-[10px] text-slate-400 italic align-middle leading-snug">
+                        Aquí caerán los puntos del nivel que elijas al calificar
+                      </td>
+                    </tr>
+                  ))}
 
-          {r.criterios.length < MAX_CRITERIOS && (
-            <button type="button" onClick={addCriterio}
-              className="w-full py-2.5 text-sm border border-dashed border-outline-variant text-muted rounded-card hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-1.5">
-              <Plus size={17} /> Agregar criterio ({r.criterios.length}/{MAX_CRITERIOS})
-            </button>
-          )}
+                  {/* "+" hacia abajo: agrega criterios */}
+                  {criterios.length < MAX_CRITERIOS && (
+                    <tr>
+                      <td colSpan={2} className="border-0 pt-2 pb-1">
+                        <div className="flex items-center gap-2">
+                          <BotonMas onClick={addCriterio} label={`Agregar criterio (${criterios.length}/${MAX_CRITERIOS})`} />
+                          <span className="text-xs text-muted">Agregar criterio ({criterios.length}/{MAX_CRITERIOS})</span>
+                        </div>
+                      </td>
+                      <td colSpan={niveles.length + 2} className="border-0"></td>
+                    </tr>
+                  )}
 
-          {/* Vista previa como la verán los estudiantes */}
-          <button type="button" onClick={() => setPreview((v) => !v)}
-            className="w-full py-2 text-sm text-accent font-medium flex items-center justify-center gap-1.5 hover:underline">
-            {preview ? <EyeOff size={16} /> : <Eye size={16} />}
-            {preview ? 'Ocultar vista previa' : 'Ver cómo la verán tus estudiantes'}
-          </button>
-          {preview && (
-            <div className="bg-surface-card rounded-card shadow-card p-3">
-              <RubricaTable rubrica={normalizadaPreview} />
+                  {/* SUBTOTAL por columna — la guía en vivo del docente */}
+                  <tr>
+                    <td colSpan={2} className="border-0 px-2 py-2 text-right text-xs font-bold text-on-surface align-top">SUBTOTAL</td>
+                    {subtotales.map((s, j) => (
+                      <td key={j} className="border-0 px-2 py-2 text-center align-top">
+                        <p className={`text-sm font-bold ${s.ok ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {s.suma} / {s.target}
+                        </p>
+                        <p className="text-[10px] text-muted leading-snug mt-0.5">
+                          {j === 0 ? 'Deben sumar 10 forzosamente' : 'Deben sumar los puntos del nivel'}
+                        </p>
+                      </td>
+                    ))}
+                    <td className="border-0"></td>
+                    <td className="border-0 px-2 py-2 text-[10px] text-muted align-top leading-snug">
+                      La suma de los puntos elegidos es la <span className="font-semibold">calificación</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          )}
+
+            {/* Barra de estado + ayuda para cuadrar pesos */}
+            <div className={`mt-2 rounded px-3 py-2 flex items-center justify-between gap-3 border ${
+              todoOk ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'
+            }`}>
+              <p className={`text-xs font-medium ${todoOk ? 'text-emerald-700' : 'text-amber-800'}`}>
+                {todoOk
+                  ? 'Todas las columnas cuadran — la rúbrica califica sobre 10.'
+                  : 'Hay columnas que no suman los puntos de su nivel (en rojo). Ajusta las celdas o reparte de nuevo.'}
+              </p>
+              <button type="button" onClick={repartirPesos}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-outline-variant rounded bg-surface-card text-muted hover:text-accent hover:border-accent transition-colors">
+                <Scale size={14} /> Repartir en partes iguales
+              </button>
+            </div>
+          </div>
 
           <button type="submit" disabled={saving}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
-            {saving ? <Spinner size="sm" /> : <Plus size={18} />}
+            {saving ? <Spinner size="sm" /> : <Check size={18} />}
             {saving ? 'Guardando…' : isNew ? 'Guardar rúbrica en mi banco' : 'Guardar cambios'}
           </button>
           <button type="button" onClick={onClose} disabled={saving}
