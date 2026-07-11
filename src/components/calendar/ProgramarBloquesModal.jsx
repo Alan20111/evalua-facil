@@ -11,8 +11,16 @@ import {
 } from 'lucide-react'
 import {
   BLOQUE_COLORS, ALARMA_SONIDOS, reproducirSonido,
-  generarBloques, DIAS_SEMANA, addMinutesToTime,
+  generarBloques, DIAS_SEMANA, addMinutesToTime, timeToMinutes,
 } from '../../utils/horarioBloques'
+
+// Hora libre siguiente para un día: (hora más tardía de ese día) + duración.
+function proximaHoraLibre(patrones, diaSemana, horaBase, duracionMin) {
+  const maxHora = patrones
+    .filter(x => x.diaSemana === diaSemana)
+    .reduce((mx, x) => (timeToMinutes(x.horaInicio) > timeToMinutes(mx) ? x.horaInicio : mx), horaBase)
+  return addMinutesToTime(maxHora, duracionMin)
+}
 
 // Horas de inicio seleccionables: 06:00 – 22:00 cada 30 min.
 const HORAS_INICIO = Array.from({ length: 33 }, (_, i) => {
@@ -112,6 +120,7 @@ export default function ProgramarBloquesModal({
   // número marca el default pero se permite que la lista sea diferente.
   function addPatron() {
     setPatrones(ps => [...ps, nuevoPatron({ diaSemana: defaultDia, horaInicio: defaultHora })])
+    setBloquesPorSemana(n => n + 1)
   }
   function duplicarPatron(idx) {
     setMenuAbierto(null)
@@ -121,10 +130,26 @@ export default function ProgramarBloquesModal({
       next.splice(idx + 1, 0, copia)
       return next
     })
+    setBloquesPorSemana(n => n + 1)
+  }
+  // Agrega otro bloque el mismo día a la siguiente hora LIBRE, insertado tras
+  // el último bloque de ese día. Tócalo varias veces y arma 07→08→09… seguidas.
+  function agregarHoraSiguiente(idx) {
+    setPatrones(ps => {
+      const p = ps[idx]
+      const sig = { ...p, horaInicio: proximaHoraLibre(ps, p.diaSemana, p.horaInicio, duracionMin) }
+      let lastIdx = idx
+      ps.forEach((x, i) => { if (x.diaSemana === p.diaSemana) lastIdx = i })
+      const next = [...ps]
+      next.splice(lastIdx + 1, 0, sig)
+      return next
+    })
+    setBloquesPorSemana(n => n + 1)
   }
   function eliminarPatron(idx) {
     setMenuAbierto(null)
     setPatrones(ps => ps.length <= 1 ? ps : ps.filter((_, i) => i !== idx))
+    setBloquesPorSemana(n => Math.max(1, n - 1))
   }
 
   // ── Asuetos ─────────────────────────────────────────────────────────────
@@ -461,10 +486,19 @@ export default function ProgramarBloquesModal({
                     className={`${inputCls} w-full`}
                   />
                 )}
-                <p className="text-xs text-muted">
-                  Termina a las <strong>{addMinutesToTime(p.horaInicio || '07:00', duracionMin)}</strong>
-                  {' · '}¿Varias horas seguidas? Agrega un bloque por cada hora.
-                </p>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <p className="text-xs text-muted">
+                    Bloque de 1 hora · termina a las <strong>{addMinutesToTime(p.horaInicio || '07:00', duracionMin)}</strong>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => agregarHoraSiguiente(idx)}
+                    className="flex items-center gap-1 px-2 py-1 rounded border border-dashed border-accent/50 text-xs text-accent hover:bg-accent-tint transition-colors flex-shrink-0"
+                    data-tooltip="Crea otro bloque el mismo día a la hora siguiente (para horas seguidas)"
+                  >
+                    <Plus size={12} /> Hora siguiente ({proximaHoraLibre(patrones, p.diaSemana, p.horaInicio || '07:00', duracionMin)})
+                  </button>
+                </div>
               </div>
             ))}
 
