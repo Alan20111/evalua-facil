@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { resolveFileTypes, isFileAllowed, allowsMultipleFiles, MAX_IMAGES_PER_SUBMISSION } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { publicacionVisible } from '../../utils/evaluacionGrading'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
@@ -361,7 +362,7 @@ export default function StudentActivityPage() {
       publicacionVisible(ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas, ahoraISO)
     return (
       <StudentLayout>
-        <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
+        <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
             <button type="button" aria-label="Volver" onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
@@ -513,7 +514,7 @@ export default function StudentActivityPage() {
 
   return (
     <StudentLayout>
-    <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
+    <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
           type="button"

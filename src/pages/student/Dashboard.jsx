@@ -16,6 +16,7 @@ import { BookOpen, ChevronRight, Plus, X, Hash } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollments } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
@@ -177,7 +178,7 @@ export default function StudentDashboard() {
               <button
                 type="button"
                 key={s.id}
-                data-subject-palette={s.colorPalette || 'default'}
+                {...subjectPaletteProps(s.colorPalette)}
                 onClick={() => navigate(`/alumno/materia/${s.id}`)}
                 className="w-full bg-surface-card rounded-card p-3 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-3"
               >

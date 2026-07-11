@@ -14,6 +14,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { isActivityPublished, formatPublishAt } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { getResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
@@ -212,7 +213,7 @@ export default function StudentSubjectPage() {
 
   return (
     <StudentLayout>
-    <div className="bg-surface" data-subject-palette={subject?.colorPalette || 'default'}>
+    <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
 
       {/* Page header */}
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">

@@ -19,6 +19,7 @@ import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown } from 'lucide-reac
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
+import { subjectPaletteProps } from '../../utils/subjectPalette'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
@@ -218,7 +219,7 @@ export default function TeacherDashboard() {
                 {subjects.map((s, i) => (
                   <div
                     key={s.id}
-                    data-subject-palette={s.colorPalette || 'default'}
+                    {...subjectPaletteProps(s.colorPalette)}
                     className="w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-1"
                   >
                     <div className="flex flex-col flex-shrink-0">
@@ -368,13 +369,13 @@ export default function TeacherDashboard() {
               {/* Paleta de color */}
               <div>
                 <label className="block text-sm font-medium text-muted mb-2">
-                  Color de la asignatura
+                  Color de la asignatura <span className="text-slate-400 font-normal text-xs">(elige el color base que identificará a la asignatura)</span>
                 </label>
                 <PaletteSelect value={newSubjectPalette} onChange={setNewSubjectPalette} />
               </div>
 
               {/* Icono */}
-              <div data-subject-palette={newSubjectPalette}>
+              <div {...subjectPaletteProps(newSubjectPalette)}>
                 <label className="block text-sm font-medium text-muted mb-2">
                   Icono de la asignatura
                 </label>

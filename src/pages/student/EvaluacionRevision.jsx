@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { ArrowLeft } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
 import EvaluacionAnswerList from '../../components/EvaluacionAnswerList'
@@ -81,7 +82,7 @@ export default function EvaluacionRevision() {
 
   return (
     <StudentLayout>
-      <div className="bg-surface min-h-screen" data-subject-palette={subject?.colorPalette || 'default'}>
+      <div className="bg-surface min-h-screen" {...subjectPaletteProps(subject?.colorPalette)}>
         <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
           <button type="button" onClick={() => navigate(`/alumno/actividad/${activityId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
             <ArrowLeft size={22} />
