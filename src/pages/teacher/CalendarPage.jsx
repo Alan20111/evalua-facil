@@ -281,7 +281,9 @@ function AgendaView({
           {placed.map(({ it, lane, total }) => {
             const isDragging = drag?.moved && drag.item.id === it.id
             const rawTop = (it.start - dayStart * 60) / 60 * AGENDA_ROW_H
-            const height = Math.max(34, (it.end - it.start) / 60 * AGENDA_ROW_H - 2)
+            // Hueco de 6px entre bloques para que cada hora se lea como un
+            // rectángulo propio, separado del siguiente.
+            const height = Math.max(34, (it.end - it.start) / 60 * AGENDA_ROW_H - 6)
             const top = Math.max(0, Math.min(rawTop, gridH - height))
             const w = 100 / total
             const movable = isMovable(it)
@@ -308,7 +310,7 @@ function AgendaView({
                 key={it.id}
                 onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, it) } : undefined}
                 onClick={!movable ? e => { e.stopPropagation(); onEventClick?.(it.ev) } : undefined}
-                className={`absolute rounded-card overflow-hidden shadow-sm select-none transition-[filter] hover:brightness-95 ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+                className={`absolute rounded-card overflow-hidden shadow-sm ring-1 ring-black/5 select-none transition-[filter] hover:brightness-95 ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
                 style={{
                   top, height,
                   left: `calc(${lane * w}% + 3px)`,
@@ -374,7 +376,7 @@ function BloquePill({ b, subj, onClick }) {
     <button
       type="button"
       onClick={e => { e.stopPropagation(); onClick?.(b) }}
-      className="flex items-center gap-1 rounded w-full truncate px-1 py-0.5 text-xs hover:opacity-80 transition-opacity"
+      className="flex items-center gap-1 rounded-md w-full truncate px-1 py-0.5 text-xs ring-1 ring-black/5 hover:opacity-80 transition-opacity"
       style={{ background: pal.bg, color: pal.text }}
       data-tooltip={`${subjectDisplayName(subj)} · ${b.horaInicio}–${b.horaFin}${b.lugar ? ' · ' + b.lugar : ''}`}
     >
@@ -484,7 +486,7 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
               }`}>
                 {cell.getDate()}
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {items.slice(0, 3).map((it) => {
                   // Arrastrables: bloques (pregunta al soltar) y eventos
                   // personales (se mueven directo). Un clic sin mover, edita.
@@ -702,7 +704,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                 {placed.map(({ it, lane, total }) => {
                   const { b, start, end } = it
                   const pal = bloqueColor(b.color)
-                  const height = Math.max(20, (end - start) / 60 * ROW_H - 2)
+                  // Hueco de 4px entre bloques → cada hora es su propio rectángulo.
+                  const height = Math.max(20, (end - start) / 60 * ROW_H - 4)
                   // Acota dentro de la rejilla: lo que cae fuera del rango de
                   // horas visible se ancla al borde en vez de desaparecer.
                   const top = Math.max(0, Math.min(topPx(b.horaInicio), gridH - height))
@@ -713,7 +716,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                     <div
                       key={b.id}
                       onPointerDown={e => { e.stopPropagation(); startDrag(e, { kind: 'bloque', bloque: b }) }}
-                      className="absolute rounded px-1.5 py-1 text-left overflow-hidden shadow-sm hover:brightness-95 transition-[filter] select-none cursor-grab active:cursor-grabbing"
+                      className="absolute rounded-lg px-1.5 py-1 text-left overflow-hidden shadow-sm ring-1 ring-black/5 hover:brightness-95 transition-[filter] select-none cursor-grab active:cursor-grabbing"
                       style={{
                         top, height,
                         left: `calc(${lane * w}% + 2px)`,
