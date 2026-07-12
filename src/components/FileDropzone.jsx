@@ -1,13 +1,15 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Upload } from 'lucide-react'
 
 // Generic drag-and-drop + click-to-browse multi-file picker. Purely
 // presentational: it just hands the picked/dropped files to `onFilesSelected`
 // and lets the caller decide how to store/preview/upload them — keeps it
 // reusable for any future feature that needs file intake, not just materials.
+// The outer element is a <label> wrapping the hidden <input type="file"> so
+// "click to browse" comes from native label/control association — no manual
+// onClick/ref forwarding needed, and it's keyboard-operable for free.
 export default function FileDropzone({ onFilesSelected, multiple = true, accept, hint }) {
   const [dragOver, setDragOver] = useState(false)
-  const inputRef = useRef(null)
 
   function handleFiles(fileList) {
     const files = Array.from(fileList || [])
@@ -15,8 +17,7 @@ export default function FileDropzone({ onFilesSelected, multiple = true, accept,
   }
 
   return (
-    <div
-      onClick={() => inputRef.current?.click()}
+    <label
       onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => {
@@ -24,7 +25,7 @@ export default function FileDropzone({ onFilesSelected, multiple = true, accept,
         setDragOver(false)
         handleFiles(e.dataTransfer.files)
       }}
-      className={`w-full border-2 border-dashed rounded p-4 text-center cursor-pointer transition-colors ${
+      className={`w-full border-2 border-dashed rounded p-4 text-center cursor-pointer transition-colors block ${
         dragOver ? 'border-accent bg-[var(--accent-tint)]' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
       }`}
     >
@@ -32,13 +33,12 @@ export default function FileDropzone({ onFilesSelected, multiple = true, accept,
       <p className="text-sm font-medium text-on-surface">Arrastra tus archivos aquí o haz clic para seleccionarlos</p>
       <p className="text-xs text-slate-400 mt-0.5">{hint || 'Puedes agregar uno o varios archivos'}</p>
       <input
-        ref={inputRef}
         type="file"
         multiple={multiple}
         accept={accept}
         onChange={(e) => { handleFiles(e.target.files); e.target.value = '' }}
         className="hidden"
       />
-    </div>
+    </label>
   )
 }

@@ -73,7 +73,7 @@ export default function LinkAccountModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={onClose} aria-label="Cerrar" />
       <div className="relative bg-surface-card w-full max-w-sm rounded-card p-5 shadow-2xl">
         <button
           type="button"
@@ -91,12 +91,15 @@ export default function LinkAccountModal({ onClose }) {
             </p>
             <form onSubmit={handleContinue} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
+                <label htmlFor="link-account-email" className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
                 <input
+                  id="link-account-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  // Justified: only field in a modal just opened for this single purpose —
+                  // the user opens it specifically to type their email right away.
                   autoFocus
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-transparent text-sm bg-surface"
                   placeholder="nombre@correo.com"

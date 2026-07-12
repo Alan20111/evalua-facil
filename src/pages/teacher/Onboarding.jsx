@@ -45,12 +45,14 @@ export default function Onboarding() {
         <div className="bg-surface-card rounded-card shadow-card p-5">
           <form onSubmit={finish} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">¿Cómo quieres que te vean tus estudiantes?</label>
+              <label htmlFor="onboarding-nombre" className="block text-sm font-medium text-muted mb-1">¿Cómo quieres que te vean tus estudiantes?</label>
               <input
+                id="onboarding-nombre"
                 type="text"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 required
+                /* autofocus: único campo de este paso obligatorio, mostrado una sola vez justo tras el alta */
                 autoFocus
                 className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                 placeholder="Ej. Profa. Laura García"

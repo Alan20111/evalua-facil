@@ -74,6 +74,9 @@ export default function TeacherLayout({ children }) {
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
         <div className="flex items-center gap-2 min-w-0">
           <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
+          {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de
+              PortalBadge ('docente'|'alumno'), no un atributo ARIA de DOM; PortalBadge no está
+              en el alcance permitido de este cambio para renombrar la prop. */}
           <PortalBadge role="docente" />
         </div>
         <button
@@ -98,6 +101,9 @@ export default function TeacherLayout({ children }) {
             </div>
           </div>
           <div className="px-4 pt-2.5 pb-0.5">
+            {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de
+                PortalBadge ('docente'|'alumno'), no un atributo ARIA de DOM; PortalBadge no está
+                en el alcance permitido de este cambio para renombrar la prop. */}
             <PortalBadge role="docente" />
           </div>
 

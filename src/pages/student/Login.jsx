@@ -304,6 +304,8 @@ export default function StudentLogin() {
                   value={subjectCodeInput}
                   onChange={(e) => { setSubjectCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); setCodeError('') }}
                   required
+                  // autofocus intencional: único campo de este paso (confirmación de código),
+                  // el alumno acaba de llegar aquí desde su primer submit del login.
                   autoFocus
                   autoComplete="off"
                   autoCorrect="off"
@@ -351,6 +353,8 @@ export default function StudentLogin() {
                     value={recoverUsername}
                     onChange={(e) => { setRecoverUsername(e.target.value); setRecoverError('') }}
                     required
+                    // autofocus intencional: primer campo del paso de recuperación,
+                    // el alumno lo abrió a propósito con el botón "Recuperar contraseña".
                     autoFocus
                     autoComplete="off"
                     autoCorrect="off"
@@ -393,6 +397,8 @@ export default function StudentLogin() {
                     value={newPassword}
                     onChange={(e) => { setNewPassword(e.target.value); setRecoverError('') }}
                     required
+                    // autofocus intencional: primer campo de este paso (elegir nueva
+                    // contraseña), llegar aquí ya requirió una acción explícita previa.
                     autoFocus
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder="Mínimo 6 caracteres"
@@ -443,6 +449,8 @@ export default function StudentLogin() {
                     value={username}
                     onChange={(e) => { setUsername(e.target.value); setError('') }}
                     required
+                    // autofocus intencional: primer campo del formulario principal de
+                    // login de alumno, la primera pantalla que ve al entrar a /alumno.
                     autoFocus
                     autoComplete="off"
                     autoCorrect="off"

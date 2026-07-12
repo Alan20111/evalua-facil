@@ -278,11 +278,14 @@ export default function StudentActivation() {
               </div>
               <form onSubmit={handleLinkExisting} className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Tu contraseña actual</label>
+                  <label htmlFor="activation-link-password" className="block text-sm font-medium text-muted mb-1">Tu contraseña actual</label>
                   <PasswordInput
+                    id="activation-link-password"
                     value={linkPassword}
                     onChange={(e) => { setLinkPassword(e.target.value); setPasswordError('') }}
                     required
+                    // autofocus intencional: único campo de este paso del flujo de
+                    // activación (auth de alumno), se entra una sola vez, no se repite.
                     autoFocus
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Tu contraseña de Evalúa Fácil"
@@ -312,12 +315,15 @@ export default function StudentActivation() {
                 <p className="text-sm text-muted mb-3">
                   Introduce tu <strong>username</strong> (tu maestro te lo proporcionó).
                 </p>
-                <label className="block text-sm font-medium text-muted mb-1">Username</label>
+                <label htmlFor="activation-username" className="block text-sm font-medium text-muted mb-1">Username</label>
                 <input
+                  id="activation-username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
+                  // autofocus intencional: primer campo del formulario de activación
+                  // de alumno, único paso de entrada de username.
                   autoFocus
                   autoComplete="off"
                   autoCorrect="off"
@@ -355,19 +361,23 @@ export default function StudentActivation() {
               </div>
               <form onSubmit={handleActivate} className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Elige tu contraseña</label>
+                  <label htmlFor="activation-password" className="block text-sm font-medium text-muted mb-1">Elige tu contraseña</label>
                   <PasswordInput
+                    id="activation-password"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setPasswordError('') }}
                     required
+                    // autofocus intencional: primer campo de este paso del flujo de
+                    // activación (auth de alumno), se entra una sola vez, no se repite.
                     autoFocus
                     className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Mínimo 6 caracteres"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
+                  <label htmlFor="activation-confirm-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
                   <PasswordInput
+                    id="activation-confirm-password"
                     value={confirmPassword}
                     onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required

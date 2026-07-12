@@ -691,7 +691,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <div>
                   <label htmlFor="preg-nueva-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                   <textarea id="preg-nueva-enunciado" value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
-                    rows={2} required autoFocus
+                    rows={2} required
                     className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 </div>
                 <div>
@@ -765,7 +765,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
             {showBanco && (
               <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-                <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} />
+                <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" aria-label="Cerrar" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} />
                 <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
                   <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
                   <div className="flex gap-2 mb-3">
@@ -1088,7 +1088,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
       {reviewing && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setReviewing(null)} />
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" aria-label="Cerrar" onClick={() => setReviewing(null)} />
           <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-base font-semibold">

@@ -25,8 +25,8 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
   }
 
   return (
-    <div>
-      <label className="block text-sm font-medium text-muted mb-1">Archivos permitidos</label>
+    <fieldset className="border-0 m-0 p-0">
+      <legend className="block text-sm font-medium text-muted mb-1 p-0">Archivos permitidos</legend>
       <p className="text-xs text-accent font-medium mb-2">
         Ejemplo: al elegir imágenes y 1 Word, el estudiante podrá subir hasta 5 imágenes o un archivo de Word.
       </p>
@@ -80,6 +80,6 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
           </div>
         )}
       </div>
-    </div>
+    </fieldset>
   )
 }

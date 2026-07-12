@@ -168,7 +168,15 @@ function MonthView({ year, month, events, onDateClick, onEventClick }) {
           return (
             <div
               key={dateStr}
+              role="button"
+              tabIndex={0}
               onClick={() => onDateClick?.(cell)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onDateClick?.(cell)
+                }
+              }}
               className={`min-h-[88px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
             >
               <div className={`w-6 h-6 flex items-center justify-center text-xs font-semibold mb-1 rounded-full mx-auto ${isToday(cell) ? 'bg-accent text-white' : 'text-on-surface'}`}>

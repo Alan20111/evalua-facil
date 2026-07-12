@@ -71,10 +71,15 @@ export default function HorarioEditor({ horario, subjects, onClose, onSaved, onD
   }))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        onClick={onClose}
+        aria-label="Cerrar"
+      />
       <div
-        className="bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
-        onClick={e => e.stopPropagation()}
+        className="relative bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-outline-variant flex-shrink-0">
           <h2 className="font-semibold text-on-surface">Mi Horario</h2>

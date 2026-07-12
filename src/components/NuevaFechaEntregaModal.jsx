@@ -60,7 +60,12 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={() => !saving && onClose()} />
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        onClick={() => !saving && onClose()}
+        aria-label="Cerrar"
+      />
       <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card p-4 shadow-2xl max-h-[90vh] flex flex-col">
         <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
         <div className="flex gap-2 mt-3 flex-shrink-0">
@@ -75,7 +80,9 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
         </div>
 
         <div className="mt-3 overflow-auto">
-          <label className="block text-sm font-medium text-muted mb-1">Nueva fecha y hora límite</label>
+          {/* Caption for EFDateTimePicker, not a native <label> — the picker
+              renders its own internal button/inputs with no id to target. */}
+          <span className="block text-sm font-medium text-muted mb-1">Nueva fecha y hora límite</span>
           <EFDateTimePicker mode="datetime" value={date} onChange={setDate} clearable={false} />
 
           {mode === 'todos' && (
@@ -109,8 +116,8 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                 fecha; al pasar, se cerrará también para ellos.
               </p>
               <div className="mt-2">
-                <label className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>
-                <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
+                <label htmlFor="fecha-entrega-motivo" className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>
+                <textarea id="fecha-entrega-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
                   placeholder="Ej.: Falta justificada por duelo familiar"
                   className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
               </div>

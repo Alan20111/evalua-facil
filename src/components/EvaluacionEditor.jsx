@@ -567,11 +567,17 @@ export default function EvaluacionEditor({
               <div>
                 <label htmlFor="info-nombre" className="block text-sm font-medium text-muted mb-1">Nombre</label>
                 <input id="info-nombre" type="text" value={infoForm.nombre} onChange={(e) => setInfoForm((f) => ({ ...f, nombre: e.target.value }))}
-                  required autoFocus placeholder={`Ej: ${tipoLabel} parcial 1`}
+                  required
+                  // autoFocus: primer campo del formulario de creación/edición — el
+                  // usuario abre este bloque con intención de escribir el nombre
+                  autoFocus
+                  placeholder={`Ej: ${tipoLabel} parcial 1`}
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
+                {/* Encabezado del RichTextEditor (widget compuesto, sin un único
+                    control con id) — <p>, no <label htmlFor>. */}
+                <p className="block text-sm font-medium text-muted mb-1">Instrucciones</p>
                 <RichTextEditor
                   value={infoForm.instrucciones}
                   onChange={(html) => setInfoForm((f) => ({ ...f, instrucciones: html }))}
@@ -586,7 +592,10 @@ export default function EvaluacionEditor({
               </div>
               <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
               <div>
-                <label className="block text-sm font-medium text-muted mb-2">Visibilidad</label>
+                {/* Encabezado de un grupo de controles (VisibilitySelect renderiza
+                    varios radios internamente) — no es <label> de un solo control,
+                    así que es un <p>, no un <label htmlFor>. */}
+                <p className="block text-sm font-medium text-muted mb-2">Visibilidad</p>
                 <VisibilitySelect
                   mode={infoForm.visibilidadMode}
                   publishAt={infoForm.publishAt}
@@ -898,7 +907,7 @@ export default function EvaluacionEditor({
                     <div>
                       <label htmlFor="preg-new-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                       <textarea id="preg-new-enunciado" value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
-                        rows={2} required autoFocus className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                        rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                     </div>
                     <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
                       <ImageIcon size={15} /> Imagen opcional
@@ -988,7 +997,7 @@ export default function EvaluacionEditor({
       {/* ── Banco modal ── */}
       {showBanco && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} />
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" aria-label="Cerrar" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} />
           <div className="relative bg-surface-card w-full max-w-3xl rounded-t-card sm:rounded-card shadow-2xl flex flex-col" style={{height: 'min(90vh, 700px)'}}>
             {/* Header fijo */}
             <div className="p-4 border-b border-outline-variant flex-shrink-0">

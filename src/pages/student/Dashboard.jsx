@@ -216,7 +216,12 @@ export default function StudentDashboard() {
       {/* ── Join-subject modal ── */}
       {showJoin && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowJoin(false)} />
+          <button
+            type="button"
+            aria-label="Cerrar"
+            className="absolute inset-0 bg-black/40 cursor-default"
+            onClick={() => setShowJoin(false)}
+          />
           <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
             <div className="flex items-center justify-between gap-2 mb-3">
               <h3 className="text-lg font-semibold text-on-surface truncate">Unirme a otra asignatura</h3>
@@ -230,7 +235,6 @@ export default function StudentDashboard() {
                 type="text"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                autoFocus
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="characters"

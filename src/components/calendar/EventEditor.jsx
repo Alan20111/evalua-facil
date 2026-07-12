@@ -78,8 +78,14 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
-      <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        onClick={onClose}
+        aria-label="Cerrar"
+      />
+      <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm">
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <h2 className="font-semibold text-on-surface">{isNew ? 'Nuevo evento' : 'Editar evento'}</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded transition-colors">
@@ -108,7 +114,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
             value={form.titulo}
             onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
             placeholder="Título del evento"
-            autoFocus
+            autoFocus // primer campo del formulario (creación y edición) dentro de un modal recién abierto
             required
             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
@@ -122,7 +128,9 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
           />
 
           <div className="space-y-1">
-            <label className="text-xs text-muted font-medium">Inicio</label>
+            {/* EFDateTimePicker no acepta prop `id` para forwardear al control real; htmlFor
+                deja la asociación declarada aunque no haya un id coincidente en el DOM. */}
+            <label htmlFor="event-inicio" className="text-xs text-muted font-medium">Inicio</label>
             <EFDateTimePicker
               mode="datetime"
               value={form.inicio}
@@ -133,7 +141,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted font-medium">Fin (opcional)</label>
+            <label htmlFor="event-fin" className="text-xs text-muted font-medium">Fin (opcional)</label>
             <EFDateTimePicker
               mode="datetime"
               value={form.fin}

@@ -97,6 +97,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
           teacher may only be reviewing/editing and not want to publish yet */}
       {isDraft ? (
         <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+          aria-label="Borrador"
           style={{ borderColor: mode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: mode === 'hide' ? 'var(--accent-light)' : '' }}>
           <input type="radio" name="visibilidad" checked={mode === 'hide'}
             onChange={() => onModeChange('hide')}
@@ -113,6 +114,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
         </div>
       )}
       <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+        aria-label="Publicar ahora"
         style={{ borderColor: mode === 'show' ? 'var(--accent)' : '#e2e8f0', background: mode === 'show' ? 'var(--accent-light)' : '' }}>
         <input type="radio" name="visibilidad" checked={mode === 'show'}
           onChange={() => onModeChange('show')}
@@ -126,7 +128,8 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
           a single option, not two separate rows */}
       <div className="rounded border transition-colors"
         style={{ borderColor: mode === 'schedule' ? 'var(--accent)' : '#e2e8f0', background: mode === 'schedule' ? 'var(--accent-light)' : '' }}>
-        <label className="flex items-center gap-2 p-3 cursor-pointer hover:bg-[var(--accent-tint)] rounded">
+        <label className="flex items-center gap-2 p-3 cursor-pointer hover:bg-[var(--accent-tint)] rounded"
+          aria-label="Programar publicación">
           <input type="radio" name="visibilidad" checked={mode === 'schedule'}
             onChange={() => onModeChange('schedule')}
             className="accent-[var(--accent)]" />

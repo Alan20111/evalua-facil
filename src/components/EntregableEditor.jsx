@@ -235,7 +235,10 @@ export default function EntregableEditor({
             <div>
               <label htmlFor="ent-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
               <input id="ent-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-                required autoFocus
+                required
+                // autoFocus: primer campo del formulario de creación/edición — el
+                // usuario abre este modal con intención de escribir el nombre
+                autoFocus
                 placeholder={isObservacion ? 'Ej: Actitud, Exposición de tema, Participación' : 'Ej: Tarea 1, Proyecto final'}
                 className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
             </div>
@@ -273,7 +276,10 @@ export default function EntregableEditor({
 
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
             <div>
-              <label className="block text-sm font-medium text-muted mb-2">Visibilidad</label>
+              {/* Encabezado de un grupo de controles (VisibilitySelect renderiza
+                  varios radios internamente) — no es <label> de un solo control,
+                  así que es un <p>, no un <label htmlFor>. */}
+              <p className="block text-sm font-medium text-muted mb-2">Visibilidad</p>
               <VisibilitySelect
                 mode={form.visibilidadMode}
                 publishAt={form.publishAt}

@@ -288,7 +288,12 @@ export default function TeacherDashboard() {
       {/* ── Nueva asignatura modal ── */}
       {showSubjectModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowSubjectModal(false)} />
+          <button
+            type="button"
+            aria-label="Cerrar"
+            onClick={() => setShowSubjectModal(false)}
+            className="absolute inset-0 bg-black/40"
+          />
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
@@ -306,6 +311,7 @@ export default function TeacherDashboard() {
                   value={newSubjectName}
                   onChange={(e) => setNewSubjectName(e.target.value)}
                   required
+                  // Primer campo del modal "Nueva asignatura", que el usuario abre con intención explícita de escribir de inmediato.
                   autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas, Física, Historia"
@@ -327,9 +333,9 @@ export default function TeacherDashboard() {
 
               {/* Fechas (opcionales) */}
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">
+                <span className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-slate-400 font-normal text-xs">(opcional)</span>
-                </label>
+                </span>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
@@ -344,9 +350,9 @@ export default function TeacherDashboard() {
 
               {/* Parciales */}
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">
+                <span className="block text-sm font-medium text-muted mb-1">
                   Calificaciones parciales <span className="text-slate-400 font-normal text-xs">(por defecto 3)</span>
-                </label>
+                </span>
                 <div className="grid grid-cols-6 gap-1.5">
                   {[1, 2, 3, 4, 5, 6].map((n) => (
                     <button
@@ -367,17 +373,17 @@ export default function TeacherDashboard() {
 
               {/* Paleta de color */}
               <div>
-                <label className="block text-sm font-medium text-muted mb-2">
+                <span className="block text-sm font-medium text-muted mb-2">
                   Color de la asignatura
-                </label>
+                </span>
                 <PaletteSelect value={newSubjectPalette} onChange={setNewSubjectPalette} />
               </div>
 
               {/* Icono */}
               <div data-subject-palette={newSubjectPalette}>
-                <label className="block text-sm font-medium text-muted mb-2">
+                <span className="block text-sm font-medium text-muted mb-2">
                   Icono de la asignatura
-                </label>
+                </span>
                 <IconSelect value={newSubjectIcon} onChange={setNewSubjectIcon} />
               </div>
 

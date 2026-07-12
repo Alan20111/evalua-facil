@@ -249,8 +249,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             </div>
             <form onSubmit={handleSave} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-muted mb-1">Docente</label>
+                <label htmlFor="sub-docente" className="block text-xs font-medium text-muted mb-1">Docente</label>
                 <select
+                  id="sub-docente"
                   value={modal.form.docenteId}
                   onChange={(e) =>
                     setModal({ ...modal, form: { ...modal.form, docenteId: e.target.value } })
@@ -266,8 +267,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted mb-1">Plan</label>
+                <label htmlFor="sub-plan" className="block text-xs font-medium text-muted mb-1">Plan</label>
                 <select
+                  id="sub-plan"
                   value={modal.form.planId}
                   onChange={(e) =>
                     setModal({ ...modal, form: { ...modal.form, planId: e.target.value } })
@@ -283,8 +285,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted mb-1">Estado</label>
+                <label htmlFor="sub-status" className="block text-xs font-medium text-muted mb-1">Estado</label>
                 <select
+                  id="sub-status"
                   value={modal.form.status}
                   onChange={(e) =>
                     setModal({ ...modal, form: { ...modal.form, status: e.target.value } })
@@ -300,7 +303,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-muted mb-1">Inicio</label>
+                  {/* Caption for EFDateTimePicker, not a native <label> — the picker
+                      renders its own internal button/inputs with no id to target. */}
+                  <span className="block text-xs font-medium text-muted mb-1">Inicio</span>
                   <EFDateTimePicker
                     mode="date"
                     value={modal.form.fechaInicio}
@@ -308,7 +313,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-muted mb-1">Vencimiento</label>
+                  <span className="block text-xs font-medium text-muted mb-1">Vencimiento</span>
                   <EFDateTimePicker
                     mode="date"
                     value={modal.form.fechaVencimiento}

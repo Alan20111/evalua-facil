@@ -186,11 +186,14 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   ].filter(Boolean)
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4" onClick={onClose}>
-      <div
-        className="bg-surface-card rounded-card p-5 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        onClick={onClose}
+        aria-label="Cerrar"
+      />
+      <div className="relative bg-surface-card rounded-card p-5 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-bold text-on-surface">Activar suscripción mensual</h3>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-muted">

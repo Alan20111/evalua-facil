@@ -1116,6 +1116,7 @@ export default function ActivityPage() {
                           min="0"
                           max={activity?.maxCalif}
                           step="0.1"
+                          // Campo principal del panel de calificación, que se abre al seleccionar una entrega con intención explícita de calificarla.
                           autoFocus={!parcialCerrado}
                           disabled={parcialCerrado}
                           className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
@@ -1380,6 +1381,7 @@ export default function ActivityPage() {
                             min="0"
                             max={activity?.maxCalif}
                             step="0.1"
+                            // Primer campo del panel "Evaluar sin entrega", que el usuario abre con intención explícita de escribir de inmediato.
                             autoFocus
                             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface"
                           />
