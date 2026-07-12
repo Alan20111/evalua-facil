@@ -28,6 +28,7 @@ import {
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
+import { STUDENT_CONTAINER } from '../../config/layout'
 
 function ResourceCard({ resource: r }) {
   const { icon: Icon, color } = getResourceIcon(r.nombreArchivo || r.nombre || '')
@@ -256,7 +257,7 @@ export default function StudentSubjectPage() {
 
       {/* Tab: Actividades */}
       {activeTab === 'Actividades' && (
-        <div className="px-4 py-5 max-w-2xl mx-auto space-y-3">
+        <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
           {PARCIALES.length === 0 && (
             <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
               <p className="text-muted text-sm">El docente aún no ha publicado contenido.</p>
@@ -397,7 +398,7 @@ export default function StudentSubjectPage() {
 
       {/* Tab: Calificaciones */}
       {activeTab === 'Calificaciones' && (
-        <div className="px-4 py-5 max-w-2xl mx-auto space-y-3">
+        <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
           {PARCIALES.length === 0 && (
             <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
               <p className="text-muted text-sm">El docente aún no ha publicado calificaciones.</p>
@@ -483,7 +484,7 @@ export default function StudentSubjectPage() {
 
       {/* Tab: Recursos */}
       {activeTab === 'Recursos' && (
-        <div className="px-4 py-5 max-w-2xl mx-auto">
+        <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
           {resources.length === 0 ? (
             <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
               <FolderOpen size={32} className="text-slate-300 mx-auto mb-3" />

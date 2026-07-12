@@ -52,7 +52,7 @@ export default function ProtectAccount() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-3">
+          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
             <ShieldCheck size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">Protege el acceso a tu cuenta</h1>
@@ -72,7 +72,7 @@ export default function ProtectAccount() {
                 required
                 minLength={6}
                 autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                 placeholder="Mínimo 6 caracteres"
               />
             </div>
@@ -83,14 +83,14 @@ export default function ProtectAccount() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                 placeholder="Repite la contraseña"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? 'Guardando…' : 'Crear contraseña'}

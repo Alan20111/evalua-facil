@@ -46,7 +46,7 @@ async function uploadAvatar(file) {
 }
 
 const inputCls =
-  'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
+  'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
 
 export default function Profile() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
@@ -356,7 +356,7 @@ export default function Profile() {
             <button
               type="button"
               onClick={() => setShowPaymentModal(true)}
-              className="mt-2 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors"
+              className="mt-2 w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors"
             >
               {subscription && subscription.status !== 'trial' ? 'Renovar suscripción mensual' : 'Activar suscripción mensual'}
             </button>
@@ -391,15 +391,15 @@ export default function Profile() {
         {/* Photo + identity */}
         <div className="bg-surface-card rounded-card shadow-card p-4 flex flex-col items-center gap-2">
           <div className="relative">
-            <div className="w-20 h-20 rounded-full bg-blue-100 overflow-hidden flex items-center justify-center">
+            <div className="w-20 h-20 rounded-full bg-accent-light overflow-hidden flex items-center justify-center">
               {userProfile?.photoURL ? (
                 <img src={userProfile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-2xl font-bold text-blue-600">{initials}</span>
+                <span className="text-2xl font-bold text-accent">{initials}</span>
               )}
             </div>
             <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading} aria-label="Cambiar foto"
-              className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
+              className="absolute -bottom-1 -right-1 w-7 h-7 bg-accent rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
               {photoUploading ? <Spinner size="sm" /> : <Camera size={15} />}
             </button>
           </div>
@@ -424,7 +424,7 @@ export default function Profile() {
               <p className="text-sm text-muted mt-1">Así te verán tus estudiantes</p>
             </div>
             <button type="submit" disabled={savingNombre}
-              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {savingNombre ? <Spinner size="sm" /> : null}
               {savingNombre ? 'Guardando…' : 'Guardar nombre'}
             </button>
@@ -442,7 +442,7 @@ export default function Profile() {
               <p className="text-sm text-slate-500 mt-0.5">Las escuelas con el mismo nombre pueden tener grupos en común.</p>
             </div>
             <button type="button" onClick={() => { setSchoolSearch(''); setAddingCustomSchool(false); setCustomSchoolStep('form'); setShowSchoolPicker(true) }}
-              className="text-blue-600 text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
+              className="text-accent text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
           </div>
         </div>
 
@@ -470,7 +470,7 @@ export default function Profile() {
                 </div>
                 {hasEmailProvider && (
                   <button type="button" onClick={() => setShowPwdForm((v) => !v)}
-                    className="text-blue-600 text-sm font-semibold hover:underline flex-shrink-0">
+                    className="text-accent text-sm font-semibold hover:underline flex-shrink-0">
                     {showPwdForm ? 'Cancelar' : 'Cambiar'}
                   </button>
                 )}
@@ -494,7 +494,7 @@ export default function Profile() {
                       required autoComplete="new-password" className={inputCls} placeholder="Repite la contraseña" />
                   </div>
                   <button type="submit" disabled={savingPwd}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                     {savingPwd ? <Spinner size="sm" /> : <Lock size={17} />}
                     {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}
                   </button>
@@ -524,7 +524,7 @@ export default function Profile() {
                 Cancelar
               </button>
               <button type="button" onClick={handleConfirm} disabled={confirming}
-                className="flex-1 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {confirming ? <Spinner size="sm" /> : null}
                 {confirming ? 'Procesando…' : 'Confirmar'}
               </button>
@@ -543,7 +543,7 @@ export default function Profile() {
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input autoFocus type="text" value={schoolSearch} onChange={(e) => setSchoolSearch(e.target.value)}
                   placeholder="Nombre, CCT o municipio…"
-                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm" />
               </div>
               <button type="button" onClick={() => setShowSchoolPicker(false)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
             </div>
@@ -571,7 +571,7 @@ export default function Profile() {
                     Volver
                   </button>
                   <button type="button" onClick={() => setCustomSchoolStep('confirm')} disabled={savingSchool}
-                    className="flex-1 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60">
+                    className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60">
                     Ninguna, es nueva
                   </button>
                 </div>
@@ -590,7 +590,7 @@ export default function Profile() {
                     Volver
                   </button>
                   <button type="button" onClick={submitCustomSchool} disabled={savingSchool}
-                    className="flex-1 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                     {savingSchool ? <Spinner size="sm" /> : null}
                     {savingSchool ? 'Guardando…' : 'Confirmar y agregar'}
                   </button>
@@ -607,7 +607,7 @@ export default function Profile() {
                     value={customSchoolName}
                     onChange={(e) => setCustomSchoolName(e.target.value)}
                     required
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder="Ej. Escuela Secundaria Técnica N.° 12"
                   />
                 </div>
@@ -620,7 +620,7 @@ export default function Profile() {
                     type="text"
                     value={customSchoolCCT}
                     onChange={(e) => setCustomSchoolCCT(e.target.value)}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder="Ej. 15ECT0001H"
                   />
                 </div>
@@ -633,7 +633,7 @@ export default function Profile() {
                       value={customSchoolCity}
                       onChange={(e) => setCustomSchoolCity(e.target.value)}
                       required
-                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                       placeholder="Ej. Celaya"
                     />
                   </div>
@@ -645,7 +645,7 @@ export default function Profile() {
                       value={customSchoolState}
                       onChange={(e) => setCustomSchoolState(e.target.value)}
                       required
-                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                       placeholder="Ej. Guanajuato"
                     />
                   </div>
@@ -656,7 +656,7 @@ export default function Profile() {
                     Cancelar
                   </button>
                   <button type="submit" disabled={savingSchool}
-                    className="flex-1 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                     Continuar
                   </button>
                 </div>
@@ -707,7 +707,7 @@ export default function Profile() {
                       type="button"
                       disabled={savingSchool}
                       onClick={openCustomSchoolForm}
-                      className="w-full flex items-center gap-2 px-4 py-2 rounded text-sm font-medium text-blue-600 hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
+                      className="w-full flex items-center gap-2 px-4 py-2 rounded text-sm font-medium text-accent hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
                     >
                       <Plus size={18} className="flex-shrink-0" />
                       <span className="truncate">¿No la encuentras? Agregar «{schoolSearch.trim()}»</span>

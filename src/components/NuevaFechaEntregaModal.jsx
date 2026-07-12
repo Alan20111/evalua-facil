@@ -94,7 +94,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                 <Search size={15} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar por nombre o número de lista…"
-                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent" />
+                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
               </div>
               <div className="border border-outline-variant rounded max-h-52 overflow-auto divide-y divide-outline-variant">
                 {students.filter((s) => !search.trim() || matchesStudentSearch(s, search)).map((s) => (
@@ -114,7 +114,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                 <label className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>
                 <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
                   placeholder="Ej.: Falta justificada por duelo familiar"
-                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus:ring-2 focus:ring-accent" />
+                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
               </div>
             </div>
           )}
@@ -127,7 +127,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
           </button>
           <button type="button" onClick={save}
             disabled={saving || !date || (mode === 'algunos' && selected.size === 0)}
-            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-50 transition-colors">
+            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors">
             {saving ? 'Guardando…' : 'Guardar'}
           </button>
         </div>

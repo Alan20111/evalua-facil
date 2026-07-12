@@ -258,7 +258,7 @@ export default function ProgramarZonaSemanal({
   }
 
   const editP = editing ? patrones.find(p => p.id === editing) : null
-  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent'
+  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
   const bannerBg = esModificar ? '#fef3c7' : bloqueColor(colorDefault).bg + '66'
 
   return (
@@ -435,7 +435,7 @@ export default function ProgramarZonaSemanal({
             type="button"
             onClick={guardar}
             disabled={!completo}
-            className="px-4 py-2 bg-accent text-white rounded text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 bg-accent text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center gap-2"
           >
             <Check size={15} /> {esModificar ? 'Guardar cambios' : 'Crear bloques'}
           </button>
@@ -528,7 +528,7 @@ export default function ProgramarZonaSemanal({
                     type="button"
                     onClick={confirmarColocar}
                     disabled={invalido}
-                    className="w-full py-2 bg-accent text-white rounded text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-2 bg-accent text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
                   >
                     <Plus size={15} /> Colocar {Math.min(placing.count, Math.max(1, max))}
                   </button>
@@ -651,7 +651,7 @@ export default function ProgramarZonaSemanal({
                 type="button"
                 onClick={() => duplicarPatron(editP.id)}
                 disabled={restantes <= 0}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted rounded border border-outline-variant hover:text-accent hover:border-accent transition-colors disabled:opacity-40"
+                className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted rounded border border-outline-variant hover:text-accent hover:border-accent transition-colors disabled:opacity-60"
                 data-tooltip={restantes <= 0 ? 'Ya no quedan bloques por colocar' : 'Copia en la hora siguiente'}
               >
                 <Copy size={13} /> Duplicar

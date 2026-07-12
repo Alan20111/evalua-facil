@@ -46,7 +46,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
     return (
       <div className="flex items-start gap-3 p-3 rounded border"
         style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
-        <span style={{ color: 'var(--accent)', marginTop: 2, fontSize: 16, flexShrink: 0 }}>✓</span>
+        <span className="text-base" style={{ color: 'var(--accent)', marginTop: 2, flexShrink: 0 }}>✓</span>
         <div>
           <p className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>Publicada</p>
           {publishedLabel

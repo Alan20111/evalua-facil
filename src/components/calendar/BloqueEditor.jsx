@@ -142,7 +142,7 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
   }
 
   const label = (t) => <span className="text-xs text-muted">{t}</span>
-  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent'
+  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
 
   const DEL_OPTS = [
     { id: 'uno', label: 'Solo este bloque' },

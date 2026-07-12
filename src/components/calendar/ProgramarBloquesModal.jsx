@@ -53,7 +53,7 @@ export default function ProgramarBloquesModal({
   }
 
   const label = (txt) => <label className="text-xs font-semibold text-muted uppercase tracking-wide">{txt}</label>
-  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent'
+  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40" onClick={onClose}>

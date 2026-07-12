@@ -16,6 +16,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fileTypes'
 import StudentLayout from '../../components/StudentLayout'
+import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 
 // Extensiones aceptadas para preguntas de tipo "subir documento": las mismas
 // que maneja toda la app (imágenes, PDF, Word, PowerPoint, Excel, ZIP/RAR).
@@ -333,7 +334,7 @@ export default function EvaluacionRunner() {
           </div>
         )}
 
-        <div className="px-4 py-6 max-w-xl mx-auto">
+        <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
           <div className="w-full h-1.5 bg-surface-container rounded-full mb-5 overflow-hidden">
             <div className="h-full bg-accent transition-all" style={{ width: `${((idx + 1) / preguntas.length) * 100}%` }} />
           </div>
@@ -350,7 +351,7 @@ export default function EvaluacionRunner() {
                 onChange={(e) => handleTextoChange(pregunta.id, e.target.value)}
                 rows={4}
                 placeholder="Escribe tu respuesta…"
-                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
               />
             ) : pregunta.tipo === 'subir_archivo' ? (
               <div className="space-y-2">
@@ -403,7 +404,7 @@ export default function EvaluacionRunner() {
           <div className="flex items-center justify-between gap-2">
             {navegacionLibre ? (
               <button type="button" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}
-                className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-30 rounded">
+                className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-60 rounded">
                 <ChevronLeft size={18} /> Anterior
               </button>
             ) : <span />}

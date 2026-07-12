@@ -35,7 +35,7 @@ export default function Onboarding() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-3">
+          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">Un último paso</h1>
@@ -52,7 +52,7 @@ export default function Onboarding() {
                 onChange={(e) => setNombre(e.target.value)}
                 required
                 autoFocus
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                 placeholder="Ej. Profa. Laura García"
               />
             </div>
@@ -60,7 +60,7 @@ export default function Onboarding() {
             <button
               type="submit"
               disabled={saving}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {saving ? <Spinner size="sm" /> : null}
               {saving ? 'Guardando…' : 'Entrar al panel'}

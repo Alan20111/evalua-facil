@@ -377,7 +377,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   })
   const todoOk = subtotales.every((s) => s.ok)
 
-  const inputCell = 'bg-transparent focus:outline-none focus:ring-2 focus:ring-accent rounded px-1'
+  const inputCell = 'bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1'
   const anchoMinTabla = 44 + colW.crit + colW.niveles.reduce((s, w) => s + w, 0) + 48 + 130
 
   return (
@@ -437,7 +437,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                     <th className="border-0"></th>
                     <th rowSpan={2} className="px-2 py-2 border border-outline-variant bg-[var(--accent-light)] align-middle"
                       data-tooltip="Al calificar, se elige un nivel por criterio y aquí cae su valor en puntos. La suma de los puntos elegidos es la calificación.">
-                      <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>PUNTOS</p>
+                      <p className="text-sm font-bold text-accent">PUNTOS</p>
                     </th>
                   </tr>
                   <tr>
@@ -453,8 +453,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                             onChange={(e) => setNivelNombre(j, e.target.value)}
                             placeholder={`Nivel ${j + 1}`}
                             aria-label={`Nombre del nivel ${j + 1}`}
-                            className={`w-full min-w-0 text-center text-sm font-bold ${inputCell}`}
-                            style={{ color: 'var(--accent)' }} />
+                            className={`w-full min-w-0 text-center text-sm font-bold text-accent ${inputCell}`} />
                           {/* Los primeros 3 niveles son el mínimo — no se pueden eliminar */}
                           {j >= MIN_NIVELES && (
                             <button type="button" onClick={() => removeNivel(j)}
@@ -474,7 +473,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                               onChange={(e) => setNivelValor(j, e.target.value)}
                               aria-label={`Puntos del nivel ${nv.nombre || j + 1}`}
                               data-tooltip="Menor que el nivel anterior — el nivel más bajo puede ser 0 (para quien no entrega nada)"
-                              className="w-14 px-1 py-0.5 text-center text-xs font-bold text-on-surface border border-outline-variant rounded bg-surface focus:outline-none focus:ring-2 focus:ring-accent" />
+                              className="w-14 px-1 py-0.5 text-center text-xs font-bold text-on-surface border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
                             <span className="text-[10px] font-normal text-muted">puntos</span>
                           </div>
                         )}
@@ -529,8 +528,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                                 onChange={(e) => (j === 0 ? setExc(i, e.target.value) : setPunto(i, j, e.target.value))}
                                 aria-label={`Puntos de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
                                 data-tooltip={j === 0 ? 'Lo que vale este criterio (recalcula el renglón)' : 'Editable — la columna debe sumar los puntos del nivel'}
-                                className="w-14 px-1 py-0.5 text-center text-xs font-bold border border-outline-variant rounded bg-surface focus:outline-none focus:ring-2 focus:ring-accent"
-                                style={j === 0 ? { color: 'var(--accent)' } : undefined} />
+                                className={`w-14 px-1 py-0.5 text-center text-xs font-bold border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${j === 0 ? 'text-accent' : ''}`} />
                               <span className="text-[10px] text-slate-400">pts</span>
                             </div>
                           </div>

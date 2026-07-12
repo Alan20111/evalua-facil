@@ -176,6 +176,7 @@ function HoldButton({ onPress, label }) {
       onMouseLeave={stopHold}
       onTouchStart={startHold}
       onTouchEnd={stopHold}
+      className="text-base"
       style={{
         padding: '4px 2px',
         border: 'none',
@@ -185,7 +186,6 @@ function HoldButton({ onPress, label }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: 16,
         fontWeight: 300,
         height: 20,
         transition: 'all .08s',
@@ -349,7 +349,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     height: 18, border: 'none', background: 'transparent',
     cursor: 'pointer', color: 'var(--accent)',
-    fontSize: 15, fontWeight: 300, lineHeight: 1,
+    fontWeight: 300, lineHeight: 1,
     userSelect: 'none', WebkitUserSelect: 'none', borderRadius: 6,
     flexShrink: 0,
   }
@@ -360,6 +360,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
       {/* − button */}
       <button
         type="button"
+        className="text-sm"
         style={navBtnStyle}
         onMouseDown={() => startHold(-1)}
         onMouseUp={stopHold}
@@ -429,10 +430,10 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
                   if (offset === 0 || isDisabled) return
                   step(offset)
                 }}
+                className="text-xs"
                 style={{
                   height: ITEM_H,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: isSelected ? 12 : 9,
                   fontWeight: isSelected ? 700 : 400,
                   color: isDisabled
                     ? 'var(--outline-variant)'
@@ -467,6 +468,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
       {/* + button */}
       <button
         type="button"
+        className="text-sm"
         style={navBtnStyle}
         onMouseDown={() => startHold(1)}
         onMouseUp={stopHold}
@@ -793,7 +795,7 @@ export default function EFDateTimePicker({
     width: W,
     zIndex: 9999,
     background: 'var(--surface-card)',
-    borderRadius: 14,
+    borderRadius: 'var(--radius-card, 0.875rem)',
     boxShadow: '0 8px 40px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.08)',
     border: '1px solid var(--outline-variant)',
     overflow: 'hidden',
@@ -807,6 +809,7 @@ export default function EFDateTimePicker({
       key={label}
       type="button"
       onClick={onClick}
+      className="text-xs"
       style={{
         padding: '3px 10px',
         borderRadius: 999,
@@ -815,7 +818,6 @@ export default function EFDateTimePicker({
           ? 'color-mix(in srgb, var(--accent) 12%, transparent)'
           : 'var(--surface-container)',
         color: isAccent ? 'var(--accent)' : 'var(--on-surface-variant)',
-        fontSize: 11,
         fontWeight: 600,
         cursor: 'pointer',
         lineHeight: '1.5',
@@ -849,11 +851,11 @@ export default function EFDateTimePicker({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
           <Calendar size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--accent)' }}>
+          <span className="text-xs" style={{ fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--accent)' }}>
             {headerLabel || (mode === 'date' ? 'Fecha seleccionada' : 'Fecha y hora')}
           </span>
         </div>
-        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--on-surface)', margin: 0 }}>
+        <p className="text-xs" style={{ fontWeight: 600, color: 'var(--on-surface)', margin: 0 }}>
           {draftDisplay
             ? <>{draftDisplay.date}{draftDisplay.time && <span style={{ fontWeight: 500, color: 'var(--on-surface-variant)' }}> – {draftDisplay.time}</span>}</>
             : <span style={{ color: 'var(--outline)', fontStyle: 'italic', fontWeight: 400 }}>Sin selección</span>}
@@ -888,7 +890,7 @@ export default function EFDateTimePicker({
             >
               <ChevronLeft size={16} />
             </button>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--on-surface)' }}>
+            <span className="text-xs" style={{ fontWeight: 700, color: 'var(--on-surface)' }}>
               {MESES[viewDate.getMonth()]} {viewDate.getFullYear()}
             </span>
             <button
@@ -905,9 +907,8 @@ export default function EFDateTimePicker({
           {/* Day headers — gray background strip */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
             {DIAS_HEADER.map((d, i) => (
-              <div key={d} style={{
+              <div key={d} className="text-xs" style={{
                 textAlign: 'center',
-                fontSize: 10,
                 fontWeight: 600,
                 color: 'var(--on-surface-variant)',
                 padding: '3px 0',
@@ -939,6 +940,7 @@ export default function EFDateTimePicker({
                     type="button"
                     onClick={() => selectDay(d)}
                     disabled={isDisabled}
+                    className="text-xs"
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -947,7 +949,6 @@ export default function EFDateTimePicker({
                       borderRadius: '50%',
                       border: 'none',
                       cursor: isDisabled ? 'not-allowed' : 'pointer',
-                      fontSize: 12,
                       fontWeight: isSel || isToday ? 700 : 400,
                       background: isSel
                         ? 'var(--accent)'
@@ -990,8 +991,7 @@ export default function EFDateTimePicker({
             flexDirection: 'column',
             padding: '8px 4px 6px',
           }}>
-            <p style={{
-              fontSize: 10,
+            <p className="text-xs" style={{
               fontWeight: 700,
               color: 'var(--outline)',
               textTransform: 'uppercase',
@@ -1011,13 +1011,12 @@ export default function EFDateTimePicker({
                 formatItem={v => String(v).padStart(2, '0')}
                 disabledIndices={disabledHourIndices}
               />
-              <div style={{
+              <div className="text-xs" style={{
                 flexShrink: 0,
                 width: 8,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 13,
                 fontWeight: 200,
                 color: 'var(--on-surface-variant)',
               }}>:</div>
@@ -1058,7 +1057,8 @@ export default function EFDateTimePicker({
           <button
             type="button"
             onClick={clear}
-            style={{ padding: '6px 10px', borderRadius: 7, border: 'none', background: 'transparent', color: 'var(--outline)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+            className="text-xs"
+            style={{ padding: '6px 10px', borderRadius: 'var(--radius, 0.5rem)', border: 'none', background: 'transparent', color: 'var(--outline)', fontWeight: 500, cursor: 'pointer' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-container)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
           >
@@ -1069,7 +1069,8 @@ export default function EFDateTimePicker({
         <button
           type="button"
           onClick={() => setOpen(false)}
-          style={{ padding: '6px 12px', borderRadius: 7, border: '1px solid var(--outline-variant)', background: 'transparent', color: 'var(--on-surface-variant)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+          className="text-xs"
+          style={{ padding: '6px 12px', borderRadius: 'var(--radius, 0.5rem)', border: '1px solid var(--outline-variant)', background: 'transparent', color: 'var(--on-surface-variant)', fontWeight: 500, cursor: 'pointer' }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-container)' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
         >
@@ -1078,7 +1079,8 @@ export default function EFDateTimePicker({
         <button
           type="button"
           onClick={confirm}
-          style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+          className="text-xs"
+          style={{ padding: '6px 14px', borderRadius: 'var(--radius, 0.5rem)', border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-hover)' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent)' }}
         >
