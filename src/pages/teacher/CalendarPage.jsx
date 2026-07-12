@@ -519,9 +519,11 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
               )}
               <div className="space-y-1">
                 {items.slice(0, 3).map((it) => {
-                  // Arrastrables: bloques (pregunta al soltar) y eventos
-                  // personales (se mueven directo). Un clic sin mover, edita.
-                  const movable = it.kind === 'bloque' || it.ev?.editable
+                  // En la vista Mes los BLOQUES DE CLASE no se arrastran (no se
+                  // pueden cambiar de día aquí; para eso está "Modificar
+                  // bloques"). Solo los eventos personales se arrastran a otro
+                  // día. Al tocar un bloque se abre el diálogo para borrarlo.
+                  const movable = it.kind === 'event' && it.ev?.editable
                   const isDraggingThis = drag?.moved && (
                     (it.kind === 'bloque' && drag.kind === 'bloque' && drag.b?.id === it.b.id) ||
                     (it.kind === 'event' && drag.kind === 'event' && drag.ev?.id === it.ev.id)
@@ -1321,6 +1323,11 @@ export default function CalendarPage() {
   function openBloqueAcciones(b) {
     setPendingMove({ bloque: b, fecha: b.fecha, hora: b.horaInicio })
   }
+  // En la vista Mes solo se puede BORRAR ese día (no mover): el diálogo se abre
+  // sin la opción de cambiar la hora.
+  function openBloqueSoloBorrar(b) {
+    setPendingMove({ bloque: b, fecha: b.fecha, hora: b.horaInicio, soloBorrar: true })
+  }
 
   async function confirmPendingMove() {
     const pm = pendingMove
@@ -1633,7 +1640,7 @@ export default function CalendarPage() {
               selectedDate={currentDate}
               onDateClick={openNewEvent}
               onEventClick={openEditEvent}
-              onBlockClick={openBloqueAcciones}
+              onBlockClick={openBloqueSoloBorrar}
               onMoveEvent={moveEvent}
               onMoveBloque={requestMoveBloque}
               asuetoMap={asuetoMap}
@@ -1761,7 +1768,7 @@ export default function CalendarPage() {
           (clase suspendida). Nunca afecta a las clases siguientes ni cambia de
           día — para eso está "Modificar bloques". */}
       {pendingMove && (() => {
-        const { bloque: b, hora, confirmDel } = pendingMove
+        const { bloque: b, hora, confirmDel, soloBorrar } = pendingMove
         const subj = subjects[b.asignaturaId]
         const durMin = Math.max(5, timeToMinutes(b.horaFin) - timeToMinutes(b.horaInicio))
         const fmtF = s => {
@@ -1785,13 +1792,14 @@ export default function CalendarPage() {
               aria-label="Cerrar"
             />
             <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
-              <h2 className="font-semibold text-on-surface">Mover o borrar esta clase</h2>
+              <h2 className="font-semibold text-on-surface">{soloBorrar ? 'Borrar esta clase' : 'Mover o borrar esta clase'}</h2>
               <div className="text-sm text-on-surface space-y-0.5 bg-surface rounded-card border border-outline-variant p-3">
                 <p className="font-medium">{subjectDisplayName(subj) || 'Clase'}</p>
                 <p className="text-muted text-xs">{fmtF(b.fecha)} · empieza a las {fmtHour(b.horaInicio)}</p>
               </div>
 
-              {/* Mover el MISMO día a otra hora */}
+              {/* Mover el MISMO día a otra hora — no disponible en la vista Mes */}
+              {!soloBorrar && (<>
               <div className="space-y-1">
                 <span className="text-xs font-semibold text-muted uppercase tracking-wide">Cambiar la hora (el mismo día)</span>
                 <div className="flex items-center gap-1.5">
@@ -1825,6 +1833,11 @@ export default function CalendarPage() {
               >
                 {seEncima ? 'Se encima con otra clase' : cambioHora ? `Mover a las ${fmtHour(hora)}` : 'Ajusta la hora para mover'}
               </button>
+              </>)}
+
+              {soloBorrar && (
+                <p className="text-xs text-muted">En la vista Mes las clases no se cambian de hora ni de día. Para eso, usa <strong className="text-on-surface">Modificar bloques</strong>.</p>
+              )}
 
               {/* Borrar SOLO esta clase */}
               {confirmDel ? (
