@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   X, Check, Plus, Minus, Trash2, Copy, Bell, BellOff, MapPin, AlertCircle, Play,
   ArrowLeft, Pencil,
@@ -121,7 +121,7 @@ export default function ProgramarZonaSemanal({
   function abrirColocar(dia, hora) {
     if (restantes <= 0) return
     setEditing(null)
-    setPlacing({ diaSemana: dia, horaInicio: hora, count: 1 })
+    setPlacing({ diaSemana: dia, horaInicio: hora, count: 1, lugar: '' })
   }
 
   function maxCountColocar(p) {
@@ -142,7 +142,7 @@ export default function ProgramarZonaSemanal({
       diaSemana: p.diaSemana,
       horaInicio: minsToTime(startMin + i * duracionMin),
       duracionMin,
-      lugar: '',
+      lugar: (p.lugar || '').trim(),
       color: colorDefault,
       // La alarma solo tiene sentido en el primer bloque de la corrida.
       alarma: i === 0 ? { ...alarmaDefault } : { ...alarmaDefault, activa: false },
@@ -179,71 +179,67 @@ export default function ProgramarZonaSemanal({
   }
 
   // ── Arrastrar para mover (cambia día y hora) ─────────────────────────────
+  // Usa Pointer Capture: al presionar un bloque, ESE bloque recibe todos los
+  // eventos del puntero hasta soltarlo, aunque el cursor salga de él. Así el
+  // arrastre es a prueba de fallos y NUNCA afecta a la ventana (que no se
+  // mueve); lo único que se mueve es el bloque.
   const colRefs = useRef([])
-  const dragStartRef = useRef(null)
-  // El fondo solo cierra si el clic EMPEZÓ en el fondo (no tras arrastrar un
-  // bloque y soltar fuera de la tarjeta): evita que la ventana "reaccione" al
-  // arrastrar. La ventana no se mueve; los bloques sí.
+  const dragRef = useRef(null) // arrastre activo (no provoca re-render)
+  // El fondo solo cierra si el clic EMPEZÓ en el fondo (no tras arrastrar):
+  // evita que la ventana "reaccione" al arrastrar.
   const backdropDown = useRef(false)
   const suppressBackdrop = useRef(false)
-  const [drag, setDrag] = useState(null) // { id, x, y, grabDX, grabDY, w, h, moved }
+  const [drag, setDrag] = useState(null) // solo para dibujar el fantasma
 
   function startDrag(e, p) {
     if (e.button != null && e.button !== 0) return
+    e.preventDefault()           // sin selección de texto ni arrastre nativo
     backdropDown.current = false // un arrastre no debe cerrar la ventana
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* no soportado */ }
     const rect = e.currentTarget.getBoundingClientRect()
-    dragStartRef.current = { x: e.clientX, y: e.clientY }
-    setDrag({
-      id: p.id,
-      x: e.clientX, y: e.clientY,
-      grabDX: e.clientX - rect.left,
-      grabDY: e.clientY - rect.top,
-      w: rect.width, h: rect.height,
-      moved: false,
-    })
+    dragRef.current = {
+      id: p.id, pointerId: e.pointerId,
+      startX: e.clientX, startY: e.clientY,
+      grabDX: e.clientX - rect.left, grabDY: e.clientY - rect.top,
+      w: rect.width, h: rect.height, moved: false,
+    }
+    setDrag({ id: p.id, x: e.clientX, y: e.clientY, grabDX: e.clientX - rect.left, grabDY: e.clientY - rect.top, w: rect.width, h: rect.height, moved: false })
   }
 
-  useEffect(() => {
-    if (!drag) return
-    function onMove(e) {
-      const s = dragStartRef.current
-      const moved = s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
-      setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
+  function onDragMove(e) {
+    const d = dragRef.current
+    if (!d || e.pointerId !== d.pointerId) return
+    if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 5) d.moved = true
+    setDrag(cur => cur && ({ ...cur, x: e.clientX, y: e.clientY, moved: d.moved }))
+  }
+
+  function onDragEnd(e) {
+    const d = dragRef.current
+    if (!d || e.pointerId !== d.pointerId) return
+    dragRef.current = null
+    try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* ignore */ }
+    setDrag(null)
+    const p = patrones.find(x => x.id === d.id)
+    if (!p) return
+    if (!d.moved) { setPlacing(null); setEditing(d.id); return } // clic → editar
+    // Tras arrastrar, suprime el posible `click` en el fondo.
+    suppressBackdrop.current = true
+    // Detecta la columna (día) bajo el cursor.
+    const blockTop = e.clientY - d.grabDY
+    let target = null
+    colRefs.current.forEach((el, idx) => {
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      if (e.clientX >= r.left && e.clientX < r.right) target = { idx, top: r.top }
+    })
+    if (target) {
+      let mins = Math.round(((blockTop - target.top) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+      mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - p.duracionMin, mins))
+      if (cabe(target.idx, mins, 1, p.duracionMin, p.id)) {
+        updatePatron(p.id, { diaSemana: target.idx, horaInicio: minsToTime(mins) })
+      }
     }
-    function onUp(e) {
-      setDrag(d => {
-        if (!d) return null
-        const p = patrones.find(x => x.id === d.id)
-        if (!p) return null
-        // Tras un arrastre, el navegador puede emitir un `click` en el fondo:
-        // lo suprimimos para que la ventana no reaccione (no debe cerrarse).
-        if (d.moved) { backdropDown.current = false; suppressBackdrop.current = true }
-        if (!d.moved) { setPlacing(null); setEditing(d.id); return null } // clic → editar
-        // Detecta la columna (día) bajo el cursor.
-        const blockTop = e.clientY - d.grabDY
-        let target = null
-        colRefs.current.forEach((el, idx) => {
-          if (!el) return
-          const r = el.getBoundingClientRect()
-          if (e.clientX >= r.left && e.clientX < r.right) target = { idx, top: r.top }
-        })
-        if (target) {
-          let mins = Math.round(((blockTop - target.top) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
-          mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - p.duracionMin, mins))
-          if (cabe(target.idx, mins, 1, p.duracionMin, p.id)) {
-            updatePatron(p.id, { diaSemana: target.idx, horaInicio: minsToTime(mins) })
-          }
-        }
-        return null
-      })
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-    }
-  }, [drag, patrones, dayStart, dayEnd]) // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   // ── Salir / guardar ──────────────────────────────────────────────────────
   function intentarSalir() {
@@ -393,6 +389,9 @@ export default function ProgramarZonaSemanal({
                         <div
                           key={p.id}
                           onPointerDown={e => { e.stopPropagation(); startDrag(e, p) }}
+                          onPointerMove={onDragMove}
+                          onPointerUp={onDragEnd}
+                          onPointerCancel={onDragEnd}
                           className="absolute rounded-lg px-1.5 py-1 text-left overflow-hidden shadow-sm ring-1 ring-black/10 hover:brightness-95 transition select-none cursor-grab active:cursor-grabbing"
                           style={{
                             top, height, left: '3px', right: '3px',
@@ -490,6 +489,18 @@ export default function ProgramarZonaSemanal({
               />
             </div>
             <div className="space-y-1">
+              <span className="text-xs text-muted">Lugar (opcional)</span>
+              <div className="flex items-center gap-2">
+                <MapPin size={14} className="text-muted flex-shrink-0" />
+                <input
+                  type="text" value={placing.lugar || ''}
+                  onChange={e => setPlacing(p => ({ ...p, lugar: e.target.value }))}
+                  placeholder="Aula, Centro de cómputo…"
+                  className={`${inputCls} flex-1`}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
               <span className="text-xs text-muted">Bloques seguidos (cada {duracionMin} min)</span>
               <input
                 type="number" min={1} max={Math.max(1, restantes)}
@@ -497,7 +508,7 @@ export default function ProgramarZonaSemanal({
                 onChange={e => setPlacing(p => ({ ...p, count: Math.max(1, Number(e.target.value) || 1) }))}
                 className={`${inputCls} w-full`}
               />
-              <p className="text-[11px] text-muted">Quedan {restantes} por colocar. 2 seguidos ocupan 2.</p>
+              <p className="text-[11px] text-muted">Quedan {restantes} por colocar. 2 seguidos ocupan 2. El lugar se aplica a los que coloques aquí.</p>
             </div>
             {(() => {
               const max = maxCountColocar(placing)
