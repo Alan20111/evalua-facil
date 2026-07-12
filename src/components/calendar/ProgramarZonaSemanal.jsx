@@ -53,6 +53,7 @@ export default function ProgramarZonaSemanal({
   subjects,
   otrosBloques = [],   // bloques de OTRAS asignaturas (referencia de ocupación, tenues)
   initialPatrones = null,
+  configChanged = false, // true si el docente cambió algo en el modal de config
   mode = 'crear',      // 'crear' | 'modificar'
   dayStart = 7,
   dayEnd = 20,
@@ -73,6 +74,14 @@ export default function ProgramarZonaSemanal({
 
   const restantes = bloquesPorSemana - patrones.length
   const completo = patrones.length === bloquesPorSemana
+
+  // ¿Hay algún cambio respecto a lo que se cargó? (para no re-guardar de balde
+  // en modo Modificar). Compara los patrones actuales con los iniciales.
+  const normPatrones = (ps) => JSON.stringify(
+    ps.map(({ id, ...rest }) => rest) // eslint-disable-line no-unused-vars
+      .sort((a, b) => a.diaSemana - b.diaSemana || timeToMinutes(a.horaInicio) - timeToMinutes(b.horaInicio)))
+  const initialNorm = useMemo(() => normPatrones((initialPatrones || []).map(p => ({ id: 0, ...p }))), []) // eslint-disable-line react-hooks/exhaustive-deps
+  const hayCambios = configChanged || normPatrones(patrones) !== initialNorm
 
   const hoursRange = useMemo(
     () => Array.from({ length: Math.max(1, dayEnd - dayStart) }, (_, i) => i + dayStart),
@@ -411,21 +420,36 @@ export default function ProgramarZonaSemanal({
         {/* Footer */}
         <div className="border-t border-outline-variant px-4 py-3 flex items-center gap-3 flex-shrink-0">
           <span className="text-xs text-muted flex-1">
-            {completo
-              ? <>Listo: se crearán las clases de <strong className="text-on-surface">{bloquesPorSemana}</strong> bloque(s) por semana en todo el rango.</>
-              : <>Faltan <strong className="text-on-surface">{restantes}</strong> bloque(s).</>}
+            {esModificar && !hayCambios
+              ? 'No has hecho ningún cambio.'
+              : completo
+                ? <>Listo: se crearán las clases de <strong className="text-on-surface">{bloquesPorSemana}</strong> bloque(s) por semana en todo el rango.</>
+                : <>Faltan <strong className="text-on-surface">{restantes}</strong> bloque(s).</>}
           </span>
-          <button type="button" onClick={intentarSalir} className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={guardar}
-            disabled={!completo}
-            className="px-4 py-2 bg-accent text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center gap-2"
-          >
-            <Check size={15} /> {esModificar ? 'Guardar cambios' : 'Crear bloques'}
-          </button>
+          {esModificar && !hayCambios ? (
+            // Sin cambios: no hay nada que guardar. Solo salir (sin re-guardar).
+            <button
+              type="button"
+              onClick={() => onCancel?.()}
+              className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors"
+            >
+              Salir sin modificar
+            </button>
+          ) : (
+            <>
+              <button type="button" onClick={intentarSalir} className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={guardar}
+                disabled={!completo}
+                className="px-4 py-2 bg-accent text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center gap-2"
+              >
+                <Check size={15} /> {esModificar ? 'Guardar cambios' : 'Crear bloques'}
+              </button>
+            </>
+          )}
         </div>
 
       {/* Fantasma que sigue al cursor mientras se arrastra */}
