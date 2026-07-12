@@ -180,8 +180,9 @@ function AgendaView({
       if (!d) return
       const { item } = d
       if (!d.moved) {
-        // Clic en bloque de clase: no abre editor. Los eventos sí se editan.
-        if (item.kind !== 'bloque') onEventClick?.(item.ev)
+        // Clic: evento → su editor; bloque de clase → diálogo de acciones.
+        if (item.kind === 'bloque') onBlockClick?.(item.b)
+        else onEventClick?.(item.ev)
         return
       }
       // 1) ¿Soltó sobre un chip de día posterior?
@@ -440,8 +441,9 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
       setDrag(null)
       if (!d) return
       if (!d.moved) {
-        // Clic en bloque de clase: no abre editor (solo se mueve arrastrando).
-        if (d.kind !== 'bloque') onEventClick?.(d.ev)
+        // Clic: evento → su editor; bloque de clase → diálogo de acciones.
+        if (d.kind === 'bloque') onBlockClick?.(d.b)
+        else onEventClick?.(d.ev)
         return
       }
       let target = null
@@ -626,8 +628,10 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
       setDrag(null)
       if (!d) return
       if (!d.moved) {
-        // Clic en bloque de clase: no abre editor (solo se mueve arrastrando).
+        // Clic: en evento abre su editor; en bloque de clase abre el diálogo de
+        // acciones (mover el mismo día / borrar esta clase), NO su editor.
         if (d.kind === 'event') onEventClick?.(d.ev)
+        else onBlockClick?.(d.bloque)
         return
       }
       // Detecta la columna (día) bajo el cursor.
@@ -1289,22 +1293,36 @@ export default function CalendarPage() {
     }
   }
 
-  // Al soltar un bloque arrastrado NO se mueve de inmediato: se pide
-  // confirmación y si el movimiento es solo de ese bloque o en cadena.
-  function requestMoveBloque(b, nuevaFecha, nuevaHora) {
-    if (nuevaFecha === b.fecha && nuevaHora === b.horaInicio) return
-    if (bloqueadoPorAsueto(nuevaFecha, 'clases')) return
-    setPendingMove({ bloque: b, fecha: nuevaFecha, hora: nuevaHora })
+  // Al soltar (o tocar) una clase se abre el diálogo de acciones de ESA clase:
+  // mover el mismo día a otra hora, o borrarla (clase suspendida). Un
+  // adelanto/movimiento de una sola clase es SIEMPRE el mismo día: solo cambia
+  // la hora (nunca el día ni las clases siguientes → eso es "Modificar bloques").
+  function requestMoveBloque(b, _nuevaFecha, nuevaHora) {
+    setPendingMove({ bloque: b, fecha: b.fecha, hora: nuevaHora })
+  }
+  // Tocar una clase (sin arrastrar) abre el mismo diálogo con su hora actual.
+  function openBloqueAcciones(b) {
+    setPendingMove({ bloque: b, fecha: b.fecha, hora: b.horaInicio })
   }
 
-  // En las vistas normales (Agenda/Semana/Mes) arrastrar mueve SOLO ese bloque
-  // —útil para adelantar o recorrer una clase suelta—. Para mover ese bloque y
-  // los siguientes hay que entrar a "Modificar bloques".
   async function confirmPendingMove() {
     const pm = pendingMove
     setPendingMove(null)
     if (!pm) return
-    await moveBloque(pm.bloque, pm.fecha, pm.hora)
+    // Mismo día siempre; solo puede cambiar la hora.
+    if (pm.hora === pm.bloque.horaInicio) return
+    await moveBloque(pm.bloque, pm.bloque.fecha, pm.hora)
+  }
+
+  // Borrar SOLO esta clase (p. ej. suspendida). No toca las demás instancias.
+  async function borrarBloqueUnico(bloque) {
+    setPendingMove(null)
+    try {
+      await deleteDoc(doc(db, 'horarioBloques', bloque.id))
+      toast('Esta clase se borró. Las demás clases siguen igual.')
+    } catch (err) {
+      toast('No se pudo borrar la clase: ' + err.message, 'error')
+    }
   }
 
   // Crear evento desde un hueco de la agenda del día.
@@ -1581,7 +1599,9 @@ export default function CalendarPage() {
               subjects={subjects}
               dayStart={dayStart}
               dayEnd={dayEnd}
-              onEventClick={openEditEvent}              onMoveBloque={requestMoveBloque}
+              onEventClick={openEditEvent}
+              onBlockClick={openBloqueAcciones}
+              onMoveBloque={requestMoveBloque}
               onMoveEvent={moveEvent}
               onSlotClick={openNewEventAt}
               asuetoMap={asuetoMap}
@@ -1595,7 +1615,9 @@ export default function CalendarPage() {
               subjects={subjects}
               selectedDate={currentDate}
               onDateClick={openNewEvent}
-              onEventClick={openEditEvent}              onMoveEvent={moveEvent}
+              onEventClick={openEditEvent}
+              onBlockClick={openBloqueAcciones}
+              onMoveEvent={moveEvent}
               onMoveBloque={requestMoveBloque}
               asuetoMap={asuetoMap}
             />
@@ -1609,7 +1631,9 @@ export default function CalendarPage() {
               dayEnd={dayEnd}
               numDays={numDays}
               selectedDate={currentDate}
-              onSlotClick={openNewEventAt}              onEventClick={openEditEvent}
+              onSlotClick={openNewEventAt}
+              onEventClick={openEditEvent}
+              onBlockClick={openBloqueAcciones}
               onMoveBloque={requestMoveBloque}
               onMoveEvent={moveEvent}
               asuetoMap={asuetoMap}
@@ -1716,11 +1740,11 @@ export default function CalendarPage() {
         />
       )}
 
-      {/* Confirmación al mover un bloque arrastrado — solo ESTE bloque.
-          El docente ajusta el día y la HORA EXACTA antes de confirmar, para que
-          no quede en la hora "aproximada" a la que cayó el arrastre. */}
+      {/* Acciones de UNA sola clase: mover el mismo día a otra hora, o borrarla
+          (clase suspendida). Nunca afecta a las clases siguientes ni cambia de
+          día — para eso está "Modificar bloques". */}
       {pendingMove && (() => {
-        const { bloque: b, fecha, hora } = pendingMove
+        const { bloque: b, hora, confirmDel } = pendingMove
         const subj = subjects[b.asignaturaId]
         const durMin = Math.max(5, timeToMinutes(b.horaFin) - timeToMinutes(b.horaInicio))
         const fmtF = s => {
@@ -1729,6 +1753,7 @@ export default function CalendarPage() {
         }
         const stepHora = (delta) => setPendingMove(pm => ({ ...pm, hora: addMinutesToTime(pm.hora, delta) }))
         const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent'
+        const cambioHora = hora !== b.horaInicio
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button
@@ -1738,64 +1763,70 @@ export default function CalendarPage() {
               aria-label="Cerrar"
             />
             <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
-              <h2 className="font-semibold text-on-surface">¿Mover solo este bloque?</h2>
-              <div className="text-sm text-on-surface space-y-1 bg-surface rounded-card border border-outline-variant p-3">
+              <h2 className="font-semibold text-on-surface">Mover o borrar esta clase</h2>
+              <div className="text-sm text-on-surface space-y-0.5 bg-surface rounded-card border border-outline-variant p-3">
                 <p className="font-medium">{subjectDisplayName(subj) || 'Clase'}</p>
-                <p className="text-muted text-xs">De: {fmtF(b.fecha)} · {fmtHour(b.horaInicio)}</p>
+                <p className="text-muted text-xs">{fmtF(b.fecha)} · empieza a las {fmtHour(b.horaInicio)}</p>
               </div>
 
-              {/* Destino editable: día + hora exacta */}
-              <div className="space-y-2">
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-muted uppercase tracking-wide">Día</span>
-                  <EFDateTimePicker
-                    mode="date" value={fecha}
-                    onChange={v => v && setPendingMove(pm => ({ ...pm, fecha: v }))}
-                    clearable={false} showShortcuts={false}
+              {/* Mover el MISMO día a otra hora */}
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-muted uppercase tracking-wide">Cambiar la hora (el mismo día)</span>
+                <div className="flex items-center gap-1.5">
+                  <button type="button" onClick={() => stepHora(-5)}
+                    className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint transition-colors" aria-label="−5 minutos">
+                    <Minus size={14} />
+                  </button>
+                  <input
+                    type="time" value={hora} step={60}
+                    onChange={e => e.target.value && setPendingMove(pm => ({ ...pm, hora: e.target.value }))}
+                    className={`${inputCls} flex-1 text-center text-base font-semibold tabular-nums`}
                   />
+                  <button type="button" onClick={() => stepHora(5)}
+                    className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint transition-colors" aria-label="+5 minutos">
+                    <Plus size={14} />
+                  </button>
                 </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-muted uppercase tracking-wide">Hora exacta de inicio</span>
-                  <div className="flex items-center gap-1.5">
-                    <button type="button" onClick={() => stepHora(-5)}
-                      className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint transition-colors" aria-label="−5 minutos">
-                      <Minus size={14} />
-                    </button>
-                    <input
-                      type="time" value={hora} step={60}
-                      onChange={e => e.target.value && setPendingMove(pm => ({ ...pm, hora: e.target.value }))}
-                      className={`${inputCls} flex-1 text-center text-base font-semibold tabular-nums`}
-                    />
-                    <button type="button" onClick={() => stepHora(5)}
-                      className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint transition-colors" aria-label="+5 minutos">
-                      <Plus size={14} />
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted">Termina a las <strong className="text-on-surface">{addMinutesToTime(hora, durMin)}</strong></p>
-                </div>
+                <p className="text-xs text-muted">Termina a las <strong className="text-on-surface">{addMinutesToTime(hora, durMin)}</strong></p>
               </div>
 
-              <p className="text-xs text-muted flex items-start gap-1.5">
-                <AlertTriangle size={13} className="flex-shrink-0 mt-0.5 text-amber-500" />
-                Solo se mueve este bloque (p. ej. para adelantar una clase). Para mover
-                este y los siguientes, o reacomodar todo el horario, usa <strong className="text-on-surface">Modificar bloques</strong>.
+              <button
+                type="button"
+                onClick={() => confirmPendingMove()}
+                disabled={!cambioHora}
+                className="w-full py-2 bg-accent text-white rounded-card text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-45"
+              >
+                {cambioHora ? `Mover a las ${fmtHour(hora)}` : 'Ajusta la hora para mover'}
+              </button>
+
+              {/* Borrar SOLO esta clase */}
+              {confirmDel ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-error/10 border border-error/30">
+                  <span className="text-xs text-error flex-1">¿Borrar solo esta clase? Las demás clases no se tocan.</span>
+                  <button type="button" onClick={() => setPendingMove(pm => ({ ...pm, confirmDel: false }))} className="text-xs text-muted px-2 py-1">No</button>
+                  <button type="button" onClick={() => borrarBloqueUnico(b)} className="text-xs bg-error text-white rounded px-2.5 py-1 font-medium">Sí, borrar</button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setPendingMove(pm => ({ ...pm, confirmDel: true }))}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-card border border-error/30 text-error text-sm hover:bg-error/10 transition-colors"
+                >
+                  <Trash2 size={14} /> Borrar esta clase (suspendida)
+                </button>
+              )}
+
+              <p className="text-xs text-muted">
+                Esto solo afecta a <strong className="text-on-surface">esta clase</strong>. Para mover también las clases siguientes, o reacomodar todo el horario, entra a <strong className="text-on-surface">Modificar bloques</strong>.
               </p>
-              <div className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={() => confirmPendingMove()}
-                  className="w-full py-2 bg-accent text-white rounded-card text-sm font-semibold hover:bg-accent-hover transition-colors"
-                >
-                  Mover a {fmtF(fecha)} · {fmtHour(hora)}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPendingMove(null)}
-                  className="w-full py-2 rounded-card border border-outline-variant text-muted text-sm hover:bg-surface transition-colors"
-                >
-                  Cancelar
-                </button>
-              </div>
+
+              <button
+                type="button"
+                onClick={() => setPendingMove(null)}
+                className="w-full py-2 rounded-card border border-outline-variant text-muted text-sm hover:bg-surface transition-colors"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         )
