@@ -495,6 +495,7 @@ export default function EFDateTimePicker({
   defaultTime = '23:59',  // HH:MM 24h — used when opening with no existing value
   defaultDate,             // YYYY-MM-DD — calendar opens here when no value is set
   headerLabel,             // e.g. "Fecha y hora de publicación" — popup header caption
+  showShortcuts = true,    // atajos Hoy/Mañana/En 3 días/Próx. semana/Fin de mes
 }) {
   const triggerRef  = useRef(null)
   const popoverRef  = useRef(null)
@@ -863,11 +864,13 @@ export default function EFDateTimePicker({
       <div className="ef-noscroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
 
         {/* Shortcuts */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '9px 12px 4px' }}>
-          {shortcuts
-            .filter(({ d }) => !minDateOnly || new Date(d.getFullYear(), d.getMonth(), d.getDate()) >= minDateOnly)
-            .map(({ label, d }) => chip(label, () => applyShortcut(d)))}
-        </div>
+        {showShortcuts && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '9px 12px 4px' }}>
+            {shortcuts
+              .filter(({ d }) => !minDateOnly || new Date(d.getFullYear(), d.getMonth(), d.getDate()) >= minDateOnly)
+              .map(({ label, d }) => chip(label, () => applyShortcut(d)))}
+          </div>
+        )}
 
         {/* Calendar + Time wheels side by side */}
         <div style={{ display: 'flex' }}>

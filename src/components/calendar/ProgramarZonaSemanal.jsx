@@ -181,10 +181,16 @@ export default function ProgramarZonaSemanal({
   // ── Arrastrar para mover (cambia día y hora) ─────────────────────────────
   const colRefs = useRef([])
   const dragStartRef = useRef(null)
+  // El fondo solo cierra si el clic EMPEZÓ en el fondo (no tras arrastrar un
+  // bloque y soltar fuera de la tarjeta): evita que la ventana "reaccione" al
+  // arrastrar. La ventana no se mueve; los bloques sí.
+  const backdropDown = useRef(false)
+  const suppressBackdrop = useRef(false)
   const [drag, setDrag] = useState(null) // { id, x, y, grabDX, grabDY, w, h, moved }
 
   function startDrag(e, p) {
     if (e.button != null && e.button !== 0) return
+    backdropDown.current = false // un arrastre no debe cerrar la ventana
     const rect = e.currentTarget.getBoundingClientRect()
     dragStartRef.current = { x: e.clientX, y: e.clientY }
     setDrag({
@@ -209,6 +215,9 @@ export default function ProgramarZonaSemanal({
         if (!d) return null
         const p = patrones.find(x => x.id === d.id)
         if (!p) return null
+        // Tras un arrastre, el navegador puede emitir un `click` en el fondo:
+        // lo suprimimos para que la ventana no reaccione (no debe cerrarse).
+        if (d.moved) { backdropDown.current = false; suppressBackdrop.current = true }
         if (!d.moved) { setPlacing(null); setEditing(d.id); return null } // clic → editar
         // Detecta la columna (día) bajo el cursor.
         const blockTop = e.clientY - d.grabDY
@@ -257,7 +266,14 @@ export default function ProgramarZonaSemanal({
   const bannerBg = esModificar ? '#fef3c7' : bloqueColor(colorDefault).bg + '66'
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-stretch md:items-center justify-center md:p-4" onClick={intentarSalir}>
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-stretch md:items-center justify-center md:p-4"
+      onPointerDown={e => { backdropDown.current = e.target === e.currentTarget }}
+      onClick={e => {
+        if (suppressBackdrop.current) { suppressBackdrop.current = false; return }
+        if (e.target === e.currentTarget && backdropDown.current) intentarSalir()
+      }}
+    >
       <div
         className={`bg-surface-card w-full md:max-w-4xl md:rounded-card shadow-2xl flex flex-col max-h-full md:max-h-[94vh] ${esModificar ? 'ring-4 ring-amber-400 ring-inset md:ring-inset' : ''}`}
         onClick={e => e.stopPropagation()}
@@ -515,7 +531,7 @@ export default function ProgramarZonaSemanal({
       {/* ── Popover: editar bloque colocado ─────────────────────────────── */}
       {editP && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" onClick={() => setEditing(null)}>
-          <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2.5" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-on-surface text-sm">Editar bloque</h3>
               <button type="button" onClick={() => setEditing(null)} className="p-1 text-muted hover:text-error" aria-label="Cerrar"><X size={16} /></button>
@@ -612,29 +628,29 @@ export default function ProgramarZonaSemanal({
             </div>
 
             {/* Acciones: Borrar · Duplicar · Confirmar */}
-            <div className="flex items-center gap-2 pt-1">
+            <div className="flex items-center gap-1.5 pt-0.5">
               <button
                 type="button"
                 onClick={() => borrarPatron(editP.id)}
-                className="flex items-center gap-1.5 px-2.5 py-2 text-sm text-error rounded border border-error/30 hover:bg-error/10 transition-colors"
+                className="flex items-center gap-1 px-2 py-1.5 text-xs text-error rounded border border-error/30 hover:bg-error/10 transition-colors"
               >
-                <Trash2 size={14} /> Borrar
+                <Trash2 size={13} /> Borrar
               </button>
               <button
                 type="button"
                 onClick={() => duplicarPatron(editP.id)}
                 disabled={restantes <= 0}
-                className="flex items-center gap-1.5 px-2.5 py-2 text-sm text-muted rounded border border-outline-variant hover:text-accent hover:border-accent transition-colors disabled:opacity-40"
+                className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted rounded border border-outline-variant hover:text-accent hover:border-accent transition-colors disabled:opacity-40"
                 data-tooltip={restantes <= 0 ? 'Ya no quedan bloques por colocar' : 'Copia en la hora siguiente'}
               >
-                <Copy size={14} /> Duplicar
+                <Copy size={13} /> Duplicar
               </button>
               <button
                 type="button"
                 onClick={() => { setEditing(null); setRecienId(null) }}
-                className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 text-sm font-semibold text-white bg-accent rounded hover:bg-accent-hover transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-semibold text-white bg-accent rounded hover:bg-accent-hover transition-colors"
               >
-                <Check size={14} /> Confirmar
+                <Check size={13} /> Confirmar
               </button>
             </div>
           </div>

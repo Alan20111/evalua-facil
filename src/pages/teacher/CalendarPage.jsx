@@ -695,7 +695,6 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
           {/* Day columns */}
           {days.map((d, di) => {
             const dStr = toDateStr(d)
-            const dayOfWeek = (d.getDay() + 6) % 7
             const placed = assignLanes((byDate[dStr] || []).map(b => ({
               start: timeToMinutes(b.horaInicio),
               end: timeToMinutes(b.horaFin),
@@ -712,11 +711,11 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                   ...(dStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 4%, transparent)' } : {}),
                 }}
               >
-                {/* Hour gridlines / click targets */}
+                {/* Hour gridlines / click targets — crean un EVENTO nuevo */}
                 {hoursRange.map((hour, i) => (
                   <div
                     key={hour}
-                    onClick={() => onSlotClick?.(dayOfWeek, `${String(hour).padStart(2, '0')}:00`)}
+                    onClick={() => onSlotClick?.(dStr, `${String(hour).padStart(2, '0')}:00`)}
                     className="absolute left-0 right-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
                     style={{ top: i * ROW_H, height: ROW_H }}
                   />
@@ -1064,9 +1063,6 @@ export default function CalendarPage() {
   function openProgramar() {
     setProgramar({ mode: 'crear' })
   }
-  function openProgramarFromDate() {
-    openProgramar()
-  }
 
   // Paso 1 (modal) → paso 2 (zona semanal). En "crear" abre la zona vacía; en
   // "modificar" precarga la plantilla derivada y aplica los cambios de
@@ -1392,6 +1388,15 @@ export default function CalendarPage() {
             Hoy
           </button>
 
+          {/* Nuevo evento — al lado de Hoy */}
+          <button
+            type="button"
+            onClick={() => openNewEvent(null)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+          >
+            <Plus size={15} /> Evento
+          </button>
+
           {/* Spacer */}
           <div className="flex-1" />
 
@@ -1466,15 +1471,6 @@ export default function CalendarPage() {
               </>
             )}
           </div>
-
-          {/* Actions */}
-          <button
-            type="button"
-            onClick={() => openNewEvent(null)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
-          >
-            <Plus size={15} /> Evento
-          </button>
         </div>
 
         {/* Segunda fila: asuetos + programación de bloques */}
@@ -1556,7 +1552,7 @@ export default function CalendarPage() {
               bloques={bloques}
               subjects={subjects}
               selectedDate={currentDate}
-              onDateClick={openProgramarFromDate}
+              onDateClick={openNewEvent}
               onEventClick={openEditEvent}
               onBlockClick={setEditingBloque}
               onMoveEvent={moveEvent}
@@ -1573,7 +1569,7 @@ export default function CalendarPage() {
               dayEnd={dayEnd}
               numDays={numDays}
               selectedDate={currentDate}
-              onSlotClick={openProgramar}
+              onSlotClick={openNewEventAt}
               onBlockClick={setEditingBloque}
               onEventClick={openEditEvent}
               onMoveBloque={requestMoveBloque}
@@ -1774,7 +1770,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
           <div className="rounded-card border border-outline-variant p-3 space-y-3">
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted uppercase tracking-wide">Fecha</span>
-              <EFDateTimePicker mode="date" value={fecha} onChange={setFecha} placeholder="Elige el día…" clearable />
+              <EFDateTimePicker mode="date" value={fecha} onChange={setFecha} placeholder="Elige el día…" clearable showShortcuts={false} />
             </div>
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-muted uppercase tracking-wide">¿A qué afecta?</span>
