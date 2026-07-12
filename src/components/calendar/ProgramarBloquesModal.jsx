@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useToast } from '../Toast'
 import EFDateTimePicker from '../EFDateTimePicker'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { Bell, BellOff, Play, ArrowRight, CalendarPlus, Pencil } from 'lucide-react'
+import { Bell, BellOff, Play, ArrowRight, CalendarPlus, Pencil, Trash2 } from 'lucide-react'
 import { BLOQUE_COLORS, ALARMA_SONIDOS, reproducirSonido } from '../../utils/horarioBloques'
 
 // Ventana de configuración de una programación (paso 1 de 2).
@@ -17,7 +17,8 @@ import { BLOQUE_COLORS, ALARMA_SONIDOS, reproducirSonido } from '../../utils/hor
 // botón "Días de asueto" del calendario.
 
 export default function ProgramarBloquesModal({
-  subjects, mode = 'crear', initial = null, subjectName = '', onClose, onContinue,
+  subjects, subjectsDisponibles = null, mode = 'crear', initial = null, subjectName = '',
+  onClose, onContinue, onDeleteAll,
 }) {
   const toast = useToast()
   const esModificar = mode === 'modificar'
@@ -29,12 +30,15 @@ export default function ProgramarBloquesModal({
   const [bloquesPorSemana, setBloquesPorSemana] = useState(initial?.bloquesPorSemana || 1)
   const [color, setColor] = useState(initial?.color || 'blue')
   const [alarma, setAlarma] = useState(initial?.alarma || { activa: false, sonido: 'campana', minutosAntes: 10 })
+  const [confirmDel, setConfirmDel] = useState(false)
 
+  // En modo "crear" solo se listan asignaturas SIN programar.
   const subjectList = useMemo(
-    () => Object.values(subjects).sort((a, b) =>
+    () => (subjectsDisponibles || Object.values(subjects)).slice().sort((a, b) =>
       subjectDisplayName(a).localeCompare(subjectDisplayName(b))),
-    [subjects],
+    [subjects, subjectsDisponibles],
   )
+  const sinDisponibles = !esModificar && subjectList.length === 0
 
   function handleContinue() {
     if (!esModificar && !asignaturaId) { toast('Selecciona una asignatura', 'error'); return }
@@ -84,6 +88,12 @@ export default function ProgramarBloquesModal({
               </div>
               <p className="text-xs text-muted">Estás modificando toda esta asignatura. Al guardar se reemplazan sus bloques.</p>
             </div>
+          ) : sinDisponibles ? (
+            <div className="rounded-card border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              Ya no hay asignaturas por programar: todas tienen su programación.
+              Para cambiar una, usa <strong>Modificar bloques</strong>; si quieres reprogramarla
+              desde cero, ábrela en Modificar y borra su programación.
+            </div>
           ) : (
             <div className="space-y-1.5">
               {label('Asignatura')}
@@ -99,6 +109,8 @@ export default function ProgramarBloquesModal({
               </select>
             </div>
           )}
+
+          {!sinDisponibles && <>
 
           {/* Rango de fechas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -226,25 +238,53 @@ export default function ProgramarBloquesModal({
               <p className="text-xs text-muted">La alarma se aplica al primer bloque de cada día (los seguidos no suenan en plena clase).</p>
             )}
           </div>
+
+          {/* Borrar toda la programación (solo al modificar) */}
+          {esModificar && (
+            <div className="pt-1 border-t border-outline-variant">
+              <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-3 pb-1.5">Zona de riesgo</p>
+              {confirmDel ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-error/10 border border-error/30">
+                  <span className="text-xs text-error flex-1">
+                    ¿Borrar TODA la programación de {subjectName}? La asignatura quedará libre para programarse de nuevo.
+                  </span>
+                  <button type="button" onClick={() => setConfirmDel(false)} className="text-xs text-muted px-2 py-1">Cancelar</button>
+                  <button type="button" onClick={() => onDeleteAll?.(initial?.asignaturaId)} className="text-xs bg-error text-white rounded px-2.5 py-1 font-medium">Borrar</button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDel(true)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-card text-sm text-error border border-error/30 hover:bg-error/10 transition-colors"
+                >
+                  <Trash2 size={15} /> Borrar toda la programación de esta asignatura
+                </button>
+              )}
+            </div>
+          )}
+
+          </>}
         </div>
 
         {/* Footer */}
         <div className="border-t border-outline-variant px-4 py-3 flex items-center gap-3 flex-shrink-0">
-          <span className="text-xs text-muted flex-1">Paso 1 de 2 · configuración</span>
+          <span className="text-xs text-muted flex-1">{sinDisponibles ? '' : 'Paso 1 de 2 · configuración'}</span>
           <button
             type="button"
             onClick={onClose}
             className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors"
           >
-            Cancelar
+            {sinDisponibles ? 'Cerrar' : 'Cancelar'}
           </button>
-          <button
-            type="button"
-            onClick={handleContinue}
-            className={`px-4 py-2 text-white rounded text-sm font-semibold flex items-center gap-2 ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
-          >
-            Continuar <ArrowRight size={15} />
-          </button>
+          {!sinDisponibles && (
+            <button
+              type="button"
+              onClick={handleContinue}
+              className={`px-4 py-2 text-white rounded text-sm font-semibold flex items-center gap-2 ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
+            >
+              Continuar <ArrowRight size={15} />
+            </button>
+          )}
         </div>
       </div>
     </div>

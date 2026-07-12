@@ -1205,11 +1205,34 @@ export default function CalendarPage() {
     }
   }
 
-  const subjectsConBloques = useMemo(() => {
-    const ids = new Set(bloques.map(b => b.asignaturaId))
-    return Object.values(subjects).filter(s => ids.has(s.id))
-      .sort((a, b) => subjectDisplayName(a).localeCompare(subjectDisplayName(b)))
-  }, [bloques, subjects])
+  // Asignaturas que YA tienen programación (solo se pueden modificar, no volver
+  // a programar hasta que se borre su programación completa).
+  const programmedIds = useMemo(() => new Set(bloques.map(b => b.asignaturaId)), [bloques])
+  const subjectsConBloques = useMemo(() =>
+    Object.values(subjects).filter(s => programmedIds.has(s.id))
+      .sort((a, b) => subjectDisplayName(a).localeCompare(subjectDisplayName(b))),
+  [subjects, programmedIds])
+  const subjectsSinProgramar = useMemo(() =>
+    Object.values(subjects).filter(s => !programmedIds.has(s.id))
+      .sort((a, b) => subjectDisplayName(a).localeCompare(subjectDisplayName(b))),
+  [subjects, programmedIds])
+
+  // Borra TODA la programación de una asignatura → vuelve a estar disponible
+  // para programarse desde cero.
+  async function borrarProgramacion(asignaturaId) {
+    const ids = bloques.filter(b => b.asignaturaId === asignaturaId).map(b => b.id)
+    setProgramar(null)
+    try {
+      for (let i = 0; i < ids.length; i += 450) {
+        const batch = writeBatch(db)
+        ids.slice(i, i + 450).forEach(id => batch.delete(doc(db, 'horarioBloques', id)))
+        await batch.commit()
+      }
+      toast(`Programación eliminada (${ids.length} bloque(s)). La asignatura vuelve a estar disponible para programar.`)
+    } catch (err) {
+      toast('No se pudo borrar la programación: ' + err.message, 'error')
+    }
+  }
 
   // Mover un bloque (arrastrar) → nueva fecha/hora, conservando la duración.
   async function moveBloque(b, nuevaFecha, nuevaHora) {
@@ -1601,11 +1624,13 @@ export default function CalendarPage() {
       {programar && (
         <ProgramarBloquesModal
           subjects={subjects}
+          subjectsDisponibles={subjectsSinProgramar}
           mode={programar.mode}
           initial={programar.initial}
           subjectName={programar.subjectName}
           onClose={() => setProgramar(null)}
           onContinue={continuarAZona}
+          onDeleteAll={borrarProgramacion}
         />
       )}
 
