@@ -30,6 +30,7 @@ import AttachmentList from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
 import { PlayCircle, ListChecks, Timer, RotateCcw } from 'lucide-react'
+import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -365,7 +366,7 @@ export default function StudentActivityPage() {
             </div>
           </header>
 
-          <div className="px-4 py-5 max-w-xl mx-auto space-y-3">
+          <div className={`px-4 py-5 ${STUDENT_CONTAINER_NARROW} space-y-3`}>
             {finalizado && (
               <div className="bg-surface-card rounded-card p-4 shadow-card">
                 {submission.pendienteRevision ? (
@@ -516,7 +517,7 @@ export default function StudentActivityPage() {
         </div>
       </header>
 
-      <div className="px-4 py-5 max-w-xl mx-auto space-y-3">
+      <div className={`px-4 py-5 ${STUDENT_CONTAINER_NARROW} space-y-3`}>
         {/* Status */}
         <div className={`rounded-card p-4 flex items-center gap-3 ${
           isGraded ? 'bg-emerald-50 border border-emerald-200' :

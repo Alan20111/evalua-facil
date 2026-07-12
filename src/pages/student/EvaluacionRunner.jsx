@@ -13,6 +13,7 @@ import {
   calcularPuntosPregunta, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
 } from '../../utils/evaluacionGrading'
 import StudentLayout from '../../components/StudentLayout'
+import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 
 // Fisher-Yates with a numeric seed so the shuffled order is reproducible
 // across reloads of the same attempt (the seed is persisted on the submission).
@@ -289,7 +290,7 @@ export default function EvaluacionRunner() {
           </div>
         )}
 
-        <div className="px-4 py-6 max-w-xl mx-auto">
+        <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
           <div className="w-full h-1.5 bg-surface-container rounded-full mb-5 overflow-hidden">
             <div className="h-full bg-accent transition-all" style={{ width: `${((idx + 1) / preguntas.length) * 100}%` }} />
           </div>

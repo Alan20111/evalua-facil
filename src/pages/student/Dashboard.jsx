@@ -19,6 +19,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollments } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
+import { STUDENT_CONTAINER } from '../../config/layout'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -161,7 +162,7 @@ export default function StudentDashboard() {
 
   return (
     <StudentLayout>
-      <div className="px-4 py-6 max-w-2xl mx-auto">
+      <div className={`px-4 py-6 ${STUDENT_CONTAINER}`}>
         <h1 className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
         <p className="text-slate-400 text-sm mb-5">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''} activas</p>
 

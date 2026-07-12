@@ -9,6 +9,7 @@ import EventEditor, { EVENT_COLORS } from '../../components/calendar/EventEditor
 import HorarioEditor from '../../components/calendar/HorarioEditor'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, BookOpen, AlertTriangle,
@@ -449,7 +450,7 @@ export default function CalendarPage() {
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <TeacherLayout>
-      <div className="max-w-5xl mx-auto px-4 py-4">
+      <div className={`${TEACHER_CONTAINER} px-4 py-4`}>
 
         {/* Top controls */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
