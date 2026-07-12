@@ -256,7 +256,7 @@ export default function ProgramarZonaSemanal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 bg-surface-card flex flex-col ${esModificar ? 'ring-4 ring-amber-400 ring-inset' : ''}`}
+      className={`fixed inset-0 z-50 md:left-[280px] bg-surface-card flex flex-col ${esModificar ? 'ring-4 ring-amber-400 ring-inset' : ''}`}
     >
         {/* Banner de modo */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant flex-shrink-0" style={{ background: bannerBg }}>
