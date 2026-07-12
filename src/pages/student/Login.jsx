@@ -5,7 +5,8 @@ import { collection, query, where, getDocs, doc, documentId, writeBatch } from '
 import { auth, db } from '../../firebase'
 import Spinner from '../../components/Spinner'
 import { studentEmail, usernameCandidates } from '../../utils/generate'
-import { GraduationCap, Hash, ChevronDown, ArrowLeft, KeyRound } from 'lucide-react'
+import { Hash, ChevronDown, ArrowLeft, KeyRound } from 'lucide-react'
+import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 
 export default function StudentLogin() {
@@ -279,13 +280,10 @@ export default function StudentLogin() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
-            <GraduationCap size={32} className="text-white" />
-          </div>
+          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
           <h1 className="text-2xl font-bold text-on-surface">
             {mode === 'recover' ? 'Recuperar contraseña' : 'Acceso Estudiantes'}
           </h1>
-          <p className="text-muted text-sm mt-1">Evalúa Fácil</p>
         </div>
 
         {mode === 'login' && step === 'need_code' ? (

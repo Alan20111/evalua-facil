@@ -10,7 +10,8 @@ import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/fire
 import { auth, db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { GraduationCap, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
+import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 
 // Action-handler for Firebase's password-reset email links. actionCodeSettings.url
@@ -102,9 +103,7 @@ export default function ResetPassword() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
-            <GraduationCap size={32} className="text-white" />
-          </div>
+          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
           <h1 className="text-2xl font-bold text-on-surface">
             {isGoogleLinking ? 'Crear contraseña' : 'Restablecer contraseña'}
           </h1>

@@ -7,7 +7,7 @@ import { createTeacherAccount } from '../../utils/teacherAccount'
 import { createTeacherAccountIfNew } from '../../utils/googleAuth'
 import Spinner from '../../components/Spinner'
 import GoogleIcon from '../../components/GoogleIcon'
-import { GraduationCap } from 'lucide-react'
+import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 
 export default function Register() {
@@ -60,11 +60,8 @@ export default function Register() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
-            <GraduationCap size={32} className="text-white" />
-          </div>
+          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
           <h1 className="text-2xl font-bold text-on-surface">Crear cuenta</h1>
-          <p className="text-muted text-sm mt-1">Evalúa Fácil — Docente</p>
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5 space-y-3">
