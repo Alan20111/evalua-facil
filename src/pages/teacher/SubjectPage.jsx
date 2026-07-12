@@ -2119,7 +2119,7 @@ export default function SubjectPage() {
             <button type="button" onClick={handleToggleArchive} disabled={archiving}
               aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
               data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
-              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-50 flex-shrink-0">
+              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
               {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
             </button>
             <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
@@ -2156,10 +2156,8 @@ export default function SubjectPage() {
               return (
                 // Open parcial gets the same accent container treatment as the
                 // Preguntas/Configuración sections — it's obvious you're inside it
-                <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card"
-                  style={isOpen ? { border: '1px solid var(--accent)' } : undefined}>
-                  <div className="w-full flex items-center gap-1"
-                    style={isOpen ? { background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' } : undefined}>
+                <div key={p} className={`bg-surface-card rounded-card overflow-hidden shadow-card ${isOpen ? 'border border-accent' : ''}`}>
+                  <div className={`w-full flex items-center gap-1 ${isOpen ? 'bg-accent-light border-b border-accent' : ''}`}>
                     <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
                       <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
@@ -2416,7 +2414,7 @@ export default function SubjectPage() {
                     onClick={handleExport}
                     disabled={exporting}
                     data-tooltip="Descarga TODAS las calificaciones en una hoja de Excel"
-                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
+                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
                   >
                     {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
                   </button>
@@ -2424,7 +2422,7 @@ export default function SubjectPage() {
                     onClick={() => setTopExportMenu((m) => m === 'excel' ? null : 'excel')}
                     aria-label="Excel por parcial"
                     data-tooltip="Excel por parcial"
-                    className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] transition-colors">
+                    className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors">
                     <MoreVertical size={16} />
                   </button>
                   {topExportMenu === 'excel' && (
@@ -2449,7 +2447,7 @@ export default function SubjectPage() {
                     onClick={handleExportGradesPDF}
                     disabled={exportingGradesPdf}
                     data-tooltip="Descarga TODAS las calificaciones en un PDF imprimible"
-                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40"
+                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
                   >
                     {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
                   </button>
@@ -2457,7 +2455,7 @@ export default function SubjectPage() {
                     onClick={() => setTopExportMenu((m) => m === 'pdf' ? null : 'pdf')}
                     aria-label="PDF por parcial"
                     data-tooltip="PDF por parcial"
-                    className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] transition-colors">
+                    className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors">
                     <MoreVertical size={16} />
                   </button>
                   {topExportMenu === 'pdf' && (
@@ -2483,7 +2481,7 @@ export default function SubjectPage() {
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={searchGrade} onChange={(e) => setSearchGrade(e.target.value)}
                 placeholder="Buscar por nombre o por número de lista…"
-                className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card" />
+                className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card" />
             </div>
 
             {loadingGrades ? (
@@ -2789,7 +2787,7 @@ export default function SubjectPage() {
               onClick={sortStudentsAlphabetically}
               disabled={groupStudents.length < 2}
               data-tooltip="Ordena la lista por apellido y nombre"
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-[var(--accent-medium)] disabled:opacity-40"
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-[var(--accent-medium)] disabled:opacity-60"
             >
               <ArrowUpDown size={15} />
               Ordenar alfabéticamente
@@ -2804,7 +2802,7 @@ export default function SubjectPage() {
                 value={searchAlumnos}
                 onChange={(e) => setSearchAlumnos(e.target.value)}
                 placeholder="Buscar por nombre o por número de lista…"
-                className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card"
+                className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card"
               />
             </div>
             <button type="button"
@@ -3007,7 +3005,7 @@ export default function SubjectPage() {
                 <label htmlFor="act-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
                 <input id="act-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Tarea 1, Examen parcial" />
               </div>
               <div>
@@ -3105,7 +3103,7 @@ export default function SubjectPage() {
               </button>
               {!form.publishedAt && (
                 <button type="button" disabled={saving} onClick={(e) => handleSaveActivity(e, true)}
-                  className="w-full py-2 mt-2 border border-accent text-accent font-medium rounded transition-colors hover:bg-[var(--accent-tint)] disabled:opacity-60">
+                  className="w-full py-2 mt-2 border border-accent text-accent font-medium rounded transition-colors hover:bg-[var(--accent-medium)] disabled:opacity-60">
                   Guardar como borrador
                 </button>
               )}
@@ -3159,7 +3157,7 @@ export default function SubjectPage() {
               {/* Editar is the primary path — a draft usually still needs changes
                   (esp. duplicates); Publicar stays available as secondary */}
               <button type="button" onClick={publishDraftNow}
-                className="flex-1 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] flex items-center justify-center gap-1.5">
+                className="flex-1 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] flex items-center justify-center gap-1.5">
                 <Eye size={14} /> Publicar
               </button>
               <button type="button"
@@ -3210,7 +3208,7 @@ export default function SubjectPage() {
                 <label htmlFor="material-nombre" className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
                 <input id="material-nombre" type="text" value={materialForm.nombre} onChange={(e) => setMaterialForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Libro de texto, Video introductorio, Guía de laboratorio" />
               </div>
               <div>
@@ -3322,7 +3320,7 @@ export default function SubjectPage() {
                   value={newStudent[field]}
                   onChange={(e) => setNewStudent((f) => ({ ...f, [field]: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder={
                     field === 'apellidoPaterno' ? 'Apellido paterno'
                       : field === 'apellidoMaterno' ? 'Apellido materno'
@@ -3360,7 +3358,7 @@ export default function SubjectPage() {
                   value={editStudentForm[field]}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, [field]: e.target.value }))}
                   required={field !== 'apellidoMaterno'}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder={
                     field === 'apellidoPaterno' ? 'Apellido paterno'
                       : field === 'apellidoMaterno' ? 'Apellido materno'
@@ -3375,7 +3373,7 @@ export default function SubjectPage() {
                   value={editStudentForm.comentarios}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, comentarios: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                   placeholder="Ej: necesita apoyo extra, cambió de grupo, etc."
                 />
               </div>
@@ -3431,7 +3429,7 @@ export default function SubjectPage() {
             <button type="button"
               onClick={handleExportQRPDF}
               disabled={exportingPdf}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
             >
               {exportingPdf ? <Spinner size="sm" /> : <Download size={17} />}
               {exportingPdf ? 'Generando PDF…' : 'Descargar QR en PDF'}
@@ -3617,7 +3615,7 @@ export default function SubjectPage() {
               <div className="px-4 py-3 border-t border-outline-variant flex items-center gap-2">
                 <span className="text-xs text-muted flex-1">{importSel.size} seleccionada{importSel.size !== 1 ? 's' : ''}</span>
                 <button type="button" onClick={confirmImport} disabled={!importSel.size || importing}
-                  className="px-4 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-50 hover:bg-accent-hover transition-colors flex items-center gap-2">
+                  className="px-4 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 hover:bg-accent-hover transition-colors flex items-center gap-2">
                   {importing ? <Spinner size="sm" /> : <Copy size={16} />}
                   {importing ? 'Trayendo…' : 'Traer como borrador'}
                 </button>
@@ -3666,7 +3664,7 @@ export default function SubjectPage() {
             <button type="button"
               disabled={!subject?.parcialesCerrados?.[parcialMenu.p]}
               onClick={() => { const p = parcialMenu.p; setParcialMenu(null); handleExportParcial(p) }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant rounded-b-card disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant rounded-b-card disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent">
               <FileSpreadsheet size={16} className="text-accent flex-shrink-0" />
               <span className="flex-1">Exportar a Excel</span>
               {!subject?.parcialesCerrados?.[parcialMenu.p] && <span className="text-[10px] text-slate-400">cierra primero</span>}
@@ -3772,7 +3770,7 @@ export default function SubjectPage() {
                         value={closeParcialGrade}
                         onChange={(e) => setCloseParcialGrade(e.target.value)}
                         disabled={closingParcial}
-                        className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus:ring-2 focus:ring-accent"
+                        className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       />
                     </div>
                   </>
@@ -3785,7 +3783,7 @@ export default function SubjectPage() {
                     Cancelar
                   </button>
                   <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
-                    className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors">
+                    className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
                     {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? `Cerrar y poner ${Math.max(0, parseFloat(closeParcialGrade) || 0)}` : 'Cerrar parcial')}
                   </button>
                 </div>
@@ -3810,7 +3808,7 @@ export default function SubjectPage() {
                 Cancelar
               </button>
               <button type="button" onClick={revertCloseParcial} disabled={revertingParcial}
-                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-50 transition-colors">
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
                 {revertingParcial ? 'Revirtiendo…' : 'Revertir cierre'}
               </button>
             </div>
@@ -3939,14 +3937,14 @@ export default function SubjectPage() {
                 <label htmlFor="edit-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input id="edit-subject-nombre" type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas I" />
               </div>
               <div>
                 <label htmlFor="edit-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input id="edit-subject-grupo" type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
@@ -3967,7 +3965,7 @@ export default function SubjectPage() {
               <div>
                 <label htmlFor="edit-subject-parciales" className="block text-sm font-medium text-muted mb-1">Número de parciales</label>
                 <select id="edit-subject-parciales" value={editSubjectForm.parciales} onChange={(e) => setEditSubjectForm((f) => ({ ...f, parciales: e.target.value }))}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface">
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface">
                   {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
                 </select>
               </div>
@@ -4003,14 +4001,14 @@ export default function SubjectPage() {
                 <label htmlFor="copy-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input id="copy-subject-nombre" type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas II" />
               </div>
               <div>
                 <label htmlFor="copy-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input id="copy-subject-grupo" type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
@@ -4073,7 +4071,7 @@ export default function SubjectPage() {
               type="text"
               value={deleteSubjectConfirmText}
               onChange={(e) => setDeleteSubjectConfirmText(e.target.value)}
-              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-red-400 text-sm bg-surface mb-2"
+              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 text-sm bg-surface mb-2"
               placeholder={subject?.nombre}
             />
             <div className="flex gap-2">
@@ -4081,7 +4079,7 @@ export default function SubjectPage() {
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               <button type="button" onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
-                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-40 flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
                 {deletingSubject ? <Spinner size="sm" /> : <Trash2 size={16} />}
                 {deletingSubject ? 'Eliminando…' : 'Eliminar todo'}
               </button>
@@ -4150,9 +4148,9 @@ export default function SubjectPage() {
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Datos</p>
                 <div className="space-y-2">
                   <input type="text" value={unarchiveEdits.nombre} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, nombre: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Asignatura" />
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" placeholder="Asignatura" />
                   <input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
                   <div className="space-y-2">
                     <div>
                       <span className="block text-sm text-slate-500 mb-1">Inicio</span>
@@ -4164,7 +4162,7 @@ export default function SubjectPage() {
                     </div>
                   </div>
                   <select value={unarchiveEdits.parciales} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, parciales: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface">
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface">
                     {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
                   </select>
                 </div>
@@ -4247,7 +4245,7 @@ export default function SubjectPage() {
                   onChange={(e) => setResourceForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
                   autoFocus
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Programa de la asignatura"
                 />
               </div>
@@ -4258,7 +4256,7 @@ export default function SubjectPage() {
                   value={resourceForm.descripcion}
                   onChange={(e) => setResourceForm((f) => ({ ...f, descripcion: e.target.value }))}
                   rows={2}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                   placeholder="Ej: Consulta este documento antes del primer parcial"
                 />
               </div>

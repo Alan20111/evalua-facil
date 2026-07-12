@@ -238,12 +238,12 @@ export default function StudentDashboard() {
                 spellCheck={false}
                 maxLength={8}
                 placeholder="Ej: A3B7K2"
-                className="flex-1 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
+                className="flex-1 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
               />
               <button
                 type="submit"
                 disabled={!joinCode.trim()}
-                className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-50 flex items-center gap-1.5 flex-shrink-0"
+                className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
               >
                 <Hash size={18} /> Ir
               </button>

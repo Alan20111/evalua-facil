@@ -46,7 +46,7 @@ async function uploadAvatar(file) {
 }
 
 const inputCls =
-  'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface'
+  'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
 
 export default function Profile() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
@@ -543,7 +543,7 @@ export default function Profile() {
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input autoFocus type="text" value={schoolSearch} onChange={(e) => setSchoolSearch(e.target.value)}
                   placeholder="Nombre, CCT o municipio…"
-                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm" />
+                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm" />
               </div>
               <button type="button" onClick={() => setShowSchoolPicker(false)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
             </div>
@@ -607,7 +607,7 @@ export default function Profile() {
                     value={customSchoolName}
                     onChange={(e) => setCustomSchoolName(e.target.value)}
                     required
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder="Ej. Escuela Secundaria Técnica N.° 12"
                   />
                 </div>
@@ -620,7 +620,7 @@ export default function Profile() {
                     type="text"
                     value={customSchoolCCT}
                     onChange={(e) => setCustomSchoolCCT(e.target.value)}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder="Ej. 15ECT0001H"
                   />
                 </div>
@@ -633,7 +633,7 @@ export default function Profile() {
                       value={customSchoolCity}
                       onChange={(e) => setCustomSchoolCity(e.target.value)}
                       required
-                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                       placeholder="Ej. Celaya"
                     />
                   </div>
@@ -645,7 +645,7 @@ export default function Profile() {
                       value={customSchoolState}
                       onChange={(e) => setCustomSchoolState(e.target.value)}
                       required
-                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                       placeholder="Ej. Guanajuato"
                     />
                   </div>

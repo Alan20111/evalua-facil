@@ -21,7 +21,7 @@ import {
 } from '../../../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface'
+  'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
 
 function StatusBadge({ status }) {
   return (

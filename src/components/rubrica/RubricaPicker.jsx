@@ -133,11 +133,11 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
                     </p>
                     <div className="flex gap-2">
                       <button type="button" onClick={() => setConfirmDeleteId(null)} disabled={deleting}
-                        className="flex-1 py-1.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                        className="flex-1 py-1.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60">
                         Cancelar
                       </button>
                       <button type="button" onClick={() => handleDelete(r.id)} disabled={deleting}
-                        className="flex-1 py-1.5 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors">
+                        className="flex-1 py-1.5 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors">
                         {deleting ? 'Eliminando…' : 'Eliminar'}
                       </button>
                     </div>

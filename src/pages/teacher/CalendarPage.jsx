@@ -1795,7 +1795,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
             </div>
             <button
               type="button" onClick={add} disabled={!fecha || !algo}
-              className="w-full py-2 bg-amber-600 text-white rounded text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-amber-700 transition-colors"
+              className="w-full py-2 bg-amber-600 text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2 hover:bg-amber-700 transition-colors"
             >
               <Plus size={15} /> Agregar día de asueto
             </button>

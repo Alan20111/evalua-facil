@@ -137,7 +137,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
             placeholder="Título del evento"
             autoFocus
             required
-            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
 
           <textarea
@@ -145,7 +145,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
             onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
             placeholder="Descripción (opcional)"
             rows={2}
-            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
           />
 
           <div className="space-y-1">
@@ -155,7 +155,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
               onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
               placeholder="Escribe aquí tus notas del evento; se quedan guardadas"
               rows={3}
-              className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-y"
+              className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
             />
           </div>
 

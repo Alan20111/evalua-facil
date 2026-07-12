@@ -351,7 +351,7 @@ export default function EvaluacionRunner() {
                 onChange={(e) => handleTextoChange(pregunta.id, e.target.value)}
                 rows={4}
                 placeholder="Escribe tu respuesta…"
-                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
               />
             ) : pregunta.tipo === 'subir_archivo' ? (
               <div className="space-y-2">
@@ -404,7 +404,7 @@ export default function EvaluacionRunner() {
           <div className="flex items-center justify-between gap-2">
             {navegacionLibre ? (
               <button type="button" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}
-                className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-30 rounded">
+                className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-60 rounded">
                 <ChevronLeft size={18} /> Anterior
               </button>
             ) : <span />}

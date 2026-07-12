@@ -9,7 +9,7 @@ import { usePaymentConfig } from '../hooks/usePaymentConfig'
 import { MONTHLY_PLAN_ID, MONTHLY_PRICE_MXN, SUBSCRIPTION_NAME, formatCurrency } from '../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface'
+  'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
 
 function loadPaypalSdk(clientId) {
   return new Promise((resolve, reject) => {
