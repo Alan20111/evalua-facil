@@ -18,7 +18,7 @@ import { TEACHER_CONTAINER } from '../../config/layout'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
-  CalendarOff, Trash2, X,
+  CalendarOff, Trash2, X, Minus,
 } from 'lucide-react'
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
@@ -174,43 +174,41 @@ function AgendaView({
       setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
     }
     function onUp(e) {
-      setDrag(d => {
-        if (!d) return null
-        const { item } = d
-        if (!d.moved) {
-          // Un clic en un bloque de clase NO abre editor: los bloques solo se
-          // mueven arrastrando (y desde "Modificar bloques"). Los eventos sí se
-          // editan al hacer clic.
-          if (item.kind !== 'bloque') onEventClick?.(item.ev)
-          return null
-        }
-        // 1) ¿Soltó sobre un chip de día posterior?
-        let chip = null
-        chipRefs.current.forEach(c => {
-          if (!c?.el) return
-          const r = c.el.getBoundingClientRect()
-          if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) chip = c
-        })
-        if (chip) {
-          if (item.kind === 'bloque') onMoveBloque?.(item.b, chip.dateStr, item.b.horaInicio)
-          else onMoveEvent?.(item.ev.rawEvent, chip.dateStr, item.ev.timeStr)
-          return null
-        }
-        // 2) ¿Soltó sobre la rejilla? → nueva hora, mismo día.
-        const g = gridRef.current?.getBoundingClientRect()
-        if (g && e.clientX >= g.left && e.clientX < g.right) {
-          const blockTop = e.clientY - d.grabDY
-          let mins = Math.round(((blockTop - g.top) / AGENDA_ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
-          mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
-          const hora = minutesToTimeStr(mins)
-          if (item.kind === 'bloque') {
-            if (hora !== item.b.horaInicio) onMoveBloque?.(item.b, dateStr, hora)
-          } else if (hora !== item.ev.timeStr) {
-            onMoveEvent?.(item.ev.rawEvent, dateStr, hora)
-          }
-        }
-        return null
+      // Handlers del padre FUERA del updater de setDrag (evita setState en render).
+      const d = drag
+      setDrag(null)
+      if (!d) return
+      const { item } = d
+      if (!d.moved) {
+        // Clic en bloque de clase: no abre editor. Los eventos sí se editan.
+        if (item.kind !== 'bloque') onEventClick?.(item.ev)
+        return
+      }
+      // 1) ¿Soltó sobre un chip de día posterior?
+      let chip = null
+      chipRefs.current.forEach(c => {
+        if (!c?.el) return
+        const r = c.el.getBoundingClientRect()
+        if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) chip = c
       })
+      if (chip) {
+        if (item.kind === 'bloque') onMoveBloque?.(item.b, chip.dateStr, item.b.horaInicio)
+        else onMoveEvent?.(item.ev.rawEvent, chip.dateStr, item.ev.timeStr)
+        return
+      }
+      // 2) ¿Soltó sobre la rejilla? → nueva hora, mismo día.
+      const g = gridRef.current?.getBoundingClientRect()
+      if (g && e.clientX >= g.left && e.clientX < g.right) {
+        const blockTop = e.clientY - d.grabDY
+        let mins = Math.round(((blockTop - g.top) / AGENDA_ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+        mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
+        const hora = minutesToTimeStr(mins)
+        if (item.kind === 'bloque') {
+          if (hora !== item.b.horaInicio) onMoveBloque?.(item.b, dateStr, hora)
+        } else if (hora !== item.ev.timeStr) {
+          onMoveEvent?.(item.ev.rawEvent, dateStr, hora)
+        }
+      }
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
@@ -437,28 +435,27 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
       setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
     }
     function onUp(e) {
-      setDrag(d => {
-        if (!d) return null
-        if (!d.moved) {
-          // Clic en bloque de clase: no abre editor (solo se mueve arrastrando).
-          if (d.kind !== 'bloque') onEventClick?.(d.ev)
-          return null
-        }
-        let target = null
-        Object.entries(cellRefs.current).forEach(([dStr, el]) => {
-          if (!el) return
-          const r = el.getBoundingClientRect()
-          if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) target = dStr
-        })
-        if (target) {
-          if (d.kind === 'bloque') {
-            if (target !== d.b.fecha) onMoveBloque?.(d.b, target, d.b.horaInicio)
-          } else if (target !== d.ev.dateStr) {
-            onMoveEvent?.(d.ev.rawEvent, target, d.ev.timeStr || null)
-          }
-        }
-        return null
+      // Handlers del padre FUERA del updater de setDrag (evita setState en render).
+      const d = drag
+      setDrag(null)
+      if (!d) return
+      if (!d.moved) {
+        // Clic en bloque de clase: no abre editor (solo se mueve arrastrando).
+        if (d.kind !== 'bloque') onEventClick?.(d.ev)
+        return
+      }
+      let target = null
+      Object.entries(cellRefs.current).forEach(([dStr, el]) => {
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) target = dStr
       })
+      if (!target) return
+      if (d.kind === 'bloque') {
+        if (target !== d.b.fecha) onMoveBloque?.(d.b, target, d.b.horaInicio)
+      } else if (target !== d.ev.dateStr) {
+        onMoveEvent?.(d.ev.rawEvent, target, d.ev.timeStr || null)
+      }
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
@@ -623,37 +620,37 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
       setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
     }
     function onUp(e) {
-      setDrag(d => {
-        if (!d) return null
-        if (!d.moved) {
-          // Clic en bloque de clase: no abre editor (solo se mueve arrastrando).
-          if (d.kind === 'event') onEventClick?.(d.ev)
-          return null
-        }
-        // Detecta la columna (día) bajo el cursor.
-        const blockTop = e.clientY - d.grabDY
-        let target = null
-        colRefs.current.forEach((el, idx) => {
-          if (!el) return
-          const r = el.getBoundingClientRect()
-          if (e.clientX >= r.left && e.clientX < r.right) target = { idx, top: r.top }
-        })
-        if (target) {
-          let mins = Math.round(((blockTop - target.top) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
-          mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
-          const nuevaFecha = toDateStr(days[target.idx])
-          const nuevaHora = minutesToTimeStr(mins)
-          if (d.kind === 'event') {
-            // Evento personal: se mueve directo, sin preguntar.
-            if (nuevaFecha !== d.ev.dateStr || nuevaHora !== d.ev.timeStr) {
-              onMoveEvent?.(d.ev.rawEvent, nuevaFecha, nuevaHora)
-            }
-          } else if (nuevaFecha !== d.bloque.fecha || nuevaHora !== d.bloque.horaInicio) {
-            onMoveBloque?.(d.bloque, nuevaFecha, nuevaHora)
-          }
-        }
-        return null
+      // Los handlers del padre (onMove*/onEventClick) se llaman FUERA del
+      // updater de setDrag: llamarlos dentro dispara "setState durante render".
+      const d = drag
+      setDrag(null)
+      if (!d) return
+      if (!d.moved) {
+        // Clic en bloque de clase: no abre editor (solo se mueve arrastrando).
+        if (d.kind === 'event') onEventClick?.(d.ev)
+        return
+      }
+      // Detecta la columna (día) bajo el cursor.
+      const blockTop = e.clientY - d.grabDY
+      let target = null
+      colRefs.current.forEach((el, idx) => {
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        if (e.clientX >= r.left && e.clientX < r.right) target = { idx, top: r.top }
       })
+      if (!target) return
+      let mins = Math.round(((blockTop - target.top) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+      mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
+      const nuevaFecha = toDateStr(days[target.idx])
+      const nuevaHora = minutesToTimeStr(mins)
+      if (d.kind === 'event') {
+        // Evento personal: se mueve directo, sin preguntar.
+        if (nuevaFecha !== d.ev.dateStr || nuevaHora !== d.ev.timeStr) {
+          onMoveEvent?.(d.ev.rawEvent, nuevaFecha, nuevaHora)
+        }
+      } else if (nuevaFecha !== d.bloque.fecha || nuevaHora !== d.bloque.horaInicio) {
+        onMoveBloque?.(d.bloque, nuevaFecha, nuevaHora)
+      }
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
@@ -1719,14 +1716,19 @@ export default function CalendarPage() {
         />
       )}
 
-      {/* Confirmación al mover un bloque arrastrado — solo ESTE bloque */}
+      {/* Confirmación al mover un bloque arrastrado — solo ESTE bloque.
+          El docente ajusta el día y la HORA EXACTA antes de confirmar, para que
+          no quede en la hora "aproximada" a la que cayó el arrastre. */}
       {pendingMove && (() => {
         const { bloque: b, fecha, hora } = pendingMove
         const subj = subjects[b.asignaturaId]
+        const durMin = Math.max(5, timeToMinutes(b.horaFin) - timeToMinutes(b.horaInicio))
         const fmtF = s => {
           const d = new Date(s + 'T12:00:00')
           return `${DIAS_LARGO[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MESES[d.getMonth()]}`
         }
+        const stepHora = (delta) => setPendingMove(pm => ({ ...pm, hora: addMinutesToTime(pm.hora, delta) }))
+        const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent'
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button
@@ -1740,11 +1742,42 @@ export default function CalendarPage() {
               <div className="text-sm text-on-surface space-y-1 bg-surface rounded-card border border-outline-variant p-3">
                 <p className="font-medium">{subjectDisplayName(subj) || 'Clase'}</p>
                 <p className="text-muted text-xs">De: {fmtF(b.fecha)} · {fmtHour(b.horaInicio)}</p>
-                <p className="text-accent text-xs font-medium">A: {fmtF(fecha)} · {fmtHour(hora)}</p>
               </div>
+
+              {/* Destino editable: día + hora exacta */}
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted uppercase tracking-wide">Día</span>
+                  <EFDateTimePicker
+                    mode="date" value={fecha}
+                    onChange={v => v && setPendingMove(pm => ({ ...pm, fecha: v }))}
+                    clearable={false} showShortcuts={false}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted uppercase tracking-wide">Hora exacta de inicio</span>
+                  <div className="flex items-center gap-1.5">
+                    <button type="button" onClick={() => stepHora(-5)}
+                      className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint transition-colors" aria-label="−5 minutos">
+                      <Minus size={14} />
+                    </button>
+                    <input
+                      type="time" value={hora} step={60}
+                      onChange={e => e.target.value && setPendingMove(pm => ({ ...pm, hora: e.target.value }))}
+                      className={`${inputCls} flex-1 text-center text-base font-semibold tabular-nums`}
+                    />
+                    <button type="button" onClick={() => stepHora(5)}
+                      className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint transition-colors" aria-label="+5 minutos">
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted">Termina a las <strong className="text-on-surface">{addMinutesToTime(hora, durMin)}</strong></p>
+                </div>
+              </div>
+
               <p className="text-xs text-muted flex items-start gap-1.5">
                 <AlertTriangle size={13} className="flex-shrink-0 mt-0.5 text-amber-500" />
-                Aquí solo se mueve este bloque (p. ej. para adelantar una clase). Para mover
+                Solo se mueve este bloque (p. ej. para adelantar una clase). Para mover
                 este y los siguientes, o reacomodar todo el horario, usa <strong className="text-on-surface">Modificar bloques</strong>.
               </p>
               <div className="space-y-1.5">
@@ -1753,7 +1786,7 @@ export default function CalendarPage() {
                   onClick={() => confirmPendingMove()}
                   className="w-full py-2 bg-accent text-white rounded-card text-sm font-semibold hover:bg-accent-hover transition-colors"
                 >
-                  Mover solo este bloque
+                  Mover a {fmtF(fecha)} · {fmtHour(hora)}
                 </button>
                 <button
                   type="button"
