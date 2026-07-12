@@ -12,6 +12,7 @@ import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
 import EvaluacionAnswerList from '../../components/EvaluacionAnswerList'
 import { publicacionVisible } from '../../utils/evaluacionGrading'
+import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 
 // Read-only post-evaluación review: shows the student's own answers, whether
 // each was correct (if the teacher enabled mostrarRespuestasCorrectas), and
@@ -93,7 +94,7 @@ export default function EvaluacionRevision() {
           </div>
         </header>
 
-        <div className="px-4 py-5 max-w-xl mx-auto">
+        <div className={`px-4 py-5 ${STUDENT_CONTAINER_NARROW}`}>
           {/* Reached only when the teacher published answers, so reveal everything:
               the student's picks, the correct answers and any feedback. */}
           <EvaluacionAnswerList

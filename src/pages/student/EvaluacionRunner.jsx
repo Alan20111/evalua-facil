@@ -16,6 +16,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fileTypes'
 import StudentLayout from '../../components/StudentLayout'
+import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 
 // Extensiones aceptadas para preguntas de tipo "subir documento": las mismas
 // que maneja toda la app (imágenes, PDF, Word, PowerPoint, Excel, ZIP/RAR).
@@ -333,7 +334,7 @@ export default function EvaluacionRunner() {
           </div>
         )}
 
-        <div className="px-4 py-6 max-w-xl mx-auto">
+        <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
           <div className="w-full h-1.5 bg-surface-container rounded-full mb-5 overflow-hidden">
             <div className="h-full bg-accent transition-all" style={{ width: `${((idx + 1) / preguntas.length) * 100}%` }} />
           </div>

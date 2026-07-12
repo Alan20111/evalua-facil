@@ -20,3 +20,17 @@ export const TEACHER_CONTAINER =
 // Same "grows with the viewport" principle, capped earlier.
 export const TEACHER_CONTAINER_NARROW =
   'w-full max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto'
+
+// Centralized container widths for the student module. Unlike the teacher
+// module, student screens stay mobile-first with a fixed max-width — a phone
+// screen never benefits from "growing" further, so these don't ladder up by
+// breakpoint like TEACHER_CONTAINER does.
+//
+// Listing screens (Dashboard, SubjectPage tabs) stack several cards, so they
+// get a bit more breathing room.
+export const STUDENT_CONTAINER = 'max-w-2xl mx-auto'
+
+// Detail screens (ActivityPage, EvaluacionRunner, EvaluacionRevision) show a
+// single item's reading/form content, so they stay narrower for comfortable
+// line lengths.
+export const STUDENT_CONTAINER_NARROW = 'max-w-xl mx-auto'

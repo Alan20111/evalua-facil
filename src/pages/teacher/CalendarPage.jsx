@@ -15,6 +15,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
 import { bloqueColor, timeToMinutes, addMinutesToTime, generarBloques } from '../../utils/horarioBloques'
 import { buildAsuetoMap, esAsuetoPara, esAsuetoAlguno, alcanceAsuetoTexto, TIPOS_ASUETO } from '../../utils/asuetos'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
@@ -1309,7 +1310,7 @@ export default function CalendarPage() {
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <TeacherLayout>
-      <div className="max-w-5xl mx-auto px-4 py-4">
+      <div className={`px-4 py-4 ${TEACHER_CONTAINER}`}>
 
         {/* Top controls */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
