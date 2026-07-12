@@ -8,8 +8,9 @@ export default {
 export const Standard = {
   render: () => (
     <div className="w-80">
-      <label className="block text-sm font-medium text-muted mb-1">Email</label>
+      <label htmlFor="input-standard" className="block text-sm font-medium text-muted mb-1">Email</label>
       <input
+        id="input-standard"
         type="email"
         placeholder="tu@email.com"
         className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
@@ -21,13 +22,16 @@ export const Standard = {
 export const WithError = {
   render: () => (
     <div className="w-80">
-      <label className="block text-sm font-medium text-muted mb-1">Email</label>
+      <label htmlFor="input-error" className="block text-sm font-medium text-muted mb-1">Email</label>
       <input
+        id="input-error"
         type="email"
-        value="invalido"
+        defaultValue="invalido"
+        aria-invalid="true"
+        aria-describedby="input-error-msg"
         className="w-full px-4 py-2.5 rounded border border-red-400 focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
       />
-      <p className="text-xs text-red-600 mt-1">Email inválido</p>
+      <p id="input-error-msg" className="text-xs text-red-600 mt-1">Email inválido</p>
     </div>
   ),
 };
@@ -35,11 +39,12 @@ export const WithError = {
 export const Disabled = {
   render: () => (
     <div className="w-80">
-      <label className="block text-sm font-medium text-muted mb-1">Email (deshabilitado)</label>
+      <label htmlFor="input-disabled" className="block text-sm font-medium text-muted mb-1">Email (deshabilitado)</label>
       <input
+        id="input-disabled"
         type="email"
         disabled
-        value="ejemplo@email.com"
+        defaultValue="ejemplo@email.com"
         className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface disabled:opacity-60"
       />
     </div>
@@ -49,8 +54,9 @@ export const Disabled = {
 export const Focus = {
   render: () => (
     <div className="w-80">
-      <label className="block text-sm font-medium text-muted mb-1">Email (focus)</label>
+      <label htmlFor="input-focus" className="block text-sm font-medium text-muted mb-1">Email (focus)</label>
       <input
+        id="input-focus"
         type="email"
         autoFocus
         placeholder="tu@email.com"

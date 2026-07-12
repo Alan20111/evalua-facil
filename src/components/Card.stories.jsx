@@ -33,9 +33,10 @@ export const ClickableRow = {
       </div>
       <div className="flex-1 min-w-0">
         <h4 className="text-sm font-semibold text-on-surface truncate">Matemáticas 3A</h4>
-        <p className="text-xs text-slate-400">Prof. Martínez</p>
+        {/* text-muted (on-surface-variant) en vez de slate-400: slate-400 no cumple contraste AA (4.5:1) sobre blanco */}
+        <p className="text-xs text-muted">Prof. Martínez</p>
       </div>
-      <span className="text-slate-300">›</span>
+      <span className="text-muted" aria-hidden="true">›</span>
     </button>
   ),
 };
