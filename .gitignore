@@ -38,3 +38,16 @@ dist-ssr
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# Storybook & Design System
+storybook-static/
+node_modules/.storybook-cache
+
+# Testing artifacts
+a11y-results.json
+playwright-report/
+test-results/
+*.spec.js.snap
+
+# Chromatic
+chromatic-build/
