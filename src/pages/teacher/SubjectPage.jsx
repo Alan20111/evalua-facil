@@ -2770,8 +2770,6 @@ export default function SubjectPage() {
               <button
                 type="button"
                 onClick={() => setShowCredentialsModal(true)}
-                data-tooltip="Genera tu lista actualizada de códigos de acceso cada vez que agregues estudiantes"
-                data-tooltip-nowrap=""
                 className="flex-1 min-w-0 flex items-center gap-3 py-3 px-4 rounded-card border border-accent bg-surface-card shadow-card hover:bg-[var(--accent-light)] transition-colors text-left"
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">3</span>
