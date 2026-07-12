@@ -168,7 +168,7 @@ export async function exportQRPDF({ subject, activationUrl }) {
 }
 
 // Credentials list: one row per student with username + temp password (1st login).
-export async function exportCredentialsPDF({ subject, students, activationUrl }) {
+export async function exportCredentialsPDF({ subject, students, activationUrl, docenteNombre }) {
   const [{ jsPDF }, autoTableMod, QRCodeMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -185,8 +185,14 @@ export async function exportCredentialsPDF({ subject, students, activationUrl })
   doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 20)
   doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
   doc.text('Lista de acceso de los estudiantes', 14, 27)
+  let y37 = 37
+  if (docenteNombre) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
+    doc.text(`Docente: ${docenteNombre}`, 14, 34)
+    y37 = 44
+  }
   doc.setFontSize(13); doc.setTextColor(20); doc.setFont(undefined, 'bold')
-  doc.text(`Código de la clase: ${subject.accessCode || '—'}`, 14, 37)
+  doc.text(`Código de la clase: ${subject.accessCode || '—'}`, 14, y37)
 
   if (activationUrl) {
     const qrDataUrl = await QRCode.toDataURL(activationUrl, { width: 240, margin: 1 })
@@ -203,7 +209,7 @@ export async function exportCredentialsPDF({ subject, students, activationUrl })
   ])
 
   autoTable(doc, {
-    startY: 62,
+    startY: y37 + 25,
     head: [['#', 'Nombre completo', 'Usuario']],
     body,
     styles: { fontSize: 10, cellPadding: 3, textColor: 30 },
