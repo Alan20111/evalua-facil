@@ -709,9 +709,9 @@ export default function ActivityPage() {
             </div>
           )}
           {activity?.instrucciones && (
-            <div className="mt-2 rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
-              <div className="px-4 py-2" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
-                <h2 className="font-semibold text-sm" style={{ color: 'var(--accent)' }}>Instrucciones</h2>
+            <div className="mt-2 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
+              <div className="px-4 py-2 bg-accent-light border-b border-accent">
+                <h2 className="font-semibold text-sm text-accent">Instrucciones</h2>
               </div>
               <div
                 className={`text-sm text-on-surface p-4 ${richTextContentClass}`}
@@ -738,9 +738,9 @@ export default function ActivityPage() {
         </div>
 
         {/* ── Entregas — same accent container as Preguntas/Configuración ── */}
-        <div id="entregas-container" className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card" style={{ border: '1px solid var(--accent)' }}>
-          <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
-            <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Entregas</h2>
+        <div id="entregas-container" className="mx-4 my-4 rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
+          <div className="px-4 py-3 bg-accent-light border-b border-accent">
+            <h2 className="font-semibold text-accent">Entregas</h2>
           </div>
 
         {/* ZIP download — first thing in the container */}
@@ -750,7 +750,7 @@ export default function ActivityPage() {
               type="button"
               onClick={handleZipDownload}
               disabled={zipDownloading}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
+              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
             >
               {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
               {zipDownloading
@@ -788,7 +788,7 @@ export default function ActivityPage() {
               value={searchStudents}
               onChange={(e) => setSearchStudents(e.target.value)}
               placeholder="Buscar por nombre o por número de lista…"
-              className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card"
+              className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card"
             />
           </div>
           <button
@@ -930,7 +930,7 @@ export default function ActivityPage() {
                         href={downloadUrl(f.url, f.nombre)}
                         download={f.nombre}
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
                       >
                         <Download size={18} className="text-accent" />
                         Descargar archivo
@@ -964,7 +964,7 @@ export default function ActivityPage() {
                       href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
                       download={selected.sub.nombreArchivo}
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
                     >
                       <Download size={18} className="text-accent" />
                       Descargar entrega
@@ -989,7 +989,7 @@ export default function ActivityPage() {
               <div className="p-4 space-y-3">
 
                 {/* Filter tabs — same sets as the list; switching re-freezes navigation */}
-                <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1.5 rounded-card">
+                <div className="grid grid-cols-2 gap-1 bg-surface-container p-1 rounded">
                   {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
                     <button
                       type="button"
@@ -997,8 +997,8 @@ export default function ActivityPage() {
                       onClick={() => changeFilterInView(f)}
                       className={`py-2 px-2 text-sm font-semibold rounded transition-colors ${
                         filter === f
-                          ? 'bg-accent text-white shadow-card'
-                          : 'bg-surface-card text-muted hover:text-accent hover:bg-[var(--accent-tint)]'
+                          ? 'bg-surface-card text-on-surface shadow-card'
+                          : 'text-muted hover:bg-[var(--accent-medium)]'
                       }`}
                     >
                       {FILTER_LABELS[f]} ({f === 'todos' ? students.length : counts[f]})
@@ -1062,7 +1062,7 @@ export default function ActivityPage() {
                     <button
                       type="button"
                       onClick={() => goToOffset(-1)}
-                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-medium)] transition-colors"
                     >
                       <ChevronLeft size={20} /> Anterior
                     </button>
@@ -1097,7 +1097,7 @@ export default function ActivityPage() {
                           href={downloadUrl(selFiles[0].url, selFiles[0].nombre)}
                           download={selFiles[0].nombre}
                           rel="noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors min-w-0"
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors min-w-0"
                         >
                           <Download size={18} className="text-accent flex-shrink-0" />
                           <span className="truncate">Descargar entrega</span>
@@ -1118,7 +1118,7 @@ export default function ActivityPage() {
                           step="0.1"
                           autoFocus={!parcialCerrado}
                           disabled={parcialCerrado}
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -1142,7 +1142,7 @@ export default function ActivityPage() {
                             disabled={studentZipDownloading}
                             data-tooltip="Descargar todas en ZIP"
                             aria-label="Descargar todas en ZIP"
-                            className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0 disabled:opacity-50"
+                            className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0 disabled:opacity-40"
                           >
                             {studentZipDownloading ? <Spinner size="sm" /> : <Download size={15} />}
                           </button>
@@ -1197,7 +1197,7 @@ export default function ActivityPage() {
                         onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                         rows={3}
                         disabled={parcialCerrado}
-                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="Retroalimentación para el estudiante…"
                       />
                     </div>
@@ -1225,7 +1225,7 @@ export default function ActivityPage() {
                         <button
                           type="button"
                           onClick={() => setEditingActivity(true)}
-                          className="w-full py-2 border border-accent text-accent font-semibold rounded transition-colors hover:bg-[var(--accent-tint)] flex items-center justify-center gap-2"
+                          className="w-full py-2 border border-accent text-accent font-semibold rounded transition-colors hover:bg-[var(--accent-medium)] flex items-center justify-center gap-2"
                         >
                           <Pencil size={18} />
                           Editar actividad
@@ -1299,7 +1299,7 @@ export default function ActivityPage() {
                             type="button"
                             onClick={annulSubmission}
                             disabled={annulling}
-                            className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
+                            className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
                           >
                             {annulling ? 'Anulando…' : 'Anular entrega'}
                           </button>
@@ -1332,7 +1332,7 @@ export default function ActivityPage() {
                           onChange={(e) => setExtendMotivo(e.target.value)}
                           rows={2}
                           placeholder="Motivo de la extensión…"
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                         />
                       </div>
                       <div className="flex gap-2">
@@ -1347,7 +1347,7 @@ export default function ActivityPage() {
                           type="button"
                           onClick={saveExtension}
                           disabled={!extendDate || savingExtension}
-                          className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-50 transition-colors"
+                          className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
                         >
                           {savingExtension ? 'Guardando…' : 'Guardar'}
                         </button>
@@ -1381,7 +1381,7 @@ export default function ActivityPage() {
                             max={activity?.maxCalif}
                             step="0.1"
                             autoFocus
-                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-base font-semibold text-center bg-surface"
+                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface"
                           />
                         </div>
                         <div>
@@ -1392,7 +1392,7 @@ export default function ActivityPage() {
                             onChange={(e) => setSinEntregaMotivo(e.target.value)}
                             rows={2}
                             placeholder="Ej.: Entregó el archivo en memoria USB"
-                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface resize-none"
+                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                           />
                         </div>
                         <div className="flex gap-2">
@@ -1407,7 +1407,7 @@ export default function ActivityPage() {
                             type="button"
                             onClick={saveSinEntrega}
                             disabled={savingSinEntrega || sinEntregaGrade === ''}
-                            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-50 transition-colors"
+                            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
                           >
                             {savingSinEntrega ? 'Guardando…' : 'Guardar'}
                           </button>

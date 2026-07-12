@@ -124,7 +124,7 @@ export default function TeacherLogin() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-transparent text-sm bg-surface"
                 placeholder="nombre@correo.com"
               />
             </div>
@@ -145,7 +145,7 @@ export default function TeacherLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-transparent text-sm bg-surface"
                 placeholder="••••••••"
               />
             </div>

@@ -52,7 +52,7 @@ export default function Onboarding() {
                 onChange={(e) => setNombre(e.target.value)}
                 required
                 autoFocus
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                 placeholder="Ej. Profa. Laura García"
               />
             </div>

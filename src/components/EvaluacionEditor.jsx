@@ -568,7 +568,7 @@ export default function EvaluacionEditor({
                 <label htmlFor="info-nombre" className="block text-sm font-medium text-muted mb-1">Nombre</label>
                 <input id="info-nombre" type="text" value={infoForm.nombre} onChange={(e) => setInfoForm((f) => ({ ...f, nombre: e.target.value }))}
                   required autoFocus placeholder={`Ej: ${tipoLabel} parcial 1`}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-muted mb-1">Instrucciones</label>
@@ -898,7 +898,7 @@ export default function EvaluacionEditor({
                     <div>
                       <label htmlFor="preg-new-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                       <textarea id="preg-new-enunciado" value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
-                        rows={2} required autoFocus className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                        rows={2} required autoFocus className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                     </div>
                     <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
                       <ImageIcon size={15} /> Imagen opcional
@@ -1060,7 +1060,7 @@ export default function EvaluacionEditor({
                             <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                             <button type="button" onClick={() => handleSaveBancoEdit(item.id)}
                               disabled={JSON.stringify(bancoEditForm) === bancoEditSnap.current}
-                              className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-50">Guardar</button>
+                              className="flex-1 py-1.5 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">Guardar</button>
                           </div>
                         </div>
                       ) : (

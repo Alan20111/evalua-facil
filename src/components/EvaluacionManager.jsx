@@ -584,7 +584,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           </select>
                         </div>
                         <textarea value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
-                          rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                          rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                         {preguntaEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
                           <div key={id} className="flex items-center gap-2">
                             <input type="radio" name={`edit-p-${p.id}`} checked={preguntaEditForm.respuestaCorrecta === id}
@@ -641,9 +641,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           </div>
                           <div className="flex gap-0.5 flex-shrink-0">
                             <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={i === 0}
-                              className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded"><ChevronUp size={15} /></button>
+                              className="p-1 text-slate-400 hover:text-accent disabled:opacity-40 rounded"><ChevronUp size={15} /></button>
                             <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={i === preguntas.length - 1}
-                              className="p-1 text-slate-400 hover:text-accent disabled:opacity-20 rounded"><ChevronDown size={15} /></button>
+                              className="p-1 text-slate-400 hover:text-accent disabled:opacity-40 rounded"><ChevronDown size={15} /></button>
                             <button type="button" aria-label="Editar pregunta" onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={15} /></button>
                             <button type="button" aria-label="Duplicar pregunta" onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={15} /></button>
                             <button type="button" aria-label="Eliminar pregunta" onClick={() => handleDeletePregunta(p.id)} className="p-1 text-slate-400 hover:text-error rounded"><Trash2 size={15} /></button>
@@ -692,7 +692,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   <label htmlFor="preg-nueva-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                   <textarea id="preg-nueva-enunciado" value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
                     rows={2} required autoFocus
-                    className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 </div>
                 <div>
                   <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
@@ -710,7 +710,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     <input type="text" value={preguntaForm.opciones[id]}
                       onChange={(e) => setPreguntaForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
                       placeholder={`Opción ${id.toUpperCase()}`} required
-                      className="flex-1 px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                      className="flex-1 px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                   </div>
                 ))}
                 {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Selecciona el radio de la opción correcta.</p>}
@@ -735,13 +735,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   <label htmlFor="preg-nueva-retro" className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
                   <textarea id="preg-nueva-retro" value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
                     rows={2} placeholder="Se muestra al alumno después de finalizar, si la configuración lo permite"
-                    className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 </div>
                 <div>
                   <label htmlFor="preg-nueva-pond" className="block text-sm font-medium text-muted mb-1">Ponderación</label>
                   <input id="preg-nueva-pond" type="number" min="0.1" step="0.1" value={preguntaForm.ponderacion}
                     onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                    className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 </div>
                 <label className="flex items-center gap-2 text-sm text-muted">
                   <input type="checkbox" checked={preguntaForm.guardarEnBanco}
@@ -751,7 +751,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 {preguntaForm.guardarEnBanco && (
                   <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
                     placeholder="Tema (opcional, ej. Fracciones)"
-                    className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface" />
+                    className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 )}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(EMPTY_PREGUNTA) }}
@@ -849,7 +849,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           ) : (
                             <div className="flex items-start gap-2">
                               <button type="button" onClick={() => handleAddFromBanco(item)} disabled={saving}
-                                className="flex-1 text-left text-sm hover:text-accent transition-colors disabled:opacity-50">
+                                className="flex-1 text-left text-sm hover:text-accent transition-colors disabled:opacity-60">
                                 {item.enunciado}
                                 {(item.materia || item.tema) && (
                                   <span className="block text-xs text-slate-400 mt-0.5">

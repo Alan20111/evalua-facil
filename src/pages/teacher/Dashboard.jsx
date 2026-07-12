@@ -228,7 +228,7 @@ export default function TeacherDashboard() {
                         disabled={i === 0}
                         data-tooltip="Subir"
                         aria-label="Subir"
-                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-30 rounded"
+                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
                       >
                         <ArrowUp size={16} />
                       </button>
@@ -238,7 +238,7 @@ export default function TeacherDashboard() {
                         disabled={i === subjects.length - 1}
                         data-tooltip="Bajar"
                         aria-label="Bajar"
-                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-30 rounded"
+                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
                       >
                         <ArrowDown size={16} />
                       </button>
@@ -307,7 +307,7 @@ export default function TeacherDashboard() {
                   onChange={(e) => setNewSubjectName(e.target.value)}
                   required
                   autoFocus
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas, Física, Historia"
                 />
               </div>
@@ -320,7 +320,7 @@ export default function TeacherDashboard() {
                   value={newSubjectGrupo}
                   onChange={(e) => setNewSubjectGrupo(e.target.value)}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C"
                 />
               </div>

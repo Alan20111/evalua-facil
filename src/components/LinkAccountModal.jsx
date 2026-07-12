@@ -98,7 +98,7 @@ export default function LinkAccountModal({ onClose }) {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoFocus
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-transparent text-sm bg-surface"
                   placeholder="nombre@correo.com"
                 />
               </div>
