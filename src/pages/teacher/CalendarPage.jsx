@@ -1116,8 +1116,16 @@ export default function CalendarPage() {
   // Deriva la plantilla semanal (patrones) a partir de las instancias ya
   // materializadas de una asignatura: colapsa por (día, hora) tomando la
   // combinación más frecuente de lugar/color/alarma.
+  //
+  // IMPORTANTE: los bloques movidos a mano en el horario normal (movido:true)
+  // son cambios de UNA sola clase y NO forman parte del horario recurrente, así
+  // que se EXCLUYEN de la plantilla de "Modificar". Así, mover una clase en el
+  // horario normal nunca afecta a "Modificar bloques". (Si por algún caso todos
+  // los bloques estuvieran movidos, se usan todos como respaldo.)
   function derivarPatrones(asignaturaId) {
-    const propios = bloques.filter(b => b.asignaturaId === asignaturaId)
+    const todos = bloques.filter(b => b.asignaturaId === asignaturaId)
+    const recurrentes = todos.filter(b => !b.movido)
+    const propios = recurrentes.length ? recurrentes : todos
     const porClave = {}
     propios.forEach(b => {
       const dia = b.diaSemana ?? ((new Date(b.fecha + 'T12:00:00').getDay() + 6) % 7)
