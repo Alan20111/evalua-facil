@@ -108,9 +108,14 @@ export const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'
 //
 // Recorre día a día el rango [fechaInicio, fechaFin], omitiendo los asuetos, y
 // por cada patrón que coincida con el día de la semana genera UN bloque (un
-// rectángulo) de `duracionMin`. Cada tarjeta del modal = un bloque: si el
-// docente quiere varias horas seguidas, agrega varias tarjetas (07:00, 08:00…),
-// y el número de bloques por semana coincide con el número de tarjetas.
+// rectángulo) de `duracionMin`. Cada patrón = un bloque colocado en la zona
+// semanal: si el docente quiere varias horas seguidas coloca varios patrones
+// (07:00, 08:00…), y el número de bloques por semana coincide con el número de
+// patrones (2 horas seguidas = 2 unidades de BS).
+//
+// Cada patrón puede traer su propio `color`, `lugar` y `alarma` (se definen al
+// colocarlo en la zona semanal). Si no los trae, se usan los valores por
+// defecto que recibe la función (`color`, `alarma`).
 //
 // La alarma queda activa solo en el PRIMER bloque de cada corrida de bloques
 // consecutivos del mismo día (los siguientes sonarían en plena clase anterior).
@@ -145,11 +150,11 @@ export function generarBloques({ fechaInicio, fechaFin, diasAsueto = [], duracio
           fecha,
           diaSemana: dia,
           horaInicio: p.horaInicio,
-          horaFin: addMinutesToTime(p.horaInicio, duracionMin),
+          horaFin: addMinutesToTime(p.horaInicio, p.duracionMin || duracionMin),
           horas: 1,
           lugar: (p.lugar || '').trim(),
-          color,
-          alarma: { ...alarma },
+          color: p.color || color,
+          alarma: { ...(p.alarma || alarma) },
           movido: false,
         })
       })

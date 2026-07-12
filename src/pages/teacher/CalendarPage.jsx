@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, writeBatch } from 'firebase/firestore'
+import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -7,14 +7,15 @@ import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import EventEditor, { EVENT_COLORS } from '../../components/calendar/EventEditor'
 import ProgramarBloquesModal from '../../components/calendar/ProgramarBloquesModal'
+import ProgramarZonaSemanal from '../../components/calendar/ProgramarZonaSemanal'
 import BloqueEditor from '../../components/calendar/BloqueEditor'
 import useAlarmas from '../../components/calendar/useAlarmas'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
-import { bloqueColor, timeToMinutes, addMinutesToTime } from '../../utils/horarioBloques'
+import { bloqueColor, timeToMinutes, addMinutesToTime, generarBloques } from '../../utils/horarioBloques'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
-  List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell,
+  List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
 } from 'lucide-react'
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
@@ -869,8 +870,10 @@ export default function CalendarPage() {
   const [editingEvent, setEditingEvent] = useState(null)
   const [selectedDate, setSelectedDate] = useState(null)
   const [showProgramar, setShowProgramar] = useState(false)
-  const [programarDefaults, setProgramarDefaults] = useState({ dia: 0, hora: '07:00' })
   const [editingBloque, setEditingBloque] = useState(null)
+  // Zona semanal de colocación de bloques: { config, mode, initialPatrones, asignaturaId }
+  const [zona, setZona] = useState(null)
+  const [showModificarPicker, setShowModificarPicker] = useState(false)
 
   function changeView(v) {
     setView(v)
@@ -1016,13 +1019,133 @@ export default function CalendarPage() {
   }
 
   // ── Programación de bloques ────────────────────────────────────────────
-  function openProgramar(dia = 0, hora = '07:00') {
-    setProgramarDefaults({ dia, hora })
+  function openProgramar() {
     setShowProgramar(true)
   }
-  function openProgramarFromDate(date) {
-    openProgramar((date.getDay() + 6) % 7, '07:00')
+  function openProgramarFromDate() {
+    openProgramar()
   }
+
+  // Paso 1 (modal) → paso 2 (zona semanal): recibe la configuración y abre la
+  // zona de colocación en modo "crear".
+  function continuarAZona(config) {
+    setShowProgramar(false)
+    setZona({ config, mode: 'crear', initialPatrones: null, asignaturaId: config.asignaturaId })
+  }
+
+  // Deriva la plantilla semanal (patrones) a partir de las instancias ya
+  // materializadas de una asignatura: colapsa por (día, hora) tomando la
+  // combinación más frecuente de lugar/color/alarma.
+  function derivarPatrones(asignaturaId) {
+    const propios = bloques.filter(b => b.asignaturaId === asignaturaId)
+    const porClave = {}
+    propios.forEach(b => {
+      const dia = b.diaSemana ?? ((new Date(b.fecha + 'T12:00:00').getDay() + 6) % 7)
+      const key = `${dia}-${b.horaInicio}`
+      const dur = Math.max(5, timeToMinutes(b.horaFin) - timeToMinutes(b.horaInicio))
+      ;(porClave[key] ||= { diaSemana: dia, horaInicio: b.horaInicio, duracionMin: dur, muestras: [] })
+      porClave[key].muestras.push(b)
+    })
+    return Object.values(porClave)
+      .sort((a, b) => a.diaSemana - b.diaSemana || timeToMinutes(a.horaInicio) - timeToMinutes(b.horaInicio))
+      .map(({ muestras, ...p }) => {
+        const m = muestras[0]
+        return {
+          ...p,
+          lugar: m.lugar || '',
+          color: m.color || 'blue',
+          alarma: m.alarma || { activa: false, sonido: 'campana', minutosAntes: 10 },
+        }
+      })
+  }
+
+  // Abre la zona en modo "modificar" precargada con los bloques existentes de
+  // una asignatura. El rango de fechas se deduce de las instancias actuales.
+  function openModificar(asignaturaId) {
+    setShowModificarPicker(false)
+    const propios = bloques.filter(b => b.asignaturaId === asignaturaId)
+    if (propios.length === 0) {
+      toast('Esa asignatura aún no tiene bloques programados', 'error')
+      return
+    }
+    const fechas = propios.map(b => b.fecha).sort()
+    const patrones = derivarPatrones(asignaturaId)
+    const durComun = patrones[0]?.duracionMin || 60
+    const primerAlarma = patrones.find(p => p.alarma?.activa)?.alarma
+      || { activa: false, sonido: 'campana', minutosAntes: 10 }
+    const config = {
+      asignaturaId,
+      fechaInicio: fechas[0],
+      fechaFin: fechas[fechas.length - 1],
+      diasAsueto: [],
+      duracionMin: durComun,
+      bloquesPorSemana: patrones.length,
+      color: patrones[0]?.color || 'blue',
+      alarma: primerAlarma,
+    }
+    setZona({ config, mode: 'modificar', initialPatrones: patrones, asignaturaId })
+  }
+
+  // Materializa los patrones colocados en la zona y los persiste. En modo
+  // "modificar" reemplaza (borra + recrea) las instancias de esa asignatura.
+  async function guardarDesdeZona(patrones) {
+    const cfg = zona?.config
+    if (!cfg) return
+    const nuevos = generarBloques({
+      fechaInicio: cfg.fechaInicio,
+      fechaFin: cfg.fechaFin,
+      diasAsueto: cfg.diasAsueto,
+      duracionMin: cfg.duracionMin,
+      patrones,
+      color: cfg.color,
+      alarma: cfg.alarma,
+    })
+    if (nuevos.length === 0) {
+      toast('Con esas fechas y días no se generó ningún bloque. Revisa el rango.', 'error')
+      return
+    }
+    const modo = zona.mode
+    const asignaturaId = cfg.asignaturaId
+    setZona(null)
+    try {
+      // Modo modificar: borra primero las instancias actuales de la asignatura.
+      if (modo === 'modificar') {
+        const viejos = bloques.filter(b => b.asignaturaId === asignaturaId).map(b => b.id)
+        for (let i = 0; i < viejos.length; i += 450) {
+          const batch = writeBatch(db)
+          viejos.slice(i, i + 450).forEach(id => batch.delete(doc(db, 'horarioBloques', id)))
+          await batch.commit()
+        }
+      }
+      const programacionId = crypto.randomUUID()
+      const meta = { docenteId: currentUser.uid, programacionId, asignaturaId, createdAt: serverTimestamp() }
+      const created = []
+      for (let i = 0; i < nuevos.length; i += 450) {
+        const batch = writeBatch(db)
+        nuevos.slice(i, i + 450).forEach(b => {
+          const ref = doc(collection(db, 'horarioBloques'))
+          batch.set(ref, { ...b, ...meta })
+          created.push({ id: ref.id, ...b, docenteId: currentUser.uid, programacionId, asignaturaId })
+        })
+        await batch.commit()
+      }
+      toast(modo === 'modificar'
+        ? `Bloques actualizados (${created.length})`
+        : `Se programaron ${created.length} bloques de clase`)
+      // Salta a la fecha del primer bloque para que se vean de inmediato.
+      const first = created.reduce((min, b) =>
+        (b.fecha + b.horaInicio) < (min.fecha + min.horaInicio) ? b : min, created[0])
+      if (first?.fecha) { setCurrentDate(new Date(first.fecha + 'T12:00:00')); changeView('semana') }
+    } catch (err) {
+      toast('Error al guardar: ' + err.message, 'error')
+    }
+  }
+
+  const subjectsConBloques = useMemo(() => {
+    const ids = new Set(bloques.map(b => b.asignaturaId))
+    return Object.values(subjects).filter(s => ids.has(s.id))
+      .sort((a, b) => subjectDisplayName(a).localeCompare(subjectDisplayName(b)))
+  }, [bloques, subjects])
 
   // Mover un bloque (arrastrar) → nueva fecha/hora, conservando la duración.
   async function moveBloque(b, nuevaFecha, nuevaHora) {
@@ -1290,12 +1413,21 @@ export default function CalendarPage() {
           </button>
           <button
             type="button"
-            onClick={() => openProgramar(0, '07:00')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
-            data-tooltip="Programar bloques de clases por asignatura"
+            onClick={() => setShowModificarPicker(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+            data-tooltip="Modificar bloques de clase por asignatura"
             data-tooltip-pos="bottom"
           >
-            <CalendarPlus size={15} /> Crear bloques
+            <CalendarClock size={15} /> Modificar bloques
+          </button>
+          <button
+            type="button"
+            onClick={() => openProgramar(0, '07:00')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
+            data-tooltip="Programar bloques de clase por asignatura"
+            data-tooltip-pos="bottom"
+          >
+            <CalendarPlus size={15} /> Programar bloques
           </button>
         </div>
 
@@ -1387,20 +1519,62 @@ export default function CalendarPage() {
       {showProgramar && (
         <ProgramarBloquesModal
           subjects={subjects}
-          defaultDia={programarDefaults.dia}
-          defaultHora={programarDefaults.hora}
           onClose={() => setShowProgramar(false)}
-          onSaved={(created) => {
-            // Salta la vista a la fecha del PRIMER bloque creado, así el docente
-            // los ve de inmediato aunque hayan quedado en otro día/semana/mes.
-            // (onSnapshot mantiene la lista de bloques sincronizada.)
-            if (created?.length) {
-              const first = created.reduce((min, b) =>
-                (b.fecha + b.horaInicio) < (min.fecha + min.horaInicio) ? b : min, created[0])
-              if (first?.fecha) setCurrentDate(new Date(first.fecha + 'T12:00:00'))
-            }
-          }}
+          onContinue={continuarAZona}
         />
+      )}
+
+      {zona && (
+        <ProgramarZonaSemanal
+          config={zona.config}
+          mode={zona.mode}
+          initialPatrones={zona.initialPatrones}
+          subjects={subjects}
+          otrosBloques={bloques.filter(b => b.asignaturaId !== zona.asignaturaId)}
+          dayStart={dayStart}
+          dayEnd={dayEnd}
+          numDays={numDays}
+          onCancel={() => setZona(null)}
+          onConfirm={guardarDesdeZona}
+        />
+      )}
+
+      {/* Selector de asignatura para "Modificar bloques" */}
+      {showModificarPicker && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 bg-black/40" onClick={() => setShowModificarPicker(false)}>
+          <div className="bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarClock size={18} className="text-accent" />
+                <h2 className="font-semibold text-on-surface">Modificar bloques por asignatura</h2>
+              </div>
+              <button type="button" onClick={() => setShowModificarPicker(false)} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded"><Plus size={18} className="rotate-45" /></button>
+            </div>
+            {subjectsConBloques.length === 0 ? (
+              <p className="text-sm text-muted py-4 text-center">
+                Todavía no has programado bloques de ninguna asignatura. Usa <strong>Programar bloques</strong> para empezar.
+              </p>
+            ) : (
+              <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+                <p className="text-xs text-muted">Elige la asignatura cuyos bloques quieres reacomodar:</p>
+                {subjectsConBloques.map(s => {
+                  const n = bloques.filter(b => b.asignaturaId === s.id).length
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => openModificar(s.id)}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-card border border-outline-variant hover:bg-accent-tint hover:border-accent transition-colors text-left"
+                    >
+                      <span className="text-sm font-medium text-on-surface truncate">{subjectDisplayName(s)}</span>
+                      <span className="text-xs text-muted flex-shrink-0">{n} bloque(s)</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       )}
       {editingBloque && (
         <BloqueEditor
