@@ -9,7 +9,6 @@ import EFDateTimePicker from '../../components/EFDateTimePicker'
 import EventEditor, { EVENT_COLORS } from '../../components/calendar/EventEditor'
 import ProgramarBloquesModal from '../../components/calendar/ProgramarBloquesModal'
 import ProgramarZonaSemanal from '../../components/calendar/ProgramarZonaSemanal'
-import BloqueEditor from '../../components/calendar/BloqueEditor'
 import useAlarmas from '../../components/calendar/useAlarmas'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
@@ -179,8 +178,10 @@ function AgendaView({
         if (!d) return null
         const { item } = d
         if (!d.moved) {
-          if (item.kind === 'bloque') onBlockClick?.(item.b)
-          else onEventClick?.(item.ev)
+          // Un clic en un bloque de clase NO abre editor: los bloques solo se
+          // mueven arrastrando (y desde "Modificar bloques"). Los eventos sí se
+          // editan al hacer clic.
+          if (item.kind !== 'bloque') onEventClick?.(item.ev)
           return null
         }
         // 1) ¿Soltó sobre un chip de día posterior?
@@ -436,8 +437,8 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
       setDrag(d => {
         if (!d) return null
         if (!d.moved) {
-          if (d.kind === 'bloque') onBlockClick?.(d.b)
-          else onEventClick?.(d.ev)
+          // Clic en bloque de clase: no abre editor (solo se mueve arrastrando).
+          if (d.kind !== 'bloque') onEventClick?.(d.ev)
           return null
         }
         let target = null
@@ -614,8 +615,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
       setDrag(d => {
         if (!d) return null
         if (!d.moved) {
+          // Clic en bloque de clase: no abre editor (solo se mueve arrastrando).
           if (d.kind === 'event') onEventClick?.(d.ev)
-          else onBlockClick?.(d.bloque)
           return null
         }
         // Detecta la columna (día) bajo el cursor.
@@ -893,7 +894,6 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(null)
   // Modal de configuración (paso 1): { mode, initial?, subjectName?, baseline?, baselinePatrones? }
   const [programar, setProgramar] = useState(null)
-  const [editingBloque, setEditingBloque] = useState(null)
   // Zona semanal de colocación de bloques: { config, mode, initialPatrones, asignaturaId }
   const [zona, setZona] = useState(null)
   const [showModificarPicker, setShowModificarPicker] = useState(false)
@@ -1561,9 +1561,7 @@ export default function CalendarPage() {
               subjects={subjects}
               dayStart={dayStart}
               dayEnd={dayEnd}
-              onEventClick={openEditEvent}
-              onBlockClick={setEditingBloque}
-              onMoveBloque={requestMoveBloque}
+              onEventClick={openEditEvent}              onMoveBloque={requestMoveBloque}
               onMoveEvent={moveEvent}
               onSlotClick={openNewEventAt}
               asuetoMap={asuetoMap}
@@ -1577,9 +1575,7 @@ export default function CalendarPage() {
               subjects={subjects}
               selectedDate={currentDate}
               onDateClick={openNewEvent}
-              onEventClick={openEditEvent}
-              onBlockClick={setEditingBloque}
-              onMoveEvent={moveEvent}
+              onEventClick={openEditEvent}              onMoveEvent={moveEvent}
               onMoveBloque={requestMoveBloque}
               asuetoMap={asuetoMap}
             />
@@ -1593,9 +1589,7 @@ export default function CalendarPage() {
               dayEnd={dayEnd}
               numDays={numDays}
               selectedDate={currentDate}
-              onSlotClick={openNewEventAt}
-              onBlockClick={setEditingBloque}
-              onEventClick={openEditEvent}
+              onSlotClick={openNewEventAt}              onEventClick={openEditEvent}
               onMoveBloque={requestMoveBloque}
               onMoveEvent={moveEvent}
               asuetoMap={asuetoMap}
@@ -1687,17 +1681,6 @@ export default function CalendarPage() {
           </div>
         </div>
       )}
-      {editingBloque && (
-        <BloqueEditor
-          bloque={editingBloque}
-          bloques={bloques}
-          subjects={subjects}
-          onClose={() => setEditingBloque(null)}
-          onUpdated={() => { /* onSnapshot sincroniza */ }}
-          onDeleted={() => { /* onSnapshot sincroniza */ }}
-        />
-      )}
-
       {showAsuetos && (
         <AsuetoManager
           asuetos={asuetos}
