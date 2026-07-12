@@ -38,7 +38,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
     <div className="min-h-screen bg-surface">
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+          <div className="w-8 h-8 rounded bg-accent flex items-center justify-center text-white text-xs font-bold">
             AD
           </div>
           <span className="font-semibold text-on-surface text-sm">Admin</span>
@@ -59,12 +59,12 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
           } md:flex flex-col w-64 h-screen fixed md:sticky top-0 bg-surface-card border-r border-outline-variant flex-shrink-0 overflow-y-auto z-40 md:z-20`}
         >
           <div className="px-5 py-3 border-b border-outline-variant flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center text-white text-xs font-bold">
+            <div className="w-8 h-8 rounded bg-accent flex items-center justify-center text-white text-xs font-bold">
               AD
             </div>
             <div>
               <span className="font-bold text-on-surface block">Evalúa Fácil</span>
-              <span className="text-xs text-blue-600 font-medium">Panel Admin</span>
+              <span className="text-xs text-accent font-medium">Panel Admin</span>
             </div>
           </div>
 
@@ -83,7 +83,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
                 }}
                 className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded text-sm transition-colors ${
                   activeTab === id
-                    ? 'bg-blue-50 text-blue-700 font-semibold'
+                    ? 'bg-accent-light text-accent font-semibold'
                     : 'text-muted hover:bg-surface'
                 }`}
               >

@@ -610,7 +610,7 @@ export default function StudentActivityPage() {
               <span className="text-muted">
                 {extendedDate ? 'Fecha límite (extendida)' : 'Fecha límite'}
               </span>
-              <span className={`font-semibold ${extendedDate ? 'text-orange-600' : 'text-on-surface'}`}>
+              <span className={`font-semibold ${extendedDate ? 'text-amber-700' : 'text-on-surface'}`}>
                 {fmtDate(displayDate)}
               </span>
             </div>
@@ -636,7 +636,7 @@ export default function StudentActivityPage() {
               </p>
             )}
             {canResubmit && (
-              <p className="text-xs text-orange-500 mb-3">
+              <p className="text-xs text-amber-600 mb-3">
                 Tu maestro extendió la fecha — puedes subir una corrección.
               </p>
             )}

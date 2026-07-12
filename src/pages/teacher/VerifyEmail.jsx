@@ -4,6 +4,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import Spinner from '../../components/Spinner'
+import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams()
@@ -67,10 +68,8 @@ export default function VerifyEmail() {
 
         {status === 'success' && (
           <>
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 size={32} className="text-emerald-500" />
             </div>
             <h2 className="text-xl font-bold text-on-surface mb-2">¡Cuenta activada!</h2>
             <p className="text-muted text-sm">Tu cuenta está verificada. Redirigiendo…</p>
@@ -80,11 +79,7 @@ export default function VerifyEmail() {
         {status === 'error' && (
           <>
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="15" y1="9" x2="9" y2="15"/>
-                <line x1="9" y1="9" x2="15" y2="15"/>
-              </svg>
+              <XCircle size={32} className="text-red-500" />
             </div>
             <h2 className="text-xl font-bold text-on-surface mb-2">Enlace no válido</h2>
             <p className="text-muted text-sm mb-5">
@@ -94,7 +89,7 @@ export default function VerifyEmail() {
             <button
               type="button"
               onClick={() => navigate('/dashboard', { replace: true })}
-              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors"
+              className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors"
             >
               Ir al dashboard
             </button>
@@ -104,11 +99,7 @@ export default function VerifyEmail() {
         {status === 'wrongUser' && (
           <>
             <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
+              <AlertTriangle size={32} className="text-amber-500" />
             </div>
             <h2 className="text-xl font-bold text-on-surface mb-2">Cuenta incorrecta</h2>
             <p className="text-muted text-sm mb-5">
@@ -118,7 +109,7 @@ export default function VerifyEmail() {
             <button
               type="button"
               onClick={() => navigate('/docente', { replace: true })}
-              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors"
+              className="px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors"
             >
               Iniciar sesión
             </button>

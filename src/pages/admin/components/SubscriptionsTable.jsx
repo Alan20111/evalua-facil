@@ -21,7 +21,7 @@ import {
 } from '../../../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
+  'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface'
 
 function StatusBadge({ status }) {
   return (
@@ -151,7 +151,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         <button
           type="button"
           onClick={openCreate}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover"
         >
           <Plus size={16} /> Nueva
         </button>
@@ -203,7 +203,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                         <button
                           type="button"
                           onClick={() => openEdit(sub)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 rounded"
+                          className="p-1.5 text-slate-400 hover:text-accent rounded"
                           data-tooltip="Editar"
                         >
                           <Pencil size={16} />
@@ -319,7 +319,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-2 bg-blue-600 text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}
                 Guardar

@@ -83,7 +83,7 @@ export default function TeacherLogin() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-3">
+          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">Evalúa Fácil</h1>
@@ -104,7 +104,7 @@ export default function TeacherLogin() {
           <button
             type="button"
             onClick={() => setShowLinkAccount(true)}
-            className="w-full text-center text-xs text-blue-600 hover:underline"
+            className="w-full text-center text-xs text-accent hover:underline"
           >
             ¿Normalmente entras con Google y hoy usarás otra computadora?
           </button>
@@ -124,7 +124,7 @@ export default function TeacherLogin() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-sm bg-surface"
                 placeholder="nombre@correo.com"
               />
             </div>
@@ -135,7 +135,7 @@ export default function TeacherLogin() {
                   type="button"
                   onClick={handleForgotPassword}
                   disabled={resetLoading}
-                  className="text-xs text-blue-600 hover:underline disabled:opacity-60"
+                  className="text-xs text-accent hover:underline disabled:opacity-60"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
@@ -145,14 +145,14 @@ export default function TeacherLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-sm bg-surface"
                 placeholder="••••••••"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? 'Entrando…' : 'Iniciar sesión'}
@@ -162,7 +162,7 @@ export default function TeacherLogin() {
 
         <p className="text-center text-sm text-muted mt-6">
           ¿No tienes cuenta?{' '}
-          <Link to="/register" className="text-blue-600 font-semibold hover:underline">Crear cuenta</Link>
+          <Link to="/register" className="text-accent font-semibold hover:underline">Crear cuenta</Link>
         </p>
         <p className="text-center text-sm text-slate-400 mt-3">
           ¿Eres estudiante?{' '}
