@@ -2,26 +2,33 @@ import { useState, useMemo } from 'react'
 import { useToast } from '../Toast'
 import EFDateTimePicker from '../EFDateTimePicker'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { X, Plus, Bell, BellOff, Play, ArrowRight, CalendarPlus } from 'lucide-react'
+import { Bell, BellOff, Play, ArrowRight, CalendarPlus, Pencil } from 'lucide-react'
 import { BLOQUE_COLORS, ALARMA_SONIDOS, reproducirSonido } from '../../utils/horarioBloques'
 
-// Ventana simplificada: recoge SOLO la configuración general de la programación.
-// La colocación de cada bloque (día, hora, lugar) se hace después en la zona
-// semanal (ProgramarZonaSemanal). El color y la alarma de aquí son los valores
-// POR DEFECTO de cada bloque; se pueden ajustar bloque a bloque al colocarlos.
+// Ventana de configuración de una programación (paso 1 de 2).
+//
+//  - mode 'crear':      se elige la asignatura y todos los parámetros.
+//  - mode 'modificar':  la asignatura ya está fija (no se elige); el docente
+//                       puede cambiar fechas, duración, bloques/semana, color y
+//                       alarma de TODA la asignatura (útil p. ej. para recolorear
+//                       todos sus bloques de una vez).
+//
+// Los días de asueto ya NO se definen aquí: se administran globalmente desde el
+// botón "Días de asueto" del calendario.
 
-export default function ProgramarBloquesModal({ subjects, onClose, onContinue }) {
+export default function ProgramarBloquesModal({
+  subjects, mode = 'crear', initial = null, subjectName = '', onClose, onContinue,
+}) {
   const toast = useToast()
+  const esModificar = mode === 'modificar'
 
-  const [asignaturaId, setAsignaturaId] = useState('')
-  const [fechaInicio, setFechaInicio] = useState('')
-  const [fechaFin, setFechaFin] = useState('')
-  const [diasAsueto, setDiasAsueto] = useState([])
-  const [nuevoAsueto, setNuevoAsueto] = useState('')
-  const [duracionMin, setDuracionMin] = useState(60)
-  const [bloquesPorSemana, setBloquesPorSemana] = useState(1)
-  const [color, setColor] = useState('blue')
-  const [alarma, setAlarma] = useState({ activa: false, sonido: 'campana', minutosAntes: 10 })
+  const [asignaturaId, setAsignaturaId] = useState(initial?.asignaturaId || '')
+  const [fechaInicio, setFechaInicio] = useState(initial?.fechaInicio || '')
+  const [fechaFin, setFechaFin] = useState(initial?.fechaFin || '')
+  const [duracionMin, setDuracionMin] = useState(initial?.duracionMin || 60)
+  const [bloquesPorSemana, setBloquesPorSemana] = useState(initial?.bloquesPorSemana || 1)
+  const [color, setColor] = useState(initial?.color || 'blue')
+  const [alarma, setAlarma] = useState(initial?.alarma || { activa: false, sonido: 'campana', minutosAntes: 10 })
 
   const subjectList = useMemo(
     () => Object.values(subjects).sort((a, b) =>
@@ -29,23 +36,14 @@ export default function ProgramarBloquesModal({ subjects, onClose, onContinue })
     [subjects],
   )
 
-  function addAsueto() {
-    if (!nuevoAsueto || diasAsueto.includes(nuevoAsueto)) { setNuevoAsueto(''); return }
-    setDiasAsueto(a => [...a, nuevoAsueto].sort())
-    setNuevoAsueto('')
-  }
-  function removeAsueto(fecha) {
-    setDiasAsueto(a => a.filter(f => f !== fecha))
-  }
-
   function handleContinue() {
-    if (!asignaturaId) { toast('Selecciona una asignatura', 'error'); return }
+    if (!esModificar && !asignaturaId) { toast('Selecciona una asignatura', 'error'); return }
     if (!fechaInicio || !fechaFin) { toast('Indica la fecha de inicio y de finalización', 'error'); return }
     if (fechaFin < fechaInicio) { toast('La fecha de finalización debe ser posterior a la de inicio', 'error'); return }
     if (!duracionMin || duracionMin < 5) { toast('La duración debe ser de al menos 5 minutos', 'error'); return }
     if (!bloquesPorSemana || bloquesPorSemana < 1) { toast('Indica cuántos bloques por semana', 'error'); return }
     onContinue?.({
-      asignaturaId, fechaInicio, fechaFin, diasAsueto,
+      asignaturaId, fechaInicio, fechaFin,
       duracionMin, bloquesPorSemana, color, alarma,
     })
   }
@@ -56,17 +54,21 @@ export default function ProgramarBloquesModal({ subjects, onClose, onContinue })
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col"
+        className={`bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col ${esModificar ? 'ring-4 ring-amber-400 ring-inset' : ''}`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <CalendarPlus size={18} className="text-accent" />
-            <h2 className="font-semibold text-on-surface">Programar bloques de clase por asignatura</h2>
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0"
+          style={esModificar ? { background: '#fef3c7' } : undefined}>
+          <div className="flex items-center gap-2 min-w-0">
+            {esModificar ? <Pencil size={18} className="text-amber-600" /> : <CalendarPlus size={18} className="text-accent" />}
+            <h2 className="font-semibold text-on-surface truncate">
+              {esModificar ? `Modificar bloques de ${subjectName}` : 'Programar bloques de clase por asignatura'}
+            </h2>
           </div>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded transition-colors">
-            <X size={18} />
+            <ArrowRight size={18} className="rotate-90 md:rotate-0 hidden" />
+            <span className="text-xl leading-none">×</span>
           </button>
         </div>
 
@@ -74,19 +76,29 @@ export default function ProgramarBloquesModal({ subjects, onClose, onContinue })
         <div className="overflow-y-auto flex-1 p-4 space-y-5">
 
           {/* Asignatura */}
-          <div className="space-y-1.5">
-            {label('Asignatura')}
-            <select
-              value={asignaturaId}
-              onChange={e => setAsignaturaId(e.target.value)}
-              className={`${inputCls} w-full`}
-            >
-              <option value="">Elige una asignatura…</option>
-              {subjectList.map(s => (
-                <option key={s.id} value={s.id}>{subjectDisplayName(s)}</option>
-              ))}
-            </select>
-          </div>
+          {esModificar ? (
+            <div className="space-y-1.5">
+              {label('Asignatura')}
+              <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">
+                {subjectName}
+              </div>
+              <p className="text-xs text-muted">Estás modificando toda esta asignatura. Al guardar se reemplazan sus bloques.</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {label('Asignatura')}
+              <select
+                value={asignaturaId}
+                onChange={e => setAsignaturaId(e.target.value)}
+                className={`${inputCls} w-full`}
+              >
+                <option value="">Elige una asignatura…</option>
+                {subjectList.map(s => (
+                  <option key={s.id} value={s.id}>{subjectDisplayName(s)}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Rango de fechas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -113,47 +125,6 @@ export default function ProgramarBloquesModal({ subjects, onClose, onContinue })
             </div>
           </div>
 
-          {/* Días de asueto */}
-          <div className="space-y-1.5">
-            {label('Días de asueto (opcional)')}
-            <p className="text-xs text-muted">En estas fechas no se crearán bloques de clase.</p>
-            <div className="flex gap-2 items-stretch">
-              <div className="flex-1">
-                <EFDateTimePicker
-                  mode="date"
-                  value={nuevoAsueto}
-                  onChange={setNuevoAsueto}
-                  minDateTime={fechaInicio ? `${fechaInicio}T00:00` : undefined}
-                  placeholder="Agregar día de asueto…"
-                  clearable
-                />
-              </div>
-              <button
-                type="button"
-                onClick={addAsueto}
-                disabled={!nuevoAsueto}
-                className="px-3 rounded border border-outline-variant text-sm text-accent hover:bg-accent-tint disabled:opacity-40 transition-colors flex items-center gap-1"
-              >
-                <Plus size={14} /> Añadir
-              </button>
-            </div>
-            {diasAsueto.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {diasAsueto.map(f => {
-                  const d = new Date(f + 'T12:00:00')
-                  return (
-                    <span key={f} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface border border-outline-variant text-xs text-on-surface">
-                      {d.getDate()}/{d.getMonth() + 1}/{d.getFullYear()}
-                      <button type="button" onClick={() => removeAsueto(f)} className="text-muted hover:text-error" aria-label="Quitar">
-                        <X size={12} />
-                      </button>
-                    </span>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
           {/* Duración + bloques por semana */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -176,12 +147,14 @@ export default function ProgramarBloquesModal({ subjects, onClose, onContinue })
             </div>
           </div>
           <p className="text-xs text-muted -mt-3">
-            En el siguiente paso colocarás estos {bloquesPorSemana} bloque(s) en los días y horas de la semana.
+            {esModificar
+              ? 'En el siguiente paso reacomodas los bloques en la semana.'
+              : `En el siguiente paso colocarás estos ${bloquesPorSemana} bloque(s) en los días y horas de la semana.`}
           </p>
 
-          {/* Color por defecto */}
+          {/* Color */}
           <div className="space-y-1.5">
-            {label('Color de los bloques (por defecto)')}
+            {label(esModificar ? 'Color de los bloques' : 'Color de los bloques (por defecto)')}
             <div className="flex flex-wrap gap-2">
               {BLOQUE_COLORS.map(c => (
                 <button
@@ -195,9 +168,12 @@ export default function ProgramarBloquesModal({ subjects, onClose, onContinue })
                 />
               ))}
             </div>
+            {esModificar && (
+              <p className="text-xs text-muted">Si cambias el color aquí, se aplica a todos los bloques de la asignatura.</p>
+            )}
           </div>
 
-          {/* Alarma por defecto */}
+          {/* Alarma */}
           <div className="space-y-2 rounded-card border border-outline-variant p-3">
             <button
               type="button"
@@ -244,6 +220,9 @@ export default function ProgramarBloquesModal({ subjects, onClose, onContinue })
                 </div>
               </div>
             )}
+            {esModificar && alarma.activa && (
+              <p className="text-xs text-muted">La alarma se aplica al primer bloque de cada día (los seguidos no suenan en plena clase).</p>
+            )}
           </div>
         </div>
 
@@ -260,7 +239,7 @@ export default function ProgramarBloquesModal({ subjects, onClose, onContinue })
           <button
             type="button"
             onClick={handleContinue}
-            className="px-4 py-2 bg-accent text-white rounded text-sm font-semibold flex items-center gap-2"
+            className={`px-4 py-2 text-white rounded text-sm font-semibold flex items-center gap-2 ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
           >
             Continuar <ArrowRight size={15} />
           </button>
