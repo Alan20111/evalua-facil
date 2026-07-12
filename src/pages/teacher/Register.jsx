@@ -88,8 +88,9 @@ export default function Register() {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
+              <label htmlFor="register-email" className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
               <input
+                id="register-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -101,8 +102,9 @@ export default function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Contraseña</label>
+              <label htmlFor="register-password" className="block text-sm font-medium text-muted mb-1">Contraseña</label>
               <PasswordInput
+                id="register-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -113,8 +115,9 @@ export default function Register() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
+              <label htmlFor="register-confirm-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
               <PasswordInput
+                id="register-confirm-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required

@@ -275,12 +275,14 @@ function AgendaView({
         <div ref={gridRef} className="relative flex-1 border-l border-outline-variant" style={{ height: gridH }}>
           {/* Líneas de hora / click para crear evento */}
           {hours.map((h, i) => (
-            <div
+            <button
               key={h}
+              type="button"
               onClick={() => onSlotClick?.(dateStr, `${String(h).padStart(2, '0')}:00`)}
-              className="absolute left-0 right-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
+              className="absolute left-0 right-0 p-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
               style={{ top: i * AGENDA_ROW_H, height: AGENDA_ROW_H }}
               data-tooltip="Crear evento a esta hora"
+              aria-label={`Crear evento a las ${h}:00`}
             />
           ))}
 
@@ -321,11 +323,12 @@ function AgendaView({
             }
 
             return (
-              <div
+              <button
                 key={it.id}
+                type="button"
                 onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, it) } : undefined}
                 onClick={!movable ? e => { e.stopPropagation(); onEventClick?.(it.ev) } : undefined}
-                className={`absolute rounded-card overflow-hidden shadow-sm ring-1 ring-black/5 select-none transition-[filter] hover:brightness-95 ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+                className={`absolute rounded-card overflow-hidden shadow-sm ring-1 ring-black/5 select-none transition-[filter] hover:brightness-95 p-0 text-left block ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
                 style={{
                   top, height,
                   left: `calc(${lane * w}% + 3px)`,
@@ -353,7 +356,7 @@ function AgendaView({
                     )}
                   </div>
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
@@ -492,7 +495,16 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
             <div
               key={dateStr}
               ref={el => { cellRefs.current[dateStr] = el }}
+              role="button"
+              tabIndex={0}
               onClick={() => onDateClick?.(cell)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onDateClick?.(cell)
+                }
+              }}
+              aria-label={`Ver día ${cell.getDate()} de ${MESES[cell.getMonth()]}`}
               className={`min-h-[92px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
               style={asueto ? { background: '#fffbeb' } : dateStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
             >
@@ -522,7 +534,6 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
                     <div
                       key={it.kind === 'bloque' ? it.b.id : it.ev.id}
                       onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, it.kind === 'bloque' ? { kind: 'bloque', b: it.b } : { kind: 'event', ev: it.ev }) } : undefined}
-                      onClick={e => e.stopPropagation()}
                       className={movable ? 'cursor-grab active:cursor-grabbing select-none' : ''}
                       style={{ touchAction: 'none', opacity: isDraggingThis ? 0.3 : 1 }}
                     >
@@ -715,11 +726,13 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
               >
                 {/* Hour gridlines / click targets — crean un EVENTO nuevo */}
                 {hoursRange.map((hour, i) => (
-                  <div
+                  <button
                     key={hour}
+                    type="button"
                     onClick={() => onSlotClick?.(dStr, `${String(hour).padStart(2, '0')}:00`)}
-                    className="absolute left-0 right-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
+                    className="absolute left-0 right-0 p-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
                     style={{ top: i * ROW_H, height: ROW_H }}
+                    aria-label={`Crear evento a las ${hour}:00`}
                   />
                 ))}
 
@@ -1361,7 +1374,12 @@ export default function CalendarPage() {
             {/* Mini calendario para saltar a una fecha */}
             {showDatePicker && (
               <>
-                <div className="fixed inset-0 z-20" onClick={() => setShowDatePicker(false)} />
+                <button
+                  type="button"
+                  className="fixed inset-0 z-20 bg-transparent border-none cursor-default"
+                  onClick={() => setShowDatePicker(false)}
+                  aria-label="Cerrar selector de fecha"
+                />
                 <div className="absolute left-1/2 -translate-x-1/2 top-11 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
                   <div className="flex items-center justify-between mb-2">
                     <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-1 rounded hover:bg-accent-tint text-muted">
@@ -1451,7 +1469,12 @@ export default function CalendarPage() {
             </button>
             {showHoras && (
               <>
-                <div className="fixed inset-0 z-20" onClick={() => setShowHoras(false)} />
+                <button
+                  type="button"
+                  className="fixed inset-0 z-20 bg-transparent border-none cursor-default"
+                  onClick={() => setShowHoras(false)}
+                  aria-label="Cerrar selector de horas"
+                />
                 <div className="absolute right-0 top-10 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
                   <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
                   <div className="flex items-center gap-2">
@@ -1646,8 +1669,14 @@ export default function CalendarPage() {
 
       {/* Selector de asignatura para "Modificar bloques" */}
       {showModificarPicker && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 bg-black/40" onClick={() => setShowModificarPicker(false)}>
-          <div className="bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 border-none cursor-default"
+            onClick={() => setShowModificarPicker(false)}
+            aria-label="Cerrar"
+          />
+          <div className="relative bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CalendarClock size={18} className="text-accent" />
@@ -1699,8 +1728,14 @@ export default function CalendarPage() {
           return `${DIAS_LARGO[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MESES[d.getMonth()]}`
         }
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setPendingMove(null)}>
-            <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/40 border-none cursor-default"
+              onClick={() => setPendingMove(null)}
+              aria-label="Cerrar"
+            />
+            <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
               <h2 className="font-semibold text-on-surface">¿Mover solo este bloque?</h2>
               <div className="text-sm text-on-surface space-y-1 bg-surface rounded-card border border-outline-variant p-3">
                 <p className="font-medium">{subjectDisplayName(subj) || 'Clase'}</p>
@@ -1759,8 +1794,14 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
   const fmt = s => { const d = new Date(s + 'T12:00:00'); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}` }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        onClick={onClose}
+        aria-label="Cerrar"
+      />
+      <div className="relative bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0">
           <div className="flex items-center gap-2">
             <CalendarOff size={18} className="text-amber-600" />

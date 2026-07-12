@@ -887,7 +887,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <div>
                   <label htmlFor="preg-nueva-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                   <textarea id="preg-nueva-enunciado" value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
-                    rows={2} required autoFocus
+                    rows={2} required
                     className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 </div>
                 <div>
@@ -964,7 +964,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
             {showBanco && (
               <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-                <div className="absolute inset-0 bg-black/40" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} />
+                <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => { setShowBanco(false); setEditingBancoId(null); setGlowId(null) }} aria-label="Cerrar" />
                 <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
                   <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
                   <div className="flex gap-2 mb-3">
@@ -1264,9 +1264,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   // Every row opens the full-screen review — even with no submission
                   // it shows "No realizado".
                   return (
-                    <div key={s.id} id={`resultado-${s.id}`}
+                    <button type="button" key={s.id} id={`resultado-${s.id}`}
                       onClick={() => openReview(s, filtroResultados)}
-                      className={`px-3 py-2 cursor-pointer hover:bg-[var(--accent-tint)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
+                      className={`w-full text-left px-3 py-2 cursor-pointer hover:bg-[var(--accent-tint)] border-none ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
                       <div className="flex items-center gap-2">
                         <p className="flex-1 text-sm text-on-surface truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
@@ -1283,7 +1283,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           {fmtHora(sub.tiempoInicio)} → {fmtHora(sub.fechaEntrega)} · {fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · intento {sub.intentoActual || 1}
                         </p>
                       )}
-                    </div>
+                    </button>
                   )
                 })
               )}
@@ -1485,7 +1485,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       {/* Anular-entrega confirmation */}
       {cancelConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !cancelling && setCancelConfirm(null)} />
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !cancelling && setCancelConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
             <h3 className="text-base font-semibold text-on-surface">¿Anular la entrega?</h3>
             <p className="text-sm text-muted mt-2">

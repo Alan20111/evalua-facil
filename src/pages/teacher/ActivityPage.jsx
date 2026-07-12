@@ -1222,6 +1222,7 @@ export default function ActivityPage() {
                           max={activity?.maxCalif}
                           step="0.1"
                           placeholder="—"
+                          // Primer campo del panel de calificación, abierto con intención de escribir.
                           autoFocus={!parcialCerrado}
                           disabled={parcialCerrado}
                           className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
@@ -1477,6 +1478,7 @@ export default function ActivityPage() {
                             min="0"
                             max={activity?.maxCalif}
                             step="0.1"
+                            // Primer campo del panel "Evaluar sin entrega", abierto con intención de escribir.
                             autoFocus
                             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface"
                           />

@@ -304,6 +304,8 @@ export default function StudentLogin() {
                   value={subjectCodeInput}
                   onChange={(e) => { setSubjectCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); setCodeError('') }}
                   required
+                  // autoFocus intencional: único campo de este paso (confirmar código de acceso),
+                  // se muestra una sola vez por sesión de primer login — no es un modal reabrible.
                   autoFocus
                   autoComplete="off"
                   autoCorrect="off"
@@ -351,6 +353,8 @@ export default function StudentLogin() {
                     value={recoverUsername}
                     onChange={(e) => { setRecoverUsername(e.target.value); setRecoverError('') }}
                     required
+                    // autoFocus intencional: primer campo de este paso (recuperar contraseña por username),
+                    // se muestra una sola vez por sesión — no es un modal reabrible.
                     autoFocus
                     autoComplete="off"
                     autoCorrect="off"
@@ -393,6 +397,8 @@ export default function StudentLogin() {
                     value={newPassword}
                     onChange={(e) => { setNewPassword(e.target.value); setRecoverError('') }}
                     required
+                    // autoFocus intencional: primer campo de este paso (elegir nueva contraseña),
+                    // se muestra una sola vez por sesión — no es un modal reabrible.
                     autoFocus
                     className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                     placeholder="Mínimo 6 caracteres"
@@ -443,6 +449,8 @@ export default function StudentLogin() {
                     value={username}
                     onChange={(e) => { setUsername(e.target.value); setError('') }}
                     required
+                    // autoFocus intencional: primer campo del formulario de login,
+                    // pantalla de entrada única — no es un modal reabrible.
                     autoFocus
                     autoComplete="off"
                     autoCorrect="off"

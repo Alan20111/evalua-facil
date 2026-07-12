@@ -142,8 +142,9 @@ export default function ResetPassword() {
                 </>
               )}
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
+                <label htmlFor="reset-email" className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
                 <input
+                  id="reset-email"
                   type="email"
                   value={email}
                   disabled
@@ -151,8 +152,9 @@ export default function ResetPassword() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
+                <label htmlFor="reset-password" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
                 <PasswordInput
+                  id="reset-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -163,8 +165,9 @@ export default function ResetPassword() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
+                <label htmlFor="reset-confirm-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
                 <PasswordInput
+                  id="reset-confirm-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required

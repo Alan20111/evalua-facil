@@ -15,8 +15,7 @@ export default function FileDropzone({ onFilesSelected, multiple = true, accept,
   }
 
   return (
-    <div
-      onClick={() => inputRef.current?.click()}
+    <label
       onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => {
@@ -24,7 +23,7 @@ export default function FileDropzone({ onFilesSelected, multiple = true, accept,
         setDragOver(false)
         handleFiles(e.dataTransfer.files)
       }}
-      className={`w-full border-2 border-dashed rounded p-4 text-center cursor-pointer transition-colors ${
+      className={`w-full border-2 border-dashed rounded p-4 text-center cursor-pointer transition-colors block ${
         dragOver ? 'border-accent bg-[var(--accent-tint)]' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
       }`}
     >
@@ -39,6 +38,6 @@ export default function FileDropzone({ onFilesSelected, multiple = true, accept,
         onChange={(e) => { handleFiles(e.target.files); e.target.value = '' }}
         className="hidden"
       />
-    </div>
+    </label>
   )
 }
