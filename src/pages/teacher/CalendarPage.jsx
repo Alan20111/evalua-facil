@@ -619,7 +619,9 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
     function onMove(e) {
       const s = dragStartRef.current
       const moved = s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
-      setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
+      // Los bloques de clase solo se mueven en VERTICAL (mismo día): el fantasma
+      // no se desplaza en horizontal (x fija).
+      setDrag(d => d && ({ ...d, x: d.kind === 'bloque' ? d.x : e.clientX, y: e.clientY, moved: d.moved || moved }))
     }
     function onUp(e) {
       // Los handlers del padre (onMove*/onEventClick) se llaman FUERA del
@@ -634,8 +636,19 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
         else onBlockClick?.(d.bloque)
         return
       }
-      // Detecta la columna (día) bajo el cursor.
       const blockTop = e.clientY - d.grabDY
+      if (d.kind === 'bloque') {
+        // SOLO vertical y el MISMO día: el día no cambia; la hora sale de la
+        // posición vertical (todas las columnas comparten el mismo `top`).
+        const anyCol = colRefs.current.find(el => el)
+        const colTop = anyCol ? anyCol.getBoundingClientRect().top : 0
+        let mins = Math.round(((blockTop - colTop) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+        mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
+        const nuevaHora = minutesToTimeStr(mins)
+        if (nuevaHora !== d.bloque.horaInicio) onMoveBloque?.(d.bloque, d.bloque.fecha, nuevaHora)
+        return
+      }
+      // Eventos personales: pueden cambiar de día (se detecta la columna).
       let target = null
       colRefs.current.forEach((el, idx) => {
         if (!el) return
@@ -647,13 +660,9 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
       mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
       const nuevaFecha = toDateStr(days[target.idx])
       const nuevaHora = minutesToTimeStr(mins)
-      if (d.kind === 'event') {
-        // Evento personal: se mueve directo, sin preguntar.
-        if (nuevaFecha !== d.ev.dateStr || nuevaHora !== d.ev.timeStr) {
-          onMoveEvent?.(d.ev.rawEvent, nuevaFecha, nuevaHora)
-        }
-      } else if (nuevaFecha !== d.bloque.fecha || nuevaHora !== d.bloque.horaInicio) {
-        onMoveBloque?.(d.bloque, nuevaFecha, nuevaHora)
+      // Evento personal: se mueve directo, sin preguntar.
+      if (nuevaFecha !== d.ev.dateStr || nuevaHora !== d.ev.timeStr) {
+        onMoveEvent?.(d.ev.rawEvent, nuevaFecha, nuevaHora)
       }
     }
     window.addEventListener('pointermove', onMove)
@@ -1754,6 +1763,11 @@ export default function CalendarPage() {
         const stepHora = (delta) => setPendingMove(pm => ({ ...pm, hora: addMinutesToTime(pm.hora, delta) }))
         const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent'
         const cambioHora = hora !== b.horaInicio
+        // No permitir encimar con otra clase del MISMO día.
+        const iniMin = timeToMinutes(hora)
+        const finMin = iniMin + durMin
+        const seEncima = bloques.some(x => x.id !== b.id && x.fecha === b.fecha
+          && timeToMinutes(x.horaInicio) < finMin && iniMin < timeToMinutes(x.horaFin))
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button
@@ -1788,15 +1802,20 @@ export default function CalendarPage() {
                   </button>
                 </div>
                 <p className="text-xs text-muted">Termina a las <strong className="text-on-surface">{addMinutesToTime(hora, durMin)}</strong></p>
+                {seEncima && (
+                  <p className="text-xs text-error flex items-center gap-1">
+                    <AlertTriangle size={13} className="flex-shrink-0" /> A esa hora se encima con otra clase. Elige otra hora.
+                  </p>
+                )}
               </div>
 
               <button
                 type="button"
                 onClick={() => confirmPendingMove()}
-                disabled={!cambioHora}
+                disabled={!cambioHora || seEncima}
                 className="w-full py-2 bg-accent text-white rounded-card text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-45"
               >
-                {cambioHora ? `Mover a las ${fmtHour(hora)}` : 'Ajusta la hora para mover'}
+                {seEncima ? 'Se encima con otra clase' : cambioHora ? `Mover a las ${fmtHour(hora)}` : 'Ajusta la hora para mover'}
               </button>
 
               {/* Borrar SOLO esta clase */}
