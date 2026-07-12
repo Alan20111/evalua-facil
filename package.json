@@ -9,15 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:rules": "firebase emulators:exec --only firestore --project demo-test 'node test/firestore-rules.test.mjs'",
-    "deploy:rules": "firebase deploy --only firestore --project evalua-facil-app",
-    "storybook": "storybook dev -p 6006 --no-open",
-    "storybook:build": "storybook build --output-dir storybook-static",
-    "test:a11y": "bash ./scripts/run-a11y.sh",
-    "test:responsive": "playwright test",
-    "test:responsive:debug": "playwright test --debug",
-    "test:responsive:headed": "playwright test --headed",
-    "chromatic": "chromatic --project-token=$CHROMATIC_PROJECT_TOKEN",
-    "design:verify": "npm run storybook:build && npm run test:a11y && npm run test:responsive"
+    "deploy:rules": "firebase deploy --only firestore --project evalua-facil-app"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
@@ -48,29 +40,18 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@axe-core/cli": "^4.12.1",
     "@eslint/js": "^10.0.1",
     "@firebase/rules-unit-testing": "^5.0.1",
-    "@playwright/test": "^1.61.1",
-    "@storybook/addon-a11y": "^10.5.0",
-    "@storybook/addon-designs": "^11.1.4",
-    "@storybook/addon-docs": "^10.5.0",
-    "@storybook/react-vite": "^10.5.0",
-    "@storybook/test-runner": "^0.24.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
-    "chromatic": "^18.0.1",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
-    "http-server": "^14.1.1",
     "postcss": "^8.5.15",
-    "storybook": "^10.5.0",
     "tailwindcss": "^3.4.19",
-    "vite": "^8.0.12",
-    "wait-on": "^9.0.10"
+    "vite": "^8.0.12"
   }
 }

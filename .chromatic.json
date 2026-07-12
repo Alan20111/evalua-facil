@@ -1,9 +1,0 @@
-{
-  "projectToken": "$CHROMATIC_PROJECT_TOKEN",
-  "onlyChanged": true,
-  "exitOnceUploaded": true,
-  "skipBuildScript": false,
-  "buildScriptName": "storybook:build",
-  "storybookBuildDir": "storybook-static",
-  "debug": false
-}
