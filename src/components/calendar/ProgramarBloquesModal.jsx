@@ -110,6 +110,7 @@ export default function ProgramarBloquesModal({
                 onChange={v => { setFechaInicio(v); if (fechaFin && fechaFin < v) setFechaFin('') }}
                 placeholder="Desde…"
                 clearable={false}
+                showShortcuts={false}
               />
             </div>
             <div className="space-y-1.5">
@@ -121,6 +122,7 @@ export default function ProgramarBloquesModal({
                 minDateTime={fechaInicio ? `${fechaInicio}T00:00` : undefined}
                 placeholder="Hasta…"
                 clearable={false}
+                showShortcuts={false}
               />
             </div>
           </div>
