@@ -14,6 +14,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { studentEmail, usernameCandidates } from '../../utils/generate'
 import { GraduationCap, Check } from 'lucide-react'
+import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
@@ -252,9 +253,7 @@ export default function StudentActivation() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
-            <GraduationCap size={32} className="text-white" />
-          </div>
+          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
           <h1 className="text-2xl font-bold text-on-surface">Activar cuenta</h1>
           {subject && (
             <p className="text-muted text-sm mt-1 break-words">
