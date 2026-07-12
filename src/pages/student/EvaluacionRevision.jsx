@@ -9,6 +9,7 @@ import { ArrowLeft, CheckCircle2, XCircle, MessageSquare } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
+import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 
 // Read-only post-evaluación review: shows the student's own answers, whether
 // each was correct (if the teacher enabled mostrarRespuestasCorrectas), and
@@ -86,7 +87,7 @@ export default function EvaluacionRevision() {
           </div>
         </header>
 
-        <div className="px-4 py-5 max-w-xl mx-auto space-y-3">
+        <div className={`px-4 py-5 ${STUDENT_CONTAINER_NARROW} space-y-3`}>
           {preguntas.map((p, i) => {
             const respuesta = respuestas[p.id] || {}
             const esObjetiva = p.tipo !== 'respuesta_corta'

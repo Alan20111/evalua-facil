@@ -60,22 +60,29 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={() => !saving && onClose()} />
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        onClick={() => !saving && onClose()}
+        aria-label="Cerrar"
+      />
       <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card p-4 shadow-2xl max-h-[90vh] flex flex-col">
         <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
         <div className="flex gap-2 mt-3 flex-shrink-0">
           <button type="button" onClick={() => setMode('todos')}
-            className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${mode === 'todos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
+            className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${mode === 'todos' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'}`}>
             Para todos
           </button>
           <button type="button" onClick={() => setMode('algunos')}
-            className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${mode === 'algunos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
+            className={`flex-1 py-2 rounded text-sm font-medium border transition-colors ${mode === 'algunos' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'}`}>
             Para algunos
           </button>
         </div>
 
         <div className="mt-3 overflow-auto">
-          <label className="block text-sm font-medium text-muted mb-1">Nueva fecha y hora límite</label>
+          {/* Caption for EFDateTimePicker, not a native <label> — the picker
+              renders its own internal button/inputs with no id to target. */}
+          <span className="block text-sm font-medium text-muted mb-1">Nueva fecha y hora límite</span>
           <EFDateTimePicker mode="datetime" value={date} onChange={setDate} clearable={false} />
 
           {mode === 'todos' && (
@@ -92,7 +99,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                 <Search size={15} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input value={search} onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar por nombre o número de lista…"
-                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent" />
+                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
               </div>
               <div className="border border-outline-variant rounded max-h-52 overflow-auto divide-y divide-outline-variant">
                 {students.filter((s) => !search.trim() || matchesStudentSearch(s, search)).map((s) => (
@@ -109,10 +116,10 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                 fecha; al pasar, se cerrará también para ellos.
               </p>
               <div className="mt-2">
-                <label className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>
-                <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
+                <label htmlFor="fecha-entrega-motivo" className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>
+                <textarea id="fecha-entrega-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
                   placeholder="Ej.: Falta justificada por duelo familiar"
-                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus:ring-2 focus:ring-accent" />
+                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
               </div>
             </div>
           )}
@@ -125,7 +132,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
           </button>
           <button type="button" onClick={save}
             disabled={saving || !date || (mode === 'algunos' && selected.size === 0)}
-            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-50 transition-colors">
+            className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors">
             {saving ? 'Guardando…' : 'Guardar'}
           </button>
         </div>

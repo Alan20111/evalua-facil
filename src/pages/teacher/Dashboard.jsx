@@ -200,14 +200,14 @@ export default function TeacherDashboard() {
 
             {subjects.length === 0 ? (
               <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center mb-4">
-                <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-2">
-                  <BookOpen size={28} className="text-blue-400" />
+                <div className="w-14 h-14 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
+                  <BookOpen size={28} className="text-accent" />
                 </div>
                 <p className="text-muted font-medium mb-2">Aún no tienes asignaturas</p>
                 <button
                   type="button"
                   onClick={openSubjectModal}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded transition-colors"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white font-semibold text-sm rounded transition-colors"
                 >
                   <Plus size={18} />
                   Crear mi primera asignatura
@@ -228,7 +228,7 @@ export default function TeacherDashboard() {
                         disabled={i === 0}
                         data-tooltip="Subir"
                         aria-label="Subir"
-                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-30 rounded"
+                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
                       >
                         <ArrowUp size={16} />
                       </button>
@@ -238,7 +238,7 @@ export default function TeacherDashboard() {
                         disabled={i === subjects.length - 1}
                         data-tooltip="Bajar"
                         aria-label="Bajar"
-                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-30 rounded"
+                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
                       >
                         <ArrowDown size={16} />
                       </button>
@@ -280,7 +280,7 @@ export default function TeacherDashboard() {
         type="button"
         onClick={openSubjectModal}
         aria-label="Nueva asignatura"
-        className="md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
+        className="md:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 w-14 h-14 bg-accent hover:bg-accent-hover text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-20"
       >
         <Plus size={26} />
       </button>
@@ -288,7 +288,12 @@ export default function TeacherDashboard() {
       {/* ── Nueva asignatura modal ── */}
       {showSubjectModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowSubjectModal(false)} />
+          <button
+            type="button"
+            aria-label="Cerrar"
+            onClick={() => setShowSubjectModal(false)}
+            className="absolute inset-0 bg-black/40"
+          />
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
@@ -306,8 +311,9 @@ export default function TeacherDashboard() {
                   value={newSubjectName}
                   onChange={(e) => setNewSubjectName(e.target.value)}
                   required
+                  // Primer campo del modal "Nueva asignatura", que el usuario abre con intención explícita de escribir de inmediato.
                   autoFocus
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas, Física, Historia"
                 />
               </div>
@@ -320,16 +326,16 @@ export default function TeacherDashboard() {
                   value={newSubjectGrupo}
                   onChange={(e) => setNewSubjectGrupo(e.target.value)}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: 1A, 2B, 3C"
                 />
               </div>
 
               {/* Fechas (opcionales) */}
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">
+                <span className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-slate-400 font-normal text-xs">(opcional)</span>
-                </label>
+                </span>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
@@ -344,9 +350,9 @@ export default function TeacherDashboard() {
 
               {/* Parciales */}
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">
+                <span className="block text-sm font-medium text-muted mb-1">
                   Calificaciones parciales <span className="text-slate-400 font-normal text-xs">(por defecto 3)</span>
-                </label>
+                </span>
                 <div className="grid grid-cols-6 gap-1.5">
                   {[1, 2, 3, 4, 5, 6].map((n) => (
                     <button
@@ -355,7 +361,7 @@ export default function TeacherDashboard() {
                       onClick={() => setNewSubjectParciales(n)}
                       className={`py-2 rounded text-sm font-bold transition-colors ${
                         newSubjectParciales === n
-                          ? 'bg-blue-600 text-white'
+                          ? 'bg-accent text-white'
                           : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'
                       }`}
                     >
@@ -367,24 +373,24 @@ export default function TeacherDashboard() {
 
               {/* Paleta de color */}
               <div>
-                <label className="block text-sm font-medium text-muted mb-2">
+                <span className="block text-sm font-medium text-muted mb-2">
                   Color de la asignatura
-                </label>
+                </span>
                 <PaletteSelect value={newSubjectPalette} onChange={setNewSubjectPalette} />
               </div>
 
               {/* Icono */}
               <div data-subject-palette={newSubjectPalette}>
-                <label className="block text-sm font-medium text-muted mb-2">
+                <span className="block text-sm font-medium text-muted mb-2">
                   Icono de la asignatura
-                </label>
+                </span>
                 <IconSelect value={newSubjectIcon} onChange={setNewSubjectIcon} />
               </div>
 
               <button
                 type="submit"
                 disabled={creatingSubject}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {creatingSubject ? <Spinner size="sm" /> : <Plus size={18} />}
                 {creatingSubject ? 'Creando…' : 'Crear asignatura'}

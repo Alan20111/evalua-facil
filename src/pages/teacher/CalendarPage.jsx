@@ -9,6 +9,7 @@ import EventEditor, { EVENT_COLORS } from '../../components/calendar/EventEditor
 import HorarioEditor from '../../components/calendar/HorarioEditor'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, BookOpen, AlertTriangle,
@@ -167,7 +168,15 @@ function MonthView({ year, month, events, onDateClick, onEventClick }) {
           return (
             <div
               key={dateStr}
+              role="button"
+              tabIndex={0}
               onClick={() => onDateClick?.(cell)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onDateClick?.(cell)
+                }
+              }}
               className={`min-h-[88px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
             >
               <div className={`w-6 h-6 flex items-center justify-center text-xs font-semibold mb-1 rounded-full mx-auto ${isToday(cell) ? 'bg-accent text-white' : 'text-on-surface'}`}>
@@ -449,7 +458,7 @@ export default function CalendarPage() {
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <TeacherLayout>
-      <div className="max-w-5xl mx-auto px-4 py-4">
+      <div className={`${TEACHER_CONTAINER} px-4 py-4`}>
 
         {/* Top controls */}
         <div className="flex flex-wrap items-center gap-2 mb-4">

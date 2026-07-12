@@ -73,7 +73,7 @@ export default function LinkAccountModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={onClose} aria-label="Cerrar" />
       <div className="relative bg-surface-card w-full max-w-sm rounded-card p-5 shadow-2xl">
         <button
           type="button"
@@ -91,14 +91,17 @@ export default function LinkAccountModal({ onClose }) {
             </p>
             <form onSubmit={handleContinue} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
+                <label htmlFor="link-account-email" className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
                 <input
+                  id="link-account-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  // Justified: only field in a modal just opened for this single purpose —
+                  // the user opens it specifically to type their email right away.
                   autoFocus
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-transparent text-sm bg-surface"
                   placeholder="nombre@correo.com"
                 />
               </div>
@@ -106,7 +109,7 @@ export default function LinkAccountModal({ onClose }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {loading ? <Spinner size="sm" /> : null}
                 {loading ? 'Validando…' : 'Continuar'}
@@ -128,7 +131,7 @@ export default function LinkAccountModal({ onClose }) {
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors"
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
             >
               Entendido
             </button>

@@ -25,8 +25,8 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
   }
 
   return (
-    <div>
-      <label className="block text-sm font-medium text-muted mb-1">Archivos permitidos</label>
+    <fieldset className="border-0 m-0 p-0">
+      <legend className="block text-sm font-medium text-muted mb-1 p-0">Archivos permitidos</legend>
       <p className="text-xs text-accent font-medium mb-2">
         Ejemplo: al elegir imágenes y 1 Word, el estudiante podrá subir hasta 5 imágenes o un archivo de Word.
       </p>
@@ -70,7 +70,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
               required
               autoComplete="off"
               spellCheck={false}
-              className={`w-full px-3 py-2 rounded border focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface-card ${
+              className={`w-full px-3 py-2 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card ${
                 customExtsMissing ? 'border-red-300' : 'border-outline-variant'
               }`}
             />
@@ -80,6 +80,6 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
           </div>
         )}
       </div>
-    </div>
+    </fieldset>
   )
 }

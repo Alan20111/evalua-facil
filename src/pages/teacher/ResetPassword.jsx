@@ -102,7 +102,7 @@ export default function ResetPassword() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-3">
+          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">
@@ -122,7 +122,7 @@ export default function ResetPassword() {
               </p>
               <Link
                 to="/docente"
-                className="inline-block w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors"
+                className="inline-block w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
               >
                 Ir a iniciar sesión
               </Link>
@@ -142,8 +142,9 @@ export default function ResetPassword() {
                 </>
               )}
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
+                <label htmlFor="reset-email" className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
                 <input
+                  id="reset-email"
                   type="email"
                   value={email}
                   disabled
@@ -151,32 +152,34 @@ export default function ResetPassword() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
+                <label htmlFor="reset-password" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
                 <PasswordInput
+                  id="reset-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={isGoogleLinking ? 8 : 6}
                   autoComplete="new-password"
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder={isGoogleLinking ? 'Mínimo 8 caracteres, con letra y número' : 'Mínimo 6 caracteres'}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
+                <label htmlFor="reset-confirm-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
                 <PasswordInput
+                  id="reset-confirm-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Repite la contraseña"
                 />
               </div>
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}
                 {saving ? 'Guardando…' : (isGoogleLinking ? 'Guardar y entrar' : 'Guardar nueva contraseña')}
@@ -203,7 +206,7 @@ export default function ResetPassword() {
               <button
                 type="button"
                 onClick={() => navigate('/dashboard')}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors"
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
               >
                 Entrar a Evalúa Fácil
               </button>
@@ -219,7 +222,7 @@ export default function ResetPassword() {
               <button
                 type="button"
                 onClick={() => navigate('/docente')}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors"
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
               >
                 Ir a iniciar sesión
               </button>

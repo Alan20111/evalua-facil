@@ -7,7 +7,7 @@ import Spinner from '../../../components/Spinner'
 import { usePaymentConfig, DEFAULT_PAYMENT_CONFIG } from '../../../hooks/usePaymentConfig'
 
 const inputCls =
-  'w-full px-3.5 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm'
+  'w-full px-3.5 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm'
 
 function Toggle({ checked, onChange }) {
   return (
@@ -15,7 +15,7 @@ function Toggle({ checked, onChange }) {
       type="button"
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-        checked ? 'bg-blue-600' : 'bg-slate-300'
+        checked ? 'bg-accent' : 'bg-slate-300'
       }`}
     >
       <span
@@ -151,8 +151,8 @@ export default function PaymentConfig() {
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded bg-blue-50 flex items-center justify-center">
-              <Wallet size={20} className="text-blue-600" />
+            <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center">
+              <Wallet size={20} className="text-accent" />
             </div>
             <div>
               <h3 className="font-semibold text-on-surface">PayPal</h3>
@@ -238,7 +238,7 @@ export default function PaymentConfig() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 disabled:opacity-60"
+          className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover disabled:opacity-60"
         >
           {saving ? <Spinner size="sm" /> : <Save size={17} />}
           Guardar configuración
