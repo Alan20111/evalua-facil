@@ -1781,7 +1781,8 @@ export default function SubjectPage() {
       }
       if (students.length === 0) { toast('No hay estudiantes en esta asignatura', 'error'); return }
 
-      await exportCredentialsPDF({ subject, students, activationUrl })
+      const docenteNombre = userProfile?.nombreMostrar || userProfile?.nombre || ''
+      await exportCredentialsPDF({ subject, students, activationUrl, docenteNombre })
       toast('Lista de acceso descargada')
       setShowCredentialsModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -2775,7 +2776,7 @@ export default function SubjectPage() {
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">3</span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5"><KeyRound size={16} className="flex-shrink-0" /> Generar códigos</p>
+                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5"><KeyRound size={16} className="flex-shrink-0" /> Generar PDF con códigos</p>
                   <p className="text-xs text-muted truncate">Accesos para tus estudiantes</p>
                 </div>
               </button>
