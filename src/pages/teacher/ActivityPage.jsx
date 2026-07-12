@@ -1619,6 +1619,7 @@ export default function ActivityPage() {
       {newDateOpen && (
         <NuevaFechaEntregaModal
           activityId={activityId}
+          docenteId={activity.docenteId}
           students={students}
           onClose={() => setNewDateOpen(false)}
           onSaved={applyNewDateResult}

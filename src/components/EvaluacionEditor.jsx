@@ -17,6 +17,7 @@ import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import { minDeadline } from '../utils/nowIso'
+import { useAsuetoActividades } from '../hooks/useAsuetoActividades'
 
 function toIsoNow() {
   const d = new Date()
@@ -76,6 +77,7 @@ export default function EvaluacionEditor({
   onActivityUpdated,
 }) {
   const toast = useToast()
+  const { bloqueadoPorAsuetoActividad } = useAsuetoActividades(docenteId)
   // "Nueva fecha de entrega" (grupo completo o estudiantes específicos)
   const [newDateOpen, setNewDateOpen] = useState(false)
   // ── Basic info state ──────────────────────────────────────────────
@@ -222,6 +224,9 @@ export default function EvaluacionEditor({
         toast('La fecha límite debe ser posterior a la fecha de publicación', 'error'); return
       }
     }
+    // Bloquea fijar la fecha límite o la publicación programada en un día de asueto de actividades.
+    if (bloqueadoPorAsuetoActividad(infoForm.fechaLimite)) return
+    if (!asDraft && mode === 'schedule' && bloqueadoPorAsuetoActividad(infoForm.publishAt)) return
 
     setSavingInfo(true)
     try {
@@ -1163,6 +1168,7 @@ export default function EvaluacionEditor({
       {newDateOpen && currentActivityId && (
         <NuevaFechaEntregaModal
           activityId={currentActivityId}
+          docenteId={docenteId}
           students={students || []}
           onClose={() => setNewDateOpen(false)}
           onSaved={(result) => {
