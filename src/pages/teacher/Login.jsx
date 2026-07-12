@@ -10,7 +10,7 @@ import { auth } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import GoogleIcon from '../../components/GoogleIcon'
-import { GraduationCap } from 'lucide-react'
+import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { createTeacherAccountIfNew } from '../../utils/googleAuth'
 import LinkAccountModal from '../../components/LinkAccountModal'
@@ -83,11 +83,8 @@ export default function TeacherLogin() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
-            <GraduationCap size={32} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-on-surface">Evalúa Fácil</h1>
-          <p className="text-muted text-sm mt-1">Evidencias y calificaciones. Sin complicaciones.</p>
+          {/* Logotipo completo de la marca (icono + nombre + subtítulo) */}
+          <EFLogo className="mx-auto w-56 sm:w-64 h-auto" />
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5 space-y-3">
