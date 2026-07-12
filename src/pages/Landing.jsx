@@ -12,6 +12,7 @@ export default function Landing() {
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3">
+          {/* Landing no tiene rol activo (data-role) — estos colores literales representan cada rol antes de que el usuario elija, deben coincidir a mano con --accent de cada rol (#2563EB docente / #F97316 alumno) si esos tokens cambian */}
           {/* Docente */}
           <Link
             to="/docente"

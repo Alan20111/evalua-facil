@@ -60,7 +60,7 @@ export default function Register() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-card bg-blue-600 flex items-center justify-center mx-auto mb-3">
+          <div className="w-16 h-16 rounded-card bg-accent flex items-center justify-center mx-auto mb-3">
             <GraduationCap size={32} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-on-surface">Crear cuenta</h1>
@@ -95,7 +95,7 @@ export default function Register() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                 placeholder="nombre@correo.com"
               />
             </div>
@@ -108,7 +108,7 @@ export default function Register() {
                 required
                 minLength={6}
                 autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                 placeholder="Mínimo 6 caracteres"
               />
             </div>
@@ -119,7 +119,7 @@ export default function Register() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 autoComplete="new-password"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface"
                 placeholder="Repite la contraseña"
               />
             </div>
@@ -127,7 +127,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
             >
               {loading ? <Spinner size="sm" /> : null}
               {loading ? 'Creando cuenta…' : 'Crear cuenta'}
@@ -137,7 +137,7 @@ export default function Register() {
 
         <p className="text-center text-sm text-muted mt-6">
           ¿Ya tienes cuenta?{' '}
-          <Link to="/docente" className="text-blue-600 font-semibold hover:underline">Iniciar sesión</Link>
+          <Link to="/docente" className="text-accent font-semibold hover:underline">Iniciar sesión</Link>
         </p>
       </div>
     </div>

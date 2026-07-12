@@ -9,7 +9,7 @@ import { usePaymentConfig } from '../hooks/usePaymentConfig'
 import { MONTHLY_PLAN_ID, MONTHLY_PRICE_MXN, SUBSCRIPTION_NAME, formatCurrency } from '../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-surface'
+  'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface'
 
 function loadPaypalSdk(clientId) {
   return new Promise((resolve, reject) => {
@@ -220,7 +220,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                   onClick={() => setMethod(m.id)}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold border transition-colors ${
                     method === m.id
-                      ? 'bg-blue-50 border-blue-300 text-blue-700'
+                      ? 'bg-accent-light border-accent text-accent'
                       : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
                   }`}
                 >
@@ -273,7 +273,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {submitting ? <Spinner size="sm" /> : null}
                   {submitting ? 'Registrando…' : 'Registrar pago'}
