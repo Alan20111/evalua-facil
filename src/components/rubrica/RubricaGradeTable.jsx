@@ -20,13 +20,13 @@ export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect,
               Criterio
             </th>
             {niveles.map((nv, ni) => (
-              <th key={ni} className="px-3 py-2 text-center border border-outline-variant bg-[var(--accent-light)]">
-                <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>{nv.nombre}</p>
+              <th key={ni} className="px-3 py-2 text-center border border-outline-variant bg-accent-light">
+                <p className="text-sm font-bold text-accent">{nv.nombre}</p>
                 <p className="text-[11px] font-normal text-muted">{valorNivel(nv)} puntos</p>
               </th>
             ))}
-            <th className="px-2 py-2 text-center border border-outline-variant bg-[var(--accent-light)] w-28">
-              <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>PUNTOS</p>
+            <th className="px-2 py-2 text-center border border-outline-variant bg-accent-light w-28">
+              <p className="text-sm font-bold text-accent">PUNTOS</p>
             </th>
           </tr>
         </thead>
@@ -52,7 +52,7 @@ export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect,
                         <p className={`text-sm leading-snug whitespace-pre-wrap ${marcado ? 'text-on-surface' : 'text-muted'}`}>
                           {c.descriptores?.[ni] || <span className="italic text-slate-400">—</span>}
                         </p>
-                        <p className={`text-sm font-bold mt-1.5 ${marcado ? '' : 'text-slate-400'}`} style={marcado ? { color: 'var(--accent)' } : undefined}>
+                        <p className={`text-sm font-bold mt-1.5 ${marcado ? 'text-accent' : 'text-slate-400'}`}>
                           {c.puntos?.[ni]} pts
                         </p>
                       </button>
@@ -62,7 +62,7 @@ export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect,
                 {/* Puntos que suma este renglón (el nivel marcado) */}
                 <td className="border border-outline-variant bg-surface-card text-center align-middle px-2 py-2">
                   {sel != null ? (
-                    <p className="text-base font-bold" style={{ color: 'var(--accent)' }}>{c.puntos?.[sel]} pts</p>
+                    <p className="text-base font-bold text-accent">{c.puntos?.[sel]} pts</p>
                   ) : (
                     <p className="text-xs text-slate-400 italic">Elige un nivel</p>
                   )}
@@ -75,9 +75,9 @@ export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect,
             <td colSpan={2 + niveles.length} className="border border-outline-variant bg-surface-container px-3 py-2 text-right text-sm font-bold text-on-surface">
               Calificación
             </td>
-            <td className="border border-outline-variant text-center align-middle px-2 py-2" style={{ background: 'var(--accent-light)' }}>
+            <td className="border border-outline-variant text-center align-middle px-2 py-2 bg-accent-light">
               {total != null ? (
-                <p className="text-xl font-bold leading-none" style={{ color: 'var(--accent)' }}>
+                <p className="text-xl font-bold leading-none text-accent">
                   {total}<span className="text-xs text-muted font-normal"> / {RUBRICA_TOTAL}</span>
                 </p>
               ) : (

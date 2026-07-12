@@ -21,9 +21,9 @@ export default function EvaluacionStatsPanel({ stats, totalEstudiantes, totalEnt
     { icon: Clock, label: 'Total pendientes', value: totalPendientes },
   ]
   return (
-    <div className="rounded-card overflow-hidden bg-surface-card shadow-card mb-3" style={{ border: '1px solid var(--accent)' }}>
-      <div className="px-4 py-3" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
-        <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Análisis de resultados</h2>
+    <div className="rounded-card overflow-hidden bg-surface-card shadow-card mb-3 border border-accent">
+      <div className="px-4 py-3 bg-accent-light border-b border-accent">
+        <h2 className="font-semibold text-accent">Análisis de resultados</h2>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 p-3">
         {metrics.map(({ icon: Icon, label, value, sub }) => (

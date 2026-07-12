@@ -19,7 +19,7 @@ export default function RubricaTable({ rubrica, seleccion = null, onSelect = nul
             </th>
             {niveles.map((nv, ni) => (
               <th key={ni} className="px-3 py-2 text-center border border-outline-variant bg-[var(--accent-light)]">
-                <p className="text-sm font-bold" style={{ color: 'var(--accent)' }}>{nv.nombre}</p>
+                <p className="text-sm font-bold text-accent">{nv.nombre}</p>
                 <p className="text-[11px] font-normal text-muted">{valorNivel(nv)} puntos</p>
               </th>
             ))}
@@ -40,7 +40,7 @@ export default function RubricaTable({ rubrica, seleccion = null, onSelect = nul
                     <p className={`text-sm leading-snug whitespace-pre-wrap ${sel ? 'text-on-surface' : 'text-muted'}`}>
                       {c.descriptores?.[ni] || <span className="italic text-slate-400">—</span>}
                     </p>
-                    <p className={`text-sm font-bold mt-1.5 ${sel ? '' : 'text-slate-400'}`} style={sel ? { color: 'var(--accent)' } : undefined}>
+                    <p className={`text-sm font-bold mt-1.5 ${sel ? 'text-accent' : 'text-slate-400'}`}>
                       {c.puntos?.[ni]} pts
                     </p>
                   </>

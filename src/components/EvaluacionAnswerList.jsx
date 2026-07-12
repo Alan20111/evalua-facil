@@ -86,7 +86,7 @@ export default function EvaluacionAnswerList({
             {respuesta.comentarioDocente && !renderGrading && (
               <div className="mt-2 bg-surface rounded p-2.5 flex gap-2">
                 <MessageSquare size={15} className="text-slate-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-muted italic">"{respuesta.comentarioDocente}"</p>
+                <p className="text-xs text-muted italic">&quot;{respuesta.comentarioDocente}&quot;</p>
               </div>
             )}
           </div>
