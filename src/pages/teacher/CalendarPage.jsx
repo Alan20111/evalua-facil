@@ -1109,7 +1109,16 @@ export default function CalendarPage() {
         ...(patch.duracionMin ? { duracionMin: patch.duracionMin } : {}),
         ...(patch.alarma ? { alarma: { ...patch.alarma } } : {}),
       }))
-      setZona({ config, mode: 'modificar', initialPatrones: patrones, asignaturaId: config.asignaturaId })
+      // ¿El docente cambió algo en el modal de configuración? (fechas/duración/
+      // BS/color/alarma). Si no, y tampoco toca los bloques en la zona, no hay
+      // nada que guardar → el botón será "Salir sin modificar".
+      const configChanged = config.fechaInicio !== base.fechaInicio
+        || config.fechaFin !== base.fechaFin
+        || config.duracionMin !== base.duracionMin
+        || config.bloquesPorSemana !== base.bloquesPorSemana
+        || config.color !== base.color
+        || JSON.stringify(config.alarma) !== JSON.stringify(base.alarma)
+      setZona({ config, mode: 'modificar', initialPatrones: patrones, asignaturaId: config.asignaturaId, configChanged })
     } else {
       setZona({ config, mode: 'crear', initialPatrones: null, asignaturaId: config.asignaturaId })
     }
@@ -1702,6 +1711,7 @@ export default function CalendarPage() {
           config={zona.config}
           mode={zona.mode}
           initialPatrones={zona.initialPatrones}
+          configChanged={zona.configChanged}
           subjects={subjects}
           otrosBloques={bloques.filter(b => b.asignaturaId !== zona.asignaturaId)}
           dayStart={dayStart}
