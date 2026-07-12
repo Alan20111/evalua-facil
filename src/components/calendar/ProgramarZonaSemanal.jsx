@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
-  X, Check, Plus, Trash2, Copy, Bell, BellOff, MapPin, AlertCircle, Play, ArrowLeft,
+  X, Check, Plus, Minus, Trash2, Copy, Bell, BellOff, MapPin, AlertCircle, Play,
+  ArrowLeft, Pencil,
 } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import {
@@ -9,6 +10,7 @@ import {
 } from '../../utils/horarioBloques'
 
 const ROW_H = 52 // px por hora — igual que la vista Semana
+const SNAP_MIN = 10 // los bloques se colocan/arrastran alineados a 10 min
 const DIAS_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
 // Un patrón colocado en la zona semanal:
@@ -29,6 +31,23 @@ function solapan(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && bStart < aEnd
 }
 
+// Selector de hora que salta de 10 en 10 minutos (permite 07:50, 08:10, …).
+function HoraStepper({ value, onChange, minMin, maxMin, step = SNAP_MIN }) {
+  const cur = timeToMinutes(value)
+  const btn = 'px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-accent-tint disabled:opacity-40 transition-colors'
+  return (
+    <div className="flex items-center gap-1.5">
+      <button type="button" onClick={() => onChange(minsToTime(Math.max(minMin, cur - step)))} disabled={cur <= minMin} className={btn} aria-label="−10 minutos">
+        <Minus size={14} />
+      </button>
+      <span className="flex-1 text-center text-base font-semibold tabular-nums py-1.5 rounded border border-outline-variant bg-surface select-none">{value}</span>
+      <button type="button" onClick={() => onChange(minsToTime(Math.min(maxMin, cur + step)))} disabled={cur >= maxMin} className={btn} aria-label="+10 minutos">
+        <Plus size={14} />
+      </button>
+    </div>
+  )
+}
+
 export default function ProgramarZonaSemanal({
   config,          // { asignaturaId, duracionMin, bloquesPorSemana, color, alarma }
   subjects,
@@ -43,11 +62,13 @@ export default function ProgramarZonaSemanal({
 }) {
   const { asignaturaId, duracionMin, bloquesPorSemana, color: colorDefault, alarma: alarmaDefault } = config
   const subj = subjects[asignaturaId]
+  const esModificar = mode === 'modificar'
 
   const [patrones, setPatrones] = useState(() =>
     (initialPatrones || []).map(p => ({ id: nuevoId(), ...p })))
   const [placing, setPlacing] = useState(null)  // { diaSemana, horaInicio, count }
   const [editing, setEditing] = useState(null)  // id del patrón que se edita
+  const [recienId, setRecienId] = useState(null) // último bloque duplicado (resaltado)
   const [confirmSalir, setConfirmSalir] = useState(false)
 
   const restantes = bloquesPorSemana - patrones.length
@@ -96,13 +117,6 @@ export default function ProgramarZonaSemanal({
     return !rangosOcupados(dia, excluirId).some(([s, e]) => solapan(startMin, end, s, e))
   }
 
-  // Opciones de hora de inicio (cada 30 min dentro del rango visible).
-  const horasOpciones = useMemo(() => {
-    const out = []
-    for (let m = dayStart * 60; m <= dayEnd * 60 - 30; m += 30) out.push(minsToTime(m))
-    return out
-  }, [dayStart, dayEnd])
-
   // ── Colocar ────────────────────────────────────────────────────────────
   function abrirColocar(dia, hora) {
     if (restantes <= 0) return
@@ -144,6 +158,7 @@ export default function ProgramarZonaSemanal({
   function borrarPatron(id) {
     setPatrones(ps => ps.filter(p => p.id !== id))
     setEditing(null)
+    if (recienId === id) setRecienId(null)
   }
   function duplicarPatron(id) {
     if (restantes <= 0) return
@@ -151,13 +166,75 @@ export default function ProgramarZonaSemanal({
     if (!p) return
     // Coloca la copia en la siguiente hora libre del mismo día.
     let startMin = timeToMinutes(p.horaInicio) + p.duracionMin
-    while (startMin < dayEnd * 60 && !cabe(p.diaSemana, startMin, 1, p.duracionMin)) startMin += 30
+    while (startMin < dayEnd * 60 && !cabe(p.diaSemana, startMin, 1, p.duracionMin)) startMin += SNAP_MIN
     if (!cabe(p.diaSemana, startMin, 1, p.duracionMin)) return
+    const nid = nuevoId()
     setPatrones(ps => [...ps, {
-      ...p, id: nuevoId(), horaInicio: minsToTime(startMin),
+      ...p, id: nid, horaInicio: minsToTime(startMin),
       alarma: { ...p.alarma, activa: false },
     }])
+    // El bloque nuevo queda resaltado y su editor abierto para ajustarlo.
+    setRecienId(nid)
+    setEditing(nid)
   }
+
+  // ── Arrastrar para mover (cambia día y hora) ─────────────────────────────
+  const colRefs = useRef([])
+  const dragStartRef = useRef(null)
+  const [drag, setDrag] = useState(null) // { id, x, y, grabDX, grabDY, w, h, moved }
+
+  function startDrag(e, p) {
+    if (e.button != null && e.button !== 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    dragStartRef.current = { x: e.clientX, y: e.clientY }
+    setDrag({
+      id: p.id,
+      x: e.clientX, y: e.clientY,
+      grabDX: e.clientX - rect.left,
+      grabDY: e.clientY - rect.top,
+      w: rect.width, h: rect.height,
+      moved: false,
+    })
+  }
+
+  useEffect(() => {
+    if (!drag) return
+    function onMove(e) {
+      const s = dragStartRef.current
+      const moved = s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
+      setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
+    }
+    function onUp(e) {
+      setDrag(d => {
+        if (!d) return null
+        const p = patrones.find(x => x.id === d.id)
+        if (!p) return null
+        if (!d.moved) { setPlacing(null); setEditing(d.id); return null } // clic → editar
+        // Detecta la columna (día) bajo el cursor.
+        const blockTop = e.clientY - d.grabDY
+        let target = null
+        colRefs.current.forEach((el, idx) => {
+          if (!el) return
+          const r = el.getBoundingClientRect()
+          if (e.clientX >= r.left && e.clientX < r.right) target = { idx, top: r.top }
+        })
+        if (target) {
+          let mins = Math.round(((blockTop - target.top) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+          mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - p.duracionMin, mins))
+          if (cabe(target.idx, mins, 1, p.duracionMin, p.id)) {
+            updatePatron(p.id, { diaSemana: target.idx, horaInicio: minsToTime(mins) })
+          }
+        }
+        return null
+      })
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+  }, [drag, patrones, dayStart, dayEnd]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Salir / guardar ──────────────────────────────────────────────────────
   function intentarSalir() {
@@ -166,7 +243,6 @@ export default function ProgramarZonaSemanal({
   }
   function guardar() {
     if (!completo) return
-    // Ordena por día+hora para una materialización estable.
     const ordenados = [...patrones].sort((a, b) =>
       a.diaSemana - b.diaSemana || timeToMinutes(a.horaInicio) - timeToMinutes(b.horaInicio))
     onConfirm?.(ordenados.map(({ id, ...rest }) => rest)) // eslint-disable-line no-unused-vars
@@ -178,27 +254,32 @@ export default function ProgramarZonaSemanal({
 
   const editP = editing ? patrones.find(p => p.id === editing) : null
   const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent'
+  const bannerBg = esModificar ? '#fef3c7' : bloqueColor(colorDefault).bg + '66'
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-stretch md:items-center justify-center md:p-4" onClick={intentarSalir}>
       <div
-        className="bg-surface-card w-full md:max-w-4xl md:rounded-card shadow-2xl flex flex-col max-h-full md:max-h-[94vh]"
+        className={`bg-surface-card w-full md:max-w-4xl md:rounded-card shadow-2xl flex flex-col max-h-full md:max-h-[94vh] ${esModificar ? 'ring-4 ring-amber-400 ring-inset md:ring-inset' : ''}`}
         onClick={e => e.stopPropagation()}
       >
         {/* Banner de modo */}
-        <div
-          className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant flex-shrink-0"
-          style={{ background: bloqueColor(colorDefault).bg + '66' }}
-        >
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant flex-shrink-0" style={{ background: bannerBg }}>
           <button type="button" onClick={intentarSalir} className="p-1 text-muted hover:text-error rounded transition-colors" aria-label="Volver">
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-on-surface truncate">
-              {mode === 'modificar' ? 'Modificando' : 'Programando'} bloques de {subjectDisplayName(subj) || 'la asignatura'}
+            <p className="text-sm font-semibold text-on-surface truncate flex items-center gap-1.5">
+              {esModificar && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wide flex-shrink-0">
+                  <Pencil size={10} /> Modificando
+                </span>
+              )}
+              <span className="truncate">
+                {esModificar ? 'Reacomodando' : 'Programando'} bloques de {subjectDisplayName(subj) || 'la asignatura'}
+              </span>
             </p>
             <p className="text-xs text-muted">
-              Toca un día para colocar un bloque · toca un bloque para editarlo
+              Toca un día para colocar · toca un bloque para editarlo · arrástralo para moverlo
             </p>
           </div>
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${completo ? 'bg-green-600 text-white' : 'bg-surface-card border border-outline-variant text-on-surface'}`}>
@@ -244,7 +325,12 @@ export default function ProgramarZonaSemanal({
                 const otros = ocupadoOtros.filter(o => o.diaSemana === dia)
                 const propios = patrones.filter(p => p.diaSemana === dia)
                 return (
-                  <div key={dia} className="relative border-l border-outline-variant" style={{ height: gridH }}>
+                  <div
+                    key={dia}
+                    ref={el => { colRefs.current[dia] = el }}
+                    className="relative border-l border-outline-variant"
+                    style={{ height: gridH }}
+                  >
                     {/* Líneas horarias + zonas clicables */}
                     {hoursRange.map((hour, i) => (
                       <div
@@ -285,24 +371,32 @@ export default function ProgramarZonaSemanal({
                       const height = Math.max(20, p.duracionMin / 60 * ROW_H - 4)
                       const top = Math.max(0, Math.min(topPx(p.horaInicio), gridH - height))
                       const horaFin = addMinutesToTime(p.horaInicio, p.duracionMin)
+                      const isDragging = drag?.moved && drag.id === p.id
+                      const esReciente = recienId === p.id
                       return (
-                        <button
+                        <div
                           key={p.id}
-                          type="button"
-                          onClick={e => { e.stopPropagation(); setPlacing(null); setEditing(p.id) }}
-                          className="absolute rounded-lg px-1.5 py-1 text-left overflow-hidden shadow-sm ring-1 ring-black/10 hover:brightness-95 transition select-none cursor-pointer"
+                          onPointerDown={e => { e.stopPropagation(); startDrag(e, p) }}
+                          className="absolute rounded-lg px-1.5 py-1 text-left overflow-hidden shadow-sm ring-1 ring-black/10 hover:brightness-95 transition select-none cursor-grab active:cursor-grabbing"
                           style={{
                             top, height, left: '3px', right: '3px',
                             background: pal.bg, color: pal.text,
-                            outline: editing === p.id ? `2px solid ${pal.text}` : 'none',
+                            opacity: isDragging ? 0.3 : 1,
+                            touchAction: 'none',
+                            outline: editing === p.id ? `2px solid ${pal.text}`
+                              : esReciente ? '2px dashed #d97706' : 'none',
+                            boxShadow: esReciente ? '0 0 0 3px rgba(217,119,6,0.35)' : undefined,
                           }}
                         >
+                          {esReciente && (
+                            <span className="absolute top-0.5 right-0.5 text-[9px] font-bold px-1 rounded bg-amber-500 text-white">nuevo</span>
+                          )}
                           <span className="block text-xs font-semibold leading-tight truncate">
                             {subjectDisplayName(subj)}
                           </span>
                           <span className="block text-[10px] opacity-80 leading-tight">{p.horaInicio}–{horaFin}</span>
                           {p.lugar && <span className="block text-[10px] opacity-70 leading-tight truncate">{p.lugar}</span>}
-                        </button>
+                        </div>
                       )
                     })}
                   </div>
@@ -328,10 +422,29 @@ export default function ProgramarZonaSemanal({
             disabled={!completo}
             className="px-4 py-2 bg-accent text-white rounded text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
           >
-            <Check size={15} /> {mode === 'modificar' ? 'Guardar cambios' : 'Crear bloques'}
+            <Check size={15} /> {esModificar ? 'Guardar cambios' : 'Crear bloques'}
           </button>
         </div>
       </div>
+
+      {/* Fantasma que sigue al cursor mientras se arrastra */}
+      {drag?.moved && (() => {
+        const p = patrones.find(x => x.id === drag.id)
+        if (!p) return null
+        const pal = bloqueColor(p.color)
+        return (
+          <div
+            className="fixed z-[65] rounded-lg px-1.5 py-1 shadow-lg pointer-events-none opacity-90"
+            style={{
+              left: drag.x - drag.grabDX, top: drag.y - drag.grabDY,
+              width: drag.w, height: drag.h, background: pal.bg, color: pal.text,
+            }}
+          >
+            <span className="block text-xs font-semibold leading-tight truncate">{subjectDisplayName(subj)}</span>
+            <span className="block text-[10px] opacity-80 leading-tight">{p.horaInicio}–{addMinutesToTime(p.horaInicio, p.duracionMin)}</span>
+          </div>
+        )
+      })()}
 
       {/* ── Popover: colocar bloque(s) ──────────────────────────────────── */}
       {placing && (
@@ -353,13 +466,12 @@ export default function ProgramarZonaSemanal({
             </div>
             <div className="space-y-1">
               <span className="text-xs text-muted">Hora de inicio</span>
-              <select
+              <HoraStepper
                 value={placing.horaInicio}
-                onChange={e => setPlacing(p => ({ ...p, horaInicio: e.target.value }))}
-                className={`${inputCls} w-full`}
-              >
-                {horasOpciones.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
+                onChange={h => setPlacing(p => ({ ...p, horaInicio: h }))}
+                minMin={dayStart * 60}
+                maxMin={dayEnd * 60 - duracionMin}
+              />
             </div>
             <div className="space-y-1">
               <span className="text-xs text-muted">Bloques seguidos (cada {duracionMin} min)</span>
@@ -425,17 +537,16 @@ export default function ProgramarZonaSemanal({
                 </select>
               </div>
               <div className="space-y-1">
-                <span className="text-xs text-muted">Hora</span>
-                <select
+                <span className="text-xs text-muted">Hora de inicio</span>
+                <HoraStepper
                   value={editP.horaInicio}
-                  onChange={e => {
-                    const s = timeToMinutes(e.target.value)
-                    if (cabe(editP.diaSemana, s, 1, editP.duracionMin, editP.id)) updatePatron(editP.id, { horaInicio: e.target.value })
+                  onChange={h => {
+                    const s = timeToMinutes(h)
+                    if (cabe(editP.diaSemana, s, 1, editP.duracionMin, editP.id)) updatePatron(editP.id, { horaInicio: h })
                   }}
-                  className={`${inputCls} w-full`}
-                >
-                  {horasOpciones.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
+                  minMin={dayStart * 60}
+                  maxMin={dayEnd * 60 - editP.duracionMin}
+                />
               </div>
             </div>
 
@@ -500,23 +611,30 @@ export default function ProgramarZonaSemanal({
               )}
             </div>
 
+            {/* Acciones: Borrar · Duplicar · Confirmar */}
             <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => { duplicarPatron(editP.id); setEditing(null) }}
-                disabled={restantes <= 0}
-                className="flex items-center gap-1.5 px-2.5 py-2 text-sm text-muted rounded border border-outline-variant hover:text-accent hover:border-accent transition-colors disabled:opacity-40"
-                data-tooltip={restantes <= 0 ? 'Ya no quedan bloques por colocar' : 'Copia en la hora siguiente'}
-              >
-                <Copy size={14} /> Duplicar
-              </button>
-              <div className="flex-1" />
               <button
                 type="button"
                 onClick={() => borrarPatron(editP.id)}
                 className="flex items-center gap-1.5 px-2.5 py-2 text-sm text-error rounded border border-error/30 hover:bg-error/10 transition-colors"
               >
                 <Trash2 size={14} /> Borrar
+              </button>
+              <button
+                type="button"
+                onClick={() => duplicarPatron(editP.id)}
+                disabled={restantes <= 0}
+                className="flex items-center gap-1.5 px-2.5 py-2 text-sm text-muted rounded border border-outline-variant hover:text-accent hover:border-accent transition-colors disabled:opacity-40"
+                data-tooltip={restantes <= 0 ? 'Ya no quedan bloques por colocar' : 'Copia en la hora siguiente'}
+              >
+                <Copy size={14} /> Duplicar
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEditing(null); setRecienId(null) }}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 text-sm font-semibold text-white bg-accent rounded hover:bg-accent-hover transition-colors"
+              >
+                <Check size={14} /> Confirmar
               </button>
             </div>
           </div>

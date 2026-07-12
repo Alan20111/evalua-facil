@@ -1197,46 +1197,14 @@ export default function CalendarPage() {
     setPendingMove({ bloque: b, fecha: nuevaFecha, hora: nuevaHora })
   }
 
-  function bloquesSiguientes(b) {
-    return bloques.filter(x => x.programacionId === b.programacionId &&
-      (x.fecha > b.fecha || (x.fecha === b.fecha && x.horaInicio >= b.horaInicio)))
-  }
-
-  // Mueve el bloque arrastrado y todos los posteriores de su programación,
-  // aplicando el mismo desplazamiento de días y minutos.
-  async function moveBloqueEnCadena(b, nuevaFecha, nuevaHora) {
-    const deltaDays = Math.round((new Date(nuevaFecha + 'T12:00:00') - new Date(b.fecha + 'T12:00:00')) / 86400000)
-    const deltaMin = timeToMinutes(nuevaHora) - timeToMinutes(b.horaInicio)
-    const siguientes = bloquesSiguientes(b)
-    try {
-      for (let i = 0; i < siguientes.length; i += 450) {
-        const batch = writeBatch(db)
-        siguientes.slice(i, i + 450).forEach(x => {
-          const d = new Date(x.fecha + 'T12:00:00')
-          d.setDate(d.getDate() + deltaDays)
-          const f = toDateStr(d)
-          batch.update(doc(db, 'horarioBloques', x.id), {
-            fecha: f,
-            horaInicio: addMinutesToTime(x.horaInicio, deltaMin),
-            horaFin: addMinutesToTime(x.horaFin, deltaMin),
-            diaSemana: (d.getDay() + 6) % 7,
-            movido: true,
-          })
-        })
-        await batch.commit()
-      }
-      toast(`${siguientes.length} bloques movidos`)
-    } catch (err) {
-      toast('No se pudieron mover los bloques: ' + err.message, 'error')
-    }
-  }
-
-  async function confirmPendingMove(scope) {
+  // En las vistas normales (Agenda/Semana/Mes) arrastrar mueve SOLO ese bloque
+  // —útil para adelantar o recorrer una clase suelta—. Para mover ese bloque y
+  // los siguientes hay que entrar a "Modificar bloques".
+  async function confirmPendingMove() {
     const pm = pendingMove
     setPendingMove(null)
     if (!pm) return
-    if (scope === 'cadena') await moveBloqueEnCadena(pm.bloque, pm.fecha, pm.hora)
-    else await moveBloque(pm.bloque, pm.fecha, pm.hora)
+    await moveBloque(pm.bloque, pm.fecha, pm.hora)
   }
 
   // Crear evento desde un hueco de la agenda del día.
@@ -1587,11 +1555,10 @@ export default function CalendarPage() {
         />
       )}
 
-      {/* Confirmación al mover un bloque arrastrado */}
+      {/* Confirmación al mover un bloque arrastrado — solo ESTE bloque */}
       {pendingMove && (() => {
         const { bloque: b, fecha, hora } = pendingMove
         const subj = subjects[b.asignaturaId]
-        const nSiguientes = bloquesSiguientes(b).length
         const fmtF = s => {
           const d = new Date(s + 'T12:00:00')
           return `${DIAS_LARGO[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MESES[d.getMonth()]}`
@@ -1599,26 +1566,24 @@ export default function CalendarPage() {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setPendingMove(null)}>
             <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3" onClick={e => e.stopPropagation()}>
-              <h2 className="font-semibold text-on-surface">¿Mover este bloque de clase?</h2>
+              <h2 className="font-semibold text-on-surface">¿Mover solo este bloque?</h2>
               <div className="text-sm text-on-surface space-y-1 bg-surface rounded-card border border-outline-variant p-3">
                 <p className="font-medium">{subjectDisplayName(subj) || 'Clase'}</p>
                 <p className="text-muted text-xs">De: {fmtF(b.fecha)} · {fmtHour(b.horaInicio)}</p>
                 <p className="text-accent text-xs font-medium">A: {fmtF(fecha)} · {fmtHour(hora)}</p>
               </div>
+              <p className="text-xs text-muted flex items-start gap-1.5">
+                <AlertTriangle size={13} className="flex-shrink-0 mt-0.5 text-amber-500" />
+                Aquí solo se mueve este bloque (p. ej. para adelantar una clase). Para mover
+                este y los siguientes, o reacomodar todo el horario, usa <strong className="text-on-surface">Modificar bloques</strong>.
+              </p>
               <div className="space-y-1.5">
                 <button
                   type="button"
-                  onClick={() => confirmPendingMove('solo')}
+                  onClick={() => confirmPendingMove()}
                   className="w-full py-2 bg-accent text-white rounded-card text-sm font-semibold hover:bg-accent-hover transition-colors"
                 >
                   Mover solo este bloque
-                </button>
-                <button
-                  type="button"
-                  onClick={() => confirmPendingMove('cadena')}
-                  className="w-full py-2 rounded-card border border-accent text-accent text-sm font-semibold hover:bg-accent-tint transition-colors"
-                >
-                  Mover este y los siguientes ({nSiguientes})
                 </button>
                 <button
                   type="button"
