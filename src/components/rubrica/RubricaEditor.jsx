@@ -155,9 +155,34 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   // Agarradera de redimensionado (borde derecho de la columna) — función
   // simple, no componente, para no recrear componentes en cada render
   function resizeHandle(tipo, idx) {
+    const lim = tipo === 'crit' ? CRIT_W : NIVEL_W
+    const current = tipo === 'crit' ? colW.crit : colW.niveles[idx]
+    // Equivalente por teclado del arrastre con mouse (rol "slider" ARIA —
+    // ajusta un valor de ancho entre un mínimo y un máximo — + flechas
+    // izquierda/derecha), para que la agarradera sea operable sin mouse.
+    function onKeyDown(e) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      e.preventDefault()
+      const delta = e.key === 'ArrowRight' ? 8 : -8
+      setColW((prev) => {
+        const cur = tipo === 'crit' ? prev.crit : prev.niveles[idx]
+        const w = Math.min(lim.max, Math.max(lim.min, cur + delta))
+        return tipo === 'crit'
+          ? { ...prev, crit: w }
+          : { ...prev, niveles: prev.niveles.map((x, k) => (k === idx ? w : x)) }
+      })
+    }
     return (
       <span
+        role="slider"
+        aria-orientation="vertical"
+        aria-valuemin={lim.min}
+        aria-valuemax={lim.max}
+        aria-valuenow={current}
+        aria-label="Ancho de columna"
+        tabIndex={0}
         onMouseDown={(e) => startResize(e, tipo, idx)}
+        onKeyDown={onKeyDown}
         title="Arrastra para cambiar el ancho"
         className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-[var(--accent)] opacity-60"
       />
@@ -408,7 +433,9 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
               </label>
               <input id="rub-titulo" type="text" value={r.titulo}
                 onChange={(e) => setR((prev) => ({ ...prev, titulo: e.target.value }))}
-                required autoFocus placeholder="Ej: Ensayo escrito, Maqueta, Proyecto final"
+                required
+                /* autofocus: primer campo de esta pantalla completa (equivalente a un modal) */
+                autoFocus placeholder="Ej: Ensayo escrito, Maqueta, Proyecto final"
                 className="flex-1 min-w-0 px-2 py-1 border-b-2 border-outline-variant focus:border-accent focus:outline-none text-sm bg-transparent" />
             </div>
             <input type="text" value={r.descripcion}

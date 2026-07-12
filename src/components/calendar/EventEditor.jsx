@@ -105,8 +105,14 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
-      <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        onClick={onClose}
+        aria-label="Cerrar"
+      />
+      <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm">
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <h2 className="font-semibold text-on-surface">{isNew ? 'Nuevo evento' : 'Editar evento'}</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded transition-colors">
@@ -135,6 +141,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
             value={form.titulo}
             onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
             placeholder="Título del evento"
+            /* autofocus: primer campo del modal, abierto con intención de escribir */
             autoFocus
             required
             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
@@ -149,8 +156,9 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
           />
 
           <div className="space-y-1">
-            <label className="text-xs text-muted font-medium">Notas</label>
+            <label htmlFor="event-notas" className="text-xs text-muted font-medium">Notas</label>
             <textarea
+              id="event-notas"
               value={form.notas}
               onChange={e => setForm(f => ({ ...f, notas: e.target.value }))}
               placeholder="Escribe aquí tus notas del evento; se quedan guardadas"
@@ -160,7 +168,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted font-medium">Inicio</label>
+            <p className="text-xs text-muted font-medium">Inicio</p>
             <EFDateTimePicker
               mode="datetime"
               value={form.inicio}
@@ -171,7 +179,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs text-muted font-medium">Fin (opcional)</label>
+            <p className="text-xs text-muted font-medium">Fin (opcional)</p>
             <EFDateTimePicker
               mode="datetime"
               value={form.fin}

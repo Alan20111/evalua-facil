@@ -510,7 +510,7 @@ export default function Profile() {
       {/* ── Confirmation modal ── */}
       {confirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !confirming && setConfirm(null)} />
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !confirming && setConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
             <button type="button" onClick={() => !confirming && setConfirm(null)} aria-label="Cerrar"
               className="absolute top-4 right-4 p-1 text-slate-400 hover:text-muted rounded">
@@ -536,11 +536,12 @@ export default function Profile() {
       {/* School picker overlay */}
       {showSchoolPicker && (
         <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !savingSchool && setShowSchoolPicker(false)} />
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !savingSchool && setShowSchoolPicker(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-sm rounded-card shadow-2xl flex flex-col max-h-[80vh]">
             <div className="flex items-center gap-2 p-3 border-b border-outline-variant">
               <div className="flex-1 relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                {/* Buscador de escuela: primer control del overlay, abierto con intención de escribir. */}
                 <input autoFocus type="text" value={schoolSearch} onChange={(e) => setSchoolSearch(e.target.value)}
                   placeholder="Nombre, CCT o municipio…"
                   className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm" />
@@ -602,6 +603,7 @@ export default function Profile() {
                   <label htmlFor="prof-escuela-nombre" className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
                   <input
                     id="prof-escuela-nombre"
+                    // Primer campo del formulario "agregar escuela", abierto con intención de escribir.
                     autoFocus
                     type="text"
                     value={customSchoolName}

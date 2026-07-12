@@ -426,9 +426,16 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
                 role="option"
                 aria-selected={isSelected}
                 aria-disabled={isDisabled}
+                tabIndex={isDisabled ? -1 : 0}
                 onClick={() => {
                   if (offset === 0 || isDisabled) return
                   step(offset)
+                }}
+                onKeyDown={e => {
+                  if ((e.key === 'Enter' || e.key === ' ') && offset !== 0 && !isDisabled) {
+                    e.preventDefault()
+                    step(offset)
+                  }
                 }}
                 className="text-xs"
                 style={{
@@ -1141,8 +1148,15 @@ export default function EFDateTimePicker({
         {value && clearable && (
           <span
             role="button"
-            tabIndex={-1}
+            tabIndex={0}
             onClick={e => { e.stopPropagation(); onChange('') }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                e.stopPropagation()
+                onChange('')
+              }
+            }}
             style={{ display: 'flex', padding: 2, borderRadius: 4, color: 'var(--outline)', cursor: 'pointer', flexShrink: 0, transition: 'color .1s' }}
             onMouseEnter={e => { e.currentTarget.style.color = '#ef4444' }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--outline)' }}

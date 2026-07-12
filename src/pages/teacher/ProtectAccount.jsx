@@ -65,8 +65,9 @@ export default function ProtectAccount() {
         <div className="bg-surface-card rounded-card shadow-card p-5">
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Crear contraseña</label>
+              <label htmlFor="protect-password" className="block text-sm font-medium text-muted mb-1">Crear contraseña</label>
               <PasswordInput
+                id="protect-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -77,8 +78,9 @@ export default function ProtectAccount() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
+              <label htmlFor="protect-confirm-password" className="block text-sm font-medium text-muted mb-1">Confirmar contraseña</label>
               <PasswordInput
+                id="protect-confirm-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required

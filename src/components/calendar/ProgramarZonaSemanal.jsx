@@ -262,17 +262,19 @@ export default function ProgramarZonaSemanal({
   const bannerBg = esModificar ? '#fef3c7' : bloqueColor(colorDefault).bg + '66'
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-stretch md:items-center justify-center md:p-4"
-      onPointerDown={e => { backdropDown.current = e.target === e.currentTarget }}
-      onClick={e => {
-        if (suppressBackdrop.current) { suppressBackdrop.current = false; return }
-        if (e.target === e.currentTarget && backdropDown.current) intentarSalir()
-      }}
-    >
+    <div className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center md:p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        onPointerDown={e => { backdropDown.current = e.target === e.currentTarget }}
+        onClick={e => {
+          if (suppressBackdrop.current) { suppressBackdrop.current = false; return }
+          if (e.target === e.currentTarget && backdropDown.current) intentarSalir()
+        }}
+        aria-label="Cerrar"
+      />
       <div
-        className={`bg-surface-card w-full md:max-w-4xl md:rounded-card shadow-2xl flex flex-col max-h-full md:max-h-[94vh] ${esModificar ? 'ring-4 ring-amber-400 ring-inset md:ring-inset' : ''}`}
-        onClick={e => e.stopPropagation()}
+        className={`relative bg-surface-card w-full md:max-w-4xl md:rounded-card shadow-2xl flex flex-col max-h-full md:max-h-[94vh] ${esModificar ? 'ring-4 ring-amber-400 ring-inset md:ring-inset' : ''}`}
       >
         {/* Banner de modo */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant flex-shrink-0" style={{ background: bannerBg }}>
@@ -345,11 +347,14 @@ export default function ProgramarZonaSemanal({
                   >
                     {/* Líneas horarias + zonas clicables */}
                     {hoursRange.map((hour, i) => (
-                      <div
+                      <button
                         key={hour}
+                        type="button"
                         onClick={() => abrirColocar(dia, `${String(hour).padStart(2, '0')}:00`)}
-                        className={`absolute left-0 right-0 border-b border-outline-variant transition-colors ${restantes > 0 ? 'hover:bg-accent-tint cursor-pointer' : 'cursor-default'}`}
+                        disabled={restantes <= 0}
+                        className={`absolute left-0 right-0 border-b border-outline-variant transition-colors text-left ${restantes > 0 ? 'hover:bg-accent-tint cursor-pointer' : 'cursor-default'}`}
                         style={{ top: i * ROW_H, height: ROW_H }}
+                        aria-label={`Colocar bloque el ${DIAS_SEMANA[dia]} a las ${String(hour).padStart(2, '0')}:00`}
                       />
                     ))}
 
@@ -463,8 +468,9 @@ export default function ProgramarZonaSemanal({
 
       {/* ── Popover: colocar bloque(s) ──────────────────────────────────── */}
       {placing && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" onClick={() => setPlacing(null)}>
-          <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setPlacing(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-on-surface text-sm">Colocar bloque</h3>
               <button type="button" onClick={() => setPlacing(null)} className="p-1 text-muted hover:text-error" aria-label="Cerrar"><X size={16} /></button>
@@ -541,8 +547,9 @@ export default function ProgramarZonaSemanal({
 
       {/* ── Popover: editar bloque colocado ─────────────────────────────── */}
       {editP && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40" onClick={() => setEditing(null)}>
-          <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2.5" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setEditing(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2.5">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-on-surface text-sm">Editar bloque</h3>
               <button type="button" onClick={() => setEditing(null)} className="p-1 text-muted hover:text-error" aria-label="Cerrar"><X size={16} /></button>
@@ -670,8 +677,9 @@ export default function ProgramarZonaSemanal({
 
       {/* ── Confirmar salida con bloques colocados ─────────────────────── */}
       {confirmSalir && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/40" onClick={() => setConfirmSalir(false)}>
-          <div className="bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setConfirmSalir(false)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3">
             <h3 className="font-semibold text-on-surface text-sm">¿Salir sin guardar?</h3>
             <p className="text-sm text-muted">
               {completo

@@ -117,8 +117,9 @@ export default function TeacherLogin() {
 
           <form onSubmit={handleLogin} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
+              <label htmlFor="login-email" className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
               <input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -130,7 +131,7 @@ export default function TeacherLogin() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-sm font-medium text-muted">Contraseña</label>
+                <label htmlFor="login-password" className="block text-sm font-medium text-muted">Contraseña</label>
                 <button
                   type="button"
                   onClick={handleForgotPassword}
@@ -141,6 +142,7 @@ export default function TeacherLogin() {
                 </button>
               </div>
               <PasswordInput
+                id="login-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
