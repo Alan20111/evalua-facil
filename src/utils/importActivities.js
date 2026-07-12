@@ -23,6 +23,9 @@ export async function importActivitiesToSubject({ sourceActivities, targetSubjec
       maxCalif: src.maxCalif ?? 10,
       instrucciones: src.instrucciones || '',
       archivosAdjuntos: src.archivosAdjuntos || [],
+      // Sin fecha límite ni publicación: las copias entran como borrador y el
+      // docente les pone fecha después (ahí se valida el asueto de actividades,
+      // en el editor). Por eso aquí no hay nada que bloquear por asueto.
       fechaLimite: null,
       tiposArchivo: src.tiposArchivo || 'imagenes',
       extensionesCustom: src.extensionesCustom || '',

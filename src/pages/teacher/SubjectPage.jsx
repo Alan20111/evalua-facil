@@ -54,6 +54,7 @@ import EvaluacionEditor from '../../components/EvaluacionEditor'
 import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
+import { useAsuetoActividades } from '../../hooks/useAsuetoActividades'
 
 async function fetchSubmissionsForActivities(actIds) {
   if (actIds.length === 0) return []
@@ -121,6 +122,7 @@ export default function SubjectPage() {
   const { currentUser, userProfile } = useAuth()
   const { subscription } = useSubscription()
   const canCreate = canCreateContent(subscription)
+  const { bloqueadoPorAsuetoActividad } = useAsuetoActividades(currentUser?.uid)
   const [subject, setSubject] = useState(null)
   const [activities, setActivities] = useState([])
   const [submissionCounts, setSubmissionCounts] = useState({})
@@ -1047,6 +1049,9 @@ export default function SubjectPage() {
         toast('La fecha límite debe ser posterior a la fecha de publicación', 'error')
         return
       }
+      // Bloquea fijar la fecha límite o la publicación programada en un día de asueto de actividades.
+      if (bloqueadoPorAsuetoActividad(form.fechaLimite)) return
+      if (form.visibilidadMode === 'schedule' && bloqueadoPorAsuetoActividad(form.publishAt)) return
     }
     setSaving(true)
     try {
@@ -4345,6 +4350,7 @@ export default function SubjectPage() {
       {entregableEditor && newDateOpen && (
         <NuevaFechaEntregaModal
           activityId={entregableEditor.activityId}
+          docenteId={currentUser?.uid}
           students={groupStudents}
           onClose={() => setNewDateOpen(false)}
           onSaved={applyNewDateResult}

@@ -6,13 +6,15 @@ import { Search } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import { matchesStudentSearch } from '../utils/studentSearch'
 import { nowIsoLocal } from '../utils/nowIso'
+import { useAsuetoActividades } from '../hooks/useAsuetoActividades'
 
 // Shared by ActivityPage (grading view) and SubjectPage (activity editor):
 // extends a group's deadline, or gives specific students their own extension.
 // onSaved receives { mode: 'todos', date } or { mode: 'algunos', date, motivo, ids }
 // so each caller can merge the result into its own activity/activities state.
-export default function NuevaFechaEntregaModal({ activityId, students, onClose, onSaved }) {
+export default function NuevaFechaEntregaModal({ activityId, docenteId, students, onClose, onSaved }) {
   const toast = useToast()
+  const { bloqueadoPorAsuetoActividad } = useAsuetoActividades(docenteId)
   const [mode, setMode] = useState('todos')
   const [date, setDate] = useState('')
   const [motivo, setMotivo] = useState('')
@@ -31,6 +33,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
   async function save() {
     if (!date) { toast('Elige la nueva fecha y hora', 'error'); return }
     if (date <= nowIsoLocal()) { toast('La fecha límite no puede ser en el pasado', 'error'); return }
+    if (bloqueadoPorAsuetoActividad(date)) return
     if (mode === 'algunos' && selected.size === 0) {
       toast('Selecciona al menos un estudiante', 'error'); return
     }

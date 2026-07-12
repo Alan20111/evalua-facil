@@ -17,6 +17,7 @@ import { snapshotRubrica } from '../utils/rubrica'
 import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline } from '../utils/activityVisibility'
 import { minDeadline } from '../utils/nowIso'
+import { useAsuetoActividades } from '../hooks/useAsuetoActividades'
 
 const MAX_ATTACH = 15 * 1024 * 1024
 
@@ -78,6 +79,7 @@ export default function EntregableEditor({
   extensionesMotivo,  // activity.extensionesMotivo — read-only display, never edited here
 }) {
   const toast = useToast()
+  const { bloqueadoPorAsuetoActividad } = useAsuetoActividades(docenteId)
   const isNew = !activityId
   // Observación: no file submission → file types and deadline don't apply,
   // and instructions are optional (the name alone often says it all).
@@ -166,6 +168,9 @@ export default function EntregableEditor({
         toast('La fecha límite debe ser posterior a la fecha de publicación', 'error'); return
       }
     }
+    // Bloquea fijar la fecha límite o la publicación programada en un día de asueto de actividades.
+    if (!isObservacion && bloqueadoPorAsuetoActividad(form.fechaLimite)) return
+    if (!asDraft && mode === 'schedule' && bloqueadoPorAsuetoActividad(form.publishAt)) return
 
     setSaving(true)
     try {
