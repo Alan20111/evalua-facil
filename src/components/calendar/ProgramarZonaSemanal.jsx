@@ -185,16 +185,11 @@ export default function ProgramarZonaSemanal({
   // mueve); lo único que se mueve es el bloque.
   const colRefs = useRef([])
   const dragRef = useRef(null) // arrastre activo (no provoca re-render)
-  // El fondo solo cierra si el clic EMPEZÓ en el fondo (no tras arrastrar):
-  // evita que la ventana "reaccione" al arrastrar.
-  const backdropDown = useRef(false)
-  const suppressBackdrop = useRef(false)
   const [drag, setDrag] = useState(null) // solo para dibujar el fantasma
 
   function startDrag(e, p) {
     if (e.button != null && e.button !== 0) return
     e.preventDefault()           // sin selección de texto ni arrastre nativo
-    backdropDown.current = false // un arrastre no debe cerrar la ventana
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* no soportado */ }
     const rect = e.currentTarget.getBoundingClientRect()
     dragRef.current = {
@@ -222,8 +217,6 @@ export default function ProgramarZonaSemanal({
     const p = patrones.find(x => x.id === d.id)
     if (!p) return
     if (!d.moved) { setPlacing(null); setEditing(d.id); return } // clic → editar
-    // Tras arrastrar, suprime el posible `click` en el fondo.
-    suppressBackdrop.current = true
     // Detecta la columna (día) bajo el cursor.
     const blockTop = e.clientY - d.grabDY
     let target = null
@@ -262,20 +255,9 @@ export default function ProgramarZonaSemanal({
   const bannerBg = esModificar ? '#fef3c7' : bloqueColor(colorDefault).bg + '66'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-stretch md:items-center justify-center md:p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40 border-none cursor-default"
-        onPointerDown={e => { backdropDown.current = e.target === e.currentTarget }}
-        onClick={e => {
-          if (suppressBackdrop.current) { suppressBackdrop.current = false; return }
-          if (e.target === e.currentTarget && backdropDown.current) intentarSalir()
-        }}
-        aria-label="Cerrar"
-      />
-      <div
-        className={`relative bg-surface-card w-full md:max-w-4xl md:rounded-card shadow-2xl flex flex-col max-h-full md:max-h-[94vh] ${esModificar ? 'ring-4 ring-amber-400 ring-inset md:ring-inset' : ''}`}
-      >
+    <div
+      className={`fixed inset-0 z-50 bg-surface-card flex flex-col ${esModificar ? 'ring-4 ring-amber-400 ring-inset' : ''}`}
+    >
         {/* Banner de modo */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant flex-shrink-0" style={{ background: bannerBg }}>
           <button type="button" onClick={intentarSalir} className="p-1 text-muted hover:text-error rounded transition-colors" aria-label="Volver">
@@ -445,7 +427,6 @@ export default function ProgramarZonaSemanal({
             <Check size={15} /> {esModificar ? 'Guardar cambios' : 'Crear bloques'}
           </button>
         </div>
-      </div>
 
       {/* Fantasma que sigue al cursor mientras se arrastra */}
       {drag?.moved && (() => {
