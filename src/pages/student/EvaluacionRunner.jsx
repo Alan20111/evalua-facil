@@ -338,6 +338,11 @@ export default function EvaluacionRunner() {
         )}
 
         <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="inline-flex items-center gap-1.5 bg-accent-light text-accent text-sm font-bold px-3 py-1 rounded-full">
+              Pregunta {idx + 1} <span className="font-medium text-accent/70">de {preguntas.length}</span>
+            </span>
+          </div>
           <div className="w-full h-1.5 bg-surface-container rounded-full mb-5 overflow-hidden">
             <div className="h-full bg-accent transition-all" style={{ width: `${((idx + 1) / preguntas.length) * 100}%` }} />
           </div>
