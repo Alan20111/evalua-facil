@@ -1318,32 +1318,33 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         const REVIEW_TABS = FILTRO_TABS
         return (
         <div className="fixed inset-0 z-50 bg-surface flex flex-col">
-          {/* Mismo patrón que el encabezado "Evaluar" de ActivityPage.jsx (botón
-              "Regresar" con texto, mismo padding/tamaños) para verse consistente.
+          {/* Mismo patrón que el encabezado "Evaluar" de ActivityPage.jsx.
               Cerrar aquí, si se llegó desde una celda de Calificaciones (backState
               presente), regresa directo ahí — no se queda a medias en Resultados,
               que el docente nunca pidió ver.
               md:pr-72 reserva el mismo ancho que el <aside> de la derecha (w-72)
-              para que el título quede centrado en la MISMA franja que el cuerpo
-              de abajo (main, también flex-1 junto al mismo aside) — si no, el
-              título se ve pegado a la izquierda mientras el cuerpo se ve más al
-              centro/derecha. */}
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => backState ? navigate(`/subject/${activity.asignaturaId}`, { state: backState }) : setReviewing(null)}
-              className="flex items-center gap-1 p-2 -ml-2 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
-            >
-              <ArrowLeft size={20} /> Regresar
-            </button>
+              para que el grupo botón+título se centre en la MISMA franja que el
+              cuerpo de abajo (main, también flex-1 junto al mismo aside) — y el
+              botón vive DENTRO de ese grupo centrado, pegado al título, en vez
+              de quedar solo en el borde izquierdo de la pantalla. */}
+          <div className="flex items-center px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0">
             <div className="flex-1 min-w-0 md:pr-72">
-              <div className="max-w-3xl mx-auto text-right sm:text-left">
-                {contextLine && <p className="text-sm font-medium text-muted truncate">{contextLine}</p>}
-                <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluación</p>
-                <h1 className="text-xl font-bold text-on-surface truncate">
-                  {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
-                </h1>
-                <p className="text-sm font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
+              <div className="max-w-3xl mx-auto flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={() => backState ? navigate(`/subject/${activity.asignaturaId}`, { state: backState }) : setReviewing(null)}
+                  className="flex items-center gap-1 p-2 -ml-2 mt-0.5 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
+                >
+                  <ArrowLeft size={20} /> Regresar
+                </button>
+                <div className="flex-1 min-w-0">
+                  {contextLine && <p className="text-sm font-medium text-muted truncate">{contextLine}</p>}
+                  <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluación</p>
+                  <h1 className="text-xl font-bold text-on-surface truncate">
+                    {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
+                  </h1>
+                  <p className="text-sm font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -1435,17 +1436,20 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 </p>
               </div>
 
-              {/* Anterior / Siguiente */}
+              {/* Anterior / Siguiente — mismo tamaño y jerarquía (Siguiente
+                  relleno = acción principal, Anterior con borde) que el panel
+                  de calificación de ActivityPage.jsx, para que ambos paneles
+                  ocupen el mismo espacio y se sientan del mismo peso visual. */}
               <div className="flex gap-2">
                 <button type="button" onClick={() => goReview(-1)} disabled={reviewNav.length < 2}
-                  className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface disabled:opacity-60 flex items-center justify-center gap-1"><ChevronLeft size={16} /> Anterior</button>
+                  className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-medium)] disabled:opacity-60 transition-colors"><ChevronLeft size={20} /> Anterior</button>
                 <button type="button" onClick={() => goReview(1)} disabled={reviewNav.length < 2}
-                  className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface disabled:opacity-60 flex items-center justify-center gap-1">Siguiente <ChevronRight size={16} /></button>
+                  className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">Siguiente <ChevronRight size={20} /></button>
               </div>
 
               {/* Read-only obtained grade */}
               <div className="rounded border border-outline-variant p-3 text-center">
-                <p className="text-xs text-muted">Calificación obtenida</p>
+                <p className="text-sm font-medium text-muted">Calificación obtenida</p>
                 <p className="text-2xl font-bold text-on-surface">{done ? `${sub.calificacion}/${activity.maxCalif || 10}` : '—'}</p>
               </div>
 

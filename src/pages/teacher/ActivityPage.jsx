@@ -927,31 +927,42 @@ export default function ActivityPage() {
       {selected && (
         <div className="fixed inset-0 z-40 flex flex-col bg-surface">
 
-          {/* Top bar: back + subject being graded */}
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0">
-            <button
-              type="button"
-              onClick={closeModal}
-              className="flex items-center gap-1 p-2 -ml-2 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
-            >
-              <ArrowLeft size={20} /> Regresar
-            </button>
-            {/* Mismo patrón homogeneizado en las 4 variantes de este encabezado:
-                Asignatura — Docente / Evaluar(ción) / Número y nombre + lápiz /
-                Parcial N · Tipo — ver también EvaluacionManager.jsx. */}
-            <div className="flex-1 min-w-0 text-right sm:text-left">
-              <p className="text-sm font-medium text-muted truncate">
-                {subjectDisplayName(subject)}
-                {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
-              </p>
-              <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
-              <h3 className="text-xl font-bold text-on-surface truncate">
-                {activityLabel && <span className="text-accent">{activityLabel} </span>}
-                {activity?.nombre}
-              </h3>
-              <p className="text-sm font-medium text-muted truncate">
-                Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
-              </p>
+          {/* Top bar: back + subject being graded.
+              md:pr-[380px] reserva el mismo ancho que el panel de calificación
+              de la derecha (md:w-[380px] más abajo), así el grupo botón+título
+              se centra en la MISMA franja que la vista previa de la izquierda
+              — y el botón "Regresar" vive DENTRO de ese grupo centrado, pegado
+              al título, en vez de quedar solo en el borde izquierdo de la
+              pantalla. Mismo patrón en EvaluacionManager.jsx (md:pr-72, aside
+              más angosto). */}
+          <div className="flex items-center px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0">
+            <div className="flex-1 min-w-0 md:pr-[380px]">
+              <div className="max-w-3xl mx-auto flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="flex items-center gap-1 p-2 -ml-2 mt-0.5 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
+                >
+                  <ArrowLeft size={20} /> Regresar
+                </button>
+                {/* Mismo patrón homogeneizado en las 4 variantes de este encabezado:
+                    Asignatura — Docente / Evaluar(ción) / Número y nombre + lápiz /
+                    Parcial N · Tipo — ver también EvaluacionManager.jsx. */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-muted truncate">
+                    {subjectDisplayName(subject)}
+                    {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
+                  </p>
+                  <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
+                  <h3 className="text-xl font-bold text-on-surface truncate">
+                    {activityLabel && <span className="text-accent">{activityLabel} </span>}
+                    {activity?.nombre}
+                  </h3>
+                  <p className="text-sm font-medium text-muted truncate">
+                    Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
