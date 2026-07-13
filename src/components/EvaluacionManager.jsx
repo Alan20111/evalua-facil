@@ -726,10 +726,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <ArrowLeft size={22} />
             </button>
             <div className="flex-1 min-w-0">
-              {contextLine && <p className="text-xl font-bold text-on-surface truncate mb-0.5">{contextLine}</p>}
+              {contextLine && <p className="text-sm font-medium text-muted truncate">{contextLine}</p>}
+              <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluación</p>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 truncate">
-                  {activityLabel && <span className="text-2xl font-extrabold text-accent">{activityLabel}</span>}
+                  {activityLabel && <span className="text-accent">{activityLabel}</span>}
                   <span className="truncate">{activity.nombre}</span>
                 </h1>
                 {/* Mismo botón editar que un entregable: lápiz inmediato al nombre.
@@ -744,7 +745,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   <Pencil size={18} />
                 </button>
               </div>
-              <p className="text-slate-400 text-xs">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
+              <p className="text-sm font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
             </div>
           </div>
           {editingTabsVisible && (
@@ -1337,10 +1338,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </button>
             <div className="flex-1 min-w-0 md:pr-72">
               <div className="max-w-3xl mx-auto text-right sm:text-left">
+                {contextLine && <p className="text-sm font-medium text-muted truncate">{contextLine}</p>}
                 <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluación</p>
-                <h1 className="text-lg font-bold text-on-surface truncate">
+                <h1 className="text-xl font-bold text-on-surface truncate">
                   {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
                 </h1>
+                <p className="text-sm font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
               </div>
             </div>
           </div>
