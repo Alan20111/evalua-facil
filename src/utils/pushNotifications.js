@@ -1,7 +1,15 @@
-// Fase 4 de notificaciones push — recibe el mensaje de datos que manda la
-// Cloud Function (Fase 3) y lo convierte en una notificación LOCAL real con
-// el sonido/repetición/postergación que el estudiante configuró (Fase 1).
-// Solo corre en la app nativa de Android (Capacitor) — en la web no hace nada.
+// Notificaciones push — registra el dispositivo y maneja la recepción con la
+// app en primer plano. Solo corre en la app nativa de Android (Capacitor) —
+// en la web no hace nada.
+//
+// Sonido, volumen y repetición los controla el propio teléfono del
+// estudiante (como con cualquier otra app) — no la app. La Cloud Function
+// manda un "notification" payload normal (ver functions/index.js), así que
+// con la app en segundo plano o cerrada, Android la muestra solo, con el
+// sonido/volumen que el estudiante tenga configurado en su teléfono. El
+// único caso que hay que manejar aquí es la app en PRIMER PLANO: ahí Android
+// no la muestra automáticamente, así que se refleja con una notificación
+// local simple usando el mismo título/cuerpo que mandó la Cloud Function.
 import { Capacitor } from '@capacitor/core'
 import { PushNotifications } from '@capacitor/push-notifications'
 import { LocalNotifications } from '@capacitor/local-notifications'
@@ -10,49 +18,15 @@ import { db } from '../firebase'
 
 let installed = false
 
-// Debe coincidir con los nombres de archivo en android/app/src/main/res/raw/
-// (generados por scripts/generar-sonidos-notificacion.cjs — Fase 2).
-const SOUND_FILES = {
-  campana: 'notif_campana.wav',
-  timbre: 'notif_timbre.wav',
-  suave: 'notif_suave.wav',
-  digital: 'notif_digital.wav',
-  marimba: 'notif_marimba.wav',
-}
-
-const TITULOS = {
-  actividadesNuevas: 'Nueva actividad',
-  calificaciones: 'Te calificaron',
-  recordatorios: 'Recordatorio de entrega',
-}
-
-// Convierte el data payload de FCM en 1 (repetir: 'una_vez') o varias
-// notificaciones LOCALES encadenadas (repetir: 'hasta_interactuar'): la
-// primera suena de inmediato, las siguientes se programan cada
-// `postergarMinutos` hasta `maxPostergaciones` veces. Todas comparten
-// `chainIds` en `extra` — al interactuar con cualquiera se cancelan las demás
-// (ver el listener de abajo), sin necesidad de mantener un servicio corriendo.
-async function mostrarNotificacion(data) {
-  const soundFile = SOUND_FILES[data.sonido] || SOUND_FILES.campana
-  const title = TITULOS[data.categoria] || 'Evalúa Fácil'
-  const repiteHastaInteractuar = data.repetir === 'hasta_interactuar'
-  const max = repiteHastaInteractuar ? Math.max(0, Number(data.maxPostergaciones) || 0) : 0
-  const minutos = Number(data.postergarMinutos) || 5
-
-  const baseId = Math.floor(Date.now() % 1_000_000_000)
-  const chainIds = Array.from({ length: max + 1 }, (_, i) => baseId + i)
-
-  const notifications = chainIds.map((id, i) => ({
-    id,
-    title,
-    body: 'Toca para ver los detalles en Evalúa Fácil',
-    sound: soundFile,
-    extra: { ...data, chainIds },
-    ...(i > 0 ? { schedule: { at: new Date(Date.now() + minutos * 60_000 * i) } } : {}),
-  }))
-
+async function mostrarEnPrimerPlano(notification) {
   try {
-    await LocalNotifications.schedule({ notifications })
+    await LocalNotifications.schedule({
+      notifications: [{
+        id: Math.floor(Date.now() % 1_000_000_000),
+        title: notification.title || 'Evalúa Fácil',
+        body: notification.body || 'Toca para ver los detalles',
+      }],
+    })
   } catch {
     // best-effort — sin esto la app sigue funcionando, solo sin el aviso local
   }
@@ -77,17 +51,10 @@ export async function initPushNotifications(uid) {
       // best-effort — sin token registrado, la Cloud Function simplemente no
       // encuentra a quién mandarle el push (ver enviarPush() en functions/index.js)
     })
+    // Solo dispara con la app en primer plano — en segundo plano o cerrada,
+    // Android ya mostró la notificación del sistema por su cuenta.
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      mostrarNotificacion(notification.data || {})
-    })
-    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      mostrarNotificacion(action.notification.data || {})
-    })
-
-    LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
-      const chainIds = action.notification.extra?.chainIds
-      if (!Array.isArray(chainIds)) return
-      LocalNotifications.cancel({ notifications: chainIds.map((id) => ({ id })) }).catch(() => {})
+      mostrarEnPrimerPlano(notification)
     })
 
     await PushNotifications.register()

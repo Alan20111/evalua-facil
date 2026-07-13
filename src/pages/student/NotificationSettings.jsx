@@ -5,50 +5,43 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ArrowLeft, Play } from 'lucide-react'
-import { ALARMA_SONIDOS, reproducirSonido } from '../../utils/horarioBloques'
+import { ArrowLeft, Settings } from 'lucide-react'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 
 // Pantalla completa (no usa StudentLayout — mismo patrón que EvaluacionRunner:
 // un overlay fixed inset-0 con SOLO un encabezado del estudiante, sin la barra
-// lateral de asignaturas) donde el estudiante configura, por separado, cómo
-// quiere que suenen sus tres tipos de notificación.
+// lateral de asignaturas). Aquí el estudiante SOLO decide qué acciones
+// disparan una notificación — sonido, volumen y repetición los controla el
+// propio teléfono (el sistema operativo), no la app.
 //
 // Colección `notificationSettings/{uid}` — UNA por estudiante (uid de Auth,
-// global entre todas sus inscripciones, a diferencia de notifPrefs que vivía
-// duplicado en cada doc de `students`):
+// global entre todas sus inscripciones):
 //   {
-//     actividadesNuevas: { habilitado, sonido, repetir, volumen, postergarMinutos, maxPostergaciones },
-//     calificaciones:    { ...misma forma... },
-//     recordatorios:     { ...misma forma... },
-//     fcmTokens: [],   // reservado — se llena cuando se conecte el push real
+//     actividadesNuevas: { habilitado },
+//     calificaciones:    { habilitado },
+//     recordatorios:     { habilitado, anticipacionMinutos },
+//     fcmTokens: [],
 //     updatedAt,
 //   }
 
-const CATEGORIA_DEFAULT = {
-  habilitado: true,
-  sonido: 'campana',
-  repetir: 'una_vez',
-  volumen: 70,
-  postergarMinutos: 5,
-  maxPostergaciones: 3,
-}
+const ANTICIPACION_OPCIONES = [
+  { minutos: 15, label: '15 minutos antes' },
+  { minutos: 60, label: '1 hora antes' },
+  { minutos: 180, label: '3 horas antes' },
+  { minutos: 1440, label: '1 día antes' },
+  { minutos: 2880, label: '2 días antes' },
+]
 
 const DEFAULTS = {
-  actividadesNuevas: { ...CATEGORIA_DEFAULT, sonido: 'campana' },
-  calificaciones: { ...CATEGORIA_DEFAULT, sonido: 'timbre' },
-  recordatorios: { ...CATEGORIA_DEFAULT, sonido: 'suave' },
+  actividadesNuevas: { habilitado: true },
+  calificaciones: { habilitado: true },
+  recordatorios: { habilitado: true, anticipacionMinutos: 1440 },
 }
 
 const CATEGORIAS = [
   { key: 'actividadesNuevas', label: 'Actividades nuevas', description: 'Cuando tu maestro publique una actividad' },
   { key: 'calificaciones', label: 'Calificaciones', description: 'Cuando te califiquen una entrega' },
   { key: 'recordatorios', label: 'Recordatorios de entrega', description: 'Antes de que cierre una fecha límite' },
-]
-
-const REPETIR_OPCIONES = [
-  { value: 'una_vez', label: 'Suena una vez' },
-  { value: 'hasta_interactuar', label: 'Suena hasta que interactúes' },
 ]
 
 function mergeWithDefaults(data) {
@@ -59,153 +52,32 @@ function mergeWithDefaults(data) {
   return merged
 }
 
-// Interruptor simple — mismo patrón visual que el resto de la app (ver
-// PaymentConfig.jsx / el modal de notificaciones que reemplaza esta pantalla).
-function Toggle({ checked, onChange, label, description }) {
+// Interruptor simple — mismo patrón visual que el resto de la app.
+function Toggle({ checked, onChange, label, description, children }) {
   return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className="w-full flex items-center gap-3 py-1 text-left"
-    >
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-on-surface">{label}</p>
-        {description && <p className="text-xs text-muted mt-0.5">{description}</p>}
-      </div>
-      <span
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-          checked ? 'bg-accent' : 'bg-slate-300'
-        }`}
+    <div className="py-1">
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className="w-full flex items-center gap-3 text-left"
       >
-        <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-surface-card transition-transform ${
-            checked ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </span>
-    </button>
-  )
-}
-
-function CategoriaCard({ categoria, valor, onChange }) {
-  const postergarDeshabilitado = valor.repetir === 'una_vez'
-
-  return (
-    <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4 space-y-4">
-      <Toggle
-        checked={valor.habilitado}
-        onChange={(v) => onChange({ ...valor, habilitado: v })}
-        label={categoria.label}
-        description={categoria.description}
-      />
-
-      {valor.habilitado && (
-        <div className="space-y-4 pt-1 border-t border-outline-variant">
-          {/* Sonido */}
-          <div className="space-y-1.5 pt-3">
-            <span className="text-xs font-semibold text-muted uppercase tracking-wide">Sonido</span>
-            <div className="space-y-1">
-              {ALARMA_SONIDOS.map((s) => (
-                <label
-                  key={s.id}
-                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded border text-sm cursor-pointer transition-colors ${
-                    valor.sonido === s.id ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-surface'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name={`sonido-${categoria.key}`}
-                    checked={valor.sonido === s.id}
-                    onChange={() => onChange({ ...valor, sonido: s.id })}
-                    className="accent-[var(--accent)]"
-                  />
-                  <span className="flex-1 text-on-surface">{s.label}</span>
-                  <button
-                    type="button"
-                    onClick={() => reproducirSonido(s.id, valor.volumen)}
-                    className="p-1.5 text-accent hover:bg-accent-tint rounded-full transition-colors flex-shrink-0"
-                    data-tooltip="Probar"
-                    aria-label={`Probar sonido ${s.label}`}
-                  >
-                    <Play size={13} />
-                  </button>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Repetición */}
-          <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-muted uppercase tracking-wide">Repetición</span>
-            <div className="flex flex-wrap gap-2">
-              {REPETIR_OPCIONES.map((op) => (
-                <button
-                  key={op.value}
-                  type="button"
-                  onClick={() => onChange({ ...valor, repetir: op.value })}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                    valor.repetir === op.value
-                      ? 'bg-accent text-white border-accent'
-                      : 'border-outline-variant text-muted hover:bg-surface'
-                  }`}
-                >
-                  {op.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Volumen */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted uppercase tracking-wide">Volumen</span>
-              <span className="text-xs text-muted">{valor.volumen}%</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={valor.volumen}
-              onChange={(e) => onChange({ ...valor, volumen: Number(e.target.value) })}
-              className="w-full accent-[var(--accent)]"
-            />
-            <p className="text-[11px] text-muted">
-              Con la app abierta suena a este volumen. Con el celular bloqueado o la app cerrada, suena al volumen de notificaciones de tu teléfono.
-            </p>
-          </div>
-
-          {/* Postergación */}
-          <div className="space-y-1.5">
-            <span className={`text-xs font-semibold uppercase tracking-wide ${postergarDeshabilitado ? 'text-slate-300' : 'text-muted'}`}>
-              Postergación
-            </span>
-            <div className="flex flex-wrap gap-3">
-              <label className="flex items-center gap-2 text-sm">
-                <span className={postergarDeshabilitado ? 'text-slate-300' : 'text-on-surface'}>Cada</span>
-                <select
-                  disabled={postergarDeshabilitado}
-                  value={valor.postergarMinutos}
-                  onChange={(e) => onChange({ ...valor, postergarMinutos: Number(e.target.value) })}
-                  className="px-2 py-1 rounded border border-outline-variant text-sm bg-surface disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {[5, 10, 15].map((m) => <option key={m} value={m}>{m} min</option>)}
-                </select>
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <span className={postergarDeshabilitado ? 'text-slate-300' : 'text-on-surface'}>hasta</span>
-                <select
-                  disabled={postergarDeshabilitado}
-                  value={valor.maxPostergaciones}
-                  onChange={(e) => onChange({ ...valor, maxPostergaciones: Number(e.target.value) })}
-                  className="px-2 py-1 rounded border border-outline-variant text-sm bg-surface disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} {n === 1 ? 'vez' : 'veces'}</option>)}
-                </select>
-              </label>
-            </div>
-          </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-on-surface">{label}</p>
+          {description && <p className="text-xs text-muted mt-0.5">{description}</p>}
         </div>
-      )}
+        <span
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+            checked ? 'bg-accent' : 'bg-slate-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-surface-card transition-transform ${
+              checked ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </span>
+      </button>
+      {checked && children && <div className="mt-3 pt-3 border-t border-outline-variant">{children}</div>}
     </div>
   )
 }
@@ -232,11 +104,8 @@ export default function NotificationSettings() {
 
   useEffect(() => () => clearTimeout(saveTimer.current), [])
 
-  // Cambia una categoría y programa el guardado con un pequeño debounce —
-  // así arrastrar el slider de volumen no dispara una escritura a Firestore
-  // por cada tick. Se dispara desde el handler de cambio (no desde un efecto
-  // reactivo sobre `settings`) para no llamar setState de forma síncrona
-  // dentro de un efecto.
+  // Se dispara desde el handler de cambio (no desde un efecto reactivo sobre
+  // `settings`) para no llamar setState de forma síncrona dentro de un efecto.
   function updateCategoria(key, next) {
     const updated = { ...settings, [key]: next }
     setSettings(updated)
@@ -247,7 +116,7 @@ export default function NotificationSettings() {
       setDoc(doc(db, 'notificationSettings', currentUser.uid), { ...updated, updatedAt: serverTimestamp() }, { merge: true })
         .catch(() => toast('No se pudo guardar: intenta de nuevo', 'error'))
         .finally(() => setSaving(false))
-    }, 500)
+    }, 400)
   }
 
   const firstName = userProfile?.nombre || 'Estudiante'
@@ -274,14 +143,52 @@ export default function NotificationSettings() {
         <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
       ) : (
         <div className={`px-4 py-5 space-y-4 ${STUDENT_CONTAINER_NARROW}`}>
-          {CATEGORIAS.map((cat) => (
-            <CategoriaCard
-              key={cat.key}
-              categoria={cat}
-              valor={settings[cat.key]}
-              onChange={(next) => updateCategoria(cat.key, next)}
-            />
-          ))}
+          <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4 divide-y divide-outline-variant">
+            {CATEGORIAS.map((cat) => (
+              <div key={cat.key} className={cat.key !== CATEGORIAS[0].key ? 'pt-3' : ''}>
+                <Toggle
+                  checked={settings[cat.key].habilitado}
+                  onChange={(v) => updateCategoria(cat.key, { ...settings[cat.key], habilitado: v })}
+                  label={cat.label}
+                  description={cat.description}
+                >
+                  {cat.key === 'recordatorios' && (
+                    <label className="flex items-center justify-between gap-2 text-sm">
+                      <span className="text-on-surface">Avisar</span>
+                      <select
+                        value={settings.recordatorios.anticipacionMinutos}
+                        onChange={(e) => updateCategoria('recordatorios', { ...settings.recordatorios, anticipacionMinutos: Number(e.target.value) })}
+                        className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface"
+                      >
+                        {ANTICIPACION_OPCIONES.map((op) => (
+                          <option key={op.minutos} value={op.minutos}>{op.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </Toggle>
+              </div>
+            ))}
+          </div>
+
+          {/* Sonido, volumen y repetición los controla el teléfono, no la
+              app — aquí solo explicamos cómo activarlas ahí. */}
+          <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Settings size={16} className="text-accent flex-shrink-0" />
+              <p className="text-sm font-semibold text-on-surface">Cómo activar las notificaciones en tu celular</p>
+            </div>
+            <p className="text-xs text-muted mb-2">
+              El sonido, el volumen y si se repiten los controla tu teléfono, igual que con cualquier otra app.
+              Para asegurarte de recibirlas:
+            </p>
+            <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
+              <li>Abre los <strong>Ajustes</strong> de tu teléfono.</li>
+              <li>Busca <strong>Aplicaciones</strong> (o &quot;Apps&quot;) y selecciona <strong>Evalúa Fácil</strong>.</li>
+              <li>Entra a <strong>Notificaciones</strong> y actívalas.</li>
+              <li>Si tu teléfono te pregunta al abrir la app, elige <strong>Permitir</strong>.</li>
+            </ol>
+          </div>
         </div>
       )}
     </div>

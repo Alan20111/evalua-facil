@@ -1,16 +1,21 @@
-// Cloud Functions — Fase 3 de notificaciones push de Evalúa Fácil.
+// Cloud Functions — notificaciones push de Evalúa Fácil.
 //
-// Tres funciones, cada una respeta la configuración por categoría que el
-// estudiante guarda en `notificationSettings/{uid}` (Fase 1):
+// Tres funciones, cada una respeta si el estudiante habilitó esa categoría en
+// `notificationSettings/{uid}` (pantalla de notificaciones del alumno):
 //   1. onActividadEscrita   — actividad nueva visible para el alumno.
 //   2. onSubmissionActualizada — se publicó una calificación.
 //   3. revisarProgramados   — programada cada 30 min: actividades cuyo
 //      publishAt ya pasó (visibilidad puramente por tiempo, sin escritura de
-//      doc) + recordatorios de entrega 24h/2h antes de fechaLimite.
+//      doc) + recordatorios de entrega, con la anticipación que cada
+//      estudiante haya elegido (recordatorios.anticipacionMinutos).
 //
-// Cada push se envía como mensaje de DATOS (no "notification" payload) — el
-// cliente (Fase 4) decide sonido/volumen/repetición/postergación con ese
-// payload en vez de dejar que el sistema operativo la muestre directo.
+// Sonido, volumen y repetición los controla el propio teléfono del
+// estudiante (como con cualquier otra app) — la app NO los configura, así
+// que cada push va como "notification" payload normal: el sistema operativo
+// la muestra solo con la app en segundo plano o cerrada. Con la app en
+// primer plano, Android no la muestra automáticamente, así que el cliente
+// (ver src/utils/pushNotifications.js) la refleja con una notificación local
+// simple usando el mismo título/cuerpo.
 
 const { initializeApp } = require('firebase-admin/app')
 const { getFirestore } = require('firebase-admin/firestore')
@@ -22,6 +27,12 @@ const { logger } = require('firebase-functions')
 initializeApp()
 const db = getFirestore()
 const messaging = getMessaging()
+
+const TITULOS = {
+  actividadesNuevas: { title: 'Nueva actividad', body: 'Tu maestro publicó una actividad nueva.' },
+  calificaciones: { title: 'Te calificaron', body: 'Ya tienes una calificación nueva.' },
+  recordatorios: { title: 'Recordatorio de entrega', body: 'Se acerca la fecha límite de una actividad.' },
+}
 
 // ─── Visibilidad de actividad — replica isActivityPublished() de
 // src/utils/activityVisibility.js (single source of truth en el cliente). ───
@@ -39,8 +50,8 @@ async function parcialesOcultosDe(asignaturaId) {
 
 // ─── Envío ───────────────────────────────────────────────────────────────
 // Lee la preferencia del estudiante para esa categoría; si está deshabilitada
-// o no tiene tokens registrados (aún no llegó a la Fase 4), no hace nada.
-// Los valores del data payload de FCM deben ser strings.
+// o no tiene tokens registrados, no hace nada. Los valores de `data` deben
+// ser strings (requisito de FCM).
 async function enviarPush(uid, categoria, dataExtra = {}) {
   if (!uid) return
   const settingsSnap = await db.collection('notificationSettings').doc(uid).get()
@@ -51,17 +62,13 @@ async function enviarPush(uid, categoria, dataExtra = {}) {
   const tokens = settings.fcmTokens || []
   if (!tokens.length) return
 
+  const notification = TITULOS[categoria]
   const data = {
     categoria,
-    sonido: String(cfg.sonido || 'campana'),
-    repetir: String(cfg.repetir || 'una_vez'),
-    volumen: String(cfg.volumen ?? 70),
-    postergarMinutos: String(cfg.postergarMinutos ?? 5),
-    maxPostergaciones: String(cfg.maxPostergaciones ?? 3),
     ...Object.fromEntries(Object.entries(dataExtra).map(([k, v]) => [k, String(v)])),
   }
   try {
-    await messaging.sendEachForMulticast({ tokens, data })
+    await messaging.sendEachForMulticast({ tokens, notification, data })
   } catch (err) {
     logger.error(`enviarPush(${uid}, ${categoria}) falló:`, err.message)
   }
@@ -117,14 +124,8 @@ exports.onSubmissionActualizada = onDocumentWritten('submissions/{submissionId}'
 // ─── 3) Programadas + recordatorios de entrega ─────────────────────────────
 // Corre cada 30 min. Ventana de 35 min (> intervalo del scheduler) para no
 // perder ninguna actividad entre corridas.
-// (Redeploy forzado tras otorgar el rol Cloud Functions Admin, necesario
-// para que Firebase pueda fijar el permiso de invocador de Cloud Scheduler.)
 const SCHEDULE_INTERVAL = 'every 30 minutes'
 const WINDOW_MS = 35 * 60 * 1000
-const TIERS = [
-  { id: '24h', ms: 24 * 60 * 60 * 1000 },
-  { id: '2h', ms: 2 * 60 * 60 * 1000 },
-]
 
 exports.revisarProgramados = onSchedule(SCHEDULE_INTERVAL, async () => {
   const now = Date.now()
@@ -145,10 +146,13 @@ exports.revisarProgramados = onSchedule(SCHEDULE_INTERVAL, async () => {
     await doc.ref.update({ notificadoNuevaActividad: true })
   }
 
-  // 3b) Recordatorios de entrega — 24h y 2h antes de fechaLimite, solo a
-  // quien no haya entregado todavía. Sin filtro de rango en la query (evita
-  // necesitar un índice compuesto nuevo — mismo criterio que el resto de la
-  // app): trae todas las actividades y filtra fechaLimite en memoria.
+  // 3b) Recordatorios de entrega — cada estudiante elige su propia
+  // anticipación (recordatorios.anticipacionMinutos, ver
+  // src/pages/student/NotificationSettings.jsx), solo a quien no haya
+  // entregado todavía. Un solo aviso por actividad+estudiante
+  // (recordatoriosEnviados, lista plana de alumnoId). Sin filtro de rango en
+  // la query (evita necesitar un índice compuesto nuevo — mismo criterio que
+  // el resto de la app): trae todas las actividades y filtra en memoria.
   const todasSnap = await db.collection('activities').get()
   for (const doc of todasSnap.docs) {
     const a = doc.data()
@@ -157,24 +161,29 @@ exports.revisarProgramados = onSchedule(SCHEDULE_INTERVAL, async () => {
     const msLeft = deadline - now
     if (msLeft <= 0) continue
 
-    for (const tier of TIERS) {
-      if (msLeft > tier.ms || msLeft < tier.ms - WINDOW_MS) continue
-      const yaEnviados = a.recordatoriosEnviados?.[tier.id] || []
+    const yaEnviados = a.recordatoriosEnviados || []
+    const [estudiantes, submissionsSnap] = await Promise.all([
+      estudiantesDeAsignatura(a.asignaturaId),
+      db.collection('submissions').where('actividadId', '==', doc.id).get(),
+    ])
+    const entregaronIds = new Set(submissionsSnap.docs.map((s) => s.data().alumnoId))
+    const candidatos = estudiantes.filter((d) => !entregaronIds.has(d.id) && !yaEnviados.includes(d.id))
+    if (!candidatos.length) continue
 
-      const [estudiantes, submissionsSnap] = await Promise.all([
-        estudiantesDeAsignatura(a.asignaturaId),
-        db.collection('submissions').where('actividadId', '==', doc.id).get(),
-      ])
-      const entregaronIds = new Set(submissionsSnap.docs.map((s) => s.data().alumnoId))
-      const pendientes = estudiantes.filter((d) => !entregaronIds.has(d.id) && !yaEnviados.includes(d.id))
-      if (!pendientes.length) continue
-
-      await Promise.all(pendientes.map((d) =>
-        enviarPush(d.data().uid, 'recordatorios', { actividadId: doc.id, tier: tier.id })
-      ))
-      await doc.ref.update({
-        [`recordatoriosEnviados.${tier.id}`]: [...yaEnviados, ...pendientes.map((d) => d.id)],
-      })
+    const settingsSnaps = await Promise.all(candidatos.map((d) =>
+      d.data().uid ? db.collection('notificationSettings').doc(d.data().uid).get() : null
+    ))
+    const nuevosEnviados = []
+    await Promise.all(candidatos.map(async (d, i) => {
+      const cfg = settingsSnaps[i]?.data()?.recordatorios
+      if (!cfg?.habilitado) return
+      const anticipacionMs = (cfg.anticipacionMinutos || 60) * 60_000
+      if (msLeft > anticipacionMs || msLeft < anticipacionMs - WINDOW_MS) return
+      await enviarPush(d.data().uid, 'recordatorios', { actividadId: doc.id })
+      nuevosEnviados.push(d.id)
+    }))
+    if (nuevosEnviados.length) {
+      await doc.ref.update({ recordatoriosEnviados: [...yaEnviados, ...nuevosEnviados] })
     }
   }
 })
