@@ -3349,6 +3349,21 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">Editar estudiante</h3>
               <button type="button" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
+            {/* Foto de perfil del estudiante — solo lectura; la sube el propio estudiante desde su cuenta */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-16 h-16 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
+                {studentToEdit.photoURL ? (
+                  <img src={studentToEdit.photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-xl font-bold text-accent">{(studentToEdit.nombre || '?').charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <p className="text-xs text-muted">
+                {studentToEdit.photoURL
+                  ? 'Foto de perfil que subió el estudiante.'
+                  : 'El estudiante aún no ha subido una foto de perfil.'}
+              </p>
+            </div>
             <form onSubmit={saveEditStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
                 <input
