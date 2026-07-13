@@ -1086,9 +1086,10 @@ export default function EFDateTimePicker({
         <button
           type="button"
           onClick={confirm}
+          disabled={!draft}
           className="text-xs"
-          style={{ padding: '6px 14px', borderRadius: 'var(--radius, 0.5rem)', border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-hover)' }}
+          style={{ padding: '6px 14px', borderRadius: 'var(--radius, 0.5rem)', border: 'none', background: 'var(--accent)', color: '#fff', fontWeight: 600, cursor: draft ? 'pointer' : 'not-allowed', opacity: draft ? 1 : 0.5, display: 'flex', alignItems: 'center', gap: 5 }}
+          onMouseEnter={e => { if (draft) e.currentTarget.style.background = 'var(--accent-hover)' }}
           onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent)' }}
         >
           <Check size={13} />
