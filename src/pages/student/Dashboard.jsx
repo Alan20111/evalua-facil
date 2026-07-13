@@ -52,36 +52,6 @@ async function fetchSubmissionsForStudents(studentDocIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-// Interruptor simple (mismo patrón visual que el resto de la app: pista
-// h-6 w-11 rounded-full, pulgar h-4 w-4 — ver PaymentConfig.jsx).
-function Toggle({ checked, onChange, label, description }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className="w-full flex items-center gap-3 py-2.5 text-left"
-    >
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-on-surface">{label}</p>
-        {description && <p className="text-xs text-muted mt-0.5">{description}</p>}
-      </div>
-      <span
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
-          checked ? 'bg-accent' : 'bg-slate-300'
-        }`}
-      >
-        <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-surface-card transition-transform ${
-            checked ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </span>
-    </button>
-  )
-}
-
-const NOTIF_DEFAULTS = { actividadesNuevas: true, calificaciones: true, recordatorios: true }
-
 export default function StudentDashboard() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
   const [subjects, setSubjects] = useState([])
@@ -89,11 +59,8 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true)
   const [showJoin, setShowJoin] = useState(false)
   const [joinCode, setJoinCode] = useState('')
-  const [showNotif, setShowNotif] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [prefs, setPrefs] = useState(NOTIF_DEFAULTS)
-  const [savingPrefs, setSavingPrefs] = useState(false)
   const fileInputRef = useRef(null)
   const navigate = useNavigate()
   const toast = useToast()
@@ -109,10 +76,6 @@ export default function StudentDashboard() {
     if (currentUser) loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [currentUser])
-
-  useEffect(() => {
-    if (studentInfo?.notifPrefs) setPrefs({ ...NOTIF_DEFAULTS, ...studentInfo.notifPrefs })
-  }, [studentInfo?.notifPrefs])
 
   async function loadData() {
     setLoading(true)
@@ -215,24 +178,6 @@ export default function StudentDashboard() {
     }
   }
 
-  // Preferencias de notificaciones — se guardan en TODAS las inscripciones de
-  // este uid, ya que el alumno no tiene un doc propio en `users`. Aún no hay
-  // push conectado; esto solo deja la preferencia lista para cuando se active.
-  async function togglePref(key, value) {
-    const next = { ...prefs, [key]: value }
-    setPrefs(next)
-    if (!currentUser) return
-    setSavingPrefs(true)
-    try {
-      await updateAllEnrollments(currentUser.uid, { notifPrefs: next })
-      setStudentInfo((prev) => (prev ? { ...prev, notifPrefs: next } : prev))
-    } catch {
-      // best-effort — silent failure
-    } finally {
-      setSavingPrefs(false)
-    }
-  }
-
   if (loading) return (
     <StudentLayout>
       <div className="flex items-center justify-center py-20">
@@ -293,7 +238,7 @@ export default function StudentDashboard() {
           </div>
           <button
             type="button"
-            onClick={() => setShowNotif(true)}
+            onClick={() => navigate('/alumno/notificaciones')}
             className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent-tint transition-colors"
           >
             <Bell size={20} className="text-accent flex-shrink-0" />
@@ -426,46 +371,6 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {/* ── Notificaciones modal ── */}
-      {showNotif && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40 border-none cursor-default"
-            onClick={() => setShowNotif(false)}
-            aria-label="Cerrar"
-          />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <h3 className="text-lg font-semibold text-on-surface truncate">Notificaciones</h3>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {savingPrefs && <Spinner size="sm" />}
-                <button type="button" aria-label="Cerrar" onClick={() => setShowNotif(false)} className="p-2 text-slate-400 rounded"><X size={20} /></button>
-              </div>
-            </div>
-            <div className="divide-y divide-outline-variant">
-              <Toggle
-                checked={prefs.actividadesNuevas}
-                onChange={(v) => togglePref('actividadesNuevas', v)}
-                label="Actividades nuevas"
-                description="Cuando tu maestro publique una actividad"
-              />
-              <Toggle
-                checked={prefs.calificaciones}
-                onChange={(v) => togglePref('calificaciones', v)}
-                label="Calificaciones"
-                description="Cuando te califiquen una entrega"
-              />
-              <Toggle
-                checked={prefs.recordatorios}
-                onChange={(v) => togglePref('recordatorios', v)}
-                label="Recordatorios de entrega"
-                description="Antes de que cierre una fecha límite"
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </StudentLayout>
   )
 }

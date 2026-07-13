@@ -49,8 +49,12 @@ export const ALARMA_SONIDOS = [
   { id: 'marimba',  label: 'Marimba',   notas: [[659, 0.2], [784, 0.2], [988, 0.2], [1319, 0.35]] },
 ]
 
-export function reproducirSonido(sonidoId) {
+// `volumenPct` (0-100, default 100) scales the existing 0.3 gain peak — callers
+// that don't pass it (the teacher's class-block alarms) get the exact same
+// volume as before.
+export function reproducirSonido(sonidoId, volumenPct = 100) {
   const def = ALARMA_SONIDOS.find(s => s.id === sonidoId) || ALARMA_SONIDOS[0]
+  const peak = 0.3 * Math.max(0, Math.min(100, volumenPct)) / 100
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext
     if (!Ctx) return
@@ -62,7 +66,7 @@ export function reproducirSonido(sonidoId) {
       osc.type = 'sine'
       osc.frequency.value = freq
       gain.gain.setValueAtTime(0.0001, t)
-      gain.gain.exponentialRampToValueAtTime(0.3, t + 0.02)
+      gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak), t + 0.02)
       gain.gain.exponentialRampToValueAtTime(0.0001, t + dur)
       osc.connect(gain).connect(ctx.destination)
       osc.start(t)

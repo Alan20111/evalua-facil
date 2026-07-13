@@ -27,6 +27,7 @@ import StudentSubjectPage from './pages/student/SubjectPage'
 import StudentActivityPage from './pages/student/ActivityPage'
 import EvaluacionRunner from './pages/student/EvaluacionRunner'
 import EvaluacionRevision from './pages/student/EvaluacionRevision'
+import NotificationSettings from './pages/student/NotificationSettings'
 
 import AdminDashboard from './pages/admin/Dashboard'
 
@@ -152,6 +153,7 @@ export default function App() {
             <Route path="/alumno/actividad/:activityId" element={<ProtectedStudent><StudentActivityPage /></ProtectedStudent>} />
             <Route path="/alumno/evaluacion/:activityId" element={<ProtectedStudent><EvaluacionRunner /></ProtectedStudent>} />
             <Route path="/alumno/evaluacion/:activityId/revision" element={<ProtectedStudent><EvaluacionRevision /></ProtectedStudent>} />
+            <Route path="/alumno/notificaciones" element={<ProtectedStudent><NotificationSettings /></ProtectedStudent>} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
