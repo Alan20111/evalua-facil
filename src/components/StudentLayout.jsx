@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, ChevronRight, LayoutDashboard, Camera } from 'lucide-react'
+import { LogOut, ChevronRight, Camera } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { getDoc, doc, getDocs, collection, query, where, updateDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -11,6 +11,7 @@ import { subjectDisplayName } from '../utils/subjectName'
 import { getEnrollments } from '../utils/studentLookup'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
+import StudentMenu from './StudentMenu'
 
 async function uploadPhotoToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -35,6 +36,7 @@ export default function StudentLayout({ children }) {
   const [schoolName, setSchoolName] = useState('')
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [studentInfo, setStudentInfo] = useState(null)
+  const [showMenu, setShowMenu] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -104,9 +106,25 @@ export default function StudentLayout({ children }) {
     }
   }
 
+  // Preferencias de notificaciones — mismo patrón que la foto: se guardan en
+  // TODAS las inscripciones (documentos `students`) de este uid, ya que el
+  // alumno no tiene un doc propio en `users`. Aún no hay push conectado; esto
+  // solo deja la preferencia lista para cuando se active.
+  async function handleSaveNotifPrefs(prefs) {
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'students'), where('uid', '==', currentUser.uid))
+      )
+      await Promise.all(snap.docs.map((d) => updateDoc(doc(db, 'students', d.id), { notifPrefs: prefs })))
+      setStudentInfo((prev) => (prev ? { ...prev, notifPrefs: prefs } : prev))
+    } catch {
+      // best-effort — silent failure
+    }
+  }
+
   const displayName =
-    [userProfile?.nombre, userProfile?.apellidoPaterno].filter(Boolean).join(' ')
-    || [studentInfo?.nombre, studentInfo?.apellidoPaterno].filter(Boolean).join(' ')
+    [userProfile?.nombre, userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
+    || [studentInfo?.nombre, studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].filter(Boolean).join(' ')
     || userProfile?.username
     || studentInfo?.username
     || 'Estudiante'
@@ -126,11 +144,16 @@ export default function StudentLayout({ children }) {
 
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
-        <div className="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          onClick={() => setShowMenu(true)}
+          aria-label="Abrir menú"
+          className="flex items-center gap-2 min-w-0 -ml-1 p-1 rounded hover:bg-accent-tint transition-colors"
+        >
           <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
           {/* eslint-disable-next-line jsx-a11y/aria-role -- role aquí es la prop propia de PortalBadge, no un atributo ARIA */}
           <PortalBadge role="alumno" />
-        </div>
+        </button>
         <button
           type="button"
           onClick={handleLogout}
@@ -242,25 +265,20 @@ export default function StudentLayout({ children }) {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 min-w-0 min-h-screen pb-20 md:pb-0">{children}</main>
+        <main className="flex-1 min-w-0 min-h-screen">{children}</main>
       </div>
 
-      {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-surface-card border-t border-outline-variant safe-bottom">
-        <div className="flex">
-          <NavLink
-            to="/alumno/dashboard"
-            className={({ isActive }) =>
-              `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
-                isActive ? 'text-accent' : 'text-muted'
-              }`
-            }
-          >
-            <LayoutDashboard size={24} />
-            <span>Asignaturas</span>
-          </NavLink>
-        </div>
-      </nav>
+      <StudentMenu
+        open={showMenu}
+        onClose={() => setShowMenu(false)}
+        displayName={displayName}
+        subjects={subjects}
+        loadingSidebar={loadingSidebar}
+        notifPrefs={studentInfo?.notifPrefs}
+        onSaveNotifPrefs={handleSaveNotifPrefs}
+        joinPrefillUsername={userProfile?.username || studentInfo?.username}
+        onLogout={handleLogout}
+      />
     </div>
   )
 }
