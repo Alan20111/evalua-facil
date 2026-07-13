@@ -43,11 +43,6 @@ export default function Landing() {
             </span>
           </Link>
         </div>
-
-        <p className="text-center text-sm text-muted mt-8">
-          ¿Eres docente y aún no tienes cuenta?{' '}
-          <Link to="/register" className="text-blue-600 font-semibold hover:underline">Crear cuenta</Link>
-        </p>
       </div>
     </div>
   )
