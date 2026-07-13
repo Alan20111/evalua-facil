@@ -1322,13 +1322,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               Cerrar aquí, si se llegó desde una celda de Calificaciones (backState
               presente), regresa directo ahí — no se queda a medias en Resultados,
               que el docente nunca pidió ver.
-              md:pr-72 reserva el mismo ancho que el <aside> de la derecha (w-72)
+              md:pr-[380px] reserva el mismo ancho que el <aside> de la derecha
+              (md:w-[380px] — igual que el panel de calificación de
+              ActivityPage.jsx, para que ambas ventanas ocupen el mismo ancho)
               para que el grupo botón+título se centre en la MISMA franja que el
               cuerpo de abajo (main, también flex-1 junto al mismo aside) — y el
               botón vive DENTRO de ese grupo centrado, pegado al título, en vez
               de quedar solo en el borde izquierdo de la pantalla. */}
           <div className="flex items-center px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0">
-            <div className="flex-1 min-w-0 md:pr-72">
+            <div className="flex-1 min-w-0 md:pr-[380px]">
               <div className="max-w-3xl mx-auto flex items-start gap-3">
                 <button
                   type="button"
@@ -1411,7 +1413,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               </div>
             </main>
 
-            <aside className="w-full md:w-72 flex-shrink-0 border-t md:border-t-0 md:border-l border-outline-variant bg-surface-card overflow-y-auto p-4 space-y-3">
+            <aside className="w-full md:w-[380px] flex-shrink-0 border-t md:border-t-0 md:border-l border-outline-variant bg-surface-card overflow-y-auto p-4 space-y-3">
               {/* Filter tabs — same 2×2 grid + styling as the entregable grading panel */}
               <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1.5 rounded-card">
                 {REVIEW_TABS.map(([k, lbl]) => (
