@@ -37,6 +37,7 @@ export default function StudentLayout({ children }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [studentInfo, setStudentInfo] = useState(null)
   const [showMenu, setShowMenu] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -130,6 +131,8 @@ export default function StudentLayout({ children }) {
     || 'Estudiante'
   const initials = displayName.charAt(0).toUpperCase()
   const photoURL = userProfile?.photoURL || studentInfo?.photoURL
+  // Solo el/los nombre(s) de pila, sin apellidos — para el menú móvil.
+  const firstName = userProfile?.nombre || studentInfo?.nombre || displayName
 
   return (
     <div className="min-h-screen bg-surface">
@@ -156,7 +159,7 @@ export default function StudentLayout({ children }) {
         </button>
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={() => setShowLogoutConfirm(true)}
           aria-label="Cerrar sesión"
           className="p-2 text-muted hover:text-error rounded transition-colors"
         >
@@ -271,14 +274,52 @@ export default function StudentLayout({ children }) {
       <StudentMenu
         open={showMenu}
         onClose={() => setShowMenu(false)}
-        displayName={displayName}
+        firstName={firstName}
+        photoURL={photoURL}
+        uploadingPhoto={uploadingPhoto}
+        initials={initials}
+        onPhotoClick={() => fileInputRef.current?.click()}
         subjects={subjects}
         loadingSidebar={loadingSidebar}
         notifPrefs={studentInfo?.notifPrefs}
         onSaveNotifPrefs={handleSaveNotifPrefs}
         joinPrefillUsername={userProfile?.username || studentInfo?.username}
-        onLogout={handleLogout}
+        onLogout={() => setShowLogoutConfirm(true)}
       />
+
+      {/* Confirmación antes de cerrar sesión (header móvil y menú) */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 border-none cursor-default"
+            onClick={() => setShowLogoutConfirm(false)}
+            aria-label="Cancelar"
+          />
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+            <h3 className="text-base font-semibold text-on-surface">¿Cerrar sesión?</h3>
+            <p className="text-sm text-muted mt-2">
+              Vas a salir de tu cuenta. Puedes volver a entrar cuando quieras con tu usuario y contraseña.
+            </p>
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowLogoutConfirm(false); handleLogout() }}
+                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors"
+              >
+                Sí, cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
