@@ -729,6 +729,10 @@ export default function ActivityPage() {
               <ArrowLeft size={22} />
             </button>
             <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-muted truncate">
+                {subjectDisplayName(subject)}
+                {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
+              </p>
               <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-on-surface truncate">
@@ -745,10 +749,8 @@ export default function ActivityPage() {
                   <Pencil size={18} />
                 </button>
               </div>
-              <p className="text-slate-400 text-xs">
-                {subjectDisplayName(subject)}
-                {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
-                {' · '}Parcial {activity?.parcial}
+              <p className="text-sm font-medium text-muted">
+                Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
               </p>
             </div>
           </div>
@@ -934,18 +936,21 @@ export default function ActivityPage() {
             >
               <ArrowLeft size={20} /> Regresar
             </button>
-            {/* Same header pattern as the activity page: activity title with its
-                accent number, then "Asignatura — Profesor · Parcial N" below */}
+            {/* Mismo patrón homogeneizado en las 4 variantes de este encabezado:
+                Asignatura — Docente / Evaluar(ción) / Número y nombre + lápiz /
+                Parcial N · Tipo — ver también EvaluacionManager.jsx. */}
             <div className="flex-1 min-w-0 text-right sm:text-left">
+              <p className="text-sm font-medium text-muted truncate">
+                {subjectDisplayName(subject)}
+                {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
+              </p>
               <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
               <h3 className="text-xl font-bold text-on-surface truncate">
                 {activityLabel && <span className="text-accent">{activityLabel} </span>}
                 {activity?.nombre}
               </h3>
-              <p className="text-slate-400 text-xs truncate">
-                {subjectDisplayName(subject)}
-                {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
-                {' · '}Parcial {activity?.parcial}
+              <p className="text-sm font-medium text-muted truncate">
+                Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
               </p>
             </div>
           </div>
