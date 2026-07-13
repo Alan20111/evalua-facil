@@ -196,13 +196,18 @@ export default function ActivityPage() {
   // data is committed (openGrade reads `submissions`/`activity` from state).
   // While pendingOpenId is set we keep showing the spinner (see the loading
   // guard below) so the list never flashes before the grading view opens.
+  // Evaluaciones are excluded: EvaluacionManager owns opening that student's
+  // answer review itself (via its own `openStudentId` prop) — calling
+  // openGrade here too would ALSO mount this page's generic grading overlay
+  // (the "Evaluación — la calificación proviene del intento…" panel), which
+  // briefly flashes before EvaluacionManager's own review view covers it.
   useEffect(() => {
     if (loading || !pendingOpenId) return
     const st = students.find((s) => s.id === pendingOpenId)
     // Clear it in the same commit that opens the grading view, so pendingOpenId
     // turning false and `selected` turning true happen together (no list flash).
     setPendingOpenId(null)
-    if (st) {
+    if (st && !isEvaluacion) {
       setNavList(students)
       openGrade(st)
     }
