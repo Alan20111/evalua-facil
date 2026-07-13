@@ -291,5 +291,13 @@ service cloud.firestore {
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.docenteId;
     }
+
+    // Preferencias de notificación del estudiante — UNA por cuenta (el id del
+    // doc ES su uid de Auth, global entre todas sus inscripciones). Solo el
+    // propio estudiante la lee/escribe; Cloud Functions usa el Admin SDK y
+    // no pasa por estas reglas.
+    match /notificationSettings/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }
