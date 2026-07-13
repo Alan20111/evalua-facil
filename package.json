@@ -12,6 +12,11 @@
     "deploy:rules": "firebase deploy --only firestore --project evalua-facil-app"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/local-notifications": "^8.2.0",
+    "@capacitor/push-notifications": "^8.1.1",
     "@emailjs/browser": "^4.4.1",
     "@fontsource-variable/outfit": "^5.2.8",
     "@tiptap/extension-color": "^3.27.1",

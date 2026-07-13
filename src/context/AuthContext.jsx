@@ -3,6 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { usernameCandidates } from '../utils/generate'
+import { initPushNotifications } from '../utils/pushNotifications'
 
 const AuthContext = createContext(null)
 
@@ -82,6 +83,9 @@ export function AuthProvider({ children }) {
             const s = docs.find((d) => d.uid === user.uid) || docs[0]
             if (s) {
               setUserProfile({ role: 'alumno', studentId: s.id, ...s })
+              // Fase 4 de notificaciones: registra el dispositivo para push
+              // (no-op en web, solo hace algo en la app nativa de Android).
+              initPushNotifications(user.uid)
             } else {
               setUserProfile(null)
             }
