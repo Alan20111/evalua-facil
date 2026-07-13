@@ -37,7 +37,7 @@ import { nowIsoLocal } from '../../utils/nowIso'
 import { formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import AttachmentList from '../../components/AttachmentList'
-import { matchesStudentSearch } from '../../utils/studentSearch'
+import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
 import EvaluacionManager from '../../components/EvaluacionManager'
 import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
@@ -416,7 +416,7 @@ export default function ActivityPage() {
     if (!selected || selFiles.length < 2) return
     setStudentZipDownloading(true)
     try {
-      const studentName = `${selected.student.apellidoPaterno} ${selected.student.apellidoMaterno || ''} ${selected.student.nombre}`.replace(/\s+/g, ' ').trim()
+      const studentName = studentFullName(selected.student)
       const jobs = selFiles.map((f, i) => ({
         path: [],
         fileBaseName: `${studentName} ${String(i + 1).padStart(2, '0')}`,
@@ -564,7 +564,7 @@ export default function ActivityPage() {
     }
     if (sortAlpha) {
       list = [...list].sort((a, b) =>
-        `${a.apellidoPaterno} ${a.nombre}`.localeCompare(`${b.apellidoPaterno} ${b.nombre}`, 'es')
+        studentFullName(a).localeCompare(studentFullName(b), 'es')
       )
     }
     return list
@@ -887,7 +887,7 @@ export default function ActivityPage() {
                     <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                     <div className="flex-1 min-w-0" data-tooltip="Evaluar" data-tooltip-pos="bottom">
                       <p className="text-sm font-medium text-on-surface truncate">
-                        {s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}
+                        {studentFullName(s)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -1072,7 +1072,7 @@ export default function ActivityPage() {
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-base font-semibold text-on-surface truncate">
                       {selected.student.orden != null && <span className="text-on-surface">{selected.student.orden}. </span>}
-                      {selected.student.apellidoPaterno} {selected.student.apellidoMaterno} {selected.student.nombre}
+                      {studentFullName(selected.student)}
                     </h4>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[getStatus(selected.student.id)]}`}>
                       {STATUS_LABELS[getStatus(selected.student.id)]}
@@ -1378,7 +1378,7 @@ export default function ActivityPage() {
                     ) : (
                       <div className="rounded border border-red-200 bg-red-50 p-3 space-y-2">
                         <p className="text-sm text-red-700">
-                          ¿Anular la entrega de <strong>{selected.student.apellidoPaterno} {selected.student.nombre}</strong>?
+                          ¿Anular la entrega de <strong>{studentFullName(selected.student)}</strong>?
                           Volverá a quedar <strong>Pendiente</strong> y podrá entregar de nuevo.
                           {selected.sub.calificacion != null && ' La calificación actual se eliminará.'}
                         </p>

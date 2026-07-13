@@ -8,7 +8,7 @@ import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../utils/sanitizeHtml'
 import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
-import { matchesStudentSearch } from '../utils/studentSearch'
+import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
 import SearchInput from './SearchInput'
@@ -1266,7 +1266,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       onClick={() => openReview(s, filtroResultados)}
                       className={`w-full text-left px-3 py-2 cursor-pointer hover:bg-[var(--accent-tint)] border-none ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
                       <div className="flex items-center gap-2">
-                        <p className="flex-1 text-sm text-on-surface truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</p>
+                        <p className="flex-1 text-sm text-on-surface truncate">{studentFullName(s)}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
                           estado === 'Calificado' || estado === 'Realizado' ? 'bg-emerald-100 text-emerald-700' :
                           estado === 'Por calificar' ? 'bg-amber-100 text-amber-700' :
@@ -1301,7 +1301,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         const sub = reviewing.submission
         const st = reviewing.student
         const done = sub?.estadoEvaluacion === 'finalizado'
-        const nombre = `${st.apellidoPaterno} ${st.apellidoMaterno || ''} ${st.nombre}`.replace(/\s+/g, ' ').trim()
+        const nombre = studentFullName(st)
         const reviewCounts = {
           todos: students.length,
           pendiente: students.filter((x) => estadoFiltroKey(submissions[x.id]) === 'pendiente').length,
@@ -1487,7 +1487,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
             <h3 className="text-base font-semibold text-on-surface">¿Anular la entrega?</h3>
             <p className="text-sm text-muted mt-2">
-              Se eliminará la entrega de <strong>{cancelConfirm.student.apellidoPaterno} {cancelConfirm.student.nombre}</strong> y sus respuestas.
+              Se eliminará la entrega de <strong>{studentFullName(cancelConfirm.student)}</strong> y sus respuestas.
               Volverá a quedar sin entrega y podrá presentar de nuevo.
             </p>
             <div className="flex gap-2 mt-4">
