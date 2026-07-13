@@ -281,5 +281,15 @@ service cloud.firestore {
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.docenteId;
     }
+
+    // Vacaciones del docente. Cada doc marca un PERIODO (fechaInicio–fechaFin)
+    // en el que no se permiten (según su alcance) clases, eventos y/o
+    // actividades — misma estructura que asuetos, pero para un rango de días.
+    match /vacaciones/{vacacionId} {
+      allow read, update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.docenteId;
+    }
   }
 }

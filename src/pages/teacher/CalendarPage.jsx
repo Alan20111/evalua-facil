@@ -14,6 +14,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
 import { bloqueColor, timeToMinutes, addMinutesToTime, generarBloques } from '../../utils/horarioBloques'
 import { buildAsuetoMap, esAsuetoPara, esAsuetoAlguno, alcanceAsuetoTexto, TIPOS_ASUETO } from '../../utils/asuetos'
+import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacaciones'
 import { TEACHER_CONTAINER } from '../../config/layout'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
@@ -112,10 +113,11 @@ function EventPill({ ev, compact, onClick }) {
 // hora, o soltarse sobre los chips de días posteriores para moverlos de día.
 function AgendaView({
   date, events, bloques, subjects, dayStart, dayEnd,
-  onEventClick, onBlockClick, onMoveBloque, onMoveEvent, onSlotClick, asuetoMap = {},
+  onEventClick, onBlockClick, onMoveBloque, onMoveEvent, onSlotClick, asuetoMap = {}, vacacionMap = {},
 }) {
   const dateStr = toDateStr(date)
   const asuetoDia = asuetoMap[dateStr]
+  const vacacionDia = vacacionMap[dateStr]
   const hours = Array.from({ length: dayEnd - dayStart }, (_, i) => i + dayStart)
   const gridH = hours.length * AGENDA_ROW_H
 
@@ -221,11 +223,11 @@ function AgendaView({
 
   return (
     <div>
-      {/* Aviso de día de asueto */}
-      {asuetoDia && (
+      {/* Aviso de día de asueto o de vacaciones */}
+      {(vacacionDia || asuetoDia) && (
         <div className="px-3 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 flex items-center gap-2">
           <CalendarOff size={14} className="flex-shrink-0 text-amber-600" />
-          Día de asueto — sin {alcanceAsuetoTexto(asuetoDia).toLowerCase()}.
+          {vacacionDia ? 'Periodo de vacaciones' : 'Día de asueto'} — sin {alcanceAsuetoTexto(vacacionDia || asuetoDia).toLowerCase()}.
         </div>
       )}
 
@@ -403,7 +405,7 @@ function BloquePill({ b, subj, onClick }) {
   )
 }
 
-function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick, onMoveEvent, onMoveBloque, asuetoMap = {} }) {
+function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick, onMoveEvent, onMoveBloque, asuetoMap = {}, vacacionMap = {} }) {
   const cells = getMonthGrid(year, month)
   const selStr = selectedDate ? toDateStr(selectedDate) : null
 
@@ -489,6 +491,7 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
           const extra = items.length > 3 ? items.length - 3 : 0
 
           const asueto = esAsuetoAlguno(asuetoMap, dateStr)
+          const vacacion = esAsuetoAlguno(vacacionMap, dateStr)
 
           return (
             <div
@@ -505,7 +508,7 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
               }}
               aria-label={`Ver día ${cell.getDate()} de ${MESES[cell.getMonth()]}`}
               className={`min-h-[92px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
-              style={asueto ? { background: '#fffbeb' } : dateStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
+              style={(asueto || vacacion) ? { background: '#fffbeb' } : dateStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
             >
               <div className={`w-6 h-6 flex items-center justify-center text-xs font-semibold mb-1 rounded-full mx-auto ${
                 isToday(cell) ? 'bg-accent text-white'
@@ -514,8 +517,8 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
               }`}>
                 {cell.getDate()}
               </div>
-              {asueto && (
-                <p className="text-[9px] font-semibold text-amber-600 uppercase text-center leading-none mb-1">Asueto</p>
+              {(asueto || vacacion) && (
+                <p className="text-[9px] font-semibold text-amber-600 uppercase text-center leading-none mb-1">{vacacion ? 'Vacaciones' : 'Asueto'}</p>
               )}
               <div className="space-y-1">
                 {items.slice(0, 3).map((it) => {
@@ -578,7 +581,7 @@ function minutesToTimeStr(mins) {
 }
 const SNAP_MIN = 15 // los bloques se sueltan alineados a 15 min
 
-function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque, onMoveEvent, asuetoMap = {} }) {
+function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque, onMoveEvent, asuetoMap = {}, vacacionMap = {} }) {
   const days = getWeekDays(weekStart).slice(0, numDays)
   const todayStr = toDateStr(new Date())
   const selStr = selectedDate ? toDateStr(selectedDate) : null
@@ -684,11 +687,12 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
           {days.map((d, i) => {
             const dStr = toDateStr(d)
             const asueto = esAsuetoAlguno(asuetoMap, dStr)
+            const vacacion = esAsuetoAlguno(vacacionMap, dStr)
             return (
               <div
                 key={dStr}
                 className="py-2 text-center text-xs border-l border-outline-variant"
-                style={asueto ? { background: '#fffbeb' } : dStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
+                style={(asueto || vacacion) ? { background: '#fffbeb' } : dStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
               >
                 <span className="block uppercase text-muted">{DIAS_CORTO[i]}</span>
                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold mt-0.5 ${
@@ -698,8 +702,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                 }`}>
                   {d.getDate()}
                 </span>
-                {asueto && (
-                  <span className="block text-[9px] font-semibold text-amber-600 uppercase leading-tight mt-0.5">Asueto</span>
+                {(asueto || vacacion) && (
+                  <span className="block text-[9px] font-semibold text-amber-600 uppercase leading-tight mt-0.5">{vacacion ? 'Vacaciones' : 'Asueto'}</span>
                 )}
               </div>
             )
@@ -914,6 +918,7 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true)
 
   const [asuetos, setAsuetos] = useState([])
+  const [vacaciones, setVacaciones] = useState([])
   const [showEventEditor, setShowEventEditor] = useState(false)
   const [editingEvent, setEditingEvent] = useState(null)
   const [selectedDate, setSelectedDate] = useState(null)
@@ -923,6 +928,7 @@ export default function CalendarPage() {
   const [zona, setZona] = useState(null)
   const [showModificarPicker, setShowModificarPicker] = useState(false)
   const [showAsuetos, setShowAsuetos] = useState(false)
+  const [showVacaciones, setShowVacaciones] = useState(false)
 
   function changeView(v) {
     setView(v)
@@ -961,8 +967,13 @@ export default function CalendarPage() {
       snap => setAsuetos(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       () => { /* asuetos son opcionales: si fallan, seguimos sin ellos */ }
     )
+    const unsubV = onSnapshot(
+      query(collection(db, 'vacaciones'), where('docenteId', '==', currentUser.uid)),
+      snap => setVacaciones(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      () => { /* vacaciones son opcionales: si fallan, seguimos sin ellas */ }
+    )
 
-    return () => { unsubEv(); unsubH(); unsubA() }
+    return () => { unsubEv(); unsubH(); unsubA(); unsubV() }
   }, [currentUser])
 
   // ── Aggregate events ───────────────────────────────────────────────────
@@ -1025,6 +1036,8 @@ export default function CalendarPage() {
 
   // Índice de días de asueto por fecha (para marcar y bloquear por tipo).
   const asuetoMap = useMemo(() => buildAsuetoMap(asuetos), [asuetos])
+  // Índice de días de vacaciones por fecha (cada periodo expandido día a día).
+  const vacacionMap = useMemo(() => buildVacacionMap(vacaciones), [vacaciones])
 
   // Alarmas de los bloques (suenan con la app abierta + notificación).
   useAlarmas(bloques, subjects)
@@ -1058,11 +1071,15 @@ export default function CalendarPage() {
   }
 
   // ── Event editor helpers ───────────────────────────────────────────────
-  // Bloquea la creación en un día marcado como asueto para eventos.
+  // Bloquea la creación en un día marcado como asueto o dentro de vacaciones.
   function bloqueadoPorAsueto(fecha, tipo) {
+    const d = new Date(fecha + 'T12:00:00')
     if (esAsuetoPara(asuetoMap, fecha, tipo)) {
-      const d = new Date(fecha + 'T12:00:00')
       toast(`${d.getDate()}/${d.getMonth() + 1} es día de asueto (sin ${tipo}). Quítalo en "Días de asueto" para permitirlo.`, 'error')
+      return true
+    }
+    if (esAsuetoPara(vacacionMap, fecha, tipo)) {
+      toast(`${d.getDate()}/${d.getMonth() + 1} cae en vacaciones (sin ${tipo}). Ajusta el periodo en "Vacaciones" para permitirlo.`, 'error')
       return true
     }
     return false
@@ -1196,8 +1213,11 @@ export default function CalendarPage() {
   async function guardarDesdeZona(patrones) {
     const cfg = zona?.config
     if (!cfg) return
-    // Los días de asueto que bloquean CLASES se omiten al materializar.
-    const diasAsueto = asuetos.filter(a => a.clases).map(a => a.fecha)
+    // Los días de asueto y de vacaciones que bloquean CLASES se omiten al materializar.
+    const diasAsueto = [
+      ...asuetos.filter(a => a.clases).map(a => a.fecha),
+      ...fechasVacacionParaClases(vacaciones),
+    ]
     const nuevos = generarBloques({
       fechaInicio: cfg.fechaInicio,
       fechaFin: cfg.fechaFin,
@@ -1388,6 +1408,26 @@ export default function CalendarPage() {
       await deleteDoc(doc(db, 'asuetos', id))
     } catch (err) {
       toast('No se pudo quitar el día de asueto: ' + err.message, 'error')
+    }
+  }
+
+  // ── Vacaciones (periodo) ───────────────────────────────────────────────
+  async function addVacacion(fechaInicio, fechaFin, alcance) {
+    if (!fechaInicio || !fechaFin) return
+    try {
+      await addDoc(collection(db, 'vacaciones'), {
+        docenteId: currentUser.uid, fechaInicio, fechaFin, ...alcance, createdAt: serverTimestamp(),
+      })
+      toast('Periodo de vacaciones guardado')
+    } catch (err) {
+      toast('No se pudo guardar el periodo de vacaciones: ' + err.message, 'error')
+    }
+  }
+  async function removeVacacion(id) {
+    try {
+      await deleteDoc(doc(db, 'vacaciones', id))
+    } catch (err) {
+      toast('No se pudo quitar el periodo de vacaciones: ' + err.message, 'error')
     }
   }
 
@@ -1582,6 +1622,18 @@ export default function CalendarPage() {
               <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">{asuetos.length}</span>
             )}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowVacaciones(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
+            data-tooltip="Marca un periodo sin clases, eventos y/o actividades"
+            data-tooltip-pos="bottom"
+          >
+            <CalendarRange size={15} /> Vacaciones
+            {vacaciones.length > 0 && (
+              <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">{vacaciones.length}</span>
+            )}
+          </button>
 
           <div className="flex-1" />
 
@@ -1638,6 +1690,7 @@ export default function CalendarPage() {
               onMoveEvent={moveEvent}
               onSlotClick={openNewEventAt}
               asuetoMap={asuetoMap}
+              vacacionMap={vacacionMap}
             />
           ) : view === 'mes' ? (
             <MonthView
@@ -1653,6 +1706,7 @@ export default function CalendarPage() {
               onMoveEvent={moveEvent}
               onMoveBloque={requestMoveBloque}
               asuetoMap={asuetoMap}
+              vacacionMap={vacacionMap}
             />
           ) : (
             <WeekView
@@ -1670,6 +1724,7 @@ export default function CalendarPage() {
               onMoveBloque={requestMoveBloque}
               onMoveEvent={moveEvent}
               asuetoMap={asuetoMap}
+              vacacionMap={vacacionMap}
             />
           )}
         </div>
@@ -1771,6 +1826,14 @@ export default function CalendarPage() {
           onAdd={addAsueto}
           onRemove={removeAsueto}
           onClose={() => setShowAsuetos(false)}
+        />
+      )}
+      {showVacaciones && (
+        <VacacionManager
+          vacaciones={vacaciones}
+          onAdd={addVacacion}
+          onRemove={removeVacacion}
+          onClose={() => setShowVacaciones(false)}
         />
       )}
 
@@ -1980,6 +2043,135 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
                 </div>
                 <button
                   type="button" onClick={() => onRemove(a.id)}
+                  className="p-1.5 text-muted hover:text-error rounded transition-colors flex-shrink-0"
+                  data-tooltip="Quitar" aria-label="Quitar"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t border-outline-variant px-4 py-3 flex justify-end flex-shrink-0">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Administrador de vacaciones ────────────────────────────────────────────
+// Igual que AsuetoManager, pero para un PERIODO (fechaInicio–fechaFin) en vez
+// de un solo día. El docente elige el rango y a qué afecta (clases, eventos,
+// actividades) — el mismo alcance seleccionable que en Días de asueto.
+function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
+  const [fechaInicio, setFechaInicio] = useState('')
+  const [fechaFin, setFechaFin] = useState('')
+  const [alcance, setAlcance] = useState({ clases: true, eventos: true, actividades: true })
+
+  const lista = [...vacaciones].sort((a, b) => (a.fechaInicio || '').localeCompare(b.fechaInicio || ''))
+  const algo = alcance.clases || alcance.eventos || alcance.actividades
+  const todo = alcance.clases && alcance.eventos && alcance.actividades
+  const rangoValido = !!(fechaInicio && fechaFin && fechaFin >= fechaInicio)
+
+  function toggle(id) { setAlcance(a => ({ ...a, [id]: !a[id] })) }
+  function setTodo() { const v = !todo; setAlcance({ clases: v, eventos: v, actividades: v }) }
+  function add() {
+    if (!rangoValido || !algo) return
+    onAdd(fechaInicio, fechaFin, alcance)
+    setFechaInicio('')
+    setFechaFin('')
+    setAlcance({ clases: true, eventos: true, actividades: true })
+  }
+
+  const fmt = s => { const d = new Date(s + 'T12:00:00'); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}` }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40 border-none cursor-default"
+        onClick={onClose}
+        aria-label="Cerrar"
+      />
+      <div className="relative bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <CalendarRange size={18} className="text-amber-600" />
+            <h2 className="font-semibold text-on-surface">Vacaciones</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded"><X size={18} /></button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-4 space-y-4">
+          <p className="text-sm text-muted">
+            Marca un periodo de vacaciones y elige a qué afecta. Lo marcado <strong>no se permitirá</strong> ningún
+            día del periodo: los bloques de clase se omiten al programar, y no se podrán crear eventos (ni
+            actividades) en esos días.
+          </p>
+
+          {/* Alta de vacaciones */}
+          <div className="rounded-card border border-outline-variant p-3 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-muted uppercase tracking-wide">Inicio</span>
+                <EFDateTimePicker mode="date" value={fechaInicio} onChange={setFechaInicio} placeholder="Inicio…" clearable showShortcuts={false} />
+              </div>
+              <div className="space-y-1.5">
+                <span className="text-xs font-semibold text-muted uppercase tracking-wide">Fin</span>
+                <EFDateTimePicker mode="date" value={fechaFin} onChange={setFechaFin} placeholder="Fin…" clearable showShortcuts={false} />
+              </div>
+            </div>
+            {fechaInicio && fechaFin && fechaFin < fechaInicio && (
+              <p className="text-xs text-error">La fecha de fin debe ser igual o posterior a la de inicio.</p>
+            )}
+            <div className="space-y-1.5">
+              <span className="text-xs font-semibold text-muted uppercase tracking-wide">¿A qué afecta?</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button" onClick={setTodo}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${todo ? 'bg-amber-500 text-white border-amber-500' : 'border-outline-variant text-muted hover:bg-amber-50'}`}
+                >
+                  Todo
+                </button>
+                {TIPOS_ASUETO.map(t => (
+                  <button
+                    key={t.id} type="button" onClick={() => toggle(t.id)}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${alcance[t.id] ? 'bg-amber-100 text-amber-800 border-amber-300' : 'border-outline-variant text-muted hover:bg-surface'}`}
+                  >
+                    {alcance[t.id] ? '✓ ' : ''}{t.label}
+                  </button>
+                ))}
+              </div>
+              {!algo && <p className="text-xs text-error">Elige al menos un tipo.</p>}
+            </div>
+            <button
+              type="button" onClick={add} disabled={!rangoValido || !algo}
+              className="w-full py-2 bg-amber-600 text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2 hover:bg-amber-700 transition-colors"
+            >
+              <Plus size={15} /> Agregar periodo de vacaciones
+            </button>
+          </div>
+
+          {/* Lista */}
+          <div className="space-y-1.5">
+            <span className="text-xs font-semibold text-muted uppercase tracking-wide">
+              Periodos marcados ({lista.length})
+            </span>
+            {lista.length === 0 ? (
+              <p className="text-sm text-muted py-2">Aún no has marcado ningún periodo de vacaciones.</p>
+            ) : lista.map(v => (
+              <div key={v.id} className="flex items-center gap-2 px-3 py-2 rounded-card border border-outline-variant bg-amber-50/50">
+                <CalendarRange size={15} className="text-amber-600 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-on-surface">{fmt(v.fechaInicio)} – {fmt(v.fechaFin)}</p>
+                  <p className="text-xs text-muted">Sin: {alcanceAsuetoTexto(v)}</p>
+                </div>
+                <button
+                  type="button" onClick={() => onRemove(v.id)}
                   className="p-1.5 text-muted hover:text-error rounded transition-colors flex-shrink-0"
                   data-tooltip="Quitar" aria-label="Quitar"
                 >
