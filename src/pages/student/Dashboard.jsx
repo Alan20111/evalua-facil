@@ -16,7 +16,6 @@ import {
   BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Bell, Archive, Camera,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
-import EFLogo from '../../components/EFLogo'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
@@ -90,7 +89,6 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true)
   const [showJoin, setShowJoin] = useState(false)
   const [joinCode, setJoinCode] = useState('')
-  const [showFullLogo, setShowFullLogo] = useState(false)
   const [showNotif, setShowNotif] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -268,18 +266,8 @@ export default function StudentDashboard() {
       />
 
       <div className={`px-4 py-6 ${STUDENT_CONTAINER}`}>
-        {/* Ícono (toca para ver el logo completo) + foto/nombre + Notificaciones — solo móvil */}
+        {/* Foto/nombre + Notificaciones — solo móvil (el logo tocable ya vive en la barra superior) */}
         <div className="md:hidden bg-surface-card rounded-card shadow-card overflow-hidden mb-4">
-          <div className="flex items-center px-4 py-3 border-b-2 border-outline-variant">
-            <button
-              type="button"
-              onClick={() => setShowFullLogo((v) => !v)}
-              aria-label="Ver logo de Evalúa Fácil"
-              className="rounded"
-            >
-              <EFLogo subtitle={false} className="w-10 h-10" />
-            </button>
-          </div>
           <div className="flex items-center gap-3 px-4 py-4 border-b-2 border-outline-variant">
             <button
               type="button"
@@ -476,19 +464,6 @@ export default function StudentDashboard() {
               />
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Logo completo — se abre al tocar el ícono, se cierra tocando el fondo */}
-      {showFullLogo && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60">
-          <button
-            type="button"
-            className="absolute inset-0 border-none cursor-default"
-            onClick={() => setShowFullLogo(false)}
-            aria-label="Cerrar logo"
-          />
-          <EFLogo className="relative w-64 sm:w-80 h-auto pointer-events-none" />
         </div>
       )}
     </StudentLayout>
