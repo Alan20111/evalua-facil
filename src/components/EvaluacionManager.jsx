@@ -11,11 +11,12 @@ import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
 import { matchesStudentSearch } from '../utils/studentSearch'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
+import SearchInput from './SearchInput'
 import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision,
   resolverCalificacionFinal, TIPOS_REVISION_MANUAL,
 } from '../utils/evaluacionGrading'
-import { ArrowLeft, Plus, Trash2, Library, Users, Search, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays } from 'lucide-react'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 import PublicacionScheduler from './PublicacionScheduler'
@@ -968,10 +969,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[85vh] overflow-y-auto">
                   <h3 className="text-base font-semibold mb-2">Mi banco de reactivos</h3>
                   <div className="flex gap-2 mb-3">
-                    <div className="flex-1 relative">
-                      <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input type="text" value={bancoSearch} onChange={(e) => setBancoSearch(e.target.value)}
-                        placeholder="Buscar…" className="w-full pl-8 pr-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                    <div className="flex-1">
+                      <SearchInput value={bancoSearch} onChange={setBancoSearch} placeholder="Buscar…" />
                     </div>
                     {materias.length > 0 && (
                       <select value={bancoMateriaFilter} onChange={(e) => setBancoMateriaFilter(e.target.value)}
@@ -1248,12 +1247,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     </button>
                   ))}
                 </div>
-                <div className="relative">
-                  <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input value={searchResultados} onChange={(e) => setSearchResultados(e.target.value)}
-                    placeholder="Buscar por nombre o por número de lista…"
-                    className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
-                </div>
+                <SearchInput
+                  value={searchResultados}
+                  onChange={setSearchResultados}
+                  placeholder="Buscar por nombre o por número de lista…"
+                />
               </div>
               {visibles.length === 0 ? (
                 <p className="text-center text-slate-400 text-sm py-8 flex items-center justify-center gap-2"><Users size={16} /> {students.length === 0 ? 'Sin estudiantes' : 'Sin estudiantes en esta categoría'}</p>

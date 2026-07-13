@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
-import { Search } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
+import SearchInput from './SearchInput'
 import { matchesStudentSearch } from '../utils/studentSearch'
 import { nowIsoLocal } from '../utils/nowIso'
 
@@ -90,11 +90,8 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
 
           {mode === 'algunos' && (
             <div className="mt-3">
-              <div className="relative mb-2">
-                <Search size={15} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por nombre o número de lista…"
-                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+              <div className="mb-2">
+                <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nombre o número de lista…" />
               </div>
               <div className="border border-outline-variant rounded max-h-52 overflow-auto divide-y divide-outline-variant">
                 {students.filter((s) => !search.trim() || matchesStudentSearch(s, search)).map((s) => (
