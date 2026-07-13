@@ -49,7 +49,7 @@ import {
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity } from '../../utils/studentIdentity'
-import { matchesStudentSearch } from '../../utils/studentSearch'
+import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
 import { useSubscription } from '../../hooks/useSubscription'
 import EvaluacionEditor from '../../components/EvaluacionEditor'
 import EntregableEditor from '../../components/EntregableEditor'
@@ -803,13 +803,9 @@ export default function SubjectPage() {
     setStudentToEdit(null)
   }
 
-  function fullStudentName(s) {
-    return `${s.apellidoPaterno || ''} ${s.apellidoMaterno || ''} ${s.nombre || ''}`.trim()
-  }
-
   async function sortStudentsAlphabetically() {
     const newList = [...groupStudents].sort((a, b) =>
-      fullStudentName(a).localeCompare(fullStudentName(b), 'es')
+      studentFullName(a).localeCompare(studentFullName(b), 'es')
     )
     try {
       const batch = writeBatch(db)
@@ -2690,7 +2686,7 @@ export default function SubjectPage() {
                               className="block truncate"
                               data-tooltip={!s.activado ? 'Este estudiante aún no ha activado su cuenta — no puede entrar ni entregar' : undefined}
                             >
-                              {s.apellidoPaterno} {s.nombre}
+                              {studentFullName(s)}
                               {!s.activado && <span className="text-red-500 text-[10px] font-semibold"> (no se ha activado)</span>}
                             </span>
                           </td>
@@ -2837,7 +2833,7 @@ export default function SubjectPage() {
                 >
                   <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                   <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
-                    {fullStudentName(s)}
+                    {studentFullName(s)}
                   </p>
                   <span className="w-44 flex-shrink-0 text-xs font-mono text-accent font-semibold truncate">{s.username}</span>
                   <span className="w-24 flex-shrink-0 flex items-center">
@@ -3451,7 +3447,7 @@ export default function SubjectPage() {
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Habilitar recuperación de contraseña?</h3>
             <p className="text-sm text-muted text-center mt-2">
-              <strong>{studentToReset.apellidoPaterno} {studentToReset.nombre}</strong>{' '}
+              <strong>{studentFullName(studentToReset)}</strong>{' '}
               ({studentToReset.username}) podrá elegir una <strong>nueva contraseña</strong> desde
               «Recuperar contraseña» en su pantalla de acceso. No necesitas darle ninguna clave.
             </p>
@@ -3830,7 +3826,7 @@ export default function SubjectPage() {
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Es el mismo estudiante?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Ya hay un estudiante llamado{' '}
-              <strong>{linkCandidate.person.apellidoPaterno} {linkCandidate.person.apellidoMaterno} {linkCandidate.person.nombre}</strong>{' '}
+              <strong>{studentFullName(linkCandidate.person)}</strong>{' '}
               en esta escuela
               {(() => {
                 const n = new Set(linkCandidate.identity.matches.map((m) => m.asignaturaId)).size
@@ -3904,7 +3900,7 @@ export default function SubjectPage() {
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Eliminar estudiante?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Se eliminará a{' '}
-              <strong>{studentToDelete.apellidoPaterno} {studentToDelete.nombre}</strong>{' '}
+              <strong>{studentFullName(studentToDelete)}</strong>{' '}
               ({studentToDelete.username}). Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-2 mt-4">
