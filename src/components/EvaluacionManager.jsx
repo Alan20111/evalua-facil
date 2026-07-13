@@ -1311,16 +1311,24 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         const REVIEW_TABS = FILTRO_TABS
         return (
         <div className="fixed inset-0 z-50 bg-surface flex flex-col">
-          {/* Neutral header (no accent-blue) so it reads as a different area */}
-          <div className="bg-surface-card border-b border-outline-variant px-4 py-2 flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <button type="button" aria-label="Cerrar revisión" onClick={() => setReviewing(null)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"><ArrowLeft size={22} /></button>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold uppercase tracking-wide text-muted">Revisión de respuestas</p>
-                <h1 className="text-lg font-bold text-on-surface truncate">
-                  {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
-                </h1>
-              </div>
+          {/* Mismo patrón que el encabezado "Evaluar" de ActivityPage.jsx (botón
+              "Regresar" con texto, mismo padding/tamaños) para verse consistente.
+              Cerrar aquí, si se llegó desde una celda de Calificaciones (backState
+              presente), regresa directo ahí — no se queda a medias en Resultados,
+              que el docente nunca pidió ver. */}
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => backState ? navigate(`/subject/${activity.asignaturaId}`, { state: backState }) : setReviewing(null)}
+              className="flex items-center gap-1 p-2 -ml-2 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
+            >
+              <ArrowLeft size={20} /> Regresar
+            </button>
+            <div className="flex-1 min-w-0 text-right sm:text-left">
+              <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluación</p>
+              <h1 className="text-lg font-bold text-on-surface truncate">
+                {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
+              </h1>
             </div>
           </div>
 
