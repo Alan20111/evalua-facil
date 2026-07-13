@@ -33,4 +33,15 @@ export default defineConfig([
       'react/prop-types': 'off',
     },
   },
+  // Cloud Functions — paquete Node CommonJS aparte (su propio package.json),
+  // no el SPA de React: globals de Node (require/exports/module), sin las
+  // reglas de React/JSX que no aplican aquí.
+  {
+    files: ['functions/**/*.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: globals.node,
+      sourceType: 'commonjs',
+    },
+  },
 ])
