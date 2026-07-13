@@ -117,6 +117,8 @@ exports.onSubmissionActualizada = onDocumentWritten('submissions/{submissionId}'
 // ─── 3) Programadas + recordatorios de entrega ─────────────────────────────
 // Corre cada 30 min. Ventana de 35 min (> intervalo del scheduler) para no
 // perder ninguna actividad entre corridas.
+// (Redeploy forzado tras otorgar el rol Cloud Functions Admin, necesario
+// para que Firebase pueda fijar el permiso de invocador de Cloud Scheduler.)
 const SCHEDULE_INTERVAL = 'every 30 minutes'
 const WINDOW_MS = 35 * 60 * 1000
 const TIERS = [
