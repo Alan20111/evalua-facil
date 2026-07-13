@@ -2,31 +2,16 @@ import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { LogOut, ChevronRight, Camera } from 'lucide-react'
 import { signOut } from 'firebase/auth'
-import { getDoc, doc, getDocs, collection, query, where, updateDoc } from 'firebase/firestore'
+import { getDoc, doc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
+import { uploadToCloudinary } from '../utils/cloudinary'
 import Spinner from './Spinner'
 import SubjectIcon from './SubjectIcon'
 import { subjectDisplayName } from '../utils/subjectName'
-import { getEnrollments } from '../utils/studentLookup'
+import { getEnrollments, updateAllEnrollments } from '../utils/studentLookup'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
-import StudentMenu from './StudentMenu'
-
-async function uploadPhotoToCloudinary(file) {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('upload_preset', uploadPreset)
-  formData.append('folder', 'evalua-facil/profiles')
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-    method: 'POST',
-    body: formData,
-  })
-  if (!res.ok) throw new Error('Error al subir foto')
-  return (await res.json()).secure_url
-}
 
 export default function StudentLayout({ children }) {
   const { currentUser, userProfile, setUserProfile } = useAuth()
@@ -36,7 +21,6 @@ export default function StudentLayout({ children }) {
   const [schoolName, setSchoolName] = useState('')
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [studentInfo, setStudentInfo] = useState(null)
-  const [showMenu, setShowMenu] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const fileInputRef = useRef(null)
 
@@ -92,34 +76,14 @@ export default function StudentLayout({ children }) {
     if (!file) return
     setUploadingPhoto(true)
     try {
-      const url = await uploadPhotoToCloudinary(file)
-      // Update every enrollment doc that belongs to this student uid
-      const snap = await getDocs(
-        query(collection(db, 'students'), where('uid', '==', currentUser.uid))
-      )
-      await Promise.all(snap.docs.map((d) => updateDoc(doc(db, 'students', d.id), { photoURL: url })))
+      const url = await uploadToCloudinary(file, 'evalua-facil/profiles')
+      await updateAllEnrollments(currentUser.uid, { photoURL: url })
       setUserProfile((prev) => ({ ...prev, photoURL: url }))
     } catch {
       // best-effort — silent failure
     } finally {
       setUploadingPhoto(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
-  // Preferencias de notificaciones — mismo patrón que la foto: se guardan en
-  // TODAS las inscripciones (documentos `students`) de este uid, ya que el
-  // alumno no tiene un doc propio en `users`. Aún no hay push conectado; esto
-  // solo deja la preferencia lista para cuando se active.
-  async function handleSaveNotifPrefs(prefs) {
-    try {
-      const snap = await getDocs(
-        query(collection(db, 'students'), where('uid', '==', currentUser.uid))
-      )
-      await Promise.all(snap.docs.map((d) => updateDoc(doc(db, 'students', d.id), { notifPrefs: prefs })))
-      setStudentInfo((prev) => (prev ? { ...prev, notifPrefs: prefs } : prev))
-    } catch {
-      // best-effort — silent failure
     }
   }
 
@@ -131,8 +95,6 @@ export default function StudentLayout({ children }) {
     || 'Estudiante'
   const initials = displayName.charAt(0).toUpperCase()
   const photoURL = userProfile?.photoURL || studentInfo?.photoURL
-  // Solo el/los nombre(s) de pila, sin apellidos — para el menú móvil.
-  const firstName = userProfile?.nombre || studentInfo?.nombre || displayName
 
   return (
     <div className="min-h-screen bg-surface">
@@ -147,16 +109,11 @@ export default function StudentLayout({ children }) {
 
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
-        <button
-          type="button"
-          onClick={() => setShowMenu(true)}
-          aria-label="Abrir menú"
-          className="flex items-center gap-2 min-w-0 -ml-1 p-1 rounded hover:bg-accent-tint transition-colors"
-        >
+        <div className="flex items-center gap-2 min-w-0">
           <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
           {/* eslint-disable-next-line jsx-a11y/aria-role -- role aquí es la prop propia de PortalBadge, no un atributo ARIA */}
           <PortalBadge role="alumno" />
-        </button>
+        </div>
         <button
           type="button"
           onClick={() => setShowLogoutConfirm(true)}
@@ -271,23 +228,7 @@ export default function StudentLayout({ children }) {
         <main className="flex-1 min-w-0 min-h-screen">{children}</main>
       </div>
 
-      <StudentMenu
-        open={showMenu}
-        onClose={() => setShowMenu(false)}
-        firstName={firstName}
-        photoURL={photoURL}
-        uploadingPhoto={uploadingPhoto}
-        initials={initials}
-        onPhotoClick={() => fileInputRef.current?.click()}
-        subjects={subjects}
-        loadingSidebar={loadingSidebar}
-        notifPrefs={studentInfo?.notifPrefs}
-        onSaveNotifPrefs={handleSaveNotifPrefs}
-        joinPrefillUsername={userProfile?.username || studentInfo?.username}
-        onLogout={() => setShowLogoutConfirm(true)}
-      />
-
-      {/* Confirmación antes de cerrar sesión (header móvil y menú) */}
+      {/* Confirmación antes de cerrar sesión (header móvil) */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <button

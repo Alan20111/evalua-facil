@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore'
+import { collection, query, where, getDocs, getDoc, doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { usernameCandidates } from './generate'
 
@@ -43,4 +43,12 @@ export async function getEnrollments(currentUser, userProfile) {
 export async function getEnrollmentForSubject(currentUser, userProfile, asignaturaId) {
   const all = await getEnrollments(currentUser, userProfile)
   return all.find((s) => s.asignaturaId === asignaturaId) || null
+}
+
+// Applies `patch` to EVERY enrollment doc for this uid — the student has one
+// `students` doc per subject, and account-level data (photo, notification
+// prefs) must stay in sync across all of them.
+export async function updateAllEnrollments(uid, patch) {
+  const snap = await getDocs(query(collection(db, 'students'), where('uid', '==', uid)))
+  await Promise.all(snap.docs.map((d) => updateDoc(doc(db, 'students', d.id), patch)))
 }
