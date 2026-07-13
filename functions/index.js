@@ -15,7 +15,7 @@
 const { initializeApp } = require('firebase-admin/app')
 const { getFirestore } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
-const { onDocumentWritten, onDocumentUpdated } = require('firebase-functions/v2/firestore')
+const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { logger } = require('firebase-functions')
 
@@ -45,9 +45,10 @@ async function enviarPush(uid, categoria, dataExtra = {}) {
   if (!uid) return
   const settingsSnap = await db.collection('notificationSettings').doc(uid).get()
   if (!settingsSnap.exists) return
-  const cfg = settingsSnap.data()?.[categoria]
+  const settings = settingsSnap.data()
+  const cfg = settings[categoria]
   if (!cfg?.habilitado) return
-  const tokens = settingsSnap.data()?.fcmTokens || []
+  const tokens = settings.fcmTokens || []
   if (!tokens.length) return
 
   const data = {
@@ -92,18 +93,25 @@ exports.onActividadEscrita = onDocumentWritten('activities/{activityId}', async 
 })
 
 // ─── 2) Calificación publicada ──────────────────────────────────────────────
-// Solo la PRIMERA vez que `calificacion` pasa de null/undefined a un valor —
-// ediciones posteriores de la calificación ya notificada no vuelven a avisar
-// (evita spam si el docente ajusta la nota después).
-exports.onSubmissionActualizada = onDocumentUpdated('submissions/{submissionId}', async (event) => {
-  const before = event.data.before.data()
-  const after = event.data.after.data()
-  if (before.calificacion != null || after.calificacion == null) return
-  if (after.notificadoCalificacion) return
+// onWrite (no solo onUpdate): en actividades de observación el doc de
+// submission se CREA ya con calificacion puesta (el docente califica
+// directo, sin entrega previa del alumno — ver ActivityPage.jsx isObservacion)
+// así que un trigger de solo-update nunca vería esa primera calificación.
+// Se notifica la PRIMERA vez que calificacion pasa a tener un valor (ya sea
+// al crearse el doc así, o en una actualización null->valor) — ediciones
+// posteriores de una calificación ya notificada no vuelven a avisar (evita
+// spam si el docente ajusta la nota después).
+exports.onSubmissionActualizada = onDocumentWritten('submissions/{submissionId}', async (event) => {
+  const after = event.data?.after
+  if (!after?.exists) return // borrada
+  const before = event.data.before?.data() // undefined si es creación
+  const afterData = after.data()
+  if (before?.calificacion != null || afterData.calificacion == null) return
+  if (afterData.notificadoCalificacion) return
 
-  const studentSnap = await db.collection('students').doc(after.alumnoId).get()
-  await enviarPush(studentSnap.data()?.uid, 'calificaciones', { actividadId: after.actividadId })
-  await event.data.after.ref.update({ notificadoCalificacion: true })
+  const studentSnap = await db.collection('students').doc(afterData.alumnoId).get()
+  await enviarPush(studentSnap.data()?.uid, 'calificaciones', { actividadId: afterData.actividadId })
+  await after.ref.update({ notificadoCalificacion: true })
 })
 
 // ─── 3) Programadas + recordatorios de entrega ─────────────────────────────
