@@ -36,10 +36,11 @@ import { uploadToCloudinary, downloadUrl, isImageDeliveredPdf, pdfPageImageUrl }
 import { RESOURCE_ACCEPT, getResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import AttachmentList, { FilePreviewModal, canPreviewFile } from '../../components/AttachmentList'
+import SearchInput from '../../components/SearchInput'
 import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, X, Pencil, Trash2, Archive, ArchiveRestore,
-  FileSpreadsheet, Search,
+  FileSpreadsheet,
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
@@ -2478,12 +2479,11 @@ export default function SubjectPage() {
               </div>
             </div>
 
-            <div className="relative">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={searchGrade} onChange={(e) => setSearchGrade(e.target.value)}
-                placeholder="Buscar por nombre o por número de lista…"
-                className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card" />
-            </div>
+            <SearchInput
+              value={searchGrade}
+              onChange={setSearchGrade}
+              placeholder="Buscar por nombre o por número de lista…"
+            />
 
             {loadingGrades ? (
               <div className="flex justify-center py-12"><Spinner size="lg" /></div>
@@ -2797,13 +2797,11 @@ export default function SubjectPage() {
 
           {/* 3 — Buscar alumno + agregar manualmente */}
           <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
+            <div className="flex-1">
+              <SearchInput
                 value={searchAlumnos}
-                onChange={(e) => setSearchAlumnos(e.target.value)}
+                onChange={setSearchAlumnos}
                 placeholder="Buscar por nombre o por número de lista…"
-                className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card"
               />
             </div>
             <button type="button"

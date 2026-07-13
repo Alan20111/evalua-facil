@@ -11,11 +11,12 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, toRichHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy,
-  Search, Image as ImageIcon, CalendarDays,
+  Image as ImageIcon, CalendarDays,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
+import SearchInput from './SearchInput'
 import { minDeadline } from '../utils/nowIso'
 
 function toIsoNow() {
@@ -1038,10 +1039,8 @@ export default function EvaluacionEditor({
             <div className="p-4 border-b border-outline-variant flex-shrink-0">
               <h3 className="text-base font-semibold mb-3">Mi banco de reactivos</h3>
               <div className="flex gap-2">
-                <div className="flex-1 relative">
-                  <Search size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input type="text" value={bancoSearch} onChange={(e) => setBancoSearch(e.target.value)}
-                    placeholder="Buscar…" className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                <div className="flex-1">
+                  <SearchInput value={bancoSearch} onChange={setBancoSearch} placeholder="Buscar…" />
                 </div>
                 {materias.length > 0 && (
                   <select value={bancoMateriaFilter} onChange={(e) => setBancoMateriaFilter(e.target.value)}

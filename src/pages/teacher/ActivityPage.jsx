@@ -17,9 +17,10 @@ import { db } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
+import SearchInput from '../../components/SearchInput'
 import {
   ArrowLeft, Clock,
-  Download, Star, CalendarDays, Search, ArrowDownAZ,
+  Download, Star, CalendarDays, ArrowDownAZ,
   ChevronLeft, ChevronRight, FolderDown, Pencil,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
@@ -844,13 +845,11 @@ export default function ActivityPage() {
 
         {/* Search + sort */}
         <div className="px-4 pt-4 pb-2 flex gap-2">
-          <div className="flex-1 relative">
-            <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
+          <div className="flex-1">
+            <SearchInput
               value={searchStudents}
-              onChange={(e) => setSearchStudents(e.target.value)}
+              onChange={setSearchStudents}
               placeholder="Buscar por nombre o por número de lista…"
-              className="w-full pl-9 pr-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-card"
             />
           </div>
           <button

@@ -13,7 +13,8 @@ import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
 import { resolveSchoolSelection, normalizeName, findSimilarSchools } from '../../utils/schoolSelection'
-import { Camera, Lock, User, X, CreditCard, School, Search, ChevronDown, Plus } from 'lucide-react'
+import { Camera, Lock, User, X, CreditCard, School, ChevronDown, Plus } from 'lucide-react'
+import SearchInput from '../../components/SearchInput'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
 import {
@@ -539,12 +540,14 @@ export default function Profile() {
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !savingSchool && setShowSchoolPicker(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-sm rounded-card shadow-2xl flex flex-col max-h-[80vh]">
             <div className="flex items-center gap-2 p-3 border-b border-outline-variant">
-              <div className="flex-1 relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <div className="flex-1">
                 {/* Buscador de escuela: primer control del overlay, abierto con intención de escribir. */}
-                <input autoFocus type="text" value={schoolSearch} onChange={(e) => setSchoolSearch(e.target.value)}
+                <SearchInput
+                  value={schoolSearch}
+                  onChange={setSchoolSearch}
                   placeholder="Nombre, CCT o municipio…"
-                  className="w-full pl-8 pr-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm" />
+                  autoFocus
+                />
               </div>
               <button type="button" onClick={() => setShowSchoolPicker(false)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
             </div>
