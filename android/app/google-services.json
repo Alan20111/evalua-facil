@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "398556067679",
+    "project_id": "evalua-facil-app",
+    "storage_bucket": "evalua-facil-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:398556067679:android:eeaa512ba76482e20e68ea",
+        "android_client_info": {
+          "package_name": "com.example.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "398556067679-aij5tsgoc9v3btjei2geset782r9qeec.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXMhPH2h5QsfreDD9WQ9l0-Y70r8y7XkI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "398556067679-aij5tsgoc9v3btjei2geset782r9qeec.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
