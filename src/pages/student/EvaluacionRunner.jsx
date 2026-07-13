@@ -232,7 +232,10 @@ export default function EvaluacionRunner() {
         }),
       })
       toast('Evaluación finalizada')
-      navigate(`/alumno/actividad/${activityId}`)
+      // El flag en el state de navegación le dice a ActivityPage que dispare
+      // la celebración de "ya entregaste" — solo la primera vez que llega ahí
+      // desde este finalizar, no en cada visita/recarga posterior.
+      navigate(`/alumno/actividad/${activityId}`, { state: { justFinished: true } })
     } catch (err) {
       finishedRef.current = false
       toast('Error al finalizar: ' + err.message, 'error')

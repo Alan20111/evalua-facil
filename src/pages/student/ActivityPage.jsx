@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection,
   query,
@@ -31,6 +31,7 @@ import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sani
 import AttachmentList from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
+import Fireworks from '../../components/Fireworks'
 import RubricaTable from '../../components/rubrica/RubricaTable'
 import { ClipboardList } from 'lucide-react'
 import { PlayCircle, ListChecks, Timer, RotateCcw } from 'lucide-react'
@@ -74,8 +75,25 @@ export default function StudentActivityPage() {
   const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(true)
+  // Celebración de "ya entregaste": una tanda breve de fuegos artificiales
+  // que confirma la entrega sin que el estudiante tenga que preguntarle al
+  // maestro "¿ya le llegó mi trabajo?" — se le pregunta "¿te salieron fuegos
+  // artificiales?" en su lugar.
+  const [showFireworks, setShowFireworks] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
   const toast = useToast()
+
+  // Al volver de EvaluacionRunner justo después de finalizar un cuestionario
+  // o examen, dispara la celebración UNA sola vez (no en cada visita/recarga
+  // posterior a esta misma actividad ya finalizada).
+  useEffect(() => {
+    if (location.state?.justFinished) {
+      setShowFireworks(true)
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- se dispara solo al llegar con el flag, no en cada cambio de location
+  }, [])
 
   // Real-time listener: keeps activity fresh when teacher saves changes (extensions, edits)
   useEffect(() => {
@@ -247,6 +265,7 @@ export default function StudentActivityPage() {
         toast(files.length > 1 ? `Tarea entregada — ${files.length} imágenes` : 'Tarea entregada')
       }
       setFiles([])
+      setShowFireworks(true)
       loadOther()
     } catch (err) {
       toast('Error al subir: ' + err.message, 'error')
@@ -289,6 +308,7 @@ export default function StudentActivityPage() {
         })
         toast('Tarea marcada como completada')
       }
+      setShowFireworks(true)
       loadOther()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -365,6 +385,7 @@ export default function StudentActivityPage() {
       publicacionVisible(ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas, ahoraISO)
     return (
       <StudentLayout>
+        <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
         <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
             <button type="button" aria-label="Volver" onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
@@ -517,6 +538,7 @@ export default function StudentActivityPage() {
 
   return (
     <StudentLayout>
+    <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
     <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
         <button
