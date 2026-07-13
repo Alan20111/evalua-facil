@@ -1,16 +1,18 @@
 import { useEffect, useRef } from 'react'
 
-// Celebración de "ya entregaste" — una tanda breve de fuegos artificiales que
-// se dibuja sobre toda la pantalla y desaparece sola. No usa ninguna librería
-// (canvas 2D simple) para no agregar dependencias nuevas al bundle.
+// Celebración de "ya entregaste" — una tanda de fuegos artificiales (más
+// luces de fiesta: cohetes densos con destello + una capa de lucecitas que
+// titilan de fondo) que se dibuja sobre toda la pantalla y desaparece sola.
+// No usa ninguna librería (canvas 2D simple) para no agregar dependencias
+// nuevas al bundle.
 //
 // Uso: <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
 // `active` dispara la animación; al terminar (o si el usuario tiene
 // prefers-reduced-motion) se llama a `onDone` para que el padre la desmonte.
 
-const COLORS = ['#ff5e5e', '#ffd166', '#06d6a0', '#4cc9f0', '#c77dff', '#ff9f1c', '#f72585']
+const COLORS = ['#ff5e5e', '#ffd166', '#06d6a0', '#4cc9f0', '#c77dff', '#ff9f1c', '#f72585', '#ffffff', '#7bf1a8']
 
-export default function Fireworks({ active, onDone, duration = 2600 }) {
+export default function Fireworks({ active, onDone, duration = 7800 }) {
   const canvasRef = useRef(null)
   const onDoneRef = useRef(onDone)
   useEffect(() => { onDoneRef.current = onDone })
@@ -35,39 +37,71 @@ export default function Fireworks({ active, onDone, duration = 2600 }) {
 
     let rockets = []
     let particles = []
+    let twinkles = []
     let rafId
     const start = performance.now()
     let nextLaunch = 0
-    // Con reduced-motion no lanzamos cohetes (nada de movimiento vertical
-    // largo): solo un par de estallidos instantáneos y cortos.
-    const LAUNCH_WINDOW = prefersReduced ? 0 : 1400
-    const totalMs = prefersReduced ? 900 : duration
+    // Cohetes lanzándose durante la mayor parte de la animación, dejando los
+    // últimos ~2.2s solo para que las últimas partículas caigan y se apaguen.
+    const totalMs = prefersReduced ? 1400 : duration
+    const LAUNCH_WINDOW = prefersReduced ? 0 : Math.max(800, totalMs - 2200)
+
+    function makeTwinkles(w, h) {
+      const count = prefersReduced ? 0 : Math.round((w * h) / 26000) // más luces en pantallas grandes
+      const arr = []
+      for (let i = 0; i < count; i++) {
+        arr.push({
+          x: Math.random() * w,
+          y: Math.random() * h * 0.9,
+          r: 1.6 + Math.random() * 2.4,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.0025 + Math.random() * 0.0035,
+          color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        })
+      }
+      return arr
+    }
+    twinkles = makeTwinkles(window.innerWidth, window.innerHeight)
 
     function explode(x, y, color) {
-      const count = 46 + Math.floor(Math.random() * 20)
+      // Ráfagas más grandes y notorias.
+      const count = 80 + Math.floor(Math.random() * 45)
       for (let i = 0; i < count; i++) {
         const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3
-        const speed = 2 + Math.random() * 3.2
+        const speed = 2.2 + Math.random() * 3.8
         particles.push({
           x, y,
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed,
           life: 0,
-          maxLife: 55 + Math.random() * 25,
+          maxLife: 60 + Math.random() * 35,
           color,
-          size: 1.6 + Math.random() * 1.6,
+          size: 1.8 + Math.random() * 2.1,
+        })
+      }
+      // Un puñado de chispas centrales más brillantes, para dar "pop".
+      for (let i = 0; i < 10; i++) {
+        particles.push({
+          x, y,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: (Math.random() - 0.5) * 1.5,
+          life: 0,
+          maxLife: 20 + Math.random() * 12,
+          color: '#ffffff',
+          size: 2.6 + Math.random() * 1.6,
         })
       }
     }
 
     function spawnRocket() {
       const w = window.innerWidth, h = window.innerHeight
-      const x = w * (0.15 + Math.random() * 0.7)
-      const targetY = h * (0.18 + Math.random() * 0.28)
+      const x = w * (0.1 + Math.random() * 0.8)
+      const targetY = h * (0.14 + Math.random() * 0.32)
       rockets.push({
         x, y: h + 10, targetY,
-        vy: -(6 + Math.random() * 2.5),
+        vy: -(6.2 + Math.random() * 2.8),
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        trail: [],
       })
     }
 
@@ -78,21 +112,49 @@ export default function Fireworks({ active, onDone, duration = 2600 }) {
       const w = window.innerWidth, h = window.innerHeight
       ctx.clearRect(0, 0, w, h)
 
+      // Lucecitas de fondo tipo "luces de fiesta", titilando toda la duración.
+      twinkles.forEach((t) => {
+        const alpha = 0.25 + 0.6 * Math.abs(Math.sin(elapsed * t.speed + t.phase))
+        ctx.globalAlpha = alpha
+        ctx.beginPath()
+        ctx.fillStyle = t.color
+        ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2)
+        ctx.fill()
+      })
+      ctx.globalAlpha = 1
+
+      // Lanza cohetes densamente durante la ventana de lanzamiento; a veces
+      // dos a la vez, para que se sienta más lleno de luces.
       if (!prefersReduced && elapsed < LAUNCH_WINDOW && elapsed >= nextLaunch) {
         spawnRocket()
-        nextLaunch = elapsed + 260 + Math.random() * 220
+        if (Math.random() < 0.35) spawnRocket()
+        nextLaunch = elapsed + 150 + Math.random() * 160
       }
       if (prefersReduced && !seededReducedBurst) {
         seededReducedBurst = true
-        explode(w * 0.35, h * 0.32, COLORS[1])
-        explode(w * 0.65, h * 0.38, COLORS[3])
+        explode(w * 0.3, h * 0.3, COLORS[1])
+        explode(w * 0.5, h * 0.4, COLORS[4])
+        explode(w * 0.7, h * 0.32, COLORS[3])
       }
 
       rockets = rockets.filter((r) => {
+        r.trail.push({ x: r.x, y: r.y })
+        if (r.trail.length > 6) r.trail.shift()
         r.y += r.vy
+        // Estela breve del cohete subiendo.
+        ctx.strokeStyle = r.color
+        ctx.lineWidth = 1.6
+        ctx.beginPath()
+        r.trail.forEach((p, i) => {
+          ctx.globalAlpha = i / r.trail.length
+          if (i === 0) ctx.moveTo(p.x, p.y)
+          else ctx.lineTo(p.x, p.y)
+        })
+        ctx.stroke()
+        ctx.globalAlpha = 1
         ctx.beginPath()
         ctx.fillStyle = r.color
-        ctx.arc(r.x, r.y, 2.4, 0, Math.PI * 2)
+        ctx.arc(r.x, r.y, 2.6, 0, Math.PI * 2)
         ctx.fill()
         if (r.y <= r.targetY) {
           explode(r.x, r.y, r.color)
@@ -111,10 +173,13 @@ export default function Fireworks({ active, onDone, duration = 2600 }) {
         const t = p.life / p.maxLife
         if (t >= 1) return false
         ctx.globalAlpha = Math.max(0, 1 - t)
+        ctx.shadowBlur = 7
+        ctx.shadowColor = p.color
         ctx.beginPath()
         ctx.fillStyle = p.color
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
         ctx.fill()
+        ctx.shadowBlur = 0
         ctx.globalAlpha = 1
         return true
       })
