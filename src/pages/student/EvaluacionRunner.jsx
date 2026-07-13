@@ -290,8 +290,8 @@ export default function EvaluacionRunner() {
                 {subject ? `${subject.nombre}${subject.grupo ? ` — ${subject.grupo}` : ''}` : ''}
                 {teacherName ? ` · ${teacherName}` : ''}
               </p>
-              <p className="text-xs text-white/60 mt-0.5">
-                {activity.nombre} — Pregunta {idx + 1} de {preguntas.length}
+              <p className="text-xs text-white/60 mt-0.5 truncate">
+                {activity.nombre}
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
