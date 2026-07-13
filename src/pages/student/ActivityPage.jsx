@@ -274,49 +274,6 @@ export default function StudentActivityPage() {
     }
   }
 
-  async function handleMarkComplete() {
-    if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
-    setUploading(true)
-    try {
-      if (submission) {
-        await updateDoc(doc(db, 'submissions', submission.id), {
-          archivoURL: null,
-          nombreArchivo: null,
-          archivos: null,
-          completadoSinArchivo: true,
-          fechaEntrega: serverTimestamp(),
-          calificacion: null,
-          comentario: '',
-          estado: 'entregado',
-          tarde: isPastDeadline,
-          historial: arrayUnion(buildHistoryEntry()),
-        })
-        toast('Versión corregida marcada como completada')
-      } else {
-        await addDoc(collection(db, 'submissions'), {
-          alumnoId: student.id,
-          actividadId: activityId,
-          archivoURL: null,
-          nombreArchivo: null,
-          completadoSinArchivo: true,
-          fechaEntrega: serverTimestamp(),
-          calificacion: null,
-          comentario: '',
-          estado: 'entregado',
-          tarde: isPastDeadline,
-          historial: [],
-        })
-        toast('Tarea marcada como completada')
-      }
-      setShowFireworks(true)
-      loadOther()
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setUploading(false)
-    }
-  }
-
   async function handleStartOrContinueEvaluacion() {
     if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
     setUploading(true)
@@ -771,16 +728,6 @@ export default function StudentActivityPage() {
               >
                 {uploading ? <Spinner size="sm" /> : <Upload size={18} />}
                 {uploading ? 'Subiendo…' : files.length > 1 ? `Entregar ${files.length} imágenes` : 'Entregar'}
-              </button>
-              <button
-                type="button"
-                onClick={handleMarkComplete}
-                onMouseDown={(e) => e.preventDefault()}
-                disabled={uploading}
-                style={{ touchAction: 'manipulation' }}
-                className="w-full py-1.5 text-sm text-slate-500 hover:text-muted transition-colors"
-              >
-                Marcar como completada sin archivo
               </button>
             </div>
           </div>

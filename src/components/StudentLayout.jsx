@@ -22,6 +22,7 @@ export default function StudentLayout({ children }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [studentInfo, setStudentInfo] = useState(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [showFullLogo, setShowFullLogo] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -109,11 +110,16 @@ export default function StudentLayout({ children }) {
 
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
-        <div className="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          onClick={() => setShowFullLogo((v) => !v)}
+          aria-label="Ver logo de Evalúa Fácil"
+          className="flex items-center gap-2 min-w-0 -ml-1 p-1 rounded hover:bg-accent-tint transition-colors"
+        >
           <EFLogo subtitle={false} className="h-8 w-auto flex-shrink-0" />
           {/* eslint-disable-next-line jsx-a11y/aria-role -- role aquí es la prop propia de PortalBadge, no un atributo ARIA */}
           <PortalBadge role="alumno" />
-        </div>
+        </button>
         <button
           type="button"
           onClick={() => setShowLogoutConfirm(true)}
@@ -259,6 +265,19 @@ export default function StudentLayout({ children }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Logo completo — se abre al tocar el ícono de la barra superior, se cierra tocando el fondo */}
+      {showFullLogo && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60">
+          <button
+            type="button"
+            className="absolute inset-0 border-none cursor-default"
+            onClick={() => setShowFullLogo(false)}
+            aria-label="Cerrar logo"
+          />
+          <EFLogo className="relative w-64 sm:w-80 h-auto pointer-events-none" />
         </div>
       )}
     </div>
