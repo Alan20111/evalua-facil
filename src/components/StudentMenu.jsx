@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Bell, Plus, Archive, ChevronDown, ChevronRight, LogOut, X, ArrowLeft,
+  Bell, Plus, Archive, ChevronDown, ChevronRight, LogOut, X, ArrowLeft, Camera,
 } from 'lucide-react'
 import EFLogo from './EFLogo'
 import SubjectIcon from './SubjectIcon'
@@ -39,16 +39,17 @@ function Toggle({ checked, onChange, label, description }) {
 const NOTIF_DEFAULTS = { actividadesNuevas: true, calificaciones: true, recordatorios: true }
 
 // Menú móvil del alumno — se abre al tocar el ícono de Evalúa Fácil en la
-// barra superior. Header (ícono + nombre completo) → Notificaciones →
-// asignaturas (+ unirme a otra) → archivadas → Cerrar sesión, con una raya
-// visible entre cada sección, tal como se pidió.
+// barra superior. Ícono (toca para ver el logo completo) → foto + nombre →
+// Notificaciones → Mis asignaturas (+ unirme a otra) → archivadas → Cerrar
+// sesión, con una raya visible entre cada sección.
 export default function StudentMenu({
-  open, onClose, displayName, subjects, loadingSidebar,
-  notifPrefs, onSaveNotifPrefs, joinPrefillUsername, onLogout,
+  open, onClose, firstName, photoURL, uploadingPhoto, initials, onPhotoClick,
+  subjects, loadingSidebar, notifPrefs, onSaveNotifPrefs, joinPrefillUsername, onLogout,
 }) {
   const navigate = useNavigate()
   const [screen, setScreen] = useState('menu') // 'menu' | 'notif' | 'join'
   const [showArchived, setShowArchived] = useState(false)
+  const [showFullLogo, setShowFullLogo] = useState(false)
   const [prefs, setPrefs] = useState({ ...NOTIF_DEFAULTS, ...notifPrefs })
   const [savingPrefs, setSavingPrefs] = useState(false)
   const [joinCode, setJoinCode] = useState('')
@@ -95,13 +96,47 @@ export default function StudentMenu({
       <div className="absolute inset-y-0 left-0 h-full w-[82vw] max-w-xs bg-surface-card shadow-2xl flex flex-col overflow-hidden">
         {screen === 'menu' && (
           <>
-            {/* Header: ícono a la izquierda, nombre completo a la derecha */}
-            <div className={`flex items-center gap-3 px-4 py-4 flex-shrink-0 ${dividerCls}`}>
-              <EFLogo subtitle={false} className="w-10 h-10 flex-shrink-0" />
-              <p className="flex-1 min-w-0 text-right font-semibold text-on-surface truncate">{displayName}</p>
-              <button type="button" onClick={close} aria-label="Cerrar menú" className="p-1 -mr-1 text-muted hover:text-on-surface rounded flex-shrink-0">
-                <X size={20} />
-              </button>
+            {/* Ícono a la izquierda (toca para ver el logo completo) + cerrar menú */}
+            <div className="flex-shrink-0">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setShowFullLogo((v) => !v)}
+                  aria-label="Ver logo de Evalúa Fácil"
+                  className="rounded flex-shrink-0"
+                >
+                  <EFLogo subtitle={false} className="w-10 h-10" />
+                </button>
+                <div className="flex-1" />
+                <button type="button" onClick={close} aria-label="Cerrar menú" className="p-1 -mr-1 text-muted hover:text-on-surface rounded flex-shrink-0">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Foto/avatar a la izquierda, nombre (sin apellidos) a la derecha */}
+              <div className={`flex items-center gap-3 px-4 pb-4 ${dividerCls}`}>
+                <button
+                  type="button"
+                  onClick={onPhotoClick}
+                  className="relative w-11 h-11 rounded-full flex-shrink-0 group focus:outline-none"
+                  data-tooltip="Cambiar foto"
+                  aria-label="Cambiar foto"
+                >
+                  <div className="w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center">
+                    {uploadingPhoto ? (
+                      <Spinner size="sm" />
+                    ) : photoURL ? (
+                      <img src={photoURL} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-base font-bold text-accent">{initials}</span>
+                    )}
+                  </div>
+                  <span className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    <Camera size={16} className="text-white" />
+                  </span>
+                </button>
+                <p className="flex-1 min-w-0 font-semibold text-on-surface truncate">{firstName}</p>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -118,6 +153,7 @@ export default function StudentMenu({
 
               {/* Asignaturas */}
               <div className="px-2 py-2">
+                <p className="px-3 pt-1 pb-1 text-label-caps text-muted uppercase">Mis asignaturas</p>
                 {loadingSidebar ? (
                   <div className="flex justify-center py-3"><Spinner size="sm" /></div>
                 ) : activeSubjects.length === 0 ? (
@@ -263,6 +299,19 @@ export default function StudentMenu({
           </>
         )}
       </div>
+
+      {/* Logo completo — se abre al tocar el ícono, se cierra tocando de nuevo (aquí, en el fondo) */}
+      {showFullLogo && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60">
+          <button
+            type="button"
+            className="absolute inset-0 border-none cursor-default"
+            onClick={() => setShowFullLogo(false)}
+            aria-label="Cerrar logo"
+          />
+          <EFLogo className="relative w-64 sm:w-80 h-auto pointer-events-none" />
+        </div>
+      )}
     </div>
   )
 }
