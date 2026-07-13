@@ -1213,7 +1213,7 @@ export default function ActivityPage() {
                         </div>
                       ) : null}
                       <div className={selFiles.length === 1 || hasRubrica ? 'flex-shrink-0' : 'flex-1'}>
-                        <label htmlFor="act-calificacion" className="block text-sm font-medium text-muted mb-1">
+                        <label htmlFor="act-calificacion" className="block text-sm font-medium text-muted mb-1 text-center">
                           Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                         </label>
                         <input
