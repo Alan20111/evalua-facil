@@ -150,8 +150,13 @@
   z-index: 9999;
   transition: opacity 0.12s ease 0.25s;
 }
-[data-tooltip]:hover::after {
-  opacity: 1;
+/* Only true hover-capable pointers (mouse/trackpad) show tooltips — on touch
+   (mobile web + Capacitor Android) :hover sticks after a tap with no clean
+   way to dismiss it, so tooltips are suppressed there entirely. */
+@media (hover: hover) and (pointer: fine) {
+  [data-tooltip]:hover::after {
+    opacity: 1;
+  }
 }
 /* No-wrap variant — keeps the whole text on one line no matter how long */
 [data-tooltip][data-tooltip-nowrap]::after {

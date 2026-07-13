@@ -6,6 +6,10 @@ let installed = false
 
 export function installFollowTooltips() {
   if (installed || typeof document === 'undefined') return
+  // Touch devices (mobile web + Capacitor Android) have no real hover — a
+  // synthetic mouseover after a tap can leave this stuck on-screen with no
+  // clean way to dismiss it, so it only installs on true mouse/trackpad pointers.
+  if (!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) return
   installed = true
 
   const tip = document.createElement('div')
