@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
-import { collection, query, where, getDocs, doc, documentId, writeBatch } from 'firebase/firestore'
+import { useNavigate } from 'react-router-dom'
+import { signInWithEmailAndPassword } from 'firebase/auth'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import Spinner from '../../components/Spinner'
 import { studentEmail, usernameCandidates } from '../../utils/generate'
@@ -19,14 +19,6 @@ export default function StudentLogin() {
   const [showCodeSection, setShowCodeSection] = useState(false)
   const [codeInput, setCodeInput] = useState('')
 
-  // First-time login must confirm the subject's access code before the account
-  // is created — otherwise anyone who guesses a classmate's username could
-  // self-activate without ever being given that code by the teacher.
-  const [step, setStep] = useState('login') // 'login' | 'need_code'
-  const [pendingActivation, setPendingActivation] = useState(null)
-  const [subjectCodeInput, setSubjectCodeInput] = useState('')
-  const [codeError, setCodeError] = useState('')
-
   // Password recovery ('login' | 'recover')
   const [mode, setMode] = useState('login')
   const [recoverStep, setRecoverStep] = useState('username') // 'username' | 'password'
@@ -39,26 +31,6 @@ export default function StudentLogin() {
   const navigate = useNavigate()
   const submitting = useRef(false) // guards against double-submit (rapid taps)
 
-  // Marks ALL of this account's enrollments (same username + school) as activated and writes
-  // the uid, so every subject the student belongs to shows up — not just the one used to log
-  // in. NOTE: students live in `students`, NOT `users`; AuthContext resolves the profile from
-  // the @evalua.local email. We never create users/{uid} for alumnos (rules forbid it).
-  async function finishAccess(uname, escuelaId, authUser) {
-    const snap = await getDocs(query(
-      collection(db, 'students'),
-      where('username', '==', uname),
-      where('escuelaId', '==', escuelaId),
-    ))
-    const batch = writeBatch(db)
-    snap.forEach((d) => batch.update(doc(db, 'students', d.id), {
-      activado: true,
-      uid: authUser.uid,
-      resetPassword: null,
-    }))
-    await batch.commit()
-    navigate('/alumno/dashboard')
-  }
-
   const handleLogin = async (e) => {
     e.preventDefault()
     if (submitting.current) return
@@ -70,7 +42,7 @@ export default function StudentLogin() {
       ))
       const stuDocs = snaps.flatMap((s) => s.docs)
       if (stuDocs.length === 0) {
-        setError('Usuario no encontrado. Verifica tu username o activa tu cuenta con el código.')
+        setError('Usuario no encontrado. Verifica tu username, o usa "¿Primera vez? Activa tu cuenta" más abajo.')
         return
       }
       const docs = stuDocs.map((d) => ({ id: d.id, ...d.data() }))
@@ -92,33 +64,13 @@ export default function StudentLogin() {
         return
       }
 
-      // No activated account yet → first-time access. Password they enter becomes theirs.
-      const pendingSchools = [...new Set(docs.map((d) => d.escuelaId))]
-      if (pendingSchools.length > 1) {
-        setError('Tu usuario existe en varias escuelas. Activa tu cuenta con el código o QR de tu asignatura.')
-        return
-      }
-      if (password.length < 6) {
-        setError('Tu contraseña debe tener al menos 6 caracteres.')
-        return
-      }
-      const escuelaId = pendingSchools[0]
-
-      // Don't create the account yet — first confirm the access code of the
-      // subject(s) this username belongs to, so first-time access requires
-      // something only someone with that code (from the teacher/QR) would know.
-      const asignaturaIds = [...new Set(docs.map((d) => d.asignaturaId).filter(Boolean))]
-      let validCodes = []
-      if (asignaturaIds.length) {
-        const subSnap = await getDocs(
-          query(collection(db, 'subjects'), where(documentId(), 'in', asignaturaIds.slice(0, 30)))
-        )
-        validCodes = subSnap.docs.map((d) => (d.data().accessCode || '').toUpperCase()).filter(Boolean)
-      }
-      setPendingActivation({ uname, escuelaId, password, validCodes })
-      setSubjectCodeInput('')
-      setCodeError('')
-      setStep('need_code')
+      // No activated account yet: this form is only for students who already
+      // activated. First-time access happens exclusively via "¿Primera vez?
+      // Activa tu cuenta" below (código/QR/link) → /activate/:code, which asks
+      // for the subject's access code AND makes it explicit they're choosing a
+      // new password there — no ambiguity about "is this a login or a signup".
+      setError('Todavía no activas tu cuenta. Usa "¿Primera vez? Activa tu cuenta" más abajo.')
+      setShowCodeSection(true)
     } catch (err) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
         setError('Contraseña incorrecta. Si la olvidaste, usa “Recuperar contraseña”.')
@@ -136,50 +88,6 @@ export default function StudentLogin() {
     const code = codeInput.trim().toUpperCase()
     if (!code) return
     navigate(`/activate/${code}`)
-  }
-
-  // Final step of first-time access: the code must match the access code of
-  // one of the subjects this username was added to — otherwise we don't know
-  // it was really the teacher who shared it with this student.
-  const handleConfirmCode = async (e) => {
-    e.preventDefault()
-    if (submitting.current || !pendingActivation) return
-    setCodeError('')
-    const code = subjectCodeInput.trim().toUpperCase()
-    if (!code) return
-    if (!pendingActivation.validCodes.includes(code)) {
-      setCodeError('Ese código no coincide con el de tu asignatura. Pídeselo a tu maestro o maestra.')
-      return
-    }
-    submitting.current = true
-    setLoading(true)
-    try {
-      const { uname, escuelaId, password: pwd } = pendingActivation
-      const email = studentEmail(uname, escuelaId)
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, email, pwd)
-        await finishAccess(uname, escuelaId, cred.user)
-      } catch (err2) {
-        if (err2.code === 'auth/email-already-in-use') {
-          const cred = await signInWithEmailAndPassword(auth, email, pwd)
-          await finishAccess(uname, escuelaId, cred.user)
-        } else {
-          throw err2
-        }
-      }
-    } catch {
-      setCodeError('Error al activar tu cuenta. Intenta de nuevo.')
-    } finally {
-      submitting.current = false
-      setLoading(false)
-    }
-  }
-
-  function cancelNeedCode() {
-    setStep('login')
-    setPendingActivation(null)
-    setSubjectCodeInput('')
-    setCodeError('')
   }
 
   function openRecover() {
@@ -286,55 +194,7 @@ export default function StudentLogin() {
           </h1>
         </div>
 
-        {mode === 'login' && step === 'need_code' ? (
-          /* ── Confirm subject access code before creating the account ── */
-          <div className="bg-surface-card rounded-card shadow-card p-5">
-            <form onSubmit={handleConfirmCode} className="space-y-3">
-              <p className="text-sm text-muted">
-                Es tu primera vez. Para activar tu cuenta, ingresa el <strong>código de acceso</strong>{' '}
-                de tu asignatura (el del QR o el que te dio tu maestro o maestra):
-              </p>
-              <div>
-                <label htmlFor="login-codigo-asignatura" className="block text-sm font-medium text-muted mb-1">Código de la asignatura</label>
-                <input
-                  id="login-codigo-asignatura"
-                  type="text"
-                  value={subjectCodeInput}
-                  onChange={(e) => { setSubjectCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')); setCodeError('') }}
-                  required
-                  // autoFocus intencional: único campo de este paso (confirmar código de acceso),
-                  // se muestra una sola vez por sesión de primer login — no es un modal reabrible.
-                  autoFocus
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="characters"
-                  spellCheck={false}
-                  maxLength={8}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
-                  placeholder="Ej: A3B7K2"
-                />
-              </div>
-              {codeError && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5">{codeError}</p>
-              )}
-              <button
-                type="submit"
-                disabled={loading || !subjectCodeInput.trim()}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {loading ? <Spinner size="sm" /> : <Hash size={18} />}
-                {loading ? 'Activando…' : 'Activar mi cuenta'}
-              </button>
-            </form>
-            <button
-              type="button"
-              onClick={cancelNeedCode}
-              className="mt-3 w-full flex items-center justify-center gap-1.5 text-sm text-muted hover:text-on-surface transition-colors"
-            >
-              <ArrowLeft size={17} /> Volver
-            </button>
-          </div>
-        ) : mode === 'recover' ? (
+        {mode === 'recover' ? (
           /* ── Recovery ── */
           <div className="bg-surface-card rounded-card shadow-card p-5">
             {recoverStep === 'username' ? (
@@ -537,11 +397,6 @@ export default function StudentLogin() {
                 </div>
               )}
             </div>
-
-            <p className="text-center text-sm text-slate-400 mt-3">
-              ¿Eres docente?{' '}
-              <Link to="/docente" className="text-accent hover:underline">Acceso docentes</Link>
-            </p>
 
             <p className="text-center text-sm text-slate-500 mt-5 px-2">
               Tu maestro te otorgará tus datos de acceso.
