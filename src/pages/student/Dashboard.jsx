@@ -194,8 +194,11 @@ export default function StudentDashboard() {
     || 'Estudiante'
   const initials = displayName.charAt(0).toUpperCase()
   const photoURL = userProfile?.photoURL || studentInfo?.photoURL
-  // Solo el/los nombre(s) de pila, sin apellidos.
+  // Solo el/los nombre(s) de pila — los apellidos van en un segundo renglón aparte.
   const firstName = userProfile?.nombre || studentInfo?.nombre || displayName
+  const apellidos =
+    [userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
+    || [studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].filter(Boolean).join(' ')
 
   const activeSubjects = subjects.filter((s) => !s.archived)
   const archivedSubjects = subjects.filter((s) => s.archived)
@@ -234,7 +237,10 @@ export default function StudentDashboard() {
                 <Camera size={16} className="text-white" />
               </span>
             </button>
-            <p className="flex-1 min-w-0 font-semibold text-on-surface truncate">{firstName}</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-on-surface truncate">{firstName}</p>
+              {apellidos && <p className="text-sm text-muted truncate">{apellidos}</p>}
+            </div>
           </div>
           <button
             type="button"
