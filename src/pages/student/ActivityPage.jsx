@@ -8,7 +8,6 @@ import {
   getDoc,
   addDoc,
   updateDoc,
-  arrayUnion,
   doc,
   onSnapshot,
   serverTimestamp,
@@ -179,16 +178,6 @@ export default function StudentActivityPage() {
     }
   }
 
-  function buildHistoryEntry() {
-    return {
-      archivoURL: submission?.archivoURL ?? null,
-      nombreArchivo: submission?.nombreArchivo ?? null,
-      archivos: submission?.archivos ?? null,
-      completadoSinArchivo: !!submission?.completadoSinArchivo,
-      fechaEntrega: submission?.fechaEntrega ?? null,
-    }
-  }
-
   const isImageFile = (f) => (f.type || '').startsWith('image/') || /\.(jpe?g|png)$/i.test(f.name)
 
   // Handles a fresh selection from the file input. Photos ADD to the current
@@ -223,6 +212,10 @@ export default function StudentActivityPage() {
   async function handleUpload() {
     if (!files.length) return
     if (!student) { toast('No se encontró tu perfil. Cierra sesión y vuelve a entrar.', 'error'); return }
+    // Una sola ocasión de entrega: si ya existe una entrega (por una condición
+    // de carrera, doble clic, o una pestaña vieja), rechazar aquí también —
+    // no solo ocultar el formulario en el render.
+    if (submission) { toast('Ya entregaste esta actividad — espera a que tu maestro la revise.', 'error'); return }
     for (const f of files) {
       if (!isFileAllowed(f, activity?.tiposArchivo || 'todos', activity?.extensionesCustom)) {
         toast(`Solo se permiten: ${resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}`, 'error'); return
@@ -237,7 +230,9 @@ export default function StudentActivityPage() {
       // `archivoURL`/`nombreArchivo` stay as the FIRST file so every existing
       // reader (teacher list, previews, ZIP export) keeps working; `archivos`
       // carries the full set when there is more than one.
-      const payload = {
+      await addDoc(collection(db, 'submissions'), {
+        alumnoId: student.id,
+        actividadId: activityId,
         archivoURL: uploaded[0].url,
         nombreArchivo: uploaded[0].nombre,
         archivos: uploaded,
@@ -247,23 +242,9 @@ export default function StudentActivityPage() {
         comentario: '',
         estado: 'entregado',
         tarde: isPastDeadline,
-      }
-      if (submission) {
-        // Re-submit: archive current version, update doc
-        await updateDoc(doc(db, 'submissions', submission.id), {
-          ...payload,
-          historial: arrayUnion(buildHistoryEntry()),
-        })
-        toast('Versión corregida entregada')
-      } else {
-        await addDoc(collection(db, 'submissions'), {
-          alumnoId: student.id,
-          actividadId: activityId,
-          ...payload,
-          historial: [],
-        })
-        toast(files.length > 1 ? `Tarea entregada — ${files.length} imágenes` : 'Tarea entregada')
-      }
+        historial: [],
+      })
+      toast(files.length > 1 ? `Tarea entregada — ${files.length} imágenes` : 'Tarea entregada')
       setFiles([])
       setShowFireworks(true)
       loadOther()
@@ -478,8 +459,6 @@ export default function StudentActivityPage() {
   // Extended deadline for this student (set by teacher)
   const extendedDate = activity?.extensiones?.[student?.id]
   const displayDate = extendedDate || activity?.fechaLimite
-  // Can re-submit if teacher gave an extension and task isn't graded yet
-  const canResubmit = !!extendedDate && !isGraded && !!submission
   // Legacy deadlines stored as a plain date (no time) close at end of day
   const isPastDeadline = !!displayDate && new Date(
     displayDate.includes('T') ? displayDate : `${displayDate}T23:59:59`
@@ -639,27 +618,22 @@ export default function StudentActivityPage() {
           )}
         </div>
 
-        {/* Upload (never shown for observación — nothing to deliver) */}
-        {!isObservacion && (!submission || canResubmit) && cerrada && (
+        {/* Upload (never shown for observación — nothing to deliver, nor once
+            ya hay una entrega: el estudiante tiene una sola ocasión; solo
+            vuelve a aparecer si el docente anula la entrega) */}
+        {!isObservacion && !submission && cerrada && (
           <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
             {activity?.cerradaManual
               ? 'El docente cerró esta actividad. Ya no se reciben entregas.'
               : 'El plazo de entrega para esta actividad ya cerró.'}
           </div>
         )}
-        {!isObservacion && (!submission || canResubmit) && !cerrada && (
+        {!isObservacion && !submission && !cerrada && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
-            <h2 className="font-semibold text-on-surface mb-1">
-              {canResubmit ? 'Subir versión corregida' : 'Subir entrega'}
-            </h2>
+            <h2 className="font-semibold text-on-surface mb-1">Subir entrega</h2>
             {isPastDeadline && (
               <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mb-3">
                 La fecha límite ya pasó. Tu entrega se registrará como <strong>entrega tarde</strong>.
-              </p>
-            )}
-            {canResubmit && (
-              <p className="text-xs text-amber-600 mb-3">
-                Tu maestro extendió la fecha — puedes subir una corrección.
               </p>
             )}
             <div className="space-y-3">
