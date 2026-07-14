@@ -229,7 +229,7 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 
 | Variante | Clases canónicas |
 |---|---|
-| **Primario** (objetivo único) | `py-2.5 px-4 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2` — hoy conviven `bg-blue-600 hover:bg-blue-700` (auth/dashboard/profile/admin) y `bg-accent` (subject/activity/alumno); `py-2` y `py-2.5` |
+| **Primario** (objetivo único) | `py-2.5 px-4 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2` — ✅ unificado en `main` (jul-2026): todo el dialecto `bg-blue-600` migrado a `bg-accent` |
 | **Secundario/Outline** | `border border-outline-variant rounded font-semibold text-on-surface hover:bg-surface` |
 | **Outline acento** | `border border-accent text-accent rounded hover:bg-[var(--accent-tint)]` |
 | **Destructivo** | `bg-red-600 hover:bg-red-700 text-white font-semibold rounded` |
@@ -240,14 +240,14 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 
 ### 6.2 Inputs y formularios
 
-- **Input estándar:** `w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus:ring-2 focus:ring-accent text-sm bg-surface` (⚠ variantes: `py-2`, `focus:ring-blue-500`, `px-3.5`, `px-3` — unificar).
+- **Input estándar:** `w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface` — ✅ el anillo de foco es `focus-visible:` en toda la app (jul-2026): ya no aparece con click de mouse, solo con navegación por teclado. Persisten variantes menores de padding (`py-2`/`py-2.5`, `px-3`/`px-3.5`) sin unificar.
 - Input con error: `border-red-400` (+ mensaje `text-red-500 text-xs`).
 - Input código/username: añade `font-mono tracking-widest text-center text-lg` + `autoCapitalize="characters"`.
 - Numérico de captura: `no-spinner` (oculta flechas), `text-center font-semibold`.
 - PasswordInput: input estándar + toggle `Eye/EyeOff` interno.
 - Label: `block text-sm font-medium text-muted mb-1` · Hint: `text-xs text-slate-400 mt-1`.
 - Checkbox/radio nativos: `accent-[var(--accent)]`.
-- **Toggle switch** (admin): pista `h-6 w-11 rounded-full` (`bg-blue-600` on / `bg-slate-300` off), pulgar `h-4 w-4 rounded-full bg-surface-card` (`translate-x-6/translate-x-1`).
+- **Toggle switch** (admin): pista `h-6 w-11 rounded-full` (`bg-accent` on / `bg-slate-300` off — ✅ ya no `bg-blue-600` fijo), pulgar `h-4 w-4 rounded-full bg-surface-card` (`translate-x-6/translate-x-1`).
 - **Banner de error de form:** `text-sm text-red-600 bg-red-50 border border-red-200 rounded px-4 py-2.5`.
 
 ### 6.3 Cards
@@ -262,14 +262,14 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 | Stat card (admin) | `p-4`, label `text-xs text-slate-400 font-medium` + icono 18, valor `text-xl md:text-2xl font-bold` |
 | Banner de estado (alumno) | `rounded-card p-4 flex items-center gap-3` — calificado `bg-emerald-50 border-emerald-200`, entregado `bg-accent-light border-accent`, pendiente `bg-surface border-outline-variant`; icono 26 |
 
-### 6.4 Tabs (4 variantes hoy — consolidar en 2)
+### 6.4 Tabs — ✅ consolidado a 2 variantes (jul-2026)
 
 | Variante | Activo | Inactivo |
 |---|---|---|
 | **Segmented** (docente) `flex gap-1 bg-surface-container p-1 rounded` | `bg-surface-card text-on-surface shadow-card` | `text-muted hover:bg-[var(--accent-medium)]` |
 | **Underline** (alumno) barra `border-b px-4 flex gap-1 overflow-x-auto`, tab `px-3 py-2.5 text-sm font-medium border-b-2` | `border-accent text-accent` | `border-transparent text-muted hover:bg-[var(--accent-tint)]` |
-| Segmented sólido (panel evaluar) | `bg-accent text-white shadow-card` | ídem |
-| Píldora-tab (checkout/fecha) | `bg-blue-50 border-blue-300 text-blue-700` o `border-accent bg-[var(--accent-tint)] text-accent` | `border-outline-variant text-muted` |
+
+El "segmented sólido" del panel de evaluar (ActivityPage) se migró a la variante segmented estándar. El selector de opción tipo "píldora" (CheckoutModal, NuevaFechaEntregaModal) se unificó a `border-accent bg-accent-light text-accent` activo / `border-outline-variant text-muted hover:bg-[var(--accent-tint)]` inactivo — documentado como el mismo patrón que **Outline Accent** (§6.1), no una tercera variante de tab.
 
 ### 6.5 Badges / chips
 
@@ -290,7 +290,7 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 
 **Patrón objetivo (bottom-sheet responsive):**
 - Wrapper `fixed inset-0 z-50 flex items-end sm:items-center justify-center`
-- Backdrop `absolute inset-0 bg-black/40` (click cierra)
+- Backdrop — ✅ **patrón canónico fijado (jul-2026), no usar otra solución:** `<button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={cerrar} aria-label="Cerrar" />`, hermano del panel (nunca lo envuelve). Es un `<button>` real y enfocable — no `<div role="presentation">` ni `aria-hidden` — para que el cierre por teclado/lector de pantalla funcione sin depender de que exista otro botón de cierre visible. El panel ya no necesita `onClick={e => e.stopPropagation()}` porque es hermano del backdrop, no su hijo.
 - Panel `relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-{sm|lg|3xl} rounded-t-card sm:rounded-card p-4..5 shadow-2xl max-h-[92vh] overflow-y-auto`
 - Header: `flex items-center justify-between` + `h3 text-lg font-bold` + cerrar `p-1..2 text-slate-400 hover:text-error` (`X 18-20`)
 - Footer: `flex gap-2` — cancelar outline + acción primaria.
@@ -307,8 +307,8 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 ### 6.9 Estados vacíos / carga / resultado
 
 - **Empty:** card `rounded-card border border-outline-variant p-8..10 text-center` + icono 28–40 `text-slate-300` (o círculo `w-14 h-14 rounded-full bg-blue-50` + icono `text-blue-400`) + texto `text-sm text-muted` + CTA primario opcional.
-- **Loading de página:** `flex justify-center py-16..20` + Spinner. Spinner: `animate-spin rounded-full border-2 border-blue-600 border-t-transparent` — sm 16px / md 24px / lg 40px (⚠ azul fijo, no accent).
-- **Pantalla de resultado** (verify/pago): card centrada `p-8 max-w-sm text-center` + círculo `w-16 h-16 rounded-full bg-{emerald|amber|red}-100` + icono lucide 32 + `h2 text-xl font-bold` + botón primario. (⚠ VerifyEmail usa SVG a mano + `green-*`; PagoResultado usa lucide + `emerald` — unificar en lucide+emerald.)
+- **Loading de página:** `flex justify-center py-16..20` + Spinner. Spinner: `animate-spin rounded-full border-2 border-accent border-t-transparent` — sm 16px / md 24px / lg 40px — ✅ ya no azul fijo, respeta el rol activo.
+- **Pantalla de resultado** (verify/pago): card centrada `p-8 max-w-sm text-center` + círculo `w-16 h-16 rounded-full bg-{emerald|amber|red}-100` + icono lucide 32 + `h2 text-xl font-bold` + botón primario. ✅ VerifyEmail unificado a lucide (`CheckCircle2`/`XCircle`/`AlertTriangle`) + `emerald`, mismo patrón que PagoResultado.
 
 ### 6.10 Pickers y selects custom
 
@@ -337,6 +337,15 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 - Grid mes `grid-cols-7`, celda `min-h-[88px]` hover `hover:bg-accent-tint`; "hoy" círculo `bg-accent text-white`; semana `grid-cols-8 min-w-[560px]` con header sticky.
 - EventPill: `rounded px-2 py-1 text-xs` con bg/text de la paleta de materia (inline), icono 10.
 - Conflicto: `bg-amber-50 border-amber-200 rounded-card text-amber-800` + `AlertTriangle 16`.
+
+### 6.13 Componentes nuevos (post-divergencia, estandarizados jul-2026)
+
+Nacieron en `main` después del trabajo original de este documento y se auditaron/corrigieron en la Etapa 3 del plan de unificación (`docs/PLAN_UNIFICACION_MAIN.md`) — hoy siguen los mismos tokens/patrones que el resto de la app, documentados aquí por primera vez:
+
+- **Zona de programación de bloques** (`ProgramarZonaSemanal.jsx`, `ProgramarBloquesModal.jsx`, `BloqueEditor.jsx`): pantalla completa `fixed inset-0 z-50 bg-surface-card flex flex-col` (⚠ **ya no es una ventana flotante con backdrop** — se rediseñó a pantalla completa; no reintroducir el patrón de backdrop-clicable aquí). Banner de modo (crear/modificar) con `ring-4 ring-amber-400 ring-inset` cuando `esModificar`. Grilla semanal con celdas-hora y bloques arrastrables (Pointer Capture). 3 popovers internos (colocar bloque, editar bloque, confirmar salida) sí siguen el patrón canónico de backdrop de §6.7.
+- **Rúbricas** (`components/rubrica/`): `RubricaEditor.jsx` (editor tabla WYSIWYG, agarradera de columnas con `role="slider"`), `RubricaTable.jsx`/`RubricaGradeTable.jsx` (tabla presentacional/de calificación — celda de nivel seleccionada `bg-accent-light`, texto de puntos `text-accent`), `RubricaPicker.jsx` (selector de rúbricas reutilizables).
+- **`PublicacionScheduler.jsx`**: selector compartido de "cuándo se publica" (inmediato/ahora/fecha) usado en EvaluacionManager y EvaluacionEditor — un solo componente para que ambos flujos se vean idénticos.
+- **`EvaluacionAnswerList.jsx`** / **`EvaluacionStatsPanel.jsx`**: lista de respuestas de solo-lectura (compartida entre revisión del alumno y del docente) y panel de métricas de grupo (`border border-accent` + header `bg-accent-light`, mismo patrón de card acentuada que §6.9).
 
 ---
 
@@ -396,18 +405,21 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 | Dashboard | NARROW | Saludo + lista de cards de asignatura con reorden (flechas) + FAB + modal Nueva asignatura (bottom-sheet, selector parciales grid-cols-6, PaletteSelect, IconSelect) |
 | SubjectPage | CONTAINER (ancho) | Header página + barra icon-buttons 21 + código acceso mono 3xl + tabs segmented + acordeones de parcial + **tabla de calificaciones sticky** + tab estudiantes + tab recursos + menús ⋮ + modales |
 | ActivityPage | NARROW + overlay evaluar | Detalle actividad + **overlay fullscreen split** (preview 45vh/flex-1 + panel fijo 380px) con navegación Anterior/Siguiente y form de calificación |
-| CalendarPage | ⚠ `max-w-5xl` propio | Toolbars flotantes + vistas Agenda/Mes/Semana + EventPills por paleta |
+| CalendarPage | `TEACHER_CONTAINER` (✅ ya no `max-w-5xl` propio) | Toolbars flotantes + vistas Agenda/Mes/Semana + EventPills por paleta + entrada a la zona de programación de bloques |
+| Zona de programación de bloques (nuevo) | Pantalla completa `fixed inset-0` | Ver §6.13 — sin backdrop (ya no es ventana flotante), grilla semanal con bloques arrastrables |
 | Profile | NARROW | Cards de sección p-3 con icono 19 + avatar 80px + badges suscripción + school picker + modales confirmación |
 | ProtectAccount | Auth | 2 PasswordInput + "Lo haré después" |
 
 ### Alumno (naranja, radios 16/32px)
 | Vista | Contenedor | Patrón dominante |
 |---|---|---|
-| Dashboard | `max-w-2xl` | Cards de materia con promedio + CTA punteado "Unirme" + modal código |
-| SubjectPage | `max-w-2xl` | Tabs underline + acordeones de parcial + **timeline** (`border-l-2 border-accent`) de actividades con pills de estado + tab calificaciones + recursos |
-| ActivityPage | `max-w-xl` | Banner de estado + nota 5xl + dropzone + chips de archivo + modo evaluación (resumen + botón Comenzar) |
+| Dashboard | `STUDENT_CONTAINER` (`max-w-2xl`, listado) | Cards de materia con promedio + CTA punteado "Unirme" + modal código |
+| SubjectPage | `STUDENT_CONTAINER` (`max-w-2xl`, listado) | Tabs underline + acordeones de parcial + **timeline** (`border-l-2 border-accent`) de actividades con pills de estado + tab calificaciones + recursos |
+| ActivityPage | `STUDENT_CONTAINER_NARROW` (`max-w-xl`, detalle) | Banner de estado + nota 5xl + dropzone + chips de archivo + modo evaluación (resumen + botón Comenzar) |
 | EvaluacionRunner | Fullscreen | Modo examen: header accent sólido + timer + progreso + card pregunta + opciones radio |
-| EvaluacionRevision | `max-w-xl` | Cards por pregunta solo-lectura con opciones coloreadas |
+| EvaluacionRevision | `STUDENT_CONTAINER_NARROW` (`max-w-xl`, detalle) | Cards por pregunta solo-lectura con opciones coloreadas — usa `EvaluacionAnswerList` (§6.13), compartido con la revisión del docente |
+
+✅ **`STUDENT_CONTAINER`/`STUDENT_CONTAINER_NARROW`** (`src/config/layout.js`) documentan desde jul-2026 el criterio que antes no estaba escrito en ningún lado: listado = más ancho (varias tarjetas apiladas), detalle = más angosto (lectura/formulario de un solo ítem) — mismo patrón que `TEACHER_CONTAINER`/`TEACHER_CONTAINER_NARROW` del docente.
 
 ### Admin (azul hardcodeado)
 | Vista | Patrón |
@@ -416,39 +428,44 @@ back `ArrowLeft 22` → icono materia `w-9 h-9 rounded bg-accent-light` + `Subje
 
 ---
 
-## 10. Deuda de diseño — inconsistencias a resolver (backlog para el rediseño)
+## 10. Deuda de diseño — inconsistencias (backlog original + estado en `main`)
+
+> **Estado jul-2026:** los puntos marcados ✅ se ejecutaron en `main` vía `docs/PLAN_UNIFICACION_MAIN.md` (Etapas 0-4, PRs #195/#198/#200/#203 + cierre). Verificado con `npm run lint` (411→203 problemas) y greps de cierre en 0. Los marcados ⚠ **pendiente** siguen abiertos — no se tocaron, quedan para un futuro barrido. Uno (#5, PortalBadge) se marca **decisión revertida**: se corrigió y el usuario luego decidió deliberadamente lo contrario.
 
 **P0 — Sistema de color:**
-1. **Dos dialectos de azul**: `bg-blue-600/hover:blue-700/focus:ring-blue-500` (auth, Dashboard docente, Profile, Admin, Landing, Spinner, resultado) vs tokens `accent/*`. → Migrar TODO a tokens.
-2. Spinner `border-blue-600` fijo → `border-accent`.
-3. `green-100/#16A34A` en VerifyEmail vs `emerald-*` en el resto → estandarizar emerald.
-4. `orange-500/600` crudo (fechas extendidas alumno) colisiona con accent naranja → crear token semántico "extensión" o usar amber.
-5. PortalBadge neón (`#39FF14`/`#FF6600`) — tercer set de colores de rol → alinear a accent.
-6. Tokenizar semánticos: `--success`, `--warning`, `--info` + contenedores (hoy emerald/amber/blue crudos).
-7. 3 catálogos de paleta casi iguales (PALETTES / SUBJECT_PALETTE / EVENT_COLORS) → una sola fuente.
+1. ✅ **Dos dialectos de azul**: `bg-blue-600/hover:blue-700/focus:ring-blue-500` migrado a tokens `accent/*` en 17 archivos.
+2. ✅ Spinner `border-accent` (ya no `border-blue-600` fijo).
+3. ✅ VerifyEmail unificado a `emerald-*` (ya no `green-100/#16A34A`).
+4. ✅ `orange-600/500` en fechas extendidas (ActivityPage alumno) → `amber-700/600`.
+5. ⚠ **Decisión revertida** — PortalBadge se alineó a `bg-accent` en la Etapa A/1c, pero el usuario luego decidió un badge verde lima (`bg-lime-400`) para docente como identidad de marca deliberada (commit `a9f6c3a`, jul-2026). Ya no es deuda: es una excepción de marca a propósito, documentar así si se vuelve a tocar este componente.
+6. ⚠ Pendiente: tokenizar semánticos `--success`/`--warning`/`--info` + contenedores (hoy `emerald`/`amber`/`blue` crudos, aunque ya consistentes entre sí).
+7. ⚠ Pendiente: 3 catálogos de paleta casi iguales (PALETTES / SUBJECT_PALETTE / EVENT_COLORS) sin unificar a una sola fuente.
 
 **P1 — Componentes duplicados:**
-8. Botón primario: unificar padding (`py-2.5`) y hover (siempre `accent-hover`; Activation/ActivityPage/Runner no tienen hover).
-9. Input: un solo componente (3+ `inputCls` locales con paddings/rings distintos).
-10. Tabs: consolidar a 2 variantes (segmented docente / underline alumno); eliminar el tercer estilo sólido.
-11. Card de resultado: una implementación (lucide + emerald).
-12. Modal: un solo patrón (backdrop separado + bottom-sheet responsive); unificar sombra `shadow-2xl` y cierre por click-fuera.
-13. Hover-tint: 3 formas del mismo efecto (`--accent-tint` arbitrary, `--accent-medium`, clase `accent-tint`) → criterio: tint=superficies, medium=controles.
-14. Bordes/fondos acentuados por `style` inline → clases utilitarias.
-15. Zebra `bg-slate-50/50` y `divide-slate-100` → tokens de superficie.
+8. ✅ Botón primario unificado (`py-2.5` + `hover:bg-accent-hover` en todos los estados, incluidos Activation/ActivityPage/Runner).
+9. ⚠ Pendiente: Input sigue sin un solo componente compartido (3+ `inputCls` locales) — solo se unificaron las clases/tokens que usa cada uno, no la arquitectura.
+10. ✅ Tabs consolidadas a 2 variantes (ver §6.4) — el tercer estilo sólido y la píldora divergente ya no existen.
+11. ✅ Card de resultado: una sola implementación (lucide + emerald) en VerifyEmail y PagoResultado.
+12. ✅ Modal: un solo patrón de backdrop (ver §6.7) — normalizado tras detectar que 3 grupos de trabajo distintos habían convergido en 3 soluciones técnicas diferentes (botón enfocable / botón oculto / div con `role="presentation"`); se fijó el patrón por adelantado en la segunda ronda y convergió limpio.
+13. ✅ Hover-tint con criterio único: `accent-tint` = superficies (filas/celdas/listas), `accent-medium` = controles (botones/tabs/icon-buttons).
+14. ✅ Estilos inline de acento (`style={{ color: 'var(--accent)' }}` etc.) migrados a clases (`text-accent`/`bg-accent-light`/`border-accent`) en SubjectPage, ActivityPage, RubricaEditor, RubricaGradeTable, RubricaTable, EvaluacionStatsPanel.
+15. ⚠ Pendiente: zebra `bg-slate-50/50` y `divide-slate-100` sin tokenizar (fuera del alcance del barrido, no se tocó).
 
 **P2 — Layout y accesibilidad:**
-16. CalendarPage `max-w-5xl` → `TEACHER_CONTAINER`.
-17. Alumno: unificar `max-w-xl` vs `max-w-2xl` por tipo de vista (lista=2xl, detalle=xl, documentarlo).
-18. Botón "volver": criterio único de visibilidad desktop (`md:hidden` inconsistente).
-19. `focus:` → `focus-visible:` en todo el sistema; añadir ring al avatar (`focus:outline-none` sin ring hoy).
-20. `disabled:opacity-*`: estandarizar (60 general / 40 toolbar).
-21. Escala z-index formal (ej. 10/20/30/40/50/60) documentada; eliminar `9999`.
-22. Runner: navegación inferior sin `safe-bottom` (puede quedar bajo el home-indicator iOS/Android).
-23. Workaround anti-doble-tap (`onMouseDown preventDefault` + `touchAction`) aplicado a medias → resolver globalmente.
-24. Toast sin animación de entrada/salida → añadir slide/fade.
-25. VerifyEmail con SVG a mano → lucide.
-26. Tooltips `data-tooltip`: no accesibles por teclado/lector (CSS hover puro) → complementar con `aria-label` siempre.
+16. ✅ CalendarPage `max-w-5xl` → `TEACHER_CONTAINER`.
+17. ✅ Alumno: `max-w-xl`/`max-w-2xl` documentados como `STUDENT_CONTAINER_NARROW`/`STUDENT_CONTAINER` (ver §9).
+18. ⚠ Pendiente: botón "volver" sin criterio único de visibilidad desktop.
+19. ✅ `focus:` → `focus-visible:` en todo el sistema (incluidos los ~7 componentes nuevos de calendario/rúbrica). El avatar y demás controles sin ring visible no se auditaron específicamente — revisar si se vuelve a tocar Profile.
+20. ✅ `disabled:opacity-*` estandarizado (60 general / 40 icon-button de toolbar), 0 residuales en 20/30/50.
+21. ⚠ Pendiente: escala z-index formal — no se tocó.
+22. ⚠ Pendiente: Runner sin `safe-bottom` — fuera del alcance de este plan (es Etapa B, móvil, del plan maestro `PLAN_MAESTRO_UI_MOVIL_PUSH.md`, no ejecutada).
+23. ⚠ Pendiente: workaround anti-doble-tap aplicado a medias — no se tocó.
+24. ⚠ Pendiente: Toast sin animación de entrada/salida — no se tocó.
+25. ✅ VerifyEmail: SVG a mano → lucide-react.
+26. ⚠ Pendiente: tooltips `data-tooltip` sin equivalente accesible por teclado — no se tocó.
+
+**Accesibilidad (jsx-a11y, medido con ESLint — no estaba en el backlog original, se agregó como guardrail en jul-2026):**
+27. ✅ 231 violaciones → 23 (100% `no-autofocus` revisadas caso por caso y justificadas con comentario, 0% suprimidas con `eslint-disable` salvo el falso positivo documentado de `PortalBadge role=`). Cubre `click-events-have-key-events`, `no-static-element-interactions`, `label-has-associated-control`, `aria-role`.
 
 ---
 
