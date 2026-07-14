@@ -959,7 +959,7 @@ export default function ActivityPage() {
               al título, en vez de quedar solo en el borde izquierdo de la
               pantalla. Mismo patrón en EvaluacionManager.jsx (md:pr-72, aside
               más angosto). */}
-          <div className="flex items-center px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0">
+          <div className="flex items-center px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0 safe-top">
             <div className="flex-1 min-w-0 md:pr-[380px]">
               <div className="max-w-3xl mx-auto flex items-start gap-3">
                 <button

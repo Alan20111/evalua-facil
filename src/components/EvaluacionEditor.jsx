@@ -578,7 +578,7 @@ export default function EvaluacionEditor({
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-10 bg-accent text-white shadow-lg">
+      <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <button type="button" aria-label="Volver" onClick={onClose} className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />

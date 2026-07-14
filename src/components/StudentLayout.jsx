@@ -112,7 +112,7 @@ export default function StudentLayout({ children }) {
       />
 
       {/* Mobile top bar */}
-      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
+      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top">
         <button
           type="button"
           onClick={() => setShowFullLogo((v) => !v)}

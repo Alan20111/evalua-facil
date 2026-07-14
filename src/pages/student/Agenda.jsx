@@ -126,7 +126,7 @@ export default function Agenda() {
 
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto">
-      <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10">
+      <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 safe-top">
         <div className="flex items-center gap-3">
           <button
             type="button"
