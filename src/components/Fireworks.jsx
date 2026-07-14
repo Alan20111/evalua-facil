@@ -139,12 +139,19 @@ export default function Fireworks({ active, onDone, duration = 7800 }) {
     function spawnRocket() {
       const w = window.innerWidth, h = window.innerHeight
       const x = w * (0.1 + Math.random() * 0.8)
+      const startY = h + 10
       const targetY = h * (0.14 + Math.random() * 0.32)
+      // Un poco más de la mitad de los cohetes se curva hacia un lado al
+      // subir (como si el viento los empujara) — así no todos suben rectos.
+      const curved = Math.random() < 0.55
+      const curveDir = Math.random() < 0.5 ? -1 : 1
+      const curveAmt = curved ? w * (0.05 + Math.random() * 0.09) * curveDir : 0
       rockets.push({
-        x, y: h + 10, targetY,
+        x, startX: x, y: startY, startY, targetY,
         vy: -(6.2 + Math.random() * 2.8),
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
         trail: [],
+        curveAmt,
       })
     }
 
@@ -196,6 +203,10 @@ export default function Fireworks({ active, onDone, duration = 7800 }) {
         r.trail.push({ x: r.x, y: r.y })
         if (r.trail.length > 6) r.trail.shift()
         r.y += r.vy
+        if (r.curveAmt) {
+          const progress = Math.min(1, Math.max(0, (r.startY - r.y) / (r.startY - r.targetY)))
+          r.x = r.startX + r.curveAmt * progress * progress
+        }
         ctx.strokeStyle = r.color
         ctx.lineWidth = 1.6
         ctx.lineCap = 'round'
