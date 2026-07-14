@@ -117,15 +117,18 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
         onClick={onClose}
         aria-label="Cerrar"
       />
-      <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+      <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col">
+        {/* Encabezado fijo: no se desplaza aunque el teclado empuje el campo
+            enfocado hacia arriba (el body con overflow-y-auto es lo único
+            que se desplaza). */}
+        <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-shrink-0">
           <h2 className="font-semibold text-on-surface">{isNew ? 'Nuevo evento' : 'Editar evento'}</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="p-1 text-muted hover:text-error rounded transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="px-4 pb-4 space-y-3">
+        <form onSubmit={handleSave} className="px-4 pb-4 space-y-3 overflow-y-auto flex-1">
           {/* Color strip */}
           <div className="flex gap-2 flex-wrap">
             {EVENT_COLORS.map(c => (
