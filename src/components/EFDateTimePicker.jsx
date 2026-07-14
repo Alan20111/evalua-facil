@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, Calendar, Check, X } from 'lucide-react'
+import { useScrollLock } from '../hooks/useScrollLock'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const DIAS_HEADER = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -512,6 +513,10 @@ export default function EFDateTimePicker({
   const [open, setOpen]           = useState(false)
   const [openUpward, setOpenUpward] = useState(false)
   const [pos, setPos]             = useState({ top: 0, left: 0, maxH: 560 })
+
+  // Sin esto, arrastrar el dedo sobre el popover (o su scroll interno al
+  // llegar al límite) también mueve la página de fondo en Android.
+  useScrollLock(open)
 
   const parsed = useMemo(() => parseValue(value, mode), [value, mode])
 
