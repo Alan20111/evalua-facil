@@ -479,7 +479,7 @@ export default function EntregableEditor({
               {isDirty ? 'Salir sin guardar cambios' : 'Salir'}
             </button>
           )}
-          <div className="h-6" />
+          <div className="h-6 safe-bottom" />
         </form>
       </div>
 

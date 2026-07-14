@@ -1033,7 +1033,7 @@ export default function EvaluacionEditor({
           </div>
         </div>
 
-        <div className="h-6" />
+        <div className="h-6 safe-bottom" />
       </div>
 
       {/* ── Banco modal ── */}

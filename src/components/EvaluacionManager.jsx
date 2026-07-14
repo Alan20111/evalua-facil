@@ -1512,6 +1512,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   </div>
                 </div>
               )}
+              <div className="h-2 safe-bottom" />
             </aside>
           </div>
         </div>

@@ -149,8 +149,12 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
             value={form.titulo}
             onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))}
             placeholder="Título del evento"
-            /* autofocus: primer campo del modal, abierto con intención de escribir */
-            autoFocus
+            /* Sin autoFocus: en Android (edge-to-edge) enfocar un input y abrir
+               el teclado justo al montar el modal deja el WebView con un
+               frame en blanco hasta que algo más fuerza un repintado (p. ej.
+               el botón físico de atrás) — bug conocido de Chromium/WebView
+               con edge-to-edge + insets del teclado cambiando a mitad de la
+               animación de entrada del modal. */
             required
             className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
