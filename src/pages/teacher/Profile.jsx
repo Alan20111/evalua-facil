@@ -481,7 +481,6 @@ export default function Profile() {
             <div>
               <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
                 className={inputCls} placeholder="Ej. Profa. García Pérez" />
-              <p className="text-sm text-muted mt-1">Así te verán tus estudiantes</p>
             </div>
             <button type="submit" disabled={savingNombre}
               className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">

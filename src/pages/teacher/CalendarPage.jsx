@@ -174,7 +174,10 @@ function AgendaView({
     if (!drag) return
     function onMove(e) {
       const s = dragStartRef.current
-      const moved = s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
+      // En Android, un toque nunca cuenta como "arrastre" — siempre se trata
+      // como tap, así que onUp abre el diálogo de mover/borrar en vez de
+      // reposicionar directo con el dedo.
+      const moved = !IS_NATIVE_APP && s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
       setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
     }
     function onUp(e) {
@@ -436,7 +439,10 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
     if (!drag) return
     function onMove(e) {
       const s = dragStartRef.current
-      const moved = s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
+      // En Android, un toque nunca cuenta como "arrastre" — siempre se trata
+      // como tap, así que onUp abre el diálogo de mover/borrar en vez de
+      // reposicionar directo con el dedo.
+      const moved = !IS_NATIVE_APP && s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
       setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
     }
     function onUp(e) {
@@ -629,7 +635,10 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
     if (!drag) return
     function onMove(e) {
       const s = dragStartRef.current
-      const moved = s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
+      // En Android, un toque nunca cuenta como "arrastre" — siempre se trata
+      // como tap, así que onUp abre el diálogo de mover/borrar en vez de
+      // reposicionar directo con el dedo.
+      const moved = !IS_NATIVE_APP && s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
       // Los bloques de clase solo se mueven en VERTICAL (mismo día): el fantasma
       // no se desplaza en horizontal (x fija).
       setDrag(d => d && ({ ...d, x: d.kind === 'bloque' ? d.x : e.clientX, y: e.clientY, moved: d.moved || moved }))
