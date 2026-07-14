@@ -45,7 +45,11 @@ async function insertImageFile(editor, file) {
 // omitted (e.g. the "Material de apoyo" description, which has its own
 // dedicated file dropzone) the attach button and the "Archivos adjuntos"
 // block simply don't render, so this stays a no-op for every other caller.
-export default function RichTextEditor({ value, onChange, placeholder, attachments, onAttachFiles, onRemoveAttachment }) {
+// `simple`: reduces the toolbar to bold, bullet/numbered lists and alignment
+// only (no italic, underline, color, link, image, clear-format or attach
+// button) — used for "Instrucciones" fields on Android, where the full
+// toolbar is more than needed on a small screen.
+export default function RichTextEditor({ value, onChange, placeholder, attachments, onAttachFiles, onRemoveAttachment, simple = false }) {
 
   const editor = useEditor({
     extensions: [
@@ -138,25 +142,29 @@ export default function RichTextEditor({ value, onChange, placeholder, attachmen
           onClick={() => editor.chain().focus().toggleBold().run()}>
           <Bold size={16} />
         </button>
-        <button type="button" data-tooltip="Cursiva" aria-label="Cursiva"
-          className={`${TOOLBAR_BTN} ${editor.isActive('italic') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
-          onClick={() => editor.chain().focus().toggleItalic().run()}>
-          <Italic size={16} />
-        </button>
-        <button type="button" data-tooltip="Subrayado" aria-label="Subrayado"
-          className={`${TOOLBAR_BTN} ${editor.isActive('underline') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}>
-          <UnderlineIcon size={16} />
-        </button>
-        <label data-tooltip="Color de texto" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted cursor-pointer relative`}>
-          <Baseline size={16} />
-          <input
-            type="color"
-            aria-label="Color de texto"
-            className="absolute inset-0 opacity-0 cursor-pointer"
-            onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
-          />
-        </label>
+        {!simple && (
+          <>
+            <button type="button" data-tooltip="Cursiva" aria-label="Cursiva"
+              className={`${TOOLBAR_BTN} ${editor.isActive('italic') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
+              onClick={() => editor.chain().focus().toggleItalic().run()}>
+              <Italic size={16} />
+            </button>
+            <button type="button" data-tooltip="Subrayado" aria-label="Subrayado"
+              className={`${TOOLBAR_BTN} ${editor.isActive('underline') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
+              onClick={() => editor.chain().focus().toggleUnderline().run()}>
+              <UnderlineIcon size={16} />
+            </button>
+            <label data-tooltip="Color de texto" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted cursor-pointer relative`}>
+              <Baseline size={16} />
+              <input
+                type="color"
+                aria-label="Color de texto"
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+              />
+            </label>
+          </>
+        )}
 
         <span className="w-px h-5 bg-outline-variant mx-1" />
 
@@ -189,22 +197,26 @@ export default function RichTextEditor({ value, onChange, placeholder, attachmen
           <AlignRight size={16} />
         </button>
 
-        <span className="w-px h-5 bg-outline-variant mx-1" />
+        {!simple && (
+          <>
+            <span className="w-px h-5 bg-outline-variant mx-1" />
 
-        <button type="button" data-tooltip="Insertar enlace" aria-label="Insertar enlace"
-          className={`${TOOLBAR_BTN} ${editor.isActive('link') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
-          onClick={setLink}>
-          <Link2 size={16} />
-        </button>
-        <button type="button" data-tooltip="Insertar imagen" aria-label="Insertar imagen" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted`} onClick={pickImageFile}>
-          <ImageIcon size={16} />
-        </button>
-        <button type="button" data-tooltip="Eliminar formato" aria-label="Eliminar formato" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted`}
-          onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
-          <RemoveFormatting size={16} />
-        </button>
+            <button type="button" data-tooltip="Insertar enlace" aria-label="Insertar enlace"
+              className={`${TOOLBAR_BTN} ${editor.isActive('link') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
+              onClick={setLink}>
+              <Link2 size={16} />
+            </button>
+            <button type="button" data-tooltip="Insertar imagen" aria-label="Insertar imagen" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted`} onClick={pickImageFile}>
+              <ImageIcon size={16} />
+            </button>
+            <button type="button" data-tooltip="Eliminar formato" aria-label="Eliminar formato" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted`}
+              onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
+              <RemoveFormatting size={16} />
+            </button>
+          </>
+        )}
 
-        {onAttachFiles && (
+        {!simple && onAttachFiles && (
           <>
             <span className="w-px h-5 bg-outline-variant mx-1" />
             <button type="button" data-tooltip="Adjuntar archivo" aria-label="Adjuntar archivo" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted`} onClick={pickAttachFiles}>

@@ -281,6 +281,7 @@ export default function EntregableEditor({
                 ]}
                 onAttachFiles={addFiles}
                 onRemoveAttachment={removeFile}
+                simple={IS_NATIVE_APP}
               />
             </div>
 

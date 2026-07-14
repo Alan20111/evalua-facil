@@ -18,6 +18,7 @@ import PublicacionScheduler from './PublicacionScheduler'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import SearchInput from './SearchInput'
 import { minDeadline } from '../utils/nowIso'
+import { IS_NATIVE_APP } from '../utils/platform'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
@@ -625,6 +626,7 @@ export default function EvaluacionEditor({
                     if (i < attachExisting.length) setAttachExisting((prev) => prev.filter((_, x) => x !== i))
                     else setAttachNew((prev) => prev.filter((_, x) => x !== i - attachExisting.length))
                   }}
+                  simple={IS_NATIVE_APP}
                 />
               </div>
               <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
