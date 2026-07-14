@@ -2254,12 +2254,11 @@ export default function SubjectPage() {
                         return (
                           <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
                             {/* A draft has nothing to grade — its row opens the editor instead
-                                (solo en la web: en la app nativa editar no está disponible). */}
+                                (igual en web y en la app nativa). */}
                             <button type="button"
                               onClick={() => {
                                 if (isDraftActivity(a)) {
-                                  if (!IS_NATIVE_APP) openEdit(a, activityLabelById[a.id])
-                                  else toast('Edita este borrador desde la versión web', 'error')
+                                  openEdit(a, activityLabelById[a.id])
                                 } else {
                                   navigate(`/activity/${a.id}`)
                                 }
