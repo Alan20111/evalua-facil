@@ -55,6 +55,21 @@ export function AuthProvider({ children }) {
             updateDoc(doc(db, 'users', user.uid), { profileComplete: complete }).catch(() => {})
             profile.profileComplete = complete
           }
+          // Onboarding used to only capture `nombreMostrar` (a free-text public
+          // alias, e.g. "Profa. Laura García"). Teachers who signed up before
+          // `nombre`/`apellidoPaterno` existed get a one-time best-effort split
+          // (stripping common titles) so the personal greeting can show
+          // nombre + apellidos on two lines, same as students. Editable
+          // afterwards in /profile if the split guessed wrong.
+          if (profile.role === 'docente' && !profile.nombre && profile.nombreMostrar) {
+            const cleaned = profile.nombreMostrar.trim().replace(/^(profa?\.?|mtr[oa]\.?|lic\.?|ing\.?|dra?\.?)\s+/i, '')
+            const parts = cleaned.split(/\s+/).filter(Boolean)
+            const nombre = parts[0] || profile.nombreMostrar.trim()
+            const apellidoPaterno = parts.slice(1).join(' ')
+            profile.nombre = nombre
+            profile.apellidoPaterno = apellidoPaterno
+            updateDoc(doc(db, 'users', user.uid), { nombre, apellidoPaterno }).catch(() => {})
+          }
           setUserProfile(profile)
         } else if (user.email?.endsWith('@evalua.local')) {
           // Student account: no users/{uid} doc. Prefer the enrollment(s) that already carry

@@ -19,7 +19,7 @@ import { TEACHER_CONTAINER } from '../../config/layout'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
-  CalendarOff, Trash2, X, Minus,
+  CalendarOff, Trash2, X, Minus, Columns3,
 } from 'lucide-react'
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
@@ -581,8 +581,12 @@ function minutesToTimeStr(mins) {
 }
 const SNAP_MIN = 15 // los bloques se sueltan alineados a 15 min
 
-function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque, onMoveEvent, asuetoMap = {}, vacacionMap = {} }) {
-  const days = getWeekDays(weekStart).slice(0, numDays)
+function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, anchorToday = false, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque, onMoveEvent, asuetoMap = {}, vacacionMap = {} }) {
+  // Vista "3 días": ventana móvil de numDays días consecutivos arrancando en
+  // weekStart (no anclada a lunes, a diferencia de la vista Semana normal).
+  const days = anchorToday
+    ? Array.from({ length: numDays }, (_, i) => addDays(weekStart, i))
+    : getWeekDays(weekStart).slice(0, numDays)
   const todayStr = toDateStr(new Date())
   const selStr = selectedDate ? toDateStr(selectedDate) : null
   const hoursRange = Array.from({ length: dayEnd - dayStart }, (_, i) => i + dayStart)
@@ -857,7 +861,8 @@ function useConflicts(events) {
 // ─── Main CalendarPage ─────────────────────────────────────────────────────
 
 const VIEWS = [
-  { id: 'agenda', label: 'Agenda', Icon: List },
+  { id: 'agenda', label: 'Hoy',    Icon: List },
+  { id: '3dias',  label: '3 días', Icon: Columns3 },
   { id: 'semana', label: 'Semana', Icon: CalendarRange },
   { id: 'mes',    label: 'Mes',    Icon: LayoutGrid },
 ]
@@ -1046,11 +1051,13 @@ export default function CalendarPage() {
   function prev() {
     if (view === 'mes') setCurrentDate(d => addMonths(d, -1))
     else if (view === 'semana') setCurrentDate(d => addWeeks(d, -1))
+    else if (view === '3dias') setCurrentDate(d => addDays(d, -3))
     else setCurrentDate(d => addDays(d, -1))
   }
   function next() {
     if (view === 'mes') setCurrentDate(d => addMonths(d, 1))
     else if (view === 'semana') setCurrentDate(d => addWeeks(d, 1))
+    else if (view === '3dias') setCurrentDate(d => addDays(d, 3))
     else setCurrentDate(d => addDays(d, 1))
   }
   function goToday() { setCurrentDate(new Date()) }
@@ -1061,6 +1068,13 @@ export default function CalendarPage() {
       const dl = DIAS_LARGO[(currentDate.getDay() + 6) % 7]
       const base = `${dl} ${currentDate.getDate()} de ${MESES[currentDate.getMonth()]}`
       return isToday(currentDate) ? `Hoy · ${base}` : `${base} ${currentDate.getFullYear()}`
+    }
+    if (view === '3dias') {
+      const first = currentDate; const last = addDays(currentDate, 2)
+      if (first.getMonth() === last.getMonth()) {
+        return `${first.getDate()}–${last.getDate()} ${MESES[first.getMonth()]} ${first.getFullYear()}`
+      }
+      return `${first.getDate()} ${MESES[first.getMonth()]} – ${last.getDate()} ${MESES[last.getMonth()]}`
     }
     const days = getWeekDays(currentDate)
     const first = days[0]; const last = days[6]
@@ -1705,6 +1719,25 @@ export default function CalendarPage() {
               onBlockClick={openBloqueSoloBorrar}
               onMoveEvent={moveEvent}
               onMoveBloque={requestMoveBloque}
+              asuetoMap={asuetoMap}
+              vacacionMap={vacacionMap}
+            />
+          ) : view === '3dias' ? (
+            <WeekView
+              weekStart={currentDate}
+              anchorToday
+              numDays={3}
+              events={events}
+              bloques={bloques}
+              subjects={subjects}
+              dayStart={dayStart}
+              dayEnd={dayEnd}
+              selectedDate={currentDate}
+              onSlotClick={openNewEventAt}
+              onEventClick={openEditEvent}
+              onBlockClick={openBloqueAcciones}
+              onMoveBloque={requestMoveBloque}
+              onMoveEvent={moveEvent}
               asuetoMap={asuetoMap}
               vacacionMap={vacacionMap}
             />

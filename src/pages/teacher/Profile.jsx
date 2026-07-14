@@ -58,6 +58,12 @@ export default function Profile() {
   const [nombre, setNombre] = useState(userProfile?.nombreMostrar || '')
   const [savingNombre, setSavingNombre] = useState(false)
 
+  // Datos personales (nombre real, distinto del nombre visible/alias)
+  const [realNombre, setRealNombre] = useState(userProfile?.nombre || '')
+  const [apellidoPaterno, setApellidoPaterno] = useState(userProfile?.apellidoPaterno || '')
+  const [apellidoMaterno, setApellidoMaterno] = useState(userProfile?.apellidoMaterno || '')
+  const [savingDatosPersonales, setSavingDatosPersonales] = useState(false)
+
   // Photo
   const [photoUploading, setPhotoUploading] = useState(false)
 
@@ -250,6 +256,22 @@ export default function Profile() {
     }
   }
 
+  async function handleSaveDatosPersonales(e) {
+    e.preventDefault()
+    if (!realNombre.trim() || !apellidoPaterno.trim()) { toast('Escribe tu nombre y apellido paterno', 'error'); return }
+    setSavingDatosPersonales(true)
+    try {
+      const updates = { nombre: realNombre.trim(), apellidoPaterno: apellidoPaterno.trim(), apellidoMaterno: apellidoMaterno.trim() }
+      await updateDoc(doc(db, 'users', currentUser.uid), updates)
+      setUserProfile((p) => ({ ...p, ...updates }))
+      toast('Datos personales actualizados')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingDatosPersonales(false)
+    }
+  }
+
   function requestPwdChange(e) {
     e.preventDefault()
     if (newPwd.length < 6) { toast('La nueva contraseña debe tener al menos 6 caracteres', 'error'); return }
@@ -413,11 +435,45 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Datos personales — nombre real, distinto del nombre visible/alias */}
+        <div className="bg-surface-card rounded-card shadow-card p-3">
+          <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
+            <User size={19} className="text-slate-400" /> Datos personales
+          </h2>
+          <form onSubmit={handleSaveDatosPersonales} className="space-y-2">
+            <div>
+              <label htmlFor="prof-real-nombre" className="block text-xs font-medium text-muted mb-1">Nombre(s)</label>
+              <input id="prof-real-nombre" type="text" value={realNombre} onChange={(e) => setRealNombre(e.target.value)}
+                className={inputCls} placeholder="Ej. Laura" />
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label htmlFor="prof-apellido-paterno" className="block text-xs font-medium text-muted mb-1">Apellido paterno</label>
+                <input id="prof-apellido-paterno" type="text" value={apellidoPaterno} onChange={(e) => setApellidoPaterno(e.target.value)}
+                  className={inputCls} placeholder="Ej. García" />
+              </div>
+              <div className="flex-1">
+                <label htmlFor="prof-apellido-materno" className="block text-xs font-medium text-muted mb-1">
+                  Apellido materno <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <input id="prof-apellido-materno" type="text" value={apellidoMaterno} onChange={(e) => setApellidoMaterno(e.target.value)}
+                  className={inputCls} placeholder="Ej. Pérez" />
+              </div>
+            </div>
+            <button type="submit" disabled={savingDatosPersonales}
+              className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              {savingDatosPersonales ? <Spinner size="sm" /> : null}
+              {savingDatosPersonales ? 'Guardando…' : 'Guardar datos personales'}
+            </button>
+          </form>
+        </div>
+
         {/* Nombre visible */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-            <User size={19} className="text-slate-400" /> Nombre
+            <User size={19} className="text-slate-400" /> Nombre visible
           </h2>
+          <p className="text-sm text-muted -mt-1 mb-2">Así te verán tus estudiantes — puede ser distinto a tu nombre real.</p>
           <form onSubmit={handleSaveNombre} className="space-y-2">
             <div>
               <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
