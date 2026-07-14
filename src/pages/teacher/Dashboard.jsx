@@ -272,7 +272,7 @@ export default function TeacherDashboard() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s, true)}</p>
+                          <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
                           {s.archived && (
                             <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
                               archivada
