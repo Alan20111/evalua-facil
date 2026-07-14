@@ -216,10 +216,7 @@ export default function Fireworks({ active, onDone, duration = 7800 }) {
 
       rockets = rockets.filter((r) => {
         r.trail.push({ x: r.x, y: r.y })
-        // Colita más larga en los cohetes curvos para que se alcance a ver el
-        // arco dentro de la propia estela, no solo en el trayecto completo.
-        const maxTrail = r.curveAmt ? 14 : 6
-        if (r.trail.length > maxTrail) r.trail.shift()
+        if (r.trail.length > 6) r.trail.shift()
         r.y += r.vy
         if (r.curveAmt) {
           const progress = Math.min(1, Math.max(0, (r.startY - r.y) / (r.startY - r.targetY)))
