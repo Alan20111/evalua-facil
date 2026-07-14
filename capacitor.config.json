@@ -15,6 +15,9 @@
     "SafeArea": {
       "statusBarStyle": "LIGHT",
       "navigationBarStyle": "LIGHT"
+    },
+    "SystemBars": {
+      "insetsHandling": "disable"
     }
   }
 }
