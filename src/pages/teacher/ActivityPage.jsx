@@ -754,17 +754,15 @@ export default function ActivityPage() {
                   {activityLabel && <span className="text-accent">{activityLabel} </span>}
                   {activity?.nombre}
                 </h1>
-                {!IS_NATIVE_APP && (
-                  <button
-                    type="button"
-                    onClick={() => setEditingActivity(true)}
-                    data-tooltip="Editar actividad"
-                    aria-label="Editar actividad"
-                    className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
-                  >
-                    <Pencil size={18} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setEditingActivity(true)}
+                  data-tooltip="Editar actividad"
+                  aria-label="Editar actividad"
+                  className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                >
+                  <Pencil size={18} />
+                </button>
               </div>
               <p className="text-sm font-medium text-muted">
                 Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}

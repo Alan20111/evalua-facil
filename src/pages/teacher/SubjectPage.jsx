@@ -2344,22 +2344,21 @@ export default function SubjectPage() {
                                 <Eye size={16} />
                               </button>
                             )}
-                            {/* Editar y el menú ⋮ (Duplicar/Eliminar): solo en la web */}
+                            {/* El menú ⋮ (Duplicar/Eliminar) sigue solo en la web; el lápiz de
+                                editar ya se muestra también en Android. */}
+                            <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
+                              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
+                              <Pencil size={16} />
+                            </button>
                             {!IS_NATIVE_APP && (
-                              <>
-                                <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
-                                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
-                                  <Pencil size={16} />
-                                </button>
-                                {/* Less-used actions (Duplicar / Eliminar) tucked into a ⋮ menu */}
-                                <button type="button"
-                                  onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
-                                  aria-label="Más acciones"
-                                  data-tooltip="Más acciones"
-                                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
-                                  <MoreVertical size={16} />
-                                </button>
-                              </>
+                              // Less-used actions (Duplicar / Eliminar) tucked into a ⋮ menu
+                              <button type="button"
+                                onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
+                                aria-label="Más acciones"
+                                data-tooltip="Más acciones"
+                                className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
+                                <MoreVertical size={16} />
+                              </button>
                             )}
                           </div>
                         )
