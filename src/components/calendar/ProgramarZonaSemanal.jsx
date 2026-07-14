@@ -429,7 +429,7 @@ export default function ProgramarZonaSemanal({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-outline-variant px-4 py-3 flex items-center gap-3 flex-shrink-0">
+        <div className="border-t border-outline-variant px-4 py-3 flex items-center gap-3 flex-shrink-0 safe-bottom">
           <span className="text-xs text-muted flex-1">
             {esModificar && !hayCambios
               ? 'No has hecho ningún cambio.'

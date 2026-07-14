@@ -650,7 +650,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
             className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">
             Cancelar
           </button>
-          <div className="h-6" />
+          <div className="h-6 safe-bottom" />
         </form>
       </div>
     </div>

@@ -1561,6 +1561,7 @@ export default function ActivityPage() {
                 </div>
                 )}
 
+                <div className="h-2 safe-bottom" />
               </div>
             </div>
           </div>

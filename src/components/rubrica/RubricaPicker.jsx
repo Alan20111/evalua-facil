@@ -157,7 +157,7 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
             </div>
           ))
         )}
-        <div className="h-6" />
+        <div className="h-6 safe-bottom" />
       </div>
 
       {editing && (
