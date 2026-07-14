@@ -46,6 +46,7 @@ import RubricaGradeTable from '../../components/rubrica/RubricaGradeTable'
 import { ClipboardList, X } from 'lucide-react'
 import { totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 // La evaluación con rúbrica de un alumno "no existe" hasta que se elige algún
 // nivel — un arreglo todo-null equivale a no tener rúbrica evaluada (permite
@@ -126,6 +127,8 @@ export default function ActivityPage() {
   const [submissions, setSubmissions] = useState({})
   const [filter, setFilter] = useState('todos')
   const [selected, setSelected] = useState(null)
+  // Full grading view overlay: locks background scroll while it's open.
+  useScrollLock(selected)
   // Navigation order frozen when the grading view opens — autosaving a grade can
   // remove the student from the active filter (e.g. "Por calificar"), which would
   // otherwise reshuffle Anterior/Siguiente mid-session.

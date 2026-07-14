@@ -9,6 +9,7 @@ import {
   pesosEquitativos, validarRubrica, round1,
 } from '../../utils/rubrica'
 import RubricaTable from './RubricaTable'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 // ── Estado del editor ────────────────────────────────────────────────────────
 // La tabla se edita con strings (inputs numéricos sin pelear con decimales):
@@ -131,6 +132,9 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   }))
 
   const { niveles, criterios } = r
+
+  // Este componente solo se monta mientras está abierto (lo controla el padre).
+  useScrollLock(true)
 
   // ── Redimensionar columnas con el mouse ───────────────────────────────────
   function startResize(e, tipo, idx) {

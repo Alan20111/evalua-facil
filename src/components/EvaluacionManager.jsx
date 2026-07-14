@@ -23,6 +23,7 @@ import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 import PublicacionScheduler from './PublicacionScheduler'
 import EvaluacionEditor from './EvaluacionEditor'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { useScrollLock } from '../hooks/useScrollLock'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -80,6 +81,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // Cancel a student's submission (delete the intento + its answers)
   const [cancelConfirm, setCancelConfirm] = useState(null) // { student, sub } | null
   useBackHandler(() => setCancelConfirm(null), !!cancelConfirm)
+  useScrollLock(!!cancelConfirm)
   const [cancelling, setCancelling] = useState(false)
   const [preguntas, setPreguntas] = useState([])
   const [loadingPreguntas, setLoadingPreguntas] = useState(true)
@@ -90,6 +92,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [bancoLoaded, setBancoLoaded] = useState(false)
   const [showBanco, setShowBanco] = useState(false)
   useBackHandler(() => setShowBanco(false), showBanco)
+  useScrollLock(showBanco)
   const [editingPreguntaId, setEditingPreguntaId] = useState(null)
   const [preguntaEditForm, setPreguntaEditForm] = useState(null)
   const [bancoSearch, setBancoSearch] = useState('')
@@ -121,6 +124,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     else setReviewing(null)
   }
   useBackHandler(goBackFromReview, !!reviewing)
+  useScrollLock(!!reviewing)
   // Calificación manual de reactivos (respuesta corta / subir documento):
   // borrador por pregunta { puntos, comentario } mientras el docente edita.
   const [gradeDrafts, setGradeDrafts] = useState({})
@@ -138,6 +142,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // pantalla de resultados se alcanza a ver un instante (flashazo) antes de
   // que la revisión a pantalla completa termine de cargar.
   const [openingFromGrades, setOpeningFromGrades] = useState(!!openStudentId)
+  useScrollLock(openingFromGrades)
 
   // Arriving from a grades-table cell: open that student's answer review directly
   // (even with no submission → "No realizado"), once questions are loaded.

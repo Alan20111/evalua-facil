@@ -13,6 +13,7 @@ import { getEnrollments, updateAllEnrollments } from '../utils/studentLookup'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { useScrollLock } from '../hooks/useScrollLock'
 
 export default function StudentLayout({ children }) {
   const { currentUser, userProfile, setUserProfile } = useAuth()
@@ -27,6 +28,8 @@ export default function StudentLayout({ children }) {
   const fileInputRef = useRef(null)
 
   useBackHandler(() => setShowLogoutConfirm(false), showLogoutConfirm)
+  useScrollLock(showLogoutConfirm)
+  useScrollLock(showFullLogo)
 
   useEffect(() => {
     if (!currentUser) return

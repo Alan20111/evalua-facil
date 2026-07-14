@@ -14,6 +14,7 @@ import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import { useBackHandler } from '../../../hooks/useBackHandler'
+import { useScrollLock } from '../../../hooks/useScrollLock'
 import {
   calcDaysRemaining,
   formatDate,
@@ -40,6 +41,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   const [saving, setSaving] = useState(false)
 
   useBackHandler(() => setModal(null), !!modal)
+  useScrollLock(!!modal)
 
   if (!stats) return null
 

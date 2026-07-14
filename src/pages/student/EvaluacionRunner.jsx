@@ -18,6 +18,7 @@ import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fil
 import StudentLayout from '../../components/StudentLayout'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 // Extensiones aceptadas para preguntas de tipo "subir documento": las mismas
 // que maneja toda la app (imágenes, PDF, Word, PowerPoint, Excel, ZIP/RAR).
@@ -73,6 +74,7 @@ export default function EvaluacionRunner() {
   // debe confirmar, igual que con el botón "Salir" en pantalla.
   useBackHandler(() => setShowExitModal(false), showExitModal)
   useBackHandler(() => setShowExitModal(true), !showExitModal)
+  useScrollLock(showExitModal)
 
   async function load() {
     setLoading(true)

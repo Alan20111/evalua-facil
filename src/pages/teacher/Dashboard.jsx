@@ -26,6 +26,7 @@ import SubjectIcon from '../../components/SubjectIcon'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
@@ -62,6 +63,7 @@ export default function TeacherDashboard() {
   // cerrar el modal "Nueva asignatura" cuando está abierto; si no hay nada
   // abierto, cae al comportamiento default (doble tap para salir).
   useBackHandler(() => setShowSubjectModal(false), showSubjectModal)
+  useScrollLock(showSubjectModal)
 
   useEffect(() => {
     if (!currentUser) return

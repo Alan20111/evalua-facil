@@ -5,6 +5,7 @@ import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import { useBackHandler } from '../../../hooks/useBackHandler'
+import { useScrollLock } from '../../../hooks/useScrollLock'
 import {
   calcVencimientoTimestamp,
   formatCurrency,
@@ -32,6 +33,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
   }
 
   useBackHandler(closeRejectModal, !!rejectModal)
+  useScrollLock(!!rejectModal)
 
   if (!stats) return null
 

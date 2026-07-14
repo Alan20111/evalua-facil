@@ -18,6 +18,7 @@ import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline } from '../utils/activityVisibility'
 import { minDeadline } from '../utils/nowIso'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { useScrollLock } from '../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../utils/platform'
 
 const MAX_ATTACH = 15 * 1024 * 1024
@@ -106,6 +107,9 @@ export default function EntregableEditor({
   useBackHandler(onClose, true)
   useBackHandler(() => setRubricaPickerOpen(false), rubricaPickerOpen)
   useBackHandler(() => setRubricaEditorOpen(false), rubricaEditorOpen)
+
+  // Este componente solo se monta mientras está abierto (lo controla el padre).
+  useScrollLock(true)
 
   // The "Nueva fecha de entrega" modal (in ActivityPage) writes the group deadline
   // straight to Firestore while this editor stays open. Mirror that change into the

@@ -19,6 +19,7 @@ import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import SearchInput from './SearchInput'
 import { minDeadline } from '../utils/nowIso'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { useScrollLock } from '../hooks/useScrollLock'
 
 function toIsoNow() {
   const d = new Date()
@@ -81,6 +82,7 @@ export default function EvaluacionEditor({
   // This component is only mounted while open — same close path as its own
   // "Volver" button.
   useBackHandler(onClose, true)
+  useScrollLock(true)
   // "Nueva fecha de entrega" (grupo completo o estudiantes específicos)
   const [newDateOpen, setNewDateOpen] = useState(false)
   useBackHandler(() => setNewDateOpen(false), newDateOpen)
@@ -118,6 +120,7 @@ export default function EvaluacionEditor({
   const [bancoLoaded, setBancoLoaded] = useState(false)
   const [showBanco, setShowBanco] = useState(false)
   useBackHandler(() => setShowBanco(false), showBanco)
+  useScrollLock(showBanco)
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
   const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')
