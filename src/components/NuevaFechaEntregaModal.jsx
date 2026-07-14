@@ -6,6 +6,7 @@ import EFDateTimePicker from './EFDateTimePicker'
 import SearchInput from './SearchInput'
 import { matchesStudentSearch } from '../utils/studentSearch'
 import { nowIsoLocal } from '../utils/nowIso'
+import { useBackHandler } from '../hooks/useBackHandler'
 
 // Shared by ActivityPage (grading view) and SubjectPage (activity editor):
 // extends a group's deadline, or gives specific students their own extension.
@@ -19,6 +20,10 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(() => new Set())
   const [saving, setSaving] = useState(false)
+
+  // Physical Android back button: this modal is only mounted while its parent
+  // renders it (open), so it mirrors the Cancelar button unconditionally.
+  useBackHandler(onClose, true)
 
   function toggleStudent(id) {
     setSelected((prev) => {

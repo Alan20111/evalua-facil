@@ -17,6 +17,7 @@ import { buildAsuetoMap, esAsuetoPara, esAsuetoAlguno, alcanceAsuetoTexto, TIPOS
 import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacaciones'
 import { TEACHER_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { useBackHandler } from '../../hooks/useBackHandler'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
@@ -940,6 +941,12 @@ export default function CalendarPage() {
   const [showModificarPicker, setShowModificarPicker] = useState(false)
   const [showAsuetos, setShowAsuetos] = useState(false)
   const [showVacaciones, setShowVacaciones] = useState(false)
+
+  // Botón atrás físico (Android): cierra el editor de eventos o el modal de
+  // "programar bloques" (paso 1), igual que sus botones de cerrar en pantalla.
+  // La zona semanal (paso 2) maneja su propio guard en ProgramarZonaSemanal.
+  useBackHandler(closeEventEditor, showEventEditor)
+  useBackHandler(() => setProgramar(null), !!programar)
 
   function changeView(v) {
     setView(v)

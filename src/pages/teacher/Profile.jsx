@@ -17,6 +17,7 @@ import { Camera, Lock, User, X, CreditCard, School, ChevronDown, Plus } from 'lu
 import SearchInput from '../../components/SearchInput'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
+import { useBackHandler } from '../../hooks/useBackHandler'
 import {
   TRIAL_DURATION_DAYS,
   MONTHLY_PRICE_MXN,
@@ -69,6 +70,7 @@ export default function Profile() {
 
   // School
   const [showSchoolPicker, setShowSchoolPicker] = useState(false)
+  useBackHandler(() => setShowSchoolPicker(false), showSchoolPicker)
   const [schoolSearch, setSchoolSearch] = useState('')
   const [savingSchool, setSavingSchool] = useState(false)
   const [addingCustomSchool, setAddingCustomSchool] = useState(false)
@@ -209,6 +211,7 @@ export default function Profile() {
   // Confirmation modal
   const [confirm, setConfirm] = useState(null) // { title, message, onConfirm }
   const [confirming, setConfirming] = useState(false)
+  useBackHandler(() => setConfirm(null), !!confirm)
 
   const [showPaymentModal, setShowPaymentModal] = useState(false)
 

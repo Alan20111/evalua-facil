@@ -24,6 +24,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -64,6 +65,8 @@ export default function StudentDashboard() {
   const fileInputRef = useRef(null)
   const navigate = useNavigate()
   const toast = useToast()
+
+  useBackHandler(() => setShowJoin(false), showJoin)
 
   function handleJoinSubject(e) {
     e.preventDefault()

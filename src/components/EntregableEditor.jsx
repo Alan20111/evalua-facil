@@ -17,6 +17,7 @@ import { snapshotRubrica } from '../utils/rubrica'
 import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline } from '../utils/activityVisibility'
 import { minDeadline } from '../utils/nowIso'
+import { useBackHandler } from '../hooks/useBackHandler'
 
 const MAX_ATTACH = 15 * 1024 * 1024
 
@@ -97,6 +98,13 @@ export default function EntregableEditor({
   const [rubricaPickerOpen, setRubricaPickerOpen] = useState(false)
   const [rubricaEditorOpen, setRubricaEditorOpen] = useState(false)
   const [rubricaPreview, setRubricaPreview] = useState(false)
+
+  // Physical Android back button: this component is only mounted while open
+  // (the parent conditionally renders it), so it mirrors the "Volver" button
+  // unconditionally; the two rúbrica overlays close first when they're open.
+  useBackHandler(onClose, true)
+  useBackHandler(() => setRubricaPickerOpen(false), rubricaPickerOpen)
+  useBackHandler(() => setRubricaEditorOpen(false), rubricaEditorOpen)
 
   // The "Nueva fecha de entrega" modal (in ActivityPage) writes the group deadline
   // straight to Firestore while this editor stays open. Mirror that change into the

@@ -52,6 +52,7 @@ import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity } from '../../utils/studentIdentity'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
 import { useSubscription } from '../../hooks/useSubscription'
+import { useBackHandler } from '../../hooks/useBackHandler'
 import EvaluacionEditor from '../../components/EvaluacionEditor'
 import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
@@ -296,6 +297,52 @@ export default function SubjectPage() {
 
   const navigate = useNavigate()
   const toast = useToast()
+
+  // Same reference used by the header's back arrow AND the physical Android
+  // back button (useBackHandler below) — must stay the exact same function.
+  function goBack() {
+    navigate('/dashboard')
+  }
+
+  // Botón físico "atrás" (Android/Capacitor): la pila global en useBackHandler
+  // siempre ejecuta el handler de más arriba — el modal/menú abierto más
+  // reciente, o si no hay ninguno, la flecha "Volver" de la pantalla (goBack).
+  // Cada línea replica exactamente el cierre que ya usa el botón Cancelar/X/backdrop
+  // de ese modal (mismos guards de "saving en progreso" donde aplica).
+  useBackHandler(() => setTopExportMenu(null), !!topExportMenu)
+  useBackHandler(() => setShowModal(false), showModal)
+  useBackHandler(() => setDuplicateConfirm(null), !!duplicateConfirm)
+  useBackHandler(() => setPublishDraftConfirm(null), !!publishDraftConfirm)
+  useBackHandler(() => setDeleteConfirm(null), !!deleteConfirm)
+  useBackHandler(() => setShowMaterialModal(false), showMaterialModal)
+  useBackHandler(() => setDeleteMaterialConfirm(null), !!deleteMaterialConfirm)
+  useBackHandler(() => setShowAddStudent(false), showAddStudent)
+  useBackHandler(() => setStudentToEdit(null), !!studentToEdit)
+  useBackHandler(() => setShowQR(false), showQR)
+  useBackHandler(() => setStudentToReset(null), !!studentToReset)
+  useBackHandler(() => !generatingCredentials && setShowCredentialsModal(false), showCredentialsModal)
+  useBackHandler(() => setActivityMenu(null), !!activityMenu)
+  useBackHandler(() => !importing && setImportFor(null), !!importFor)
+  useBackHandler(() => setParcialMenu(null), !!parcialMenu)
+  useBackHandler(() => setConfirmRevertPonderacion(false), confirmRevertPonderacion)
+  useBackHandler(() => setConfirmRevertParcial(null), !!confirmRevertParcial)
+  useBackHandler(() => !closingParcial && setCloseParcialConfirm(null), !!closeParcialConfirm)
+  useBackHandler(() => !revertingParcial && setRevertParcialConfirm(null), !!revertParcialConfirm)
+  useBackHandler(() => !savingStudent && setLinkCandidate(null), !!linkCandidate)
+  useBackHandler(() => setResetPwdResult(null), !!resetPwdResult)
+  useBackHandler(() => setStudentToDelete(null), !!studentToDelete)
+  useBackHandler(() => setShowEditSubjectModal(false), showEditSubjectModal)
+  useBackHandler(() => setShowCopyModal(false), showCopyModal)
+  useBackHandler(() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }, showDeleteSubjectConfirm)
+  useBackHandler(() => !archiving && setShowArchiveModal(false), showArchiveModal)
+  useBackHandler(() => setShowUnarchiveModal(false), showUnarchiveModal)
+  useBackHandler(() => setShowResourceModal(false), showResourceModal)
+  useBackHandler(() => setDeleteResourceConfirm(null), !!deleteResourceConfirm)
+  useBackHandler(() => setEntregableEditor(null), !!entregableEditor)
+  useBackHandler(() => setEvalEditor(null), !!evalEditor)
+  useBackHandler(() => setNewDateOpen(false), !!(entregableEditor && newDateOpen))
+  // Screen-level: only runs when no modal/menu above is open.
+  useBackHandler(goBack)
 
   // Snapshot the calificaciones search + scroll right before leaving to a student's
   // activity, so returning (backState { tab: 'calificaciones' }) restores them.
@@ -2062,7 +2109,7 @@ export default function SubjectPage() {
         {/* ── Header ── */}
         <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => navigate('/dashboard')} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" onClick={goBack} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">

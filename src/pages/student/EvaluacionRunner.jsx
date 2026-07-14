@@ -17,6 +17,7 @@ import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fileTypes'
 import StudentLayout from '../../components/StudentLayout'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 // Extensiones aceptadas para preguntas de tipo "subir documento": las mismas
 // que maneja toda la app (imágenes, PDF, Word, PowerPoint, Excel, ZIP/RAR).
@@ -65,6 +66,13 @@ export default function EvaluacionRunner() {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [showExitModal, setShowExitModal] = useState(false)
   const finishedRef = useRef(false)
+
+  // Botón físico de Android: si el modal de "¿Salir?" ya está abierto, atrás lo
+  // cierra (cancela el intento de salir); si no está abierto, atrás lo abre en
+  // vez de salir directamente — el cronómetro sigue corriendo y el estudiante
+  // debe confirmar, igual que con el botón "Salir" en pantalla.
+  useBackHandler(() => setShowExitModal(false), showExitModal)
+  useBackHandler(() => setShowExitModal(true), !showExitModal)
 
   async function load() {
     setLoading(true)

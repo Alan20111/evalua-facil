@@ -13,6 +13,7 @@ import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
+import { useBackHandler } from '../../../hooks/useBackHandler'
 import {
   calcDaysRemaining,
   formatDate,
@@ -37,6 +38,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   const toast = useToast()
   const [modal, setModal] = useState(null)
   const [saving, setSaving] = useState(false)
+
+  useBackHandler(() => setModal(null), !!modal)
 
   if (!stats) return null
 

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { usePaymentConfig } from '../hooks/usePaymentConfig'
+import { useBackHandler } from '../hooks/useBackHandler'
 import { MONTHLY_PLAN_ID, MONTHLY_PRICE_MXN, SUBSCRIPTION_NAME, formatCurrency } from '../utils/subscriptionHelpers'
 
 const inputCls =
@@ -38,6 +39,8 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   const [referencia, setReferencia] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const paypalRef = useRef(null)
+
+  useBackHandler(onClose, open)
 
   // Default method = first enabled one.
   useEffect(() => {

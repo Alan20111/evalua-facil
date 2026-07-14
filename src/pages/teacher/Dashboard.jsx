@@ -25,6 +25,7 @@ import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
+import { useBackHandler } from '../../hooks/useBackHandler'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
 function generateAccessCode() {
@@ -55,6 +56,11 @@ export default function TeacherDashboard() {
 
   const navigate = useNavigate()
   const toast = useToast()
+
+  // Dashboard es raíz (sin flecha "Volver") — el botón físico atrás solo debe
+  // cerrar el modal "Nueva asignatura" cuando está abierto; si no hay nada
+  // abierto, cae al comportamiento default (doble tap para salir).
+  useBackHandler(() => setShowSubjectModal(false), showSubjectModal)
 
   useEffect(() => {
     if (!currentUser) return

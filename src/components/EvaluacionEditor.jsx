@@ -18,6 +18,7 @@ import PublicacionScheduler from './PublicacionScheduler'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import SearchInput from './SearchInput'
 import { minDeadline } from '../utils/nowIso'
+import { useBackHandler } from '../hooks/useBackHandler'
 
 function toIsoNow() {
   const d = new Date()
@@ -77,8 +78,12 @@ export default function EvaluacionEditor({
   onActivityUpdated,
 }) {
   const toast = useToast()
+  // This component is only mounted while open — same close path as its own
+  // "Volver" button.
+  useBackHandler(onClose, true)
   // "Nueva fecha de entrega" (grupo completo o estudiantes específicos)
   const [newDateOpen, setNewDateOpen] = useState(false)
+  useBackHandler(() => setNewDateOpen(false), newDateOpen)
   // ── Basic info state ──────────────────────────────────────────────
   const [infoForm, setInfoForm] = useState({
     nombre: '', instrucciones: '', fechaLimite: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
@@ -112,6 +117,7 @@ export default function EvaluacionEditor({
   const [banco, setBanco] = useState([])
   const [bancoLoaded, setBancoLoaded] = useState(false)
   const [showBanco, setShowBanco] = useState(false)
+  useBackHandler(() => setShowBanco(false), showBanco)
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
   const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')

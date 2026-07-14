@@ -8,6 +8,7 @@ import {
   BLOQUE_COLORS, bloqueColor, ALARMA_SONIDOS, reproducirSonido,
   DIAS_SEMANA, addMinutesToTime, timeToMinutes,
 } from '../../utils/horarioBloques'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 const ROW_H = 52 // px por hora — igual que la vista Semana
 const SNAP_MIN = 10 // los bloques se colocan/arrastran alineados a 10 min
@@ -71,6 +72,16 @@ export default function ProgramarZonaSemanal({
   const [editing, setEditing] = useState(null)  // id del patrón que se edita
   const [recienId, setRecienId] = useState(null) // último bloque duplicado (resaltado)
   const [confirmSalir, setConfirmSalir] = useState(false)
+
+  // Botón atrás físico (Android): mientras se muestra este paso (zona semanal)
+  // actúa como "Volver" (intentarSalir ya decide si sale directo o pide
+  // confirmación — no lo saltamos). Los popovers de colocar/editar bloque y la
+  // confirmación de salida, si están abiertos, se cierran primero por quedar
+  // arriba en la pila (se registran después, al abrirse).
+  useBackHandler(intentarSalir, true)
+  useBackHandler(() => setPlacing(null), !!placing)
+  useBackHandler(() => setEditing(null), !!editing)
+  useBackHandler(() => setConfirmSalir(false), !!confirmSalir)
 
   const restantes = bloquesPorSemana - patrones.length
   const completo = patrones.length === bloquesPorSemana
