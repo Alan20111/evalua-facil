@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, ClipboardList, Check } fr
 import RubricaEditor from './RubricaEditor'
 import RubricaTable from './RubricaTable'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { IS_NATIVE_APP } from '../../utils/platform'
 
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
 // editarlas o eliminarlas. Pantalla completa sobre el editor de entregables
@@ -83,10 +84,13 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-3">
-        <button type="button" onClick={() => setEditing('new')}
-          className="w-full py-3 bg-accent text-white font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors">
-          <Plus size={18} /> Crear nueva rúbrica
-        </button>
+        {/* Crear rúbricas nuevas: solo en la web */}
+        {!IS_NATIVE_APP && (
+          <button type="button" onClick={() => setEditing('new')}
+            className="w-full py-3 bg-accent text-white font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors">
+            <Plus size={18} /> Crear nueva rúbrica
+          </button>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-16"><Spinner size="lg" /></div>
@@ -121,14 +125,19 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
                     {previewId === r.id ? <EyeOff size={14} /> : <Eye size={14} />}
                     {previewId === r.id ? 'Ocultar' : 'Vista previa'}
                   </button>
-                  <button type="button" onClick={() => setEditing(r)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-muted hover:text-accent rounded hover:bg-[var(--accent-tint)] transition-colors">
-                    <Pencil size={14} /> Editar
-                  </button>
-                  <button type="button" onClick={() => setConfirmDeleteId(r.id)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-muted hover:text-red-600 rounded hover:bg-red-50 transition-colors">
-                    <Trash2 size={14} /> Eliminar
-                  </button>
+                  {/* Editar/eliminar rúbricas del banco: solo en la web */}
+                  {!IS_NATIVE_APP && (
+                    <>
+                      <button type="button" onClick={() => setEditing(r)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-muted hover:text-accent rounded hover:bg-[var(--accent-tint)] transition-colors">
+                        <Pencil size={14} /> Editar
+                      </button>
+                      <button type="button" onClick={() => setConfirmDeleteId(r.id)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-muted hover:text-red-600 rounded hover:bg-red-50 transition-colors">
+                        <Trash2 size={14} /> Eliminar
+                      </button>
+                    </>
+                  )}
                 </div>
                 {confirmDeleteId === r.id && (
                   <div className="mt-2 rounded border border-red-200 bg-red-50 p-3 space-y-2">
