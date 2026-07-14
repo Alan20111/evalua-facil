@@ -27,6 +27,7 @@ import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { IS_NATIVE_APP } from '../../utils/platform'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
@@ -739,15 +740,17 @@ export default function ActivityPage() {
                   {activityLabel && <span className="text-accent">{activityLabel} </span>}
                   {activity?.nombre}
                 </h1>
-                <button
-                  type="button"
-                  onClick={() => setEditingActivity(true)}
-                  data-tooltip="Editar actividad"
-                  aria-label="Editar actividad"
-                  className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
-                >
-                  <Pencil size={18} />
-                </button>
+                {!IS_NATIVE_APP && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingActivity(true)}
+                    data-tooltip="Editar actividad"
+                    aria-label="Editar actividad"
+                    className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                  >
+                    <Pencil size={18} />
+                  </button>
+                )}
               </div>
               <p className="text-sm font-medium text-muted">
                 Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
@@ -813,8 +816,8 @@ export default function ActivityPage() {
             <h2 className="font-semibold text-accent">Entregas</h2>
           </div>
 
-        {/* ZIP download — first thing in the container */}
-        {Object.values(submissions).some((s) => s.archivoURL && !s.completadoSinArchivo) && (
+        {/* ZIP download — solo en la web. Primero en el contenedor. */}
+        {!IS_NATIVE_APP && Object.values(submissions).some((s) => s.archivoURL && !s.completadoSinArchivo) && (
           <div className="px-4 pt-3">
             <button
               type="button"
@@ -850,29 +853,37 @@ export default function ActivityPage() {
             ))}
           </div>
 
-        {/* Search + sort */}
-        <div className="px-4 pt-4 pb-2 flex gap-2">
-          <div className="flex-1">
-            <SearchInput
-              value={searchStudents}
-              onChange={setSearchStudents}
-              placeholder="Buscar por nombre o por número de lista…"
-            />
+        {/* Search + sort — solo en la web */}
+        {!IS_NATIVE_APP && (
+          <div className="px-4 pt-4 pb-2 flex gap-2">
+            <div className="flex-1">
+              <SearchInput
+                value={searchStudents}
+                onChange={setSearchStudents}
+                placeholder="Buscar por nombre o por número de lista…"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setSortAlpha((v) => !v)}
+              data-tooltip="Ordenar por nombre"
+              aria-label="Ordenar por nombre"
+              className={`p-2 rounded border transition-colors ${
+                sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'
+              }`}
+            >
+              <ArrowDownAZ size={20} />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setSortAlpha((v) => !v)}
-            data-tooltip="Ordenar por nombre"
-            aria-label="Ordenar por nombre"
-            className={`p-2 rounded border transition-colors ${
-              sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'
-            }`}
-          >
-            <ArrowDownAZ size={20} />
-          </button>
-        </div>
+        )}
 
-        {/* Student list */}
+        {/* Student list — en la app nativa solo se ven los conteos de arriba;
+            calificar por estudiante es exclusivo de la web. */}
+        {IS_NATIVE_APP ? (
+          <p className="px-4 pb-4 pt-2 text-center text-slate-400 text-sm">
+            Califica por estudiante desde la versión web
+          </p>
+        ) : (
         <div className="px-4 pb-4">
           {filtered.length === 0 ? (
             <p className="text-center text-slate-400 text-sm py-8">Sin estudiantes en esta categoría</p>
@@ -919,6 +930,7 @@ export default function ActivityPage() {
             </div>
           )}
         </div>
+        )}
         </div>{/* end Entregas container */}
       </div>
       )}

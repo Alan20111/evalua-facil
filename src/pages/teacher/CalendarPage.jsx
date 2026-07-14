@@ -16,6 +16,7 @@ import { bloqueColor, timeToMinutes, addMinutesToTime, generarBloques } from '..
 import { buildAsuetoMap, esAsuetoPara, esAsuetoAlguno, alcanceAsuetoTexto, TIPOS_ASUETO } from '../../utils/asuetos'
 import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacaciones'
 import { TEACHER_CONTAINER } from '../../config/layout'
+import { IS_NATIVE_APP } from '../../utils/platform'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
@@ -1451,230 +1452,261 @@ export default function CalendarPage() {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────
+  // Piezas del toolbar armadas como variables JSX para poder recomponerlas en
+  // dos layouts distintos (nativo vs. web) sin duplicar el marcado.
+  const dateNav = (
+    <div className="relative flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
+      <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
+        <ChevronLeft size={16} />
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setPickerMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
+          setShowDatePicker(v => !v)
+        }}
+        className="text-sm font-semibold text-on-surface px-3 min-w-[180px] text-center select-none rounded hover:bg-accent-tint transition-colors py-0.5"
+        data-tooltip="Ir a otra fecha"
+        data-tooltip-pos="bottom"
+      >
+        {navLabel()}
+      </button>
+      <button type="button" onClick={next} aria-label="Siguiente" className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
+        <ChevronRight size={16} />
+      </button>
+
+      {/* Mini calendario para saltar a una fecha */}
+      {showDatePicker && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-20 bg-transparent border-none cursor-default"
+            onClick={() => setShowDatePicker(false)}
+            aria-label="Cerrar selector de fecha"
+          />
+          <div className="absolute left-1/2 -translate-x-1/2 top-11 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
+            <div className="flex items-center justify-between mb-2">
+              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-1 rounded hover:bg-accent-tint text-muted">
+                <ChevronLeft size={15} />
+              </button>
+              <span className="text-sm font-semibold text-on-surface">
+                {MESES[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
+              </span>
+              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="p-1 rounded hover:bg-accent-tint text-muted">
+                <ChevronRight size={15} />
+              </button>
+            </div>
+            <div className="grid grid-cols-7 mb-1">
+              {DIAS_CORTO.map(d => (
+                <span key={d} className="text-center text-[10px] font-semibold text-muted uppercase">{d.charAt(0)}</span>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-y-0.5">
+              {getMonthGrid(pickerMonth.getFullYear(), pickerMonth.getMonth()).map(cell => {
+                const inMonth = cell.getMonth() === pickerMonth.getMonth()
+                const sel = isSameDay(cell, currentDate)
+                return (
+                  <button
+                    key={toDateStr(cell)}
+                    type="button"
+                    onClick={() => { setCurrentDate(cell); setShowDatePicker(false) }}
+                    className={`h-7 w-7 mx-auto rounded-full text-xs flex items-center justify-center transition-colors ${
+                      sel ? 'bg-accent text-white font-bold'
+                        : isToday(cell) ? 'ring-1 ring-accent text-accent font-semibold hover:bg-accent-tint'
+                        : inMonth ? 'text-on-surface hover:bg-accent-tint' : 'text-muted opacity-40 hover:bg-accent-tint'
+                    }`}
+                  >
+                    {cell.getDate()}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+
+  const hoyBtn = (
+    <button
+      type="button"
+      onClick={goToday}
+      className="text-xs px-3 py-1.5 rounded border border-outline-variant text-muted hover:bg-accent-tint transition-colors"
+    >
+      Hoy
+    </button>
+  )
+
+  const eventoBtn = (
+    <button
+      type="button"
+      onClick={() => openNewEvent(null)}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+    >
+      <Plus size={15} /> Evento
+    </button>
+  )
+
+  const viewSwitcher = (
+    <div className="flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
+      {VIEWS.map(({ id, label, Icon }) => (
+        <button
+          type="button"
+          key={id}
+          onClick={() => changeView(id)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${view === id ? 'bg-accent text-white' : 'text-muted hover:bg-accent-tint'}`}
+        >
+          <Icon size={13} />{label}
+        </button>
+      ))}
+    </div>
+  )
+
+  const hourRangeBtn = (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setShowHoras(v => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+        data-tooltip="Horas visibles de tu día (Agenda y Semana)"
+        data-tooltip-pos="bottom"
+      >
+        <Clock size={14} /> {dayStart}:00–{dayEnd}:00
+      </button>
+      {showHoras && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-20 bg-transparent border-none cursor-default"
+            onClick={() => setShowHoras(false)}
+            aria-label="Cerrar selector de horas"
+          />
+          <div className="absolute right-0 top-10 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted w-10">Desde</span>
+              <select
+                value={dayStart}
+                onChange={e => changeDayStart(Number(e.target.value))}
+                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+              >
+                {Array.from({ length: 23 }, (_, h) => h).map(h => (
+                  <option key={h} value={h}>{h}:00</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted w-10">Hasta</span>
+              <select
+                value={dayEnd}
+                onChange={e => changeDayEnd(Number(e.target.value))}
+                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+              >
+                {Array.from({ length: 24 }, (_, h) => h + 1).filter(h => h > dayStart).map(h => (
+                  <option key={h} value={h}>{h}:00</option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-1">Días de tu semana</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted w-10">Días</span>
+              <select
+                value={numDays}
+                onChange={e => changeNumDays(Number(e.target.value))}
+                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+              >
+                <option value={5}>Lunes a Viernes</option>
+                <option value={6}>Lunes a Sábado</option>
+                <option value={7}>Lunes a Domingo</option>
+              </select>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+
   return (
     <TeacherLayout>
       <div className={`px-4 py-4 ${TEACHER_CONTAINER}`}>
 
-        {/* Top controls */}
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          {/* Date navigator */}
-          <div className="relative flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
-            <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
-              <ChevronLeft size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setPickerMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1))
-                setShowDatePicker(v => !v)
-              }}
-              className="text-sm font-semibold text-on-surface px-3 min-w-[180px] text-center select-none rounded hover:bg-accent-tint transition-colors py-0.5"
-              data-tooltip="Ir a otra fecha"
-              data-tooltip-pos="bottom"
-            >
-              {navLabel()}
-            </button>
-            <button type="button" onClick={next} aria-label="Siguiente" className="p-1.5 rounded hover:bg-accent-tint text-muted transition-colors">
-              <ChevronRight size={16} />
-            </button>
+        {IS_NATIVE_APP ? (
+          <>
+            {/* Nativo: fecha/Hoy/Evento/horas en un renglón; vista debajo.
+                Días de asueto, Vacaciones, Modificar y Programar bloques se
+                manejan solo en la web. */}
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              {dateNav}
+              {hoyBtn}
+              {eventoBtn}
+              {hourRangeBtn}
+            </div>
+            <div className="flex items-center gap-2 mb-4">
+              {viewSwitcher}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Top controls */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              {dateNav}
+              {hoyBtn}
+              {eventoBtn}
+              <div className="flex-1" />
+              {viewSwitcher}
+              {hourRangeBtn}
+            </div>
 
-            {/* Mini calendario para saltar a una fecha */}
-            {showDatePicker && (
-              <>
-                <button
-                  type="button"
-                  className="fixed inset-0 z-20 bg-transparent border-none cursor-default"
-                  onClick={() => setShowDatePicker(false)}
-                  aria-label="Cerrar selector de fecha"
-                />
-                <div className="absolute left-1/2 -translate-x-1/2 top-11 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
-                  <div className="flex items-center justify-between mb-2">
-                    <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-1 rounded hover:bg-accent-tint text-muted">
-                      <ChevronLeft size={15} />
-                    </button>
-                    <span className="text-sm font-semibold text-on-surface">
-                      {MESES[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
-                    </span>
-                    <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="p-1 rounded hover:bg-accent-tint text-muted">
-                      <ChevronRight size={15} />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-7 mb-1">
-                    {DIAS_CORTO.map(d => (
-                      <span key={d} className="text-center text-[10px] font-semibold text-muted uppercase">{d.charAt(0)}</span>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-y-0.5">
-                    {getMonthGrid(pickerMonth.getFullYear(), pickerMonth.getMonth()).map(cell => {
-                      const inMonth = cell.getMonth() === pickerMonth.getMonth()
-                      const sel = isSameDay(cell, currentDate)
-                      return (
-                        <button
-                          key={toDateStr(cell)}
-                          type="button"
-                          onClick={() => { setCurrentDate(cell); setShowDatePicker(false) }}
-                          className={`h-7 w-7 mx-auto rounded-full text-xs flex items-center justify-center transition-colors ${
-                            sel ? 'bg-accent text-white font-bold'
-                              : isToday(cell) ? 'ring-1 ring-accent text-accent font-semibold hover:bg-accent-tint'
-                              : inMonth ? 'text-on-surface hover:bg-accent-tint' : 'text-muted opacity-40 hover:bg-accent-tint'
-                          }`}
-                        >
-                          {cell.getDate()}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={goToday}
-            className="text-xs px-3 py-1.5 rounded border border-outline-variant text-muted hover:bg-accent-tint transition-colors"
-          >
-            Hoy
-          </button>
-
-          {/* Nuevo evento — al lado de Hoy */}
-          <button
-            type="button"
-            onClick={() => openNewEvent(null)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
-          >
-            <Plus size={15} /> Evento
-          </button>
-
-          {/* Spacer */}
-          <div className="flex-1" />
-
-          {/* View switcher */}
-          <div className="flex items-center gap-0.5 bg-surface-card border border-outline-variant rounded-card shadow-card px-1 py-1">
-            {VIEWS.map(({ id, label, Icon }) => (
+            {/* Segunda fila: asuetos + programación de bloques */}
+            <div className="flex flex-wrap items-center gap-2 mb-4">
               <button
                 type="button"
-                key={id}
-                onClick={() => changeView(id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${view === id ? 'bg-accent text-white' : 'text-muted hover:bg-accent-tint'}`}
+                onClick={() => setShowAsuetos(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
+                data-tooltip="Marca días sin clases, eventos y/o actividades"
+                data-tooltip-pos="bottom"
               >
-                <Icon size={13} />{label}
+                <CalendarOff size={15} /> Días de asueto
+                {asuetos.length > 0 && (
+                  <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">{asuetos.length}</span>
+                )}
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                onClick={() => setShowVacaciones(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
+                data-tooltip="Marca un periodo sin clases, eventos y/o actividades"
+                data-tooltip-pos="bottom"
+              >
+                <CalendarRange size={15} /> Vacaciones
+                {vacaciones.length > 0 && (
+                  <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">{vacaciones.length}</span>
+                )}
+              </button>
 
-          {/* Rango de horas del día */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowHoras(v => !v)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
-              data-tooltip="Horas visibles de tu día (Agenda y Semana)"
-              data-tooltip-pos="bottom"
-            >
-              <Clock size={14} /> {dayStart}:00–{dayEnd}:00
-            </button>
-            {showHoras && (
-              <>
-                <button
-                  type="button"
-                  className="fixed inset-0 z-20 bg-transparent border-none cursor-default"
-                  onClick={() => setShowHoras(false)}
-                  aria-label="Cerrar selector de horas"
-                />
-                <div className="absolute right-0 top-10 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
-                  <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted w-10">Desde</span>
-                    <select
-                      value={dayStart}
-                      onChange={e => changeDayStart(Number(e.target.value))}
-                      className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
-                    >
-                      {Array.from({ length: 23 }, (_, h) => h).map(h => (
-                        <option key={h} value={h}>{h}:00</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted w-10">Hasta</span>
-                    <select
-                      value={dayEnd}
-                      onChange={e => changeDayEnd(Number(e.target.value))}
-                      className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
-                    >
-                      {Array.from({ length: 24 }, (_, h) => h + 1).filter(h => h > dayStart).map(h => (
-                        <option key={h} value={h}>{h}:00</option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-1">Días de tu semana</p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted w-10">Días</span>
-                    <select
-                      value={numDays}
-                      onChange={e => changeNumDays(Number(e.target.value))}
-                      className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
-                    >
-                      <option value={5}>Lunes a Viernes</option>
-                      <option value={6}>Lunes a Sábado</option>
-                      <option value={7}>Lunes a Domingo</option>
-                    </select>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+              <div className="flex-1" />
 
-        {/* Segunda fila: asuetos + programación de bloques */}
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setShowAsuetos(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
-            data-tooltip="Marca días sin clases, eventos y/o actividades"
-            data-tooltip-pos="bottom"
-          >
-            <CalendarOff size={15} /> Días de asueto
-            {asuetos.length > 0 && (
-              <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">{asuetos.length}</span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowVacaciones(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
-            data-tooltip="Marca un periodo sin clases, eventos y/o actividades"
-            data-tooltip-pos="bottom"
-          >
-            <CalendarRange size={15} /> Vacaciones
-            {vacaciones.length > 0 && (
-              <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">{vacaciones.length}</span>
-            )}
-          </button>
-
-          <div className="flex-1" />
-
-          <button
-            type="button"
-            onClick={() => setShowModificarPicker(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
-            data-tooltip="Modificar bloques de clase por asignatura"
-            data-tooltip-pos="bottom"
-          >
-            <CalendarClock size={15} /> Modificar bloques
-          </button>
-          <button
-            type="button"
-            onClick={() => openProgramar()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-card bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
-            data-tooltip="Programar bloques de clase por asignatura"
-            data-tooltip-pos="bottom"
-          >
-            <CalendarPlus size={15} /> Programar bloques
-          </button>
-        </div>
+              <button
+                type="button"
+                onClick={() => setShowModificarPicker(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+                data-tooltip="Modificar bloques de clase por asignatura"
+                data-tooltip-pos="bottom"
+              >
+                <CalendarClock size={15} /> Modificar bloques
+              </button>
+              <button
+                type="button"
+                onClick={() => openProgramar()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-card bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
+                data-tooltip="Programar bloques de clase por asignatura"
+                data-tooltip-pos="bottom"
+              >
+                <CalendarPlus size={15} /> Programar bloques
+              </button>
+            </div>
+          </>
+        )}
 
         {/* Conflict warning */}
         {conflicts.length > 0 && (

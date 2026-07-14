@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Timer,
   CalendarDays,
+  X,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -23,6 +24,7 @@ import Spinner from './Spinner'
 import { useSubscription } from '../hooks/useSubscription'
 import { getTrialBannerMessage } from '../utils/subscriptionHelpers'
 import { subjectDisplayName } from '../utils/subjectName'
+import { IS_NATIVE_APP } from '../utils/platform'
 import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
@@ -34,6 +36,7 @@ export default function TeacherLayout({ children }) {
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
+  const [confirmLogout, setConfirmLogout] = useState(false)
 
   // Real-time subjects: any create/edit/archive/duplicate/delete reflects instantly
   // in the sidebar (no manual refresh).
@@ -57,6 +60,9 @@ export default function TeacherLayout({ children }) {
     await signOut(auth)
     navigate('/')
   }
+  // En la app nativa se pide confirmación antes de salir (es fácil tocar el
+  // botón sin querer en el celular); en la web se sale directo, como siempre.
+  const requestLogout = () => (IS_NATIVE_APP ? setConfirmLogout(true) : handleLogout())
 
   const activeSubjects = subjects.filter((s) => !s.archived)
   const archivedSubjects = subjects.filter((s) => s.archived)
@@ -79,7 +85,7 @@ export default function TeacherLayout({ children }) {
         </div>
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={requestLogout}
           aria-label="Cerrar sesión"
           className="p-2 text-muted hover:text-error rounded transition-colors"
         >
@@ -239,7 +245,7 @@ export default function TeacherLayout({ children }) {
           <div className="px-2 py-2 border-t border-white/15">
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={requestLogout}
               className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
             >
               <LogOut size={17} />
@@ -290,6 +296,46 @@ export default function TeacherLayout({ children }) {
           </NavLink>
         </div>
       </nav>
+
+      {/* Confirmación de cierre de sesión — solo en la app nativa */}
+      {confirmLogout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 border-none cursor-default"
+            onClick={() => setConfirmLogout(false)}
+            aria-label="Cerrar"
+          />
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
+            <button
+              type="button"
+              onClick={() => setConfirmLogout(false)}
+              aria-label="Cerrar"
+              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-muted rounded"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-base font-semibold text-on-surface mb-2 pr-6">Cerrar sesión</h3>
+            <p className="text-sm text-muted mb-4 leading-relaxed">¿Seguro que quieres salir?</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmLogout(false)}
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors"
+              >
+                Salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
