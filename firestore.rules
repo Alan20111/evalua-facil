@@ -255,6 +255,15 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId;
     }
 
+    // Personal calendar events created by a STUDENT (their own Agenda) —
+    // mismo patrón que `events` del docente, pero con alumnoId (uid de Auth).
+    match /studentEvents/{eventId} {
+      allow read, update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.alumnoId;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.alumnoId;
+    }
+
     // Teacher's class schedule blocks (Mi Horario — legacy recurring blocks).
     match /horario/{bloqueId} {
       allow read, update, delete: if request.auth != null &&
