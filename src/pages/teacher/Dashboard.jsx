@@ -174,16 +174,24 @@ export default function TeacherDashboard() {
     }
   }
 
+  const teacherApellidos = [userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
+
   return (
     <TeacherLayout>
       <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Greeting */}
+        {/* Greeting — nombre en un renglón, apellidos debajo, igual que el
+            estudiante (userProfile.nombre/apellidoPaterno/apellidoMaterno);
+            si un docente aún no tiene esos campos, cae de vuelta al alias
+            nombreMostrar mientras la migración de AuthContext lo resuelve. */}
         <div className="mb-4">
           <p className="text-muted text-sm">Bienvenido,</p>
           <h1 className="text-2xl font-bold text-on-surface truncate">
-            {userProfile?.nombreMostrar || 'Docente'}
+            {userProfile?.nombre || userProfile?.nombreMostrar || 'Docente'}
           </h1>
+          {teacherApellidos && (
+            <p className="text-base font-semibold text-on-surface truncate">{teacherApellidos}</p>
+          )}
           {userProfile?.schoolName && (
             <p className="text-slate-400 text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
           )}
