@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './components/Toast'
+import AndroidBackButton from './components/AndroidBackButton'
 import { needsPasswordSetup } from './utils/authLinking'
 import { installDraggableOverlays } from './utils/draggableOverlays'
 import { installFollowTooltips } from './utils/followTooltip'
@@ -125,6 +126,7 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <RoleWrapper>
+          <AndroidBackButton />
           <Routes>
             {/* Public */}
             <Route path="/" element={<RootRedirect guest={<Landing />} />} />

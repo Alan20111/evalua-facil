@@ -12,6 +12,7 @@ import { subjectDisplayName } from '../utils/subjectName'
 import { getEnrollments, updateAllEnrollments } from '../utils/studentLookup'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
+import { useBackHandler } from '../hooks/useBackHandler'
 
 export default function StudentLayout({ children }) {
   const { currentUser, userProfile, setUserProfile } = useAuth()
@@ -24,6 +25,8 @@ export default function StudentLayout({ children }) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showFullLogo, setShowFullLogo] = useState(false)
   const fileInputRef = useRef(null)
+
+  useBackHandler(() => setShowLogoutConfirm(false), showLogoutConfirm)
 
   useEffect(() => {
     if (!currentUser) return
