@@ -7,6 +7,7 @@ import EFDateTimePicker from '../EFDateTimePicker'
 import Spinner from '../Spinner'
 import { X, Trash2, Copy } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 export const EVENT_COLORS = [
   { id: 'slate',  bg: '#f1f5f9', text: '#475569', label: 'Gris' },
@@ -37,6 +38,9 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
   // Botón atrás físico (Android): si está pidiendo confirmación de borrado,
   // solo la cancela (no cierra todo el editor).
   useBackHandler(() => setConfirmDelete(false), confirmDelete)
+
+  // Este componente solo se monta mientras está abierto (lo controla el padre).
+  useScrollLock(true)
 
   async function handleSave(e) {
     e.preventDefault()
