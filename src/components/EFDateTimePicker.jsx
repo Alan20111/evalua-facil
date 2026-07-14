@@ -807,9 +807,12 @@ export default function EFDateTimePicker({
     width: W,
     zIndex: 9999,
     background: 'var(--surface-card)',
-    borderRadius: 'var(--radius-card, 0.875rem)',
+    // Esquinas menos redondeadas y borde bien visible — antes usaba
+    // --radius-card (pensada para tarjetas grandes) y --outline-variant
+    // (gris muy pálido, casi imperceptible a 1px).
+    borderRadius: '0.5rem',
     boxShadow: '0 8px 40px rgba(0,0,0,.16), 0 2px 8px rgba(0,0,0,.08)',
-    border: '1px solid var(--outline-variant)',
+    border: '1.5px solid var(--outline, #717785)',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
