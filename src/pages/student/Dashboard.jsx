@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
-  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Bell, Archive, Camera,
+  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Bell, Archive, Camera, CalendarDays,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
@@ -249,6 +249,15 @@ export default function StudentDashboard() {
           >
             <Bell size={20} className="text-accent flex-shrink-0" />
             <span className="font-medium text-on-surface flex-1 text-left">Notificaciones</span>
+            <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/alumno/agenda')}
+            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent-tint transition-colors border-t border-outline-variant"
+          >
+            <CalendarDays size={20} className="text-accent flex-shrink-0" />
+            <span className="font-medium text-on-surface flex-1 text-left">Agenda</span>
             <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
           </button>
         </div>
