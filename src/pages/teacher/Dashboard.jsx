@@ -26,6 +26,7 @@ import SubjectIcon from '../../components/SubjectIcon'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { IS_NATIVE_APP } from '../../utils/platform'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
 function generateAccessCode() {
@@ -186,14 +187,14 @@ export default function TeacherDashboard() {
     <TeacherLayout>
       <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Greeting — nombre en un renglón, apellidos debajo, igual que el
-            estudiante (userProfile.nombre/apellidoPaterno/apellidoMaterno);
-            si un docente aún no tiene esos campos, cae de vuelta al alias
+        {/* Greeting — "Bienvenido, {nombre}" en un renglón, apellidos debajo:
+            2 renglones en vez de 3. Igual que el estudiante
+            (userProfile.nombre/apellidoPaterno/apellidoMaterno); si un
+            docente aún no tiene esos campos, cae de vuelta al alias
             nombreMostrar mientras la migración de AuthContext lo resuelve. */}
         <div className="mb-4">
-          <p className="text-muted text-sm">Bienvenido,</p>
           <h1 className="text-2xl font-bold text-on-surface truncate">
-            {userProfile?.nombre || userProfile?.nombreMostrar || 'Docente'}
+            Bienvenido, {userProfile?.nombre || userProfile?.nombreMostrar || 'Docente'}
           </h1>
           {teacherApellidos && (
             <p className="text-base font-semibold text-on-surface truncate">{teacherApellidos}</p>
@@ -236,28 +237,31 @@ export default function TeacherDashboard() {
                     {...subjectPaletteProps(s.colorPalette)}
                     className="w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-1"
                   >
-                    <div className="flex flex-col flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => moveSubject(i, -1)}
-                        disabled={i === 0}
-                        data-tooltip="Subir"
-                        aria-label="Subir"
-                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
-                      >
-                        <ArrowUp size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveSubject(i, 1)}
-                        disabled={i === subjects.length - 1}
-                        data-tooltip="Bajar"
-                        aria-label="Bajar"
-                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
-                      >
-                        <ArrowDown size={16} />
-                      </button>
-                    </div>
+                    {/* Reordenar asignaturas: solo en la web */}
+                    {!IS_NATIVE_APP && (
+                      <div className="flex flex-col flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => moveSubject(i, -1)}
+                          disabled={i === 0}
+                          data-tooltip="Subir"
+                          aria-label="Subir"
+                          className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                        >
+                          <ArrowUp size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSubject(i, 1)}
+                          disabled={i === subjects.length - 1}
+                          data-tooltip="Bajar"
+                          aria-label="Bajar"
+                          className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                        >
+                          <ArrowDown size={16} />
+                        </button>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => navigate(`/subject/${s.id}`)}
