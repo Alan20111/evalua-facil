@@ -325,8 +325,6 @@ export default function TeacherDashboard() {
                   value={newSubjectName}
                   onChange={(e) => setNewSubjectName(e.target.value)}
                   required
-                  // Primer campo del modal "Nueva asignatura", abierto con intención de escribir.
-                  autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas, Física, Historia"
                 />

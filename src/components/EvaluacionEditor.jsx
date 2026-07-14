@@ -607,7 +607,7 @@ export default function EvaluacionEditor({
               <div>
                 <label htmlFor="info-nombre" className="block text-sm font-medium text-muted mb-1">Nombre</label>
                 <input id="info-nombre" type="text" value={infoForm.nombre} onChange={(e) => setInfoForm((f) => ({ ...f, nombre: e.target.value }))}
-                  required autoFocus /* primer campo del formulario de creación/edición */ placeholder={`Ej: ${tipoLabel} parcial 1`}
+                  required placeholder={`Ej: ${tipoLabel} parcial 1`}
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
               <div>

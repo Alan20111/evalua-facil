@@ -101,9 +101,6 @@ export default function LinkAccountModal({ onClose }) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  // Primer y único campo del modal: el foco automático es el
-                  // comportamiento esperado al abrirlo.
-                  autoFocus
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-transparent text-sm bg-surface"
                   placeholder="nombre@correo.com"
                 />

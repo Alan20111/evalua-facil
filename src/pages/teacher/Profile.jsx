@@ -438,6 +438,66 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Acceso — correo y contraseña, cerca de arriba: es lo que más se
+            busca (cambiar la contraseña) y antes quedaba hasta el fondo. */}
+        <div className="bg-surface-card rounded-card shadow-card p-3">
+          <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
+            <Lock size={19} className="text-slate-400" /> Acceso
+          </h2>
+          <div className="space-y-1">
+
+            {/* ── Correo (solo lectura) ── */}
+            <div className="py-2 border-b border-outline-variant">
+              <p className="text-sm text-slate-500 mb-0.5">Correo electrónico</p>
+              <p className="text-sm text-on-surface truncate">{currentUser?.email}</p>
+            </div>
+
+            {/* ── Contraseña ── */}
+            <div className="py-2 border-b border-outline-variant">
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-on-surface">Contraseña</p>
+                  {!hasEmailProvider && (
+                    <p className="text-sm text-slate-500 mt-0.5">Solo disponible si tu cuenta usa correo y contraseña</p>
+                  )}
+                </div>
+                {hasEmailProvider && (
+                  <button type="button" onClick={() => setShowPwdForm((v) => !v)}
+                    className="text-accent text-sm font-semibold hover:underline flex-shrink-0">
+                    {showPwdForm ? 'Cancelar' : 'Cambiar'}
+                  </button>
+                )}
+              </div>
+
+              {showPwdForm && (
+                <form onSubmit={requestPwdChange} className="mt-2 space-y-2">
+                  <div>
+                    <label htmlFor="prof-pwd-actual" className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
+                    <PasswordInput id="prof-pwd-actual" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
+                      required autoComplete="current-password" className={inputCls} placeholder="••••••••" />
+                  </div>
+                  <div>
+                    <label htmlFor="prof-pwd-nueva" className="block text-xs font-medium text-muted mb-1">Nueva contraseña</label>
+                    <PasswordInput id="prof-pwd-nueva" value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
+                      required autoComplete="new-password" className={inputCls} placeholder="Mínimo 6 caracteres" />
+                  </div>
+                  <div>
+                    <label htmlFor="prof-pwd-confirmar" className="block text-xs font-medium text-muted mb-1">Confirmar nueva contraseña</label>
+                    <PasswordInput id="prof-pwd-confirmar" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
+                      required autoComplete="new-password" className={inputCls} placeholder="Repite la contraseña" />
+                  </div>
+                  <button type="submit" disabled={savingPwd}
+                    className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                    {savingPwd ? <Spinner size="sm" /> : <Lock size={17} />}
+                    {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}
+                  </button>
+                </form>
+              )}
+            </div>
+
+          </div>
+        </div>
+
         {/* Datos personales — nombre real, distinto del nombre visible/alias */}
         <div className="bg-surface-card rounded-card shadow-card p-3">
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
@@ -505,65 +565,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Acceso */}
-        <div className="bg-surface-card rounded-card shadow-card p-3">
-          <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
-            <Lock size={19} className="text-slate-400" /> Acceso
-          </h2>
-          <div className="space-y-1">
-
-            {/* ── Correo (solo lectura) ── */}
-            <div className="py-2 border-b border-outline-variant">
-              <p className="text-sm text-slate-500 mb-0.5">Correo electrónico</p>
-              <p className="text-sm text-on-surface truncate">{currentUser?.email}</p>
-            </div>
-
-            {/* ── Contraseña ── */}
-            <div className="py-2 border-b border-outline-variant">
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-on-surface">Contraseña</p>
-                  {!hasEmailProvider && (
-                    <p className="text-sm text-slate-500 mt-0.5">Solo disponible si tu cuenta usa correo y contraseña</p>
-                  )}
-                </div>
-                {hasEmailProvider && (
-                  <button type="button" onClick={() => setShowPwdForm((v) => !v)}
-                    className="text-accent text-sm font-semibold hover:underline flex-shrink-0">
-                    {showPwdForm ? 'Cancelar' : 'Cambiar'}
-                  </button>
-                )}
-              </div>
-
-              {showPwdForm && (
-                <form onSubmit={requestPwdChange} className="mt-2 space-y-2">
-                  <div>
-                    <label htmlFor="prof-pwd-actual" className="block text-xs font-medium text-muted mb-1">Contraseña actual</label>
-                    <PasswordInput id="prof-pwd-actual" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
-                      required autoComplete="current-password" className={inputCls} placeholder="••••••••" />
-                  </div>
-                  <div>
-                    <label htmlFor="prof-pwd-nueva" className="block text-xs font-medium text-muted mb-1">Nueva contraseña</label>
-                    <PasswordInput id="prof-pwd-nueva" value={newPwd} onChange={(e) => setNewPwd(e.target.value)}
-                      required autoComplete="new-password" className={inputCls} placeholder="Mínimo 6 caracteres" />
-                  </div>
-                  <div>
-                    <label htmlFor="prof-pwd-confirmar" className="block text-xs font-medium text-muted mb-1">Confirmar nueva contraseña</label>
-                    <PasswordInput id="prof-pwd-confirmar" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
-                      required autoComplete="new-password" className={inputCls} placeholder="Repite la contraseña" />
-                  </div>
-                  <button type="submit" disabled={savingPwd}
-                    className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                    {savingPwd ? <Spinner size="sm" /> : <Lock size={17} />}
-                    {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}
-                  </button>
-                </form>
-              )}
-            </div>
-
-          </div>
-        </div>
-
       </div>
 
       {/* ── Confirmation modal ── */}
@@ -599,12 +600,10 @@ export default function Profile() {
           <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-sm rounded-card shadow-2xl flex flex-col max-h-[80vh]">
             <div className="flex items-center gap-2 p-3 border-b border-outline-variant">
               <div className="flex-1">
-                {/* Buscador de escuela: primer control del overlay, abierto con intención de escribir. */}
                 <SearchInput
                   value={schoolSearch}
                   onChange={setSchoolSearch}
                   placeholder="Nombre, CCT o municipio…"
-                  autoFocus
                 />
               </div>
               <button type="button" onClick={() => setShowSchoolPicker(false)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded"><X size={19} /></button>
@@ -664,8 +663,6 @@ export default function Profile() {
                   <label htmlFor="prof-escuela-nombre" className="block text-sm font-medium text-muted mb-1">Nombre oficial de la escuela</label>
                   <input
                     id="prof-escuela-nombre"
-                    // Primer campo del formulario "agregar escuela", abierto con intención de escribir.
-                    autoFocus
                     type="text"
                     value={customSchoolName}
                     onChange={(e) => setCustomSchoolName(e.target.value)}

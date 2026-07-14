@@ -257,8 +257,11 @@ export default function TeacherLayout({ children }) {
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 min-w-0 min-h-screen pb-20 md:pb-0">{children}</main>
+        {/* Main content — pb reserva el alto de la barra inferior (5rem) MÁS el
+            inset de seguridad de Android que ya se le suma a esa barra
+            (.safe-bottom en <nav> abajo); si no, el último contenido de cada
+            página queda tapado detrás de la barra, que ahora es más alta. */}
+        <main className="flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0">{children}</main>
       </div>
 
       {/* Mobile bottom nav */}
