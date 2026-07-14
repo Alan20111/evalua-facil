@@ -91,9 +91,10 @@ Color de calificación (`gradeColor`): alta `text-emerald-700` · media `text-am
 
 ### 2.6 Colores de marca fuera de sistema (a normalizar)
 
-- Borde del logo: `#0967F0` (border-2, sidebar)
 - PortalBadge: Docente `#39FF14` (verde neón)/texto negro · Estudiante `#FF6600`/texto blanco — pill `px-3 py-1 rounded-full text-xs font-bold tracking-wide`
 - Landing: `bg-blue-600` (docente) / `bg-orange-500` (alumno) literales
+
+**✅ resuelto (jul-2026):** el logo (`EFLogo`) ya no lleva fondo blanco horneado en el PNG — `logo-evalua-facil.png`/`logo-icon.png` son transparentes con texto negro (fondos claros); `logo-evalua-facil-azul.png`/`logo-icon-azul.png` son la variante de alto contraste (texto e icono en blanco, cheque teal) para fondos azules/oscuros — prop `<EFLogo variant="azul">`. El recuadro blanco con borde `#0967F0` que envolvía el logo en los sidebars (workaround del fondo horneado) ya no existe.
 
 ---
 
@@ -197,7 +198,7 @@ Color de calificación (`gradeColor`): alta `text-emerald-700` · media `text-am
 
 **Desktop (≥768px):**
 - Sidebar fija `w-[280px] h-screen sticky top-0 bg-accent text-white` (⚠ en alumno el sidebar fuerza `data-role='docente'` para pintarse azul institucional).
-  - Bloque de logo blanco: `bg-white px-2 pt-2 pb-1.5`, interior `rounded-lg border-2 border-[#0967F0] px-2 py-2` + PortalBadge.
+  - Bloque de logo: `px-4 pt-4 pb-2`, `<EFLogo variant="azul">` directo sobre el azul del sidebar (sin recuadro blanco) + PortalBadge.
   - Perfil: `flex items-center gap-3 px-3 py-2 mx-2 rounded hover:bg-white/10`; avatar `w-9 h-9 rounded-full bg-white` con iniciales `text-accent`; nombre `text-body-sm font-semibold`; sub `text-metadata text-white/70`; `ChevronRight 16`.
   - Item de nav: `px-3 py-1.5 rounded text-body-sm` — activo `bg-white text-accent font-semibold`, inactivo `text-white/80 hover:bg-white/10`.
   - Item de asignatura: `px-3 py-2.5 rounded text-body-sm` — activo `bg-white text-accent font-bold shadow-md`, inactivo `text-white/90 hover:bg-white/15`; icono materia 20.

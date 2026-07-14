@@ -100,12 +100,10 @@ export default function TeacherLayout({ children }) {
       <div className="flex">
         {/* Sidebar — desktop only (solid accent plane) */}
         <aside className="hidden md:flex flex-col w-[280px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
-          {/* Logo — bloque blanco a todo el ancho arriba (de aquí para abajo es azul);
-              línea azul (#0967F0) rodeando el logo, con poco espacio */}
-          <div className="bg-white px-2 pt-2 pb-1.5">
-            <div className="rounded-lg border-2 border-[#0967F0] px-2 py-2">
-              <EFLogo className="w-full h-auto" />
-            </div>
+          {/* Logo — variante de alto contraste (texto e icono en blanco), directo
+              sobre el azul del sidebar; ya no necesita el recuadro blanco de antes. */}
+          <div className="px-4 pt-4 pb-2">
+            <EFLogo variant="azul" className="w-full h-auto" />
           </div>
           <div className="px-4 pt-2.5 pb-0.5">
             {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
