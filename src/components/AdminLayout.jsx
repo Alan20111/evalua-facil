@@ -36,7 +36,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
 
   return (
     <div className="min-h-screen bg-surface">
-      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card">
+      <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded bg-accent flex items-center justify-center text-white text-xs font-bold">
             AD

@@ -286,7 +286,7 @@ export default function EvaluacionRunner() {
 
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto" {...subjectPaletteProps(subject?.colorPalette)}>
-        <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10">
+        <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 safe-top">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               {student && (
@@ -417,7 +417,7 @@ export default function EvaluacionRunner() {
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 safe-bottom">
             {navegacionLibre ? (
               <button type="button" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}
                 className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-60 rounded">

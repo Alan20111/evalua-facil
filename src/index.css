@@ -122,6 +122,20 @@
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+/* Modales tipo "bottom sheet" (rounded-t-card: esquinas superiores redondeadas
+   SOLO en móvil, porque quedan pegados al borde inferior de la pantalla) —
+   su botón de acción principal quedaba tapado por la barra de navegación del
+   sistema en Android. rounded-t-card se usa en todo el repo exclusivamente
+   para este patrón, así que un solo selector arregla los ~24 modales sin
+   tocar cada archivo. En web/desktop env(safe-area-inset-bottom) es 0, así
+   que no afecta nada ahí. */
+.rounded-t-card {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ── Custom tooltips — always above the cursor ───────────────────────────── */

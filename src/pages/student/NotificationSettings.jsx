@@ -126,7 +126,7 @@ export default function NotificationSettings() {
 
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto">
-      <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 flex items-center gap-3">
+      <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 flex items-center gap-3 safe-top">
         <button
           type="button"
           onClick={goBack}
