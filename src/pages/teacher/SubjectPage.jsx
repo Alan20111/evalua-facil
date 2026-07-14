@@ -19,6 +19,7 @@ import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { IS_NATIVE_APP } from '../../utils/platform'
 import PaletteSelect from '../../components/PaletteSelect'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import IconSelect from '../../components/IconSelect'
@@ -2102,35 +2103,41 @@ export default function SubjectPage() {
                 : <span>{subject?.accessCode}</span>}
             </button>
             <div className="flex-1" />
-            <button type="button" onClick={openEditSubject}
-              aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-              data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-              <Pencil size={21} />
-            </button>
-            <button type="button" onClick={openCopyModal}
-              aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
-              data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
-              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-              <Copy size={21} />
-            </button>
-            <button type="button" onClick={handleToggleArchive} disabled={archiving}
-              aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
-              data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
-              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
-              {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
-            </button>
-            <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
-              aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
-              data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
-              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
-              <Trash2 size={21} />
-            </button>
+            {/* Editar/duplicar/archivar/eliminar la asignatura: solo en la web —
+                en la app nativa esas acciones se manejan desde ahí. */}
+            {!IS_NATIVE_APP && (
+              <>
+                <button type="button" onClick={openEditSubject}
+                  aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
+                  data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
+                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                  <Pencil size={21} />
+                </button>
+                <button type="button" onClick={openCopyModal}
+                  aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
+                  data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
+                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                  <Copy size={21} />
+                </button>
+                <button type="button" onClick={handleToggleArchive} disabled={archiving}
+                  aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
+                  data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
+                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
+                  {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
+                </button>
+                <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
+                  aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
+                  data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
+                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+                  <Trash2 size={21} />
+                </button>
+              </>
+            )}
           </div>
 
-          {/* Tabs */}
+          {/* Tabs — Calificaciones/Estudiantes solo en la web */}
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
-            {['actividades', 'calificaciones', 'alumnos', 'recursos'].map((t) => (
+            {(IS_NATIVE_APP ? ['actividades', 'recursos'] : ['actividades', 'calificaciones', 'alumnos', 'recursos']).map((t) => (
               <button type="button" key={t} onClick={() => switchTab(t)}
                 className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                   activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
@@ -2199,9 +2206,17 @@ export default function SubjectPage() {
                           : FileText
                         return (
                           <div key={a.id} className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}`}>
-                            {/* A draft has nothing to grade — its row opens the editor instead */}
+                            {/* A draft has nothing to grade — its row opens the editor instead
+                                (solo en la web: en la app nativa editar no está disponible). */}
                             <button type="button"
-                              onClick={() => isDraftActivity(a) ? openEdit(a, activityLabelById[a.id]) : navigate(`/activity/${a.id}`)}
+                              onClick={() => {
+                                if (isDraftActivity(a)) {
+                                  if (!IS_NATIVE_APP) openEdit(a, activityLabelById[a.id])
+                                  else toast('Edita este borrador desde la versión web', 'error')
+                                } else {
+                                  navigate(`/activity/${a.id}`)
+                                }
+                              }}
                               data-tooltip-follow={isDraftActivity(a) ? 'Editar borrador' : a.tipo === 'evaluacion' ? 'Evaluación' : 'Evaluar'}
                               className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
                               <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
@@ -2213,19 +2228,20 @@ export default function SubjectPage() {
                                     {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : 'Entregable'})
                                   </span>
                                 </p>
-                                {(a.publishedAt || a.fechaLimite || a.publishAt || visState === 'hidden') && (
+                                {((!IS_NATIVE_APP && (a.publishedAt || a.fechaLimite || a.publishAt)) || visState === 'hidden') && (
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                    {a.publishedAt && (
+                                    {/* Fechas de publicación/cierre: solo en la web */}
+                                    {!IS_NATIVE_APP && a.publishedAt && (
                                       <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
                                         <Clock size={14} /> {formatPublishAt(a.publishedAt)}
                                       </span>
                                     )}
-                                    {a.publishAt && (
+                                    {!IS_NATIVE_APP && a.publishAt && (
                                       <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
                                         <Clock size={14} /> {formatPublishAt(a.publishAt)}
                                       </span>
                                     )}
-                                    {a.fechaLimite && (
+                                    {!IS_NATIVE_APP && a.fechaLimite && (
                                       <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
                                         <Clock size={14} /> {formatDeadline(a.fechaLimite)}
                                       </span>
@@ -2279,18 +2295,23 @@ export default function SubjectPage() {
                                 <Eye size={16} />
                               </button>
                             )}
-                            <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
-                              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
-                              <Pencil size={16} />
-                            </button>
-                            {/* Less-used actions (Duplicar / Eliminar) tucked into a ⋮ menu */}
-                            <button type="button"
-                              onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
-                              aria-label="Más acciones"
-                              data-tooltip="Más acciones"
-                              className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
-                              <MoreVertical size={16} />
-                            </button>
+                            {/* Editar y el menú ⋮ (Duplicar/Eliminar): solo en la web */}
+                            {!IS_NATIVE_APP && (
+                              <>
+                                <button type="button" onClick={() => openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
+                                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-0.5">
+                                  <Pencil size={16} />
+                                </button>
+                                {/* Less-used actions (Duplicar / Eliminar) tucked into a ⋮ menu */}
+                                <button type="button"
+                                  onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
+                                  aria-label="Más acciones"
+                                  data-tooltip="Más acciones"
+                                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 mr-1">
+                                  <MoreVertical size={16} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         )
                       })}

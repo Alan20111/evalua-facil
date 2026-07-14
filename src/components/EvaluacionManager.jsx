@@ -9,6 +9,7 @@ import Spinner from './Spinner'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../utils/sanitizeHtml'
 import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
 import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
+import { IS_NATIVE_APP } from '../utils/platform'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
 import SearchInput from './SearchInput'
@@ -734,16 +735,19 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   <span className="truncate">{activity.nombre}</span>
                 </h1>
                 {/* Mismo botón editar que un entregable: lápiz inmediato al nombre.
-                    Abre el MISMO editor completo que "editar" desde el parcial. */}
-                <button
-                  type="button"
-                  onClick={() => setShowEvalEditor(true)}
-                  data-tooltip="Editar actividad"
-                  aria-label="Editar actividad"
-                  className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
-                >
-                  <Pencil size={18} />
-                </button>
+                    Abre el MISMO editor completo que "editar" desde el parcial.
+                    Solo en la web. */}
+                {!IS_NATIVE_APP && (
+                  <button
+                    type="button"
+                    onClick={() => setShowEvalEditor(true)}
+                    data-tooltip="Editar actividad"
+                    aria-label="Editar actividad"
+                    className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                  >
+                    <Pencil size={18} />
+                  </button>
+                )}
               </div>
               <p className="text-sm font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
             </div>
@@ -1221,8 +1225,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               return (
             <>
               {/* Con reactivos de respuesta escrita / subir documento, el docente
-                  debe intervenir: aviso + salto directo a la primera por calificar */}
-              {hasManual && resultCounts.porCalificar > 0 && (
+                  debe intervenir: aviso + salto directo a la primera por calificar.
+                  Solo en la web — calificar por estudiante no está en la app nativa. */}
+              {!IS_NATIVE_APP && hasManual && resultCounts.porCalificar > 0 && (
                 <div className="mb-3 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-card flex items-center gap-2 text-sm text-amber-800">
                   <span className="flex-1">
                     <strong>{resultCounts.porCalificar}</strong> entrega{resultCounts.porCalificar !== 1 ? 's' : ''} con reactivos de respuesta escrita o documentos que debes calificar.
@@ -1254,13 +1259,21 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     </button>
                   ))}
                 </div>
-                <SearchInput
-                  value={searchResultados}
-                  onChange={setSearchResultados}
-                  placeholder="Buscar por nombre o por número de lista…"
-                />
+                {!IS_NATIVE_APP && (
+                  <SearchInput
+                    value={searchResultados}
+                    onChange={setSearchResultados}
+                    placeholder="Buscar por nombre o por número de lista…"
+                  />
+                )}
               </div>
-              {visibles.length === 0 ? (
+              {/* Lista por estudiante — en la app nativa solo se ven los conteos de
+                  arriba; calificar por estudiante es exclusivo de la web. */}
+              {IS_NATIVE_APP ? (
+                <p className="text-center text-slate-400 text-sm py-8">
+                  Califica por estudiante desde la versión web
+                </p>
+              ) : visibles.length === 0 ? (
                 <p className="text-center text-slate-400 text-sm py-8 flex items-center justify-center gap-2"><Users size={16} /> {students.length === 0 ? 'Sin estudiantes' : 'Sin estudiantes en esta categoría'}</p>
               ) : (
                 visibles.map((s, i) => {
