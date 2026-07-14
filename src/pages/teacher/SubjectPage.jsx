@@ -3505,7 +3505,15 @@ export default function SubjectPage() {
               <QRCode value={activationUrl} size={280} className="max-w-full h-auto" />
             </div>
             {subject.accessCode && (
-              <p className="text-5xl font-bold tracking-wide text-accent mb-4">{subject.accessCode}</p>
+              <p className={`text-4xl font-bold tracking-wide text-accent ${groupStudentsLoaded && groupStudents.length === 0 ? 'mb-1' : 'mb-4'}`}>
+                {subject.accessCode}
+              </p>
+            )}
+            {groupStudentsLoaded && groupStudents.length === 0 && (
+              <p className="text-xs text-muted mb-4">
+                Antes de compartir estos datos, agrega estudiantes manualmente o mediante la
+                plantilla de Excel en la pestaña Estudiantes{IS_NATIVE_APP ? ' en la web' : ''}.
+              </p>
             )}
             <button type="button"
               onClick={handleExportQRPDF}
