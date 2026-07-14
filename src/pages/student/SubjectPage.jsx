@@ -29,6 +29,7 @@ import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 function ResourceCard({ resource: r }) {
   const { icon: Icon, color } = getResourceIcon(r.nombreArchivo || r.nombre || '')
@@ -97,6 +98,8 @@ export default function StudentSubjectPage() {
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
   const toast = useToast()
+  const goBack = () => navigate('/alumno/dashboard')
+  useBackHandler(goBack)
 
   useEffect(() => {
     // `currentUser` can still be null on first mount while Firebase Auth restores the
@@ -221,7 +224,7 @@ export default function StudentSubjectPage() {
         <button
           type="button"
           aria-label="Volver"
-          onClick={() => navigate('/alumno/dashboard')}
+          onClick={goBack}
           className="md:hidden p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >
           <ArrowLeft size={22} />
