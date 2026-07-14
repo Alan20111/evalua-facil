@@ -38,3 +38,19 @@ export function formatDeadline(fechaLimite) {
   const d = new Date(hasTime ? fechaLimite : `${fechaLimite}T00:00:00`)
   return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
+
+// Parses `fechaLimite` for deadline comparisons. Legacy plain-date values
+// (no time component) are anchored to end-of-day LOCAL time, not midnight —
+// otherwise `new Date('2026-07-13')` parses as UTC midnight, which reads as
+// already overdue for most of the day in timezones west of UTC (e.g. Mexico).
+function parseFechaLimite(fechaLimite) {
+  const hasTime = fechaLimite.includes('T')
+  return new Date(hasTime ? fechaLimite : `${fechaLimite}T23:59:59`)
+}
+
+// Whether an activity's submission deadline has already passed.
+export function isOverdue(activity) {
+  if (!activity?.fechaLimite) return false
+  const d = parseFechaLimite(activity.fechaLimite)
+  return !isNaN(d.getTime()) && d < new Date()
+}
