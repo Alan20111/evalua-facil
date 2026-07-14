@@ -144,6 +144,10 @@ export default function TeacherDashboard() {
       toast('Activa tu suscripción mensual para crear nuevas asignaturas — toda tu información sigue disponible')
       return
     }
+    if (!userProfile) {
+      toast('No se pudo cargar tu perfil. Recarga la página e inténtalo de nuevo.', 'error')
+      return
+    }
     setCreatingSubject(true)
     try {
       const subData = {
