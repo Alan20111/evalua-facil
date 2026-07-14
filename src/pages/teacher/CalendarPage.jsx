@@ -1740,7 +1740,7 @@ export default function CalendarPage() {
         )}
 
         {/* Calendar body */}
-        <div className="bg-surface-card border border-outline-variant rounded-card shadow-card overflow-hidden">
+        <div className="bg-surface-card border border-outline rounded shadow-card overflow-hidden">
           {loading ? (
             <div className="flex justify-center py-16"><Spinner /></div>
           ) : view === 'agenda' ? (
