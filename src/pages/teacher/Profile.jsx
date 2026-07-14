@@ -51,6 +51,13 @@ async function uploadAvatar(file) {
 const inputCls =
   'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
 
+// Prefijos predefinidos para el nombre visible — "Otro…" permite escribir
+// cualquier otro que no esté en la lista.
+const PREFIJOS = [
+  'Profesor', 'Profesora', 'Maestro', 'Maestra', 'Profe',
+  'Mtro.', 'Mtra.', 'Lic.', 'Ing.', 'Dr.', 'Dra.', 'Arq.',
+]
+
 export default function Profile() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
   const toast = useToast()
@@ -59,6 +66,18 @@ export default function Profile() {
   // Display name
   const [nombre, setNombre] = useState(userProfile?.nombreMostrar || '')
   const [savingNombre, setSavingNombre] = useState(false)
+
+  // Prefijo del nombre visible (opcional) — el <select> guarda uno de los
+  // valores predefinidos, '' (sin prefijo) o '__otro__' (texto libre en
+  // prefijoCustom). Si el prefijo guardado no está en la lista, se carga
+  // como "Otro…" con su texto ya escrito.
+  const initialPrefijo = userProfile?.prefijo || ''
+  const [prefijoOption, setPrefijoOption] = useState(
+    initialPrefijo === '' || PREFIJOS.includes(initialPrefijo) ? initialPrefijo : '__otro__'
+  )
+  const [prefijoCustom, setPrefijoCustom] = useState(
+    initialPrefijo && !PREFIJOS.includes(initialPrefijo) ? initialPrefijo : ''
+  )
 
   // Datos personales (nombre real, distinto del nombre visible/alias)
   const [realNombre, setRealNombre] = useState(userProfile?.nombre || '')
@@ -251,9 +270,10 @@ export default function Profile() {
   async function handleSaveNombre(e) {
     e.preventDefault()
     setSavingNombre(true)
+    const prefijo = prefijoOption === '__otro__' ? prefijoCustom.trim() : prefijoOption
     try {
-      await updateDoc(doc(db, 'users', currentUser.uid), { nombreMostrar: nombre.trim() })
-      setUserProfile((p) => ({ ...p, nombreMostrar: nombre.trim() }))
+      await updateDoc(doc(db, 'users', currentUser.uid), { nombreMostrar: nombre.trim(), prefijo })
+      setUserProfile((p) => ({ ...p, nombreMostrar: nombre.trim(), prefijo }))
       toast('Nombre actualizado')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -541,9 +561,28 @@ export default function Profile() {
           </h2>
           <p className="text-sm text-muted -mt-1 mb-2">Así te verán tus estudiantes — puede ser distinto a tu nombre real.</p>
           <form onSubmit={handleSaveNombre} className="space-y-2">
-            <div>
-              <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
-                className={inputCls} placeholder="Ej. Profa. García Pérez" />
+            <div className="flex gap-2 items-start">
+              <div className="w-32 sm:w-36 flex-shrink-0">
+                <label htmlFor="prof-prefijo" className="block text-xs font-medium text-muted mb-1">
+                  Prefijo <span className="text-slate-400 font-normal">(opcional)</span>
+                </label>
+                <select id="prof-prefijo" value={prefijoOption} onChange={(e) => setPrefijoOption(e.target.value)}
+                  className={inputCls}>
+                  <option value="">Sin prefijo (predeterminado)</option>
+                  {PREFIJOS.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                  <option value="__otro__">Otro… (escríbelo)</option>
+                </select>
+                {prefijoOption === '__otro__' && (
+                  <input type="text" value={prefijoCustom} onChange={(e) => setPrefijoCustom(e.target.value)}
+                    className={`${inputCls} mt-2`} placeholder="Escribe el prefijo" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
+                  className={inputCls} placeholder="Ej. Profa. García Pérez" />
+              </div>
             </div>
             <button type="submit" disabled={savingNombre}
               className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
