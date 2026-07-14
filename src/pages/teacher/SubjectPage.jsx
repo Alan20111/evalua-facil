@@ -53,6 +53,7 @@ import { findStudentIdentity } from '../../utils/studentIdentity'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
 import { useSubscription } from '../../hooks/useSubscription'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 import EvaluacionEditor from '../../components/EvaluacionEditor'
 import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
@@ -343,6 +344,36 @@ export default function SubjectPage() {
   useBackHandler(() => setNewDateOpen(false), !!(entregableEditor && newDateOpen))
   // Screen-level: only runs when no modal/menu above is open.
   useBackHandler(goBack)
+
+  // Scroll lock — this page never unmounts while a modal/confirm overlay is
+  // open, so each overlay needs its own lock tied to the same condition that
+  // controls its render below (one call per overlay, not a blanket lock).
+  useScrollLock(showModal)
+  useScrollLock(duplicateConfirm)
+  useScrollLock(publishDraftConfirm)
+  useScrollLock(deleteConfirm)
+  useScrollLock(showMaterialModal)
+  useScrollLock(deleteMaterialConfirm)
+  useScrollLock(showAddStudent)
+  useScrollLock(studentToEdit)
+  useScrollLock(showQR && subject)
+  useScrollLock(studentToReset)
+  useScrollLock(showCredentialsModal)
+  useScrollLock(importFor != null)
+  useScrollLock(confirmRevertPonderacion)
+  useScrollLock(confirmRevertParcial != null)
+  useScrollLock(closeParcialConfirm)
+  useScrollLock(revertParcialConfirm != null)
+  useScrollLock(linkCandidate)
+  useScrollLock(resetPwdResult)
+  useScrollLock(studentToDelete)
+  useScrollLock(showEditSubjectModal)
+  useScrollLock(showCopyModal)
+  useScrollLock(showDeleteSubjectConfirm)
+  useScrollLock(showArchiveModal)
+  useScrollLock(showUnarchiveModal)
+  useScrollLock(showResourceModal)
+  useScrollLock(deleteResourceConfirm)
 
   // Snapshot the calificaciones search + scroll right before leaving to a student's
   // activity, so returning (backState { tab: 'calificaciones' }) restores them.

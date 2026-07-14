@@ -7,6 +7,7 @@ import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { usePaymentConfig } from '../hooks/usePaymentConfig'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { useScrollLock } from '../hooks/useScrollLock'
 import { MONTHLY_PLAN_ID, MONTHLY_PRICE_MXN, SUBSCRIPTION_NAME, formatCurrency } from '../utils/subscriptionHelpers'
 
 const inputCls =
@@ -41,6 +42,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   const paypalRef = useRef(null)
 
   useBackHandler(onClose, open)
+  useScrollLock(open)
 
   // Default method = first enabled one.
   useEffect(() => {

@@ -10,6 +10,7 @@ import {
   BLOQUE_COLORS, ALARMA_SONIDOS, reproducirSonido,
   addMinutesToTime, timeToMinutes,
 } from '../../utils/horarioBloques'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 const HORAS_INICIO = Array.from({ length: 33 }, (_, i) => {
   const h = 6 + Math.floor(i / 2)
@@ -47,6 +48,9 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
   })
   const [saving, setSaving] = useState(false)
   const [confirmDel, setConfirmDel] = useState(null) // 'uno' | 'posteriores' | 'todos' | 'asignatura'
+
+  // Este componente solo se monta mientras está abierto (lo controla el padre).
+  useScrollLock(true)
 
   const pal = BLOQUE_COLORS.find(c => c.id === form.color) || BLOQUE_COLORS[0]
   const horaFin = addMinutesToTime(form.horaInicio, Math.max(1, form.horas) * durUnit)

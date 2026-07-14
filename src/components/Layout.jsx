@@ -29,6 +29,7 @@ import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { useScrollLock } from '../hooks/useScrollLock'
 
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
@@ -40,6 +41,7 @@ export default function TeacherLayout({ children }) {
   const [confirmLogout, setConfirmLogout] = useState(false)
 
   useBackHandler(() => setConfirmLogout(false), confirmLogout)
+  useScrollLock(confirmLogout)
 
   // Real-time subjects: any create/edit/archive/duplicate/delete reflects instantly
   // in the sidebar (no manual refresh).

@@ -18,6 +18,7 @@ import SearchInput from '../../components/SearchInput'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 import {
   TRIAL_DURATION_DAYS,
   MONTHLY_PRICE_MXN,
@@ -71,6 +72,7 @@ export default function Profile() {
   // School
   const [showSchoolPicker, setShowSchoolPicker] = useState(false)
   useBackHandler(() => setShowSchoolPicker(false), showSchoolPicker)
+  useScrollLock(showSchoolPicker)
   const [schoolSearch, setSchoolSearch] = useState('')
   const [savingSchool, setSavingSchool] = useState(false)
   const [addingCustomSchool, setAddingCustomSchool] = useState(false)
@@ -212,6 +214,7 @@ export default function Profile() {
   const [confirm, setConfirm] = useState(null) // { title, message, onConfirm }
   const [confirming, setConfirming] = useState(false)
   useBackHandler(() => setConfirm(null), !!confirm)
+  useScrollLock(!!confirm)
 
   const [showPaymentModal, setShowPaymentModal] = useState(false)
 

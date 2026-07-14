@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, ClipboardList, Check } fr
 import RubricaEditor from './RubricaEditor'
 import RubricaTable from './RubricaTable'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
 
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
@@ -24,6 +25,9 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
   // Physical Android back button — closes the "eliminar rúbrica" confirmation,
   // mirroring its own Cancelar button.
   useBackHandler(() => setConfirmDeleteId(null), !!confirmDeleteId)
+
+  // Este componente solo se monta mientras está abierto (lo controla el padre).
+  useScrollLock(true)
 
   // `loading` ya inicia en true y load() solo corre al montar — sin setState
   // síncrono aquí (react-hooks/set-state-in-effect).

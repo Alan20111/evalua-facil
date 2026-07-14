@@ -5,6 +5,7 @@ import { auth, db } from '../firebase'
 import { X, CheckCircle2 } from 'lucide-react'
 import Spinner from './Spinner'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { useScrollLock } from '../hooks/useScrollLock'
 
 // "Acceso desde otra computadora" — lets a teacher who normally signs in
 // with Google add a password without ever being signed in on this device.
@@ -29,6 +30,7 @@ export default function LinkAccountModal({ onClose }) {
   const [loading, setLoading] = useState(false)
 
   useBackHandler(onClose, true)
+  useScrollLock(true)
 
   async function handleContinue(e) {
     e.preventDefault()

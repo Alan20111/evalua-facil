@@ -25,6 +25,7 @@ import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -67,6 +68,7 @@ export default function StudentDashboard() {
   const toast = useToast()
 
   useBackHandler(() => setShowJoin(false), showJoin)
+  useScrollLock(showJoin)
 
   function handleJoinSubject(e) {
     e.preventDefault()

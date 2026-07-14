@@ -18,6 +18,7 @@ import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacacion
 import { TEACHER_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
@@ -956,6 +957,12 @@ export default function CalendarPage() {
   // La zona semanal (paso 2) maneja su propio guard en ProgramarZonaSemanal.
   useBackHandler(closeEventEditor, showEventEditor)
   useBackHandler(() => setProgramar(null), !!programar)
+
+  // Bloquean el scroll de fondo mientras cada overlay propio de esta página
+  // está abierto (los demás overlays manejan su propio lock: EventEditor,
+  // ProgramarZonaSemanal, AsuetoManager, VacacionManager).
+  useScrollLock(showModificarPicker)
+  useScrollLock(!!pendingMove)
 
   function changeView(v) {
     setView(v)
@@ -2038,6 +2045,7 @@ export default function CalendarPage() {
 // El docente elige una fecha y a qué afecta (clases, eventos, actividades). Un
 // tipo marcado = ese tipo NO se permite ese día. "Todo" marca los tres.
 function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
+  useScrollLock(true)
   const [fecha, setFecha] = useState('')
   const [alcance, setAlcance] = useState({ clases: true, eventos: true, actividades: true })
 
@@ -2154,6 +2162,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
 // de un solo día. El docente elige el rango y a qué afecta (clases, eventos,
 // actividades) — el mismo alcance seleccionable que en Días de asueto.
 function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
+  useScrollLock(true)
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFin, setFechaFin] = useState('')
   const [alcance, setAlcance] = useState({ clases: true, eventos: true, actividades: true })

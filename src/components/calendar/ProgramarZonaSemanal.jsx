@@ -9,6 +9,7 @@ import {
   DIAS_SEMANA, addMinutesToTime, timeToMinutes,
 } from '../../utils/horarioBloques'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 const ROW_H = 52 // px por hora — igual que la vista Semana
 const SNAP_MIN = 10 // los bloques se colocan/arrastran alineados a 10 min
@@ -82,6 +83,14 @@ export default function ProgramarZonaSemanal({
   useBackHandler(() => setPlacing(null), !!placing)
   useBackHandler(() => setEditing(null), !!editing)
   useBackHandler(() => setConfirmSalir(false), !!confirmSalir)
+
+  // Este componente solo se monta mientras la zona semanal está abierta, así
+  // que bloquea el scroll de fondo sin condición (igual que EventEditor). Sus
+  // propios popovers (colocar/editar bloque, confirmar salida) son overlays
+  // independientes y llevan su propio lock más abajo.
+  useScrollLock(true)
+  useScrollLock(!!placing)
+  useScrollLock(!!confirmSalir)
 
   const restantes = bloquesPorSemana - patrones.length
   const completo = patrones.length === bloquesPorSemana
@@ -271,6 +280,7 @@ export default function ProgramarZonaSemanal({
   }
 
   const editP = editing ? patrones.find(p => p.id === editing) : null
+  useScrollLock(!!editP)
   const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
   const bannerBg = esModificar ? '#fef3c7' : bloqueColor(colorDefault).bg + '66'
 

@@ -5,6 +5,7 @@ import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
 import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { useScrollLock } from '../hooks/useScrollLock'
 
 const PDF_EXTS = ['pdf']
 const OFFICE_EXTS = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt']
@@ -173,6 +174,8 @@ export function FilePreviewModal({ url, nombre, onClose }) {
   // state and SubjectPage's `previewResourceId`-driven state) only render this
   // component while it's open, so `active=true` mirrors the NuevaFechaEntregaModal pattern.
   useBackHandler(onClose, true)
+  // Same reasoning: only mounted while open, so the scroll lock is unconditional.
+  useScrollLock(true)
   if (!url) return null
   const downloadHref = downloadUrl(url, nombre)
   // Image-delivered PDFs can't be opened directly (raw URL blocked) → open the

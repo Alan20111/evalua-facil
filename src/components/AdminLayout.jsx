@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
+import { useScrollLock } from '../hooks/useScrollLock'
 
 const TABS = [
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
@@ -26,6 +27,8 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
   const { userProfile } = useAuth()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  useScrollLock(mobileOpen)
 
   const handleLogout = async () => {
     await signOut(auth)

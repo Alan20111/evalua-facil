@@ -5,6 +5,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { Bell, BellOff, Play, ArrowRight, CalendarPlus, Pencil, Trash2 } from 'lucide-react'
 import { BLOQUE_COLORS, ALARMA_SONIDOS, reproducirSonido } from '../../utils/horarioBloques'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 // Ventana de configuración de una programación (paso 1 de 2).
 //
@@ -37,6 +38,9 @@ export default function ProgramarBloquesModal({
   // solo la cancela (no cierra todo el modal). El cierre del modal en sí lo
   // maneja CalendarPage con useBackHandler(() => setProgramar(null), ...).
   useBackHandler(() => setConfirmDel(false), confirmDel)
+
+  // Este componente solo se monta mientras está abierto (lo controla el padre).
+  useScrollLock(true)
 
   // En modo "crear" solo se listan asignaturas SIN programar.
   const subjectList = useMemo(
