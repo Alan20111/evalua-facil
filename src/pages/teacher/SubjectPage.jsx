@@ -2143,9 +2143,9 @@ export default function SubjectPage() {
             </button>
             <button type="button" onClick={copyAccessCode}
               data-tooltip="Copiar código de acceso para estudiantes"
-              className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-3xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
+              className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
               {copiedCode
-                ? <><CheckIcon size={24} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
+                ? <><CheckIcon size={22} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
                 : <span>{subject?.accessCode}</span>}
             </button>
             <div className="flex-1" />
@@ -2180,6 +2180,16 @@ export default function SubjectPage() {
               </>
             )}
           </div>
+
+          {/* Aún sin estudiantes: aviso debajo del código de acceso. totalStudents
+              se calcula al cargar la materia (no depende de haber visitado la
+              pestaña Estudiantes), así que está listo desde el primer render. */}
+          {totalStudents === 0 && (
+            <p className="text-xs text-muted mt-1">
+              Antes de compartir estos datos, agrega estudiantes manualmente o mediante la
+              plantilla de Excel en la pestaña Estudiantes{IS_NATIVE_APP ? ' en la web' : ''}.
+            </p>
+          )}
 
           {/* Tabs — Calificaciones/Estudiantes solo en la web */}
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
@@ -3505,11 +3515,11 @@ export default function SubjectPage() {
               <QRCode value={activationUrl} size={280} className="max-w-full h-auto" />
             </div>
             {subject.accessCode && (
-              <p className={`text-4xl font-bold tracking-wide text-accent ${groupStudentsLoaded && groupStudents.length === 0 ? 'mb-1' : 'mb-4'}`}>
+              <p className={`text-4xl font-bold tracking-wide text-accent ${totalStudents === 0 ? 'mb-1' : 'mb-4'}`}>
                 {subject.accessCode}
               </p>
             )}
-            {groupStudentsLoaded && groupStudents.length === 0 && (
+            {totalStudents === 0 && (
               <p className="text-xs text-muted mb-4">
                 Antes de compartir estos datos, agrega estudiantes manualmente o mediante la
                 plantilla de Excel en la pestaña Estudiantes{IS_NATIVE_APP ? ' en la web' : ''}.
