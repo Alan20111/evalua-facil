@@ -68,7 +68,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
       <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !saving && onClose()} aria-label="Cerrar" />
-      <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card p-4 shadow-2xl max-h-[90vh] flex flex-col">
+      <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-t-card sm:rounded-card p-4 shadow-2xl max-h-[90vh] flex flex-col">
         <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
         <div className="flex gap-2 mt-3 flex-shrink-0">
           <button type="button" onClick={() => setMode('todos')}

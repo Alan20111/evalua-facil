@@ -3639,7 +3639,7 @@ export default function SubjectPage() {
       {importFor != null && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !importing && setImportFor(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card shadow-2xl max-h-[85vh] flex flex-col">
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-t-card sm:rounded-card shadow-2xl max-h-[85vh] flex flex-col">
             <div className="px-4 py-3 border-b border-outline-variant flex items-center gap-2">
               {importSrc && (
                 <button type="button" onClick={() => { setImportSrc(null); setImportSrcActs([]); setImportSel(new Set()) }}
@@ -3772,7 +3772,7 @@ export default function SubjectPage() {
       {confirmRevertPonderacion && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setConfirmRevertPonderacion(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Volver a promedio simple?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Al menos una actividad ya tiene ponderación. Los pesos capturados se borrarán y todas las actividades valdrán lo mismo.
@@ -3795,7 +3795,7 @@ export default function SubjectPage() {
       {confirmRevertParcial != null && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setConfirmRevertParcial(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Parcial {confirmRevertParcial} con promedio simple?</h3>
             <p className="text-sm text-muted text-center mt-2">
               El Parcial {confirmRevertParcial} ya tiene pesos capturados. Se borrarán y ese parcial usará promedio simple.
@@ -3818,7 +3818,7 @@ export default function SubjectPage() {
       {closeParcialConfirm && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !closingParcial && setCloseParcialConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">Cerrar el Parcial {closeParcialConfirm.p}</h3>
             <p className="text-sm text-muted text-center mt-2">
               Para cerrar el parcial, <strong>todas las calificaciones deben estar puestas</strong>.
@@ -3892,7 +3892,7 @@ export default function SubjectPage() {
       {revertParcialConfirm != null && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !revertingParcial && setRevertParcialConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl">
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Revertir el cierre del Parcial {revertParcialConfirm}?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Las calificaciones que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
@@ -3915,7 +3915,7 @@ export default function SubjectPage() {
       {linkCandidate && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !savingStudent && setLinkCandidate(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-card p-4 shadow-2xl">
+          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm rounded-t-card sm:rounded-card p-4 shadow-2xl">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
               <UserPlus size={24} className="text-accent" />
             </div>
