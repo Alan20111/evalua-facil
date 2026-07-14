@@ -434,8 +434,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
               <input id="rub-titulo" type="text" value={r.titulo}
                 onChange={(e) => setR((prev) => ({ ...prev, titulo: e.target.value }))}
                 required
-                /* autofocus: primer campo de esta pantalla completa (equivalente a un modal) */
-                autoFocus placeholder="Ej: Ensayo escrito, Maqueta, Proyecto final"
+                placeholder="Ej: Ensayo escrito, Maqueta, Proyecto final"
                 className="flex-1 min-w-0 px-2 py-1 border-b-2 border-outline-variant focus:border-accent focus:outline-none text-sm bg-transparent" />
             </div>
             <input type="text" value={r.descripcion}

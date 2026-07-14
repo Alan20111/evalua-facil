@@ -3077,8 +3077,6 @@ export default function SubjectPage() {
                 <label htmlFor="act-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
                 <input id="act-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  // Primer campo del modal, abierto con intención explícita de escribir
-                  autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Tarea 1, Examen parcial" />
               </div>
@@ -3282,8 +3280,6 @@ export default function SubjectPage() {
                 <label htmlFor="material-nombre" className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
                 <input id="material-nombre" type="text" value={materialForm.nombre} onChange={(e) => setMaterialForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  // Primer campo del modal, abierto con intención explícita de escribir
-                  autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Libro de texto, Video introductorio, Guía de laboratorio" />
               </div>
@@ -4036,8 +4032,6 @@ export default function SubjectPage() {
                 <label htmlFor="edit-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input id="edit-subject-nombre" type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  // Primer campo del modal, abierto con intención explícita de escribir
-                  autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas I" />
               </div>
@@ -4102,8 +4096,6 @@ export default function SubjectPage() {
                 <label htmlFor="copy-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input id="copy-subject-nombre" type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  // Primer campo del modal, abierto con intención explícita de escribir
-                  autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Matemáticas II" />
               </div>
@@ -4347,8 +4339,6 @@ export default function SubjectPage() {
                   value={resourceForm.nombre}
                   onChange={(e) => setResourceForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  // Primer campo del modal, abierto con intención explícita de escribir
-                  autoFocus
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej: Programa de la asignatura"
                 />
