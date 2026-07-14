@@ -12,10 +12,9 @@
       "splashFullScreen": true,
       "splashImmersive": true
     },
-    "StatusBar": {
-      "overlaysWebView": false,
-      "style": "DARK",
-      "backgroundColor": "#f8fafcff"
+    "SafeArea": {
+      "statusBarStyle": "LIGHT",
+      "navigationBarStyle": "LIGHT"
     }
   }
 }
