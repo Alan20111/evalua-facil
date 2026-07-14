@@ -140,18 +140,33 @@ export default function Fireworks({ active, onDone, duration = 7800 }) {
       const w = window.innerWidth, h = window.innerHeight
       const x = w * (0.1 + Math.random() * 0.8)
       const startY = h + 10
-      const targetY = h * (0.14 + Math.random() * 0.32)
-      // Un poco más de la mitad de los cohetes se curva hacia un lado al
-      // subir (como si el viento los empujara) — así no todos suben rectos.
-      const curved = Math.random() < 0.55
       const curveDir = Math.random() < 0.5 ? -1 : 1
-      const curveAmt = curved ? w * (0.05 + Math.random() * 0.09) * curveDir : 0
+      const roll = Math.random()
+      let targetY, curveAmt, curveExp
+      if (roll < 0.15) {
+        // Curva marcada: se nota mucho más, a cambio de no subir tanto —
+        // explotan más abajo, con un arco pronunciado y corto.
+        targetY = h * (0.32 + Math.random() * 0.14)
+        curveAmt = w * (0.17 + Math.random() * 0.13) * curveDir
+        curveExp = 1.3
+      } else if (roll < 0.55) {
+        // Curva suave (la de siempre): sube casi todo el alto de pantalla.
+        targetY = h * (0.14 + Math.random() * 0.32)
+        curveAmt = w * (0.05 + Math.random() * 0.09) * curveDir
+        curveExp = 1.6
+      } else {
+        // Recto.
+        targetY = h * (0.14 + Math.random() * 0.32)
+        curveAmt = 0
+        curveExp = 1
+      }
       rockets.push({
         x, startX: x, y: startY, startY, targetY,
         vy: -(6.2 + Math.random() * 2.8),
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
         trail: [],
         curveAmt,
+        curveExp,
       })
     }
 
@@ -201,11 +216,14 @@ export default function Fireworks({ active, onDone, duration = 7800 }) {
 
       rockets = rockets.filter((r) => {
         r.trail.push({ x: r.x, y: r.y })
-        if (r.trail.length > 6) r.trail.shift()
+        // Colita más larga en los cohetes curvos para que se alcance a ver el
+        // arco dentro de la propia estela, no solo en el trayecto completo.
+        const maxTrail = r.curveAmt ? 14 : 6
+        if (r.trail.length > maxTrail) r.trail.shift()
         r.y += r.vy
         if (r.curveAmt) {
           const progress = Math.min(1, Math.max(0, (r.startY - r.y) / (r.startY - r.targetY)))
-          r.x = r.startX + r.curveAmt * progress * progress
+          r.x = r.startX + r.curveAmt * Math.pow(progress, r.curveExp)
         }
         ctx.strokeStyle = r.color
         ctx.lineWidth = 1.6
