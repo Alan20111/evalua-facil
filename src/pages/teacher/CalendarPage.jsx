@@ -684,7 +684,12 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
 
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[620px]">
+      {/* Sin mínimo forzado en móvil (min-w-0): las columnas de días, que ya
+          usan 1fr, se encogen para caber en la pantalla en vez de obligar a
+          hacer scroll horizontal. En escritorio (md+) se mantiene el ancho
+          mínimo de siempre para que las columnas no queden demasiado
+          angostas para arrastrar bloques/eventos. */}
+      <div className="min-w-0 md:min-w-[620px]">
         {/* Day headers */}
         <div className="grid border-b border-outline-variant sticky top-0 bg-surface-card z-10" style={{ gridTemplateColumns: gridCols }}>
           <div className="py-2 px-2" />
