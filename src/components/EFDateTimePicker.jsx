@@ -14,7 +14,7 @@ const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sáb
 const HOURS   = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 const MINUTES = Array.from({ length: 60 }, (_, i) => i)
 const AMPM    = ['am', 'pm']
-const ITEM_H  = 26   // px per wheel row
+const ITEM_H  = 30   // px per wheel row
 const ANIM_MS = 200  // wheel animation duration
 
 // ── Inject keyframes once ──────────────────────────────────────────────────────
@@ -347,7 +347,7 @@ function WheelPicker({ items, selectedIdx, onChange, label, formatItem, disabled
 
   const navBtnStyle = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    height: 18, border: 'none', background: 'transparent',
+    height: 32, border: 'none', background: 'transparent',
     cursor: 'pointer', color: 'var(--accent)',
     fontWeight: 300, lineHeight: 1,
     userSelect: 'none', WebkitUserSelect: 'none', borderRadius: 6,
@@ -638,7 +638,12 @@ export default function EFDateTimePicker({
     const vw     = window.innerWidth
     const vh     = window.innerHeight
     const PAD    = 8
-    const W      = mode === 'datetime' ? 390 : 310
+    // El ancho ideal se topa al ancho real de la pantalla: casi ningún
+    // celular Android tiene 390px+ de viewport, así que sin este tope el
+    // popover se salía por la derecha y el overflow:hidden del contenedor
+    // recortaba la columna de HORA (o incluso el calendario).
+    const idealW = mode === 'datetime' ? 390 : 310
+    const W      = Math.min(idealW, vw - PAD * 2)
     const idealH = mode === 'datetime' ? 460 : 360
     // Right edge of popup aligned with right edge of the field — keeps the
     // left side of the form (labels + values below) visible
@@ -991,7 +996,7 @@ export default function EFDateTimePicker({
         {/* Right: Time wheels + buttons */}
         {mode === 'datetime' && (
           <div style={{
-            width: 112,
+            width: 132,
             flexShrink: 0,
             borderLeft: '1px solid var(--outline-variant)',
             display: 'flex',
