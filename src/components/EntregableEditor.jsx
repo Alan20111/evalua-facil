@@ -18,6 +18,7 @@ import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline } from '../utils/activityVisibility'
 import { minDeadline } from '../utils/nowIso'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { IS_NATIVE_APP } from '../utils/platform'
 
 const MAX_ATTACH = 15 * 1024 * 1024
 
@@ -340,11 +341,13 @@ export default function EntregableEditor({
                 </>
               ) : (
                 <div className="space-y-2">
-                  {/* Crear directo: la rúbrica se guarda en el banco Y queda asignada aquí */}
-                  <button type="button" onClick={() => setRubricaEditorOpen(true)}
-                    className="w-full py-2.5 text-sm bg-accent text-white font-semibold rounded hover:bg-accent-hover transition-colors flex items-center justify-center gap-2">
-                    <Plus size={16} /> Crear rúbrica
-                  </button>
+                  {/* Crear directo (banco Y asignación en un paso): solo en la web */}
+                  {!IS_NATIVE_APP && (
+                    <button type="button" onClick={() => setRubricaEditorOpen(true)}
+                      className="w-full py-2.5 text-sm bg-accent text-white font-semibold rounded hover:bg-accent-hover transition-colors flex items-center justify-center gap-2">
+                      <Plus size={16} /> Crear rúbrica
+                    </button>
+                  )}
                   <button type="button" onClick={() => setRubricaPickerOpen(true)}
                     className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
                     <ClipboardList size={16} /> Usar una rúbrica de mi banco
