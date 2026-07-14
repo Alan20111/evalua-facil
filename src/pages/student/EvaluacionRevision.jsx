@@ -13,6 +13,7 @@ import StudentLayout from '../../components/StudentLayout'
 import EvaluacionAnswerList from '../../components/EvaluacionAnswerList'
 import { publicacionVisible } from '../../utils/evaluacionGrading'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 // Read-only post-evaluación review: shows the student's own answers, whether
 // each was correct (if the teacher enabled mostrarRespuestasCorrectas), and
@@ -29,6 +30,8 @@ export default function EvaluacionRevision() {
   const [preguntas, setPreguntas] = useState([])
   const [respuestas, setRespuestas] = useState({})
   const [loading, setLoading] = useState(true)
+  const goBack = () => navigate(`/alumno/actividad/${activityId}`)
+  useBackHandler(goBack)
 
   async function load() {
     setLoading(true)
@@ -85,7 +88,7 @@ export default function EvaluacionRevision() {
     <StudentLayout>
       <div className="bg-surface min-h-screen" {...subjectPaletteProps(subject?.colorPalette)}>
         <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-          <button type="button" onClick={() => navigate(`/alumno/actividad/${activityId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+          <button type="button" onClick={goBack} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="min-w-0">

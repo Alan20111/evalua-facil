@@ -28,6 +28,7 @@ import { IS_NATIVE_APP } from '../utils/platform'
 import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
+import { useBackHandler } from '../hooks/useBackHandler'
 
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
@@ -37,6 +38,8 @@ export default function TeacherLayout({ children }) {
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
+
+  useBackHandler(() => setConfirmLogout(false), confirmLogout)
 
   // Real-time subjects: any create/edit/archive/duplicate/delete reflects instantly
   // in the sidebar (no manual refresh).

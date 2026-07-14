@@ -6,6 +6,7 @@ import { useToast } from '../Toast'
 import EFDateTimePicker from '../EFDateTimePicker'
 import Spinner from '../Spinner'
 import { X, Trash2, Copy } from 'lucide-react'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 export const EVENT_COLORS = [
   { id: 'slate',  bg: '#f1f5f9', text: '#475569', label: 'Gris' },
@@ -32,6 +33,10 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
   })
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Botón atrás físico (Android): si está pidiendo confirmación de borrado,
+  // solo la cancela (no cierra todo el editor).
+  useBackHandler(() => setConfirmDelete(false), confirmDelete)
 
   async function handleSave(e) {
     e.preventDefault()

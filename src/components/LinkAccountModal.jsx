@@ -4,6 +4,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { X, CheckCircle2 } from 'lucide-react'
 import Spinner from './Spinner'
+import { useBackHandler } from '../hooks/useBackHandler'
 
 // "Acceso desde otra computadora" — lets a teacher who normally signs in
 // with Google add a password without ever being signed in on this device.
@@ -26,6 +27,8 @@ export default function LinkAccountModal({ onClose }) {
   const [step, setStep] = useState('email') // email | sent
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useBackHandler(onClose, true)
 
   async function handleContinue(e) {
     e.preventDefault()

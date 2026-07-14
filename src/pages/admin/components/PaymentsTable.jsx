@@ -4,6 +4,7 @@ import { Check, X } from 'lucide-react'
 import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
+import { useBackHandler } from '../../../hooks/useBackHandler'
 import {
   calcVencimientoTimestamp,
   formatCurrency,
@@ -24,6 +25,13 @@ export default function PaymentsTable({ stats, onRefresh }) {
   const [processing, setProcessing] = useState(null)
   const [rejectModal, setRejectModal] = useState(null)
   const [notasAdmin, setNotasAdmin] = useState('')
+
+  function closeRejectModal() {
+    setRejectModal(null)
+    setNotasAdmin('')
+  }
+
+  useBackHandler(closeRejectModal, !!rejectModal)
 
   if (!stats) return null
 
@@ -180,10 +188,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setRejectModal(null)
-                  setNotasAdmin('')
-                }}
+                onClick={closeRejectModal}
                 className="flex-1 py-2 border border-outline-variant rounded text-sm font-semibold text-muted"
               >
                 Cancelar

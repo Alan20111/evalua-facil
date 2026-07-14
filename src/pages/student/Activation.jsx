@@ -18,6 +18,7 @@ import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 export default function StudentActivation() {
   const { accessCode } = useParams()
@@ -36,6 +37,17 @@ export default function StudentActivation() {
   const submitting = useRef(false) // guards against double-submit (rapid taps)
   const navigate = useNavigate()
   const toast = useToast()
+
+  // Botón físico de Android: retrocede un paso en el flujo (link_existing →
+  // password → username), igual que si el estudiante hubiera navegado hacia
+  // adelante paso a paso; desde el primer paso ('username') no hay a dónde
+  // regresar dentro de la pantalla, así que sale al login.
+  function goBackStep() {
+    if (step === 'link_existing') { setStep('password'); return }
+    if (step === 'password') { setStep('username'); return }
+    navigate('/alumno')
+  }
+  useBackHandler(goBackStep)
 
   useEffect(() => {
     loadSubject()

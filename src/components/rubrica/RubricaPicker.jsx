@@ -6,6 +6,7 @@ import Spinner from '../Spinner'
 import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, ClipboardList, Check } from 'lucide-react'
 import RubricaEditor from './RubricaEditor'
 import RubricaTable from './RubricaTable'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
 // editarlas o eliminarlas. Pantalla completa sobre el editor de entregables
@@ -18,6 +19,10 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
   const [previewId, setPreviewId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [deleting, setDeleting] = useState(false)
+
+  // Physical Android back button — closes the "eliminar rúbrica" confirmation,
+  // mirroring its own Cancelar button.
+  useBackHandler(() => setConfirmDeleteId(null), !!confirmDeleteId)
 
   // `loading` ya inicia en true y load() solo corre al montar — sin setState
   // síncrono aquí (react-hooks/set-state-in-effect).

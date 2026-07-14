@@ -45,6 +45,7 @@ import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import RubricaGradeTable from '../../components/rubrica/RubricaGradeTable'
 import { ClipboardList, X } from 'lucide-react'
 import { totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 // La evaluación con rúbrica de un alumno "no existe" hasta que se elige algún
 // nivel — un arreglo todo-null equivale a no tener rúbrica evaluada (permite
@@ -299,6 +300,11 @@ export default function ActivityPage() {
   function openGradeFromList(student) {
     setNavList(filtered)
     openGrade(student)
+  }
+
+  // Header back arrow — also reused by the physical Android back button.
+  function goBack() {
+    navigate(`/subject/${activity?.asignaturaId}`, returnToGrades ? { state: { tab: 'calificaciones' } } : undefined)
   }
 
   async function closeModal() {
@@ -681,6 +687,14 @@ export default function ActivityPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, navList, gradeForm, submissions, autoSaveOnNav])
 
+  // Physical Android back button: mirrors the on-screen back arrow / close
+  // buttons already wired above. Order doesn't matter here — the module-level
+  // stack in useBackHandler only activates whichever of these is actually open.
+  useBackHandler(goBack)
+  useBackHandler(() => setEditingActivity(false), editingActivity)
+  useBackHandler(closeModal, !!selected)
+  useBackHandler(() => setNewDateOpen(false), newDateOpen)
+
   // Keep the spinner while a grades-table cell is about to open a student, so the
   // list never flashes before the grading view opens.
   if (loading || pendingOpenId) return (
@@ -723,7 +737,7 @@ export default function ActivityPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => navigate(`/subject/${activity?.asignaturaId}`, returnToGrades ? { state: { tab: 'calificaciones' } } : undefined)}
+              onClick={goBack}
               aria-label="Volver"
               className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
             >

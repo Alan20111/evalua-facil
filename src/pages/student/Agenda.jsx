@@ -12,6 +12,7 @@ import { toDateStr } from '../../utils/horarioBloques'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import AgendaLista from '../../components/agenda/AgendaLista'
 import AgendaCalendario from '../../components/agenda/AgendaCalendario'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 // Pantalla completa (mismo patrón que NotificationSettings.jsx/EvaluacionRunner:
 // overlay fixed inset-0, sin la barra lateral de asignaturas) — la Agenda del
@@ -51,6 +52,8 @@ export default function Agenda() {
   const [tab, setTab] = useState('lista')
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState([]) // { id, activity, submission, subject, teacherName, estado, fecha (Date) }
+  const goBack = () => navigate('/alumno/dashboard')
+  useBackHandler(goBack)
 
   // `loading` ya inicia en true y loadData() solo corre al montar — sin
   // setState síncrono aquí (react-hooks/set-state-in-effect).
@@ -127,7 +130,7 @@ export default function Agenda() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate('/alumno/dashboard')}
+            onClick={goBack}
             className="p-2 -ml-2 hover:bg-white/10 rounded flex-shrink-0 transition-colors"
             aria-label="Regresar"
           >

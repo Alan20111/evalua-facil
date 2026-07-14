@@ -4,6 +4,7 @@ import EFDateTimePicker from '../EFDateTimePicker'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { Bell, BellOff, Play, ArrowRight, CalendarPlus, Pencil, Trash2 } from 'lucide-react'
 import { BLOQUE_COLORS, ALARMA_SONIDOS, reproducirSonido } from '../../utils/horarioBloques'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 // Ventana de configuración de una programación (paso 1 de 2).
 //
@@ -31,6 +32,11 @@ export default function ProgramarBloquesModal({
   const [color, setColor] = useState(initial?.color || 'blue')
   const [alarma, setAlarma] = useState(initial?.alarma || { activa: false, sonido: 'campana', minutosAntes: 10 })
   const [confirmDel, setConfirmDel] = useState(false)
+
+  // Botón atrás físico (Android): si está pidiendo confirmación de borrado,
+  // solo la cancela (no cierra todo el modal). El cierre del modal en sí lo
+  // maneja CalendarPage con useBackHandler(() => setProgramar(null), ...).
+  useBackHandler(() => setConfirmDel(false), confirmDel)
 
   // En modo "crear" solo se listan asignaturas SIN programar.
   const subjectList = useMemo(

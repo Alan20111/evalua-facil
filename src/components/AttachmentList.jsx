@@ -4,6 +4,7 @@ import { Download, X, FileSearch, ExternalLink } from 'lucide-react'
 import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
 import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
+import { useBackHandler } from '../hooks/useBackHandler'
 
 const PDF_EXTS = ['pdf']
 const OFFICE_EXTS = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt']
@@ -168,6 +169,10 @@ export function FilePreviewModal({ url, nombre, onClose }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+  // Physical Android back button: both callers (FileRow's internal `open`
+  // state and SubjectPage's `previewResourceId`-driven state) only render this
+  // component while it's open, so `active=true` mirrors the NuevaFechaEntregaModal pattern.
+  useBackHandler(onClose, true)
   if (!url) return null
   const downloadHref = downloadUrl(url, nombre)
   // Image-delivered PDFs can't be opened directly (raw URL blocked) → open the

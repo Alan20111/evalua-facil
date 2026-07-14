@@ -35,6 +35,7 @@ import RubricaTable from '../../components/rubrica/RubricaTable'
 import { ClipboardList } from 'lucide-react'
 import { PlayCircle, ListChecks, Timer, RotateCcw } from 'lucide-react'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -82,6 +83,8 @@ export default function StudentActivityPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
+  const goBack = () => navigate(`/alumno/materia/${activity?.asignaturaId}`)
+  useBackHandler(goBack)
 
   // Al volver de EvaluacionRunner justo después de finalizar un cuestionario
   // o examen, dispara la celebración UNA sola vez (no en cada visita/recarga
@@ -326,7 +329,7 @@ export default function StudentActivityPage() {
         <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
         <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
           <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
-            <button type="button" aria-label="Volver" onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
+            <button type="button" aria-label="Volver" onClick={goBack} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
             </button>
             <div className="min-w-0">
@@ -480,7 +483,7 @@ export default function StudentActivityPage() {
         <button
           type="button"
           aria-label="Volver"
-          onClick={() => navigate(`/alumno/materia/${activity?.asignaturaId}`)}
+          onClick={goBack}
           className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0"
         >
           <ArrowLeft size={22} />

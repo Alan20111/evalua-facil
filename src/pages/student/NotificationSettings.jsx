@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 // Pantalla completa (no usa StudentLayout — mismo patrón que EvaluacionRunner:
 // un overlay fixed inset-0 con SOLO un encabezado del estudiante, sin la barra
@@ -91,6 +92,8 @@ export default function NotificationSettings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const saveTimer = useRef(null)
+  const goBack = () => navigate('/alumno/dashboard')
+  useBackHandler(goBack)
 
   useEffect(() => {
     if (!currentUser) return
@@ -126,7 +129,7 @@ export default function NotificationSettings() {
       <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 flex items-center gap-3">
         <button
           type="button"
-          onClick={() => navigate('/alumno/dashboard')}
+          onClick={goBack}
           className="p-2 -ml-2 hover:bg-white/10 rounded flex-shrink-0 transition-colors"
           aria-label="Regresar"
         >

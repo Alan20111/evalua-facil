@@ -8,6 +8,7 @@ import { studentEmail, usernameCandidates } from '../../utils/generate'
 import { Hash, ChevronDown, ArrowLeft, KeyRound } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 export default function StudentLogin() {
   const [username, setUsername] = useState('')
@@ -30,6 +31,12 @@ export default function StudentLogin() {
 
   const navigate = useNavigate()
   const submitting = useRef(false) // guards against double-submit (rapid taps)
+
+  // En modo "recuperar", atrás hace lo mismo que el link "Volver al inicio de
+  // sesión" (un solo nivel, igual para ambos recoverStep — la UI tampoco
+  // ofrece un paso intermedio). En modo "login" no se registra nada: cae al
+  // fallback global de "presiona de nuevo para salir".
+  useBackHandler(backToLogin, mode === 'recover')
 
   const handleLogin = async (e) => {
     e.preventDefault()

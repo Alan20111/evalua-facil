@@ -22,6 +22,7 @@ import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 import PublicacionScheduler from './PublicacionScheduler'
 import EvaluacionEditor from './EvaluacionEditor'
+import { useBackHandler } from '../hooks/useBackHandler'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -71,10 +72,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // Full-screen EvaluacionEditor — the SAME editor "editar" opens from the
   // parcial list; the header pencil opens it here too.
   const [showEvalEditor, setShowEvalEditor] = useState(false)
+  // Reuses `closeEvalEditor` (defined below, hoisted) — same close path as
+  // the editor's own "Volver" button.
+  useBackHandler(closeEvalEditor, showEvalEditor)
   const editingTabsVisible = !resultadosOnly
   const [tab, setTab] = useState(resultadosOnly ? 'resultados' : 'preguntas')
   // Cancel a student's submission (delete the intento + its answers)
   const [cancelConfirm, setCancelConfirm] = useState(null) // { student, sub } | null
+  useBackHandler(() => setCancelConfirm(null), !!cancelConfirm)
   const [cancelling, setCancelling] = useState(false)
   const [preguntas, setPreguntas] = useState([])
   const [loadingPreguntas, setLoadingPreguntas] = useState(true)
@@ -84,6 +89,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [banco, setBanco] = useState([])
   const [bancoLoaded, setBancoLoaded] = useState(false)
   const [showBanco, setShowBanco] = useState(false)
+  useBackHandler(() => setShowBanco(false), showBanco)
   const [editingPreguntaId, setEditingPreguntaId] = useState(null)
   const [preguntaEditForm, setPreguntaEditForm] = useState(null)
   const [bancoSearch, setBancoSearch] = useState('')
@@ -107,6 +113,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [searchResultados, setSearchResultados] = useState('')
   // Full-screen answer review. submission is null when "No realizado".
   const [reviewing, setReviewing] = useState(null) // { student, submission, allRespuestas }
+  // Same conditional as the review's own "Regresar" button: if we arrived from
+  // a grades-table cell (backState present), go straight back there instead of
+  // just closing the review — never leave the teacher stranded on Resultados.
+  function goBackFromReview() {
+    if (backState) navigate(`/subject/${activity.asignaturaId}`, { state: backState })
+    else setReviewing(null)
+  }
+  useBackHandler(goBackFromReview, !!reviewing)
   // Calificación manual de reactivos (respuesta corta / subir documento):
   // borrador por pregunta { puntos, comentario } mientras el docente edita.
   const [gradeDrafts, setGradeDrafts] = useState({})
@@ -1347,7 +1361,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <div className="max-w-3xl mx-auto flex items-start gap-3">
                 <button
                   type="button"
-                  onClick={() => backState ? navigate(`/subject/${activity.asignaturaId}`, { state: backState }) : setReviewing(null)}
+                  onClick={goBackFromReview}
                   className="flex items-center gap-1 p-2 -ml-2 mt-0.5 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
                 >
                   <ArrowLeft size={20} /> Regresar
