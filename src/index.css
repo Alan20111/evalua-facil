@@ -9,9 +9,16 @@
      Tailwind sin tocar el sistema de coordenadas del viewport. */
   html {
     font-size: 90%;
+    /* Sin esto, la app en Capacitor "rebota" el contenido al llegar al
+       tope/final del scroll (efecto goma de navegador) y se siente como
+       una página web dentro de un WebView, no como una app nativa. */
+    overscroll-behavior-y: none;
   }
   body {
     @apply bg-surface text-on-surface font-sans antialiased;
+    /* Quita el resaltado azul translúcido al tocar botones/enlaces en
+       Android/Chrome — sin esto cada tap se ve como un clic de navegador. */
+    -webkit-tap-highlight-color: transparent;
   }
   #root {
     @apply min-h-screen;

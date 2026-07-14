@@ -1,0 +1,21 @@
+{
+  "appId": "com.example.app",
+  "appName": "Evalúa Fácil",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 400,
+      "backgroundColor": "#f8fafcff",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": true
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK",
+      "backgroundColor": "#f8fafcff"
+    }
+  }
+}
