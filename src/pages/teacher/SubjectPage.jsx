@@ -2303,23 +2303,25 @@ export default function SubjectPage() {
                                   </div>
                                 )}
                               </div>
-                              <div className="flex items-center gap-1 flex-shrink-0">
-                                <span
-                                  data-tooltip="Entregados"
-                                  className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <FileCheck2 size={11} /> {counts.delivered}/{totalStudents}
-                                </span>
-                                <span
-                                  data-tooltip="Calificados"
-                                  className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <CheckCircle size={11} /> {counts.graded}/{counts.delivered}
-                                </span>
-                                <span
-                                  data-tooltip="Por calificar"
-                                  className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                  <Timer size={11} /> {counts.delivered - counts.graded}/{counts.delivered}
-                                </span>
-                              </div>
+                              {!IS_NATIVE_APP && (
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                  <span
+                                    data-tooltip="Entregados"
+                                    className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                    <FileCheck2 size={11} /> {counts.delivered}/{totalStudents}
+                                  </span>
+                                  <span
+                                    data-tooltip="Calificados"
+                                    className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                    <CheckCircle size={11} /> {counts.graded}/{counts.delivered}
+                                  </span>
+                                  <span
+                                    data-tooltip="Por calificar"
+                                    className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                    <Timer size={11} /> {counts.delivered - counts.graded}/{counts.delivered}
+                                  </span>
+                                </div>
+                              )}
                             </button>
                             {/* Visibility toggle. Published → direct show/hide.
                                 Draft (no publishedAt) → confirm first publication. */}
