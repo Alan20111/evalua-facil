@@ -19,6 +19,7 @@ import StudentLayout from '../../components/StudentLayout'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { teacherDisplayName } from '../../utils/studentSearch'
 
 // Extensiones aceptadas para preguntas de tipo "subir documento": las mismas
 // que maneja toda la app (imágenes, PDF, Word, PowerPoint, Excel, ZIP/RAR).
@@ -92,7 +93,7 @@ export default function EvaluacionRunner() {
       if (studData) setStudent(studData)
       if (actData.docenteId) {
         getDoc(doc(db, 'users', actData.docenteId))
-          .then((s) => { if (s.exists()) { const d = s.data(); setTeacherName(d.nombreMostrar || d.nombre || d.username || '') } })
+          .then((s) => { if (s.exists()) { const d = s.data(); setTeacherName(teacherDisplayName(d)) } })
           .catch(() => {})
       }
       const subsSnap = await getDocs(query(
