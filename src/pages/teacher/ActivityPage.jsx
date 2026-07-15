@@ -343,9 +343,11 @@ export default function ActivityPage() {
   function isDirty() {
     if (!selected) return false
     if (!selected.sub) {
-      // Sin entrega: solo observación (siempre) o entregable con rúbrica
-      // (rubricar a quien no entregó) pueden tener calificación pendiente
-      if (!isObservacion && !hasRubrica) return false
+      // Sin entrega: solo observación (siempre), entregable con rúbrica
+      // (rubricar a quien no entregó), o en Android cualquier entregable —
+      // ahí la calificación grande siempre está disponible, sin necesidad
+      // de una entrega o una rúbrica (es el estándar de esa vista).
+      if (!isObservacion && !hasRubrica && !(IS_NATIVE_APP && !isEvaluacion)) return false
       const cal = parseFloat(gradeForm.calificacion)
       return !isNaN(cal) || !!gradeForm.comentario.trim()
     }
@@ -377,9 +379,11 @@ export default function ActivityPage() {
   async function persistGrade() {
     if (!selected || !canCreate) return false
     if (parcialCerrado) return false
-    // Sin entrega solo se puede calificar en observación o rubricando (la
-    // rúbrica permite evaluar en cero o en lo que corresponda a quien no entregó)
-    if (!selected.sub && !isObservacion && !hasRubrica) return false
+    // Sin entrega solo se puede calificar en observación, rubricando (la
+    // rúbrica permite evaluar en cero o en lo que corresponda a quien no
+    // entregó), o en Android para cualquier entregable — mismo estándar
+    // que isDirty() de arriba.
+    if (!selected.sub && !isObservacion && !hasRubrica && !(IS_NATIVE_APP && !isEvaluacion)) return false
     const cal = parseFloat(gradeForm.calificacion)
     if (isNaN(cal) || cal < 0 || cal > (activity?.maxCalif ?? 10)) return false
     const comentario = gradeForm.comentario.trim()
@@ -1703,7 +1707,7 @@ export default function ActivityPage() {
                 Todos/Por calificar ahora viven junto a la calificación
                 (ver más abajo). */}
             <div className="space-y-1.5 flex-shrink-0">
-              <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
+              <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica || !isEvaluacion) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
                 <input
                   type="checkbox"
                   checked={autoSaveOnNav}
@@ -1732,7 +1736,12 @@ export default function ActivityPage() {
               </div>
             </div>
 
-            {(selected.sub || isObservacion || hasRubrica) ? (
+            {/* En Android la calificación siempre está disponible para
+                cualquier entregable, tenga o no entrega y tenga o no
+                rúbrica — es el estándar de esta vista (antes solo se
+                mostraba con entrega, observación o rúbrica, como en la
+                web). */}
+            {(selected.sub || isObservacion || hasRubrica || !isEvaluacion) ? (
               <form onSubmit={saveGrade} className="space-y-2 flex-shrink-0">
                 {parcialCerrado && (
                   <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
