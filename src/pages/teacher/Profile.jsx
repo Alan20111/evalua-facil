@@ -539,9 +539,7 @@ export default function Profile() {
                   className={inputCls} placeholder="Ej. García" />
               </div>
               <div className="flex-1">
-                <label htmlFor="prof-apellido-materno" className="block text-xs font-medium text-muted mb-1">
-                  Apellido materno <span className="text-slate-400 font-normal">(opcional)</span>
-                </label>
+                <label htmlFor="prof-apellido-materno" className="block text-xs font-medium text-muted mb-1">Apellido materno</label>
                 <input id="prof-apellido-materno" type="text" value={apellidoMaterno} onChange={(e) => setApellidoMaterno(e.target.value)}
                   className={inputCls} placeholder="Ej. Pérez" />
               </div>
@@ -580,7 +578,8 @@ export default function Profile() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
+                <label htmlFor="prof-nombre" className="block text-xs font-medium text-muted mb-1">Nombre</label>
+                <input id="prof-nombre" type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
                   className={inputCls} placeholder="Ej. Profa. García Pérez" />
               </div>
             </div>
