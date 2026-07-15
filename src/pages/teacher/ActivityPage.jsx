@@ -1665,23 +1665,6 @@ export default function ActivityPage() {
               )}
             </div>
 
-            {/* Tabs de filtro — solo Todos y Por calificar en Android, en
-                la misma posición siempre */}
-            <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1 rounded flex-shrink-0">
-              {['todos', 'entregado'].map((f) => (
-                <button
-                  type="button"
-                  key={f}
-                  onClick={() => changeFilterInView(f)}
-                  className={`py-2 px-2 text-sm font-semibold rounded transition-colors ${
-                    filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
-                  }`}
-                >
-                  {FILTER_LABELS[f]} ({f === 'todos' ? students.length : counts[f]})
-                </button>
-              ))}
-            </div>
-
             {/* Número y nombre del estudiante, mismo renglón — sin la
                 descripción del archivo entregado debajo */}
             <div className="flex-shrink-0">
@@ -1718,21 +1701,32 @@ export default function ActivityPage() {
                   />
                   Guardar al avanzar o retroceder
                 </label>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center gap-2">
                   <button
                     type="button"
                     onClick={() => goToOffset(-1)}
-                    className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-medium)] transition-colors"
+                    className="flex-1 max-w-[120px] flex items-center justify-center gap-1 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors"
                   >
-                    <ChevronLeft size={20} /> Anterior
+                    <ChevronLeft size={18} /> Anterior
                   </button>
-                  <span className="text-sm text-slate-500 flex-shrink-0 px-1 whitespace-nowrap">{curIdx + 1} / {navList.length}</span>
+                  {/* Reemplaza el contador (X / Y) — ese número ya se repetía
+                      con el de "N. Nombre" de arriba. Switchea entre Todos y
+                      Por calificar (antes eran dos tabs aparte); único lugar
+                      donde vive ese control ahora. */}
+                  <button
+                    type="button"
+                    onClick={() => changeFilterInView(filter === 'todos' ? 'entregado' : 'todos')}
+                    className="flex-shrink-0 flex flex-col items-center justify-center px-3 py-1 rounded border border-outline-variant text-muted hover:bg-[var(--accent-medium)] hover:border-accent transition-colors"
+                  >
+                    <span className="text-[11px] font-medium leading-tight">{FILTER_LABELS[filter]}</span>
+                    <span className="text-sm font-bold leading-tight text-on-surface">{filter === 'todos' ? students.length : counts.entregado}</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => goToOffset(1)}
-                    className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover transition-colors"
+                    className="flex-1 max-w-[120px] flex items-center justify-center gap-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors"
                   >
-                    Siguiente <ChevronRight size={20} />
+                    Siguiente <ChevronRight size={18} />
                   </button>
                 </div>
               </div>
