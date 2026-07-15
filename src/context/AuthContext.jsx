@@ -4,6 +4,7 @@ import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'fireb
 import { auth, db } from '../firebase'
 import { usernameCandidates } from '../utils/generate'
 import { initPushNotifications } from '../utils/pushNotifications'
+import { createTeacherAccount } from '../utils/teacherAccount'
 
 const AuthContext = createContext(null)
 
@@ -16,7 +17,16 @@ export function AuthProvider({ children }) {
     const unsub = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user)
       if (user) {
-        const snap = await getDoc(doc(db, 'users', user.uid))
+        let snap
+        try {
+          snap = await getDoc(doc(db, 'users', user.uid))
+        } catch {
+          // A denied/failed read must never leave `loading` stuck true forever
+          // (AuthProvider renders no children at all while loading).
+          setUserProfile(null)
+          setLoading(false)
+          return
+        }
         if (snap.exists()) {
           const profile = snap.data()
           if (profile.escuelaId && profile.role !== 'alumno') {
@@ -108,7 +118,31 @@ export function AuthProvider({ children }) {
             setUserProfile(null)
           }
         } else {
-          setUserProfile(null)
+          // Authenticated with a real (non-student) email but no users/{uid} doc
+          // at all — the registration flow created the Auth account but the
+          // Firestore profile never landed (interrupted write, dropped network).
+          // Left as null, this used to slip past ProtectedTeacher's role checks
+          // (all written as `userProfile?.role === ...`, which are vacuously
+          // false for null) straight into /dashboard with a profile that then
+          // crashed on the first read of any userProfile field. Self-heal into
+          // a normal incomplete docente profile — the existing
+          // profileComplete:false → /onboarding redirect takes it from there.
+          try {
+            const provider = user.providerData?.some((p) => p.providerId === 'google.com')
+              ? 'google'
+              : 'password'
+            await createTeacherAccount(user.uid, user.email, user.photoURL || null, provider, false)
+            setUserProfile({
+              role: 'docente',
+              email: user.email.trim().toLowerCase(),
+              photoURL: user.photoURL || null,
+              profileComplete: false,
+              provider,
+              hasLocalPassword: provider === 'password',
+            })
+          } catch {
+            setUserProfile(null)
+          }
         }
       } else {
         setUserProfile(null)

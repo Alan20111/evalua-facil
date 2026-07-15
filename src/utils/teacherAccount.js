@@ -14,7 +14,7 @@ import { calcTrialEnd } from './subscriptionHelpers'
 // record of how the account was created and whether it already has a
 // password (see ProtectAccount.jsx and ResetPassword.jsx, which set
 // hasLocalPassword: true once one is added later).
-export async function createTeacherAccount(uid, email, photoURL = null, provider = 'password') {
+export async function createTeacherAccount(uid, email, photoURL = null, provider = 'password', sendEmail = true) {
   await setDoc(doc(db, 'users', uid), {
     role: 'docente',
     email: email.trim().toLowerCase(),
@@ -36,5 +36,5 @@ export async function createTeacherAccount(uid, email, photoURL = null, provider
     updatedAt: Timestamp.fromDate(trialStart),
   })
 
-  sendWelcomeEmail({ email: email.trim().toLowerCase() }).catch(() => {})
+  if (sendEmail) sendWelcomeEmail({ email: email.trim().toLowerCase() }).catch(() => {})
 }
