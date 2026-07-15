@@ -1696,14 +1696,12 @@ export default function ActivityPage() {
               )}
             </div>
 
-            {/* Guardar al avanzar/retroceder + Anterior/[Todos·Por calificar]/Siguiente.
-                SIEMPRE montado (nada de "navList.length > 1 &&" envolviendo
-                todo) — antes el botón de filtro vivía adentro de esa
-                condición, así que al cambiar a un filtro con 0 o 1
-                resultado el renglón ENTERO desaparecía, incluido el propio
-                botón que lo había disparado. Ahora Anterior/Siguiente solo
-                se deshabilitan (mismo lugar, mismo tamaño) cuando no hay
-                a dónde navegar. */}
+            {/* Guardar al avanzar/retroceder + Anterior/Siguiente. SIEMPRE
+                montado (nada de "navList.length > 1 &&" envolviendo todo) —
+                Anterior/Siguiente solo se deshabilitan (mismo lugar, mismo
+                tamaño) cuando no hay a dónde navegar. Sin botón en medio —
+                Todos/Por calificar ahora viven junto a la calificación
+                (ver más abajo). */}
             <div className="space-y-1.5 flex-shrink-0">
               <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
                 <input
@@ -1719,31 +1717,15 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => goToOffset(-1)}
                   disabled={navList.length < 2}
-                  className="flex-1 max-w-[120px] flex items-center justify-center gap-1 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
                 >
                   <ChevronLeft size={18} /> Anterior
-                </button>
-                {/* Reemplaza el contador (X / Y) — ese número ya se repetía
-                    con el de "N. Nombre" de arriba. Switchea entre Todos y
-                    Por calificar (antes eran dos tabs aparte); único lugar
-                    donde vive ese control ahora. Con "Todos" se puede
-                    calificar a cualquiera; con "Por calificar" la
-                    navegación (Anterior/Siguiente y la lista) se limita a
-                    quienes aún no tienen calificación — mismo filtro que ya
-                    usa changeFilterInView/applyStudentFilters. */}
-                <button
-                  type="button"
-                  onClick={() => changeFilterInView(filter === 'todos' ? 'entregado' : 'todos')}
-                  className="flex-shrink-0 flex flex-col items-center justify-center px-3 py-1 rounded border border-outline-variant text-muted hover:bg-[var(--accent-medium)] hover:border-accent transition-colors"
-                >
-                  <span className="text-[11px] font-medium leading-tight">{FILTER_LABELS[filter]}</span>
-                  <span className="text-sm font-bold leading-tight text-on-surface">{filter === 'todos' ? students.length : counts.entregado}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => goToOffset(1)}
                   disabled={navList.length < 2}
-                  className="flex-1 max-w-[120px] flex items-center justify-center gap-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-40"
                 >
                   Siguiente <ChevronRight size={18} />
                 </button>
@@ -1802,9 +1784,31 @@ export default function ActivityPage() {
                     stepCalif), luego suben/bajan de 0.5 en 0.5. Anular/
                     Modificar fecha son íconos bien separados (divisor +
                     espacio) que abren ventanas flotantes — nunca empujan
-                    este contenido. */}
+                    este contenido. Todos/Por calificar van a la izquierda
+                    de todo esto (ya no en medio de Anterior/Siguiente),
+                    aprovechando el espacio que sobraba ahí. */}
                 <div>
                   <div className="flex items-center justify-center gap-2">
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => changeFilterInView('todos')}
+                        className={`px-2 py-1 rounded border text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                          filter === 'todos' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
+                        }`}
+                      >
+                        Todos ({students.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => changeFilterInView('entregado')}
+                        className={`px-2 py-1 rounded border text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                          filter === 'entregado' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
+                        }`}
+                      >
+                        Por calificar ({counts.entregado})
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() => stepCalif(-0.5)}
