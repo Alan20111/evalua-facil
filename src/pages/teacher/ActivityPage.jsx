@@ -1696,48 +1696,59 @@ export default function ActivityPage() {
               )}
             </div>
 
-            {/* Guardar al avanzar/retroceder + Anterior/Siguiente */}
-            {navList.length > 1 && (
-              <div className="space-y-1.5 flex-shrink-0">
-                <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
-                  <input
-                    type="checkbox"
-                    checked={autoSaveOnNav}
-                    onChange={toggleAutoSave}
-                    className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
-                  />
-                  Guardar al avanzar o retroceder
-                </label>
-                <div className="flex items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => goToOffset(-1)}
-                    className="flex-1 max-w-[120px] flex items-center justify-center gap-1 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors"
-                  >
-                    <ChevronLeft size={18} /> Anterior
-                  </button>
-                  {/* Reemplaza el contador (X / Y) — ese número ya se repetía
-                      con el de "N. Nombre" de arriba. Switchea entre Todos y
-                      Por calificar (antes eran dos tabs aparte); único lugar
-                      donde vive ese control ahora. */}
-                  <button
-                    type="button"
-                    onClick={() => changeFilterInView(filter === 'todos' ? 'entregado' : 'todos')}
-                    className="flex-shrink-0 flex flex-col items-center justify-center px-3 py-1 rounded border border-outline-variant text-muted hover:bg-[var(--accent-medium)] hover:border-accent transition-colors"
-                  >
-                    <span className="text-[11px] font-medium leading-tight">{FILTER_LABELS[filter]}</span>
-                    <span className="text-sm font-bold leading-tight text-on-surface">{filter === 'todos' ? students.length : counts.entregado}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => goToOffset(1)}
-                    className="flex-1 max-w-[120px] flex items-center justify-center gap-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors"
-                  >
-                    Siguiente <ChevronRight size={18} />
-                  </button>
-                </div>
+            {/* Guardar al avanzar/retroceder + Anterior/[Todos·Por calificar]/Siguiente.
+                SIEMPRE montado (nada de "navList.length > 1 &&" envolviendo
+                todo) — antes el botón de filtro vivía adentro de esa
+                condición, así que al cambiar a un filtro con 0 o 1
+                resultado el renglón ENTERO desaparecía, incluido el propio
+                botón que lo había disparado. Ahora Anterior/Siguiente solo
+                se deshabilitan (mismo lugar, mismo tamaño) cuando no hay
+                a dónde navegar. */}
+            <div className="space-y-1.5 flex-shrink-0">
+              <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
+                <input
+                  type="checkbox"
+                  checked={autoSaveOnNav}
+                  onChange={toggleAutoSave}
+                  className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
+                />
+                Guardar al avanzar o retroceder
+              </label>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => goToOffset(-1)}
+                  disabled={navList.length < 2}
+                  className="flex-1 max-w-[120px] flex items-center justify-center gap-1 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
+                >
+                  <ChevronLeft size={18} /> Anterior
+                </button>
+                {/* Reemplaza el contador (X / Y) — ese número ya se repetía
+                    con el de "N. Nombre" de arriba. Switchea entre Todos y
+                    Por calificar (antes eran dos tabs aparte); único lugar
+                    donde vive ese control ahora. Con "Todos" se puede
+                    calificar a cualquiera; con "Por calificar" la
+                    navegación (Anterior/Siguiente y la lista) se limita a
+                    quienes aún no tienen calificación — mismo filtro que ya
+                    usa changeFilterInView/applyStudentFilters. */}
+                <button
+                  type="button"
+                  onClick={() => changeFilterInView(filter === 'todos' ? 'entregado' : 'todos')}
+                  className="flex-shrink-0 flex flex-col items-center justify-center px-3 py-1 rounded border border-outline-variant text-muted hover:bg-[var(--accent-medium)] hover:border-accent transition-colors"
+                >
+                  <span className="text-[11px] font-medium leading-tight">{FILTER_LABELS[filter]}</span>
+                  <span className="text-sm font-bold leading-tight text-on-surface">{filter === 'todos' ? students.length : counts.entregado}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToOffset(1)}
+                  disabled={navList.length < 2}
+                  className="flex-1 max-w-[120px] flex items-center justify-center gap-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-40"
+                >
+                  Siguiente <ChevronRight size={18} />
+                </button>
               </div>
-            )}
+            </div>
 
             {(selected.sub || isObservacion || hasRubrica) ? (
               <form onSubmit={saveGrade} className="space-y-2 flex-shrink-0">
@@ -1749,8 +1760,11 @@ export default function ActivityPage() {
                   </div>
                 )}
 
-                {/* Rúbrica — se abre hacia ARRIBA del botón (ver ventana flotante más abajo) */}
-                {hasRubrica && (() => {
+                {/* Rúbrica — se abre hacia ARRIBA del botón (ver ventana flotante más abajo).
+                    Sin rúbrica se reserva el mismo espacio (invisible) para
+                    que la calificación no cambie de posición según la
+                    actividad tenga o no rúbrica. */}
+                {hasRubrica ? (() => {
                   const totalR = totalRubrica(activity.rubrica, rubricEval)
                   const faltan = activity.rubrica.criterios.filter((_, i) => rubricEval?.[i] == null).length
                   return (
@@ -1775,7 +1789,12 @@ export default function ActivityPage() {
                       </span>
                     </button>
                   )
-                })()}
+                })() : (
+                  <div aria-hidden="true" className="invisible w-full py-2.5 border border-transparent text-sm font-semibold rounded flex items-center justify-center gap-2">
+                    <ClipboardList size={17} />
+                    Ver rúbrica
+                  </div>
+                )}
 
                 {/* Calificación grande — sin la etiqueta de arriba (le cede
                     ese espacio a la entrega). Vacía ("—") mientras no hay
@@ -1855,15 +1874,19 @@ export default function ActivityPage() {
                   </p>
                 )}
 
+                {/* Mismo alto en los dos casos (h-10) — si no, cambiar el
+                    checkbox de autoguardado hace que la entrega (flex-1)
+                    crezca o encoja de golpe, y se siente como que "brinca"
+                    la pantalla. */}
                 {parcialCerrado ? null : autoSaveOnNav && navList.length > 1 ? (
-                  <p className="text-xs text-slate-400 text-center py-1">
+                  <p className="h-10 flex items-center justify-center text-xs text-slate-400 text-center">
                     La calificación se guarda al avanzar o al retroceder.
                   </p>
                 ) : (
                   <button
                     type="submit"
                     disabled={saving || !canCreate || !isDirty()}
-                    className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                    className="h-10 w-full bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                   >
                     {saving ? <Spinner size="sm" /> : <Star size={18} />}
                     {saving ? 'Guardando…' : 'Guardar calificación'}
