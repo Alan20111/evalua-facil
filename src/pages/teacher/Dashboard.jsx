@@ -184,19 +184,22 @@ export default function TeacherDashboard() {
   }
 
   const teacherApellidos = [userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
+  const teacherGivenName = userProfile?.nombre || userProfile?.nombreMostrar || 'Docente'
+  const teacherGreetingName = userProfile?.prefijo ? `${userProfile.prefijo} ${teacherGivenName}` : teacherGivenName
 
   return (
     <TeacherLayout>
       <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Greeting — "Bienvenido, {nombre}" en un renglón, apellidos debajo:
-            2 renglones en vez de 3. Igual que el estudiante
+        {/* Greeting — "Bienvenido, {prefijo} {nombre}" en un renglón, apellidos
+            debajo: 2 renglones en vez de 3. Igual que el estudiante
             (userProfile.nombre/apellidoPaterno/apellidoMaterno); si un
             docente aún no tiene esos campos, cae de vuelta al alias
-            nombreMostrar mientras la migración de AuthContext lo resuelve. */}
+            nombreMostrar mientras la migración de AuthContext lo resuelve. El
+            prefijo es el mismo elegido en Perfil > Nombre visible. */}
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-on-surface truncate">
-            Bienvenido, {userProfile?.nombre || userProfile?.nombreMostrar || 'Docente'}
+            Bienvenido, {teacherGreetingName}
           </h1>
           {teacherApellidos && (
             <p className="text-base font-semibold text-on-surface truncate">{teacherApellidos}</p>
