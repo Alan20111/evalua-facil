@@ -24,6 +24,7 @@ import {
   ChevronLeft, ChevronRight, FolderDown, Pencil,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
+import ZoomableImage from '../../components/ZoomableImage'
 import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -149,6 +150,9 @@ export default function ActivityPage() {
   // hacia la izquierda hasta media pantalla — la entrega sigue visible detrás
   const [rubricaViewOpen, setRubricaViewOpen] = useState(false)
   const [rubricaWinTop, setRubricaWinTop] = useState(120)
+  // En Android la rúbrica se abre hacia ARRIBA del botón (en vez de hacia
+  // abajo como en la web) — se ancla por `bottom` en vez de por `top`.
+  const [rubricaWinBottom, setRubricaWinBottom] = useState(80)
   const rubricaBtnRef = useRef(null)
   // La ventana se ancla DEBAJO del renglón de la calificación oficial, para
   // que ésta quede siempre a la vista mientras se marca la rúbrica
@@ -629,6 +633,16 @@ export default function ActivityPage() {
     setGradeForm((f) => ({ ...f, calificacion: raw }))
   }
 
+  // Botones +/- de la calificación grande en Android — saltos de 0.5,
+  // acotados entre 0 y el máximo de la actividad.
+  function stepCalif(delta) {
+    const max = activity?.maxCalif ?? 10
+    const current = parseFloat(gradeForm.calificacion)
+    const base = isNaN(current) ? 0 : current
+    const next = Math.min(max, Math.max(0, Math.round((base + delta) * 2) / 2))
+    setGradeForm((f) => ({ ...f, calificacion: String(next) }))
+  }
+
   function toggleAutoSave() {
     setAutoSaveOnNav((v) => {
       localStorage.setItem('ef-autosave-nav', v ? '0' : '1')
@@ -868,16 +882,16 @@ export default function ActivityPage() {
             ))}
           </div>
 
-        {/* Search + sort — solo en la web */}
-        {!IS_NATIVE_APP && (
-          <div className="px-4 pt-4 pb-2 flex gap-2">
-            <div className="flex-1">
-              <SearchInput
-                value={searchStudents}
-                onChange={setSearchStudents}
-                placeholder="Buscar por nombre o por número de lista…"
-              />
-            </div>
+        {/* Search — misma barra en web y en Android; ordenar por nombre solo en web */}
+        <div className="px-4 pt-4 pb-2 flex gap-2">
+          <div className="flex-1">
+            <SearchInput
+              value={searchStudents}
+              onChange={setSearchStudents}
+              placeholder="Buscar por nombre o por número de lista…"
+            />
+          </div>
+          {!IS_NATIVE_APP && (
             <button
               type="button"
               onClick={() => setSortAlpha((v) => !v)}
@@ -889,16 +903,10 @@ export default function ActivityPage() {
             >
               <ArrowDownAZ size={20} />
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Student list — en la app nativa solo se ven los conteos de arriba;
-            calificar por estudiante es exclusivo de la web. */}
-        {IS_NATIVE_APP ? (
-          <p className="px-4 pb-4 pt-2 text-center text-slate-400 text-sm">
-            Califica por estudiante desde la versión web
-          </p>
-        ) : (
+        {/* Student list — nombre a la izquierda, estatus a la derecha */}
         <div className="px-4 pb-4">
           {filtered.length === 0 ? (
             <p className="text-center text-slate-400 text-sm py-8">Sin estudiantes en esta categoría</p>
@@ -945,13 +953,14 @@ export default function ActivityPage() {
             </div>
           )}
         </div>
-        )}
         </div>{/* end Entregas container */}
       </div>
       )}
 
-      {/* Fullscreen grading view — preview left (full height), grading panel right */}
-      {selected && (
+      {/* Fullscreen grading view — preview left (full height), grading panel right.
+          Android has its own single-column layout below (IS_NATIVE_APP) — this one
+          is web/desktop only. */}
+      {selected && !IS_NATIVE_APP && (
         <div className="fixed inset-0 z-40 flex flex-col bg-surface">
 
           {/* Top bar: back + subject being graded.
@@ -1571,6 +1580,400 @@ export default function ActivityPage() {
         </div>
       )}
 
+      {/* Vista de evaluar en Android — una sola columna que hace scroll de
+          página completa (no dos paneles con scroll independiente como en
+          la web). Orden: encabezado fijo arriba → entrega (imágenes con
+          zoom, pdf/office inline, descarga si no hay vista previa) → tabs
+          de filtro → número+nombre del alumno → checkbox de autoguardado +
+          Anterior/Siguiente → rúbrica (se abre hacia arriba) → calificación
+          grande con pasos de 0.5 → Guardar calificación → historial →
+          anular entrega → modificar fecha. Sin comentarios ni "Evaluar sin
+          entrega" — a propósito, no se ofrecen en Android. */}
+      {selected && IS_NATIVE_APP && (
+        <div className="fixed inset-0 z-40 flex flex-col bg-surface">
+          <div className="flex items-center px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0 safe-top">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="flex items-center gap-1 p-2 -ml-2 mt-0.5 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
+                >
+                  <ArrowLeft size={20} /> Regresar
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-muted truncate">
+                    {subjectDisplayName(subject)}
+                    {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
+                  </p>
+                  <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
+                  <h3 className="text-xl font-bold text-on-surface truncate">
+                    {activityLabel && <span className="text-accent">{activityLabel} </span>}
+                    {activity?.nombre}
+                  </h3>
+                  <p className="text-sm font-medium text-muted truncate">
+                    Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="p-3 space-y-3">
+
+              {/* Entrega: cada archivo según su tipo — imagen con zoom, pdf/office
+                  con vista previa embebida, cualquier otro con descarga */}
+              <div className="rounded-card overflow-hidden bg-surface-container">
+                {selFiles.length > 0 ? (
+                  <div className="p-2 space-y-2">
+                    {selFiles.map((f, i) => (
+                      <div key={`${f.url}-${i}`}>
+                        {isImageFile(f.nombre, f.url) ? (
+                          <ZoomableImage src={f.url} alt={f.nombre} />
+                        ) : canPreviewFile(f.nombre) ? (
+                          <div className="rounded overflow-hidden bg-surface-card" style={{ height: '70vh' }}>
+                            <FilePreview url={f.url} nombre={f.nombre} fill />
+                          </div>
+                        ) : (
+                          <a
+                            href={downloadUrl(f.url, f.nombre)}
+                            download={f.nombre}
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-3 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
+                          >
+                            <Download size={18} className="text-accent flex-shrink-0" />
+                            <span className="truncate">{f.nombre}</span>
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center text-slate-400 text-sm p-8 text-center">
+                    {isObservacion
+                      ? 'Actividad de observación — no requiere entrega. Califica directamente abajo.'
+                      : isEvaluacion
+                        ? 'Evaluación — la calificación proviene del intento del alumno; puedes ajustarla abajo.'
+                        : selected.sub?.completadoSinArchivo
+                          ? 'Actividad completada sin archivo.'
+                          : 'El estudiante aún no ha entregado esta tarea.'}
+                  </div>
+                )}
+              </div>
+
+              {/* Tabs de filtro — mismos conjuntos que la lista de Entregas */}
+              <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1 rounded">
+                {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
+                  <button
+                    type="button"
+                    key={f}
+                    onClick={() => changeFilterInView(f)}
+                    className={`py-2 px-2 text-sm font-semibold rounded transition-colors ${
+                      filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
+                    }`}
+                  >
+                    {FILTER_LABELS[f]} ({f === 'todos' ? students.length : counts[f]})
+                  </button>
+                ))}
+              </div>
+
+              {/* Número y nombre del estudiante, mismo renglón */}
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-base font-semibold text-on-surface truncate">
+                    {selected.student.orden != null && <span className="text-on-surface">{selected.student.orden}. </span>}
+                    {studentFullName(selected.student)}
+                  </h4>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[getStatus(selected.student.id)]}`}>
+                    {STATUS_LABELS[getStatus(selected.student.id)]}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-500 mt-0.5 truncate">
+                  {isObservacion
+                    ? 'Observación — se califica sin entrega'
+                    : isEvaluacion
+                      ? (selected.sub ? `Evaluación — intento ${selected.sub.intentoActual || 1}` : 'Evaluación — sin intento aún')
+                      : selFiles.length > 1
+                        ? `${selFiles.length} archivos entregados`
+                        : selected.sub
+                          ? selected.sub.completadoSinArchivo
+                            ? 'Completada sin archivo'
+                            : (selected.sub.nombreArchivo || (selected.sub.sinEntrega ? `Sin entrega — calificada en ${selected.sub.calificacion ?? 0}` : 'Sin archivo'))
+                          : 'Sin entrega aún'}
+                </p>
+                {selected.sub?.tarde && (
+                  <p className="text-xs text-amber-600 font-medium mt-0.5 truncate">
+                    {formatLateness(selected.sub, selected.student, activity)}
+                  </p>
+                )}
+                {selected.sub?.motivoSinEntrega && (
+                  <p className="text-xs text-slate-500 mt-0.5 italic truncate">
+                    Motivo: {selected.sub.motivoSinEntrega}
+                  </p>
+                )}
+              </div>
+
+              {/* Guardar calificación al avanzar/retroceder + Anterior/Siguiente */}
+              {navList.length > 1 && (
+                <div className="space-y-1.5">
+                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
+                    <input
+                      type="checkbox"
+                      checked={autoSaveOnNav}
+                      onChange={toggleAutoSave}
+                      className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
+                    />
+                    Guardar calificación al avanzar o al retroceder
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => goToOffset(-1)}
+                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-medium)] transition-colors"
+                    >
+                      <ChevronLeft size={20} /> Anterior
+                    </button>
+                    <span className="text-sm text-slate-500 flex-shrink-0 px-1 whitespace-nowrap">{curIdx + 1} / {navList.length}</span>
+                    <button
+                      type="button"
+                      onClick={() => goToOffset(1)}
+                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover transition-colors"
+                    >
+                      Siguiente <ChevronRight size={20} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(selected.sub || isObservacion || hasRubrica) ? (
+                <form onSubmit={saveGrade} className="space-y-3">
+                  {parcialCerrado && (
+                    <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
+                      <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
+                      Para modificarlas, primero <strong>revierte el cierre del parcial</strong> desde Calificaciones.
+                      Al revertir, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
+                    </div>
+                  )}
+
+                  {/* Rúbrica — se abre hacia ARRIBA del botón (ver ventana flotante más abajo) */}
+                  {hasRubrica && (() => {
+                    const totalR = totalRubrica(activity.rubrica, rubricEval)
+                    const faltan = activity.rubrica.criterios.filter((_, i) => rubricEval?.[i] == null).length
+                    return (
+                      <button
+                        type="button"
+                        ref={rubricaBtnRef}
+                        onClick={() => {
+                          const rect = rubricaBtnRef.current?.getBoundingClientRect()
+                          if (rect) setRubricaWinBottom(Math.round(window.innerHeight - rect.top + 6))
+                          setRubricaViewOpen((v) => !v)
+                        }}
+                        className={`w-full py-2.5 text-sm font-semibold rounded transition-colors flex items-center justify-center gap-2 ${
+                          rubricaViewOpen
+                            ? 'bg-accent text-white hover:bg-accent-hover'
+                            : 'border border-accent text-accent hover:bg-[var(--accent-medium)]'
+                        }`}
+                      >
+                        <ClipboardList size={17} />
+                        {rubricaViewOpen ? 'Ocultar rúbrica' : 'Ver rúbrica'}
+                        <span className="font-bold">
+                          {totalR != null ? `— ${totalR} / ${RUBRICA_TOTAL}` : `— faltan ${faltan} criterio${faltan !== 1 ? 's' : ''}`}
+                        </span>
+                      </button>
+                    )
+                  })()}
+
+                  {/* Calificación grande — pasos de 0.5 con los botones +/- */}
+                  <div>
+                    <p className="text-sm font-medium text-muted mb-1 text-center">
+                      Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
+                    </p>
+                    <div className="flex items-center justify-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => stepCalif(-0.5)}
+                        disabled={parcialCerrado}
+                        aria-label="Restar medio punto"
+                        className="w-11 h-11 flex-shrink-0 rounded-full border border-accent text-accent text-2xl font-bold flex items-center justify-center hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
+                      >
+                        −
+                      </button>
+                      <input
+                        id="act-calificacion-native"
+                        type="number"
+                        value={gradeForm.calificacion}
+                        onChange={onCalifChange}
+                        required
+                        min="0"
+                        max={activity?.maxCalif}
+                        step="0.5"
+                        placeholder="—"
+                        disabled={parcialCerrado}
+                        className="w-28 py-1 text-center text-5xl font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => stepCalif(0.5)}
+                        disabled={parcialCerrado}
+                        aria-label="Sumar medio punto"
+                        className="w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white text-2xl font-bold flex items-center justify-center hover:bg-accent-hover transition-colors disabled:opacity-40"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {!canCreate && (
+                    <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
+                      Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
+                    </p>
+                  )}
+
+                  {parcialCerrado ? null : autoSaveOnNav && navList.length > 1 ? (
+                    <p className="text-xs text-slate-400 text-center py-1">
+                      La calificación se guarda al avanzar o al retroceder.
+                    </p>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={saving || !canCreate || !isDirty()}
+                      className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                    >
+                      {saving ? <Spinner size="sm" /> : <Star size={18} />}
+                      {saving ? 'Guardando…' : 'Guardar calificación'}
+                    </button>
+                  )}
+                </form>
+              ) : (
+                <p className="text-sm text-slate-400 text-center py-2">
+                  El estudiante aún no ha entregado esta tarea.
+                </p>
+              )}
+
+              {selected.sub?.historial?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
+                  <div className="space-y-1.5">
+                    {[...selected.sub.historial].reverse().map((v, i) => (
+                      <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
+                        <span className="text-slate-400 flex-shrink-0">
+                          {v.fechaEntrega?.seconds
+                            ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </span>
+                        {v.completadoSinArchivo
+                          ? <span className="text-slate-400 italic">sin archivo</span>
+                          : v.archivoURL
+                            ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
+                                <Download size={14} /> {v.nombreArchivo}
+                              </a>
+                            : <span className="text-slate-300 italic">sin archivo</span>
+                        }
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Anular entrega + Modificar fecha de entrega — "Evaluar sin
+                  entrega" no se ofrece en Android, a propósito */}
+              {!isObservacion && !isEvaluacion && (
+                <div className="pt-3 border-t border-outline-variant space-y-2">
+                  {selected.sub && !parcialCerrado && (
+                    !annulMode ? (
+                      <button
+                        type="button"
+                        onClick={() => setAnnulMode(true)}
+                        className="block mx-auto text-sm text-slate-500 hover:text-red-600 transition-colors"
+                      >
+                        Anular la entrega actual para este estudiante
+                      </button>
+                    ) : (
+                      <div className="rounded border border-red-200 bg-red-50 p-3 space-y-2">
+                        <p className="text-sm text-red-700">
+                          ¿Anular la entrega de <strong>{studentFullName(selected.student)}</strong>?
+                          Volverá a quedar <strong>Pendiente</strong> y podrá entregar de nuevo.
+                          {selected.sub.calificacion != null && ' La calificación actual se eliminará.'}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setAnnulMode(false)}
+                            disabled={annulling}
+                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={annulSubmission}
+                            disabled={annulling}
+                            className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+                          >
+                            {annulling ? 'Anulando…' : 'Anular entrega'}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  )}
+                  {!extendMode ? (
+                    <button
+                      type="button"
+                      onClick={() => setExtendMode(true)}
+                      className="block mx-auto text-sm text-slate-500 hover:text-muted transition-colors"
+                    >
+                      Modificar fecha de entrega para este estudiante
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-on-surface">Nueva fecha y hora límite para este estudiante</p>
+                      <EFDateTimePicker
+                        mode="datetime"
+                        value={extendDate}
+                        onChange={setExtendDate}
+                        clearable={false}
+                        minDateTime={nowIsoLocal()}
+                      />
+                      <div>
+                        <label htmlFor="act-extend-motivo-native" className="block text-sm font-medium text-muted mb-1">Motivo</label>
+                        <textarea
+                          id="act-extend-motivo-native"
+                          value={extendMotivo}
+                          onChange={(e) => setExtendMotivo(e.target.value)}
+                          rows={2}
+                          placeholder="Motivo de la extensión…"
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setExtendMode(false)}
+                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveExtension}
+                          disabled={!extendDate || savingExtension}
+                          className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
+                        >
+                          {savingExtension ? 'Guardando…' : 'Guardar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="h-2 safe-bottom" />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Ventana flotante de la rúbrica: inicia abajo del botón "Ver rúbrica" y
           se extiende hacia la izquierda hasta media pantalla, SOBREPUESTA a todo
           — la entrega sigue visible detrás para no perder contexto. Se cierra
@@ -1581,7 +1984,11 @@ export default function ActivityPage() {
         return (
           <div
             className="fixed left-2 right-2 md:left-1/2 z-50 bg-surface-card border border-outline-variant rounded-card shadow-2xl flex flex-col overflow-hidden"
-            style={{ top: rubricaWinTop, maxHeight: `calc(100vh - ${rubricaWinTop + 10}px)` }}
+            // En Android se ancla por `bottom` y crece hacia arriba (pedido
+            // explícitamente); en web sigue anclada por `top`, hacia abajo.
+            style={IS_NATIVE_APP
+              ? { bottom: rubricaWinBottom, maxHeight: `calc(100vh - ${rubricaWinBottom + 60}px)` }
+              : { top: rubricaWinTop, maxHeight: `calc(100vh - ${rubricaWinTop + 10}px)` }}
           >
             <div className="flex items-center gap-2 px-3 py-2 border-b border-outline-variant flex-shrink-0" style={{ background: 'var(--accent-light)' }}>
               <ClipboardList size={17} className="text-accent flex-shrink-0" />
