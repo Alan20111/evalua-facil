@@ -18,6 +18,7 @@ import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { getResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
+import { teacherDisplayName } from '../../utils/studentSearch'
 import SubjectIcon from '../../components/SubjectIcon'
 import AttachmentList from '../../components/AttachmentList'
 import {
@@ -135,7 +136,7 @@ export default function StudentSubjectPage() {
           .then((snap) => {
             if (snap.exists()) {
               const td = snap.data()
-              setTeacherName(td.nombreMostrar || td.nombre || td.username || '')
+              setTeacherName(teacherDisplayName(td))
             }
           })
           .catch(() => {})
@@ -235,7 +236,7 @@ export default function StudentSubjectPage() {
         <div className="min-w-0">
           <h1 className="text-lg font-bold text-on-surface truncate">{subjectDisplayName(subject)}</h1>
           {teacherName && (
-            <p className="text-slate-400 text-xs truncate">Profe {teacherName}</p>
+            <p className="text-slate-500 text-sm font-medium truncate">{teacherName}</p>
           )}
         </div>
       </header>

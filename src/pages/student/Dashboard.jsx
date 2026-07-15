@@ -26,6 +26,7 @@ import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/pondera
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { teacherDisplayName } from '../../utils/studentSearch'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -121,7 +122,7 @@ export default function StudentDashboard() {
       teacherSnaps.forEach((t) => {
         if (!t.exists()) return
         const td = t.data()
-        teachers[t.id] = td.nombreMostrar || td.username || td.nombre || '—'
+        teachers[t.id] = teacherDisplayName(td) || '—'
       })
 
       // Group activities by subject and index this student's grade per activity
@@ -291,7 +292,7 @@ export default function StudentDashboard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
-                  <p className="text-slate-400 text-xs mt-0.5 truncate">{s.teacherName}</p>
+                  <p className="text-slate-500 text-sm font-medium mt-0.5 truncate">{s.teacherName}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   {s.avg != null && (

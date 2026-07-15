@@ -13,6 +13,7 @@ import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import AgendaLista from '../../components/agenda/AgendaLista'
 import AgendaCalendario from '../../components/agenda/AgendaCalendario'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { teacherDisplayName } from '../../utils/studentSearch'
 
 // Pantalla completa (mismo patrón que NotificationSettings.jsx/EvaluacionRunner:
 // overlay fixed inset-0, sin la barra lateral de asignaturas) — la Agenda del
@@ -77,7 +78,7 @@ export default function Agenda() {
         fetchSubmissionsForStudents(Object.values(docIdBySubject)),
       ])
       const teacherName = {}
-      teacherSnaps.forEach((t) => { if (t.exists()) { const d = t.data(); teacherName[t.id] = d.nombreMostrar || d.nombre || d.username || '' } })
+      teacherSnaps.forEach((t) => { if (t.exists()) { const d = t.data(); teacherName[t.id] = teacherDisplayName(d) } })
 
       const submissionByActivity = {}
       subDocs.forEach((d) => { submissionByActivity[d.data().actividadId] = { id: d.id, ...d.data() } })
