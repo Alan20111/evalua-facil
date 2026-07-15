@@ -23,8 +23,7 @@ import {
   Download, Star, CalendarDays, ArrowDownAZ,
   ChevronLeft, ChevronRight, FolderDown, Pencil, Trash2,
 } from 'lucide-react'
-import { FilePreview, FilePreviewModal, canPreviewFile } from '../../components/AttachmentList'
-import { getResourceIcon } from '../../utils/resourceTypes'
+import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import ZoomableImage from '../../components/ZoomableImage'
 import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
@@ -96,28 +95,6 @@ function submissionFiles(sub) {
   if (!sub || sub.completadoSinArchivo) return []
   if (sub.archivos?.length) return sub.archivos.map((f) => ({ url: f.url, nombre: f.nombre }))
   return sub.archivoURL ? [{ url: sub.archivoURL, nombre: sub.nombreArchivo }] : []
-}
-
-// Miniatura cuadrada para un archivo NO imagen dentro de la tira de entrega
-// de Android (alto fijo) — toca para abrir la vista previa a pantalla
-// completa ya existente (FilePreviewModal), sin ocupar espacio inline.
-function EntregaFileTile({ f }) {
-  const [open, setOpen] = useState(false)
-  const { icon: Icon, color } = getResourceIcon(f.nombre)
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        data-tooltip="Ver"
-        className="h-full aspect-square flex-shrink-0 flex flex-col items-center justify-center gap-1 rounded border border-outline-variant bg-surface-card px-1"
-      >
-        <Icon size={26} className={color} />
-        <span className="text-[10px] text-muted truncate max-w-full px-1">{f.nombre}</span>
-      </button>
-      {open && <FilePreviewModal url={f.url} nombre={f.nombre} onClose={() => setOpen(false)} />}
-    </>
-  )
 }
 
 const STATUS_COLORS = {
@@ -736,6 +713,10 @@ export default function ActivityPage() {
   useBackHandler(() => setEditingActivity(false), editingActivity)
   useBackHandler(closeModal, !!selected)
   useBackHandler(() => setNewDateOpen(false), newDateOpen)
+  // Ventanas flotantes de anular/modificar fecha en la vista de evaluar de
+  // Android — el botón atrás las cierra primero, antes de cerrar toda la vista.
+  useBackHandler(() => setAnnulMode(false), IS_NATIVE_APP && annulMode)
+  useBackHandler(() => setExtendMode(false), IS_NATIVE_APP && extendMode)
 
   // Keep the spinner while a grades-table cell is about to open a student, so the
   // list never flashes before the grading view opens.
@@ -1607,14 +1588,17 @@ export default function ActivityPage() {
 
       {/* Vista de evaluar en Android — compacta, pensada para que quepa
           completa en una sola pantalla sin necesidad de bajar (docente
-          experimentado). Orden: encabezado mínimo (flecha + nombre de
-          actividad) → entrega en tira horizontal de alto fijo (mismo
-          espacio haya o no archivos) → tabs Todos/Por calificar → número+
-          nombre del alumno (sin descripción de archivo) → checkbox +
-          Anterior/Siguiente → rúbrica (abre hacia arriba) → calificación
-          grande (arranca en el máximo) con pasos de 0.5 e íconos de
-          anular/modificar fecha al lado → Guardar calificación → historial.
-          Sin comentarios ni "Evaluar sin entrega". */}
+          experimentado calificando muchas entregas seguidas). Orden:
+          encabezado mínimo (flecha + nombre de actividad) → entrega, tan
+          alta como el resto de la pantalla lo permita (mismo tamaño haya o
+          no archivos; varias imágenes se navegan hacia abajo, en la misma
+          zona) → tabs Todos/Por calificar → número+nombre del alumno (sin
+          descripción de archivo) → checkbox + Anterior/Siguiente → rúbrica
+          (abre hacia arriba) → calificación grande (arranca en el máximo)
+          con pasos de 0.5; anular/modificar fecha son íconos separados que
+          abren ventanas flotantes, no empujan el contenido → Guardar
+          calificación → historial. Sin comentarios ni "Evaluar sin
+          entrega". */}
       {selected && IS_NATIVE_APP && (
         <div className="fixed inset-0 z-40 flex flex-col bg-surface">
           <div className="flex items-center gap-2 px-3 py-2 bg-surface-card border-b border-outline-variant flex-shrink-0 safe-top">
@@ -1633,353 +1617,366 @@ export default function ActivityPage() {
             </h3>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="p-3 space-y-2">
+          {/* Columna flex: la entrega es flex-1 (toma todo el espacio que
+              sobra), el resto de secciones reserva su alto natural — así la
+              entrega queda lo más alta posible sin dejar nada fuera de
+              pantalla. overflow-y-auto es solo un respaldo por si algo no
+              cupiera en una pantalla muy pequeña. */}
+          <div className="flex-1 min-h-0 flex flex-col overflow-y-auto p-3 gap-2">
 
-              {/* Entrega: tira horizontal de alto fijo — mismo espacio haya o
-                  no archivos. Imagen con zoom, pdf/office/otro como
-                  miniatura que abre la vista previa a pantalla completa. */}
-              <div className="rounded-card overflow-hidden bg-surface-container h-36">
-                {selFiles.length > 0 ? (
-                  <div className="h-full flex gap-2 overflow-x-auto p-2">
-                    {selFiles.map((f, i) => (
-                      isImageFile(f.nombre, f.url) ? (
-                        <ZoomableImage key={`${f.url}-${i}`} src={f.url} alt={f.nombre} fit="height" />
+            {/* Entrega: alto = todo lo que sobra, mismo tamaño haya o no
+                archivos. Varias imágenes/archivos se apilan y se navegan
+                hacia abajo DENTRO de esta misma zona (scroll interno). */}
+            <div className="flex-1 min-h-0 rounded-card overflow-hidden bg-surface-container">
+              {selFiles.length > 0 ? (
+                <div className="h-full overflow-y-auto p-2 space-y-2">
+                  {selFiles.map((f, i) => (
+                    <div key={`${f.url}-${i}`}>
+                      {isImageFile(f.nombre, f.url) ? (
+                        <ZoomableImage src={f.url} alt={f.nombre} />
                       ) : canPreviewFile(f.nombre) ? (
-                        <EntregaFileTile key={`${f.url}-${i}`} f={f} />
+                        <div className="rounded overflow-hidden bg-surface-card" style={{ height: '55vh' }}>
+                          <FilePreview url={f.url} nombre={f.nombre} fill />
+                        </div>
                       ) : (
                         <a
-                          key={`${f.url}-${i}`}
                           href={downloadUrl(f.url, f.nombre)}
                           download={f.nombre}
                           rel="noopener noreferrer"
-                          data-tooltip="Descargar"
-                          className="h-full aspect-square flex-shrink-0 flex flex-col items-center justify-center gap-1 rounded border border-outline-variant bg-surface-card px-1"
+                          className="flex items-center gap-2 px-4 py-3 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
                         >
-                          <Download size={26} className="text-accent" />
-                          <span className="text-[10px] text-muted truncate max-w-full px-1">{f.nombre}</span>
+                          <Download size={18} className="text-accent flex-shrink-0" />
+                          <span className="truncate">{f.nombre}</span>
                         </a>
-                      )
-                    ))}
-                  </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-slate-400 text-sm p-3 text-center">
-                    {isObservacion
-                      ? 'Observación — no requiere entrega.'
-                      : isEvaluacion
-                        ? 'Evaluación — calificación del intento del alumno.'
-                        : selected.sub?.completadoSinArchivo
-                          ? 'Completada sin archivo.'
-                          : 'Aún no ha entregado esta tarea.'}
-                  </div>
-                )}
-              </div>
-
-              {/* Tabs de filtro — solo Todos y Por calificar en Android, en
-                  la misma posición siempre */}
-              <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1 rounded">
-                {['todos', 'entregado'].map((f) => (
-                  <button
-                    type="button"
-                    key={f}
-                    onClick={() => changeFilterInView(f)}
-                    className={`py-2 px-2 text-sm font-semibold rounded transition-colors ${
-                      filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
-                    }`}
-                  >
-                    {FILTER_LABELS[f]} ({f === 'todos' ? students.length : counts[f]})
-                  </button>
-                ))}
-              </div>
-
-              {/* Número y nombre del estudiante, mismo renglón — sin la
-                  descripción del archivo entregado debajo */}
-              <div>
-                <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-base font-semibold text-on-surface truncate">
-                    {selected.student.orden != null && <span className="text-on-surface">{selected.student.orden}. </span>}
-                    {studentFullName(selected.student)}
-                  </h4>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[getStatus(selected.student.id)]}`}>
-                    {STATUS_LABELS[getStatus(selected.student.id)]}
-                  </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                {selected.sub?.tarde && (
-                  <p className="text-xs text-amber-600 font-medium mt-0.5 truncate">
-                    {formatLateness(selected.sub, selected.student, activity)}
-                  </p>
-                )}
-                {selected.sub?.motivoSinEntrega && (
-                  <p className="text-xs text-slate-500 mt-0.5 italic truncate">
-                    Motivo: {selected.sub.motivoSinEntrega}
-                  </p>
-                )}
-              </div>
-
-              {/* Guardar al avanzar/retroceder + Anterior/Siguiente */}
-              {navList.length > 1 && (
-                <div className="space-y-1.5">
-                  <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
-                    <input
-                      type="checkbox"
-                      checked={autoSaveOnNav}
-                      onChange={toggleAutoSave}
-                      className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
-                    />
-                    Guardar al avanzar o retroceder
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => goToOffset(-1)}
-                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-medium)] transition-colors"
-                    >
-                      <ChevronLeft size={20} /> Anterior
-                    </button>
-                    <span className="text-sm text-slate-500 flex-shrink-0 px-1 whitespace-nowrap">{curIdx + 1} / {navList.length}</span>
-                    <button
-                      type="button"
-                      onClick={() => goToOffset(1)}
-                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover transition-colors"
-                    >
-                      Siguiente <ChevronRight size={20} />
-                    </button>
-                  </div>
+              ) : (
+                <div className="h-full flex items-center justify-center text-slate-400 text-sm p-3 text-center">
+                  {isObservacion
+                    ? 'Observación — no requiere entrega.'
+                    : isEvaluacion
+                      ? 'Evaluación — calificación del intento del alumno.'
+                      : selected.sub?.completadoSinArchivo
+                        ? 'Completada sin archivo.'
+                        : 'Aún no ha entregado esta tarea.'}
                 </div>
               )}
+            </div>
 
-              {(selected.sub || isObservacion || hasRubrica) ? (
-                <form onSubmit={saveGrade} className="space-y-2">
-                  {parcialCerrado && (
-                    <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
-                      <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
-                      Para modificarlas, primero <strong>revierte el cierre del parcial</strong> desde Calificaciones.
-                      Al revertir, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
-                    </div>
-                  )}
+            {/* Tabs de filtro — solo Todos y Por calificar en Android, en
+                la misma posición siempre */}
+            <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1 rounded flex-shrink-0">
+              {['todos', 'entregado'].map((f) => (
+                <button
+                  type="button"
+                  key={f}
+                  onClick={() => changeFilterInView(f)}
+                  className={`py-2 px-2 text-sm font-semibold rounded transition-colors ${
+                    filter === f ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
+                  }`}
+                >
+                  {FILTER_LABELS[f]} ({f === 'todos' ? students.length : counts[f]})
+                </button>
+              ))}
+            </div>
 
-                  {/* Rúbrica — se abre hacia ARRIBA del botón (ver ventana flotante más abajo) */}
-                  {hasRubrica && (() => {
-                    const totalR = totalRubrica(activity.rubrica, rubricEval)
-                    const faltan = activity.rubrica.criterios.filter((_, i) => rubricEval?.[i] == null).length
-                    return (
-                      <button
-                        type="button"
-                        ref={rubricaBtnRef}
-                        onClick={() => {
-                          const rect = rubricaBtnRef.current?.getBoundingClientRect()
-                          if (rect) setRubricaWinBottom(Math.round(window.innerHeight - rect.top + 6))
-                          setRubricaViewOpen((v) => !v)
-                        }}
-                        className={`w-full py-2.5 text-sm font-semibold rounded transition-colors flex items-center justify-center gap-2 ${
-                          rubricaViewOpen
-                            ? 'bg-accent text-white hover:bg-accent-hover'
-                            : 'border border-accent text-accent hover:bg-[var(--accent-medium)]'
-                        }`}
-                      >
-                        <ClipboardList size={17} />
-                        {rubricaViewOpen ? 'Ocultar rúbrica' : 'Ver rúbrica'}
-                        <span className="font-bold">
-                          {totalR != null ? `— ${totalR} / ${RUBRICA_TOTAL}` : `— faltan ${faltan} criterio${faltan !== 1 ? 's' : ''}`}
-                        </span>
-                      </button>
-                    )
-                  })()}
+            {/* Número y nombre del estudiante, mismo renglón — sin la
+                descripción del archivo entregado debajo */}
+            <div className="flex-shrink-0">
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-base font-semibold text-on-surface truncate">
+                  {selected.student.orden != null && <span className="text-on-surface">{selected.student.orden}. </span>}
+                  {studentFullName(selected.student)}
+                </h4>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[getStatus(selected.student.id)]}`}>
+                  {STATUS_LABELS[getStatus(selected.student.id)]}
+                </span>
+              </div>
+              {selected.sub?.tarde && (
+                <p className="text-xs text-amber-600 font-medium mt-0.5 truncate">
+                  {formatLateness(selected.sub, selected.student, activity)}
+                </p>
+              )}
+              {selected.sub?.motivoSinEntrega && (
+                <p className="text-xs text-slate-500 mt-0.5 italic truncate">
+                  Motivo: {selected.sub.motivoSinEntrega}
+                </p>
+              )}
+            </div>
 
-                  {/* Calificación grande (arranca en el máximo) — pasos de 0.5
-                      con los botones +/-, e íconos de anular/modificar fecha
-                      al lado */}
-                  <div>
-                    <p className="text-sm font-medium text-muted mb-1 text-center">
-                      Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
-                    </p>
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => stepCalif(-0.5)}
-                        disabled={parcialCerrado}
-                        aria-label="Restar medio punto"
-                        className="w-11 h-11 flex-shrink-0 rounded-full border border-accent text-accent text-2xl font-bold flex items-center justify-center hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
-                      >
-                        −
-                      </button>
-                      <input
-                        id="act-calificacion-native"
-                        type="number"
-                        value={gradeForm.calificacion}
-                        onChange={onCalifChange}
-                        required
-                        min="0"
-                        max={activity?.maxCalif}
-                        step="0.5"
-                        placeholder="—"
-                        disabled={parcialCerrado}
-                        className="w-24 py-1 text-center text-5xl font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => stepCalif(0.5)}
-                        disabled={parcialCerrado}
-                        aria-label="Sumar medio punto"
-                        className="w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white text-2xl font-bold flex items-center justify-center hover:bg-accent-hover transition-colors disabled:opacity-40"
-                      >
-                        +
-                      </button>
-                      {!isObservacion && !isEvaluacion && (
-                        <div className="flex flex-col gap-1 ml-1 flex-shrink-0">
+            {/* Guardar al avanzar/retroceder + Anterior/Siguiente */}
+            {navList.length > 1 && (
+              <div className="space-y-1.5 flex-shrink-0">
+                <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
+                  <input
+                    type="checkbox"
+                    checked={autoSaveOnNav}
+                    onChange={toggleAutoSave}
+                    className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
+                  />
+                  Guardar al avanzar o retroceder
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => goToOffset(-1)}
+                    className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-medium)] transition-colors"
+                  >
+                    <ChevronLeft size={20} /> Anterior
+                  </button>
+                  <span className="text-sm text-slate-500 flex-shrink-0 px-1 whitespace-nowrap">{curIdx + 1} / {navList.length}</span>
+                  <button
+                    type="button"
+                    onClick={() => goToOffset(1)}
+                    className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded bg-accent text-white text-base font-semibold hover:bg-accent-hover transition-colors"
+                  >
+                    Siguiente <ChevronRight size={20} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {(selected.sub || isObservacion || hasRubrica) ? (
+              <form onSubmit={saveGrade} className="space-y-2 flex-shrink-0">
+                {parcialCerrado && (
+                  <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
+                    <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
+                    Para modificarlas, primero <strong>revierte el cierre del parcial</strong> desde Calificaciones.
+                    Al revertir, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
+                  </div>
+                )}
+
+                {/* Rúbrica — se abre hacia ARRIBA del botón (ver ventana flotante más abajo) */}
+                {hasRubrica && (() => {
+                  const totalR = totalRubrica(activity.rubrica, rubricEval)
+                  const faltan = activity.rubrica.criterios.filter((_, i) => rubricEval?.[i] == null).length
+                  return (
+                    <button
+                      type="button"
+                      ref={rubricaBtnRef}
+                      onClick={() => {
+                        const rect = rubricaBtnRef.current?.getBoundingClientRect()
+                        if (rect) setRubricaWinBottom(Math.round(window.innerHeight - rect.top + 6))
+                        setRubricaViewOpen((v) => !v)
+                      }}
+                      className={`w-full py-2.5 text-sm font-semibold rounded transition-colors flex items-center justify-center gap-2 ${
+                        rubricaViewOpen
+                          ? 'bg-accent text-white hover:bg-accent-hover'
+                          : 'border border-accent text-accent hover:bg-[var(--accent-medium)]'
+                      }`}
+                    >
+                      <ClipboardList size={17} />
+                      {rubricaViewOpen ? 'Ocultar rúbrica' : 'Ver rúbrica'}
+                      <span className="font-bold">
+                        {totalR != null ? `— ${totalR} / ${RUBRICA_TOTAL}` : `— faltan ${faltan} criterio${faltan !== 1 ? 's' : ''}`}
+                      </span>
+                    </button>
+                  )
+                })()}
+
+                {/* Calificación grande (arranca en el máximo) — pasos de 0.5
+                    con los botones +/-. Anular/Modificar fecha son íconos
+                    bien separados (divisor + espacio) que abren ventanas
+                    flotantes — nunca empujan este contenido. */}
+                <div>
+                  <p className="text-sm font-medium text-muted mb-1 text-center">
+                    Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
+                  </p>
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => stepCalif(-0.5)}
+                      disabled={parcialCerrado}
+                      aria-label="Restar medio punto"
+                      className="w-11 h-11 flex-shrink-0 rounded-full border border-accent text-accent text-2xl font-bold flex items-center justify-center hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
+                    >
+                      −
+                    </button>
+                    <input
+                      id="act-calificacion-native"
+                      type="number"
+                      value={gradeForm.calificacion}
+                      onChange={onCalifChange}
+                      required
+                      min="0"
+                      max={activity?.maxCalif}
+                      step="0.5"
+                      placeholder="—"
+                      disabled={parcialCerrado}
+                      className="w-24 py-1 text-center text-5xl font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => stepCalif(0.5)}
+                      disabled={parcialCerrado}
+                      aria-label="Sumar medio punto"
+                      className="w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white text-2xl font-bold flex items-center justify-center hover:bg-accent-hover transition-colors disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                    {!isObservacion && !isEvaluacion && (
+                      <>
+                        <div className="w-px h-9 bg-outline-variant mx-2 flex-shrink-0" />
+                        <div className="flex flex-col gap-2 flex-shrink-0">
                           <button
                             type="button"
-                            onClick={() => setExtendMode((v) => !v)}
+                            onClick={() => setExtendMode(true)}
                             disabled={parcialCerrado}
                             aria-label="Modificar fecha de entrega"
                             data-tooltip="Modificar fecha de entrega"
-                            className={`w-8 h-8 rounded border flex items-center justify-center transition-colors disabled:opacity-40 ${
-                              extendMode ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:text-accent hover:border-accent'
-                            }`}
+                            className="w-9 h-9 rounded border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40"
                           >
-                            <CalendarDays size={16} />
+                            <CalendarDays size={17} />
                           </button>
                           {selected.sub && (
                             <button
                               type="button"
-                              onClick={() => setAnnulMode((v) => !v)}
+                              onClick={() => setAnnulMode(true)}
                               disabled={parcialCerrado}
                               aria-label="Anular la entrega"
                               data-tooltip="Anular la entrega"
-                              className={`w-8 h-8 rounded border flex items-center justify-center transition-colors disabled:opacity-40 ${
-                                annulMode ? 'border-red-300 bg-red-50 text-red-600' : 'border-outline-variant text-muted hover:text-red-600 hover:border-red-300'
-                              }`}
+                              className="w-9 h-9 rounded border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors disabled:opacity-40"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={17} />
                             </button>
                           )}
                         </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {!isObservacion && !isEvaluacion && annulMode && selected.sub && (
-                    <div className="rounded border border-red-200 bg-red-50 p-3 space-y-2">
-                      <p className="text-sm text-red-700">
-                        ¿Anular la entrega de <strong>{studentFullName(selected.student)}</strong>?
-                        Volverá a quedar <strong>Pendiente</strong> y podrá entregar de nuevo.
-                        {selected.sub.calificacion != null && ' La calificación actual se eliminará.'}
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setAnnulMode(false)}
-                          disabled={annulling}
-                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={annulSubmission}
-                          disabled={annulling}
-                          className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
-                        >
-                          {annulling ? 'Anulando…' : 'Anular entrega'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {!isObservacion && !isEvaluacion && extendMode && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-on-surface">Nueva fecha y hora límite para este estudiante</p>
-                      <EFDateTimePicker
-                        mode="datetime"
-                        value={extendDate}
-                        onChange={setExtendDate}
-                        clearable={false}
-                        minDateTime={nowIsoLocal()}
-                      />
-                      <div>
-                        <label htmlFor="act-extend-motivo-native" className="block text-sm font-medium text-muted mb-1">Motivo</label>
-                        <textarea
-                          id="act-extend-motivo-native"
-                          value={extendMotivo}
-                          onChange={(e) => setExtendMotivo(e.target.value)}
-                          rows={2}
-                          placeholder="Motivo de la extensión…"
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setExtendMode(false)}
-                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={saveExtension}
-                          disabled={!extendDate || savingExtension}
-                          className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
-                        >
-                          {savingExtension ? 'Guardando…' : 'Guardar'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {!canCreate && (
-                    <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
-                      Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
-                    </p>
-                  )}
-
-                  {parcialCerrado ? null : autoSaveOnNav && navList.length > 1 ? (
-                    <p className="text-xs text-slate-400 text-center py-1">
-                      La calificación se guarda al avanzar o al retroceder.
-                    </p>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={saving || !canCreate || !isDirty()}
-                      className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                    >
-                      {saving ? <Spinner size="sm" /> : <Star size={18} />}
-                      {saving ? 'Guardando…' : 'Guardar calificación'}
-                    </button>
-                  )}
-                </form>
-              ) : (
-                <p className="text-sm text-slate-400 text-center py-2">
-                  El estudiante aún no ha entregado esta tarea.
-                </p>
-              )}
-
-              {selected.sub?.historial?.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
-                  <div className="space-y-1.5">
-                    {[...selected.sub.historial].reverse().map((v, i) => (
-                      <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
-                        <span className="text-slate-400 flex-shrink-0">
-                          {v.fechaEntrega?.seconds
-                            ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                            : '—'}
-                        </span>
-                        {v.completadoSinArchivo
-                          ? <span className="text-slate-400 italic">sin archivo</span>
-                          : v.archivoURL
-                            ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
-                                <Download size={14} /> {v.nombreArchivo}
-                              </a>
-                            : <span className="text-slate-300 italic">sin archivo</span>
-                        }
-                      </div>
-                    ))}
+                      </>
+                    )}
                   </div>
                 </div>
-              )}
 
-              <div className="h-2 safe-bottom" />
+                {!canCreate && (
+                  <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
+                    Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
+                  </p>
+                )}
+
+                {parcialCerrado ? null : autoSaveOnNav && navList.length > 1 ? (
+                  <p className="text-xs text-slate-400 text-center py-1">
+                    La calificación se guarda al avanzar o al retroceder.
+                  </p>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={saving || !canCreate || !isDirty()}
+                    className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {saving ? <Spinner size="sm" /> : <Star size={18} />}
+                    {saving ? 'Guardando…' : 'Guardar calificación'}
+                  </button>
+                )}
+              </form>
+            ) : (
+              <p className="text-sm text-slate-400 text-center py-2 flex-shrink-0">
+                El estudiante aún no ha entregado esta tarea.
+              </p>
+            )}
+
+            {selected.sub?.historial?.length > 0 && (
+              <div className="flex-shrink-0">
+                <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
+                <div className="space-y-1.5">
+                  {[...selected.sub.historial].reverse().map((v, i) => (
+                    <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
+                      <span className="text-slate-400 flex-shrink-0">
+                        {v.fechaEntrega?.seconds
+                          ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </span>
+                      {v.completadoSinArchivo
+                        ? <span className="text-slate-400 italic">sin archivo</span>
+                        : v.archivoURL
+                          ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
+                              <Download size={14} /> {v.nombreArchivo}
+                            </a>
+                          : <span className="text-slate-300 italic">sin archivo</span>
+                      }
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="h-1 safe-bottom flex-shrink-0" />
+          </div>
+        </div>
+      )}
+
+      {/* Anular entrega / Modificar fecha — ventanas flotantes centradas
+          (Android), no empujan el contenido de la vista de evaluar. */}
+      {selected && IS_NATIVE_APP && annulMode && selected.sub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setAnnulMode(false)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
+            <p className="text-sm text-red-700">
+              ¿Anular la entrega de <strong>{studentFullName(selected.student)}</strong>?
+              Volverá a quedar <strong>Pendiente</strong> y podrá entregar de nuevo.
+              {selected.sub.calificacion != null && ' La calificación actual se eliminará.'}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAnnulMode(false)}
+                disabled={annulling}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={annulSubmission}
+                disabled={annulling}
+                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+              >
+                {annulling ? 'Anulando…' : 'Anular entrega'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selected && IS_NATIVE_APP && extendMode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setExtendMode(false)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
+            <p className="text-sm font-medium text-on-surface">Nueva fecha y hora límite para este estudiante</p>
+            <EFDateTimePicker
+              mode="datetime"
+              value={extendDate}
+              onChange={setExtendDate}
+              clearable={false}
+              minDateTime={nowIsoLocal()}
+            />
+            <div>
+              <label htmlFor="act-extend-motivo-native" className="block text-sm font-medium text-muted mb-1">Motivo</label>
+              <textarea
+                id="act-extend-motivo-native"
+                value={extendMotivo}
+                onChange={(e) => setExtendMotivo(e.target.value)}
+                rows={2}
+                placeholder="Motivo de la extensión…"
+                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setExtendMode(false)}
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={saveExtension}
+                disabled={!extendDate || savingExtension}
+                className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
+              >
+                {savingExtension ? 'Guardando…' : 'Guardar'}
+              </button>
             </div>
           </div>
         </div>
