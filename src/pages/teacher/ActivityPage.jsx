@@ -1797,12 +1797,25 @@ export default function ActivityPage() {
                     de todo esto (ya no en medio de Anterior/Siguiente),
                     aprovechando el espacio que sobraba ahí. */}
                 <div>
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="flex flex-col gap-1 flex-shrink-0">
+                  {/* Fila de 3 zonas (izquierda fija / centro flexible /
+                      derecha fija) en vez de un solo flex centrado — así
+                      las columnas de los extremos pueden "sangrar" hasta el
+                      borde real de la pantalla (-ml-3/-mr-3 cancelan el
+                      padding del contenedor) sin que el cálculo de centrado
+                      del medio los jale de vuelta hacia adentro. */}
+                  <div className="flex items-center gap-2">
+                    {/* Todos/Por calificar "abrazan" el borde izquierdo de
+                        la pantalla como etiquetas — sin curva del lado
+                        izquierdo, texto alineado a la izquierda. Mismo alto
+                        (h-9) y mismo gap-2 que la columna de Nueva fecha/
+                        Anular para que Todos quede a la misma altura que
+                        Nueva fecha, y Por calificar a la misma altura que
+                        Anular entrega. */}
+                    <div className="flex flex-col gap-2 flex-shrink-0 -ml-3">
                       <button
                         type="button"
                         onClick={() => changeFilterInView('todos')}
-                        className={`px-2 py-1 rounded border text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                        className={`h-9 min-w-[104px] pl-3 pr-2 rounded-r border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
                           filter === 'todos' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
                         }`}
                       >
@@ -1811,55 +1824,62 @@ export default function ActivityPage() {
                       <button
                         type="button"
                         onClick={() => changeFilterInView('entregado')}
-                        className={`px-2 py-1 rounded border text-[11px] font-semibold whitespace-nowrap transition-colors ${
+                        className={`h-9 min-w-[104px] pl-3 pr-2 rounded-r border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
                           filter === 'entregado' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
                         }`}
                       >
                         Por calificar ({counts.entregado})
                       </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => stepCalif(-0.5)}
-                      disabled={parcialCerrado}
-                      aria-label="Restar medio punto"
-                      className="w-11 h-11 flex-shrink-0 rounded-full border border-accent text-accent text-2xl font-bold flex items-center justify-center hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
-                    >
-                      −
-                    </button>
-                    <input
-                      id="act-calificacion-native"
-                      type="number"
-                      value={gradeForm.calificacion}
-                      onChange={onCalifChange}
-                      required
-                      min="0"
-                      max={activity?.maxCalif}
-                      step="0.5"
-                      placeholder="—"
-                      disabled={parcialCerrado}
-                      className="w-24 py-1 text-center text-5xl font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => stepCalif(0.5)}
-                      disabled={parcialCerrado}
-                      aria-label="Sumar medio punto"
-                      className="w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white text-2xl font-bold flex items-center justify-center hover:bg-accent-hover transition-colors disabled:opacity-40"
-                    >
-                      +
-                    </button>
+
+                    <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => stepCalif(-0.5)}
+                        disabled={parcialCerrado}
+                        aria-label="Restar medio punto"
+                        className="w-11 h-11 flex-shrink-0 rounded-full border border-accent text-accent text-2xl font-bold flex items-center justify-center hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
+                      >
+                        −
+                      </button>
+                      <input
+                        id="act-calificacion-native"
+                        type="number"
+                        value={gradeForm.calificacion}
+                        onChange={onCalifChange}
+                        required
+                        min="0"
+                        max={activity?.maxCalif}
+                        step="0.5"
+                        placeholder="—"
+                        disabled={parcialCerrado}
+                        className="w-24 py-1 text-center text-5xl font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => stepCalif(0.5)}
+                        disabled={parcialCerrado}
+                        aria-label="Sumar medio punto"
+                        className="w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white text-2xl font-bold flex items-center justify-center hover:bg-accent-hover transition-colors disabled:opacity-40"
+                      >
+                        +
+                      </button>
+                    </div>
+
                     {!isObservacion && !isEvaluacion && (
                       <>
-                        <div className="w-px h-9 bg-outline-variant mx-2 flex-shrink-0" />
-                        <div className="flex flex-col gap-2 flex-shrink-0">
+                        <div className="w-px h-9 bg-outline-variant flex-shrink-0" />
+                        {/* Nueva fecha/Anular hacen lo mismo pero del lado
+                            derecho — sin curva a la derecha, hasta el borde
+                            real de la pantalla. */}
+                        <div className="flex flex-col gap-2 flex-shrink-0 -mr-3">
                           <button
                             type="button"
                             onClick={() => setExtendMode(true)}
                             disabled={parcialCerrado}
                             aria-label="Modificar fecha de entrega"
                             data-tooltip="Modificar fecha de entrega"
-                            className="w-9 h-9 rounded border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40"
+                            className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40"
                           >
                             <CalendarDays size={17} />
                           </button>
@@ -1870,7 +1890,7 @@ export default function ActivityPage() {
                               disabled={parcialCerrado}
                               aria-label="Anular la entrega"
                               data-tooltip="Anular la entrega"
-                              className="w-9 h-9 rounded border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors disabled:opacity-40"
+                              className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors disabled:opacity-40"
                             >
                               <Trash2 size={17} />
                             </button>
