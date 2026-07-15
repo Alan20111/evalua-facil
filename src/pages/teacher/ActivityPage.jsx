@@ -278,11 +278,13 @@ export default function ActivityPage() {
       // Delivered but ungraded (or observación, which never has a delivery) →
       // prefill the max grade so paging with Siguiente/Anterior grades with 10
       // by default (adjust exceptions only).
-      // En Android siempre arranca en el máximo (el docente baja si hace
-      // falta) — en web solo se prellena cuando ya hay entrega u observación.
+      // En Android arranca vacío ("—") mientras no haya calificación —
+      // muchos alumnos ni siquiera han entregado, prellenar el máximo ahí
+      // sería engañoso. Los botones +/- (stepCalif) son los que saltan a
+      // máximo/mitad desde vacío. En web se mantiene el prellenado previo.
       calificacion: sub?.calificacion != null
         ? String(sub.calificacion)
-        : (IS_NATIVE_APP || (sub && !isEvaluacion) || isObservacion) ? String(activity?.maxCalif ?? 10) : '',
+        : (!IS_NATIVE_APP && ((sub && !isEvaluacion) || isObservacion)) ? String(activity?.maxCalif ?? 10) : '',
       comentario: sub?.comentario || '',
     })
     // Con rúbrica: cargar la evaluación guardada; si aún no hay calificación,
@@ -636,12 +638,17 @@ export default function ActivityPage() {
   }
 
   // Botones +/- de la calificación grande en Android — saltos de 0.5,
-  // acotados entre 0 y el máximo de la actividad.
+  // acotados entre 0 y el máximo de la actividad. Partiendo de vacío (sin
+  // calificar aún) el + salta directo al máximo y el - a la mitad — de ahí
+  // en adelante ya suman/restan de 0.5 en 0.5 normalmente.
   function stepCalif(delta) {
     const max = activity?.maxCalif ?? 10
     const current = parseFloat(gradeForm.calificacion)
-    const base = isNaN(current) ? 0 : current
-    const next = Math.min(max, Math.max(0, Math.round((base + delta) * 2) / 2))
+    if (isNaN(current)) {
+      setGradeForm((f) => ({ ...f, calificacion: String(delta > 0 ? max : max / 2) }))
+      return
+    }
+    const next = Math.min(max, Math.max(0, Math.round((current + delta) * 2) / 2))
     setGradeForm((f) => ({ ...f, calificacion: String(next) }))
   }
 
@@ -1770,14 +1777,14 @@ export default function ActivityPage() {
                   )
                 })()}
 
-                {/* Calificación grande (arranca en el máximo) — pasos de 0.5
-                    con los botones +/-. Anular/Modificar fecha son íconos
-                    bien separados (divisor + espacio) que abren ventanas
-                    flotantes — nunca empujan este contenido. */}
+                {/* Calificación grande — sin la etiqueta de arriba (le cede
+                    ese espacio a la entrega). Vacía ("—") mientras no hay
+                    calificación; +/- desde vacío saltan a máximo/mitad (ver
+                    stepCalif), luego suben/bajan de 0.5 en 0.5. Anular/
+                    Modificar fecha son íconos bien separados (divisor +
+                    espacio) que abren ventanas flotantes — nunca empujan
+                    este contenido. */}
                 <div>
-                  <p className="text-sm font-medium text-muted mb-1 text-center">
-                    Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
-                  </p>
                   <div className="flex items-center justify-center gap-2">
                     <button
                       type="button"
