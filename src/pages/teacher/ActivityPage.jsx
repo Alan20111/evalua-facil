@@ -21,9 +21,10 @@ import SearchInput from '../../components/SearchInput'
 import {
   ArrowLeft, Clock,
   Download, Star, CalendarDays, ArrowDownAZ,
-  ChevronLeft, ChevronRight, FolderDown, Pencil,
+  ChevronLeft, ChevronRight, FolderDown, Pencil, Trash2,
 } from 'lucide-react'
-import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
+import { FilePreview, FilePreviewModal, canPreviewFile } from '../../components/AttachmentList'
+import { getResourceIcon } from '../../utils/resourceTypes'
 import ZoomableImage from '../../components/ZoomableImage'
 import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
@@ -95,6 +96,28 @@ function submissionFiles(sub) {
   if (!sub || sub.completadoSinArchivo) return []
   if (sub.archivos?.length) return sub.archivos.map((f) => ({ url: f.url, nombre: f.nombre }))
   return sub.archivoURL ? [{ url: sub.archivoURL, nombre: sub.nombreArchivo }] : []
+}
+
+// Miniatura cuadrada para un archivo NO imagen dentro de la tira de entrega
+// de Android (alto fijo) — toca para abrir la vista previa a pantalla
+// completa ya existente (FilePreviewModal), sin ocupar espacio inline.
+function EntregaFileTile({ f }) {
+  const [open, setOpen] = useState(false)
+  const { icon: Icon, color } = getResourceIcon(f.nombre)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        data-tooltip="Ver"
+        className="h-full aspect-square flex-shrink-0 flex flex-col items-center justify-center gap-1 rounded border border-outline-variant bg-surface-card px-1"
+      >
+        <Icon size={26} className={color} />
+        <span className="text-[10px] text-muted truncate max-w-full px-1">{f.nombre}</span>
+      </button>
+      {open && <FilePreviewModal url={f.url} nombre={f.nombre} onClose={() => setOpen(false)} />}
+    </>
+  )
 }
 
 const STATUS_COLORS = {
@@ -278,9 +301,11 @@ export default function ActivityPage() {
       // Delivered but ungraded (or observación, which never has a delivery) →
       // prefill the max grade so paging with Siguiente/Anterior grades with 10
       // by default (adjust exceptions only).
+      // En Android siempre arranca en el máximo (el docente baja si hace
+      // falta) — en web solo se prellena cuando ya hay entrega u observación.
       calificacion: sub?.calificacion != null
         ? String(sub.calificacion)
-        : ((sub && !isEvaluacion) || isObservacion) ? String(activity?.maxCalif ?? 10) : '',
+        : (IS_NATIVE_APP || (sub && !isEvaluacion) || isObservacion) ? String(activity?.maxCalif ?? 10) : '',
       comentario: sub?.comentario || '',
     })
     // Con rúbrica: cargar la evaluación guardada; si aún no hay calificación,
@@ -1580,91 +1605,80 @@ export default function ActivityPage() {
         </div>
       )}
 
-      {/* Vista de evaluar en Android — una sola columna que hace scroll de
-          página completa (no dos paneles con scroll independiente como en
-          la web). Orden: encabezado fijo arriba → entrega (imágenes con
-          zoom, pdf/office inline, descarga si no hay vista previa) → tabs
-          de filtro → número+nombre del alumno → checkbox de autoguardado +
-          Anterior/Siguiente → rúbrica (se abre hacia arriba) → calificación
-          grande con pasos de 0.5 → Guardar calificación → historial →
-          anular entrega → modificar fecha. Sin comentarios ni "Evaluar sin
-          entrega" — a propósito, no se ofrecen en Android. */}
+      {/* Vista de evaluar en Android — compacta, pensada para que quepa
+          completa en una sola pantalla sin necesidad de bajar (docente
+          experimentado). Orden: encabezado mínimo (flecha + nombre de
+          actividad) → entrega en tira horizontal de alto fijo (mismo
+          espacio haya o no archivos) → tabs Todos/Por calificar → número+
+          nombre del alumno (sin descripción de archivo) → checkbox +
+          Anterior/Siguiente → rúbrica (abre hacia arriba) → calificación
+          grande (arranca en el máximo) con pasos de 0.5 e íconos de
+          anular/modificar fecha al lado → Guardar calificación → historial.
+          Sin comentarios ni "Evaluar sin entrega". */}
       {selected && IS_NATIVE_APP && (
         <div className="fixed inset-0 z-40 flex flex-col bg-surface">
-          <div className="flex items-center px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0 safe-top">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start gap-3">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="flex items-center gap-1 p-2 -ml-2 mt-0.5 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
-                >
-                  <ArrowLeft size={20} /> Regresar
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-muted truncate">
-                    {subjectDisplayName(subject)}
-                    {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
-                  </p>
-                  <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
-                  <h3 className="text-xl font-bold text-on-surface truncate">
-                    {activityLabel && <span className="text-accent">{activityLabel} </span>}
-                    {activity?.nombre}
-                  </h3>
-                  <p className="text-sm font-medium text-muted truncate">
-                    Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
-                  </p>
-                </div>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 px-3 py-2 bg-surface-card border-b border-outline-variant flex-shrink-0 safe-top">
+            <button
+              type="button"
+              onClick={closeModal}
+              aria-label="Regresar"
+              data-tooltip="Regresar"
+              className="p-2 -ml-1 text-muted hover:text-accent rounded flex-shrink-0 transition-colors"
+            >
+              <ArrowLeft size={22} />
+            </button>
+            <h3 className="text-sm font-semibold text-on-surface truncate flex-1 min-w-0">
+              {activityLabel && <span className="text-accent">{activityLabel} </span>}
+              {activity?.nombre}
+            </h3>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto">
-            <div className="p-3 space-y-3">
+            <div className="p-3 space-y-2">
 
-              {/* Entrega: cada archivo según su tipo — imagen con zoom, pdf/office
-                  con vista previa embebida, cualquier otro con descarga */}
-              <div className="rounded-card overflow-hidden bg-surface-container">
+              {/* Entrega: tira horizontal de alto fijo — mismo espacio haya o
+                  no archivos. Imagen con zoom, pdf/office/otro como
+                  miniatura que abre la vista previa a pantalla completa. */}
+              <div className="rounded-card overflow-hidden bg-surface-container h-36">
                 {selFiles.length > 0 ? (
-                  <div className="p-2 space-y-2">
+                  <div className="h-full flex gap-2 overflow-x-auto p-2">
                     {selFiles.map((f, i) => (
-                      <div key={`${f.url}-${i}`}>
-                        {isImageFile(f.nombre, f.url) ? (
-                          <ZoomableImage src={f.url} alt={f.nombre} />
-                        ) : canPreviewFile(f.nombre) ? (
-                          <div className="rounded overflow-hidden bg-surface-card" style={{ height: '70vh' }}>
-                            <FilePreview url={f.url} nombre={f.nombre} fill />
-                          </div>
-                        ) : (
-                          <a
-                            href={downloadUrl(f.url, f.nombre)}
-                            download={f.nombre}
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-3 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
-                          >
-                            <Download size={18} className="text-accent flex-shrink-0" />
-                            <span className="truncate">{f.nombre}</span>
-                          </a>
-                        )}
-                      </div>
+                      isImageFile(f.nombre, f.url) ? (
+                        <ZoomableImage key={`${f.url}-${i}`} src={f.url} alt={f.nombre} fit="height" />
+                      ) : canPreviewFile(f.nombre) ? (
+                        <EntregaFileTile key={`${f.url}-${i}`} f={f} />
+                      ) : (
+                        <a
+                          key={`${f.url}-${i}`}
+                          href={downloadUrl(f.url, f.nombre)}
+                          download={f.nombre}
+                          rel="noopener noreferrer"
+                          data-tooltip="Descargar"
+                          className="h-full aspect-square flex-shrink-0 flex flex-col items-center justify-center gap-1 rounded border border-outline-variant bg-surface-card px-1"
+                        >
+                          <Download size={26} className="text-accent" />
+                          <span className="text-[10px] text-muted truncate max-w-full px-1">{f.nombre}</span>
+                        </a>
+                      )
                     ))}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center text-slate-400 text-sm p-8 text-center">
+                  <div className="h-full flex items-center justify-center text-slate-400 text-sm p-3 text-center">
                     {isObservacion
-                      ? 'Actividad de observación — no requiere entrega. Califica directamente abajo.'
+                      ? 'Observación — no requiere entrega.'
                       : isEvaluacion
-                        ? 'Evaluación — la calificación proviene del intento del alumno; puedes ajustarla abajo.'
+                        ? 'Evaluación — calificación del intento del alumno.'
                         : selected.sub?.completadoSinArchivo
-                          ? 'Actividad completada sin archivo.'
-                          : 'El estudiante aún no ha entregado esta tarea.'}
+                          ? 'Completada sin archivo.'
+                          : 'Aún no ha entregado esta tarea.'}
                   </div>
                 )}
               </div>
 
-              {/* Tabs de filtro — mismos conjuntos que la lista de Entregas */}
+              {/* Tabs de filtro — solo Todos y Por calificar en Android, en
+                  la misma posición siempre */}
               <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1 rounded">
-                {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
+                {['todos', 'entregado'].map((f) => (
                   <button
                     type="button"
                     key={f}
@@ -1678,7 +1692,8 @@ export default function ActivityPage() {
                 ))}
               </div>
 
-              {/* Número y nombre del estudiante, mismo renglón */}
+              {/* Número y nombre del estudiante, mismo renglón — sin la
+                  descripción del archivo entregado debajo */}
               <div>
                 <div className="flex items-center justify-between gap-2">
                   <h4 className="text-base font-semibold text-on-surface truncate">
@@ -1689,19 +1704,6 @@ export default function ActivityPage() {
                     {STATUS_LABELS[getStatus(selected.student.id)]}
                   </span>
                 </div>
-                <p className="text-sm text-slate-500 mt-0.5 truncate">
-                  {isObservacion
-                    ? 'Observación — se califica sin entrega'
-                    : isEvaluacion
-                      ? (selected.sub ? `Evaluación — intento ${selected.sub.intentoActual || 1}` : 'Evaluación — sin intento aún')
-                      : selFiles.length > 1
-                        ? `${selFiles.length} archivos entregados`
-                        : selected.sub
-                          ? selected.sub.completadoSinArchivo
-                            ? 'Completada sin archivo'
-                            : (selected.sub.nombreArchivo || (selected.sub.sinEntrega ? `Sin entrega — calificada en ${selected.sub.calificacion ?? 0}` : 'Sin archivo'))
-                          : 'Sin entrega aún'}
-                </p>
                 {selected.sub?.tarde && (
                   <p className="text-xs text-amber-600 font-medium mt-0.5 truncate">
                     {formatLateness(selected.sub, selected.student, activity)}
@@ -1714,7 +1716,7 @@ export default function ActivityPage() {
                 )}
               </div>
 
-              {/* Guardar calificación al avanzar/retroceder + Anterior/Siguiente */}
+              {/* Guardar al avanzar/retroceder + Anterior/Siguiente */}
               {navList.length > 1 && (
                 <div className="space-y-1.5">
                   <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
@@ -1724,7 +1726,7 @@ export default function ActivityPage() {
                       onChange={toggleAutoSave}
                       className="w-4 h-4 accent-[var(--accent)] flex-shrink-0"
                     />
-                    Guardar calificación al avanzar o al retroceder
+                    Guardar al avanzar o retroceder
                   </label>
                   <div className="flex items-center gap-2">
                     <button
@@ -1747,7 +1749,7 @@ export default function ActivityPage() {
               )}
 
               {(selected.sub || isObservacion || hasRubrica) ? (
-                <form onSubmit={saveGrade} className="space-y-3">
+                <form onSubmit={saveGrade} className="space-y-2">
                   {parcialCerrado && (
                     <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 leading-relaxed">
                       <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
@@ -1784,12 +1786,14 @@ export default function ActivityPage() {
                     )
                   })()}
 
-                  {/* Calificación grande — pasos de 0.5 con los botones +/- */}
+                  {/* Calificación grande (arranca en el máximo) — pasos de 0.5
+                      con los botones +/-, e íconos de anular/modificar fecha
+                      al lado */}
                   <div>
                     <p className="text-sm font-medium text-muted mb-1 text-center">
                       Calificación <span className="text-slate-400">(máx. {activity?.maxCalif})</span>
                     </p>
-                    <div className="flex items-center justify-center gap-3">
+                    <div className="flex items-center justify-center gap-2">
                       <button
                         type="button"
                         onClick={() => stepCalif(-0.5)}
@@ -1810,7 +1814,7 @@ export default function ActivityPage() {
                         step="0.5"
                         placeholder="—"
                         disabled={parcialCerrado}
-                        className="w-28 py-1 text-center text-5xl font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-24 py-1 text-center text-5xl font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                       <button
                         type="button"
@@ -1821,8 +1825,107 @@ export default function ActivityPage() {
                       >
                         +
                       </button>
+                      {!isObservacion && !isEvaluacion && (
+                        <div className="flex flex-col gap-1 ml-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setExtendMode((v) => !v)}
+                            disabled={parcialCerrado}
+                            aria-label="Modificar fecha de entrega"
+                            data-tooltip="Modificar fecha de entrega"
+                            className={`w-8 h-8 rounded border flex items-center justify-center transition-colors disabled:opacity-40 ${
+                              extendMode ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:text-accent hover:border-accent'
+                            }`}
+                          >
+                            <CalendarDays size={16} />
+                          </button>
+                          {selected.sub && (
+                            <button
+                              type="button"
+                              onClick={() => setAnnulMode((v) => !v)}
+                              disabled={parcialCerrado}
+                              aria-label="Anular la entrega"
+                              data-tooltip="Anular la entrega"
+                              className={`w-8 h-8 rounded border flex items-center justify-center transition-colors disabled:opacity-40 ${
+                                annulMode ? 'border-red-300 bg-red-50 text-red-600' : 'border-outline-variant text-muted hover:text-red-600 hover:border-red-300'
+                              }`}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {!isObservacion && !isEvaluacion && annulMode && selected.sub && (
+                    <div className="rounded border border-red-200 bg-red-50 p-3 space-y-2">
+                      <p className="text-sm text-red-700">
+                        ¿Anular la entrega de <strong>{studentFullName(selected.student)}</strong>?
+                        Volverá a quedar <strong>Pendiente</strong> y podrá entregar de nuevo.
+                        {selected.sub.calificacion != null && ' La calificación actual se eliminará.'}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAnnulMode(false)}
+                          disabled={annulling}
+                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={annulSubmission}
+                          disabled={annulling}
+                          className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+                        >
+                          {annulling ? 'Anulando…' : 'Anular entrega'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!isObservacion && !isEvaluacion && extendMode && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-on-surface">Nueva fecha y hora límite para este estudiante</p>
+                      <EFDateTimePicker
+                        mode="datetime"
+                        value={extendDate}
+                        onChange={setExtendDate}
+                        clearable={false}
+                        minDateTime={nowIsoLocal()}
+                      />
+                      <div>
+                        <label htmlFor="act-extend-motivo-native" className="block text-sm font-medium text-muted mb-1">Motivo</label>
+                        <textarea
+                          id="act-extend-motivo-native"
+                          value={extendMotivo}
+                          onChange={(e) => setExtendMotivo(e.target.value)}
+                          rows={2}
+                          placeholder="Motivo de la extensión…"
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setExtendMode(false)}
+                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveExtension}
+                          disabled={!extendDate || savingExtension}
+                          className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
+                        >
+                          {savingExtension ? 'Guardando…' : 'Guardar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {!canCreate && (
                     <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
@@ -1873,98 +1976,6 @@ export default function ActivityPage() {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* Anular entrega + Modificar fecha de entrega — "Evaluar sin
-                  entrega" no se ofrece en Android, a propósito */}
-              {!isObservacion && !isEvaluacion && (
-                <div className="pt-3 border-t border-outline-variant space-y-2">
-                  {selected.sub && !parcialCerrado && (
-                    !annulMode ? (
-                      <button
-                        type="button"
-                        onClick={() => setAnnulMode(true)}
-                        className="block mx-auto text-sm text-slate-500 hover:text-red-600 transition-colors"
-                      >
-                        Anular la entrega actual para este estudiante
-                      </button>
-                    ) : (
-                      <div className="rounded border border-red-200 bg-red-50 p-3 space-y-2">
-                        <p className="text-sm text-red-700">
-                          ¿Anular la entrega de <strong>{studentFullName(selected.student)}</strong>?
-                          Volverá a quedar <strong>Pendiente</strong> y podrá entregar de nuevo.
-                          {selected.sub.calificacion != null && ' La calificación actual se eliminará.'}
-                        </p>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setAnnulMode(false)}
-                            disabled={annulling}
-                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-                          >
-                            Cancelar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={annulSubmission}
-                            disabled={annulling}
-                            className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
-                          >
-                            {annulling ? 'Anulando…' : 'Anular entrega'}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  )}
-                  {!extendMode ? (
-                    <button
-                      type="button"
-                      onClick={() => setExtendMode(true)}
-                      className="block mx-auto text-sm text-slate-500 hover:text-muted transition-colors"
-                    >
-                      Modificar fecha de entrega para este estudiante
-                    </button>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-on-surface">Nueva fecha y hora límite para este estudiante</p>
-                      <EFDateTimePicker
-                        mode="datetime"
-                        value={extendDate}
-                        onChange={setExtendDate}
-                        clearable={false}
-                        minDateTime={nowIsoLocal()}
-                      />
-                      <div>
-                        <label htmlFor="act-extend-motivo-native" className="block text-sm font-medium text-muted mb-1">Motivo</label>
-                        <textarea
-                          id="act-extend-motivo-native"
-                          value={extendMotivo}
-                          onChange={(e) => setExtendMotivo(e.target.value)}
-                          rows={2}
-                          placeholder="Motivo de la extensión…"
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setExtendMode(false)}
-                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={saveExtension}
-                          disabled={!extendDate || savingExtension}
-                          className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
-                        >
-                          {savingExtension ? 'Guardando…' : 'Guardar'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
