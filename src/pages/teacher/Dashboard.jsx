@@ -191,8 +191,8 @@ export default function TeacherDashboard() {
     <TeacherLayout>
       <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Greeting — "Bienvenido" y "{prefijo} {nombre}" en renglones separados,
-            mismo tamaño; apellidos debajo, más chico. Igual que el estudiante
+        {/* Greeting — "Bienvenido" en su renglón, "{prefijo} {nombre} {apellidos}"
+            junto debajo, mismo tamaño. Igual que el estudiante
             (userProfile.nombre/apellidoPaterno/apellidoMaterno); si un
             docente aún no tiene esos campos, cae de vuelta al alias
             nombreMostrar mientras la migración de AuthContext lo resuelve. El
@@ -200,10 +200,9 @@ export default function TeacherDashboard() {
             sus alumnos). */}
         <div className="mb-4">
           <h1 className="text-lg font-bold text-on-surface truncate">Bienvenido</h1>
-          <p className="text-lg font-bold text-on-surface truncate">{teacherGreetingName}</p>
-          {teacherApellidos && (
-            <p className="text-xs font-semibold text-on-surface truncate">{teacherApellidos}</p>
-          )}
+          <p className="text-lg font-bold text-on-surface truncate">
+            {teacherGreetingName}{teacherApellidos ? ` ${teacherApellidos}` : ''}
+          </p>
           {userProfile?.schoolName && (
             <p className="text-slate-400 text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
           )}
