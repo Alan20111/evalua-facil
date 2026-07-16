@@ -938,13 +938,13 @@ export default function ActivityPage() {
                     type="button"
                     key={s.id}
                     onClick={() => openGradeFromList(s)}
-                    className={`w-full flex items-center gap-2 px-2 py-1 text-left hover:bg-[var(--accent-tint)] transition-colors cursor-pointer ${
+                    className={`w-full flex items-center ${IS_NATIVE_APP ? 'gap-1 pl-1 pr-2' : 'gap-2 px-2'} py-1 text-left hover:bg-[var(--accent-tint)] transition-colors cursor-pointer ${
                       i > 0 ? 'border-t border-outline-variant' : ''
                     }`}
                   >
-                    <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
+                    <span className={`${IS_NATIVE_APP ? 'w-4' : 'w-5'} text-xs text-slate-500 text-right flex-shrink-0`}>{s.orden}</span>
                     <div className="flex-1 min-w-0" data-tooltip="Evaluar" data-tooltip-pos="bottom">
-                      <p className="text-sm font-medium text-on-surface truncate">
+                      <p className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} font-medium text-on-surface truncate`}>
                         {studentFullName(s)}
                       </p>
                     </div>
@@ -960,9 +960,11 @@ export default function ActivityPage() {
                           <Star size={14} /> {sub.calificacion}/{activity?.maxCalif}
                         </span>
                       )}
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[status]}`}>
-                        {STATUS_LABELS[status]}
-                      </span>
+                      {!IS_NATIVE_APP && (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[status]}`}>
+                          {STATUS_LABELS[status]}
+                        </span>
+                      )}
                     </div>
                   </button>
                 )
