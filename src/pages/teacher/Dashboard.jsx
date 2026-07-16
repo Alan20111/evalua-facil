@@ -198,11 +198,11 @@ export default function TeacherDashboard() {
             nombreMostrar mientras la migración de AuthContext lo resuelve. El
             prefijo es el mismo elegido en Perfil > Nombre visible. */}
         <div className="mb-4">
-          <h1 className="text-xl font-bold text-on-surface truncate">
+          <h1 className="text-sm font-bold text-on-surface truncate">
             Bienvenido, {teacherGreetingName}
           </h1>
           {teacherApellidos && (
-            <p className="text-base font-semibold text-on-surface truncate">{teacherApellidos}</p>
+            <p className="text-xs font-semibold text-on-surface truncate">{teacherApellidos}</p>
           )}
           {userProfile?.schoolName && (
             <p className="text-slate-400 text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
