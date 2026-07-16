@@ -3070,10 +3070,10 @@ export default function SubjectPage() {
               <div className="space-y-2 py-2">
                 <p className="text-sm text-muted mb-3">¿Qué tipo de actividad quieres crear?</p>
                 {[
-                  { key: 'entregable', label: 'Entregable', desc: 'El alumno sube un archivo o la marca como completada.' },
-                  { key: 'cuestionario', label: 'Cuestionario', desc: 'Preguntas con calificación automática. Ideal para práctica o aprendizaje.' },
-                  { key: 'examen', label: 'Examen', desc: 'Preguntas con calificación automática. Para evaluación formal.' },
-                  { key: 'observacion', label: 'Observación', desc: 'Sin entrega del alumno: tú observas y calificas. Ej.: actitud, exposición de tema, realización de ejercicio.' },
+                  { key: 'entregable', label: 'Entregable', desc: 'El alumno sube uno o varios archivos.', Icon: FileText, iconColor: 'text-slate-500', iconBg: 'bg-slate-100' },
+                  { key: 'cuestionario', label: 'Cuestionario', desc: 'Preguntas con calificación automática, abiertas o con archivo. Ideal para práctica o aprendizaje.', Icon: ListChecks, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
+                  { key: 'examen', label: 'Examen', desc: 'Preguntas con calificación automática, abiertas o con archivo. Para evaluación formal.', Icon: GraduationCap, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
+                  { key: 'observacion', label: 'Observación', desc: 'Sin entrega del alumno: tú observas y calificas. Ej.: actitud, exposición de tema, realización de ejercicio.', Icon: ClipboardCheck, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
                 ].map((opt) => (
                   <button key={opt.key} type="button"
                     onClick={() => {
@@ -3085,6 +3085,9 @@ export default function SubjectPage() {
                       }
                     }}
                     className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
+                      <opt.Icon size={20} className={opt.iconColor} />
+                    </div>
                     <div>
                       <p className="font-semibold text-on-surface">{opt.label}</p>
                       <p className="text-xs text-muted mt-0.5">{opt.desc}</p>
