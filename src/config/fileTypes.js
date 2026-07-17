@@ -109,6 +109,31 @@ export function fileTypesLabel(value, customExts) {
   return parts.length ? parts.join(', ') : FILE_TYPE_BASE_OPTIONS[0].label
 }
 
+// Student-facing instructions, one short line per accepted category — meant
+// to be read as "any ONE of these" (a submission is a single deliverable:
+// either up to 5 photos, or one document of one of the other accepted
+// kinds — never several kinds together), which is why the caller joins them
+// with a trailing "o" on every line but the last. Deliberately NOT the same
+// string as fileTypesLabel() (a flat comma list, still used in the teacher's
+// own editor/summary) — this one is for the student upload screen, where a
+// technical extension list ("· .jpg,.pdf,.doc") reads as confusing.
+export function fileTypesInstructions(value, customExts) {
+  const keys = normalizeFileTypeKeys(value)
+  if (keys.includes(ALL_FILES_KEY)) return ['Un archivo de cualquier tipo']
+  const lines = []
+  keys.forEach((k) => {
+    if (k === CUSTOM_FILE_TYPE) {
+      const exts = parseCustomExts(customExts)
+      if (exts.length) lines.push(`1 archivo con extensión ${exts.map((e) => `.${e.toUpperCase()}`).join(' o .')}`)
+      return
+    }
+    if (k === 'imagenes') { lines.push(`De 1 a ${MAX_IMAGES_PER_SUBMISSION} fotos o imágenes`); return }
+    const base = FILE_TYPE_BASE_OPTIONS.find((o) => o.key === k)
+    if (base) lines.push(base.label)
+  })
+  return lines.length ? lines : ['1 archivo']
+}
+
 // Combined accept/mime/ext set for the current selection — used for the upload
 // <input accept> attribute and to validate an uploaded file.
 export function resolveFileTypes(value, customExts) {

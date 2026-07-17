@@ -20,7 +20,7 @@ import {
   ArrowLeft, Upload, CheckCircle, Clock, FileText, Star,
   MessageSquare, Download, X,
 } from 'lucide-react'
-import { resolveFileTypes, isFileAllowed, allowsMultipleFiles, MAX_IMAGES_PER_SUBMISSION } from '../../config/fileTypes'
+import { resolveFileTypes, isFileAllowed, allowsMultipleFiles, fileTypesInstructions, MAX_IMAGES_PER_SUBMISSION } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { isActivityPublished } from '../../utils/activityVisibility'
@@ -221,7 +221,7 @@ export default function StudentActivityPage() {
     if (submission) { toast('Ya entregaste esta actividad — espera a que tu maestro la revise.', 'error'); return }
     for (const f of files) {
       if (!isFileAllowed(f, activity?.tiposArchivo || 'todos', activity?.extensionesCustom)) {
-        toast(`Solo se permiten: ${resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept}`, 'error'); return
+        toast(`Solo se permite: ${fileTypesInstructions(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).join(' o ')}`, 'error'); return
       }
       if (f.size > 5 * 1024 * 1024) { toast(`"${f.name}" supera los 5 MB — cada archivo debe pesar menos de 5 MB`, 'error'); return }
     }
@@ -639,6 +639,19 @@ export default function StudentActivityPage() {
                 La fecha límite ya pasó. Tu entrega se registrará como <strong>entrega tarde</strong>.
               </p>
             )}
+            {/* Instrucciones claras de qué se acepta — antes solo se veía la
+                lista técnica de extensiones (".jpg,.pdf,.doc"), confusa. Cada
+                línea es una opción independiente ("o"): la entrega es UN
+                tipo de archivo (hasta 5 fotos cuentan como uno), nunca varios
+                tipos combinados. */}
+            <div className="mb-3 p-3 bg-accent-light border border-accent rounded text-sm">
+              <p className="font-medium text-on-surface mb-1">Archivos que puedes enviar para esta actividad:</p>
+              <ul className="space-y-0.5 text-muted">
+                {fileTypesInstructions(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).map((line, i, arr) => (
+                  <li key={line}>• {line}{i < arr.length - 1 ? ' o' : ''}</li>
+                ))}
+              </ul>
+            </div>
             <div className="space-y-3">
               <label className={`flex flex-col items-center justify-center w-full h-28 sm:h-32 px-3 border-2 border-dashed rounded cursor-pointer transition-colors ${
                 files.length ? 'border-accent bg-accent-light' : 'border-outline-variant hover:border-accent hover:bg-surface'
@@ -665,7 +678,7 @@ export default function StudentActivityPage() {
                       : `${files.length} imágenes seleccionadas`}
                 </p>
                 <p className="text-sm text-slate-500 mt-1 text-center break-words max-w-full">
-                  {resolveFileTypes(activity?.tiposArchivo || 'todos', activity?.extensionesCustom).accept} · máx 5 MB cada uno
+                  Máx 5 MB cada uno
                 </p>
                 {allowsMultipleFiles(activity?.tiposArchivo || 'todos') && files.length === 0 && (
                   <p className="text-xs text-accent mt-0.5 text-center max-w-full">
