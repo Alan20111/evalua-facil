@@ -20,6 +20,7 @@ import {
 import { ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays } from 'lucide-react'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
+import EvaluacionGraficas from './EvaluacionGraficas'
 import PublicacionScheduler from './PublicacionScheduler'
 import EvaluacionEditor from './EvaluacionEditor'
 import { useBackHandler } from '../hooks/useBackHandler'
@@ -93,6 +94,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [showBanco, setShowBanco] = useState(false)
   useBackHandler(() => setShowBanco(false), showBanco)
   useScrollLock(showBanco)
+  // Per-reactivo pie charts overlay — owns its own useBackHandler/useScrollLock
+  // (same pattern as ZoomableImage's overlay), so just a flag here.
+  const [showGraficas, setShowGraficas] = useState(false)
   const [editingPreguntaId, setEditingPreguntaId] = useState(null)
   const [preguntaEditForm, setPreguntaEditForm] = useState(null)
   const [bancoSearch, setBancoSearch] = useState('')
@@ -1223,6 +1227,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               totalEntregas={Object.values(submissions).filter((s) => s.estadoEvaluacion === 'finalizado').length}
               totalPendientes={students.filter((x) => submissions[x.id]?.estadoEvaluacion !== 'finalizado').length}
               maxCalif={activity.maxCalif || 10}
+              onGraficas={() => setShowGraficas(true)}
             />
             {configForm?.publicarResultados === 'manual' && !configForm.resultadosPublicados && (
               <button type="button" onClick={handlePublicarResultados} className="w-full mb-3 py-2 bg-accent text-white text-sm font-medium rounded">
@@ -1562,6 +1567,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </div>
           </div>
         </div>
+      )}
+
+      {showGraficas && (
+        <EvaluacionGraficas
+          activity={activity}
+          activityLabel={activityLabel}
+          preguntas={preguntas}
+          submissions={submissions}
+          onClose={() => setShowGraficas(false)}
+        />
       )}
     </div>
   )

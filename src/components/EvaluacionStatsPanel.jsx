@@ -1,4 +1,4 @@
-import { Star, TrendingUp, TrendingDown, CheckCircle2, Users, FileCheck2, Clock } from 'lucide-react'
+import { Star, TrendingUp, TrendingDown, CheckCircle2, Users, FileCheck2, Clock, PieChart } from 'lucide-react'
 
 // Specialized results-analysis panel for an evaluación — distinct from the grade
 // table. Shows the core group metrics in a consistent card grid. Kept as its own
@@ -10,7 +10,10 @@ import { Star, TrendingUp, TrendingDown, CheckCircle2, Users, FileCheck2, Clock 
 //   stats       — { promedio, maxima, minima, porcentajeAprobados } (calcularEstadisticasGrupo)
 //   totalEstudiantes, totalEntregas, totalPendientes — counts
 //   maxCalif    — scale for the average/max/min captions
-export default function EvaluacionStatsPanel({ stats, totalEstudiantes, totalEntregas, totalPendientes, maxCalif = 10 }) {
+//   onGraficas  — opens EvaluacionGraficas; renders an 8th tile (button) that
+//                 fills the slot left empty below "% de aprobación" (7 metrics
+//                 in a 2x4 grid)
+export default function EvaluacionStatsPanel({ stats, totalEstudiantes, totalEntregas, totalPendientes, maxCalif = 10, onGraficas }) {
   const metrics = [
     { icon: Star, label: 'Promedio', value: stats.promedio, sub: `/ ${maxCalif}` },
     { icon: TrendingUp, label: 'Calificación máxima', value: stats.maxima, sub: `/ ${maxCalif}` },
@@ -35,6 +38,17 @@ export default function EvaluacionStatsPanel({ stats, totalEstudiantes, totalEnt
             <p className="text-xs text-muted mt-0.5">{label}</p>
           </div>
         ))}
+        {onGraficas && (
+          <button
+            type="button"
+            onClick={onGraficas}
+            className="bg-accent-light rounded p-3 text-center border border-dashed border-accent hover:bg-[var(--accent-medium)] transition-colors"
+          >
+            <PieChart size={18} className="text-accent mx-auto mb-1" />
+            <p className="text-xl font-bold text-accent leading-tight">Gráficas</p>
+            <p className="text-xs text-muted mt-0.5">Por reactivo</p>
+          </button>
+        )}
       </div>
     </div>
   )
