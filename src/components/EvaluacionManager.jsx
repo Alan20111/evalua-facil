@@ -1334,12 +1334,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   return (
                     <button type="button" key={s.id} id={`resultado-${s.id}`}
                       onClick={() => openReview(s, filtroResultados)}
-                      className={`w-full text-left py-2 cursor-pointer hover:bg-[var(--accent-tint)] border-none ${IS_NATIVE_APP ? 'pl-1 pr-3' : 'px-3'} ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
+                      className={`w-full text-left py-2 cursor-pointer hover:bg-[var(--accent-tint)] ${IS_NATIVE_APP ? 'pl-1 pr-3' : 'px-3'} ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
                       <div className={`flex items-center ${IS_NATIVE_APP ? 'gap-1' : 'gap-2'}`}>
                         {IS_NATIVE_APP && (
                           <span className="w-4 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                         )}
-                        <p className={`flex-1 ${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} text-on-surface truncate`}>{studentFullName(s)}</p>
+                        <p className={`flex-1 ${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} font-medium text-on-surface truncate`}>{studentFullName(s)}</p>
                         {!IS_NATIVE_APP && (
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
                             estado === 'Calificado' || estado === 'Realizado' ? 'bg-emerald-100 text-emerald-700' :
