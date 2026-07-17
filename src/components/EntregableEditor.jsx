@@ -15,7 +15,7 @@ import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
 import { snapshotRubrica } from '../utils/rubrica'
 import EFDateTimePicker from './EFDateTimePicker'
-import { formatDeadline } from '../utils/activityVisibility'
+import { formatDeadline, isActivityPublished } from '../utils/activityVisibility'
 import { minDeadline } from '../utils/nowIso'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -125,6 +125,11 @@ export default function EntregableEditor({
   // the secondary keeps it as a draft.
   const wasDraft = !isNew && !!initialForm && initialForm.oculta && !initialForm.publishedAt && !initialForm.publishAt
 
+  // Was this activity already visible to students BEFORE this edit started?
+  // Used to warn the teacher, on save, that students already saw the old
+  // version and should be told about the changes.
+  const wasAlreadyPublished = !isNew && !!initialForm && isActivityPublished(initialForm)
+
   // Dirty check: save buttons stay disabled while nothing changed. Publishing
   // a draft is an action by itself, so "Guardar y publicar" ignores it.
   const isDirty = isNew
@@ -225,6 +230,9 @@ export default function EntregableEditor({
         await updateDoc(doc(db, 'activities', activityId), payload)
         onActivityUpdated?.({ id: activityId, ...payload })
         toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : wasDraft && mode === 'show' ? 'Actividad publicada para estudiantes' : 'Actividad actualizada')
+        if (!asDraft && wasAlreadyPublished) {
+          toast('Esta actividad ya estaba publicada — avisa a tus estudiantes sobre estos cambios.', 'warning')
+        }
       }
       onClose()
     } catch (err) {

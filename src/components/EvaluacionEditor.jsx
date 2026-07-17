@@ -18,6 +18,7 @@ import PublicacionScheduler from './PublicacionScheduler'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import SearchInput from './SearchInput'
 import { minDeadline } from '../utils/nowIso'
+import { isActivityPublished } from '../utils/activityVisibility'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -99,6 +100,9 @@ export default function EvaluacionEditor({
   // True when the loaded activity is a saved draft (hidden, never published,
   // not scheduled) — primary button becomes "Guardar y publicar"
   const [wasDraft, setWasDraft] = useState(false)
+  // True when the loaded activity was already visible to students before this
+  // edit started — used to warn the teacher, on save, to tell them about changes.
+  const [wasAlreadyPublished, setWasAlreadyPublished] = useState(false)
   // Snapshot taken after load — save buttons stay disabled while nothing changed
   const loadedSnapshot = useRef(null)
   const loadedAttachCount = useRef(0)
@@ -165,6 +169,7 @@ export default function EvaluacionEditor({
         loadedAttachCount.current = (d.archivosAdjuntos || []).length
         setWasScheduled(!!d.publishAt && !d.publishedAt)
         setWasDraft(!!d.oculta && !d.publishedAt && !d.publishAt)
+        setWasAlreadyPublished(isActivityPublished(d))
         setAttachExisting(d.archivosAdjuntos || [])
         if (d.evaluacion) {
           const merged = { ...EVALUACION_DEFAULTS[categoria], ...d.evaluacion }
@@ -274,6 +279,9 @@ export default function EvaluacionEditor({
         setAttachNew([])
         onActivityUpdated?.({ id: currentActivityId, ...payload })
         toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : wasDraft && mode === 'show' ? 'Evaluación publicada para estudiantes' : 'Cambios guardados')
+        if (!asDraft && wasAlreadyPublished) {
+          toast('Esta evaluación ya estaba publicada — avisa a tus estudiantes sobre estos cambios.', 'warning')
+        }
       }
       if (exitAfter) {
         onClose()
