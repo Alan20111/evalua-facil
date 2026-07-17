@@ -1,10 +1,13 @@
 // Cloud Functions — notificaciones push de Evalúa Fácil.
 //
-// Tres funciones, cada una respeta si el estudiante habilitó esa categoría en
-// `notificationSettings/{uid}` (pantalla de notificaciones del alumno):
+// Cada función respeta si el usuario habilitó esa categoría en
+// `notificationSettings/{uid}` (pantalla de notificaciones del alumno o del
+// docente):
 //   1. onActividadEscrita   — actividad nueva visible para el alumno.
 //   2. onSubmissionActualizada — se publicó una calificación.
-//   3. revisarProgramados   — programada cada 30 min: actividades cuyo
+//   3. onSubmissionEntregada — un estudiante entregó una actividad marcada
+//      por el docente con "Notificarme" (activity.notificarDocente).
+//   4. revisarProgramados   — programada cada 30 min: actividades cuyo
 //      publishAt ya pasó (visibilidad puramente por tiempo, sin escritura de
 //      doc) + recordatorios de entrega, con la anticipación que cada
 //      estudiante haya elegido (recordatorios.anticipacionMinutos).
@@ -32,6 +35,8 @@ const TITULOS = {
   actividadesNuevas: { title: 'Nueva actividad', body: 'Tu maestro publicó una actividad nueva.' },
   calificaciones: { title: 'Te calificaron', body: 'Ya tienes una calificación nueva.' },
   recordatorios: { title: 'Recordatorio de entrega', body: 'Se acerca la fecha límite de una actividad.' },
+  // Docente — ver onSubmissionEntregada() más abajo.
+  nuevasEntregas: { title: 'Nueva entrega', body: 'Un estudiante entregó una actividad.' },
 }
 
 // ─── Visibilidad de actividad — replica isActivityPublished() de
@@ -121,7 +126,42 @@ exports.onSubmissionActualizada = onDocumentWritten('submissions/{submissionId}'
   await after.ref.update({ notificadoCalificacion: true })
 })
 
-// ─── 3) Programadas + recordatorios de entrega ─────────────────────────────
+// ─── 3) Entrega notificada al docente ───────────────────────────────────────
+// Solo para actividades marcadas por el docente con "Notificarme" al editarlas
+// (activity.notificarDocente — ver EntregableEditor.jsx / EvaluacionEditor.jsx).
+// docenteId YA es el Auth uid del docente (a diferencia de alumnoId, que es el
+// id del documento en `students` — distinto de su uid), así que enviarPush()
+// se llama directo con él, sin lookup extra.
+// "Entregada" significa cosas distintas según el tipo de actividad:
+//   - Entregable/observación: el doc de submission se crea de una sola vez al
+//     entregar → onCreate (before === undefined).
+//   - Evaluación: el doc se crea al INICIAR el intento (tiempoInicio) y se
+//     actualiza al terminar → dispara cuando estadoEvaluacion pasa a
+//     'finalizado' (igual criterio que usa el cliente en EvaluacionManager.jsx).
+// Idempotente vía notificadoEntregaDocente — una sola vez por submission.
+exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', async (event) => {
+  const after = event.data?.after
+  if (!after?.exists) return // borrada
+  const before = event.data.before?.data() // undefined si es creación
+  const afterData = after.data()
+  if (afterData.notificadoEntregaDocente) return
+
+  const actSnap = await db.collection('activities').doc(afterData.actividadId).get()
+  if (!actSnap.exists) return
+  const act = actSnap.data()
+  if (!act.notificarDocente) return
+
+  const esEvaluacion = act.tipo === 'evaluacion'
+  const seAcabaDeEntregar = esEvaluacion
+    ? afterData.estadoEvaluacion === 'finalizado' && before?.estadoEvaluacion !== 'finalizado'
+    : !before
+  if (!seAcabaDeEntregar) return
+
+  await enviarPush(act.docenteId, 'nuevasEntregas', { actividadId: afterData.actividadId, submissionId: event.params.submissionId })
+  await after.ref.update({ notificadoEntregaDocente: true })
+})
+
+// ─── 4) Programadas + recordatorios de entrega ─────────────────────────────
 // Corre cada 30 min. Ventana de 35 min (> intervalo del scheduler) para no
 // perder ninguna actividad entre corridas.
 const SCHEDULE_INTERVAL = 'every 30 minutes'

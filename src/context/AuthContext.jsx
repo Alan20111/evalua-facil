@@ -71,6 +71,11 @@ export function AuthProvider({ children }) {
             updateDoc(doc(db, 'users', user.uid), { nombre, apellidoPaterno }).catch(() => {})
           }
           setUserProfile(profile)
+          if (profile.role === 'docente') {
+            // Fase de notificaciones del docente: registra el dispositivo para
+            // push (no-op en web, solo hace algo en la app nativa de Android).
+            initPushNotifications(user.uid)
+          }
         } else if (user.email?.endsWith('@evalua.local')) {
           // Student account: no users/{uid} doc. Prefer the enrollment(s) that already carry
           // this uid (stamped at activation); fall back to parsing the fake email

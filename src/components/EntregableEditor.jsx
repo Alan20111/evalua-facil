@@ -92,6 +92,7 @@ export default function EntregableEditor({
     oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
     cerrarEntregasEnFecha: true,
     rubrica: null, rubricaId: null,
+    notificarDocente: false,
   })
   const [existingFiles, setExistingFiles] = useState(initialExistingFiles || [])
   const [newFiles, setNewFiles] = useState([])
@@ -216,6 +217,7 @@ export default function EntregableEditor({
         // borrar la del banco después no afecta esta actividad ni sus calificaciones.
         rubrica: isObservacion ? null : (form.rubrica || null),
         rubricaId: isObservacion ? null : (form.rubricaId || null),
+        notificarDocente: !!form.notificarDocente,
       }
       const tipo = isObservacion ? 'observacion' : 'archivo'
       if (isNew) {
@@ -274,6 +276,25 @@ export default function EntregableEditor({
                 placeholder={isObservacion ? 'Ej: Actitud, Exposición de tema, Participación' : 'Ej: Tarea 1, Proyecto final'}
                 className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
             </div>
+
+            {/* Solo Android — la web no tiene push notifications configuradas
+                para el docente. Default apagado: el docente elige, actividad
+                por actividad, cuáles quiere que le avisen. */}
+            {IS_NATIVE_APP && (
+              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
+                <input
+                  type="checkbox"
+                  id="ent-notificar-docente"
+                  checked={form.notificarDocente ?? false}
+                  onChange={(e) => setForm((f) => ({ ...f, notificarDocente: e.target.checked }))}
+                  className="mt-1"
+                />
+                <label htmlFor="ent-notificar-docente" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
+                  Notificarme cuando entreguen esta actividad
+                  <span className="text-muted text-xs block mt-0.5">Recibirás un aviso en tu celular cada vez que un estudiante la entregue</span>
+                </label>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-muted mb-1">

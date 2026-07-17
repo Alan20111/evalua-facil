@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Timer,
   CalendarDays,
+  Bell,
   X,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
@@ -289,6 +290,19 @@ export default function TeacherLayout({ children }) {
             <CalendarDays size={24} className="[&_rect]:fill-[var(--accent-light)]" />
             <span>Horario</span>
           </NavLink>
+          {IS_NATIVE_APP && (
+            <NavLink
+              to="/notificaciones"
+              className={({ isActive }) =>
+                `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
+                  isActive ? 'text-accent' : 'text-muted'
+                }`
+              }
+            >
+              <Bell size={24} />
+              <span>Notificaciones</span>
+            </NavLink>
+          )}
           <NavLink
             to="/profile"
             className={({ isActive }) =>

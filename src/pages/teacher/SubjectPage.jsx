@@ -1032,6 +1032,7 @@ export default function SubjectPage() {
         cerrarEntregasEnFecha: !activity.recibirTarde,
         rubrica: activity.rubrica || null,
         rubricaId: activity.rubricaId || null,
+        notificarDocente: activity.notificarDocente || false,
       },
     })
   }
