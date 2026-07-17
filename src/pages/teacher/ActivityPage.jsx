@@ -1679,17 +1679,13 @@ export default function ActivityPage() {
             </div>
 
             {/* Número y nombre del estudiante, mismo renglón — sin la
-                descripción del archivo entregado debajo */}
+                descripción del archivo entregado debajo ni la etiqueta de
+                estatus (Entregado/Pendiente/etc.) */}
             <div className="flex-shrink-0">
-              <div className="flex items-center justify-between gap-2">
-                <h4 className="text-base font-semibold text-on-surface truncate">
-                  {selected.student.orden != null && <span className="text-on-surface">{selected.student.orden}. </span>}
-                  {studentFullName(selected.student)}
-                </h4>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${STATUS_COLORS[getStatus(selected.student.id)]}`}>
-                  {STATUS_LABELS[getStatus(selected.student.id)]}
-                </span>
-              </div>
+              <h4 className="text-[0.9rem] font-semibold text-on-surface truncate">
+                {selected.student.orden != null && <span className="text-on-surface">{selected.student.orden}. </span>}
+                {studentFullName(selected.student)}
+              </h4>
               {selected.sub?.tarde && (
                 <p className="text-xs text-amber-600 font-medium mt-0.5 truncate">
                   {formatLateness(selected.sub, selected.student, activity)}
@@ -1855,7 +1851,7 @@ export default function ActivityPage() {
                         step="0.5"
                         placeholder="—"
                         disabled={parcialCerrado}
-                        className="w-24 py-1 text-center text-5xl font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-24 py-1 text-center text-[2.7rem] font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                       <button
                         type="button"
