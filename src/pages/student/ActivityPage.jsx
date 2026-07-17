@@ -338,6 +338,20 @@ export default function StudentActivityPage() {
             {activity?.nombre}
           </h1>
               <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
+              {((activity?.publishedAt || activity?.publishAt) || deadlineEv) && (
+                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                  {(activity?.publishedAt || activity?.publishAt) && (
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <Clock size={12} className="flex-shrink-0" /> Publicado: {fmtDate(activity.publishedAt || activity.publishAt)}
+                    </span>
+                  )}
+                  {deadlineEv && (
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      <Clock size={12} className="flex-shrink-0" /> {extendedDateEv ? 'Cierra (extendida):' : 'Cierra:'} {fmtDate(deadlineEv)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </header>
 
@@ -494,6 +508,20 @@ export default function StudentActivityPage() {
             {activity?.nombre}
           </h1>
           <p className="text-slate-400 text-xs truncate">{subjectDisplayName(subject)} · Parcial {activity?.parcial}</p>
+          {((activity?.publishedAt || activity?.publishAt) || displayDate) && (
+            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+              {(activity?.publishedAt || activity?.publishAt) && (
+                <span className="text-xs text-slate-400 flex items-center gap-1">
+                  <Clock size={12} className="flex-shrink-0" /> Publicado: {fmtDate(activity.publishedAt || activity.publishAt)}
+                </span>
+              )}
+              {displayDate && (
+                <span className="text-xs text-slate-400 flex items-center gap-1">
+                  <Clock size={12} className="flex-shrink-0" /> {extendedDate ? 'Cierra (extendida):' : 'Cierra:'} {fmtDate(displayDate)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </header>
 
@@ -603,22 +631,12 @@ export default function StudentActivityPage() {
           </div>
         )}
 
-        {/* Info */}
+        {/* Info — fecha límite ahora vive debajo del nombre en el encabezado */}
         <div className="bg-surface-card rounded-card p-4 shadow-card">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted">Calificación máxima</span>
             <span className="font-semibold text-on-surface">{activity?.maxCalif} pts</span>
           </div>
-          {displayDate && (
-            <div className="flex items-center justify-between text-sm mt-2">
-              <span className="text-muted">
-                {extendedDate ? 'Fecha límite (extendida)' : 'Fecha límite'}
-              </span>
-              <span className={`font-semibold ${extendedDate ? 'text-amber-700' : 'text-on-surface'}`}>
-                {fmtDate(displayDate)}
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Upload (never shown for observación — nothing to deliver, nor once
