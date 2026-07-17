@@ -1332,11 +1332,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           )
                         )}
                       </div>
-                      {!IS_NATIVE_APP && sub && (
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {fmtHora(sub.tiempoInicio)} → {fmtHora(sub.fechaEntrega)} · {fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · intento {sub.intentoActual || 1}
-                        </p>
-                      )}
                     </button>
                   )
                 })
@@ -1496,7 +1491,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
               <div>
                 <p className={`font-semibold text-on-surface leading-tight truncate ${IS_NATIVE_APP ? 'text-[0.8rem]' : ''}`}>
-                  {IS_NATIVE_APP && st.orden != null && <span className="text-on-surface">{st.orden}. </span>}
+                  {st.orden != null && <span className="text-on-surface">{st.orden}. </span>}
                   {nombre}
                 </p>
                 {/* Reserve the line even when not done so Anterior/Siguiente never move (web only — en Android no se muestran fechas/intentos) */}
