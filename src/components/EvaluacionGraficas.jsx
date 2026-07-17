@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
-import { ArrowLeft, PieChart as PieChartIcon } from 'lucide-react'
+import { ArrowLeft, PieChart as PieChartIcon, Download } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import { useToast } from './Toast'
+import { IS_NATIVE_APP } from '../utils/platform'
+import { exportEvaluacionResultadosPDF } from '../utils/pdf'
 import Spinner from './Spinner'
 
 // Validated categorical palette (dataviz skill, references/palette.md) — fixed
@@ -66,13 +69,26 @@ function Pie({ slices, size = 140 }) {
 // with each opción's votes and percentage as its legend. Leaves the sidebar
 // visible on web (md:left-[280px], same pattern as ProgramarZonaSemanal.jsx);
 // takes the entire screen on mobile, where the sidebar doesn't exist anyway.
-export default function EvaluacionGraficas({ activity, activityLabel, preguntas, submissions, onClose }) {
+export default function EvaluacionGraficas({ activity, activityLabel, subject, preguntas, submissions, onClose }) {
   useBackHandler(onClose, true)
   useScrollLock(true)
+  const toast = useToast()
   const [loading, setLoading] = useState(true)
   const [counts, setCounts] = useState({}) // { [preguntaId]: { [opcionId]: number } }
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   const opcionMultiple = preguntas.filter((p) => p.tipo === 'opcion_multiple')
+
+  async function handleExportPdf() {
+    setExportingPdf(true)
+    try {
+      await exportEvaluacionResultadosPDF({ activity, subject, preguntas: opcionMultiple, counts })
+    } catch (err) {
+      toast('Error al generar el PDF: ' + err.message, 'error')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -115,6 +131,17 @@ export default function EvaluacionGraficas({ activity, activityLabel, preguntas,
               {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
             </h1>
           </div>
+          {!IS_NATIVE_APP && (
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              className="flex items-center gap-1.5 px-3 py-1.5 mt-0.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60 flex-shrink-0"
+            >
+              {exportingPdf ? <Spinner size="sm" /> : <Download size={16} />}
+              {exportingPdf ? 'Generando…' : 'Descargar PDF'}
+            </button>
+          )}
         </div>
       </div>
 

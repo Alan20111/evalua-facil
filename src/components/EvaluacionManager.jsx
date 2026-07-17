@@ -1692,6 +1692,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         <EvaluacionGraficas
           activity={activity}
           activityLabel={activityLabel}
+          subject={subject}
           preguntas={preguntas}
           submissions={submissions}
           onClose={() => setShowGraficas(false)}

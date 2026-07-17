@@ -167,6 +167,64 @@ export async function exportQRPDF({ subject, activationUrl }) {
   doc.save(`qr_${safeFile(subject)}.pdf`)
 }
 
+// Cuestionario/examen results: one enunciado + options table per reactivo de
+// opción múltiple. `counts`/`preguntas` mirror EvaluacionGraficas.jsx exactly
+// (counts computed there, passed straight through — no recomputation here).
+export async function exportEvaluacionResultadosPDF({ activity, subject, preguntas, counts }) {
+  const [{ jsPDF }, autoTableMod] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
+  const autoTable = autoTableMod.default
+
+  const doc = new jsPDF()
+  const pageW = doc.internal.pageSize.getWidth()
+  const pageH = doc.internal.pageSize.getHeight()
+
+  doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
+  doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 16)
+  doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
+  doc.text(`Resultados — ${activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}`, 14, 22)
+  doc.setFont(undefined, 'bold'); doc.setFontSize(13); doc.setTextColor(20)
+  doc.text(activity.nombre || '', 14, 30)
+
+  let y = 40
+  if (!preguntas.length) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
+    doc.text('Este cuestionario/examen no tiene reactivos de opción múltiple.', 14, y)
+  }
+
+  preguntas.forEach((p, i) => {
+    if (y > pageH - 30) { doc.addPage(); y = 20 }
+    doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.setTextColor(20)
+    const enunciadoLines = doc.splitTextToSize(`${i + 1}. ${p.enunciado}`, pageW - 28)
+    doc.text(enunciadoLines, 14, y)
+    y += enunciadoLines.length * 5 + 3
+
+    const preguntaCounts = counts[p.id] || {}
+    const total = Object.values(preguntaCounts).reduce((sum, n) => sum + n, 0)
+    const body = (p.opciones || []).map((o) => {
+      const count = preguntaCounts[o.id] || 0
+      const pct = total ? Math.round((count / total) * 100) : 0
+      return [o.texto, String(count), `${pct}%`]
+    })
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Opción', 'Respuestas', '%']],
+      body,
+      styles: { fontSize: 9, cellPadding: 2.5, textColor: 30 },
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [241, 245, 249] },
+      columnStyles: { 1: { halign: 'center', cellWidth: 30 }, 2: { halign: 'center', cellWidth: 20 } },
+      margin: { left: 14, right: 14 },
+    })
+    y = doc.lastAutoTable.finalY + 10
+  })
+
+  doc.save(`resultados_${safeFile(subject)}.pdf`)
+}
+
 // Credentials list: one row per student with username + temp password (1st login).
 export async function exportCredentialsPDF({ subject, students, activationUrl, docenteNombre }) {
   const [{ jsPDF }, autoTableMod, QRCodeMod] = await Promise.all([
