@@ -4,6 +4,7 @@ import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'fireb
 import { auth, db } from '../firebase'
 import { usernameCandidates } from '../utils/generate'
 import { initPushNotifications } from '../utils/pushNotifications'
+import { refreshTeacherReminders, installReminderResumeListener } from '../utils/localReminders'
 
 const AuthContext = createContext(null)
 
@@ -75,6 +76,9 @@ export function AuthProvider({ children }) {
             // Fase de notificaciones del docente: registra el dispositivo para
             // push (no-op en web, solo hace algo en la app nativa de Android).
             initPushNotifications(user.uid)
+            // Recordatorios de clase/evento — local, no depende de push.
+            refreshTeacherReminders(user.uid)
+            installReminderResumeListener(user.uid)
           }
         } else if (user.email?.endsWith('@evalua.local')) {
           // Student account: no users/{uid} doc. Prefer the enrollment(s) that already carry

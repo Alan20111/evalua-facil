@@ -8,20 +8,34 @@ import Spinner from '../../components/Spinner'
 import { ArrowLeft, Settings } from 'lucide-react'
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { refreshTeacherReminders } from '../../utils/localReminders'
 
 // Colección `notificationSettings/{uid}` (misma colección que usan los
-// estudiantes, distinta por uid) — para el docente, por ahora solo una
-// categoría: avisos de nuevas entregas, y solo en las actividades que el
-// propio docente marque con "Notificarme" en su editor (default apagado,
-// ver EntregableEditor.jsx / EvaluacionEditor.jsx — campo notificarDocente).
+// estudiantes, distinta por uid):
 //   {
-//     nuevasEntregas: { habilitado },
+//     nuevasEntregas:     { habilitado } — solo en las actividades que el
+//       propio docente marque con "Notificarme" en su editor (default
+//       apagado, ver EntregableEditor.jsx / EvaluacionEditor.jsx — campo
+//       notificarDocente). Vía push (Cloud Function).
+//     recordatorioClase:  { habilitado, anticipacionMinutos } — local
+//       (LocalNotifications), lee horarioBloques. Ver utils/localReminders.js.
+//     recordatorioEvento: { habilitado, anticipacionMinutos } — local,
+//       lee events. Ver utils/localReminders.js.
 //     fcmTokens: [],
 //     updatedAt,
 //   }
 
+const ANTICIPACION_OPCIONES = [
+  { minutos: 15, label: '15 minutos antes' },
+  { minutos: 10, label: '10 minutos antes' },
+  { minutos: 5, label: '5 minutos antes' },
+  { minutos: 0, label: 'Al momento' },
+]
+
 const DEFAULTS = {
   nuevasEntregas: { habilitado: true },
+  recordatorioClase: { habilitado: false, anticipacionMinutos: 10 },
+  recordatorioEvento: { habilitado: false, anticipacionMinutos: 10 },
 }
 
 const CATEGORIAS = [
@@ -29,6 +43,18 @@ const CATEGORIAS = [
     key: 'nuevasEntregas',
     label: 'Nuevas entregas',
     description: 'Cuando un estudiante entrega una actividad que marcaste para notificarte (activa esa opción al editar cada actividad)',
+  },
+  {
+    key: 'recordatorioClase',
+    label: 'Antes de una clase',
+    description: 'Te avisa cuando esté por comenzar una clase de tu horario',
+    anticipacion: true,
+  },
+  {
+    key: 'recordatorioEvento',
+    label: 'Antes de un evento',
+    description: 'Te avisa cuando esté por comenzar un evento de tu calendario',
+    anticipacion: true,
   },
 ]
 
@@ -40,8 +66,9 @@ function mergeWithDefaults(data) {
   return merged
 }
 
-// Interruptor simple — mismo patrón visual que src/pages/student/NotificationSettings.jsx.
-function Toggle({ checked, onChange, label, description }) {
+// Interruptor simple — mismo patrón visual que src/pages/student/NotificationSettings.jsx,
+// con el mismo slot opcional para un sub-ajuste (anticipación) cuando está activo.
+function Toggle({ checked, onChange, label, description, children }) {
   return (
     <div className="py-1">
       <button
@@ -65,6 +92,7 @@ function Toggle({ checked, onChange, label, description }) {
           />
         </span>
       </button>
+      {checked && children && <div className="mt-3 pt-3 border-t border-outline-variant">{children}</div>}
     </div>
   )
 }
@@ -101,6 +129,7 @@ export default function TeacherNotificationSettings() {
     setSaving(true)
     saveTimer.current = setTimeout(() => {
       setDoc(doc(db, 'notificationSettings', currentUser.uid), { ...updated, updatedAt: serverTimestamp() }, { merge: true })
+        .then(() => refreshTeacherReminders(currentUser.uid))
         .catch(() => toast('No se pudo guardar: intenta de nuevo', 'error'))
         .finally(() => setSaving(false))
     }, 400)
@@ -134,7 +163,22 @@ export default function TeacherNotificationSettings() {
                     onChange={(v) => updateCategoria(cat.key, { ...settings[cat.key], habilitado: v })}
                     label={cat.label}
                     description={cat.description}
-                  />
+                  >
+                    {cat.anticipacion && (
+                      <label className="flex items-center justify-between gap-2 text-sm">
+                        <span className="text-on-surface">Avisar</span>
+                        <select
+                          value={settings[cat.key].anticipacionMinutos}
+                          onChange={(e) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: Number(e.target.value) })}
+                          className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface"
+                        >
+                          {ANTICIPACION_OPCIONES.map((op) => (
+                            <option key={op.minutos} value={op.minutos}>{op.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                  </Toggle>
                 </div>
               ))}
             </div>
