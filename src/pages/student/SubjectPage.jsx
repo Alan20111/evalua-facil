@@ -19,6 +19,7 @@ import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { getResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import { teacherDisplayName } from '../../utils/studentSearch'
+import { IS_NATIVE_APP } from '../../utils/platform'
 import SubjectIcon from '../../components/SubjectIcon'
 import AttachmentList from '../../components/AttachmentList'
 import {
@@ -330,14 +331,14 @@ export default function StudentSubjectPage() {
                               {a.nombre}
                               <span className="text-xs font-normal text-slate-400"> ({CATEGORIA_LABELS[a.categoria] || 'Entregable'})</span>
                             </p>
-                            {(publishDate || fechaLimiteLabel || showPeso) && (
+                            {((!IS_NATIVE_APP && (publishDate || fechaLimiteLabel)) || showPeso) && (
                               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                {publishDate && (
+                                {!IS_NATIVE_APP && publishDate && (
                                   <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
                                     <Clock size={14} /> {formatPublishAt(publishDate)}
                                   </span>
                                 )}
-                                {fechaLimiteLabel && (
+                                {!IS_NATIVE_APP && fechaLimiteLabel && (
                                   <span data-tooltip="Cierre" className={`text-xs flex items-center gap-0.5 ${overdue ? 'text-red-500' : 'text-amber-600'}`}>
                                     <Clock size={14} /> {fechaLimiteLabel}
                                   </span>
