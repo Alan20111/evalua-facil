@@ -29,6 +29,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { teacherDisplayName } from '../../utils/studentSearch'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -183,25 +184,20 @@ export default function TeacherDashboard() {
     }
   }
 
-  const teacherApellidos = [userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
-  const teacherGivenName = userProfile?.nombre || userProfile?.nombreMostrar || 'Docente'
-  const teacherGreetingName = userProfile?.prefijo ? `${userProfile.prefijo} ${teacherGivenName}` : teacherGivenName
+  const teacherGreetingName = teacherDisplayName(userProfile) || 'Docente'
 
   return (
     <TeacherLayout>
       <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Greeting — "Bienvenido, {prefijo} {nombre} {apellidos}" en un solo
-            renglón (truncate, nunca se parte en dos). Igual que el estudiante
-            (userProfile.nombre/apellidoPaterno/apellidoMaterno); si un
-            docente aún no tiene esos campos, cae de vuelta al alias
-            nombreMostrar mientras la migración de AuthContext lo resuelve. El
-            prefijo es el mismo elegido en Perfil > Nombre visible (el que ven
-            sus alumnos). */}
+        {/* Greeting — dos renglones, cada uno truncate (nunca se parte en dos
+            líneas): "Bienvenido" y, debajo, "{prefijo} {nombre visible}" — el
+            mismo prefijo + Nombre visible de Perfil que ven los alumnos
+            (teacherDisplayName, misma fuente de verdad que en las pantallas
+            de alumno). */}
         <div className="mb-4">
-          <h1 className="text-lg font-bold text-on-surface truncate">
-            Bienvenido, {teacherGreetingName}{teacherApellidos ? ` ${teacherApellidos}` : ''}
-          </h1>
+          <h1 className="text-lg font-bold text-on-surface truncate">Bienvenido</h1>
+          <p className="text-lg font-bold text-on-surface truncate">{teacherGreetingName}</p>
           {userProfile?.schoolName && (
             <p className="text-slate-400 text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
           )}
