@@ -20,6 +20,7 @@ import Profile from './pages/teacher/Profile'
 import CalendarPage from './pages/teacher/CalendarPage'
 import VerifyEmail from './pages/teacher/VerifyEmail'
 import PagoResultado from './pages/teacher/PagoResultado'
+import TeacherNotificationSettings from './pages/teacher/NotificationSettings'
 
 import StudentActivation from './pages/student/Activation'
 import StudentLogin from './pages/student/Login'
@@ -149,6 +150,7 @@ export default function App() {
             <Route path="/activity/:activityId" element={<ProtectedTeacher><ActivityPage /></ProtectedTeacher>} />
             <Route path="/profile" element={<ProtectedTeacher><Profile /></ProtectedTeacher>} />
             <Route path="/calendario" element={<ProtectedTeacher><CalendarPage /></ProtectedTeacher>} />
+            <Route path="/notificaciones" element={<ProtectedTeacher><TeacherNotificationSettings /></ProtectedTeacher>} />
 
             {/* Student protected */}
             <Route path="/alumno/dashboard" element={<ProtectedStudent><StudentDashboard /></ProtectedStudent>} />

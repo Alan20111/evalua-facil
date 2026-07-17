@@ -2123,6 +2123,7 @@ export default function ActivityPage() {
             cerrarEntregasEnFecha: !activity.recibirTarde,
             rubrica: activity.rubrica || null,
             rubricaId: activity.rubricaId || null,
+            notificarDocente: activity.notificarDocente || false,
           }}
           initialExistingFiles={activity.archivosAdjuntos || []}
           contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}

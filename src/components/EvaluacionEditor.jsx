@@ -91,6 +91,7 @@ export default function EvaluacionEditor({
   // ── Basic info state ──────────────────────────────────────────────
   const [infoForm, setInfoForm] = useState({
     nombre: '', instrucciones: '', fechaLimite: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
+    notificarDocente: false,
   })
   const [savingInfo, setSavingInfo] = useState(false)
   const [currentActivityId, setCurrentActivityId] = useState(activityId)
@@ -163,6 +164,7 @@ export default function EvaluacionEditor({
           publishAt: d.publishAt || '',
           publishedAt: d.publishedAt || '',
           visibilidadMode: !d.oculta ? 'published' : d.publishAt ? 'schedule' : 'hide',
+          notificarDocente: d.notificarDocente || false,
         }
         setInfoForm(loaded)
         loadedSnapshot.current = JSON.stringify(loaded)
@@ -260,6 +262,7 @@ export default function EvaluacionEditor({
         publishAt: !asDraft && mode === 'schedule' ? (infoForm.publishAt || null) : null,
         publishedAt: newPublishedAt,
         maxCalif: 10,
+        notificarDocente: !!infoForm.notificarDocente,
       }
       if (isNew) {
         const orden = existingActivities.filter((a) => a.parcial === parcial).length + 1
@@ -622,6 +625,25 @@ export default function EvaluacionEditor({
                   required placeholder={`Ej: ${tipoLabel} parcial 1`}
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
               </div>
+              {/* Solo Android — la web no tiene push notifications configuradas
+                  para el docente. Default apagado: el docente elige, actividad
+                  por actividad, cuáles quiere que le avisen. */}
+              {IS_NATIVE_APP && (
+                <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
+                  <input
+                    type="checkbox"
+                    id="eval-notificar-docente"
+                    checked={infoForm.notificarDocente ?? false}
+                    onChange={(e) => setInfoForm((f) => ({ ...f, notificarDocente: e.target.checked }))}
+                    className="mt-1"
+                  />
+                  <label htmlFor="eval-notificar-docente" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
+                    Notificarme cuando entreguen esta evaluación
+                    <span className="text-muted text-xs block mt-0.5">Recibirás un aviso en tu celular cada vez que un estudiante la finalice</span>
+                  </label>
+                </div>
+              )}
+
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">Instrucciones</p>
                 <RichTextEditor
