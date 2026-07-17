@@ -5,7 +5,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Settings, FileCheck2, Clock, CalendarDays, Bell } from 'lucide-react'
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders } from '../../utils/localReminders'
@@ -43,17 +43,20 @@ const CATEGORIAS = [
     key: 'nuevasEntregas',
     label: 'Nuevas entregas',
     description: 'Cuando un estudiante entrega una actividad que marcaste para notificarte (activa esa opción al editar cada actividad)',
+    icon: FileCheck2,
   },
   {
     key: 'recordatorioClase',
     label: 'Antes de una clase',
     description: 'Te avisa cuando esté por comenzar una clase de tu horario',
+    icon: Clock,
     anticipacion: true,
   },
   {
     key: 'recordatorioEvento',
     label: 'Antes de un evento',
     description: 'Te avisa cuando esté por comenzar un evento de tu calendario',
+    icon: CalendarDays,
     anticipacion: true,
   },
 ]
@@ -67,8 +70,9 @@ function mergeWithDefaults(data) {
 }
 
 // Interruptor simple — mismo patrón visual que src/pages/student/NotificationSettings.jsx,
-// con el mismo slot opcional para un sub-ajuste (anticipación) cuando está activo.
-function Toggle({ checked, onChange, label, description, children }) {
+// con el mismo slot opcional para un sub-ajuste (anticipación) cuando está activo,
+// más un ícono en una insignia de acento para que cada fila se distinga a simple vista.
+function Toggle({ checked, onChange, label, description, icon: Icon, children }) {
   return (
     <div className="py-1">
       <button
@@ -76,6 +80,11 @@ function Toggle({ checked, onChange, label, description, children }) {
         onClick={() => onChange(!checked)}
         className="w-full flex items-center gap-3 text-left"
       >
+        {Icon && (
+          <span className="flex items-center justify-center w-9 h-9 rounded-full bg-accent-light flex-shrink-0">
+            <Icon size={18} className="text-accent" />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-on-surface">{label}</p>
           {description && <p className="text-xs text-muted mt-0.5">{description}</p>}
@@ -155,37 +164,44 @@ export default function TeacherNotificationSettings() {
           <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
         ) : (
           <>
-            <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4 divide-y divide-outline-variant">
-              {CATEGORIAS.map((cat) => (
-                <div key={cat.key} className={cat.key !== CATEGORIAS[0].key ? 'pt-3' : ''}>
-                  <Toggle
-                    checked={settings[cat.key].habilitado}
-                    onChange={(v) => updateCategoria(cat.key, { ...settings[cat.key], habilitado: v })}
-                    label={cat.label}
-                    description={cat.description}
-                  >
-                    {cat.anticipacion && (
-                      <label className="flex items-center justify-between gap-2 text-sm">
-                        <span className="text-on-surface">Avisar</span>
-                        <select
-                          value={settings[cat.key].anticipacionMinutos}
-                          onChange={(e) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: Number(e.target.value) })}
-                          className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface"
-                        >
-                          {ANTICIPACION_OPCIONES.map((op) => (
-                            <option key={op.minutos} value={op.minutos}>{op.label}</option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                  </Toggle>
-                </div>
-              ))}
+            <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
+              <div className="px-4 py-3 bg-accent-light border-b border-accent flex items-center gap-2">
+                <Bell size={18} className="text-accent flex-shrink-0" />
+                <h2 className="font-semibold text-accent">Tus notificaciones</h2>
+              </div>
+              <div className="p-4 divide-y divide-outline-variant">
+                {CATEGORIAS.map((cat) => (
+                  <div key={cat.key} className={cat.key !== CATEGORIAS[0].key ? 'pt-3' : ''}>
+                    <Toggle
+                      checked={settings[cat.key].habilitado}
+                      onChange={(v) => updateCategoria(cat.key, { ...settings[cat.key], habilitado: v })}
+                      label={cat.label}
+                      description={cat.description}
+                      icon={cat.icon}
+                    >
+                      {cat.anticipacion && (
+                        <label className="flex items-center justify-between gap-2 text-sm">
+                          <span className="text-on-surface">Avisar</span>
+                          <select
+                            value={settings[cat.key].anticipacionMinutos}
+                            onChange={(e) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: Number(e.target.value) })}
+                            className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface"
+                          >
+                            {ANTICIPACION_OPCIONES.map((op) => (
+                              <option key={op.minutos} value={op.minutos}>{op.label}</option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                    </Toggle>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Sonido, volumen y repetición los controla el teléfono, no la
                 app — aquí solo explicamos cómo activarlas ahí. */}
-            <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4">
+            <div className="bg-surface-card rounded-card shadow-card border border-accent p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Settings size={16} className="text-accent flex-shrink-0" />
                 <p className="text-sm font-semibold text-on-surface">Cómo activar las notificaciones en tu celular</p>
