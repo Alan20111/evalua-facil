@@ -1249,9 +1249,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               return (
             <>
               {/* Con reactivos de respuesta escrita / subir documento, el docente
-                  debe intervenir: aviso + salto directo a la primera por calificar.
-                  Solo en la web — calificar por estudiante no está en la app nativa. */}
-              {!IS_NATIVE_APP && hasManual && resultCounts.porCalificar > 0 && (
+                  debe intervenir: aviso + salto directo a la primera por calificar. */}
+              {hasManual && resultCounts.porCalificar > 0 && (
                 <div className="mb-3 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-card flex items-center gap-2 text-sm text-amber-800">
                   <span className="flex-1">
                     <strong>{resultCounts.porCalificar}</strong> entrega{resultCounts.porCalificar !== 1 ? 's' : ''} con reactivos de respuesta escrita o documentos que debes calificar.
@@ -1273,31 +1272,26 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Entregas</h2>
               </div>
               <div className="p-3 pb-2 space-y-2">
-                <div className="flex gap-1 bg-surface-container p-1 rounded">
+                <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 bg-surface-container p-1 rounded' : 'flex gap-1 bg-surface-container p-1 rounded'}>
                   {FILTRO_TABS.map(([k, lbl]) => (
                     <button type="button" key={k} onClick={() => setFiltroResultados(k)}
-                      className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
+                      className={`${IS_NATIVE_APP ? '' : 'flex-1'} py-1.5 text-xs font-medium rounded transition-colors ${
                         filtroResultados === k ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                       }`}>
                       {lbl} ({resultCounts[k]})
                     </button>
                   ))}
                 </div>
-                {!IS_NATIVE_APP && (
-                  <SearchInput
-                    value={searchResultados}
-                    onChange={setSearchResultados}
-                    placeholder="Buscar por nombre o por número de lista…"
-                  />
-                )}
+                <SearchInput
+                  value={searchResultados}
+                  onChange={setSearchResultados}
+                  placeholder="Buscar por nombre o por número de lista…"
+                />
               </div>
-              {/* Lista por estudiante — en la app nativa solo se ven los conteos de
-                  arriba; calificar por estudiante es exclusivo de la web. */}
-              {IS_NATIVE_APP ? (
-                <p className="text-center text-slate-400 text-sm py-8">
-                  Califica por estudiante desde la versión web
-                </p>
-              ) : visibles.length === 0 ? (
+              {/* Lista por estudiante — cada fila abre la revisión de pantalla
+                  completa (openReview), donde se ve la entrega y, si hay
+                  reactivos de respuesta breve o de archivo, se pueden calificar. */}
+              {visibles.length === 0 ? (
                 <p className="text-center text-slate-400 text-sm py-8 flex items-center justify-center gap-2"><Users size={16} /> {students.length === 0 ? 'Sin estudiantes' : 'Sin estudiantes en esta categoría'}</p>
               ) : (
                 visibles.map((s, i) => {
@@ -1310,12 +1304,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       onClick={() => openReview(s, filtroResultados)}
                       className={`w-full text-left px-3 py-2 cursor-pointer hover:bg-[var(--accent-tint)] border-none ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
                       <div className="flex items-center gap-2">
-                        <p className="flex-1 text-sm text-on-surface truncate">{studentFullName(s)}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
-                          estado === 'Calificado' || estado === 'Realizado' ? 'bg-emerald-100 text-emerald-700' :
-                          estado === 'Por calificar' ? 'bg-amber-100 text-amber-700' :
-                          estado === 'En proceso' ? 'bg-blue-100 text-blue-700' : 'bg-surface-container text-muted'
-                        }`}>{estado}</span>
+                        <p className={`flex-1 ${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} text-on-surface truncate`}>{studentFullName(s)}</p>
+                        {!IS_NATIVE_APP && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                            estado === 'Calificado' || estado === 'Realizado' ? 'bg-emerald-100 text-emerald-700' :
+                            estado === 'Por calificar' ? 'bg-amber-100 text-amber-700' :
+                            estado === 'En proceso' ? 'bg-blue-100 text-blue-700' : 'bg-surface-container text-muted'
+                          }`}>{estado}</span>
+                        )}
                         {sub?.estadoEvaluacion === 'finalizado' && (
                           <span className="text-xs font-semibold text-on-surface flex-shrink-0">{sub.calificacion}/{activity.maxCalif || 10}</span>
                         )}
