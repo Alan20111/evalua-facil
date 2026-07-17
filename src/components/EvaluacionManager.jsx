@@ -143,9 +143,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [extendMotivo, setExtendMotivo] = useState('')
   const [savingExtension, setSavingExtension] = useState(false)
   useBackHandler(() => setExtendMode(false), IS_NATIVE_APP && extendMode)
-  // Ajuste manual de la calificación final en Android (solo cuando ya no
-  // queda nada por calificar — evita que saveGrade la sobreescriba).
-  const [reviewCalifValue, setReviewCalifValue] = useState('')
   // Student to open on arrival from a grades-table cell
   const [pendingOpenId, setPendingOpenId] = useState(openStudentId)
   // Mientras se abre esa revisión se muestra SOLO un spinner — sin esto, la
@@ -605,32 +602,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       drafts[p.id] = { puntos: r.puntosObtenidos ?? '', comentario: r.comentarioDocente || '' }
     })
     setGradeDrafts(drafts)
-    setReviewCalifValue(sub?.calificacion != null ? String(sub.calificacion) : '')
     setReviewing({ student, submission: sub || null, allRespuestas })
-  }
-
-  // Ajuste manual (+/- 0.5) de la calificación final — solo cuando ya no hay
-  // reactivos pendientes de revisión, para que saveGrade nunca la sobreescriba
-  // (saveGrade recalcula la calificación desde cero cada vez que se califica
-  // un reactivo manual). Misma lógica de "primer toque desde vacío" que
-  // stepCalif en ActivityPage.jsx.
-  async function stepReviewCalif(delta) {
-    const sub = reviewing?.submission
-    if (!sub || sub.pendienteRevision) return
-    const max = activity?.maxCalif ?? 10
-    const current = parseFloat(reviewCalifValue)
-    const next = isNaN(current)
-      ? (delta > 0 ? max : max / 2)
-      : Math.min(max, Math.max(0, Math.round((current + delta) * 2) / 2))
-    setReviewCalifValue(String(next))
-    try {
-      await updateDoc(doc(db, 'submissions', sub.id), { calificacion: next })
-      const updatedSub = { ...sub, calificacion: next }
-      setReviewing((r) => r && ({ ...r, submission: updatedSub }))
-      onSubmissionUpdated?.(reviewing.student.id, updatedSub)
-    } catch (err) {
-      toast('Error al guardar calificación: ' + err.message, 'error')
-    }
   }
 
   // Anterior/Siguiente through the frozen nav list (wraps around).
@@ -1339,7 +1311,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         {IS_NATIVE_APP && (
                           <span className="w-4 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
                         )}
-                        <p className={`flex-1 ${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} font-medium text-on-surface truncate`}>{studentFullName(s)}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} font-medium text-on-surface truncate`}>{studentFullName(s)}</p>
+                        </div>
                         {!IS_NATIVE_APP && (
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
                             estado === 'Calificado' || estado === 'Realizado' ? 'bg-emerald-100 text-emerald-700' :
@@ -1517,7 +1491,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               </div>
 
               <div>
-                <p className={`font-semibold text-on-surface leading-tight ${IS_NATIVE_APP ? 'text-[0.8rem]' : ''}`}>
+                <p className={`font-semibold text-on-surface leading-tight truncate ${IS_NATIVE_APP ? 'text-[0.8rem]' : ''}`}>
                   {IS_NATIVE_APP && st.orden != null && <span className="text-on-surface">{st.orden}. </span>}
                   {nombre}
                 </p>
@@ -1549,21 +1523,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               </div>
 
               {IS_NATIVE_APP ? (
-                /* Calificación editable (+/- 0.5, misma función que en
-                   Evaluar) junto a los íconos de Modificar fecha / Anular —
-                   mismo layout que la fila de calificación de ActivityPage.jsx.
-                   El stepper solo se habilita cuando ya no queda nada
-                   pendiente de revisión manual (saveGrade recalcula la
-                   calificación desde cero cada vez que se califica un
-                   reactivo, así que editarla antes se perdería). */
+                /* Calificación de SOLO LECTURA — es el resultado obtenido por
+                   el estudiante al presentar (más los puntos que el docente
+                   asigne a los reactivos manuales vía "Guardar puntos" en la
+                   lista de respuestas, que ya recalculan este valor), nunca
+                   algo que el docente ajuste aquí directamente. Junto a los
+                   íconos de Modificar fecha / Anular — mismo layout de fila
+                   que la calificación de ActivityPage.jsx, sin el stepper. */
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
-                    <button type="button" onClick={() => stepReviewCalif(-0.5)} disabled={!done || sub.pendienteRevision} aria-label="Restar medio punto"
-                      className="w-11 h-11 flex-shrink-0 rounded-full border border-accent text-accent text-2xl font-bold flex items-center justify-center hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40">−</button>
-                    <input type="number" value={reviewCalifValue} readOnly placeholder="—" disabled={!done || sub.pendienteRevision}
-                      className="w-24 py-1 text-center text-[2.7rem] font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed" />
-                    <button type="button" onClick={() => stepReviewCalif(0.5)} disabled={!done || sub.pendienteRevision} aria-label="Sumar medio punto"
-                      className="w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white text-2xl font-bold flex items-center justify-center hover:bg-accent-hover transition-colors disabled:opacity-40">+</button>
+                  <div className="flex-1 flex items-center justify-center min-w-0">
+                    <p className="text-[2.7rem] font-bold text-on-surface leading-none">
+                      {done ? `${sub.calificacion}/${activity.maxCalif || 10}` : '—'}
+                    </p>
                   </div>
                   <div className="w-px h-9 bg-outline-variant flex-shrink-0" />
                   <div className="flex flex-col gap-2 flex-shrink-0 -mr-3">
