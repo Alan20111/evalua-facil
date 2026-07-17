@@ -1476,19 +1476,23 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </main>
 
             <aside className="w-full md:w-[380px] flex-shrink-0 border-t md:border-t-0 md:border-l border-outline-variant bg-surface-card overflow-y-auto p-4 space-y-3">
-              {/* Filter tabs — same 2×2 grid + styling as the entregable grading panel */}
-              <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1.5 rounded-card">
-                {REVIEW_TABS.map(([k, lbl]) => (
-                  <button type="button" key={k} onClick={() => changeReviewFilter(k)}
-                    className={`py-2 px-2 text-sm font-semibold rounded transition-colors ${
-                      reviewFilter === k
-                        ? 'bg-accent text-white shadow-card'
-                        : 'bg-surface-card text-muted hover:text-accent hover:bg-[var(--accent-medium)]'
-                    }`}>
-                    {lbl} ({k === 'todos' ? reviewCounts.todos : reviewCounts[k]})
-                  </button>
-                ))}
-              </div>
+              {/* Filter tabs — 2×2 grid en web. En Android estas 4 se
+                  reducen a las dos etiquetas "Todos"/"Por calificar" junto a
+                  la calificación (mismo patrón que Evaluar), no van aquí arriba. */}
+              {!IS_NATIVE_APP && (
+                <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1.5 rounded-card">
+                  {REVIEW_TABS.map(([k, lbl]) => (
+                    <button type="button" key={k} onClick={() => changeReviewFilter(k)}
+                      className={`py-2 px-2 text-sm font-semibold rounded transition-colors ${
+                        reviewFilter === k
+                          ? 'bg-accent text-white shadow-card'
+                          : 'bg-surface-card text-muted hover:text-accent hover:bg-[var(--accent-medium)]'
+                      }`}>
+                      {lbl} ({k === 'todos' ? reviewCounts.todos : reviewCounts[k]})
+                    </button>
+                  ))}
+                </div>
+              )}
 
               <div>
                 <p className={`font-semibold text-on-surface leading-tight truncate ${IS_NATIVE_APP ? 'text-[0.8rem]' : ''}`}>
@@ -1527,12 +1531,33 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                    el estudiante al presentar (más los puntos que el docente
                    asigne a los reactivos manuales vía "Guardar puntos" en la
                    lista de respuestas, que ya recalculan este valor), nunca
-                   algo que el docente ajuste aquí directamente. Junto a los
-                   íconos de Modificar fecha / Anular — mismo layout de fila
-                   que la calificación de ActivityPage.jsx, sin el stepper. */
+                   algo que el docente ajuste aquí directamente. Mismo layout
+                   de 3 zonas que la fila de calificación de ActivityPage.jsx:
+                   Todos/Por calificar "abrazando" el borde izquierdo, la
+                   calificación al centro (con el mismo subrayado de acento
+                   que tenía el input editable, para que siga notándose
+                   distinta al resto del texto), Modificar fecha/Anular
+                   abrazando el borde derecho. El ícono de Anular reserva su
+                   espacio con `invisible` en vez de desmontarse, para que
+                   esta fila nunca cambie de alto al avanzar/retroceder entre
+                   estudiantes con y sin calificación. */
                 <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2 flex-shrink-0 -ml-3">
+                    <button type="button" onClick={() => changeReviewFilter('todos')}
+                      className={`h-9 min-w-[104px] pl-3 pr-2 rounded-r border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
+                        reviewFilter === 'todos' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
+                      }`}>
+                      Todos ({reviewCounts.todos})
+                    </button>
+                    <button type="button" onClick={() => changeReviewFilter('porCalificar')}
+                      className={`h-9 min-w-[104px] pl-3 pr-2 rounded-r border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
+                        reviewFilter === 'porCalificar' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
+                      }`}>
+                      {FILTRO_TABS.find(([k]) => k === 'porCalificar')[1]} ({reviewCounts.porCalificar})
+                    </button>
+                  </div>
                   <div className="flex-1 flex items-center justify-center min-w-0">
-                    <p className="text-[2.7rem] font-bold text-on-surface leading-none">
+                    <p className="text-[2.7rem] font-bold text-on-surface leading-none border-b-2 border-accent px-2 pb-1">
                       {done ? `${sub.calificacion}/${activity.maxCalif || 10}` : '—'}
                     </p>
                   </div>
@@ -1542,12 +1567,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors">
                       <CalendarDays size={17} />
                     </button>
-                    {done && (
-                      <button type="button" onClick={() => setCancelConfirm({ student: st, sub })} aria-label="Anular la entrega" data-tooltip="Anular la entrega"
-                        className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors">
-                        <Trash2 size={17} />
-                      </button>
-                    )}
+                    <button type="button" onClick={() => setCancelConfirm({ student: st, sub })} aria-label="Anular la entrega" data-tooltip="Anular la entrega"
+                      className={`h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors ${done ? '' : 'invisible'}`}>
+                      <Trash2 size={17} />
+                    </button>
                   </div>
                 </div>
               ) : (
