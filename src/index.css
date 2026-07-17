@@ -63,7 +63,12 @@
      exactly as-is while every white-card/table/form/list screen (all
      built on raw text-xs…text-6xl) gets this final, subtle reduction. */
   [data-role='docente'] {
-    --fs-xs: 0.765625rem;   --lh-xs: 1.03125rem;
+    /* Octava pasada: --fs-xs quedó demasiado chica para texto de lectura
+       (descripciones, no solo etiquetas de chrome) — "apenas legible" en la
+       práctica. +30% sobre el valor de la séptima pasada (0.765625rem),
+       línea de altura ajustada proporcional. Único tier tocado — el resto
+       de la escala se queda igual. */
+    --fs-xs: 0.9953125rem; --lh-xs: 1.340625rem;
     --fs-sm: 0.890625rem;   --lh-sm: 1.25rem;
     --fs-base: 1.015625rem; --lh-base: 1.46875rem;
     --fs-lg: 1.140625rem;   --lh-lg: 1.6875rem;
