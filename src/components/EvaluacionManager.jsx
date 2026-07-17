@@ -17,7 +17,7 @@ import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision,
   resolverCalificacionFinal, TIPOS_REVISION_MANUAL,
 } from '../utils/evaluacionGrading'
-import { ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays, Star } from 'lucide-react'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 import EvaluacionGraficas from './EvaluacionGraficas'
@@ -1297,13 +1297,17 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 visibles.map((s, i) => {
                   const sub = submissions[s.id]
                   const estado = estadoEstudiante(sub)
+                  const hasExtension = !!activity?.extensiones?.[s.id]
                   // Every row opens the full-screen review — even with no submission
                   // it shows "No realizado".
                   return (
                     <button type="button" key={s.id} id={`resultado-${s.id}`}
                       onClick={() => openReview(s, filtroResultados)}
-                      className={`w-full text-left px-3 py-2 cursor-pointer hover:bg-[var(--accent-tint)] border-none ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
-                      <div className="flex items-center gap-2">
+                      className={`w-full text-left py-2 cursor-pointer hover:bg-[var(--accent-tint)] border-none ${IS_NATIVE_APP ? 'pl-1 pr-3' : 'px-3'} ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
+                      <div className={`flex items-center ${IS_NATIVE_APP ? 'gap-1' : 'gap-2'}`}>
+                        {IS_NATIVE_APP && (
+                          <span className="w-4 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
+                        )}
                         <p className={`flex-1 ${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} text-on-surface truncate`}>{studentFullName(s)}</p>
                         {!IS_NATIVE_APP && (
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
@@ -1312,11 +1316,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             estado === 'En proceso' ? 'bg-blue-100 text-blue-700' : 'bg-surface-container text-muted'
                           }`}>{estado}</span>
                         )}
+                        {IS_NATIVE_APP && hasExtension && <CalendarDays size={15} className="text-orange-400 flex-shrink-0" />}
                         {sub?.estadoEvaluacion === 'finalizado' && (
-                          <span className="text-xs font-semibold text-on-surface flex-shrink-0">{sub.calificacion}/{activity.maxCalif || 10}</span>
+                          IS_NATIVE_APP ? (
+                            <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5 flex-shrink-0">
+                              <Star size={14} /> {sub.calificacion}/{activity.maxCalif || 10}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold text-on-surface flex-shrink-0">{sub.calificacion}/{activity.maxCalif || 10}</span>
+                          )
                         )}
                       </div>
-                      {sub && (
+                      {!IS_NATIVE_APP && sub && (
                         <p className="text-xs text-slate-400 mt-0.5">
                           {fmtHora(sub.tiempoInicio)} → {fmtHora(sub.fechaEntrega)} · {fmtDuracion(sub.tiempoInicio, sub.fechaEntrega)} · intento {sub.intentoActual || 1}
                         </p>
