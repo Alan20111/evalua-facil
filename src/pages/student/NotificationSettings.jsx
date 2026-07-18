@@ -161,7 +161,7 @@ export default function NotificationSettings() {
                       <select
                         value={settings.recordatorios.anticipacionMinutos}
                         onChange={(e) => updateCategoria('recordatorios', { ...settings.recordatorios, anticipacionMinutos: Number(e.target.value) })}
-                        className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface"
+                        className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface-container"
                       >
                         {ANTICIPACION_OPCIONES.map((op) => (
                           <option key={op.minutos} value={op.minutos}>{op.label}</option>

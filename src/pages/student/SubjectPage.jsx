@@ -278,7 +278,7 @@ export default function StudentSubjectPage() {
                 <button
                   type="button"
                   onClick={() => setOpenParcial(isOpen ? 0 : p)}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface transition-colors"
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-surface-container transition-colors"
                 >
                   <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                     <span className="text-accent font-bold text-sm">{p}</span>

@@ -136,7 +136,7 @@ export default function RichTextEditor({ value, onChange, placeholder, attachmen
 
   return (
     <div className="border border-outline-variant rounded bg-surface-card overflow-hidden">
-      <div className="flex items-center gap-0.5 flex-wrap p-1.5 border-b border-outline-variant bg-surface">
+      <div className="flex items-center gap-0.5 flex-wrap p-1.5 border-b border-outline-variant bg-surface-container">
         <button type="button" data-tooltip="Negrita" aria-label="Negrita"
           className={`${TOOLBAR_BTN} ${editor.isActive('bold') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => editor.chain().focus().toggleBold().run()}>

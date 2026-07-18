@@ -565,7 +565,7 @@ export default function StudentActivityPage() {
                   href={downloadUrl(f.url, f.nombre)}
                   download={f.nombre}
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-3 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
+                  className="flex items-center gap-3 px-3 py-2.5 bg-surface-container rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
                 >
                   <Download size={17} className="text-accent flex-shrink-0" />
                   <span className="truncate">{f.nombre}</span>
@@ -587,7 +587,7 @@ export default function StudentActivityPage() {
               <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
             </div>
             {submission.comentario && (
-              <div className="bg-surface rounded p-3 flex gap-2">
+              <div className="bg-surface-container rounded p-3 flex gap-2">
                 <MessageSquare size={17} className="text-slate-400 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-muted italic">"{submission.comentario}"</p>
               </div>
@@ -672,7 +672,7 @@ export default function StudentActivityPage() {
             </div>
             <div className="space-y-3">
               <label className={`flex flex-col items-center justify-center w-full h-28 sm:h-32 px-3 border-2 border-dashed rounded cursor-pointer transition-colors ${
-                files.length ? 'border-accent bg-accent-light' : 'border-outline-variant hover:border-accent hover:bg-surface'
+                files.length ? 'border-accent bg-accent-light' : 'border-outline-variant hover:border-accent hover:bg-surface-container'
               }`}>
                 <input
                   type="file"
@@ -707,7 +707,7 @@ export default function StudentActivityPage() {
               {files.length > 0 && (
                 <div className="space-y-1">
                   {files.map((f, i) => (
-                    <div key={`${f.name}-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-surface rounded border border-outline-variant text-xs text-muted">
+                    <div key={`${f.name}-${i}`} className="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded border border-outline-variant text-xs text-muted">
                       <span className="flex-1 truncate">{i + 1}. {f.name}</span>
                       <button
                         type="button"

@@ -378,7 +378,7 @@ export default function StudentDashboard() {
                 spellCheck={false}
                 maxLength={8}
                 placeholder="Ej: A3B7K2"
-                className="flex-1 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
+                className="flex-1 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container font-mono tracking-widest text-center"
               />
               <button
                 type="submit"

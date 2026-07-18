@@ -370,7 +370,7 @@ export default function EvaluacionRunner() {
                 onChange={(e) => handleTextoChange(pregunta.id, e.target.value)}
                 rows={4}
                 placeholder="Escribe tu respuesta…"
-                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
               />
             ) : pregunta.tipo === 'subir_archivo' ? (
               <div className="space-y-2">

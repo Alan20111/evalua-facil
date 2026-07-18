@@ -623,7 +623,7 @@ export default function EvaluacionEditor({
                 <label htmlFor="info-nombre" className="block text-sm font-medium text-muted mb-1">Nombre</label>
                 <input id="info-nombre" type="text" value={infoForm.nombre} onChange={(e) => setInfoForm((f) => ({ ...f, nombre: e.target.value }))}
                   required placeholder={`Ej: ${tipoLabel} parcial 1`}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container" />
               </div>
               {/* Solo Android — la web no tiene push notifications configuradas
                   para el docente. Default apagado: el docente elige, actividad
@@ -773,7 +773,7 @@ export default function EvaluacionEditor({
             <div>
               <label htmlFor="config-orden-preguntas" className="block text-sm font-medium text-muted mb-1">Orden de las preguntas</label>
               <select id="config-orden-preguntas" value={configForm.ordenPreguntas} onChange={(e) => setConfigForm((f) => ({ ...f, ordenPreguntas: e.target.value }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container">
                 <option value="creacion">Orden de creación</option>
                 <option value="aleatorio">Aleatorio</option>
               </select>
@@ -786,7 +786,7 @@ export default function EvaluacionEditor({
             <div>
               <label htmlFor="config-navegacion" className="block text-sm font-medium text-muted mb-1">Navegación</label>
               <select id="config-navegacion" value={configForm.navegacion} onChange={(e) => setConfigForm((f) => ({ ...f, navegacion: e.target.value }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container">
                 <option value="libre">Libre — puede regresar</option>
                 <option value="secuencial">Secuencial — no puede regresar</option>
               </select>
@@ -795,13 +795,13 @@ export default function EvaluacionEditor({
               <label htmlFor="config-tiempo-limite" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
               <input id="config-tiempo-limite" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
                 onChange={(e) => setConfigForm((f) => ({ ...f, tiempoLimiteMin: e.target.value ? parseInt(e.target.value, 10) : null }))}
-                placeholder="Sin límite" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                placeholder="Sin límite" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container" />
             </div>
             <div>
               <label htmlFor="config-intentos" className="block text-sm font-medium text-muted mb-1">Intentos permitidos</label>
               <input id="config-intentos" type="number" min="1" value={configForm.intentosPermitidos ?? ''}
                 onChange={(e) => setConfigForm((f) => ({ ...f, intentosPermitidos: e.target.value ? parseInt(e.target.value, 10) : null }))}
-                placeholder="Ilimitados" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                placeholder="Ilimitados" className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container" />
             </div>
             {/* La política de varios intentos solo importa con más de un intento —
                 con un único intento "conservar la mejor/última" es ruido. */}
@@ -809,7 +809,7 @@ export default function EvaluacionEditor({
               <div>
                 <label htmlFor="config-conservar" className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
                 <select id="config-conservar" value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
-                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container">
                   <option value="primero">El primer intento</option>
                   <option value="ultimo">El último intento</option>
                   <option value="mejor">La calificación más alta</option>
@@ -887,14 +887,14 @@ export default function EvaluacionEditor({
                         <div>
                           <label htmlFor="preg-edit-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                           <select id="preg-edit-tipo" value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
-                            className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                            className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container">
                             {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                           </select>
                         </div>
                         <div>
                           <label htmlFor="preg-edit-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                           <textarea id="preg-edit-enunciado" value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
-                            rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface" />
+                            rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container" />
                         </div>
                         {preguntaEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
                           <div key={id} className="flex items-center gap-2">
@@ -903,7 +903,7 @@ export default function EvaluacionEditor({
                             <input type="text" value={preguntaEditForm.opciones[id]}
                               onChange={(e) => setPreguntaEditForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
                               placeholder={`Opción ${id.toUpperCase()}`} required
-                              className="flex-1 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                              className="flex-1 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-container" />
                           </div>
                         ))}
                         {preguntaEditForm.tipo === 'verdadero_falso' && (
@@ -928,7 +928,7 @@ export default function EvaluacionEditor({
                           </div>
                           <input id="preg-edit-ponderacion" type="number" min="0.1" max={Math.max(0, parseFloat((10 - preguntas.filter((x) => x.id !== p.id).reduce((s, x) => s + (parseFloat(x.ponderacion) || 0), 0)).toFixed(2)))} step="0.1" value={preguntaEditForm.ponderacion}
                             onChange={(e) => setPreguntaEditForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                            className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                            className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-container" />
                         </div>
                         <div className="flex gap-2 pt-1">
                           <button type="button" onClick={() => { setEditingPreguntaId(null); setGlowId(p.id) }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
@@ -976,14 +976,14 @@ export default function EvaluacionEditor({
                     <div>
                       <label htmlFor="preg-new-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
                       <select id="preg-new-tipo" value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
-                        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+                        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container">
                         {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                       </select>
                     </div>
                     <div>
                       <label htmlFor="preg-new-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                       <textarea id="preg-new-enunciado" value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
-                        rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                        rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container" />
                     </div>
                     <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
                       <ImageIcon size={15} /> Imagen opcional
@@ -997,7 +997,7 @@ export default function EvaluacionEditor({
                         <input type="text" value={preguntaForm.opciones[id]}
                           onChange={(e) => setPreguntaForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
                           placeholder={`Opción ${id.toUpperCase()}`} required
-                          className="flex-1 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                          className="flex-1 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-container" />
                       </div>
                     ))}
                     {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Selecciona el radio de la opción correcta.</p>}
@@ -1018,7 +1018,7 @@ export default function EvaluacionEditor({
                       <label htmlFor="preg-new-retro" className="block text-sm font-medium text-muted mb-1">Retroalimentación opcional</label>
                       <textarea id="preg-new-retro" value={preguntaForm.retroalimentacion} onChange={(e) => setPreguntaForm((f) => ({ ...f, retroalimentacion: e.target.value }))}
                         rows={1} placeholder="Se muestra al alumno al finalizar, si la config lo permite"
-                        className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                        className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-container" />
                     </div>
                     <div>
                       <div className="flex items-center justify-between mb-1">
@@ -1029,7 +1029,7 @@ export default function EvaluacionEditor({
                       </div>
                       <input id="preg-new-ponderacion" type="number" min="0.1" max={ponderacionRestante} step="0.1" value={preguntaForm.ponderacion}
                         onChange={(e) => setPreguntaForm((f) => ({ ...f, ponderacion: e.target.value }))}
-                        className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                        className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-container" />
                     </div>
                     <label className="flex items-center gap-2 text-sm text-muted">
                       <input type="checkbox" checked={preguntaForm.guardarEnBanco}
@@ -1039,7 +1039,7 @@ export default function EvaluacionEditor({
                     {preguntaForm.guardarEnBanco && (
                       <input type="text" value={preguntaForm.tema} onChange={(e) => setPreguntaForm((f) => ({ ...f, tema: e.target.value }))}
                         required placeholder="Tema (obligatorio, ej. Fracciones)"
-                        className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                        className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface-container" />
                     )}
                     <div className="flex gap-2 pt-1">
                       <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(EMPTY_PREGUNTA) }}
@@ -1085,14 +1085,14 @@ export default function EvaluacionEditor({
                 </div>
                 {materias.length > 0 && (
                   <select value={bancoMateriaFilter} onChange={(e) => setBancoMateriaFilter(e.target.value)}
-                    className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface">
+                    className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface-container">
                     <option value="">Todas las materias</option>
                     {materias.map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
                 )}
                 {temas.length > 0 && (
                   <select value={bancoTemaFilter} onChange={(e) => setBancoTemaFilter(e.target.value)}
-                    className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface">
+                    className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface-container">
                     <option value="">Todos los temas</option>
                     {temas.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -1117,11 +1117,11 @@ export default function EvaluacionEditor({
                         <div className="space-y-2">
                           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
                           <select value={bancoEditForm.tipo} onChange={(e) => setBancoEditForm((f) => ({ ...f, tipo: e.target.value }))}
-                            className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
+                            className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface-container">
                             {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                           </select>
                           <textarea value={bancoEditForm.enunciado} onChange={(e) => setBancoEditForm((f) => ({ ...f, enunciado: e.target.value }))}
-                            rows={2} className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                            rows={2} className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface-container" />
                           {bancoEditForm.tipo === 'opcion_multiple' && (
                             <p className="text-xs text-muted">Marca el círculo de la respuesta correcta:</p>
                           )}
@@ -1132,14 +1132,14 @@ export default function EvaluacionEditor({
                               <input type="text" value={bancoEditForm.opciones[id]}
                                 onChange={(e) => setBancoEditForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
                                 placeholder={`Opción ${id.toUpperCase()}`}
-                                className="flex-1 px-2 py-1 rounded border border-outline-variant text-sm bg-surface" />
+                                className="flex-1 px-2 py-1 rounded border border-outline-variant text-sm bg-surface-container" />
                               {bancoEditForm.respuestaCorrecta === id && (
                                 <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex-shrink-0">Correcta</span>
                               )}
                             </div>
                           ))}
                           <input type="text" value={bancoEditForm.tema} onChange={(e) => setBancoEditForm((f) => ({ ...f, tema: e.target.value }))}
-                            placeholder="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
+                            placeholder="Tema para agrupar en el banco (opcional, ej. Fracciones)" className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface-container" />
                           <div className="flex gap-2">
                             <button type="button" onClick={() => { setEditingBancoId(null); setGlowId(item.id) }} className="flex-1 py-1.5 text-sm text-muted">Cancelar</button>
                             <button type="button" onClick={() => handleSaveBancoEdit(item.id)}

@@ -108,7 +108,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[640px]">
           <thead>
-            <tr className="bg-surface text-left text-xs text-muted uppercase">
+            <tr className="bg-surface-container text-left text-xs text-muted uppercase">
               <th className="px-4 py-2">Docente</th>
               <th className="px-4 py-2">Monto</th>
               <th className="px-4 py-2">Referencia</th>

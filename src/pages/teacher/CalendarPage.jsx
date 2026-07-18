@@ -480,7 +480,7 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
 
   return (
     <div>
-      <div className="grid grid-cols-7 border-b border-outline-variant bg-surface">
+      <div className="grid grid-cols-7 border-b border-outline-variant bg-surface-container">
         {DIAS_CORTO.map(d => (
           <div key={d} className="py-2 text-center text-xs font-semibold text-muted uppercase tracking-wide">{d}</div>
         ))}
@@ -1611,7 +1611,7 @@ export default function CalendarPage() {
               <select
                 value={dayStart}
                 onChange={e => changeDayStart(Number(e.target.value))}
-                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface-container text-sm"
               >
                 {Array.from({ length: 23 }, (_, h) => h).map(h => (
                   <option key={h} value={h}>{h}:00</option>
@@ -1623,7 +1623,7 @@ export default function CalendarPage() {
               <select
                 value={dayEnd}
                 onChange={e => changeDayEnd(Number(e.target.value))}
-                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface-container text-sm"
               >
                 {Array.from({ length: 24 }, (_, h) => h + 1).filter(h => h > dayStart).map(h => (
                   <option key={h} value={h}>{h}:00</option>
@@ -1636,7 +1636,7 @@ export default function CalendarPage() {
               <select
                 value={numDays}
                 onChange={e => changeNumDays(Number(e.target.value))}
-                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface-container text-sm"
               >
                 <option value={5}>Lunes a Viernes</option>
                 <option value={6}>Lunes a Sábado</option>
@@ -1942,7 +1942,7 @@ export default function CalendarPage() {
           return `${DIAS_LARGO[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MESES[d.getMonth()]}`
         }
         const stepHora = (delta) => setPendingMove(pm => ({ ...pm, hora: addMinutesToTime(pm.hora, delta) }))
-        const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+        const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
         const cambioHora = hora !== b.horaInicio
         // No permitir encimar con otra clase del MISMO día.
         const iniMin = timeToMinutes(hora)
@@ -1959,7 +1959,7 @@ export default function CalendarPage() {
             />
             <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
               <h2 className="font-semibold text-on-surface">{soloBorrar ? 'Borrar esta clase' : 'Mover o borrar esta clase'}</h2>
-              <div className="text-sm text-on-surface space-y-0.5 bg-surface rounded-card border border-outline-variant p-3">
+              <div className="text-sm text-on-surface space-y-0.5 bg-surface-container rounded-card border border-outline-variant p-3">
                 <p className="font-medium">{subjectDisplayName(subj) || 'Clase'}</p>
                 <p className="text-muted text-xs">{fmtF(b.fecha)} · empieza a las {fmtHour(b.horaInicio)}</p>
               </div>
@@ -2029,7 +2029,7 @@ export default function CalendarPage() {
               <button
                 type="button"
                 onClick={() => setPendingMove(null)}
-                className="w-full py-2 rounded-card border border-outline-variant text-muted text-sm hover:bg-surface transition-colors"
+                className="w-full py-2 rounded-card border border-outline-variant text-muted text-sm hover:bg-surface-container transition-colors"
               >
                 Cancelar
               </button>
@@ -2105,7 +2105,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
                 {TIPOS_ASUETO.map(t => (
                   <button
                     key={t.id} type="button" onClick={() => toggle(t.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${alcance[t.id] ? 'bg-amber-100 text-amber-800 border-amber-300' : 'border-outline-variant text-muted hover:bg-surface'}`}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${alcance[t.id] ? 'bg-amber-100 text-amber-800 border-amber-300' : 'border-outline-variant text-muted hover:bg-surface-container'}`}
                   >
                     {alcance[t.id] ? '✓ ' : ''}{t.label}
                   </button>
@@ -2148,7 +2148,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
         </div>
 
         <div className="border-t border-outline-variant px-4 py-3 flex justify-end flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface-container transition-colors">
             Cerrar
           </button>
         </div>
@@ -2235,7 +2235,7 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
                 {TIPOS_ASUETO.map(t => (
                   <button
                     key={t.id} type="button" onClick={() => toggle(t.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${alcance[t.id] ? 'bg-amber-100 text-amber-800 border-amber-300' : 'border-outline-variant text-muted hover:bg-surface'}`}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${alcance[t.id] ? 'bg-amber-100 text-amber-800 border-amber-300' : 'border-outline-variant text-muted hover:bg-surface-container'}`}
                   >
                     {alcance[t.id] ? '✓ ' : ''}{t.label}
                   </button>
@@ -2278,7 +2278,7 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
         </div>
 
         <div className="border-t border-outline-variant px-4 py-3 flex justify-end flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface-container transition-colors">
             Cerrar
           </button>
         </div>

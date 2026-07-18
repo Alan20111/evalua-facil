@@ -63,7 +63,7 @@ export default function ProgramarBloquesModal({
   }
 
   const label = (txt) => <label className="text-xs font-semibold text-muted uppercase tracking-wide">{txt}</label>
-  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center">
@@ -98,7 +98,7 @@ export default function ProgramarBloquesModal({
           {esModificar ? (
             <div className="space-y-1.5">
               {label('Asignatura')}
-              <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">
+              <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface-container text-sm text-on-surface font-medium">
                 {subjectName}
               </div>
               <p className="text-xs text-muted">Estás modificando toda esta asignatura. Al guardar se reemplazan sus bloques.</p>
@@ -211,7 +211,7 @@ export default function ProgramarBloquesModal({
             >
               {alarma.activa ? <Bell size={16} className="text-accent" /> : <BellOff size={16} className="text-muted" />}
               Alarma antes de la clase
-              <span className={`ml-1 text-xs px-2 py-0.5 rounded-full ${alarma.activa ? 'bg-accent text-white' : 'bg-surface text-muted border border-outline-variant'}`}>
+              <span className={`ml-1 text-xs px-2 py-0.5 rounded-full ${alarma.activa ? 'bg-accent text-white' : 'bg-surface-container text-muted border border-outline-variant'}`}>
                 {alarma.activa ? 'Activada' : 'Desactivada'}
               </span>
             </button>
@@ -287,7 +287,7 @@ export default function ProgramarBloquesModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors"
+            className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface-container transition-colors"
           >
             {sinDisponibles ? 'Cerrar' : 'Cancelar'}
           </button>

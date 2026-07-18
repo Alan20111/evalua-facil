@@ -11,7 +11,7 @@ import { useScrollLock } from '../hooks/useScrollLock'
 import { MONTHLY_PLAN_ID, MONTHLY_PRICE_MXN, SUBSCRIPTION_NAME, formatCurrency } from '../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
+  'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container'
 
 function loadPaypalSdk(clientId) {
   return new Promise((resolve, reject) => {
@@ -259,7 +259,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
 
             {method === 'transferencia' && (
               <form onSubmit={submitTransfer} className="space-y-3">
-                <div className="bg-surface rounded p-4 text-sm space-y-1.5 border border-outline-variant">
+                <div className="bg-surface-container rounded p-4 text-sm space-y-1.5 border border-outline-variant">
                   <p className="font-semibold text-muted mb-1">Datos para transferencia</p>
                   {t?.banco && <p><span className="text-muted">Banco:</span> {t.banco}</p>}
                   {t?.titular && <p><span className="text-muted">Titular:</span> {t.titular}</p>}

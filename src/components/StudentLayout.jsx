@@ -260,7 +260,7 @@ export default function StudentLayout({ children }) {
               <button
                 type="button"
                 onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors"
               >
                 Cancelar
               </button>

@@ -23,7 +23,7 @@ import {
 } from '../../../utils/subscriptionHelpers'
 
 const inputCls =
-  'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
+  'w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container'
 
 function StatusBadge({ status }) {
   return (
@@ -165,7 +165,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[720px]">
           <thead>
-            <tr className="bg-surface text-left text-xs text-muted uppercase">
+            <tr className="bg-surface-container text-left text-xs text-muted uppercase">
               <th className="px-4 py-2">Docente</th>
               <th className="px-4 py-2">Escuela</th>
               <th className="px-4 py-2">Plan</th>

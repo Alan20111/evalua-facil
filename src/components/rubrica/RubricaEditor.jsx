@@ -503,7 +503,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                               onChange={(e) => setNivelValor(j, e.target.value)}
                               aria-label={`Puntos del nivel ${nv.nombre || j + 1}`}
                               data-tooltip="Menor que el nivel anterior — el nivel más bajo puede ser 0 (para quien no entrega nada)"
-                              className="w-14 px-1 py-0.5 text-center text-xs font-bold text-on-surface border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                              className="w-14 px-1 py-0.5 text-center text-xs font-bold text-on-surface border border-outline-variant rounded bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
                             <span className="text-[10px] font-normal text-muted">puntos</span>
                           </div>
                         )}
@@ -558,7 +558,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                                 onChange={(e) => (j === 0 ? setExc(i, e.target.value) : setPunto(i, j, e.target.value))}
                                 aria-label={`Puntos de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
                                 data-tooltip={j === 0 ? 'Lo que vale este criterio (recalcula el renglón)' : 'Editable — la columna debe sumar los puntos del nivel'}
-                                className={`w-14 px-1 py-0.5 text-center text-xs font-bold border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${j === 0 ? 'text-accent' : ''}`} />
+                                className={`w-14 px-1 py-0.5 text-center text-xs font-bold border border-outline-variant rounded bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${j === 0 ? 'text-accent' : ''}`} />
                               <span className="text-[10px] text-slate-400">pts</span>
                             </div>
                           </div>

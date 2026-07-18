@@ -196,11 +196,11 @@ export function FilePreviewModal({ url, nombre, onClose }) {
             <Download size={18} />
           </a>
           <button type="button" onClick={onClose} data-tooltip="Cerrar" aria-label="Cerrar"
-            className="p-2 text-slate-400 hover:text-on-surface hover:bg-surface rounded transition-colors flex-shrink-0">
+            className="p-2 text-slate-400 hover:text-on-surface hover:bg-surface-container rounded transition-colors flex-shrink-0">
             <X size={18} />
           </button>
         </div>
-        <div className="flex-1 min-h-0 overflow-auto bg-surface">
+        <div className="flex-1 min-h-0 overflow-auto bg-surface-container">
           <FilePreview url={url} nombre={nombre} fill />
         </div>
       </div>
