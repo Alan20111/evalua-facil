@@ -64,7 +64,7 @@ export default function Onboarding() {
                 required
                 /* autofocus: primer campo de este paso final del onboarding, el docente llega con intención directa de escribir */
                 autoFocus
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                 placeholder="Ej. Laura"
               />
             </div>
@@ -77,7 +77,7 @@ export default function Onboarding() {
                   value={apellidoPaterno}
                   onChange={(e) => setApellidoPaterno(e.target.value)}
                   required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder="Ej. García"
                 />
               </div>
@@ -90,7 +90,7 @@ export default function Onboarding() {
                   type="text"
                   value={apellidoMaterno}
                   onChange={(e) => setApellidoMaterno(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder="Ej. Pérez"
                 />
               </div>
@@ -103,7 +103,7 @@ export default function Onboarding() {
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                 placeholder="Ej. Profa. Laura García"
               />
               <p className="text-sm text-muted mt-1">Puede ser distinto a tu nombre real — un apodo, un título, como prefieras.</p>

@@ -298,7 +298,7 @@ export default function StudentActivation() {
                     // autoFocus intencional: único campo de este paso (contraseña para vincular cuenta existente),
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
                     autoFocus
-                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
+                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Tu contraseña de Evalúa Fácil"
                   />
                 </div>
@@ -340,7 +340,7 @@ export default function StudentActivation() {
                   autoCorrect="off"
                   autoCapitalize="none"
                   spellCheck={false}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center text-lg"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container font-mono tracking-widest text-center text-lg"
                   placeholder="Ej: mendez.enrique"
                   maxLength={40}
                 />
@@ -381,7 +381,7 @@ export default function StudentActivation() {
                     // autoFocus intencional: primer campo de este paso (elegir contraseña),
                     // se muestra una sola vez por sesión de activación — no es un modal reabrible.
                     autoFocus
-                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
+                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Mínimo 6 caracteres"
                   />
                 </div>
@@ -392,7 +392,7 @@ export default function StudentActivation() {
                     value={confirmPassword}
                     onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError('') }}
                     required
-                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
+                    className={`w-full px-4 py-2.5 rounded border focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container ${passwordError ? 'border-red-400' : 'border-outline-variant'}`}
                     placeholder="Repite tu contraseña"
                   />
                 </div>

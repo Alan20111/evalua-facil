@@ -87,7 +87,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
                 className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded text-sm transition-colors ${
                   activeTab === id
                     ? 'bg-accent-light text-accent font-semibold'
-                    : 'text-muted hover:bg-surface'
+                    : 'text-muted hover:bg-surface-container'
                 }`}
               >
                 <Icon size={18} />

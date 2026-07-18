@@ -146,7 +146,7 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
   }
 
   const label = (t) => <span className="text-xs text-muted">{t}</span>
-  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
 
   const DEL_OPTS = [
     { id: 'uno', label: 'Solo este bloque' },
@@ -278,7 +278,7 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
             <Copy size={14} /> Duplicar
           </button>
           <div className="flex-1" />
-          <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+          <button type="button" onClick={onClose} className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface-container transition-colors">
             Cancelar
           </button>
           <button type="button" onClick={handleSave} disabled={saving}

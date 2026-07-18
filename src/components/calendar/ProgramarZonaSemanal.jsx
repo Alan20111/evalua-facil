@@ -42,7 +42,7 @@ function HoraStepper({ value, onChange, minMin, maxMin, step = SNAP_MIN }) {
       <button type="button" onClick={() => onChange(minsToTime(Math.max(minMin, cur - step)))} disabled={cur <= minMin} className={btn} aria-label="−10 minutos">
         <Minus size={14} />
       </button>
-      <span className="flex-1 text-center text-base font-semibold tabular-nums py-1.5 rounded border border-outline-variant bg-surface select-none">{value}</span>
+      <span className="flex-1 text-center text-base font-semibold tabular-nums py-1.5 rounded border border-outline-variant bg-surface-container select-none">{value}</span>
       <button type="button" onClick={() => onChange(minsToTime(Math.min(maxMin, cur + step)))} disabled={cur >= maxMin} className={btn} aria-label="+10 minutos">
         <Plus size={14} />
       </button>
@@ -281,7 +281,7 @@ export default function ProgramarZonaSemanal({
 
   const editP = editing ? patrones.find(p => p.id === editing) : null
   useScrollLock(!!editP)
-  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
+  const inputCls = 'px-2.5 py-1.5 rounded border border-outline-variant text-sm bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
   const bannerBg = esModificar ? '#fef3c7' : bloqueColor(colorDefault).bg + '66'
 
   return (
@@ -452,13 +452,13 @@ export default function ProgramarZonaSemanal({
             <button
               type="button"
               onClick={() => onCancel?.()}
-              className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors"
+              className="px-4 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface-container transition-colors"
             >
               Salir sin modificar
             </button>
           ) : (
             <>
-              <button type="button" onClick={intentarSalir} className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface transition-colors">
+              <button type="button" onClick={intentarSalir} className="px-3 py-2 text-sm text-muted rounded border border-outline-variant hover:bg-surface-container transition-colors">
                 Cancelar
               </button>
               <button
@@ -713,7 +713,7 @@ export default function ProgramarZonaSemanal({
                 : `Colocaste ${patrones.length} de ${bloquesPorSemana} bloques. Si sales ahora se perderán.`}
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setConfirmSalir(false)} className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface">
+              <button type="button" onClick={() => setConfirmSalir(false)} className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container">
                 Seguir aquí
               </button>
               <button type="button" onClick={() => { setConfirmSalir(false); onCancel?.() }} className="flex-1 py-2 rounded bg-error text-white text-sm font-semibold">

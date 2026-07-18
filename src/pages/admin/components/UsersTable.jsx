@@ -45,7 +45,7 @@ export default function UsersTable({ stats }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[720px]">
           <thead>
-            <tr className="bg-surface text-left text-xs text-muted uppercase">
+            <tr className="bg-surface-container text-left text-xs text-muted uppercase">
               <th className="px-4 py-2">Usuario</th>
               <th className="px-4 py-2">Correo</th>
               <th className="px-4 py-2">Escuela</th>

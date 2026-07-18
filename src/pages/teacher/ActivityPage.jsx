@@ -1273,7 +1273,7 @@ export default function ActivityPage() {
                           href={downloadUrl(selFiles[0].url, selFiles[0].nombre)}
                           download={selFiles[0].nombre}
                           rel="noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors min-w-0"
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface-container rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors min-w-0"
                         >
                           <Download size={18} className="text-accent flex-shrink-0" />
                           <span className="truncate">Descargar entrega</span>
@@ -1300,7 +1300,7 @@ export default function ActivityPage() {
                           // Primer campo del panel de calificación, abierto con intención de escribir.
                           autoFocus={!parcialCerrado}
                           disabled={parcialCerrado}
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface-container disabled:opacity-60 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -1315,7 +1315,7 @@ export default function ActivityPage() {
                           className={`flex items-center gap-1 rounded border text-xs font-semibold transition-colors ${
                             previewIdx === -1
                               ? 'border-accent bg-[var(--accent-tint)] text-on-surface'
-                              : 'border-outline-variant bg-surface text-muted hover:border-accent'
+                              : 'border-outline-variant bg-surface-container text-muted hover:border-accent'
                           }`}
                         >
                           <button
@@ -1343,7 +1343,7 @@ export default function ActivityPage() {
                             className={`flex items-center gap-1 rounded border text-xs transition-colors ${
                               i === previewIdx
                                 ? 'border-accent bg-[var(--accent-tint)] text-on-surface'
-                                : 'border-outline-variant bg-surface text-muted hover:border-accent'
+                                : 'border-outline-variant bg-surface-container text-muted hover:border-accent'
                             }`}
                           >
                             <a
@@ -1379,7 +1379,7 @@ export default function ActivityPage() {
                         onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                         rows={3}
                         disabled={parcialCerrado}
-                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                         placeholder="Retroalimentación para el estudiante…"
                       />
                     </div>
@@ -1417,7 +1417,7 @@ export default function ActivityPage() {
                     <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
                     <div className="space-y-1.5">
                       {[...selected.sub.historial].reverse().map((v, i) => (
-                        <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
+                        <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface-container rounded border border-outline-variant text-xs">
                           <span className="text-slate-400 flex-shrink-0">
                             {v.fechaEntrega?.seconds
                               ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -1463,7 +1463,7 @@ export default function ActivityPage() {
                             type="button"
                             onClick={() => setAnnulMode(false)}
                             disabled={annulling}
-                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors"
                           >
                             Cancelar
                           </button>
@@ -1505,14 +1505,14 @@ export default function ActivityPage() {
                           onChange={(e) => setExtendMotivo(e.target.value)}
                           rows={2}
                           placeholder="Motivo de la extensión…"
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container resize-none"
                         />
                       </div>
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={() => setExtendMode(false)}
-                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                          className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors"
                         >
                           Cancelar
                         </button>
@@ -1539,7 +1539,7 @@ export default function ActivityPage() {
                         Evaluar sin entrega
                       </button>
                     ) : (
-                      <div className="space-y-2 rounded border border-outline-variant bg-surface p-3">
+                      <div className="space-y-2 rounded border border-outline-variant bg-surface-container p-3">
                         <p className="text-sm font-medium text-on-surface">Evaluar sin entrega</p>
                         <div>
                           <label htmlFor="act-sinentrega-calif" className="block text-sm font-medium text-muted mb-1">
@@ -1555,7 +1555,7 @@ export default function ActivityPage() {
                             step="0.1"
                             // Primer campo del panel "Evaluar sin entrega", abierto con intención de escribir.
                             autoFocus
-                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface"
+                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold text-center bg-surface-container"
                           />
                         </div>
                         <div>
@@ -1566,14 +1566,14 @@ export default function ActivityPage() {
                             onChange={(e) => setSinEntregaMotivo(e.target.value)}
                             rows={2}
                             placeholder="Ej.: Entregó el archivo en memoria USB"
-                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container resize-none"
                           />
                         </div>
                         <div className="flex gap-2">
                           <button
                             type="button"
                             onClick={() => setSinEntregaMode(false)}
-                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors"
                           >
                             Cancelar
                           </button>
@@ -1976,7 +1976,7 @@ export default function ActivityPage() {
                 type="button"
                 onClick={() => setAnnulMode(false)}
                 disabled={annulling}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors"
               >
                 Cancelar
               </button>
@@ -2013,14 +2013,14 @@ export default function ActivityPage() {
                 onChange={(e) => setExtendMotivo(e.target.value)}
                 rows={2}
                 placeholder="Motivo de la extensión…"
-                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container resize-none"
               />
             </div>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setExtendMode(false)}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors"
               >
                 Cancelar
               </button>

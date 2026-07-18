@@ -3112,7 +3112,7 @@ export default function SubjectPage() {
                 <label htmlFor="act-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
                 <input id="act-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder="Ej: Tarea 1, Examen parcial" />
               </div>
               <div>
@@ -3316,7 +3316,7 @@ export default function SubjectPage() {
                 <label htmlFor="material-nombre" className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
                 <input id="material-nombre" type="text" value={materialForm.nombre} onChange={(e) => setMaterialForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder="Ej: Libro de texto, Video introductorio, Guía de laboratorio" />
               </div>
               <div>
@@ -3428,7 +3428,7 @@ export default function SubjectPage() {
                   value={newStudent[field]}
                   onChange={(e) => setNewStudent((f) => ({ ...f, [field]: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder={
                     field === 'apellidoPaterno' ? 'Apellido paterno'
                       : field === 'apellidoMaterno' ? 'Apellido materno'
@@ -3481,7 +3481,7 @@ export default function SubjectPage() {
                   value={editStudentForm[field]}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, [field]: e.target.value }))}
                   required={field !== 'apellidoMaterno'}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder={
                     field === 'apellidoPaterno' ? 'Apellido paterno'
                       : field === 'apellidoMaterno' ? 'Apellido materno'
@@ -3496,7 +3496,7 @@ export default function SubjectPage() {
                   value={editStudentForm.comentarios}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, comentarios: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container resize-none"
                   placeholder="Ej: necesita apoyo extra, cambió de grupo, etc."
                 />
               </div>
@@ -3815,7 +3815,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setConfirmRevertPonderacion(false)}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={() => applyPonderacion(false)}
@@ -3838,7 +3838,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setConfirmRevertParcial(null)}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={() => applyParcialPonderacion(confirmRevertParcial, false)}
@@ -3901,7 +3901,7 @@ export default function SubjectPage() {
                         value={closeParcialGrade}
                         onChange={(e) => setCloseParcialGrade(e.target.value)}
                         disabled={closingParcial}
-                        className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       />
                     </div>
                   </>
@@ -3910,7 +3910,7 @@ export default function SubjectPage() {
                 )}
                 <div className="flex gap-2 mt-4">
                   <button type="button" onClick={() => setCloseParcialConfirm(null)} disabled={closingParcial}
-                    className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                    className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors">
                     Cancelar
                   </button>
                   <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
@@ -3935,7 +3935,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setRevertParcialConfirm(null)} disabled={revertingParcial}
-                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={revertCloseParcial} disabled={revertingParcial}
@@ -4068,14 +4068,14 @@ export default function SubjectPage() {
                 <label htmlFor="edit-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input id="edit-subject-nombre" type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder="Ej: Matemáticas I" />
               </div>
               <div>
                 <label htmlFor="edit-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input id="edit-subject-grupo" type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
@@ -4096,7 +4096,7 @@ export default function SubjectPage() {
               <div>
                 <label htmlFor="edit-subject-parciales" className="block text-sm font-medium text-muted mb-1">Número de parciales</label>
                 <select id="edit-subject-parciales" value={editSubjectForm.parciales} onChange={(e) => setEditSubjectForm((f) => ({ ...f, parciales: e.target.value }))}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface">
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container">
                   {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
                 </select>
               </div>
@@ -4132,14 +4132,14 @@ export default function SubjectPage() {
                 <label htmlFor="copy-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
                 <input id="copy-subject-nombre" type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder="Ej: Matemáticas II" />
               </div>
               <div>
                 <label htmlFor="copy-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
                 <input id="copy-subject-grupo" type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder="Ej: 1A, 2B, 3C" />
               </div>
               <div>
@@ -4202,7 +4202,7 @@ export default function SubjectPage() {
               type="text"
               value={deleteSubjectConfirmText}
               onChange={(e) => setDeleteSubjectConfirmText(e.target.value)}
-              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 text-sm bg-surface mb-2"
+              className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 text-sm bg-surface-container mb-2"
               placeholder={subject?.nombre}
             />
             <div className="flex gap-2">
@@ -4279,9 +4279,9 @@ export default function SubjectPage() {
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Datos</p>
                 <div className="space-y-2">
                   <input type="text" value={unarchiveEdits.nombre} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, nombre: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" placeholder="Asignatura" />
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container" placeholder="Asignatura" />
                   <input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" placeholder="Grupo (ej: 1A)" />
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container" placeholder="Grupo (ej: 1A)" />
                   <div className="space-y-2">
                     <div>
                       <span className="block text-sm text-slate-500 mb-1">Inicio</span>
@@ -4293,7 +4293,7 @@ export default function SubjectPage() {
                     </div>
                   </div>
                   <select value={unarchiveEdits.parciales} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, parciales: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface">
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container">
                     {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
                   </select>
                 </div>
@@ -4375,7 +4375,7 @@ export default function SubjectPage() {
                   value={resourceForm.nombre}
                   onChange={(e) => setResourceForm((f) => ({ ...f, nombre: e.target.value }))}
                   required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder="Ej: Programa de la asignatura"
                 />
               </div>
@@ -4386,7 +4386,7 @@ export default function SubjectPage() {
                   value={resourceForm.descripcion}
                   onChange={(e) => setResourceForm((f) => ({ ...f, descripcion: e.target.value }))}
                   rows={2}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container resize-none"
                   placeholder="Ej: Consulta este documento antes del primer parcial"
                 />
               </div>

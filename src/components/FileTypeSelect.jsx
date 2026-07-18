@@ -61,7 +61,7 @@ export default function FileTypeSelect({ value, onChange, customExts = '', onCus
           <span className={isCustom ? 'text-accent font-medium' : 'text-on-surface'}>1 archivo personalizado, escribe la extensión</span>
         </label>
         {isCustom && (
-          <div className="px-3 py-2.5 bg-surface">
+          <div className="px-3 py-2.5 bg-surface-container">
             <input
               type="text"
               value={customExts}

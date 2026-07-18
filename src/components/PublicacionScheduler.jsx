@@ -18,7 +18,7 @@ export default function PublicacionScheduler({ id, label, hint, mode, fecha, onM
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-muted mb-1">{label}</label>
       <select id={id} value={mode || 'inmediato'} onChange={(e) => onModeChange(e.target.value)}
-        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
+        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container">
         <option value="inmediato">Inmediatamente al terminar</option>
         <option value="ahora">Ahora (guardar para que se publique)</option>
         <option value="fecha">En una fecha específica</option>

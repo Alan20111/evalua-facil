@@ -225,7 +225,7 @@ export default function StudentLogin() {
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container font-mono tracking-wide text-center text-lg"
                     placeholder="Ej: mendez.enrique"
                     maxLength={40}
                   />
@@ -265,7 +265,7 @@ export default function StudentLogin() {
                     // autoFocus intencional: primer campo de este paso (elegir nueva contraseña),
                     // se muestra una sola vez por sesión — no es un modal reabrible.
                     autoFocus
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                     placeholder="Mínimo 6 caracteres"
                   />
                 </div>
@@ -276,7 +276,7 @@ export default function StudentLogin() {
                     value={confirmNewPassword}
                     onChange={(e) => { setConfirmNewPassword(e.target.value); setRecoverError('') }}
                     required
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                     placeholder="Repite tu contraseña"
                   />
                 </div>
@@ -321,7 +321,7 @@ export default function StudentLogin() {
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-wide text-center text-lg"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container font-mono tracking-wide text-center text-lg"
                     placeholder="Ej: mendez.enrique"
                     maxLength={40}
                   />
@@ -333,7 +333,7 @@ export default function StudentLogin() {
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError('') }}
                     required
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                     placeholder="••••••••"
                   />
                 </div>
@@ -390,7 +390,7 @@ export default function StudentLogin() {
                       spellCheck={false}
                       maxLength={8}
                       placeholder="Ej: A3B7K2"
-                      className="flex-1 min-w-0 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
+                      className="flex-1 min-w-0 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container font-mono tracking-widest text-center"
                     />
                     <button
                       type="submit"

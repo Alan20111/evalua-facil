@@ -120,7 +120,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                 <label htmlFor="motivo-extension" className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-slate-400">(opcional)</span></label>
                 <textarea id="motivo-extension" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
                   placeholder="Ej.: Falta justificada por duelo familiar"
-                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface-container resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
               </div>
             </div>
           )}
@@ -128,7 +128,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
 
         <div className="flex gap-2 mt-4 flex-shrink-0">
           <button type="button" onClick={onClose} disabled={saving}
-            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+            className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface-container transition-colors">
             Cancelar
           </button>
           <button type="button" onClick={save}

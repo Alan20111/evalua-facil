@@ -147,7 +147,7 @@ export default function ResetPassword() {
                   type="email"
                   value={email}
                   disabled
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant text-sm bg-surface text-muted"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant text-sm bg-surface-container text-muted"
                 />
               </div>
               <div>
@@ -159,7 +159,7 @@ export default function ResetPassword() {
                   required
                   minLength={isGoogleLinking ? 8 : 6}
                   autoComplete="new-password"
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder={isGoogleLinking ? 'Mínimo 8 caracteres, con letra y número' : 'Mínimo 6 caracteres'}
                 />
               </div>
@@ -171,7 +171,7 @@ export default function ResetPassword() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   autoComplete="new-password"
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface-container"
                   placeholder="Repite la contraseña"
                 />
               </div>
