@@ -2217,7 +2217,7 @@ export default function SubjectPage() {
               se calcula al cargar la materia (no depende de haber visitado la
               pestaña Estudiantes), así que está listo desde el primer render. */}
           {totalStudents === 0 && (
-            <p className="text-xs text-muted mt-1">
+            <p className="text-xs text-red-500 mt-1">
               Antes de compartir estos datos, agrega estudiantes manualmente o mediante la
               plantilla de Excel en la pestaña Estudiantes{IS_NATIVE_APP ? ' en la web' : ''}.
             </p>
@@ -3552,7 +3552,7 @@ export default function SubjectPage() {
               </p>
             )}
             {totalStudents === 0 && (
-              <p className="text-xs text-muted mb-4">
+              <p className="text-xs text-red-500 mb-4">
                 Antes de compartir estos datos, agrega estudiantes manualmente o mediante la
                 plantilla de Excel en la pestaña Estudiantes{IS_NATIVE_APP ? ' en la web' : ''}.
               </p>
