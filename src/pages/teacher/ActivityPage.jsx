@@ -939,7 +939,7 @@ export default function ActivityPage() {
                       i > 0 ? 'border-t border-outline-variant' : ''
                     }`}
                   >
-                    <span className={`${IS_NATIVE_APP ? 'w-4 text-[0.7rem]' : 'w-5 text-sm'} text-accent text-right flex-shrink-0`}>{s.orden}.</span>
+                    <span className={`${IS_NATIVE_APP ? 'w-4 text-[0.7rem]' : 'w-5 text-sm'} text-accent text-right flex-shrink-0`}>{s.orden}. </span>
                     <div className="flex-1 min-w-0" data-tooltip="Evaluar" data-tooltip-pos="bottom">
                       <p className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} font-medium text-on-surface truncate`}>
                         {studentFullName(s)}
