@@ -4449,7 +4449,7 @@ export default function SubjectPage() {
           docenteId={currentUser?.uid}
           existingActivities={activities}
           activityLabel={entregableEditor.activityLabel}
-          contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
+          contextLine={subjectDisplayName(subject)}
           initialForm={entregableEditor.initialForm}
           initialExistingFiles={entregableEditor.initialExistingFiles}
           onClose={() => setEntregableEditor(null)}
@@ -4486,7 +4486,7 @@ export default function SubjectPage() {
           parcial={evalEditor.parcial}
           categoria={evalEditor.categoria}
           activityLabel={evalEditor.activityLabel}
-          contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
+          contextLine={subjectDisplayName(subject)}
           subjectId={subjectId}
           docenteId={currentUser?.uid}
           subject={subject}
