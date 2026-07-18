@@ -2313,7 +2313,7 @@ export default function SubjectPage() {
   // app. En la app se ocultan las columnas de Totales (esos se ven en la web) y
   // el encabezado queda fijo (sticky) para que solo scrolleen los datos.
   const renderAttendanceTable = () => (
-    <table className="text-xs border-collapse table-fixed">
+    <table className={`${IS_NATIVE_APP ? 'text-[10px]' : 'text-xs'} border-collapse table-fixed`}>
       <colgroup>
         <col className="w-8" />
         <col className="w-[210px]" />
@@ -2327,7 +2327,7 @@ export default function SubjectPage() {
         {!IS_NATIVE_APP && <col className="w-10" />}
         {!IS_NATIVE_APP && <col className="w-10" />}
       </colgroup>
-      <thead className={IS_NATIVE_APP ? 'sticky top-0 z-30' : undefined}>
+      <thead className={IS_NATIVE_APP ? 'sticky top-0 z-30 bg-accent-light' : undefined}>
         {/* Fila de parcial — nivel superior, abarca sus días + su resumen */}
         <tr className="bg-accent-light border-b border-outline-variant">
           <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
@@ -2441,7 +2441,7 @@ export default function SubjectPage() {
             <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
               {s.orden}
             </td>
-            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[11px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
               {studentFullName(s)}
             </td>
             {attendanceParciales.flatMap((g) => {
@@ -3238,15 +3238,15 @@ export default function SubjectPage() {
            ASISTENCIAS y Agregar día. Sin Buscar y sin Totales; encabezado y
            nombre inmovilizados, solo scrollean los datos. */
         <div className="fixed inset-0 z-[70] bg-surface flex flex-col safe-top">
-          <div className="flex items-center gap-2 px-3 py-2 bg-accent-light border-b border-outline-variant">
+          <div className="flex items-center gap-2 px-2 py-0.5 bg-accent-light border-b border-outline-variant">
             <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
-              className="p-1.5 -ml-1 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
-              <ArrowLeft size={20} />
+              className="p-1 -ml-0.5 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
+              <ArrowLeft size={18} />
             </button>
             <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
             <button type="button" onClick={() => setShowAddAttendance(true)}
-              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
-              <CalendarPlus size={15} /> Agregar día
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
+              <CalendarPlus size={14} /> Agregar día
             </button>
           </div>
           {loadingAttendance ? (
