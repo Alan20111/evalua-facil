@@ -307,6 +307,10 @@ export default function SubjectPage() {
   const [savingAttendance, setSavingAttendance] = useState(false)
   const [deleteAttendanceConfirm, setDeleteAttendanceConfirm] = useState(null) // { fecha }
   const [deletingAttendance, setDeletingAttendance] = useState(false)
+  // Motivo de justificación — { recordId, studentId, fecha, studentName }
+  const [reasonModal, setReasonModal] = useState(null)
+  const [reasonText, setReasonText] = useState('')
+  const longPress = useRef({ timer: null, fired: false })
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -708,6 +712,51 @@ export default function SubjectPage() {
     }))
     try {
       await setAttendanceState(record.id, studentId, next)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+      await loadAttendance(true)
+    }
+  }
+
+  // Clic izquierdo = ciclar estado; clic derecho o mantener presionado = motivo.
+  function openReasonModal(record, student) {
+    setReasonText(record.motivos?.[student.id] || '')
+    setReasonModal({ recordId: record.id, studentId: student.id, fecha: record.fecha, studentName: studentFullName(student) })
+  }
+  function cellPointerDown(e, record, student) {
+    if (e.button === 2) return
+    longPress.current.fired = false
+    longPress.current.timer = setTimeout(() => {
+      longPress.current.fired = true
+      openReasonModal(record, student)
+    }, 500)
+  }
+  function cancelLongPress() {
+    if (longPress.current.timer) { clearTimeout(longPress.current.timer); longPress.current.timer = null }
+  }
+  function cellClick(record, student) {
+    if (longPress.current.fired) { longPress.current.fired = false; return }
+    handleCycleAttendance(record, student.id)
+  }
+  function cellContextMenu(e, record, student) {
+    e.preventDefault()
+    openReasonModal(record, student)
+  }
+
+  // Guarda el motivo y deja la celda en "justificada".
+  async function handleSaveReason() {
+    if (!reasonModal) return
+    const { recordId, studentId } = reasonModal
+    const motivo = reasonText.trim()
+    setAttendanceRecords((prev) => prev.map((r) => r.id === recordId ? {
+      ...r,
+      presentes: { ...r.presentes, [studentId]: false },
+      justificadas: { ...(r.justificadas || {}), [studentId]: true },
+      motivos: { ...(r.motivos || {}), [studentId]: motivo },
+    } : r))
+    setReasonModal(null)
+    try {
+      await setAttendanceState(recordId, studentId, 'justificada', motivo)
     } catch (err) {
       toast('Error: ' + err.message, 'error')
       await loadAttendance(true)
@@ -2994,7 +3043,9 @@ export default function SubjectPage() {
                       ...g.days.flatMap(({ records }) => records.map((r) => <col key={r.id} className="w-9" />)),
                       <col key={`ca-${g.parcial}`} className="w-10" />,
                       <col key={`ci-${g.parcial}`} className="w-10" />,
+                      <col key={`cj-${g.parcial}`} className="w-10" />,
                     ])}
+                    <col className="w-10" />
                     <col className="w-10" />
                     <col className="w-10" />
                   </colgroup>
@@ -3004,12 +3055,12 @@ export default function SubjectPage() {
                       <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
                       <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
                       {attendanceParciales.map((g) => (
-                        <th key={g.parcial} colSpan={g.slotCount + 2}
+                        <th key={g.parcial} colSpan={g.slotCount + 3}
                           className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
                           Parcial {g.parcial}
                         </th>
                       ))}
-                      <th colSpan={2}
+                      <th colSpan={3}
                         className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
                         Totales
                       </th>
@@ -3025,12 +3076,12 @@ export default function SubjectPage() {
                             {fmtAttMonth(mo.ym)}
                           </th>
                         )),
-                        <th key={`res-${g.parcial}`} colSpan={2}
+                        <th key={`res-${g.parcial}`} colSpan={3}
                           className="px-0.5 py-0.5 text-center text-[9px] font-semibold text-muted uppercase border-l-2 border-outline">
                           Resumen
                         </th>,
                       ])}
-                      <th colSpan={2} className="border-l-2 border-outline" />
+                      <th colSpan={3} className="border-l-2 border-outline" />
                     </tr>
                     {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
                     <tr className="bg-accent-light/60 border-b border-outline-variant">
@@ -3058,12 +3109,19 @@ export default function SubjectPage() {
                           className="px-0.5 py-1 text-center">
                           <X size={13} className="inline text-red-500" />
                         </th>,
+                        <th key={`hj-${g.parcial}`} data-tooltip="Faltas justificadas del parcial"
+                          className="px-0.5 py-1 text-center text-[11px] font-bold text-amber-600">
+                          J
+                        </th>,
                       ])}
                       <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
                         <CheckIcon size={13} className="inline text-green-600" />
                       </th>
                       <th data-tooltip="Total de inasistencias" className="px-0.5 py-1 text-center">
                         <X size={13} className="inline text-red-500" />
+                      </th>
+                      <th data-tooltip="Total de faltas justificadas" className="px-0.5 py-1 text-center text-[11px] font-bold text-amber-600">
+                        J
                       </th>
                     </tr>
                     {/* Renglón de sesión — etiqueta la columna de nombre y el nº de sesión */}
@@ -3080,8 +3138,10 @@ export default function SubjectPage() {
                         ))),
                         <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
                         <th key={`si-${g.parcial}`} />,
+                        <th key={`sj-${g.parcial}`} />,
                       ])}
                       <th className="border-l-2 border-outline" />
+                      <th />
                       <th />
                     </tr>
                   </thead>
@@ -3097,22 +3157,29 @@ export default function SubjectPage() {
                           {studentFullName(s)}
                         </td>
                         {attendanceParciales.flatMap((g) => {
-                          const { asist, inasist } = countPresence(g.records, s.id)
+                          const { asist, inasist, justif } = countPresence(g.records, s.id)
                           return [
                             ...g.days.flatMap(({ records }) => records.map((r) => {
                               const estado = attendanceState(r, s.id)
+                              const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
                               const ui = {
                                 presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} />, tip: 'Presente — toca para marcar falta' },
-                                falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} />, tip: 'Falta — toca para justificar' },
-                                justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span>, tip: 'Falta justificada (cuenta como asistencia) — toca para marcar presente' },
+                                falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} />, tip: 'Falta — toca para justificar (clic der./mantén para el motivo)' },
+                                justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span>, tip: motivo ? `Justificada: ${motivo} — clic der./mantén para editar` : 'Falta justificada (cuenta como asistencia) — clic der./mantén para el motivo' },
                               }[estado]
                               return (
                                 <td key={r.id}
-                                  onClick={() => handleCycleAttendance(r, s.id)}
+                                  onClick={() => cellClick(r, s)}
+                                  onContextMenu={(e) => cellContextMenu(e, r, s)}
+                                  onPointerDown={(e) => cellPointerDown(e, r, s)}
+                                  onPointerUp={cancelLongPress}
+                                  onPointerMove={cancelLongPress}
+                                  onPointerLeave={cancelLongPress}
                                   data-tooltip={ui.tip}
-                                  className="w-9 px-0.5 py-1 text-center border-l border-outline-variant cursor-pointer transition-colors">
-                                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
+                                  className="w-9 px-0.5 py-1 text-center border-l border-outline-variant cursor-pointer select-none transition-colors">
+                                  <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                                     {ui.icon}
+                                    {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
                                   </span>
                                 </td>
                               )
@@ -3123,6 +3190,9 @@ export default function SubjectPage() {
                             <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-red-500 tabular-nums bg-red-50">
                               {inasist}
                             </td>,
+                            <td key={`j-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-amber-600 tabular-nums bg-amber-50">
+                              {justif}
+                            </td>,
                           ]
                         })}
                         <td className="px-0.5 py-1 text-center font-bold text-green-600 tabular-nums bg-green-100/60 border-l-2 border-outline">
@@ -3130,6 +3200,9 @@ export default function SubjectPage() {
                         </td>
                         <td className="px-0.5 py-1 text-center font-bold text-red-500 tabular-nums bg-red-100/60">
                           {total.inasist}
+                        </td>
+                        <td className="px-0.5 py-1 text-center font-bold text-amber-600 tabular-nums bg-amber-100/60">
+                          {total.justif}
                         </td>
                       </tr>
                       )
@@ -3152,7 +3225,7 @@ export default function SubjectPage() {
                   <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-amber-100 text-amber-600 text-[10px] font-bold leading-none">J</span>
                   Justificada (cuenta como asistencia)
                 </span>
-                <span className="text-slate-400">· Toca una celda para cambiar el estado</span>
+                <span className="text-slate-400">· Toca para cambiar el estado · Clic derecho o mantén presionado para el motivo</span>
               </div>
 
               {filteredAttendanceStudents.length === 0 && searchAttendance && (
@@ -3225,6 +3298,38 @@ export default function SubjectPage() {
               <button type="button" onClick={handleDeleteAttendanceDay} disabled={deletingAttendance}
                 className="flex-1 py-2 rounded bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
                 {deletingAttendance ? <Spinner size="sm" /> : <Trash2 size={16} />} Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Motivo de la justificación — abre con clic derecho / mantener presionado
+          sobre una celda; deja la celda en "justificada". El motivo es opcional. */}
+      {reasonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setReasonModal(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
+            <h3 className="text-base font-semibold text-on-surface">Justificar inasistencia</h3>
+            <p className="text-xs text-muted">
+              {reasonModal.studentName} ·{' '}
+              {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
+            </p>
+            <div>
+              <label htmlFor="att-motivo" className="block text-xs font-medium text-muted mb-1">Motivo (opcional)</label>
+              <textarea id="att-motivo" value={reasonText} rows={3} autoFocus
+                onChange={(e) => setReasonText(e.target.value)}
+                placeholder="Ej. Cita médica, permiso familiar…"
+                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={() => setReasonModal(null)}
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleSaveReason}
+                className="flex-1 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors flex items-center justify-center gap-2">
+                Guardar justificación
               </button>
             </div>
           </div>
