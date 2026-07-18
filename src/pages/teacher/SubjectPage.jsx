@@ -2940,7 +2940,7 @@ export default function SubjectPage() {
                   key={s.id}
                   className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
-                  <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
+                  <span className="w-5 text-sm text-accent text-right flex-shrink-0">{s.orden}. </span>
                   <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
                     {studentFullName(s)}
                   </p>
