@@ -2513,7 +2513,7 @@ export default function SubjectPage() {
             {/* 1 — Descargar calificaciones. El botón grande baja TODO; el ⋮
                  ofrece una descarga por parcial (progreso, sin cerrar). */}
             <div>
-              <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
+              <p className={`text-xs font-semibold uppercase tracking-wide mb-1.5 ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>Calificaciones</p>
               <div className="flex gap-2">
                 {/* Excel split-button */}
                 <div className="flex-1 relative flex">
@@ -2521,7 +2521,7 @@ export default function SubjectPage() {
                     onClick={handleExport}
                     disabled={exporting}
                     data-tooltip="Descarga TODAS las calificaciones en una hoja de Excel"
-                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
+                    className={`flex-1 flex items-center justify-center gap-2 py-1.5 border rounded-l text-sm transition-colors disabled:opacity-60 ${IS_NATIVE_APP ? 'border-white/30 text-white/80 hover:bg-white/15' : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'}`}
                   >
                     {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
                   </button>
@@ -2529,7 +2529,7 @@ export default function SubjectPage() {
                     onClick={() => setTopExportMenu((m) => m === 'excel' ? null : 'excel')}
                     aria-label="Excel por parcial"
                     data-tooltip="Excel por parcial"
-                    className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors">
+                    className={`px-1.5 border border-l-0 rounded-r transition-colors ${IS_NATIVE_APP ? 'border-white/30 text-white/80 hover:text-white hover:bg-white/15' : 'border-outline-variant text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
                     <MoreVertical size={16} />
                   </button>
                   {topExportMenu === 'excel' && (
@@ -2554,7 +2554,7 @@ export default function SubjectPage() {
                     onClick={handleExportGradesPDF}
                     disabled={exportingGradesPdf}
                     data-tooltip="Descarga TODAS las calificaciones en un PDF imprimible"
-                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
+                    className={`flex-1 flex items-center justify-center gap-2 py-1.5 border rounded-l text-sm transition-colors disabled:opacity-60 ${IS_NATIVE_APP ? 'border-white/30 text-white/80 hover:bg-white/15' : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'}`}
                   >
                     {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
                   </button>
@@ -2562,7 +2562,7 @@ export default function SubjectPage() {
                     onClick={() => setTopExportMenu((m) => m === 'pdf' ? null : 'pdf')}
                     aria-label="PDF por parcial"
                     data-tooltip="PDF por parcial"
-                    className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors">
+                    className={`px-1.5 border border-l-0 rounded-r transition-colors ${IS_NATIVE_APP ? 'border-white/30 text-white/80 hover:text-white hover:bg-white/15' : 'border-outline-variant text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
                     <MoreVertical size={16} />
                   </button>
                   {topExportMenu === 'pdf' && (
@@ -2593,9 +2593,9 @@ export default function SubjectPage() {
             {loadingGrades ? (
               <div className="flex justify-center py-12"><Spinner size="lg" /></div>
             ) : activities.length === 0 ? (
-              <p className="text-center text-slate-400 text-sm py-12">No hay actividades en esta asignatura</p>
+              <p className={`text-center text-sm py-12 ${IS_NATIVE_APP ? 'text-white/70' : 'text-slate-400'}`}>No hay actividades en esta asignatura</p>
             ) : groupStudents.length === 0 ? (
-              <p className="text-center text-slate-400 text-sm py-12">No hay estudiantes en este grupo</p>
+              <p className={`text-center text-sm py-12 ${IS_NATIVE_APP ? 'text-white/70' : 'text-slate-400'}`}>No hay estudiantes en este grupo</p>
             ) : (
               <>
                 {/* Action bar above the table — ponderación toggle lives here now
@@ -2605,11 +2605,11 @@ export default function SubjectPage() {
                     data-tooltip={anyPonderacionOn ? 'Quitar la ponderación de todos los parciales' : 'Cada actividad vale un peso — se activa en todos los parciales; luego puedes apagarla por parcial'}
                     className={`px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wide transition-colors ${anyPonderacionOn
                       ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                      : 'bg-accent text-white hover:bg-accent-hover'}`}>
+                      : IS_NATIVE_APP ? 'bg-white text-accent hover:bg-white/90' : 'bg-accent text-white hover:bg-accent-hover'}`}>
                     {anyPonderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
                   </button>
                   {anyPonderacionOn && (
-                    <span className="text-xs text-muted">Asigna un peso a cada actividad (deben sumar 10 por parcial para exportar).</span>
+                    <span className={`text-xs ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>Asigna un peso a cada actividad (deben sumar 10 por parcial para exportar).</span>
                   )}
                 </div>
 
@@ -2825,7 +2825,7 @@ export default function SubjectPage() {
                 </div>
 
                 {filteredGradeStudents.length === 0 && searchGrade && (
-                  <p className="text-center text-sm text-slate-400">Sin resultados para "{searchGrade}"</p>
+                  <p className={`text-center text-sm ${IS_NATIVE_APP ? 'text-white/70' : 'text-slate-400'}`}>Sin resultados para "{searchGrade}"</p>
                 )}
               </>
             )}
@@ -2841,7 +2841,7 @@ export default function SubjectPage() {
               Each step shows just a number + icon + short label; the full instructions
               live in the title tooltip instead of wrapping across two lines like before. */}
           <div>
-            <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Agregar estudiantes</p>
+            <p className={`text-xs font-semibold uppercase tracking-wide mb-1.5 ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>Agregar estudiantes</p>
             {/* Prominent 3-step cards — everything starts here. No overflow-hidden
                 wrapper so the tooltips render above without clipping. */}
             <div className="flex flex-col sm:flex-row sm:items-stretch gap-2">
@@ -2893,7 +2893,7 @@ export default function SubjectPage() {
               onClick={sortStudentsAlphabetically}
               disabled={groupStudents.length < 2}
               data-tooltip="Ordena la lista por apellido y nombre"
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-[var(--accent-medium)] disabled:opacity-60"
+              className={`flex items-center gap-1 text-xs transition-colors px-2 py-1 rounded disabled:opacity-60 ${IS_NATIVE_APP ? 'text-white/80 hover:text-white hover:bg-white/15' : 'text-slate-500 hover:text-accent hover:bg-[var(--accent-medium)]'}`}
             >
               <ArrowUpDown size={15} />
               Ordenar alfabéticamente
@@ -2913,7 +2913,7 @@ export default function SubjectPage() {
               onClick={() => setShowAddStudent(true)}
               aria-label="Agregar nuevo estudiante"
               data-tooltip="Agregar nuevo estudiante"
-              className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
+              className={`p-2.5 rounded transition-colors ${IS_NATIVE_APP ? 'bg-white text-accent hover:bg-white/90' : 'bg-accent text-white hover:bg-accent-hover'}`}
             >
               <UserPlus size={20} />
             </button>
@@ -2923,7 +2923,7 @@ export default function SubjectPage() {
           {!groupStudentsLoaded ? (
             <div className="flex justify-center py-10"><Spinner /></div>
           ) : filteredAlumnos.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 text-sm">
+            <div className={`text-center py-10 text-sm ${IS_NATIVE_APP ? 'text-white/70' : 'text-slate-400'}`}>
               {searchAlumnos ? 'Sin resultados' : 'No hay estudiantes en esta asignatura'}
             </div>
           ) : (
@@ -2973,12 +2973,12 @@ export default function SubjectPage() {
       {activeTab === 'recursos' && (
         <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
           <div className="flex items-start justify-between gap-3">
-            <p className="text-sm text-muted leading-relaxed">
+            <p className={`text-sm leading-relaxed ${IS_NATIVE_APP ? 'text-white/80' : 'text-muted'}`}>
               Materiales permanentes del curso (programa, reglamento, guías, presentaciones…), disponibles para tus estudiantes durante todo el semestre. No generan entrega ni calificación.
             </p>
             <button type="button" onClick={openAddResource}
               data-tooltip="Agregar recurso"
-              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+              className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded transition-colors ${IS_NATIVE_APP ? 'bg-white text-accent hover:bg-white/90' : 'bg-accent text-white hover:bg-accent-hover'}`}>
               <Plus size={16} /> Agregar recurso
             </button>
           </div>
@@ -2986,7 +2986,7 @@ export default function SubjectPage() {
           {!resourcesLoaded || loadingResources ? (
             <div className="flex justify-center py-10"><Spinner /></div>
           ) : resources.length === 0 ? (
-            <div className="text-center py-10 text-slate-400 text-sm">
+            <div className={`text-center py-10 text-sm ${IS_NATIVE_APP ? 'text-white/70' : 'text-slate-400'}`}>
               Aún no hay recursos en esta asignatura
             </div>
           ) : (

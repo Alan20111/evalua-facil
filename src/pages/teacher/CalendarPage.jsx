@@ -480,7 +480,7 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
 
   return (
     <div>
-      <div className="grid grid-cols-7 border-b border-outline-variant bg-surface">
+      <div className={`grid grid-cols-7 border-b border-outline-variant ${IS_NATIVE_APP ? 'bg-surface-card' : 'bg-surface'}`}>
         {DIAS_CORTO.map(d => (
           <div key={d} className="py-2 text-center text-xs font-semibold text-muted uppercase tracking-wide">{d}</div>
         ))}
@@ -1554,7 +1554,7 @@ export default function CalendarPage() {
     <button
       type="button"
       onClick={goToday}
-      className="text-xs px-3 py-1.5 rounded border border-outline-variant text-muted hover:bg-accent-tint transition-colors"
+      className={`text-xs px-3 py-1.5 rounded border transition-colors ${IS_NATIVE_APP ? 'border-white/40 text-white hover:bg-white/15' : 'border-outline-variant text-muted hover:bg-accent-tint'}`}
     >
       Hoy
     </button>
@@ -1564,7 +1564,7 @@ export default function CalendarPage() {
     <button
       type="button"
       onClick={() => openNewEvent(null)}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-card border text-sm transition-colors ${IS_NATIVE_APP ? 'border-white/40 text-white hover:bg-white/15' : 'border-outline-variant text-muted hover:bg-accent-tint'}`}
     >
       <Plus size={15} /> Evento
     </button>
@@ -1590,7 +1590,7 @@ export default function CalendarPage() {
       <button
         type="button"
         onClick={() => setShowHoras(v => !v)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-card border text-sm transition-colors ${IS_NATIVE_APP ? 'border-white/40 text-white hover:bg-white/15' : 'border-outline-variant text-muted hover:bg-accent-tint'}`}
         data-tooltip="Horas visibles de tu día (Agenda y Semana)"
         data-tooltip-pos="bottom"
       >
@@ -1823,7 +1823,7 @@ export default function CalendarPage() {
         </div>
 
         {/* Legend */}
-        <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted px-1">
+        <div className={`mt-3 flex flex-wrap gap-3 text-xs px-1 ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>
           <span className="flex items-center gap-1"><CalendarPlus size={12} /> Bloques de clase (Semana/Mes)</span>
           <span className="flex items-center gap-1"><Clock size={12} /> Fecha límite (de actividades)</span>
           <span className="flex items-center gap-1"><Eye size={12} /> Publicación programada</span>

@@ -7,6 +7,7 @@ import {
   getMonthGrid, getWeekDays, isToday,
 } from '../../utils/calendarGrid'
 import { toDateStr } from '../../utils/horarioBloques'
+import { IS_NATIVE_APP } from '../../utils/platform'
 
 const CATEGORIA_ICON = { examen: GraduationCap, cuestionario: ListChecks, observacion: ClipboardCheck }
 
@@ -35,13 +36,13 @@ function Pill({ item, compact, onClick }) {
 function NavHeader({ label, onPrev, onNext, onToday }) {
   return (
     <div className="flex items-center justify-between mb-3">
-      <button type="button" onClick={onPrev} aria-label="Anterior" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
+      <button type="button" onClick={onPrev} aria-label="Anterior" className={`p-1.5 rounded transition-colors ${IS_NATIVE_APP ? 'text-white/80 hover:text-white hover:bg-white/15' : 'text-muted hover:text-accent hover:bg-accent-tint'}`}>
         <ChevronLeft size={18} />
       </button>
-      <button type="button" onClick={onToday} className="text-sm font-semibold text-on-surface px-2 py-1 rounded hover:bg-accent-tint transition-colors truncate">
+      <button type="button" onClick={onToday} className={`text-sm font-semibold px-2 py-1 rounded transition-colors truncate ${IS_NATIVE_APP ? 'text-white hover:bg-white/15' : 'text-on-surface hover:bg-accent-tint'}`}>
         {label}
       </button>
-      <button type="button" onClick={onNext} aria-label="Siguiente" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
+      <button type="button" onClick={onNext} aria-label="Siguiente" className={`p-1.5 rounded transition-colors ${IS_NATIVE_APP ? 'text-white/80 hover:text-white hover:bg-white/15' : 'text-muted hover:text-accent hover:bg-accent-tint'}`}>
         <ChevronRight size={18} />
       </button>
     </div>
@@ -53,7 +54,7 @@ function VistaDia({ fecha, itemsByDate, onActivityClick }) {
   return (
     <div className="space-y-2">
       {items.length === 0 ? (
-        <p className="text-sm text-muted text-center py-10">Sin actividades este día.</p>
+        <p className={`text-sm text-center py-10 ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>Sin actividades este día.</p>
       ) : items.map((item) => (
         <button
           key={item.id}
@@ -86,14 +87,14 @@ function VistaSemana({ fecha, itemsByDate, onActivityClick, onSelectDay }) {
               onClick={() => onSelectDay(d)}
               className="w-full flex flex-col items-center mb-1.5"
             >
-              <span className="text-[10px] uppercase text-muted font-semibold">{DIAS_CORTO[(d.getDay() + 6) % 7]}</span>
-              <span className={`w-6 h-6 flex items-center justify-center text-xs font-bold rounded-full ${isToday(d) ? 'bg-accent text-white' : 'text-on-surface'}`}>
+              <span className={`text-[10px] uppercase font-semibold ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>{DIAS_CORTO[(d.getDay() + 6) % 7]}</span>
+              <span className={`w-6 h-6 flex items-center justify-center text-xs font-bold rounded-full ${isToday(d) ? (IS_NATIVE_APP ? 'bg-white text-accent' : 'bg-accent text-white') : (IS_NATIVE_APP ? 'text-white' : 'text-on-surface')}`}>
                 {d.getDate()}
               </span>
             </button>
             <div className="space-y-1">
               {items.slice(0, 4).map((item) => <Pill key={item.id} item={item} compact onClick={onActivityClick} />)}
-              {items.length > 4 && <p className="text-[10px] text-muted text-center">+{items.length - 4}</p>}
+              {items.length > 4 && <p className={`text-[10px] text-center ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>+{items.length - 4}</p>}
             </div>
           </div>
         )
@@ -107,7 +108,7 @@ function VistaMes({ fecha, itemsByDate, onActivityClick, onSelectDay }) {
   return (
     <div>
       <div className="grid grid-cols-7 mb-1">
-        {DIAS_CORTO.map((d) => <p key={d} className="text-[10px] uppercase text-muted font-semibold text-center">{d}</p>)}
+        {DIAS_CORTO.map((d) => <p key={d} className={`text-[10px] uppercase font-semibold text-center ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>{d}</p>)}
       </div>
       <div className="grid grid-cols-7 gap-1">
         {celdas.map((d) => {
@@ -121,14 +122,14 @@ function VistaMes({ fecha, itemsByDate, onActivityClick, onSelectDay }) {
               tabIndex={0}
               onClick={() => onSelectDay(d)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDay(d) } }}
-              className={`min-h-[64px] rounded p-1 text-left hover:bg-accent-tint transition-colors cursor-pointer ${esDelMes ? '' : 'opacity-30'}`}
+              className={`min-h-[64px] rounded p-1 text-left transition-colors cursor-pointer ${IS_NATIVE_APP ? 'hover:bg-white/15' : 'hover:bg-accent-tint'} ${esDelMes ? '' : 'opacity-30'}`}
             >
-              <span className={`w-5 h-5 flex items-center justify-center text-[11px] font-semibold rounded-full mb-0.5 ${isToday(d) ? 'bg-accent text-white' : 'text-on-surface'}`}>
+              <span className={`w-5 h-5 flex items-center justify-center text-[11px] font-semibold rounded-full mb-0.5 ${isToday(d) ? (IS_NATIVE_APP ? 'bg-white text-accent' : 'bg-accent text-white') : (IS_NATIVE_APP ? 'text-white' : 'text-on-surface')}`}>
                 {d.getDate()}
               </span>
               <div className="space-y-0.5">
                 {items.slice(0, 2).map((item) => <Pill key={item.id} item={item} compact onClick={onActivityClick} />)}
-                {items.length > 2 && <p className="text-[9px] text-muted">+{items.length - 2}</p>}
+                {items.length > 2 && <p className={`text-[9px] ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>+{items.length - 2}</p>}
               </div>
             </div>
           )
