@@ -4,6 +4,14 @@ import {
 import { db } from '../firebase'
 
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+// 'YYYY-MM' (o 'YYYY-MM-DD') → 'Julio 2026' — etiqueta de la celda de mes que
+// agrupa todas las columnas de días de ese mes en el encabezado de Asistencias.
+export function fmtAttMonth(fecha) {
+  const [y, m] = fecha.split('-').map(Number)
+  return `${MESES[m - 1] || ''} ${y}`
+}
 
 // 'YYYY-MM-DD' → { dia: '18', mes: 'jul', anio: '26' } — para el encabezado vertical
 // de cada columna de asistencia (día/mes/año apilado, ya que la columna es angosta
