@@ -3044,7 +3044,7 @@ export default function SubjectPage() {
                         }),
                         <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial"
                           className="px-0.5 py-1 text-center border-l-2 border-outline">
-                          <CheckIcon size={13} className="inline text-accent" />
+                          <CheckIcon size={13} className="inline text-green-600" />
                         </th>,
                         <th key={`hi-${g.parcial}`} data-tooltip="Inasistencias del parcial"
                           className="px-0.5 py-1 text-center">
@@ -3052,7 +3052,7 @@ export default function SubjectPage() {
                         </th>,
                       ])}
                       <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
-                        <CheckIcon size={13} className="inline text-accent" />
+                        <CheckIcon size={13} className="inline text-green-600" />
                       </th>
                       <th data-tooltip="Total de inasistencias" className="px-0.5 py-1 text-center">
                         <X size={13} className="inline text-red-500" />
@@ -3098,14 +3098,14 @@ export default function SubjectPage() {
                                   data-tooltip={presente ? 'Presente — clic para marcar falta' : 'Falta — clic para marcar presente'}
                                   className="w-9 px-0.5 py-1 text-center border-l border-outline-variant cursor-pointer transition-colors">
                                   <span className={`inline-flex items-center justify-center w-6 h-6 rounded ${
-                                    presente ? 'bg-accent-light text-accent' : 'bg-red-100 text-red-500'
+                                    presente ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'
                                   }`}>
                                     {presente ? <CheckIcon size={14} /> : <X size={14} />}
                                   </span>
                                 </td>
                               )
                             })),
-                            <td key={`a-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-accent tabular-nums bg-accent-light/30 border-l-2 border-outline">
+                            <td key={`a-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-green-600 tabular-nums bg-green-50 border-l-2 border-outline">
                               {asist}
                             </td>,
                             <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-red-500 tabular-nums bg-red-50">
@@ -3113,7 +3113,7 @@ export default function SubjectPage() {
                             </td>,
                           ]
                         })}
-                        <td className="px-0.5 py-1 text-center font-bold text-accent tabular-nums bg-accent-light/50 border-l-2 border-outline">
+                        <td className="px-0.5 py-1 text-center font-bold text-green-600 tabular-nums bg-green-100/60 border-l-2 border-outline">
                           {total.asist}
                         </td>
                         <td className="px-0.5 py-1 text-center font-bold text-red-500 tabular-nums bg-red-100/60">
@@ -3134,8 +3134,8 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* Agregar día de asistencia — duración 1-4 horas crea esa misma cantidad
-          de columnas (una asistencia por hora de clase). */}
+      {/* Agregar día de asistencia — el nº de sesiones crea esa misma cantidad
+          de columnas (una asistencia por sesión de clase). */}
       {showAddAttendance && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowAddAttendance(false)} aria-label="Cerrar" />
@@ -3156,11 +3156,11 @@ export default function SubjectPage() {
                 placeholder="Elige el día…" clearable={false} />
             </div>
             <div>
-              <label htmlFor="att-duracion" className="block text-xs font-medium text-muted mb-1">Duración de la clase (horas)</label>
-              <select id="att-duracion" value={newAttendanceForm.duracion}
+              <label htmlFor="att-sesiones" className="block text-xs font-medium text-muted mb-1">Número de sesiones</label>
+              <select id="att-sesiones" value={newAttendanceForm.duracion}
                 onChange={(e) => setNewAttendanceForm((f) => ({ ...f, duracion: Number(e.target.value) }))}
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                {[1, 2, 3, 4].map((h) => <option key={h} value={h}>{h} hora{h !== 1 ? 's' : ''} ({h} asistencia{h !== 1 ? 's' : ''})</option>)}
+                {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} sesión{n !== 1 ? 'es' : ''} ({n} asistencia{n !== 1 ? 's' : ''})</option>)}
               </select>
             </div>
             <div className="flex gap-2 pt-1">
