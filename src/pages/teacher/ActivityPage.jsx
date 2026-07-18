@@ -773,19 +773,19 @@ export default function ActivityPage() {
               type="button"
               onClick={goBack}
               aria-label="Volver"
-              className={`p-2 -ml-2 rounded ${IS_NATIVE_APP ? 'text-white/70 hover:text-white' : 'text-slate-400 hover:text-muted'}`}
+              className="p-2 -ml-2 text-slate-400 hover:text-muted rounded"
             >
               <ArrowLeft size={22} />
             </button>
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium truncate ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>
+              <p className="text-sm font-medium text-muted truncate">
                 {subjectDisplayName(subject)}
                 {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
               </p>
-              <p className={`text-sm font-bold uppercase tracking-wide ${IS_NATIVE_APP ? 'text-white' : 'text-accent'}`}>Evaluar</p>
+              <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
               <div className="flex items-center gap-2">
-                <h1 className={`text-xl font-bold truncate ${IS_NATIVE_APP ? 'text-white' : 'text-on-surface'}`}>
-                  {activityLabel && <span className={IS_NATIVE_APP ? 'text-white' : 'text-accent'}>{activityLabel} </span>}
+                <h1 className="text-xl font-bold text-on-surface truncate">
+                  {activityLabel && <span className="text-accent">{activityLabel} </span>}
                   {activity?.nombre}
                 </h1>
                 <button
@@ -793,12 +793,12 @@ export default function ActivityPage() {
                   onClick={() => setEditingActivity(true)}
                   data-tooltip="Editar actividad"
                   aria-label="Editar actividad"
-                  className={`p-1 rounded transition-colors flex-shrink-0 ${IS_NATIVE_APP ? 'text-white/70 hover:text-white hover:bg-white/15' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}
+                  className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                 >
                   <Pencil size={18} />
                 </button>
               </div>
-              <p className={`text-sm font-medium ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>
+              <p className="text-sm font-medium text-muted">
                 Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
               </p>
             </div>
@@ -806,22 +806,22 @@ export default function ActivityPage() {
           {(activity?.publishedAt || activity?.publishAt || activity?.fechaLimite) && (
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               {activity?.publishedAt && (
-                <span data-tooltip="Publicado" className={`text-xs flex items-center gap-0.5 ${IS_NATIVE_APP ? 'text-emerald-200' : 'text-emerald-600'}`}>
+                <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
                   <Clock size={14} /> {formatPublishAt(activity.publishedAt)}
                 </span>
               )}
               {activity?.publishAt && (
-                <span data-tooltip="Publicación programada" className={`text-xs flex items-center gap-0.5 ${IS_NATIVE_APP ? 'text-white' : 'text-accent'}`}>
+                <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
                   <Clock size={14} /> {formatPublishAt(activity.publishAt)}
                 </span>
               )}
               {activity?.fechaLimite && (
-                <span data-tooltip="Cierre" className={`text-xs flex items-center gap-0.5 ${IS_NATIVE_APP ? 'text-amber-200' : 'text-amber-600'}`}>
+                <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
                   <Clock size={14} /> {formatDeadline(activity.fechaLimite)}
                 </span>
               )}
               {activity?.recibirTarde && !activity?.cerradaManual && (
-                <span data-tooltip="Se aceptan entregas tarde" className={`text-xs flex items-center gap-0.5 ${IS_NATIVE_APP ? 'text-white/70' : 'text-slate-500'}`}>
+                <span data-tooltip="Se aceptan entregas tarde" className="text-xs text-slate-500 flex items-center gap-0.5">
                   Recibe entregas tarde
                 </span>
               )}
@@ -840,7 +840,7 @@ export default function ActivityPage() {
           )}
           {/* Accepted file types for this entregable (observación has no delivery) */}
           {!isObservacion && (
-          <div className={`flex items-center gap-1.5 mt-2 flex-wrap text-xs ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap text-xs text-muted">
             <span className="font-medium">Archivos aceptados:</span>
             {normalizeFileTypeKeys(activity?.tiposArchivo).map((k) => (
               <span key={k} className="bg-surface-container text-on-surface-variant px-2 py-0.5 rounded-full">
@@ -1682,17 +1682,17 @@ export default function ActivityPage() {
                 descripción del archivo entregado debajo ni la etiqueta de
                 estatus (Entregado/Pendiente/etc.) */}
             <div className="flex-shrink-0">
-              <h4 className="text-[0.9rem] font-semibold text-white truncate">
-                {selected.student.orden != null && <span className="text-white">{selected.student.orden}. </span>}
+              <h4 className="text-[0.9rem] font-semibold text-on-surface truncate">
+                {selected.student.orden != null && <span className="text-on-surface">{selected.student.orden}. </span>}
                 {studentFullName(selected.student)}
               </h4>
               {selected.sub?.tarde && (
-                <p className="text-xs text-amber-200 font-medium mt-0.5 truncate">
+                <p className="text-xs text-amber-600 font-medium mt-0.5 truncate">
                   {formatLateness(selected.sub, selected.student, activity)}
                 </p>
               )}
               {selected.sub?.motivoSinEntrega && (
-                <p className="text-xs text-white/70 mt-0.5 italic truncate">
+                <p className="text-xs text-slate-500 mt-0.5 italic truncate">
                   Motivo: {selected.sub.motivoSinEntrega}
                 </p>
               )}
@@ -1705,7 +1705,7 @@ export default function ActivityPage() {
                 Todos/Por calificar ahora viven junto a la calificación
                 (ver más abajo). */}
             <div className="space-y-1.5 flex-shrink-0">
-              <label className={`flex items-center gap-2 text-sm text-white/90 select-none ${(selected.sub || isObservacion || hasRubrica || !isEvaluacion) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
+              <label className={`flex items-center gap-2 text-sm text-muted select-none ${(selected.sub || isObservacion || hasRubrica || !isEvaluacion) && !parcialCerrado ? 'cursor-pointer' : 'invisible'}`}>
                 <input
                   type="checkbox"
                   checked={autoSaveOnNav}
@@ -1719,7 +1719,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => goToOffset(-1)}
                   disabled={navList.length < 2}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded border border-white text-white text-sm font-semibold hover:bg-white/15 transition-colors disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
                 >
                   <ChevronLeft size={18} /> Anterior
                 </button>
@@ -1727,7 +1727,7 @@ export default function ActivityPage() {
                   type="button"
                   onClick={() => goToOffset(1)}
                   disabled={navList.length < 2}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded bg-white text-accent text-sm font-semibold hover:bg-white/90 transition-colors disabled:opacity-40"
+                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-40"
                 >
                   Siguiente <ChevronRight size={18} />
                 </button>
@@ -1767,8 +1767,8 @@ export default function ActivityPage() {
                       }}
                       className={`w-full py-2.5 text-sm font-semibold rounded transition-colors flex items-center justify-center gap-2 ${
                         rubricaViewOpen
-                          ? 'bg-white text-accent hover:bg-white/90'
-                          : 'border border-white text-white hover:bg-white/15'
+                          ? 'bg-accent text-white hover:bg-accent-hover'
+                          : 'border border-accent text-accent hover:bg-[var(--accent-medium)]'
                       }`}
                     >
                       <ClipboardList size={17} />
@@ -1814,7 +1814,7 @@ export default function ActivityPage() {
                         type="button"
                         onClick={() => changeFilterInView('todos')}
                         className={`h-9 min-w-[104px] pl-3 pr-2 rounded-r border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
-                          filter === 'todos' ? 'border-accent bg-accent-light text-accent' : 'border-white/30 text-white/80 hover:bg-white/15'
+                          filter === 'todos' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
                         }`}
                       >
                         Todos ({students.length})
@@ -1823,7 +1823,7 @@ export default function ActivityPage() {
                         type="button"
                         onClick={() => changeFilterInView('entregado')}
                         className={`h-9 min-w-[104px] pl-3 pr-2 rounded-r border text-left text-[11px] font-semibold whitespace-nowrap transition-colors flex items-center ${
-                          filter === 'entregado' ? 'border-accent bg-accent-light text-accent' : 'border-white/30 text-white/80 hover:bg-white/15'
+                          filter === 'entregado' ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-muted hover:bg-[var(--accent-medium)]'
                         }`}
                       >
                         Por calificar ({counts.entregado})
@@ -1836,7 +1836,7 @@ export default function ActivityPage() {
                         onClick={() => stepCalif(-0.5)}
                         disabled={parcialCerrado}
                         aria-label="Restar medio punto"
-                        className="w-11 h-11 flex-shrink-0 rounded-full border border-white text-white text-2xl font-bold flex items-center justify-center hover:bg-white/15 transition-colors disabled:opacity-40"
+                        className="w-11 h-11 flex-shrink-0 rounded-full border border-accent text-accent text-2xl font-bold flex items-center justify-center hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
                       >
                         −
                       </button>
@@ -1851,14 +1851,14 @@ export default function ActivityPage() {
                         step="0.5"
                         placeholder="—"
                         disabled={parcialCerrado}
-                        className="w-24 py-1 text-center text-[2.7rem] font-bold bg-transparent text-white border-b-2 border-white focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-24 py-1 text-center text-[2.7rem] font-bold bg-transparent border-b-2 border-accent focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                       <button
                         type="button"
                         onClick={() => stepCalif(0.5)}
                         disabled={parcialCerrado}
                         aria-label="Sumar medio punto"
-                        className="w-11 h-11 flex-shrink-0 rounded-full bg-white text-accent text-2xl font-bold flex items-center justify-center hover:bg-white/90 transition-colors disabled:opacity-40"
+                        className="w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white text-2xl font-bold flex items-center justify-center hover:bg-accent-hover transition-colors disabled:opacity-40"
                       >
                         +
                       </button>
@@ -1877,7 +1877,7 @@ export default function ActivityPage() {
                             disabled={parcialCerrado}
                             aria-label="Modificar fecha de entrega"
                             data-tooltip="Modificar fecha de entrega"
-                            className="h-9 pl-2 pr-3 rounded-l border border-white/30 text-white/80 hover:text-white hover:border-white flex items-center justify-center transition-colors disabled:opacity-40"
+                            className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40"
                           >
                             <CalendarDays size={17} />
                           </button>
@@ -1888,7 +1888,7 @@ export default function ActivityPage() {
                               disabled={parcialCerrado}
                               aria-label="Anular la entrega"
                               data-tooltip="Anular la entrega"
-                              className="h-9 pl-2 pr-3 rounded-l border border-white/30 text-white/80 hover:text-red-200 hover:border-red-200 flex items-center justify-center transition-colors disabled:opacity-40"
+                              className="h-9 pl-2 pr-3 rounded-l border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors disabled:opacity-40"
                             >
                               <Trash2 size={17} />
                             </button>
@@ -1910,14 +1910,14 @@ export default function ActivityPage() {
                     crezca o encoja de golpe, y se siente como que "brinca"
                     la pantalla. */}
                 {parcialCerrado ? null : autoSaveOnNav && navList.length > 1 ? (
-                  <p className="h-10 flex items-center justify-center text-xs text-white/70 text-center">
+                  <p className="h-10 flex items-center justify-center text-xs text-slate-400 text-center">
                     La calificación se guarda al avanzar o al retroceder.
                   </p>
                 ) : (
                   <button
                     type="submit"
                     disabled={saving || !canCreate || !isDirty()}
-                    className="h-10 w-full bg-white text-accent font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                    className="h-10 w-full bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                   >
                     {saving ? <Spinner size="sm" /> : <Star size={18} />}
                     {saving ? 'Guardando…' : 'Guardar calificación'}
@@ -1925,29 +1925,29 @@ export default function ActivityPage() {
                 )}
               </form>
             ) : (
-              <p className="text-sm text-white/70 text-center py-2 flex-shrink-0">
+              <p className="text-sm text-slate-400 text-center py-2 flex-shrink-0">
                 El estudiante aún no ha entregado esta tarea.
               </p>
             )}
 
             {selected.sub?.historial?.length > 0 && (
               <div className="flex-shrink-0">
-                <p className="text-xs font-medium text-white/70 mb-2">Versiones anteriores</p>
+                <p className="text-xs font-medium text-slate-400 mb-2">Versiones anteriores</p>
                 <div className="space-y-1.5">
                   {[...selected.sub.historial].reverse().map((v, i) => (
-                    <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded border border-white/20 text-xs">
-                      <span className="text-white/70 flex-shrink-0">
+                    <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
+                      <span className="text-slate-400 flex-shrink-0">
                         {v.fechaEntrega?.seconds
                           ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
                           : '—'}
                       </span>
                       {v.completadoSinArchivo
-                        ? <span className="text-white/70 italic">sin archivo</span>
+                        ? <span className="text-slate-400 italic">sin archivo</span>
                         : v.archivoURL
-                          ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-white hover:underline truncate flex items-center gap-1">
+                          ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
                               <Download size={14} /> {v.nombreArchivo}
                             </a>
-                          : <span className="text-white/50 italic">sin archivo</span>
+                          : <span className="text-slate-300 italic">sin archivo</span>
                       }
                     </div>
                   ))}

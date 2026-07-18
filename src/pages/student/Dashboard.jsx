@@ -23,7 +23,6 @@ import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
-import { IS_NATIVE_APP } from '../../utils/platform'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -269,8 +268,8 @@ export default function StudentDashboard() {
           </button>
         </div>
 
-        <h1 className={`text-xl font-bold mb-1 ${IS_NATIVE_APP ? 'text-white' : 'text-on-surface'}`}>Mis asignaturas</h1>
-        <p className={`text-sm mb-5 ${IS_NATIVE_APP ? 'text-white/70' : 'text-slate-400'}`}>{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's' : ''} activas</p>
+        <h1 className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
+        <p className="text-slate-400 text-sm mb-5">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's' : ''} activas</p>
 
         {activeSubjects.length === 0 ? (
           <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">

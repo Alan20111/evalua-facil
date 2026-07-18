@@ -4,7 +4,6 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
 import { MESES, DIAS_LARGO, addDays, isSameDay } from '../../utils/calendarGrid'
 import { toDateStr } from '../../utils/horarioBloques'
-import { IS_NATIVE_APP } from '../../utils/platform'
 
 const CATEGORIA_ICON = { examen: GraduationCap, cuestionario: ListChecks, observacion: ClipboardCheck }
 
@@ -69,9 +68,9 @@ export default function AgendaLista({ itemsByDate, todayStr, onActivityClick }) 
   if (dateKeys.length === 0) {
     return (
       <div className="flex flex-col items-center text-center py-16 px-6">
-        <PartyPopper size={40} className={`mb-3 ${IS_NATIVE_APP ? 'text-white' : 'text-accent'}`} />
-        <p className={`font-semibold mb-1 ${IS_NATIVE_APP ? 'text-white' : 'text-on-surface'}`}>Nada por aquí todavía</p>
-        <p className={`text-sm ${IS_NATIVE_APP ? 'text-white/70' : 'text-muted'}`}>Cuando tus maestros publiquen actividades con fecha límite, las verás organizadas por día.</p>
+        <PartyPopper size={40} className="text-accent mb-3" />
+        <p className="font-semibold text-on-surface mb-1">Nada por aquí todavía</p>
+        <p className="text-sm text-muted">Cuando tus maestros publiquen actividades con fecha límite, las verás organizadas por día.</p>
       </div>
     )
   }
@@ -90,10 +89,10 @@ export default function AgendaLista({ itemsByDate, todayStr, onActivityClick }) 
         return (
           <div key={key} ref={esAncla ? todayRef : undefined}>
             <div className="flex items-center gap-2 mb-2">
-              <p className={`text-sm font-bold uppercase tracking-wide ${IS_NATIVE_APP ? (esHoy ? 'text-white' : 'text-white/70') : (esHoy ? 'text-accent' : 'text-muted')}`}>
+              <p className={`text-sm font-bold uppercase tracking-wide ${esHoy ? 'text-accent' : 'text-muted'}`}>
                 {etiquetaDia(fecha, todayStr)}
               </p>
-              {esHoy && <span className={`h-1.5 w-1.5 rounded-full ${IS_NATIVE_APP ? 'bg-white' : 'bg-accent'}`} />}
+              {esHoy && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
             </div>
             <div className="space-y-2">
               {dayItems.map((item) => <ActividadCard key={item.id} item={item} onClick={onActivityClick} />)}

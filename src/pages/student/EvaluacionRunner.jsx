@@ -18,7 +18,6 @@ import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fil
 import StudentLayout from '../../components/StudentLayout'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { IS_NATIVE_APP } from '../../utils/platform'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName } from '../../utils/studentSearch'
 
@@ -424,20 +423,20 @@ export default function EvaluacionRunner() {
           <div className="flex items-center justify-between gap-2 safe-bottom">
             {navegacionLibre ? (
               <button type="button" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}
-                className={`flex items-center gap-1 px-4 py-2 text-sm font-medium disabled:opacity-60 rounded ${IS_NATIVE_APP ? 'text-white/80' : 'text-muted'}`}>
+                className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-60 rounded">
                 <ChevronLeft size={18} /> Anterior
               </button>
             ) : <span />}
 
             {isLast ? (
               <button type="button" onClick={handleFinalizar} disabled={finishing}
-                className={`flex items-center gap-2 px-5 py-2.5 font-semibold rounded disabled:opacity-60 ${IS_NATIVE_APP ? 'bg-white text-accent' : 'bg-accent text-white'}`}>
+                className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60">
                 {finishing ? <Spinner size="sm" /> : <CheckCircle2 size={18} />}
                 {finishing ? 'Finalizando…' : 'Finalizar evaluación'}
               </button>
             ) : (
               <button type="button" onClick={() => setIdx((i) => i + 1)}
-                className={`flex items-center gap-1 px-5 py-2.5 font-semibold rounded ${IS_NATIVE_APP ? 'bg-white text-accent' : 'bg-accent text-white'}`}>
+                className="flex items-center gap-1 px-5 py-2.5 bg-accent text-white font-semibold rounded">
                 Siguiente <ChevronRight size={18} />
               </button>
             )}
