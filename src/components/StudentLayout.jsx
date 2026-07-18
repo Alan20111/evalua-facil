@@ -150,7 +150,10 @@ export default function StudentLayout({ children }) {
               <EFLogo className="w-full h-auto" />
             </div>
           </div>
-          <div className="px-4 pt-2.5 pb-0.5">
+          {/* data-role="alumno" reafirma el naranja del alumno solo para esta
+              insignia — el resto del sidebar se queda en el azul institucional
+              forzado arriba. */}
+          <div className="px-4 pt-2.5 pb-0.5" data-role="alumno">
             {/* eslint-disable-next-line jsx-a11y/aria-role -- role aquí es la prop propia de PortalBadge, no un atributo ARIA */}
             <PortalBadge role="alumno" />
           </div>
