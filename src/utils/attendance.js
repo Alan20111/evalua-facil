@@ -60,17 +60,46 @@ export async function createAttendanceDay({ subjectId, docenteId, fecha, duracio
 }
 
 // Cuenta asistencias/inasistencias de un alumno sobre un conjunto de registros
-// (slots). Cada slot vale una asistencia; sin llave se cuenta como presente.
+// (slots). Cada slot vale una asistencia; una FALTA JUSTIFICADA cuenta como
+// asistencia (no como inasistencia) — solo la falta injustificada suma a inasist.
 export function countPresence(records, studentId) {
   let asist = 0
-  for (const r of records) if (isPresente(r, studentId)) asist++
-  return { asist, inasist: records.length - asist }
+  let inasist = 0
+  for (const r of records) {
+    if (isPresente(r, studentId)) asist++
+    else if (r.justificadas?.[studentId]) asist++
+    else inasist++
+  }
+  return { asist, inasist }
 }
 
 // Falta la llave (alumno inscrito después de creada la columna) → se trata como
 // presente, igual que el resto de la columna cuando se creó.
 export function isPresente(record, studentId) {
   return record.presentes?.[studentId] !== false
+}
+
+// Estado de asistencia de 3 valores: 'presente' | 'falta' | 'justificada'.
+export function attendanceState(record, studentId) {
+  if (isPresente(record, studentId)) return 'presente'
+  if (record.justificadas?.[studentId]) return 'justificada'
+  return 'falta'
+}
+
+// Ciclo al tocar la celda: Presente → Falta → Justificada → Presente.
+const NEXT_STATE = { presente: 'falta', falta: 'justificada', justificada: 'presente' }
+export function nextAttendanceState(state) {
+  return NEXT_STATE[state] || 'presente'
+}
+
+// Escribe el estado en Firestore. `presentes` distingue presente/ausente;
+// `justificadas` marca cuáles ausencias están justificadas.
+export async function setAttendanceState(recordId, studentId, state) {
+  const patch = {
+    [`presentes.${studentId}`]: state === 'presente',
+    [`justificadas.${studentId}`]: state === 'justificada',
+  }
+  await updateDoc(doc(db, 'attendance', recordId), patch)
 }
 
 export async function toggleAttendance(recordId, studentId, nextValue) {

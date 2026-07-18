@@ -15,7 +15,7 @@ import { exportSubjectGradesPDF, exportParcialGradesPDF, exportCredentialsPDF, e
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
-import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, toggleAttendance, isPresente, countPresence, deleteAttendanceDay } from '../../utils/attendance'
+import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
@@ -695,13 +695,19 @@ export default function SubjectPage() {
     }
   }
 
-  async function handleToggleAttendance(record, studentId) {
-    const next = !isPresente(record, studentId)
-    setAttendanceRecords((prev) => prev.map((r) =>
-      r.id === record.id ? { ...r, presentes: { ...r.presentes, [studentId]: next } } : r
-    ))
+  // Un toque cicla el estado: Presente → Falta → Justificada → Presente.
+  async function handleCycleAttendance(record, studentId) {
+    const next = nextAttendanceState(attendanceState(record, studentId))
+    setAttendanceRecords((prev) => prev.map((r) => {
+      if (r.id !== record.id) return r
+      return {
+        ...r,
+        presentes: { ...r.presentes, [studentId]: next === 'presente' },
+        justificadas: { ...(r.justificadas || {}), [studentId]: next === 'justificada' },
+      }
+    }))
     try {
-      await toggleAttendance(record.id, studentId, next)
+      await setAttendanceState(record.id, studentId, next)
     } catch (err) {
       toast('Error: ' + err.message, 'error')
       await loadAttendance(true)
@@ -3094,16 +3100,19 @@ export default function SubjectPage() {
                           const { asist, inasist } = countPresence(g.records, s.id)
                           return [
                             ...g.days.flatMap(({ records }) => records.map((r) => {
-                              const presente = isPresente(r, s.id)
+                              const estado = attendanceState(r, s.id)
+                              const ui = {
+                                presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} />, tip: 'Presente — toca para marcar falta' },
+                                falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} />, tip: 'Falta — toca para justificar' },
+                                justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span>, tip: 'Falta justificada (cuenta como asistencia) — toca para marcar presente' },
+                              }[estado]
                               return (
                                 <td key={r.id}
-                                  onClick={() => handleToggleAttendance(r, s.id)}
-                                  data-tooltip={presente ? 'Presente — clic para marcar falta' : 'Falta — clic para marcar presente'}
+                                  onClick={() => handleCycleAttendance(r, s.id)}
+                                  data-tooltip={ui.tip}
                                   className="w-9 px-0.5 py-1 text-center border-l border-outline-variant cursor-pointer transition-colors">
-                                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded ${
-                                    presente ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'
-                                  }`}>
-                                    {presente ? <CheckIcon size={14} /> : <X size={14} />}
+                                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
+                                    {ui.icon}
                                   </span>
                                 </td>
                               )
@@ -3127,6 +3136,23 @@ export default function SubjectPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Leyenda de estados — toca una celda para ciclar entre ellos */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 px-1 text-[11px] text-muted">
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-green-100 text-green-600"><CheckIcon size={11} /></span>
+                  Asistencia
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-red-100 text-red-500"><X size={11} /></span>
+                  Falta
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-amber-100 text-amber-600 text-[10px] font-bold leading-none">J</span>
+                  Justificada (cuenta como asistencia)
+                </span>
+                <span className="text-slate-400">· Toca una celda para cambiar el estado</span>
               </div>
 
               {filteredAttendanceStudents.length === 0 && searchAttendance && (
