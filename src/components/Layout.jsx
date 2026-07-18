@@ -277,7 +277,7 @@ export default function TeacherLayout({ children }) {
               }`
             }
           >
-            <LayoutDashboard size={24} className="[&_rect]:fill-[var(--accent-light)]" />
+            <LayoutDashboard size={24} />
             <span>Asignaturas</span>
           </NavLink>
           <NavLink
@@ -288,7 +288,7 @@ export default function TeacherLayout({ children }) {
               }`
             }
           >
-            <CalendarDays size={24} className="[&_rect]:fill-[var(--accent-light)]" />
+            <CalendarDays size={24} />
             <span>Horario</span>
           </NavLink>
           {IS_NATIVE_APP && (
@@ -312,7 +312,7 @@ export default function TeacherLayout({ children }) {
               }`
             }
           >
-            <User size={24} className="[&_circle]:fill-[var(--accent-light)]" />
+            <User size={24} />
             <span>Perfil</span>
           </NavLink>
         </div>
