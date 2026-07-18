@@ -65,12 +65,13 @@ export async function createAttendanceDay({ subjectId, docenteId, fecha, duracio
 export function countPresence(records, studentId) {
   let asist = 0
   let inasist = 0
+  let justif = 0
   for (const r of records) {
     if (isPresente(r, studentId)) asist++
-    else if (r.justificadas?.[studentId]) asist++
+    else if (r.justificadas?.[studentId]) { asist++; justif++ }
     else inasist++
   }
-  return { asist, inasist }
+  return { asist, inasist, justif }
 }
 
 // Falta la llave (alumno inscrito después de creada la columna) → se trata como
@@ -93,12 +94,16 @@ export function nextAttendanceState(state) {
 }
 
 // Escribe el estado en Firestore. `presentes` distingue presente/ausente;
-// `justificadas` marca cuáles ausencias están justificadas.
-export async function setAttendanceState(recordId, studentId, state) {
+// `justificadas` marca cuáles ausencias están justificadas; `motivos` guarda el
+// texto de la justificación. Al salir de "justificada" se limpia el motivo; al
+// entrar, si se pasa `motivo` se guarda (undefined = conservar el existente).
+export async function setAttendanceState(recordId, studentId, state, motivo) {
   const patch = {
     [`presentes.${studentId}`]: state === 'presente',
     [`justificadas.${studentId}`]: state === 'justificada',
   }
+  if (state !== 'justificada') patch[`motivos.${studentId}`] = ''
+  else if (motivo !== undefined) patch[`motivos.${studentId}`] = motivo
   await updateDoc(doc(db, 'attendance', recordId), patch)
 }
 
