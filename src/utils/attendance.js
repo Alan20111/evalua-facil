@@ -38,7 +38,7 @@ export async function loadAttendanceRecords(subjectId) {
 // Crea `duracion` columnas (slots 1..duracion) para el mismo día, cada una con
 // todos los estudiantes actuales marcados presentes — el docente solo quita la
 // palomita de quienes faltaron.
-export async function createAttendanceDay({ subjectId, docenteId, fecha, duracion, studentIds }) {
+export async function createAttendanceDay({ subjectId, docenteId, fecha, duracion, parcial, studentIds }) {
   const presentes = Object.fromEntries(studentIds.map((id) => [id, true]))
   const batch = writeBatch(db)
   const refs = []
@@ -50,12 +50,21 @@ export async function createAttendanceDay({ subjectId, docenteId, fecha, duracio
       docenteId,
       fecha,
       slot,
+      parcial,
       presentes,
       createdAt: serverTimestamp(),
     })
   }
   await batch.commit()
   return refs.map((r) => r.id)
+}
+
+// Cuenta asistencias/inasistencias de un alumno sobre un conjunto de registros
+// (slots). Cada slot vale una asistencia; sin llave se cuenta como presente.
+export function countPresence(records, studentId) {
+  let asist = 0
+  for (const r of records) if (isPresente(r, studentId)) asist++
+  return { asist, inasist: records.length - asist }
 }
 
 // Falta la llave (alumno inscrito después de creada la columna) → se trata como
