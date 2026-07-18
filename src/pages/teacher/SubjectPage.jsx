@@ -15,7 +15,7 @@ import { exportSubjectGradesPDF, exportParcialGradesPDF, exportCredentialsPDF, e
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
-import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, toggleAttendance, isPresente, deleteAttendanceDay } from '../../utils/attendance'
+import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, toggleAttendance, isPresente, countPresence, deleteAttendanceDay } from '../../utils/attendance'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
@@ -303,7 +303,7 @@ export default function SubjectPage() {
   const [loadingAttendance, setLoadingAttendance] = useState(false)
   const [searchAttendance, setSearchAttendance] = useState('')
   const [showAddAttendance, setShowAddAttendance] = useState(false)
-  const [newAttendanceForm, setNewAttendanceForm] = useState({ fecha: '', duracion: 1 })
+  const [newAttendanceForm, setNewAttendanceForm] = useState({ fecha: '', duracion: 1, parcial: 1 })
   const [savingAttendance, setSavingAttendance] = useState(false)
   const [deleteAttendanceConfirm, setDeleteAttendanceConfirm] = useState(null) // { fecha }
   const [deletingAttendance, setDeletingAttendance] = useState(false)
@@ -681,10 +681,11 @@ export default function SubjectPage() {
         docenteId: currentUser.uid,
         fecha: newAttendanceForm.fecha,
         duracion: Number(newAttendanceForm.duracion),
+        parcial: Number(newAttendanceForm.parcial),
         studentIds: groupStudents.map((s) => s.id),
       })
       setShowAddAttendance(false)
-      setNewAttendanceForm({ fecha: '', duracion: 1 })
+      setNewAttendanceForm({ fecha: '', duracion: 1, parcial: Number(newAttendanceForm.parcial) })
       await loadAttendance(true)
       toast('Asistencia agregada')
     } catch (err) {
@@ -1976,18 +1977,37 @@ export default function SubjectPage() {
   // Un "día" agrupa sus slots consecutivos (1..duracion) — usado tanto para el
   // encabezado (mostrar la fecha una sola vez, con su duración) como para borrar
   // el día completo de una sola vez.
+  // Cada "día" (fecha) agrupa sus slots; su parcial es el de sus registros
+  // (todos se crean juntos). Registros viejos sin parcial → Parcial 1.
   const attendanceDays = [...new Set(attendanceRecords.map((r) => r.fecha))]
-    .map((fecha) => ({ fecha, records: attendanceRecords.filter((r) => r.fecha === fecha) }))
+    .map((fecha) => {
+      const records = attendanceRecords.filter((r) => r.fecha === fecha)
+      return { fecha, parcial: records[0]?.parcial || 1, records }
+    })
 
-  // Agrupa los días consecutivos por mes (YYYY-MM) para el encabezado: una celda
-  // superior "Mes Año" que abarca todas las columnas de ese mes, y debajo cada día.
-  const attendanceMonths = attendanceDays.reduce((acc, day) => {
+  // Agrupa días consecutivos por mes (YYYY-MM) → celda "Mes Año" que abarca sus días.
+  const groupDaysByMonth = (days) => days.reduce((acc, day) => {
     const ym = day.fecha.slice(0, 7)
     const last = acc[acc.length - 1]
     if (last && last.ym === ym) last.days.push(day)
     else acc.push({ ym, days: [day] })
     return acc
   }, [])
+
+  // Agrupa por parcial (nivel superior, arriba del mes). Cada grupo lleva sus meses,
+  // todos sus registros (para contar asistencias) y cuántas columnas de día ocupa.
+  const attendanceParciales = PARCIALES
+    .map((p) => ({ parcial: p, days: attendanceDays.filter((d) => d.parcial === p) }))
+    .filter((g) => g.days.length > 0)
+    .map((g) => ({
+      ...g,
+      months: groupDaysByMonth(g.days),
+      records: g.days.flatMap((d) => d.records),
+      slotCount: g.days.reduce((n, d) => n + d.records.length, 0),
+    }))
+
+  // Registros mostrados (unión de los parciales visibles) — base de los totales.
+  const attendanceAllRecords = attendanceParciales.flatMap((g) => g.records)
 
   // Drafts don't grade anything — keep them out of the Calificaciones table
   const tableParcials = PARCIALES.map((p) => ({
@@ -2964,50 +2984,102 @@ export default function SubjectPage() {
                   <colgroup>
                     <col className="w-8" />
                     <col className="w-[210px]" />
-                    {attendanceDays.map(({ records }) => records.map((r) => <col key={r.id} className="w-9" />))}
+                    {attendanceParciales.flatMap((g) => [
+                      ...g.days.flatMap(({ records }) => records.map((r) => <col key={r.id} className="w-9" />)),
+                      <col key={`ca-${g.parcial}`} className="w-10" />,
+                      <col key={`ci-${g.parcial}`} className="w-10" />,
+                    ])}
+                    <col className="w-10" />
+                    <col className="w-10" />
                   </colgroup>
                   <thead>
-                    {/* Fila de mes — una celda por mes que abarca todas sus columnas de días */}
+                    {/* Fila de parcial — nivel superior, abarca sus días + su resumen */}
                     <tr className="bg-accent-light border-b border-outline-variant">
                       <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant" />
-                      {attendanceMonths.map((mo) => (
-                        <th key={mo.ym} colSpan={mo.days.reduce((n, d) => n + d.records.length, 0)}
-                          className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l border-outline-variant whitespace-nowrap">
-                          {fmtAttMonth(mo.ym)}
+                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+                      {attendanceParciales.map((g) => (
+                        <th key={g.parcial} colSpan={g.slotCount + 2}
+                          className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
+                          Parcial {g.parcial}
                         </th>
                       ))}
+                      <th colSpan={2}
+                        className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
+                        Totales
+                      </th>
                     </tr>
-                    {/* Fila de día — el número de cada día agregado, bajo su mes */}
+                    {/* Fila de mes — celda "Mes Año" que abarca sus días */}
                     <tr className="bg-accent-light/70 border-b border-outline-variant">
                       <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
                       <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
-                      {attendanceDays.map(({ fecha, records }) => {
-                        const { dia, mes, anio } = fmtAttDateParts(fecha)
-                        return (
-                          <th key={fecha} colSpan={records.length}
-                            onClick={() => setDeleteAttendanceConfirm({ fecha })}
-                            data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
-                            className="px-0.5 py-1.5 font-semibold text-accent text-center border-l border-outline-variant cursor-pointer hover:bg-[var(--accent-medium)] transition-colors tabular-nums">
-                            {dia}
+                      {attendanceParciales.flatMap((g) => [
+                        ...g.months.map((mo) => (
+                          <th key={`m-${g.parcial}-${mo.ym}`} colSpan={mo.days.reduce((n, d) => n + d.records.length, 0)}
+                            className="px-1 py-0.5 font-semibold text-accent text-center text-[10px] border-l border-outline-variant whitespace-nowrap">
+                            {fmtAttMonth(mo.ym)}
                           </th>
-                        )
-                      })}
+                        )),
+                        <th key={`res-${g.parcial}`} colSpan={2}
+                          className="px-0.5 py-0.5 text-center text-[9px] font-semibold text-muted uppercase border-l-2 border-outline">
+                          Resumen
+                        </th>,
+                      ])}
+                      <th colSpan={2} className="border-l-2 border-outline" />
+                    </tr>
+                    {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
+                    <tr className="bg-accent-light/60 border-b border-outline-variant">
+                      <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+                      {attendanceParciales.flatMap((g) => [
+                        ...g.days.map(({ fecha, records }) => {
+                          const { dia, mes, anio } = fmtAttDateParts(fecha)
+                          return (
+                            <th key={fecha} colSpan={records.length}
+                              onClick={() => setDeleteAttendanceConfirm({ fecha })}
+                              data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
+                              className="px-0.5 py-1 font-semibold text-accent text-center border-l border-outline-variant cursor-pointer hover:bg-[var(--accent-medium)] transition-colors tabular-nums">
+                              {dia}
+                            </th>
+                          )
+                        }),
+                        <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial"
+                          className="px-0.5 py-1 text-center border-l-2 border-outline">
+                          <CheckIcon size={13} className="inline text-accent" />
+                        </th>,
+                        <th key={`hi-${g.parcial}`} data-tooltip="Inasistencias del parcial"
+                          className="px-0.5 py-1 text-center">
+                          <X size={13} className="inline text-red-500" />
+                        </th>,
+                      ])}
+                      <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
+                        <CheckIcon size={13} className="inline text-accent" />
+                      </th>
+                      <th data-tooltip="Total de inasistencias" className="px-0.5 py-1 text-center">
+                        <X size={13} className="inline text-red-500" />
+                      </th>
                     </tr>
                     {attendanceDays.some(({ records }) => records.length > 1) && (
-                      <tr className="bg-accent-light/60 border-b border-outline-variant">
+                      <tr className="bg-accent-light/50 border-b border-outline-variant">
                         <th className="sticky left-0 z-10 bg-surface-card w-8 border-r border-outline-variant" />
                         <th className="sticky left-8 z-20 bg-surface-card w-[210px] border-r border-outline-variant" />
-                        {attendanceDays.map(({ records }) => records.map((r) => (
-                          <th key={r.id} className="w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant">
-                            {records.length > 1 ? r.slot : ''}
-                          </th>
-                        )))}
+                        {attendanceParciales.flatMap((g) => [
+                          ...g.days.flatMap(({ records }) => records.map((r) => (
+                            <th key={r.id} className="w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant">
+                              {records.length > 1 ? r.slot : ''}
+                            </th>
+                          ))),
+                          <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
+                          <th key={`si-${g.parcial}`} />,
+                        ])}
+                        <th className="border-l-2 border-outline" />
+                        <th />
                       </tr>
                     )}
                   </thead>
                   <tbody>
-                    {filteredAttendanceStudents.map((s, i) => (
+                    {filteredAttendanceStudents.map((s, i) => {
+                      const total = countPresence(attendanceAllRecords, s.id)
+                      return (
                       <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
                         <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                           {s.orden}
@@ -3015,23 +3087,41 @@ export default function SubjectPage() {
                         <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                           {studentFullName(s)}
                         </td>
-                        {attendanceDays.map(({ records }) => records.map((r) => {
-                          const presente = isPresente(r, s.id)
-                          return (
-                            <td key={r.id}
-                              onClick={() => handleToggleAttendance(r, s.id)}
-                              data-tooltip={presente ? 'Presente — clic para marcar falta' : 'Falta — clic para marcar presente'}
-                              className="w-9 px-0.5 py-1 text-center border-l border-outline-variant cursor-pointer transition-colors">
-                              <span className={`inline-flex items-center justify-center w-6 h-6 rounded ${
-                                presente ? 'bg-accent-light text-accent' : 'bg-red-100 text-red-500'
-                              }`}>
-                                {presente ? <CheckIcon size={14} /> : <X size={14} />}
-                              </span>
-                            </td>
-                          )
-                        }))}
+                        {attendanceParciales.flatMap((g) => {
+                          const { asist, inasist } = countPresence(g.records, s.id)
+                          return [
+                            ...g.days.flatMap(({ records }) => records.map((r) => {
+                              const presente = isPresente(r, s.id)
+                              return (
+                                <td key={r.id}
+                                  onClick={() => handleToggleAttendance(r, s.id)}
+                                  data-tooltip={presente ? 'Presente — clic para marcar falta' : 'Falta — clic para marcar presente'}
+                                  className="w-9 px-0.5 py-1 text-center border-l border-outline-variant cursor-pointer transition-colors">
+                                  <span className={`inline-flex items-center justify-center w-6 h-6 rounded ${
+                                    presente ? 'bg-accent-light text-accent' : 'bg-red-100 text-red-500'
+                                  }`}>
+                                    {presente ? <CheckIcon size={14} /> : <X size={14} />}
+                                  </span>
+                                </td>
+                              )
+                            })),
+                            <td key={`a-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-accent tabular-nums bg-accent-light/30 border-l-2 border-outline">
+                              {asist}
+                            </td>,
+                            <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-red-500 tabular-nums bg-red-50">
+                              {inasist}
+                            </td>,
+                          ]
+                        })}
+                        <td className="px-0.5 py-1 text-center font-bold text-accent tabular-nums bg-accent-light/50 border-l-2 border-outline">
+                          {total.asist}
+                        </td>
+                        <td className="px-0.5 py-1 text-center font-bold text-red-500 tabular-nums bg-red-100/60">
+                          {total.inasist}
+                        </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -3051,6 +3141,14 @@ export default function SubjectPage() {
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowAddAttendance(false)} aria-label="Cerrar" />
           <form onSubmit={handleCreateAttendanceDay} className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
             <h3 className="text-base font-semibold text-on-surface">Agregar día de asistencia</h3>
+            <div>
+              <label htmlFor="att-parcial" className="block text-xs font-medium text-muted mb-1">Parcial</label>
+              <select id="att-parcial" value={newAttendanceForm.parcial}
+                onChange={(e) => setNewAttendanceForm((f) => ({ ...f, parcial: Number(e.target.value) }))}
+                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                {PARCIALES.map((p) => <option key={p} value={p}>Parcial {p}</option>)}
+              </select>
+            </div>
             <div>
               <label htmlFor="att-fecha" className="block text-xs font-medium text-muted mb-1">Día</label>
               <EFDateTimePicker mode="date" value={newAttendanceForm.fecha}
