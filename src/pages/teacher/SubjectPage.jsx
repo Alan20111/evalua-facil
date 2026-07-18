@@ -3029,7 +3029,9 @@ export default function SubjectPage() {
                     {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
                     <tr className="bg-accent-light/60 border-b border-outline-variant">
                       <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 text-right text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant">
+                        Día:
+                      </th>
                       {attendanceParciales.flatMap((g) => [
                         ...g.days.map(({ fecha, records }) => {
                           const { dia, mes, anio } = fmtAttDateParts(fecha)
@@ -3058,23 +3060,24 @@ export default function SubjectPage() {
                         <X size={13} className="inline text-red-500" />
                       </th>
                     </tr>
-                    {attendanceDays.some(({ records }) => records.length > 1) && (
-                      <tr className="bg-accent-light/50 border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-surface-card w-8 border-r border-outline-variant" />
-                        <th className="sticky left-8 z-20 bg-surface-card w-[210px] border-r border-outline-variant" />
-                        {attendanceParciales.flatMap((g) => [
-                          ...g.days.flatMap(({ records }) => records.map((r) => (
-                            <th key={r.id} className="w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant">
-                              {records.length > 1 ? r.slot : ''}
-                            </th>
-                          ))),
-                          <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
-                          <th key={`si-${g.parcial}`} />,
-                        ])}
-                        <th className="border-l-2 border-outline" />
-                        <th />
-                      </tr>
-                    )}
+                    {/* Renglón de sesión — etiqueta la columna de nombre y el nº de sesión */}
+                    <tr className="bg-accent-light/50 border-b border-outline-variant">
+                      <th className="sticky left-0 z-10 bg-accent-light w-8 border-r border-outline-variant" />
+                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-0.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate">
+                        Estudiante / Número de la sesión
+                      </th>
+                      {attendanceParciales.flatMap((g) => [
+                        ...g.days.flatMap(({ records }) => records.map((r) => (
+                          <th key={r.id} className="w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant">
+                            {records.length > 1 ? r.slot : ''}
+                          </th>
+                        ))),
+                        <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
+                        <th key={`si-${g.parcial}`} />,
+                      ])}
+                      <th className="border-l-2 border-outline" />
+                      <th />
+                    </tr>
                   </thead>
                   <tbody>
                     {filteredAttendanceStudents.map((s, i) => {
