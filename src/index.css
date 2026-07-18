@@ -111,17 +111,6 @@
     --accent-light: #ffedd5;  /* orange-100 */
   }
 
-  /* ── Native app background: pantalla completa en el color de identidad ──
-     Web se queda con el fondo gris claro de siempre. Solo dentro de la app
-     Android ([data-native='true'], ver App.jsx) el fondo base de cada
-     pantalla pasa a ser el --accent del rol activo (azul docente / naranja
-     alumno) — las tarjetas (--surface-card) siguen blancas encima. Los
-     textos que antes vivían directo sobre el fondo (fuera de tarjeta) se
-     adaptan a blanco donde corresponda, componente por componente. */
-  [data-native='true'] {
-    --surface: var(--accent);
-  }
-
   /* Per-subject palette overrides (applied on a wrapper inside a subject) */
   [data-subject-palette='default'] { --accent: #2563eb; --accent-hover: #1d4ed8; --accent-light: #dbeafe; }
   [data-subject-palette='orange']  { --accent: #f97316; --accent-hover: #ea580c; --accent-light: #ffedd5; }

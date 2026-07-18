@@ -196,10 +196,10 @@ export default function TeacherDashboard() {
             (teacherDisplayName, misma fuente de verdad que en las pantallas
             de alumno). */}
         <div className="mb-4">
-          <h1 className={`text-lg font-bold truncate ${IS_NATIVE_APP ? 'text-white' : 'text-on-surface'}`}>Bienvenido</h1>
-          <p className={`text-lg font-bold truncate ${IS_NATIVE_APP ? 'text-white' : 'text-on-surface'}`}>{teacherGreetingName}</p>
+          <h1 className="text-lg font-bold text-on-surface truncate">Bienvenido</h1>
+          <p className="text-lg font-bold text-on-surface truncate">{teacherGreetingName}</p>
           {userProfile?.schoolName && (
-            <p className={`text-xs mt-0.5 truncate ${IS_NATIVE_APP ? 'text-white/70' : 'text-slate-400'}`}>{userProfile.schoolName}</p>
+            <p className="text-slate-400 text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
           )}
         </div>
 
@@ -209,8 +209,8 @@ export default function TeacherDashboard() {
           <>
             {/* ── Mis asignaturas ── */}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
-              <h2 className={`text-lg font-semibold ${IS_NATIVE_APP ? 'text-white' : 'text-on-surface'}`}>Mis asignaturas</h2>
-              <span className={`text-sm ${IS_NATIVE_APP ? 'text-white/70' : 'text-slate-500'}`}>{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
+              <h2 className="text-lg font-semibold text-on-surface">Mis asignaturas</h2>
+              <span className="text-sm text-slate-500">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
             </div>
 
             {subjects.length === 0 ? (

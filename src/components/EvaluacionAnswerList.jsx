@@ -57,15 +57,15 @@ export default function EvaluacionAnswerList({
                 {p.tipo === 'subir_archivo' ? (
                   respuesta.archivoURL ? (
                     <a href={respuesta.archivoURL} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-accent bg-surface-container rounded p-2 hover:underline">
+                      className="flex items-center gap-2 text-sm text-accent bg-surface rounded p-2 hover:underline">
                       <FileText size={16} className="flex-shrink-0" />
                       <span className="truncate">{respuesta.nombreArchivo || 'Documento entregado'}</span>
                     </a>
                   ) : (
-                    <p className="text-sm text-muted bg-surface-container rounded p-2 italic">(sin archivo)</p>
+                    <p className="text-sm text-muted bg-surface rounded p-2 italic">(sin archivo)</p>
                   )
                 ) : (
-                  <p className="text-sm text-muted bg-surface-container rounded p-2 whitespace-pre-wrap">{respuesta.textoRespuesta || '(sin respuesta)'}</p>
+                  <p className="text-sm text-muted bg-surface rounded p-2 whitespace-pre-wrap">{respuesta.textoRespuesta || '(sin respuesta)'}</p>
                 )}
                 {renderGrading
                   ? renderGrading(p, respuesta)
@@ -76,7 +76,7 @@ export default function EvaluacionAnswerList({
             )}
 
             {mostrarRetro && p.retroalimentacion && (
-              <div className="mt-2 bg-surface-container rounded p-2.5 flex gap-2">
+              <div className="mt-2 bg-surface rounded p-2.5 flex gap-2">
                 <MessageSquare size={15} className="text-slate-400 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-muted">{p.retroalimentacion}</p>
               </div>
@@ -84,7 +84,7 @@ export default function EvaluacionAnswerList({
             {/* Teacher comment: shown in the student view (renderGrading absent). In the
                 teacher view the comment is being edited inside renderGrading instead. */}
             {respuesta.comentarioDocente && !renderGrading && (
-              <div className="mt-2 bg-surface-container rounded p-2.5 flex gap-2">
+              <div className="mt-2 bg-surface rounded p-2.5 flex gap-2">
                 <MessageSquare size={15} className="text-slate-400 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-muted italic">&quot;{respuesta.comentarioDocente}&quot;</p>
               </div>

@@ -6,7 +6,6 @@ import { needsPasswordSetup } from './utils/authLinking'
 import { installDraggableOverlays } from './utils/draggableOverlays'
 import { installFollowTooltips } from './utils/followTooltip'
 import { installWheelStep } from './utils/wheelStep'
-import { IS_NATIVE_APP } from './utils/platform'
 
 import Landing from './pages/Landing'
 import TeacherLogin from './pages/teacher/Login'
@@ -112,11 +111,7 @@ function RoleWrapper({ children }) {
   const { pathname } = useLocation()
   const isStudentRoute = pathname.startsWith('/alumno') || pathname.startsWith('/activate')
   const role = userProfile?.role === 'alumno' || isStudentRoute ? 'alumno' : 'docente'
-  return (
-    <div data-role={role} data-native={IS_NATIVE_APP ? 'true' : undefined}>
-      {children}
-    </div>
-  )
+  return <div data-role={role}>{children}</div>
 }
 
 // Every popup in the app becomes draggable (mouse) — installed once, module-level guard
