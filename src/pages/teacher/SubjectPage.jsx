@@ -709,7 +709,8 @@ export default function SubjectPage() {
   }
 
   // Un toque cicla el estado: Presente → Falta → Justificada → Presente.
-  async function handleCycleAttendance(record, studentId) {
+  async function handleCycleAttendance(record, student) {
+    const studentId = student.id
     const next = nextAttendanceState(attendanceState(record, studentId))
     setAttendanceRecords((prev) => prev.map((r) => {
       if (r.id !== record.id) return r
@@ -719,6 +720,8 @@ export default function SubjectPage() {
         justificadas: { ...(r.justificadas || {}), [studentId]: next === 'justificada' },
       }
     }))
+    // Al pasar a justificada, abrir la ventana para escribir el motivo.
+    if (next === 'justificada') openReasonModal(record, student)
     try {
       await setAttendanceState(record.id, studentId, next)
     } catch (err) {
@@ -745,7 +748,7 @@ export default function SubjectPage() {
   }
   function cellClick(record, student) {
     if (longPress.current.fired) { longPress.current.fired = false; return }
-    handleCycleAttendance(record, student.id)
+    handleCycleAttendance(record, student)
   }
   function cellContextMenu(e, record, student) {
     e.preventDefault()
@@ -2313,7 +2316,7 @@ export default function SubjectPage() {
   // app. En la app se ocultan las columnas de Totales (esos se ven en la web) y
   // el encabezado queda fijo (sticky) para que solo scrolleen los datos.
   const renderAttendanceTable = () => (
-    <table className={`${IS_NATIVE_APP ? 'text-[10px]' : 'text-xs'} border-collapse table-fixed`}>
+    <table className={`${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
       <colgroup>
         <col className="w-8" />
         <col className="w-[210px]" />
@@ -2366,8 +2369,8 @@ export default function SubjectPage() {
         {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
         <tr className="bg-accent-light/60 border-b border-outline-variant">
           <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-          <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 text-right text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant">
-            Día:
+          <th className={`sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-left' : 'text-right'} text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate`}>
+            {IS_NATIVE_APP ? 'Estudiante / Día:' : 'Día:'}
           </th>
           {attendanceParciales.flatMap((g) => [
             ...g.days.map(({ fecha, records }) => {
@@ -2408,30 +2411,29 @@ export default function SubjectPage() {
             </>
           )}
         </tr>
-        {/* Renglón de sesión — etiqueta la columna de nombre y el nº de sesión */}
-        <tr className="bg-accent-light/50 border-b border-outline-variant">
-          <th className="sticky left-0 z-10 bg-accent-light w-8 border-r border-outline-variant" />
-          <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-0.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate">
-            Estudiante / Número de la sesión
-          </th>
-          {attendanceParciales.flatMap((g) => [
-            ...g.days.flatMap(({ records }) => records.map((r) => (
-              <th key={r.id} className="w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant">
-                {records.length > 1 ? r.slot : ''}
-              </th>
-            ))),
-            <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
-            <th key={`si-${g.parcial}`} />,
-            <th key={`sj-${g.parcial}`} />,
-          ])}
-          {!IS_NATIVE_APP && (
-            <>
-              <th className="border-l-2 border-outline" />
-              <th />
-              <th />
-            </>
-          )}
-        </tr>
+        {/* Renglón de sesión — solo web; en la app se oculta para ganar espacio.
+            La etiqueta "Estudiante" pasa al renglón de Día (Estudiante / Día:). */}
+        {!IS_NATIVE_APP && (
+          <tr className="bg-accent-light/50 border-b border-outline-variant">
+            <th className="sticky left-0 z-10 bg-accent-light w-8 border-r border-outline-variant" />
+            <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-0.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate">
+              Estudiante / Número de la sesión
+            </th>
+            {attendanceParciales.flatMap((g) => [
+              ...g.days.flatMap(({ records }) => records.map((r) => (
+                <th key={r.id} className="w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant">
+                  {records.length > 1 ? r.slot : ''}
+                </th>
+              ))),
+              <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
+              <th key={`si-${g.parcial}`} />,
+              <th key={`sj-${g.parcial}`} />,
+            ])}
+            <th className="border-l-2 border-outline" />
+            <th />
+            <th />
+          </tr>
+        )}
       </thead>
       <tbody>
         {filteredAttendanceStudents.map((s, i) => {
@@ -2441,7 +2443,7 @@ export default function SubjectPage() {
             <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
               {s.orden}
             </td>
-            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[11px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
               {studentFullName(s)}
             </td>
             {attendanceParciales.flatMap((g) => {
