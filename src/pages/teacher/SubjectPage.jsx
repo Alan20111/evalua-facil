@@ -2966,10 +2966,10 @@ export default function SubjectPage() {
                           <th key={fecha} colSpan={records.length}
                             onClick={() => setDeleteAttendanceConfirm({ fecha })}
                             data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
-                            className="px-0.5 py-1.5 font-semibold text-accent text-center border-l border-outline-variant cursor-pointer hover:bg-[var(--accent-medium)] transition-colors leading-tight">
-                            <div>{dia}/</div>
-                            <div>{mes}/</div>
-                            <div>{anio}</div>
+                            className="px-0.5 py-1.5 font-semibold text-accent align-bottom border-l border-outline-variant cursor-pointer hover:bg-[var(--accent-medium)] transition-colors">
+                            <div className="mx-auto [writing-mode:vertical-rl] rotate-180 whitespace-nowrap tracking-tight tabular-nums">
+                              {dia}/{mes}/{anio}
+                            </div>
                           </th>
                         )
                       })}
