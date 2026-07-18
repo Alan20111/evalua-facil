@@ -16,6 +16,7 @@ import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloa
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
+import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
@@ -659,6 +660,14 @@ export default function SubjectPage() {
     if (tab === 'recursos' && !resourcesLoaded) ensureResources()
     if (tab === 'asistencia' && !attendanceLoaded) loadAttendance()
   }
+
+  // En la app nativa, la pestaña Asistencias se ve en HORIZONTAL (para caber más
+  // columnas); el resto de la app queda en vertical. Al salir vuelve a vertical.
+  useEffect(() => {
+    if (!IS_NATIVE_APP || activeTab !== 'asistencia') return undefined
+    lockLandscape()
+    return () => { lockPortrait() }
+  }, [activeTab])
 
   // ── Asistencias ────────────────────────────────────────────────────
   async function loadAttendance(force = false) {
@@ -2300,6 +2309,219 @@ export default function SubjectPage() {
     (s.username || '').toLowerCase().includes(searchAlumnos.trim().toLowerCase())
   )
 
+  // Tabla de asistencias compartida por la vista web y la vista horizontal de la
+  // app. En la app se ocultan las columnas de Totales (esos se ven en la web) y
+  // el encabezado queda fijo (sticky) para que solo scrolleen los datos.
+  const renderAttendanceTable = () => (
+    <table className="text-xs border-collapse table-fixed">
+      <colgroup>
+        <col className="w-8" />
+        <col className="w-[210px]" />
+        {attendanceParciales.flatMap((g) => [
+          ...g.days.flatMap(({ records }) => records.map((r) => <col key={r.id} className="w-9" />)),
+          <col key={`ca-${g.parcial}`} className="w-10" />,
+          <col key={`ci-${g.parcial}`} className="w-10" />,
+          <col key={`cj-${g.parcial}`} className="w-10" />,
+        ])}
+        {!IS_NATIVE_APP && <col className="w-10" />}
+        {!IS_NATIVE_APP && <col className="w-10" />}
+        {!IS_NATIVE_APP && <col className="w-10" />}
+      </colgroup>
+      <thead className={IS_NATIVE_APP ? 'sticky top-0 z-30' : undefined}>
+        {/* Fila de parcial — nivel superior, abarca sus días + su resumen */}
+        <tr className="bg-accent-light border-b border-outline-variant">
+          <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+          <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+          {attendanceParciales.map((g) => (
+            <th key={g.parcial} colSpan={g.slotCount + 3}
+              className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
+              Parcial {g.parcial}
+            </th>
+          ))}
+          {!IS_NATIVE_APP && (
+            <th colSpan={3}
+              className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
+              Totales
+            </th>
+          )}
+        </tr>
+        {/* Fila de mes — celda "Mes Año" que abarca sus días */}
+        <tr className="bg-accent-light/70 border-b border-outline-variant">
+          <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+          <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+          {attendanceParciales.flatMap((g) => [
+            ...g.months.map((mo) => (
+              <th key={`m-${g.parcial}-${mo.ym}`} colSpan={mo.days.reduce((n, d) => n + d.records.length, 0)}
+                className="px-1 py-0.5 font-semibold text-accent text-center text-[10px] border-l border-outline-variant whitespace-nowrap">
+                {fmtAttMonth(mo.ym)}
+              </th>
+            )),
+            <th key={`res-${g.parcial}`} colSpan={3}
+              className="px-0.5 py-0.5 text-center text-[9px] font-semibold text-muted uppercase border-l-2 border-outline">
+              Resumen
+            </th>,
+          ])}
+          {!IS_NATIVE_APP && <th colSpan={3} className="border-l-2 border-outline" />}
+        </tr>
+        {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
+        <tr className="bg-accent-light/60 border-b border-outline-variant">
+          <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+          <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 text-right text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant">
+            Día:
+          </th>
+          {attendanceParciales.flatMap((g) => [
+            ...g.days.map(({ fecha, records }) => {
+              const { dia, mes, anio } = fmtAttDateParts(fecha)
+              return (
+                <th key={fecha} colSpan={records.length}
+                  onClick={() => setDeleteAttendanceConfirm({ fecha })}
+                  data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
+                  className="px-0.5 py-1 font-semibold text-accent text-center border-l border-outline-variant cursor-pointer hover:bg-[var(--accent-medium)] transition-colors tabular-nums">
+                  {dia}
+                </th>
+              )
+            }),
+            <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial"
+              className="px-0.5 py-1 text-center border-l-2 border-outline">
+              <CheckIcon size={13} className="inline text-green-600" />
+            </th>,
+            <th key={`hi-${g.parcial}`} data-tooltip="Inasistencias del parcial"
+              className="px-0.5 py-1 text-center">
+              <X size={13} className="inline text-red-500" />
+            </th>,
+            <th key={`hj-${g.parcial}`} data-tooltip="Faltas justificadas del parcial"
+              className="px-0.5 py-1 text-center text-[11px] font-bold text-amber-600">
+              J
+            </th>,
+          ])}
+          {!IS_NATIVE_APP && (
+            <>
+              <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
+                <CheckIcon size={13} className="inline text-green-600" />
+              </th>
+              <th data-tooltip="Total de inasistencias" className="px-0.5 py-1 text-center">
+                <X size={13} className="inline text-red-500" />
+              </th>
+              <th data-tooltip="Total de faltas justificadas" className="px-0.5 py-1 text-center text-[11px] font-bold text-amber-600">
+                J
+              </th>
+            </>
+          )}
+        </tr>
+        {/* Renglón de sesión — etiqueta la columna de nombre y el nº de sesión */}
+        <tr className="bg-accent-light/50 border-b border-outline-variant">
+          <th className="sticky left-0 z-10 bg-accent-light w-8 border-r border-outline-variant" />
+          <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-0.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate">
+            Estudiante / Número de la sesión
+          </th>
+          {attendanceParciales.flatMap((g) => [
+            ...g.days.flatMap(({ records }) => records.map((r) => (
+              <th key={r.id} className="w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant">
+                {records.length > 1 ? r.slot : ''}
+              </th>
+            ))),
+            <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
+            <th key={`si-${g.parcial}`} />,
+            <th key={`sj-${g.parcial}`} />,
+          ])}
+          {!IS_NATIVE_APP && (
+            <>
+              <th className="border-l-2 border-outline" />
+              <th />
+              <th />
+            </>
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {filteredAttendanceStudents.map((s, i) => {
+          const total = countPresence(attendanceAllRecords, s.id)
+          return (
+          <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
+            <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+              {s.orden}
+            </td>
+            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+              {studentFullName(s)}
+            </td>
+            {attendanceParciales.flatMap((g) => {
+              const { asist, inasist, justif } = countPresence(g.records, s.id)
+              return [
+                ...g.days.flatMap(({ records }) => records.map((r) => {
+                  const estado = attendanceState(r, s.id)
+                  const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
+                  const ui = {
+                    presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} />, tip: 'Presente — toca para marcar falta' },
+                    falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} />, tip: 'Falta — toca para justificar (clic der./mantén para el motivo)' },
+                    justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span>, tip: motivo ? `Justificada: ${motivo} — clic der./mantén para editar` : 'Falta justificada (cuenta como asistencia) — clic der./mantén para el motivo' },
+                  }[estado]
+                  return (
+                    <td key={r.id}
+                      onClick={() => cellClick(r, s)}
+                      onContextMenu={(e) => cellContextMenu(e, r, s)}
+                      onPointerDown={(e) => cellPointerDown(e, r, s)}
+                      onPointerUp={cancelLongPress}
+                      onPointerMove={cancelLongPress}
+                      onPointerLeave={cancelLongPress}
+                      data-tooltip={ui.tip}
+                      className="w-9 px-0.5 py-1 text-center border-l border-outline-variant cursor-pointer select-none transition-colors">
+                      <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
+                        {ui.icon}
+                        {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                      </span>
+                    </td>
+                  )
+                })),
+                <td key={`a-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-green-600 tabular-nums bg-green-50 border-l-2 border-outline">
+                  {asist}
+                </td>,
+                <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-red-500 tabular-nums bg-red-50">
+                  {inasist}
+                </td>,
+                <td key={`j-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-amber-600 tabular-nums bg-amber-50">
+                  {justif}
+                </td>,
+              ]
+            })}
+            {!IS_NATIVE_APP && (
+              <>
+                <td className="px-0.5 py-1 text-center font-bold text-green-600 tabular-nums bg-green-100/60 border-l-2 border-outline">
+                  {total.asist}
+                </td>
+                <td className="px-0.5 py-1 text-center font-bold text-red-500 tabular-nums bg-red-100/60">
+                  {total.inasist}
+                </td>
+                <td className="px-0.5 py-1 text-center font-bold text-amber-600 tabular-nums bg-amber-100/60">
+                  {total.justif}
+                </td>
+              </>
+            )}
+          </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+
+  // Leyenda de estados de asistencia (compartida web/app).
+  const attendanceLegend = (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 px-1 text-[11px] text-muted">
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-green-100 text-green-600"><CheckIcon size={11} /></span>
+        Asistencia
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-red-100 text-red-500"><X size={11} /></span>
+        Falta
+      </span>
+      <span className="inline-flex items-center gap-1">
+        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-amber-100 text-amber-600 text-[10px] font-bold leading-none">J</span>
+        Justificada (cuenta como asistencia)
+      </span>
+      <span className="text-slate-400">· Toca para cambiar el estado · Clic derecho o mantén presionado para el motivo</span>
+    </div>
+  )
+
   if (loading) return (
     <TeacherLayout><div className="flex justify-center py-20"><Spinner size="lg" /></div></TeacherLayout>
   )
@@ -3010,7 +3232,36 @@ export default function SubjectPage() {
       {/* ══════════════════════════════════════════════════════════
           TAB: ASISTENCIA
       ══════════════════════════════════════════════════════════ */}
-      {activeTab === 'asistencia' && (
+      {activeTab === 'asistencia' && (IS_NATIVE_APP ? (
+        /* ── Vista HORIZONTAL de pantalla completa (solo app) ──────────────
+           Overlay que tapa la nav y el chrome; barra propia con Regresar,
+           ASISTENCIAS y Agregar día. Sin Buscar y sin Totales; encabezado y
+           nombre inmovilizados, solo scrollean los datos. */
+        <div className="fixed inset-0 z-[70] bg-surface flex flex-col safe-top">
+          <div className="flex items-center gap-2 px-3 py-2 bg-accent-light border-b border-outline-variant">
+            <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
+              className="p-1.5 -ml-1 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
+              <ArrowLeft size={20} />
+            </button>
+            <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
+            <button type="button" onClick={() => setShowAddAttendance(true)}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
+              <CalendarPlus size={15} /> Agregar día
+            </button>
+          </div>
+          {loadingAttendance ? (
+            <div className="flex-1 flex items-center justify-center"><Spinner size="lg" /></div>
+          ) : groupStudents.length === 0 ? (
+            <p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">No hay estudiantes en esta asignatura</p>
+          ) : attendanceRecords.length === 0 ? (
+            <p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+          ) : (
+            <div className="flex-1 overflow-auto bg-surface-card">
+              {renderAttendanceTable()}
+            </div>
+          )}
+        </div>
+      ) : (
         <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Asistencias</p>
@@ -3035,211 +3286,21 @@ export default function SubjectPage() {
           ) : (
             <>
               <div className="overflow-x-auto rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
-                <table className="text-xs border-collapse table-fixed">
-                  <colgroup>
-                    <col className="w-8" />
-                    <col className="w-[210px]" />
-                    {attendanceParciales.flatMap((g) => [
-                      ...g.days.flatMap(({ records }) => records.map((r) => <col key={r.id} className="w-9" />)),
-                      <col key={`ca-${g.parcial}`} className="w-10" />,
-                      <col key={`ci-${g.parcial}`} className="w-10" />,
-                      <col key={`cj-${g.parcial}`} className="w-10" />,
-                    ])}
-                    <col className="w-10" />
-                    <col className="w-10" />
-                    <col className="w-10" />
-                  </colgroup>
-                  <thead>
-                    {/* Fila de parcial — nivel superior, abarca sus días + su resumen */}
-                    <tr className="bg-accent-light border-b border-outline-variant">
-                      <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
-                      {attendanceParciales.map((g) => (
-                        <th key={g.parcial} colSpan={g.slotCount + 3}
-                          className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
-                          Parcial {g.parcial}
-                        </th>
-                      ))}
-                      <th colSpan={3}
-                        className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
-                        Totales
-                      </th>
-                    </tr>
-                    {/* Fila de mes — celda "Mes Año" que abarca sus días */}
-                    <tr className="bg-accent-light/70 border-b border-outline-variant">
-                      <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
-                      {attendanceParciales.flatMap((g) => [
-                        ...g.months.map((mo) => (
-                          <th key={`m-${g.parcial}-${mo.ym}`} colSpan={mo.days.reduce((n, d) => n + d.records.length, 0)}
-                            className="px-1 py-0.5 font-semibold text-accent text-center text-[10px] border-l border-outline-variant whitespace-nowrap">
-                            {fmtAttMonth(mo.ym)}
-                          </th>
-                        )),
-                        <th key={`res-${g.parcial}`} colSpan={3}
-                          className="px-0.5 py-0.5 text-center text-[9px] font-semibold text-muted uppercase border-l-2 border-outline">
-                          Resumen
-                        </th>,
-                      ])}
-                      <th colSpan={3} className="border-l-2 border-outline" />
-                    </tr>
-                    {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
-                    <tr className="bg-accent-light/60 border-b border-outline-variant">
-                      <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 text-right text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant">
-                        Día:
-                      </th>
-                      {attendanceParciales.flatMap((g) => [
-                        ...g.days.map(({ fecha, records }) => {
-                          const { dia, mes, anio } = fmtAttDateParts(fecha)
-                          return (
-                            <th key={fecha} colSpan={records.length}
-                              onClick={() => setDeleteAttendanceConfirm({ fecha })}
-                              data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
-                              className="px-0.5 py-1 font-semibold text-accent text-center border-l border-outline-variant cursor-pointer hover:bg-[var(--accent-medium)] transition-colors tabular-nums">
-                              {dia}
-                            </th>
-                          )
-                        }),
-                        <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial"
-                          className="px-0.5 py-1 text-center border-l-2 border-outline">
-                          <CheckIcon size={13} className="inline text-green-600" />
-                        </th>,
-                        <th key={`hi-${g.parcial}`} data-tooltip="Inasistencias del parcial"
-                          className="px-0.5 py-1 text-center">
-                          <X size={13} className="inline text-red-500" />
-                        </th>,
-                        <th key={`hj-${g.parcial}`} data-tooltip="Faltas justificadas del parcial"
-                          className="px-0.5 py-1 text-center text-[11px] font-bold text-amber-600">
-                          J
-                        </th>,
-                      ])}
-                      <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
-                        <CheckIcon size={13} className="inline text-green-600" />
-                      </th>
-                      <th data-tooltip="Total de inasistencias" className="px-0.5 py-1 text-center">
-                        <X size={13} className="inline text-red-500" />
-                      </th>
-                      <th data-tooltip="Total de faltas justificadas" className="px-0.5 py-1 text-center text-[11px] font-bold text-amber-600">
-                        J
-                      </th>
-                    </tr>
-                    {/* Renglón de sesión — etiqueta la columna de nombre y el nº de sesión */}
-                    <tr className="bg-accent-light/50 border-b border-outline-variant">
-                      <th className="sticky left-0 z-10 bg-accent-light w-8 border-r border-outline-variant" />
-                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-0.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate">
-                        Estudiante / Número de la sesión
-                      </th>
-                      {attendanceParciales.flatMap((g) => [
-                        ...g.days.flatMap(({ records }) => records.map((r) => (
-                          <th key={r.id} className="w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant">
-                            {records.length > 1 ? r.slot : ''}
-                          </th>
-                        ))),
-                        <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
-                        <th key={`si-${g.parcial}`} />,
-                        <th key={`sj-${g.parcial}`} />,
-                      ])}
-                      <th className="border-l-2 border-outline" />
-                      <th />
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAttendanceStudents.map((s, i) => {
-                      const total = countPresence(attendanceAllRecords, s.id)
-                      return (
-                      <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                        <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
-                          {s.orden}
-                        </td>
-                        <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
-                          {studentFullName(s)}
-                        </td>
-                        {attendanceParciales.flatMap((g) => {
-                          const { asist, inasist, justif } = countPresence(g.records, s.id)
-                          return [
-                            ...g.days.flatMap(({ records }) => records.map((r) => {
-                              const estado = attendanceState(r, s.id)
-                              const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
-                              const ui = {
-                                presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} />, tip: 'Presente — toca para marcar falta' },
-                                falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} />, tip: 'Falta — toca para justificar (clic der./mantén para el motivo)' },
-                                justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span>, tip: motivo ? `Justificada: ${motivo} — clic der./mantén para editar` : 'Falta justificada (cuenta como asistencia) — clic der./mantén para el motivo' },
-                              }[estado]
-                              return (
-                                <td key={r.id}
-                                  onClick={() => cellClick(r, s)}
-                                  onContextMenu={(e) => cellContextMenu(e, r, s)}
-                                  onPointerDown={(e) => cellPointerDown(e, r, s)}
-                                  onPointerUp={cancelLongPress}
-                                  onPointerMove={cancelLongPress}
-                                  onPointerLeave={cancelLongPress}
-                                  data-tooltip={ui.tip}
-                                  className="w-9 px-0.5 py-1 text-center border-l border-outline-variant cursor-pointer select-none transition-colors">
-                                  <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
-                                    {ui.icon}
-                                    {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
-                                  </span>
-                                </td>
-                              )
-                            })),
-                            <td key={`a-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-green-600 tabular-nums bg-green-50 border-l-2 border-outline">
-                              {asist}
-                            </td>,
-                            <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-red-500 tabular-nums bg-red-50">
-                              {inasist}
-                            </td>,
-                            <td key={`j-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-amber-600 tabular-nums bg-amber-50">
-                              {justif}
-                            </td>,
-                          ]
-                        })}
-                        <td className="px-0.5 py-1 text-center font-bold text-green-600 tabular-nums bg-green-100/60 border-l-2 border-outline">
-                          {total.asist}
-                        </td>
-                        <td className="px-0.5 py-1 text-center font-bold text-red-500 tabular-nums bg-red-100/60">
-                          {total.inasist}
-                        </td>
-                        <td className="px-0.5 py-1 text-center font-bold text-amber-600 tabular-nums bg-amber-100/60">
-                          {total.justif}
-                        </td>
-                      </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                {renderAttendanceTable()}
               </div>
-
-              {/* Leyenda de estados — toca una celda para ciclar entre ellos */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 px-1 text-[11px] text-muted">
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-green-100 text-green-600"><CheckIcon size={11} /></span>
-                  Asistencia
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-red-100 text-red-500"><X size={11} /></span>
-                  Falta
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-amber-100 text-amber-600 text-[10px] font-bold leading-none">J</span>
-                  Justificada (cuenta como asistencia)
-                </span>
-                <span className="text-slate-400">· Toca para cambiar el estado · Clic derecho o mantén presionado para el motivo</span>
-              </div>
-
+              {attendanceLegend}
               {filteredAttendanceStudents.length === 0 && searchAttendance && (
                 <p className="text-center text-sm text-slate-400">Sin resultados para &quot;{searchAttendance}&quot;</p>
               )}
             </>
           )}
         </div>
-      )}
+      ))}
 
       {/* Agregar día de asistencia — el nº de sesiones crea esa misma cantidad
           de columnas (una asistencia por sesión de clase). */}
       {showAddAttendance && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowAddAttendance(false)} aria-label="Cerrar" />
           <form onSubmit={handleCreateAttendanceDay} className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
             <h3 className="text-base font-semibold text-on-surface">Agregar día de asistencia</h3>
@@ -3281,7 +3342,7 @@ export default function SubjectPage() {
 
       {/* Confirmar borrado de un día completo (todas sus horas/slots) */}
       {deleteAttendanceConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteAttendanceConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
             <h3 className="text-base font-semibold text-on-surface mb-2">¿Eliminar este día de asistencia?</h3>
@@ -3307,7 +3368,7 @@ export default function SubjectPage() {
       {/* Motivo de la justificación — abre con clic derecho / mantener presionado
           sobre una celda; deja la celda en "justificada". El motivo es opcional. */}
       {reasonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setReasonModal(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
             <h3 className="text-base font-semibold text-on-surface">Justificar inasistencia</h3>
