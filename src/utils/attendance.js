@@ -1,0 +1,72 @@
+import {
+  collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where, writeBatch,
+} from 'firebase/firestore'
+import { db } from '../firebase'
+
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+// 'YYYY-MM-DD' → { dia: '18', mes: 'jul', anio: '26' } — para el encabezado vertical
+// de cada columna de asistencia (día/mes/año apilado, ya que la columna es angosta
+// como las de Calificaciones).
+export function fmtAttDateParts(fecha) {
+  const [y, m, d] = fecha.split('-').map(Number)
+  return {
+    dia: String(d).padStart(2, '0'),
+    mes: MESES_CORTOS[m - 1] || '',
+    anio: String(y).slice(-2),
+  }
+}
+
+// Trae toda la asistencia de una asignatura en una sola lectura (igual que
+// loadGrades con submissions) — solo where('asignaturaId','==') para no
+// necesitar un índice compuesto nuevo. Ordena en memoria por fecha y slot.
+export async function loadAttendanceRecords(subjectId) {
+  const snap = await getDocs(query(collection(db, 'attendance'), where('asignaturaId', '==', subjectId)))
+  const records = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  records.sort((a, b) => a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha))
+  return records
+}
+
+// Crea `duracion` columnas (slots 1..duracion) para el mismo día, cada una con
+// todos los estudiantes actuales marcados presentes — el docente solo quita la
+// palomita de quienes faltaron.
+export async function createAttendanceDay({ subjectId, docenteId, fecha, duracion, studentIds }) {
+  const presentes = Object.fromEntries(studentIds.map((id) => [id, true]))
+  const batch = writeBatch(db)
+  const refs = []
+  for (let slot = 1; slot <= duracion; slot++) {
+    const ref = doc(collection(db, 'attendance'))
+    refs.push(ref)
+    batch.set(ref, {
+      asignaturaId: subjectId,
+      docenteId,
+      fecha,
+      slot,
+      presentes,
+      createdAt: serverTimestamp(),
+    })
+  }
+  await batch.commit()
+  return refs.map((r) => r.id)
+}
+
+// Falta la llave (alumno inscrito después de creada la columna) → se trata como
+// presente, igual que el resto de la columna cuando se creó.
+export function isPresente(record, studentId) {
+  return record.presentes?.[studentId] !== false
+}
+
+export async function toggleAttendance(recordId, studentId, nextValue) {
+  await updateDoc(doc(db, 'attendance', recordId), { [`presentes.${studentId}`]: nextValue })
+}
+
+export async function deleteAttendanceRecord(recordId) {
+  await deleteDoc(doc(db, 'attendance', recordId))
+}
+
+// Borra TODAS las columnas (slots) de un mismo día — usado cuando el docente
+// se equivocó de fecha/duración y prefiere rehacer el día completo.
+export async function deleteAttendanceDay(records, fecha) {
+  const targets = records.filter((r) => r.fecha === fecha)
+  await Promise.all(targets.map((r) => deleteDoc(doc(db, 'attendance', r.id))))
+}

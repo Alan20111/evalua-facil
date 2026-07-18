@@ -118,6 +118,17 @@ service cloud.firestore {
       }
     }
 
+    // Asistencia — un documento por "hora" de clase (fecha + slot), con un mapa
+    // presentes: { alumnoId: bool }. Mismo patrón de propiedad que activities.
+    match /attendance/{attendanceId} {
+      allow read: if request.auth != null;
+      allow create: if isDocente() &&
+        request.auth.uid == request.resource.data.docenteId &&
+        ownsSubject(request.resource.data.asignaturaId);
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+    }
+
     // Personal question bank (Evaluaciones) — strictly owner-only.
     match /bancoReactivos/{reactivoId} {
       allow read, update, delete: if request.auth != null &&

@@ -24,7 +24,7 @@ async function batchDeleteDocs(refs) {
 }
 
 // Fully deletes a subject and all related data in cascade:
-// activities → submissions → materials → students → subject doc.
+// activities → submissions → materials → students → attendance → subject doc.
 // NOTE: Firebase Auth accounts of students are NOT deleted (same as per-student delete today).
 export async function deleteSubjectCascade(subjectId) {
   // `materials` is fetched separately, with its rejection swallowed: if its
@@ -32,9 +32,10 @@ export async function deleteSubjectCascade(subjectId) {
   // permission-denied — that must never block deleting the subject itself
   // (it would have, via this same Promise.all). Worst case, a few orphaned
   // `materials` docs are left behind instead of a stuck "Eliminar" button.
-  const [actsSnap, studsSnap] = await Promise.all([
+  const [actsSnap, studsSnap, attSnap] = await Promise.all([
     getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
+    getDocs(query(collection(db, 'attendance'), where('asignaturaId', '==', subjectId))),
   ])
   const matsSnap = await getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))).catch(() => ({ docs: [] }))
 
@@ -46,6 +47,7 @@ export async function deleteSubjectCascade(subjectId) {
     ...actsSnap.docs.map((d) => doc(db, 'activities', d.id)),
     ...matsSnap.docs.map((d) => doc(db, 'materials', d.id)),
     ...studsSnap.docs.map((d) => doc(db, 'students', d.id)),
+    ...attSnap.docs.map((d) => doc(db, 'attendance', d.id)),
   ]
   await batchDeleteDocs(refs)
   await deleteDoc(doc(db, 'subjects', subjectId))

@@ -15,6 +15,7 @@ import { exportSubjectGradesPDF, exportParcialGradesPDF, exportCredentialsPDF, e
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
+import { fmtAttDateParts, loadAttendanceRecords, createAttendanceDay, toggleAttendance, isPresente, deleteAttendanceDay } from '../../utils/attendance'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
@@ -45,7 +46,7 @@ import {
   ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
   Link, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
-  ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock,
+  ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
@@ -296,6 +297,17 @@ export default function SubjectPage() {
   // of one handler per cell.
   const [hoverGradeCell, setHoverGradeCell] = useState({ row: null, col: null })
 
+  // Asistencias — un documento por hora de clase (fecha + slot), ver utils/attendance.js
+  const [attendanceRecords, setAttendanceRecords] = useState([])
+  const [attendanceLoaded, setAttendanceLoaded] = useState(false)
+  const [loadingAttendance, setLoadingAttendance] = useState(false)
+  const [searchAttendance, setSearchAttendance] = useState('')
+  const [showAddAttendance, setShowAddAttendance] = useState(false)
+  const [newAttendanceForm, setNewAttendanceForm] = useState({ fecha: '', duracion: 1 })
+  const [savingAttendance, setSavingAttendance] = useState(false)
+  const [deleteAttendanceConfirm, setDeleteAttendanceConfirm] = useState(null) // { fecha }
+  const [deletingAttendance, setDeletingAttendance] = useState(false)
+
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -493,6 +505,7 @@ export default function SubjectPage() {
       if (activeTab === 'alumnos') await ensureGroupStudents(true)
       if (activeTab === 'calificaciones') await loadGrades(true, acts)
       if (activeTab === 'recursos') await ensureResources(true)
+      if (activeTab === 'asistencia') await loadAttendance(true)
     } catch (err) {
       toast('Error al cargar: ' + err.message, 'error')
     } finally {
@@ -640,6 +653,73 @@ export default function SubjectPage() {
     if (tab === 'calificaciones' && !gradesLoaded) loadGrades()
     if (tab === 'alumnos' && !groupStudentsLoaded) ensureGroupStudents()
     if (tab === 'recursos' && !resourcesLoaded) ensureResources()
+    if (tab === 'asistencia' && !attendanceLoaded) loadAttendance()
+  }
+
+  // ── Asistencias ────────────────────────────────────────────────────
+  async function loadAttendance(force = false) {
+    setLoadingAttendance(true)
+    try {
+      await ensureGroupStudents(force)
+      const records = await loadAttendanceRecords(subjectId)
+      setAttendanceRecords(records)
+      setAttendanceLoaded(true)
+    } catch (err) {
+      toast('Error al cargar asistencias: ' + err.message, 'error')
+    } finally {
+      setLoadingAttendance(false)
+    }
+  }
+
+  async function handleCreateAttendanceDay(e) {
+    e.preventDefault()
+    if (!newAttendanceForm.fecha) return
+    setSavingAttendance(true)
+    try {
+      await createAttendanceDay({
+        subjectId,
+        docenteId: currentUser.uid,
+        fecha: newAttendanceForm.fecha,
+        duracion: Number(newAttendanceForm.duracion),
+        studentIds: groupStudents.map((s) => s.id),
+      })
+      setShowAddAttendance(false)
+      setNewAttendanceForm({ fecha: '', duracion: 1 })
+      await loadAttendance(true)
+      toast('Asistencia agregada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingAttendance(false)
+    }
+  }
+
+  async function handleToggleAttendance(record, studentId) {
+    const next = !isPresente(record, studentId)
+    setAttendanceRecords((prev) => prev.map((r) =>
+      r.id === record.id ? { ...r, presentes: { ...r.presentes, [studentId]: next } } : r
+    ))
+    try {
+      await toggleAttendance(record.id, studentId, next)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+      await loadAttendance(true)
+    }
+  }
+
+  async function handleDeleteAttendanceDay() {
+    if (!deleteAttendanceConfirm) return
+    setDeletingAttendance(true)
+    try {
+      await deleteAttendanceDay(attendanceRecords, deleteAttendanceConfirm.fecha)
+      setDeleteAttendanceConfirm(null)
+      await loadAttendance(true)
+      toast('Día de asistencia eliminado')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setDeletingAttendance(false)
+    }
   }
 
   // ── Student management (Alumnos tab) ──────────────────────────────
@@ -1892,6 +1972,12 @@ export default function SubjectPage() {
     : (activityLabelById[editActivityId] || '—')
 
   const filteredGradeStudents = groupStudents.filter((s) => matchesStudentSearch(s, searchGrade))
+  const filteredAttendanceStudents = groupStudents.filter((s) => matchesStudentSearch(s, searchAttendance))
+  // Un "día" agrupa sus slots consecutivos (1..duracion) — usado tanto para el
+  // encabezado (mostrar la fecha una sola vez, con su duración) como para borrar
+  // el día completo de una sola vez.
+  const attendanceDays = [...new Set(attendanceRecords.map((r) => r.fecha))]
+    .map((fecha) => ({ fecha, records: attendanceRecords.filter((r) => r.fecha === fecha) }))
 
   // Drafts don't grade anything — keep them out of the Calificaciones table
   const tableParcials = PARCIALES.map((p) => ({
@@ -2223,14 +2309,18 @@ export default function SubjectPage() {
             </p>
           )}
 
-          {/* Tabs — Calificaciones/Estudiantes solo en la web */}
+          {/* Tabs — Calificaciones/Estudiantes solo en la web; Asistencia en ambos
+              (en nativo va entre Actividades y Recursos, único hueco disponible). */}
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
-            {(IS_NATIVE_APP ? ['actividades', 'recursos'] : ['actividades', 'calificaciones', 'alumnos', 'recursos']).map((t) => (
+            {(IS_NATIVE_APP
+              ? ['actividades', 'asistencia', 'recursos']
+              : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos']
+            ).map((t) => (
               <button type="button" key={t} onClick={() => switchTab(t)}
                 className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                   activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}>
-                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'alumnos' ? 'Estudiantes' : 'Recursos'}
+                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : 'Recursos'}
               </button>
             ))}
           </div>
@@ -2831,6 +2921,168 @@ export default function SubjectPage() {
             )}
           </div>
         )}
+
+      {/* ══════════════════════════════════════════════════════════
+          TAB: ASISTENCIA
+      ══════════════════════════════════════════════════════════ */}
+      {activeTab === 'asistencia' && (
+        <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-muted uppercase tracking-wide">Asistencias</p>
+            <button type="button" onClick={() => setShowAddAttendance(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+              <CalendarPlus size={16} /> Agregar día
+            </button>
+          </div>
+
+          <SearchInput
+            value={searchAttendance}
+            onChange={setSearchAttendance}
+            placeholder="Buscar por nombre o por número de lista…"
+          />
+
+          {loadingAttendance ? (
+            <div className="flex justify-center py-12"><Spinner size="lg" /></div>
+          ) : groupStudents.length === 0 ? (
+            <p className="text-center text-slate-400 text-sm py-12">No hay estudiantes en esta asignatura</p>
+          ) : attendanceRecords.length === 0 ? (
+            <p className="text-center text-slate-400 text-sm py-12">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
+                <table className="text-xs border-collapse table-fixed">
+                  <colgroup>
+                    <col className="w-8" />
+                    <col className="w-[210px]" />
+                    {attendanceDays.map(({ records }) => records.map((r) => <col key={r.id} className="w-9" />))}
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-accent-light border-b border-outline-variant">
+                      <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
+                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant" />
+                      {attendanceDays.map(({ fecha, records }) => {
+                        const { dia, mes, anio } = fmtAttDateParts(fecha)
+                        return (
+                          <th key={fecha} colSpan={records.length}
+                            onClick={() => setDeleteAttendanceConfirm({ fecha })}
+                            data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
+                            className="px-0.5 py-1.5 font-semibold text-accent text-center border-l border-outline-variant cursor-pointer hover:bg-[var(--accent-medium)] transition-colors leading-tight">
+                            <div>{dia}/</div>
+                            <div>{mes}/</div>
+                            <div>{anio}</div>
+                          </th>
+                        )
+                      })}
+                    </tr>
+                    {attendanceDays.some(({ records }) => records.length > 1) && (
+                      <tr className="bg-accent-light/60 border-b border-outline-variant">
+                        <th className="sticky left-0 z-10 bg-surface-card w-8 border-r border-outline-variant" />
+                        <th className="sticky left-8 z-20 bg-surface-card w-[210px] border-r border-outline-variant" />
+                        {attendanceDays.map(({ records }) => records.map((r) => (
+                          <th key={r.id} className="w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant">
+                            {records.length > 1 ? r.slot : ''}
+                          </th>
+                        )))}
+                      </tr>
+                    )}
+                  </thead>
+                  <tbody>
+                    {filteredAttendanceStudents.map((s, i) => (
+                      <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
+                        <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          {s.orden}
+                        </td>
+                        <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          {studentFullName(s)}
+                        </td>
+                        {attendanceDays.map(({ records }) => records.map((r) => {
+                          const presente = isPresente(r, s.id)
+                          return (
+                            <td key={r.id}
+                              onClick={() => handleToggleAttendance(r, s.id)}
+                              data-tooltip={presente ? 'Presente — clic para marcar falta' : 'Falta — clic para marcar presente'}
+                              className="w-9 px-0.5 py-1 text-center border-l border-outline-variant cursor-pointer transition-colors">
+                              <span className={`inline-flex items-center justify-center w-6 h-6 rounded ${
+                                presente ? 'bg-accent-light text-accent' : 'bg-red-100 text-red-500'
+                              }`}>
+                                {presente ? <CheckIcon size={14} /> : <X size={14} />}
+                              </span>
+                            </td>
+                          )
+                        }))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {filteredAttendanceStudents.length === 0 && searchAttendance && (
+                <p className="text-center text-sm text-slate-400">Sin resultados para &quot;{searchAttendance}&quot;</p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Agregar día de asistencia — duración 1-4 horas crea esa misma cantidad
+          de columnas (una asistencia por hora de clase). */}
+      {showAddAttendance && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowAddAttendance(false)} aria-label="Cerrar" />
+          <form onSubmit={handleCreateAttendanceDay} className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
+            <h3 className="text-base font-semibold text-on-surface">Agregar día de asistencia</h3>
+            <div>
+              <label htmlFor="att-fecha" className="block text-xs font-medium text-muted mb-1">Día</label>
+              <EFDateTimePicker mode="date" value={newAttendanceForm.fecha}
+                onChange={(v) => setNewAttendanceForm((f) => ({ ...f, fecha: v }))}
+                placeholder="Elige el día…" clearable={false} />
+            </div>
+            <div>
+              <label htmlFor="att-duracion" className="block text-xs font-medium text-muted mb-1">Duración de la clase (horas)</label>
+              <select id="att-duracion" value={newAttendanceForm.duracion}
+                onChange={(e) => setNewAttendanceForm((f) => ({ ...f, duracion: Number(e.target.value) }))}
+                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                {[1, 2, 3, 4].map((h) => <option key={h} value={h}>{h} hora{h !== 1 ? 's' : ''} ({h} asistencia{h !== 1 ? 's' : ''})</option>)}
+              </select>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={() => setShowAddAttendance(false)}
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                Cancelar
+              </button>
+              <button type="submit" disabled={savingAttendance || !newAttendanceForm.fecha}
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+                {savingAttendance ? <Spinner size="sm" /> : <CalendarPlus size={16} />} Agregar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Confirmar borrado de un día completo (todas sus horas/slots) */}
+      {deleteAttendanceConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteAttendanceConfirm(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
+            <h3 className="text-base font-semibold text-on-surface mb-2">¿Eliminar este día de asistencia?</h3>
+            <p className="text-sm text-muted mb-4">
+              Se borrará permanentemente la asistencia del{' '}
+              <strong>{(() => { const { dia, mes, anio } = fmtAttDateParts(deleteAttendanceConfirm.fecha); return `${dia}/${mes}/${anio}` })()}</strong>
+              {' '}y todas sus horas. Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setDeleteAttendanceConfirm(null)}
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleDeleteAttendanceDay} disabled={deletingAttendance}
+                className="flex-1 py-2 rounded bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+                {deletingAttendance ? <Spinner size="sm" /> : <Trash2 size={16} />} Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════
           TAB: ALUMNOS
@@ -4194,7 +4446,7 @@ export default function SubjectPage() {
             </div>
             <h3 className="text-base font-semibold text-on-surface text-center mb-1">¿Eliminar asignatura?</h3>
             <p className="text-sm text-muted text-center mb-2">
-              Se borrarán permanentemente todas las actividades, entregas y estudiantes de{' '}
+              Se borrarán permanentemente todas las actividades, entregas, asistencias y estudiantes de{' '}
               <strong>{subject?.nombre}</strong>. Esta acción <strong>no se puede deshacer</strong>.
             </p>
             <p className="text-xs text-muted mb-2">Escribe <strong>{subject?.nombre}</strong> para confirmar:</p>
