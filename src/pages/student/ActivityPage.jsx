@@ -23,6 +23,7 @@ import {
 import { resolveFileTypes, isFileAllowed, allowsMultipleFiles, fileTypesInstructions, MAX_IMAGES_PER_SUBMISSION } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
+import { IS_NATIVE_APP } from '../../utils/platform'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { publicacionVisible } from '../../utils/evaluacionGrading'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
@@ -455,7 +456,7 @@ export default function StudentActivityPage() {
                 type="button"
                 onClick={handleStartOrContinueEvaluacion}
                 disabled={uploading}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className={`w-full py-2.5 font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2 ${IS_NATIVE_APP ? 'bg-white text-accent' : 'bg-accent text-white'}`}
               >
                 {uploading ? <Spinner size="sm" /> : <PlayCircle size={20} />}
                 {uploading ? 'Cargando…' : enProgreso ? 'Continuar evaluación' : finalizado ? 'Nuevo intento' : 'Comenzar'}
@@ -530,7 +531,7 @@ export default function StudentActivityPage() {
         <div className={`rounded-card p-4 flex items-center gap-3 ${
           isGraded ? 'bg-emerald-50 border border-emerald-200' :
           isDelivered ? 'bg-accent-light border border-accent' :
-          'bg-surface border border-outline-variant'
+          IS_NATIVE_APP ? 'bg-surface-card border border-outline-variant' : 'bg-surface border border-outline-variant'
         }`}>
           {isGraded ? <CheckCircle size={26} className="text-emerald-500 flex-shrink-0" />
             : isDelivered ? <Clock size={26} className="text-accent flex-shrink-0" />

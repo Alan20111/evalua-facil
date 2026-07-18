@@ -9,6 +9,7 @@ import { ArrowLeft, Settings, FileCheck2, Clock, CalendarDays, Bell } from 'luci
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders } from '../../utils/localReminders'
+import { IS_NATIVE_APP } from '../../utils/platform'
 
 // Colección `notificationSettings/{uid}` (misma colección que usan los
 // estudiantes, distinta por uid):
@@ -151,12 +152,12 @@ export default function TeacherNotificationSettings() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="p-2 -ml-2 text-muted hover:text-accent rounded transition-colors flex-shrink-0"
+            className={`p-2 -ml-2 rounded transition-colors flex-shrink-0 ${IS_NATIVE_APP ? 'text-white/70 hover:text-white' : 'text-muted hover:text-accent'}`}
             aria-label="Regresar"
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-bold text-on-surface flex-1 min-w-0">Notificaciones</h1>
+          <h1 className={`text-xl font-bold flex-1 min-w-0 ${IS_NATIVE_APP ? 'text-white' : 'text-on-surface'}`}>Notificaciones</h1>
           {saving && <Spinner size="sm" />}
         </div>
 
