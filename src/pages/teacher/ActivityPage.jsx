@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
 import {
   collection,
   query,
@@ -118,7 +117,6 @@ const FILTER_LABELS = {
 
 export default function ActivityPage() {
   const { activityId } = useParams()
-  const { userProfile } = useAuth()
   const [activity, setActivity] = useState(null)
   const [activityLabel, setActivityLabel] = useState(null)
   // "Nueva fecha de entrega" modal, offered from within the activity editor
@@ -749,7 +747,7 @@ export default function ActivityPage() {
           subject={subject}
           activityId={activityId}
           activityLabel={activityLabel}
-          contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
+          contextLine={subjectDisplayName(subject)}
           students={students}
           submissions={submissions}
           onActivityChange={setActivity}
@@ -780,7 +778,6 @@ export default function ActivityPage() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-muted truncate">
                 {subjectDisplayName(subject)}
-                {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
               </p>
               <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
               <div className="flex items-center gap-2">
@@ -1006,7 +1003,6 @@ export default function ActivityPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-muted truncate">
                     {subjectDisplayName(subject)}
-                    {(userProfile?.nombreMostrar || userProfile?.nombre) && <span> — {userProfile.nombreMostrar || userProfile.nombre}</span>}
                   </p>
                   <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
                   <h3 className="text-xl font-bold text-on-surface truncate">
@@ -2126,7 +2122,7 @@ export default function ActivityPage() {
             notificarDocente: activity.notificarDocente || false,
           }}
           initialExistingFiles={activity.archivosAdjuntos || []}
-          contextLine={[subjectDisplayName(subject), userProfile?.nombreMostrar || userProfile?.nombre].filter(Boolean).join(' — ')}
+          contextLine={subjectDisplayName(subject)}
           onNuevaFecha={isPublished ? () => setNewDateOpen(true) : undefined}
           externalFechaLimite={activity.fechaLimite || ''}
           students={students}
