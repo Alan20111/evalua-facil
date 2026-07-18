@@ -20,6 +20,7 @@
     "@capacitor/core": "^8.4.1",
     "@capacitor/local-notifications": "^8.2.0",
     "@capacitor/push-notifications": "^8.1.1",
+    "@capacitor/screen-orientation": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.1",
     "@emailjs/browser": "^4.4.1",
     "@fontsource-variable/outfit": "^5.2.8",
