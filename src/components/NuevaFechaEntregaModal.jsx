@@ -107,7 +107,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                   <label key={s.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-[var(--accent-tint)]">
                     <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleStudent(s.id)}
                       className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
-                    <span className="w-5 text-xs text-slate-500 text-right flex-shrink-0">{s.orden}</span>
+                    <span className="w-5 text-sm text-accent text-right flex-shrink-0">{s.orden}. </span>
                     <span className="truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</span>
                   </label>
                 ))}
