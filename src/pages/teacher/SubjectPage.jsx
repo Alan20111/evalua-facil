@@ -15,7 +15,7 @@ import { exportSubjectGradesPDF, exportParcialGradesPDF, exportCredentialsPDF, e
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
-import { fmtAttDateParts, loadAttendanceRecords, createAttendanceDay, toggleAttendance, isPresente, deleteAttendanceDay } from '../../utils/attendance'
+import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, toggleAttendance, isPresente, deleteAttendanceDay } from '../../utils/attendance'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
@@ -1979,6 +1979,16 @@ export default function SubjectPage() {
   const attendanceDays = [...new Set(attendanceRecords.map((r) => r.fecha))]
     .map((fecha) => ({ fecha, records: attendanceRecords.filter((r) => r.fecha === fecha) }))
 
+  // Agrupa los días consecutivos por mes (YYYY-MM) para el encabezado: una celda
+  // superior "Mes Año" que abarca todas las columnas de ese mes, y debajo cada día.
+  const attendanceMonths = attendanceDays.reduce((acc, day) => {
+    const ym = day.fecha.slice(0, 7)
+    const last = acc[acc.length - 1]
+    if (last && last.ym === ym) last.days.push(day)
+    else acc.push({ ym, days: [day] })
+    return acc
+  }, [])
+
   // Drafts don't grade anything — keep them out of the Calificaciones table
   const tableParcials = PARCIALES.map((p) => ({
     p, acts: activities.filter((a) => a.parcial === p && !isDraftActivity(a)),
@@ -2957,19 +2967,29 @@ export default function SubjectPage() {
                     {attendanceDays.map(({ records }) => records.map((r) => <col key={r.id} className="w-9" />))}
                   </colgroup>
                   <thead>
+                    {/* Fila de mes — una celda por mes que abarca todas sus columnas de días */}
                     <tr className="bg-accent-light border-b border-outline-variant">
-                      <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
-                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant" />
+                      <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant" />
+                      {attendanceMonths.map((mo) => (
+                        <th key={mo.ym} colSpan={mo.days.reduce((n, d) => n + d.records.length, 0)}
+                          className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l border-outline-variant whitespace-nowrap">
+                          {fmtAttMonth(mo.ym)}
+                        </th>
+                      ))}
+                    </tr>
+                    {/* Fila de día — el número de cada día agregado, bajo su mes */}
+                    <tr className="bg-accent-light/70 border-b border-outline-variant">
+                      <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+                      <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
                       {attendanceDays.map(({ fecha, records }) => {
                         const { dia, mes, anio } = fmtAttDateParts(fecha)
                         return (
                           <th key={fecha} colSpan={records.length}
                             onClick={() => setDeleteAttendanceConfirm({ fecha })}
                             data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
-                            className="px-0.5 py-1.5 font-semibold text-accent align-bottom border-l border-outline-variant cursor-pointer hover:bg-[var(--accent-medium)] transition-colors">
-                            <div className="mx-auto [writing-mode:vertical-rl] rotate-180 whitespace-nowrap tracking-tight tabular-nums">
-                              {dia}/{mes}/{anio}
-                            </div>
+                            className="px-0.5 py-1.5 font-semibold text-accent text-center border-l border-outline-variant cursor-pointer hover:bg-[var(--accent-medium)] transition-colors tabular-nums">
+                            {dia}
                           </th>
                         )
                       })}
