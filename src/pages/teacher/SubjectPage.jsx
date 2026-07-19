@@ -2339,7 +2339,13 @@ export default function SubjectPage() {
       })
     : gradeRows
 
-  // Filas del ranking (LUGAR, No., Nombre, Promedio) ordenadas por el parcial
+  // Al ordenar por un parcial específico, se ocultan los demás parciales y el
+  // Final (queda solo LUGAR, Nombre y ese parcial). Con "General" se ven todos.
+  const soloParcial = gradeSortOn && gradeSortParcial != null
+  const visibleParcials = soloParcial ? tableParcials.filter((tp) => tp.p === gradeSortParcial) : tableParcials
+  const showFinalCol = !soloParcial
+
+  // Filas del ranking (LUGAR, Nombre, Promedio) ordenadas por el parcial
   // elegido (null = general) — para exportar a Excel/PDF.
   function rankingRowsFor(parcial) {
     const list = gradeRows.map(({ s, parcialData, finalAvg }) => ({
@@ -3212,17 +3218,17 @@ export default function SubjectPage() {
                     <colgroup>
                       <col className="w-8" />
                       <col className="w-[210px]" />
-                      {tableParcials.map(({ p, acts }) => [
+                      {visibleParcials.map(({ p, acts }) => [
                         ...acts.map((a) => <col key={a.id} className="w-9" />),
                         <col key={`avgcol-${p}`} className="w-14" />,
                       ])}
-                      <col className="w-14" />
+                      {showFinalCol && <col className="w-14" />}
                     </colgroup>
                     <thead>
                       <tr className="bg-accent-light border-b border-outline-variant">
                         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
                         <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant" />
-                        {tableParcials.map(({ p, acts }) => (
+                        {visibleParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
                             className="px-1.5 py-1 font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
                             {/* Clean header: "Parcial N" + a ⋮ menu (Exportar / Cerrar),
@@ -3246,9 +3252,11 @@ export default function SubjectPage() {
                             </div>
                           </th>
                         ))}
-                        <th className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
-                          Final
-                        </th>
+                        {showFinalCol && (
+                          <th className="w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap">
+                            Final
+                          </th>
+                        )}
                       </tr>
                       {/* PONDERACIÓN row — weights per activity, per PARCIAL.
                           Active parciales show their weight inputs (with an ✕
@@ -3272,7 +3280,7 @@ export default function SubjectPage() {
                               <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide">Ponderación</span>
                             </div>
                           </th>
-                          {tableParcials.map(({ p, acts }) => pondParcial(p) ? [
+                          {visibleParcials.map(({ p, acts }) => pondParcial(p) ? [
                             ...acts.map((a) => (
                               <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-amber-50">
                                 {/* Typing only — no wheel, no auto-fill, no forced
@@ -3327,7 +3335,7 @@ export default function SubjectPage() {
                               </button>
                             </th>
                           ))}
-                          <th className="w-14 bg-amber-50 border-l border-outline-variant" />
+                          {showFinalCol && <th className="w-14 bg-amber-50 border-l border-outline-variant" />}
                         </tr>
                       )}
                       <tr className="bg-accent-light border-b border-outline-variant">
@@ -3337,7 +3345,7 @@ export default function SubjectPage() {
                         <th className="sticky left-8 z-10 bg-accent-light w-[210px] px-2 py-1.5 text-left font-medium text-muted border-r border-outline-variant whitespace-nowrap">
                           Estudiante / Actividad
                         </th>
-                        {tableParcials.map(({ p, acts }) => [
+                        {visibleParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
                             <th
                               key={a.id}
@@ -3355,9 +3363,11 @@ export default function SubjectPage() {
                             Prom.
                           </th>,
                         ])}
-                        <th data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey.final)}`}>
-                          Prom.
-                        </th>
+                        {showFinalCol && (
+                          <th data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey.final)}`}>
+                            Prom.
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -3378,25 +3388,32 @@ export default function SubjectPage() {
                               {!s.activado && <span className="text-red-500 text-[10px] font-semibold"> (no se ha activado)</span>}
                             </span>
                           </td>
-                          {parcialData.map(({ p, grades, gradesCierre, avg }, pi) => [
-                            ...tableParcials[pi].acts.map((a, ai) => (
-                              <td
-                                key={a.id}
-                                data-col={colIndexByKey[`act-${a.id}`]}
-                                data-tooltip={gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó)' : a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'}
-                                onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
-                                className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] === null ? 'text-slate-300' : 'text-on-surface'} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
-                              >
-                                {grades[ai] !== null ? grades[ai] : '—'}
-                              </td>
-                            )),
-                            <td key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(avg)} ${gradeBodyCellBg(colIndexByKey[`avg-${p}`], i)}`}>
-                              {avg !== null ? avg : '—'}
-                            </td>,
-                          ])}
-                          <td data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(finalAvg)} ${gradeBodyCellBg(colIndexByKey.final, i)}`}>
-                            {finalAvg !== null ? finalAvg : '—'}
-                          </td>
+                          {visibleParcials.map(({ p, acts }) => {
+                            const pd = parcialData.find((x) => x.p === p)
+                            const grades = pd?.grades || []
+                            const gradesCierre = pd?.gradesCierre || []
+                            return [
+                              ...acts.map((a, ai) => (
+                                <td
+                                  key={a.id}
+                                  data-col={colIndexByKey[`act-${a.id}`]}
+                                  data-tooltip={gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó)' : a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'}
+                                  onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
+                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] == null ? 'text-slate-300' : 'text-on-surface'} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
+                                >
+                                  {grades[ai] != null ? grades[ai] : '—'}
+                                </td>
+                              )),
+                              <td key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(pd?.avg ?? null)} ${gradeBodyCellBg(colIndexByKey[`avg-${p}`], i)}`}>
+                                {pd?.avg != null ? pd.avg : '—'}
+                              </td>,
+                            ]
+                          })}
+                          {showFinalCol && (
+                            <td data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(finalAvg)} ${gradeBodyCellBg(colIndexByKey.final, i)}`}>
+                              {finalAvg !== null ? finalAvg : '—'}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
