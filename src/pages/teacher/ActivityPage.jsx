@@ -19,7 +19,7 @@ import Spinner from '../../components/Spinner'
 import SearchInput from '../../components/SearchInput'
 import {
   ArrowLeft, Clock,
-  Download, Star, CalendarDays, ArrowDownAZ,
+  Download, Star, CalendarDays,
   ChevronLeft, ChevronRight, FolderDown, Pencil, Trash2,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
@@ -158,7 +158,6 @@ export default function ActivityPage() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [searchStudents, setSearchStudents] = useState('')
-  const [sortAlpha, setSortAlpha] = useState(false)
   // Per-student deadline extension
   const [extendMode, setExtendMode] = useState(false)
   const [extendDate, setExtendDate] = useState('')
@@ -597,11 +596,6 @@ export default function ActivityPage() {
     if (searchStudents.trim()) {
       list = list.filter((s) => matchesStudentSearch(s, searchStudents))
     }
-    if (sortAlpha) {
-      list = [...list].sort((a, b) =>
-        studentFullName(a).localeCompare(studentFullName(b), 'es')
-      )
-    }
     return list
   }
   const filtered = applyStudentFilters(filter)
@@ -906,29 +900,14 @@ export default function ActivityPage() {
             ))}
           </div>
 
-        {/* Search — misma barra en web y en Android; ordenar por nombre solo en web */}
-        <div className="px-4 pt-4 pb-2 flex gap-2">
-          <div className="flex-1">
-            <SearchInput
-              value={searchStudents}
-              onChange={setSearchStudents}
-              placeholder="Buscar por nombre o por número de lista…"
-              autoFocus={!IS_NATIVE_APP}
-            />
-          </div>
-          {!IS_NATIVE_APP && (
-            <button
-              type="button"
-              onClick={() => setSortAlpha((v) => !v)}
-              data-tooltip="Ordenar por nombre"
-              aria-label="Ordenar por nombre"
-              className={`p-2 rounded border transition-colors ${
-                sortAlpha ? 'border-accent bg-accent-light text-accent' : 'border-outline-variant text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'
-              }`}
-            >
-              <ArrowDownAZ size={20} />
-            </button>
-          )}
+        {/* Search — misma barra en web y en Android */}
+        <div className="px-4 pt-4 pb-2">
+          <SearchInput
+            value={searchStudents}
+            onChange={setSearchStudents}
+            placeholder="Buscar por nombre o por número de lista…"
+            autoFocus={!IS_NATIVE_APP}
+          />
         </div>
 
         {/* Student list — nombre a la izquierda, estatus a la derecha */}

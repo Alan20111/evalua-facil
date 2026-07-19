@@ -13,6 +13,7 @@ import { IS_NATIVE_APP } from '../utils/platform'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
 import SearchInput from './SearchInput'
+import { TEACHER_CONTAINER_NARROW } from '../config/layout'
 import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision,
   resolverCalificacionFinal, TIPOS_REVISION_MANUAL,
@@ -743,11 +744,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   return (
     <div>
       {/* El fondo de la barra ocupa todo el ancho, pero su contenido queda
-          acotado al mismo max-w-2xl mx-auto que el cuerpo de abajo — si no,
-          el título queda pegado a la izquierda mientras el cuerpo se ve
-          centrado más hacia la derecha, dos alineaciones que no combinan. */}
+          acotado al mismo contenedor que el cuerpo de abajo (mismo ancho que
+          EVALUAR) — si no, el título queda pegado a la izquierda mientras el
+          cuerpo se ve centrado, dos alineaciones que no combinan. */}
       <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
-        <div className="max-w-2xl mx-auto">
+        <div className={TEACHER_CONTAINER_NARROW}>
           <div className="flex items-center gap-2">
             <button type="button" aria-label="Volver" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
               <ArrowLeft size={22} />
@@ -789,7 +790,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         </div>
       </div>
 
-      <div className="p-4 max-w-2xl mx-auto">
+      <div className={`p-4 ${TEACHER_CONTAINER_NARROW}`}>
         {tab === 'preguntas' && (
           <div>
             {loadingPreguntas ? (
@@ -1307,9 +1308,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       onClick={() => openReview(s, filtroResultados)}
                       className={`w-full text-left py-2 cursor-pointer hover:bg-[var(--accent-tint)] ${IS_NATIVE_APP ? 'pl-1 pr-3' : 'px-3'} ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
                       <div className={`flex items-center ${IS_NATIVE_APP ? 'gap-1' : 'gap-2'}`}>
-                        {IS_NATIVE_APP && (
-                          <span className="text-[0.7rem] text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
-                        )}
+                        <span className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} text-accent flex-shrink-0 whitespace-nowrap`}>{s.orden}.&nbsp;</span>
                         <div className="flex-1 min-w-0">
                           <p className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} font-medium text-on-surface truncate`}>{studentFullName(s)}</p>
                         </div>
