@@ -2564,10 +2564,10 @@ export default function SubjectPage() {
           const total = countPresence(attendanceAllRecords, s.id)
           return (
           <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
-            <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+            <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
               {s.orden}
             </td>
-            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
               {studentFullName(s)}
             </td>
             {attendanceParciales.flatMap((g) => {
@@ -3438,13 +3438,13 @@ export default function SubjectPage() {
                         const stripeBg = i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'
                         return (
                         <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${gradeSortOn ? 'font-bold text-accent' : 'text-slate-400'} ${hl || stripeBg}`}>
+                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${gradeSortOn ? 'font-bold text-accent' : 'text-slate-400'} ${hl || stripeBg}`}>
                             {gradeSortOn ? i + 1 : s.orden}
                           </td>
                           {/* data-tooltip goes on an INNER span, never on this td:
                               [data-tooltip] forces position:relative, which would
                               override `sticky` and let left-8 shove the cell right */}
-                          <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${hl || stripeBg}`}>
+                          <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${hl || stripeBg}`}>
                             <span
                               className="block truncate"
                               data-tooltip={!s.activado ? 'Este estudiante aún no ha activado su cuenta — no puede entrar ni entregar' : undefined}

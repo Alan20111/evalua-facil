@@ -99,6 +99,11 @@
     --accent-tint: color-mix(in srgb, var(--accent) 12%, transparent);
     --accent-tint-strong: color-mix(in srgb, var(--accent) 18%, transparent);
     --accent-medium: color-mix(in srgb, var(--accent) 28%, transparent);
+    /* Versión OPACA del tinte (mismo look que --accent-tint pero sobre blanco).
+       Para columnas fijas (sticky) que deben tapar lo que scrollea debajo: con
+       el tinte translúcido se transparentaban y se veían las celdas de días
+       (p. ej. una falta) en la zona del nombre. */
+    --accent-tint-solid: color-mix(in srgb, var(--accent) 12%, #ffffff);
   }
   [data-role='docente'] {
     --accent: #2563eb;
