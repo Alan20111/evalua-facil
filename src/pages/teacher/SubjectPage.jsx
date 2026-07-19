@@ -2757,20 +2757,24 @@ export default function SubjectPage() {
     { emoji: '🏫', label: 'Escolar' },
     { emoji: '📅', label: 'Cita o trámite' },
   ]
-  const quickMotivoButtons = (
+  // compact = tamaño de la app (columna angosta de 16rem); la web usa texto e
+  // iconos más grandes porque ahí sobra espacio horizontal de sobra.
+  const renderQuickMotivo = (compact) => (
     <div className="grid grid-cols-2 gap-2">
       {QUICK_MOTIVOS.map((m) => (
         <button key={m.label} type="button" onClick={() => setReasonText(m.label)}
-          className={`px-1.5 py-2 rounded border text-[10px] font-medium whitespace-nowrap transition-colors ${
+          className={`rounded border font-medium whitespace-nowrap transition-colors ${compact ? 'px-1.5 py-2 text-[10px]' : 'px-3 py-2.5 text-sm'} ${
             reasonText.trim() === m.label
               ? 'border-amber-500 bg-amber-50 text-amber-700'
               : 'border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
           }`}>
-          {m.emoji} {m.label}
+          <span className={compact ? '' : 'text-base'}>{m.emoji}</span> {m.label}
         </button>
       ))}
     </div>
   )
+  const quickMotivoButtons = renderQuickMotivo(true)
+  const quickMotivoButtonsLg = renderQuickMotivo(false)
 
   // Barra simple para la vista horizontal (app) SOLO en estados sin tabla
   // (cargando / sin alumnos / sin días). Con datos, los controles van en la
@@ -3739,14 +3743,27 @@ export default function SubjectPage() {
       {reasonModal && (
         <div className={`fixed inset-0 z-[80] flex justify-center ${IS_NATIVE_APP ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setReasonModal(null)} aria-label="Cerrar" />
-          <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-none p-3 space-y-1.5' : 'max-w-sm p-4 space-y-3'}`}>
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-base font-semibold text-on-surface whitespace-nowrap">Justificar inasistencia</h3>
-              <p className="text-xs text-muted truncate">
-                {reasonModal.studentName} ·{' '}
-                {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
-              </p>
-            </div>
+          <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-none p-3 space-y-1.5' : 'max-w-lg p-5 space-y-4'}`}>
+            {IS_NATIVE_APP ? (
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-base font-semibold text-on-surface whitespace-nowrap">Justificar inasistencia</h3>
+                <p className="text-xs text-muted truncate">
+                  {reasonModal.studentName} ·{' '}
+                  {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
+                </p>
+              </div>
+            ) : (
+              // Web: nombre del estudiante en su propio renglón (evita truncar
+              // nombres largos) y textos más grandes que en la app, donde el
+              // modal comparte columna angosta con el teclado en horizontal.
+              <div>
+                <h3 className="text-lg font-semibold text-on-surface">Justificar inasistencia</h3>
+                <p className="text-sm text-muted mt-0.5">
+                  {reasonModal.studentName} ·{' '}
+                  {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
+                </p>
+              </div>
+            )}
             {IS_NATIVE_APP ? (
               /* App horizontal: 3 columnas — motivos rápidos | motivo | acciones */
               <div className="flex items-start gap-3">
@@ -3777,24 +3794,24 @@ export default function SubjectPage() {
               /* Web: vertical — motivos rápidos, luego caja de motivo, luego acciones */
               <>
                 <div>
-                  <p className="text-xs font-medium text-muted mb-1">Motivo rápido</p>
-                  {quickMotivoButtons}
+                  <p className="text-sm font-medium text-muted mb-1.5">Motivo rápido</p>
+                  {quickMotivoButtonsLg}
                 </div>
                 <div>
-                  <label htmlFor="att-motivo" className="block text-xs font-medium text-muted mb-1">Motivo ✍️</label>
+                  <label htmlFor="att-motivo" className="block text-sm font-medium text-muted mb-1.5">Motivo ✍️</label>
                   <textarea id="att-motivo" value={reasonText} rows={3}
                     onChange={(e) => setReasonText(e.target.value)}
                     placeholder="Escribe el motivo…"
-                    className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
+                    className="w-full px-3 py-2.5 rounded border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setReasonModal(null)}
-                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                     Cancelar
                   </button>
                   <button type="button" onClick={handleSaveReason}
                     disabled={reasonText.trim() === (reasonModal.original || '').trim()}
-                    className="flex-1 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    className="flex-1 py-2.5 rounded bg-amber-500 text-white text-base font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     Guardar
                   </button>
                 </div>
