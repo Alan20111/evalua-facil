@@ -300,6 +300,7 @@ export default function SubjectPage() {
   const [hoverGradeCell, setHoverGradeCell] = useState({ row: null, col: null })
   // Mismo efecto de "cruz" (fila + columna) para la tabla de Asistencias.
   const [hoverAttCell, setHoverAttCell] = useState({ row: null, col: null })
+  const lastHoverAttRef = useRef({ col: null, row: null })
 
   // Asistencias — un documento por hora de clase (fecha + slot), ver utils/attendance.js
   const [attendanceRecords, setAttendanceRecords] = useState([])
@@ -2413,9 +2414,15 @@ export default function SubjectPage() {
       const row = e.target.closest('[data-row]')
       const col = cell ? Number(cell.getAttribute('data-col')) : null
       const rowIdx = row ? Number(row.getAttribute('data-row')) : null
-      setHoverAttCell((prev) => (prev.row === rowIdx && prev.col === col ? prev : { row: rowIdx, col }))
+      if (lastHoverAttRef.current.col !== col || lastHoverAttRef.current.row !== rowIdx) {
+        lastHoverAttRef.current = { col, row: rowIdx }
+        setHoverAttCell({ row: rowIdx, col })
+      }
     }
-    const handleAttLeave = () => setHoverAttCell({ row: null, col: null })
+    const handleAttLeave = () => {
+      lastHoverAttRef.current = { col: null, row: null }
+      setHoverAttCell({ row: null, col: null })
+    }
     const attHeaderColBg = (col) => (hoverAttCell.col != null && hoverAttCell.col === col ? 'bg-[var(--accent-tint)]' : '')
     const attBodyCellBg = (col, rowIdx) => {
       if (hoverAttCell.col == null || hoverAttCell.col !== col) return ''

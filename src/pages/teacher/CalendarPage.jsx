@@ -903,7 +903,7 @@ function useConflicts(events) {
 // ─── Main CalendarPage ─────────────────────────────────────────────────────
 
 const VIEWS = [
-  { id: 'agenda', label: 'Hoy',    Icon: List },
+  { id: 'agenda', label: 'Día',    Icon: List },
   { id: '3dias',  label: '3 días', Icon: Columns3 },
   { id: 'semana', label: 'Semana', Icon: CalendarRange },
   { id: 'mes',    label: 'Mes',    Icon: LayoutGrid },
