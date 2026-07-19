@@ -3,9 +3,11 @@ import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/fire
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, ClipboardList, Check } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, ClipboardList, ListChecks, Check } from 'lucide-react'
 import RubricaEditor from './RubricaEditor'
+import ListaCotejoEditor from './ListaCotejoEditor'
 import RubricaTable from './RubricaTable'
+import { esCotejo } from '../../utils/rubrica'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -66,7 +68,7 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
   // Al crear una rúbrica desde aquí, lo natural es usarla de inmediato en la
   // actividad; al editar una existente solo se refresca la lista.
   function handleSaved(saved) {
-    if (editing === 'new') {
+    if (editing === 'new' || editing === 'new-cotejo') {
       onSelect(saved)
     } else {
       setRubricas((prev) => prev.map((r) => (r.id === saved.id ? { ...r, ...saved } : r)))
@@ -88,12 +90,18 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-3">
-        {/* Crear rúbricas nuevas: solo en la web */}
+        {/* Crear rúbricas / listas de cotejo nuevas: solo en la web */}
         {!IS_NATIVE_APP && (
-          <button type="button" onClick={() => setEditing('new')}
-            className="w-full py-3 bg-accent text-white font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors">
-            <Plus size={18} /> Crear nueva rúbrica
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button type="button" onClick={() => setEditing('new')}
+              className="w-full py-3 bg-accent text-white font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors">
+              <Plus size={18} /> Crear nueva rúbrica
+            </button>
+            <button type="button" onClick={() => setEditing('new-cotejo')}
+              className="w-full py-3 border-2 border-accent text-accent font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-[var(--accent-tint)] transition-colors">
+              <ListChecks size={18} /> Crear lista de cotejo
+            </button>
+          </div>
         )}
 
         {loading ? (
@@ -114,7 +122,9 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-on-surface truncate">{r.titulo}</p>
                     <p className="text-xs text-muted mt-0.5">
-                      {r.criterios?.length} criterios · {r.niveles?.length} niveles · se califica sobre 10
+                      {esCotejo(r)
+                        ? `${r.criterios?.length} criterios · lista de cotejo · sobre 10`
+                        : `${r.criterios?.length} criterios · ${r.niveles?.length} niveles · se califica sobre 10`}
                     </p>
                     {r.descripcion && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{r.descripcion}</p>}
                   </div>
@@ -174,12 +184,21 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
       </div>
 
       {editing && (
-        <RubricaEditor
-          initial={editing === 'new' ? null : editing}
-          docenteId={docenteId}
-          onClose={() => setEditing(null)}
-          onSaved={handleSaved}
-        />
+        (editing === 'new-cotejo' || esCotejo(editing)) ? (
+          <ListaCotejoEditor
+            initial={editing === 'new-cotejo' ? null : editing}
+            docenteId={docenteId}
+            onClose={() => setEditing(null)}
+            onSaved={handleSaved}
+          />
+        ) : (
+          <RubricaEditor
+            initial={editing === 'new' ? null : editing}
+            docenteId={docenteId}
+            onClose={() => setEditing(null)}
+            onSaved={handleSaved}
+          />
+        )
       )}
     </div>
   )

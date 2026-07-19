@@ -27,6 +27,13 @@ export const MAX_NIVELES = 5
 
 export const round1 = (n) => Math.round(n * 10) / 10
 
+// Lista de cotejo: variante de rúbrica con UN solo nivel. Cada criterio vale
+// unos puntos; al calificar, el docente marca (cumple → suma sus puntos) o deja
+// vacío (no cumple → 0). Se guarda como una rúbrica con `tipo: 'cotejo'`,
+// `niveles: [{ nombre, porcentaje: 100 }]` y un valor de puntos por criterio.
+export const COTEJO_NIVEL = 'Nivel de desempeño'
+export const esCotejo = (r) => r?.tipo === 'cotejo'
+
 // Reparte los 10 puntos en partes iguales entre los criterios; el último
 // absorbe el residuo de redondeo para que la suma sea exactamente 10.
 export function pesosEquitativos(numCriterios) {
@@ -40,6 +47,15 @@ export function pesosEquitativos(numCriterios) {
 // criterio por elegir (la calificación solo existe con la rúbrica completa).
 export function totalRubrica(rubrica, seleccion) {
   if (!rubrica?.criterios?.length || !Array.isArray(seleccion)) return null
+  // Lista de cotejo: cada criterio marcado (seleccion[i] === 0) suma sus puntos;
+  // vacío (null) suma 0. Siempre hay total (aunque sea 0).
+  if (esCotejo(rubrica)) {
+    let total = 0
+    for (let i = 0; i < rubrica.criterios.length; i++) {
+      if (seleccion[i] === 0) total += rubrica.criterios[i].puntos?.[0] ?? 0
+    }
+    return round1(total)
+  }
   let total = 0
   for (let i = 0; i < rubrica.criterios.length; i++) {
     const nivel = seleccion[i]
@@ -47,6 +63,13 @@ export function totalRubrica(rubrica, seleccion) {
     total += rubrica.criterios[i].puntos?.[nivel] ?? 0
   }
   return round1(total)
+}
+
+// Puntos máximos de una lista de cotejo (suma de los puntos de todos los
+// criterios) — el "sobre cuánto" real (≤ 10).
+export function totalCotejoMax(rubrica) {
+  if (!rubrica?.criterios?.length) return 0
+  return round1(rubrica.criterios.reduce((s, c) => s + (c.puntos?.[0] || 0), 0))
 }
 
 // Valor en PUNTOS de un nivel (sobre 10): 100% → 10, 80% → 8… El porcentaje
@@ -66,7 +89,26 @@ export function valorNivel(nivel) {
 //    a derecha dentro del renglón.
 //  - Cada COLUMNA debe sumar exactamente los puntos de su nivel (la primera
 //    suma 10 forzosamente — así todo-en-el-máximo da calificación de 10).
+// Valida una lista de cotejo NORMALIZADA. Cada criterio vale unos puntos; la
+// suma NO puede pasar de 10 (puede ser menor).
+export function validarCotejo(r) {
+  if (!r.titulo) return 'Escribe el nombre de la lista de cotejo'
+  const cr = r.criterios || []
+  if (cr.length < MIN_CRITERIOS || cr.length > MAX_CRITERIOS) {
+    return `La lista de cotejo debe tener entre ${MIN_CRITERIOS} y ${MAX_CRITERIOS} criterios`
+  }
+  for (let ci = 0; ci < cr.length; ci++) {
+    const c = cr[ci]
+    if (!c.nombre) return `Escribe el nombre del criterio ${ci + 1}`
+    if (!(c.puntos?.[0] > 0)) return `Los puntos del criterio "${c.nombre || ci + 1}" deben ser mayores a 0`
+  }
+  const suma = round1(cr.reduce((s, c) => s + (c.puntos[0] || 0), 0))
+  if (suma > RUBRICA_TOTAL) return `Los puntos suman ${suma} — no pueden pasar de ${RUBRICA_TOTAL}`
+  return null
+}
+
 export function validarRubrica(r) {
+  if (esCotejo(r)) return validarCotejo(r)
   if (!r.titulo) return 'Escribe el nombre de la rúbrica'
   const nv = r.niveles || []
   if (nv.length < MIN_NIVELES || nv.length > MAX_NIVELES) {
@@ -116,6 +158,7 @@ export function validarRubrica(r) {
 // Copia limpia para guardar dentro de la actividad (sin campos del banco).
 export function snapshotRubrica(r) {
   return {
+    tipo: r.tipo || 'rubrica',
     titulo: r.titulo,
     descripcion: r.descripcion || '',
     niveles: r.niveles.map((n) => ({ nombre: n.nombre, porcentaje: n.porcentaje })),
