@@ -749,11 +749,11 @@ export default function EFDateTimePicker({
   const shortcuts = useMemo(() => {
     const t  = new Date()
     const tm = new Date(t); tm.setDate(t.getDate() + 1)
-    const d3 = new Date(t); d3.setDate(t.getDate() + 3)
+    const pm = new Date(t); pm.setDate(t.getDate() + 2)
     return [
       { label: 'Hoy',           d: t },
       { label: 'Mañana',        d: tm },
-      { label: 'En 3 días',     d: d3 },
+      { label: 'Pasado mañana', d: pm },
       { label: 'Próx. semana',  d: getNextMonday() },
       { label: 'Fin de mes',    d: getEndOfMonth() },
     ]
