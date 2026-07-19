@@ -298,6 +298,8 @@ export default function SubjectPage() {
   // event delegation on the table (see handleGradeTableHover below) instead
   // of one handler per cell.
   const [hoverGradeCell, setHoverGradeCell] = useState({ row: null, col: null })
+  // Mismo efecto de "cruz" (fila + columna) para la tabla de Asistencias.
+  const [hoverAttCell, setHoverAttCell] = useState({ row: null, col: null })
 
   // Asistencias — un documento por hora de clase (fecha + slot), ver utils/attendance.js
   const [attendanceRecords, setAttendanceRecords] = useState([])
@@ -2396,8 +2398,35 @@ export default function SubjectPage() {
     const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
     const now = new Date()
     const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+    // Efecto "cruz" (fila + columna) como en Calificaciones: un índice de columna
+    // secuencial por cada sesión (compartido entre encabezado y cuerpo vía
+    // data-col) para saber qué columna está bajo el cursor. Solo aplica con
+    // mouse (web); en la app táctil no hay hover, así que no hace nada.
+    const attColIndexById = {}
+    let _attCol = 0
+    attendanceParciales.forEach((g) => {
+      g.days.forEach(({ records }) => records.forEach((r) => { attColIndexById[r.id] = _attCol++ }))
+    })
+    const handleAttHover = (e) => {
+      const cell = e.target.closest('[data-col]')
+      const row = e.target.closest('[data-row]')
+      const col = cell ? Number(cell.getAttribute('data-col')) : null
+      const rowIdx = row ? Number(row.getAttribute('data-row')) : null
+      setHoverAttCell((prev) => (prev.row === rowIdx && prev.col === col ? prev : { row: rowIdx, col }))
+    }
+    const handleAttLeave = () => setHoverAttCell({ row: null, col: null })
+    const attHeaderColBg = (col) => (hoverAttCell.col != null && hoverAttCell.col === col ? 'bg-[var(--accent-tint)]' : '')
+    const attBodyCellBg = (col, rowIdx) => {
+      if (hoverAttCell.col == null || hoverAttCell.col !== col) return ''
+      return hoverAttCell.row === rowIdx
+        ? 'bg-[var(--accent-tint-strong)] ring-1 ring-inset ring-[var(--accent)]'
+        : 'bg-[var(--accent-tint)]'
+    }
+
     return (
-    <table className={`${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
+    <table onMouseOver={handleAttHover} onMouseLeave={handleAttLeave}
+      className={`${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
       <colgroup>
         <col className="w-8" />
         <col className="w-[210px]" />
@@ -2478,11 +2507,12 @@ export default function SubjectPage() {
           {attendanceParciales.flatMap((g) => [
             ...g.days.map(({ fecha, records }) => {
               const { dia, mes, anio } = fmtAttDateParts(fecha)
+              const dayHovered = hoverAttCell.col != null && records.some((r) => attColIndexById[r.id] === hoverAttCell.col)
               return (
                 <th key={fecha} colSpan={records.length}
                   onClick={() => setDeleteAttendanceConfirm({ fecha })}
                   data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
-                  className={`px-0.5 py-1 font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
+                  className={`px-0.5 py-1 font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${dayHovered ? 'bg-[var(--accent-tint)] text-accent' : fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
                   {dia}
                 </th>
               )
@@ -2517,7 +2547,7 @@ export default function SubjectPage() {
             </th>
             {attendanceParciales.flatMap((g) => [
               ...g.days.flatMap(({ fecha, records }) => records.map((r) => (
-                <th key={r.id} className={`w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
+                <th key={r.id} data-col={attColIndexById[r.id]} className={`w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant ${attHeaderColBg(attColIndexById[r.id]) || (fecha === todayISO ? 'bg-accent-light' : '')}`}>
                   {records.length > 1 ? r.slot : ''}
                 </th>
               ))),
@@ -2533,11 +2563,11 @@ export default function SubjectPage() {
         {filteredAttendanceStudents.map((s, i) => {
           const total = countPresence(attendanceAllRecords, s.id)
           return (
-          <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
-            <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+          <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
+            <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
               {s.orden}
             </td>
-            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
               {studentFullName(s)}
             </td>
             {attendanceParciales.flatMap((g) => {
@@ -2553,6 +2583,7 @@ export default function SubjectPage() {
                   }[estado]
                   return (
                     <td key={r.id}
+                      data-col={attColIndexById[r.id]}
                       onClick={() => cellClick(r, s)}
                       onContextMenu={(e) => cellContextMenu(e, r, s)}
                       onPointerDown={(e) => cellPointerDown(e, r, s)}
@@ -2560,7 +2591,7 @@ export default function SubjectPage() {
                       onPointerMove={cancelLongPress}
                       onPointerLeave={cancelLongPress}
                       data-tooltip={ui.tip}
-                      className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none transition-colors ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
+                      className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none transition-colors ${attBodyCellBg(attColIndexById[r.id], i) || (fecha === todayISO ? 'bg-accent-light' : '')}`}>
                       <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                         {ui.icon}
                         {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
