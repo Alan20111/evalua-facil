@@ -3049,6 +3049,7 @@ export default function SubjectPage() {
               value={searchGrade}
               onChange={setSearchGrade}
               placeholder="Buscar por nombre o por número de lista…"
+              autoFocus
             />
 
             {loadingGrades ? (
@@ -3330,6 +3331,7 @@ export default function SubjectPage() {
             value={searchAttendance}
             onChange={setSearchAttendance}
             placeholder="Buscar por nombre o por número de lista…"
+            autoFocus
           />
 
           {loadingAttendance ? (
@@ -3571,6 +3573,7 @@ export default function SubjectPage() {
                 value={searchAlumnos}
                 onChange={setSearchAlumnos}
                 placeholder="Buscar por nombre o por número de lista…"
+                autoFocus
               />
             </div>
             <button type="button"

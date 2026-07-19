@@ -762,18 +762,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 </h1>
                 {/* Mismo botón editar que un entregable: lápiz inmediato al nombre.
                     Abre el MISMO editor completo que "editar" desde el parcial.
-                    Solo en la web. */}
-                {!IS_NATIVE_APP && (
-                  <button
-                    type="button"
-                    onClick={() => setShowEvalEditor(true)}
-                    data-tooltip="Editar actividad"
-                    aria-label="Editar actividad"
-                    className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
-                  >
-                    <Pencil size={18} />
-                  </button>
-                )}
+                    Disponible en web y app. */}
+                <button
+                  type="button"
+                  onClick={() => setShowEvalEditor(true)}
+                  data-tooltip="Editar actividad"
+                  aria-label="Editar actividad"
+                  className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                >
+                  <Pencil size={18} />
+                </button>
               </div>
               <p className="text-sm font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
             </div>
