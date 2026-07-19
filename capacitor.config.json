@@ -18,6 +18,10 @@
     },
     "SystemBars": {
       "insetsHandling": "disable"
+    },
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": ["google.com"]
     }
   }
 }
