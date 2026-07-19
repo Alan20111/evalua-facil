@@ -19,6 +19,7 @@ import { TEACHER_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { refreshTeacherReminders } from '../../utils/localReminders'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
@@ -1333,6 +1334,10 @@ export default function CalendarPage() {
       toast(modo === 'modificar'
         ? `Bloques actualizados (${created.length})`
         : `Se programaron ${created.length} bloques de clase`)
+      // Reprograma los recordatorios de "clase por comenzar" YA — si no, un
+      // bloque recién creado no dispara su aviso hasta el próximo login o
+      // resume de la app.
+      refreshTeacherReminders(currentUser.uid)
       // Salta a la fecha del primer bloque para que se vean de inmediato.
       const first = created.reduce((min, b) =>
         (b.fecha + b.horaInicio) < (min.fecha + min.horaInicio) ? b : min, created[0])
@@ -1366,6 +1371,7 @@ export default function CalendarPage() {
         await batch.commit()
       }
       toast(`Programación eliminada (${ids.length} bloque(s)). La asignatura vuelve a estar disponible para programar.`)
+      refreshTeacherReminders(currentUser.uid)
     } catch (err) {
       toast('No se pudo borrar la programación: ' + err.message, 'error')
     }
@@ -1384,6 +1390,7 @@ export default function CalendarPage() {
       await updateDoc(doc(db, 'horarioBloques', b.id), {
         fecha: nuevaFecha, horaInicio: nuevaHora, horaFin: nuevaHoraFin, diaSemana, movido: true,
       })
+      refreshTeacherReminders(currentUser.uid)
     } catch (err) {
       toast('No se pudo mover el bloque: ' + err.message, 'error')
     }
@@ -1410,6 +1417,7 @@ export default function CalendarPage() {
       : x))
     try {
       await updateDoc(doc(db, 'events', rawEvent.id), { inicio: nuevoInicio, fin: nuevoFin })
+      refreshTeacherReminders(currentUser.uid)
     } catch (err) {
       toast('No se pudo mover el evento: ' + err.message, 'error')
     }
@@ -1447,6 +1455,7 @@ export default function CalendarPage() {
     try {
       await deleteDoc(doc(db, 'horarioBloques', bloque.id))
       toast('Esta clase se borró. Las demás clases siguen igual.')
+      refreshTeacherReminders(currentUser.uid)
     } catch (err) {
       toast('No se pudo borrar la clase: ' + err.message, 'error')
     }
