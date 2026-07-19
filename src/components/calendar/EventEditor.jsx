@@ -8,6 +8,7 @@ import Spinner from '../Spinner'
 import { X, Trash2, Copy } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { refreshTeacherReminders } from '../../utils/localReminders'
 
 export const EVENT_COLORS = [
   { id: 'slate',  bg: '#f1f5f9', text: '#475569', label: 'Gris' },
@@ -66,6 +67,11 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
         onSaved?.({ id: event.id, ...payload })
         toast('Evento actualizado')
       }
+      // Reprograma los recordatorios locales YA — si no, el aviso de "empieza
+      // en X min" de este evento no se programa hasta el próximo login o
+      // resume de la app (refreshTeacherReminders no se disparaba nunca al
+      // crear/editar un evento, solo en esos otros momentos).
+      refreshTeacherReminders(currentUser.uid)
       onClose()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -80,6 +86,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
       await deleteDoc(doc(db, 'events', event.id))
       onDeleted?.(event.id)
       toast('Evento eliminado')
+      refreshTeacherReminders(currentUser.uid)
       onClose()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -105,6 +112,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
         createdAt: serverTimestamp(),
       })
       toast('Evento duplicado — arrástralo o edítalo para cambiar su horario')
+      refreshTeacherReminders(currentUser.uid)
       onClose()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
