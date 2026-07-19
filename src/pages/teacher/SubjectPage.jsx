@@ -3375,7 +3375,7 @@ export default function SubjectPage() {
                 <EFDateTimePicker mode="date" value={newAttendanceForm.fecha}
                   onChange={(v) => setNewAttendanceForm((f) => ({ ...f, fecha: v }))}
                   placeholder="Elige el día…" clearable={false}
-                  shortcutLabels={IS_NATIVE_APP ? ['Hoy', 'Mañana', 'En 3 días'] : undefined} />
+                  shortcutLabels={IS_NATIVE_APP ? ['Hoy', 'Mañana', 'Pasado mañana'] : undefined} />
               </div>
               <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
                 <label htmlFor="att-sesiones" className="block text-xs font-medium text-muted mb-1">Número de sesiones</label>
