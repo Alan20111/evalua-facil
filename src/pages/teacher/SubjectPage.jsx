@@ -2319,6 +2319,8 @@ export default function SubjectPage() {
   const renderAttendanceTable = () => {
     const dayColW = IS_NATIVE_APP ? 'w-[42px]' : 'w-9'   // columnas de asistencia +15% en la app
     const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
+    const now = new Date()
+    const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     return (
     <table className={`${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
       <colgroup>
@@ -2407,7 +2409,7 @@ export default function SubjectPage() {
                 <th key={fecha} colSpan={records.length}
                   onClick={() => setDeleteAttendanceConfirm({ fecha })}
                   data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
-                  className="px-0.5 py-1 font-semibold text-accent text-center border-l border-outline-variant cursor-pointer hover:bg-[var(--accent-medium)] transition-colors tabular-nums">
+                  className={`px-0.5 py-1 font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
                   {dia}
                 </th>
               )
@@ -2441,8 +2443,8 @@ export default function SubjectPage() {
               Estudiante / Número de la sesión
             </th>
             {attendanceParciales.flatMap((g) => [
-              ...g.days.flatMap(({ records }) => records.map((r) => (
-                <th key={r.id} className="w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant">
+              ...g.days.flatMap(({ fecha, records }) => records.map((r) => (
+                <th key={r.id} className={`w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
                   {records.length > 1 ? r.slot : ''}
                 </th>
               ))),
@@ -2468,7 +2470,7 @@ export default function SubjectPage() {
             {attendanceParciales.flatMap((g) => {
               const { asist, inasist } = countPresence(g.records, s.id)
               return [
-                ...g.days.flatMap(({ records }) => records.map((r) => {
+                ...g.days.flatMap(({ fecha, records }) => records.map((r) => {
                   const estado = attendanceState(r, s.id)
                   const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
                   const ui = {
@@ -2485,7 +2487,7 @@ export default function SubjectPage() {
                       onPointerMove={cancelLongPress}
                       onPointerLeave={cancelLongPress}
                       data-tooltip={ui.tip}
-                      className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none transition-colors`}>
+                      className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none transition-colors ${fecha === todayISO ? 'bg-accent-light/50' : ''}`}>
                       <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                         {ui.icon}
                         {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
@@ -3346,31 +3348,35 @@ export default function SubjectPage() {
       {/* Agregar día de asistencia — el nº de sesiones crea esa misma cantidad
           de columnas (una asistencia por sesión de clase). */}
       {showAddAttendance && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
+        <div className={`fixed inset-0 z-[80] flex justify-center px-4 ${IS_NATIVE_APP ? 'items-start safe-top' : 'items-center'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowAddAttendance(false)} aria-label="Cerrar" />
-          <form onSubmit={handleCreateAttendanceDay} className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
+          <form onSubmit={handleCreateAttendanceDay} className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-3xl' : 'max-w-sm'} p-4 space-y-3`}>
             <h3 className="text-base font-semibold text-on-surface">Agregar día de asistencia</h3>
-            <div>
-              <label htmlFor="att-parcial" className="block text-xs font-medium text-muted mb-1">Parcial</label>
-              <select id="att-parcial" value={newAttendanceForm.parcial}
-                onChange={(e) => setNewAttendanceForm((f) => ({ ...f, parcial: Number(e.target.value) }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                {PARCIALES.map((p) => <option key={p} value={p}>Parcial {p}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="att-fecha" className="block text-xs font-medium text-muted mb-1">Día</label>
-              <EFDateTimePicker mode="date" value={newAttendanceForm.fecha}
-                onChange={(v) => setNewAttendanceForm((f) => ({ ...f, fecha: v }))}
-                placeholder="Elige el día…" clearable={false} />
-            </div>
-            <div>
-              <label htmlFor="att-sesiones" className="block text-xs font-medium text-muted mb-1">Número de sesiones</label>
-              <select id="att-sesiones" value={newAttendanceForm.duracion}
-                onChange={(e) => setNewAttendanceForm((f) => ({ ...f, duracion: Number(e.target.value) }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} sesión{n !== 1 ? 'es' : ''} ({n} asistencia{n !== 1 ? 's' : ''})</option>)}
-              </select>
+            {/* En la app: campos en fila y modal pegado arriba, así el calendario
+                del selector de día tiene espacio para abrirse sin recortarse. */}
+            <div className={IS_NATIVE_APP ? 'flex items-start gap-3' : 'space-y-3'}>
+              <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
+                <label htmlFor="att-parcial" className="block text-xs font-medium text-muted mb-1">Parcial</label>
+                <select id="att-parcial" value={newAttendanceForm.parcial}
+                  onChange={(e) => setNewAttendanceForm((f) => ({ ...f, parcial: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                  {PARCIALES.map((p) => <option key={p} value={p}>Parcial {p}</option>)}
+                </select>
+              </div>
+              <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
+                <label htmlFor="att-fecha" className="block text-xs font-medium text-muted mb-1">Día</label>
+                <EFDateTimePicker mode="date" value={newAttendanceForm.fecha}
+                  onChange={(v) => setNewAttendanceForm((f) => ({ ...f, fecha: v }))}
+                  placeholder="Elige el día…" clearable={false} />
+              </div>
+              <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
+                <label htmlFor="att-sesiones" className="block text-xs font-medium text-muted mb-1">Número de sesiones</label>
+                <select id="att-sesiones" value={newAttendanceForm.duracion}
+                  onChange={(e) => setNewAttendanceForm((f) => ({ ...f, duracion: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                  {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} sesión{n !== 1 ? 'es' : ''} ({n} asistencia{n !== 1 ? 's' : ''})</option>)}
+                </select>
+              </div>
             </div>
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setShowAddAttendance(false)}
