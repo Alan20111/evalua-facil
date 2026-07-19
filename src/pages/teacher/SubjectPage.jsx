@@ -2345,6 +2345,14 @@ export default function SubjectPage() {
   const visibleParcials = soloParcial ? tableParcials.filter((tp) => tp.p === gradeSortParcial) : tableParcials
   const showFinalCol = !soloParcial
 
+  // Al ordenar: 20% con MAYOR promedio → fondo verde (candidatos a concursos);
+  // 20% con MENOR promedio → fondo naranja (requieren atención para no desertar).
+  // Solo entre estudiantes con promedio en el criterio elegido.
+  const gradeHlCount = gradeSortOn ? Math.max(1, Math.round(sortedGradeRows.length * 0.2)) : 0
+  const rankedConProm = gradeSortOn ? sortedGradeRows.filter((r) => gradeSortValue(r) != null) : []
+  const gradeTopIds = new Set(rankedConProm.slice(0, gradeHlCount).map((r) => r.s.id))
+  const gradeBottomIds = new Set(rankedConProm.slice(-gradeHlCount).map((r) => r.s.id))
+
   // Filas del ranking (LUGAR, Nombre, Promedio) ordenadas por el parcial
   // elegido (null = general) — para exportar a Excel/PDF.
   function rankingRowsFor(parcial) {
@@ -3132,7 +3140,7 @@ export default function SubjectPage() {
                     {/* Exportar el ranking — solo en modo ordenar. Clic directo =
                         Promedio final; los 3 puntitos eligen el parcial. */}
                     {gradeSortOn && ['excel', 'pdf'].map((kind) => (
-                      <div key={kind} className="flex items-center relative">
+                      <div key={kind} className="order-2 flex items-center relative">
                         <button type="button" onClick={() => doExportRanking(kind, null)}
                           data-tooltip={`${kind === 'excel' ? 'Excel' : 'PDF'} del ranking (Promedio final)`}
                           className="flex items-center gap-1 px-2.5 py-1.5 rounded-l text-xs font-semibold border border-outline-variant text-muted hover:text-accent hover:border-accent transition-colors">
@@ -3162,7 +3170,7 @@ export default function SubjectPage() {
                     ))}
                     {/* Ordenar de mayor a menor por promedio (con columna LUGAR).
                         Los 3 puntitos eligen el parcial; sin elegir, es el general. */}
-                    <div className="flex items-center gap-1 relative">
+                    <div className="order-1 flex items-center gap-1 relative">
                       <button type="button" onClick={() => setGradeSortOn((v) => !v)}
                         data-tooltip={gradeSortOn ? 'Ordenado de mayor a menor' : 'Ordenar por promedio, de mayor a menor'}
                         className={`px-3 py-1.5 rounded-l text-xs font-bold uppercase tracking-wide transition-colors ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
@@ -3197,6 +3205,19 @@ export default function SubjectPage() {
                     </div>
                   </div>
                 </div>
+
+                {gradeSortOn && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-muted">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 rounded bg-green-100 border border-green-300 flex-shrink-0" />
+                      20% con mayor promedio — destacan (p. ej. concursos)
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 rounded bg-orange-100 border border-orange-300 flex-shrink-0" />
+                      20% con menor promedio — requieren atención especial
+                    </span>
+                  </div>
+                )}
 
                 <div className="overflow-x-auto rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
                   {/* table-fixed + explicit narrow per-column widths (no forced
@@ -3371,15 +3392,19 @@ export default function SubjectPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedGradeRows.map(({ s, parcialData, finalAvg }, i) => (
+                      {sortedGradeRows.map(({ s, parcialData, finalAvg }, i) => {
+                        // Fondo de resaltado del ranking (verde mejores / naranja peores).
+                        const hl = gradeTopIds.has(s.id) ? 'bg-green-100' : gradeBottomIds.has(s.id) ? 'bg-orange-100' : ''
+                        const stripeBg = i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'
+                        return (
                         <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${gradeSortOn ? 'font-bold text-accent' : 'text-slate-400'} ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${gradeSortOn ? 'font-bold text-accent' : 'text-slate-400'} ${hl || stripeBg}`}>
                             {gradeSortOn ? i + 1 : s.orden}
                           </td>
                           {/* data-tooltip goes on an INNER span, never on this td:
                               [data-tooltip] forces position:relative, which would
                               override `sticky` and let left-8 shove the cell right */}
-                          <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${hl || stripeBg}`}>
                             <span
                               className="block truncate"
                               data-tooltip={!s.activado ? 'Este estudiante aún no ha activado su cuenta — no puede entrar ni entregar' : undefined}
@@ -3399,23 +3424,24 @@ export default function SubjectPage() {
                                   data-col={colIndexByKey[`act-${a.id}`]}
                                   data-tooltip={gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó)' : a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'}
                                   onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
-                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] == null ? 'text-slate-300' : 'text-on-surface'} ${gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
+                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] == null ? 'text-slate-300' : 'text-on-surface'} ${hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
                                 >
                                   {grades[ai] != null ? grades[ai] : '—'}
                                 </td>
                               )),
-                              <td key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(pd?.avg ?? null)} ${gradeBodyCellBg(colIndexByKey[`avg-${p}`], i)}`}>
+                              <td key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(pd?.avg ?? null)} ${hl || gradeBodyCellBg(colIndexByKey[`avg-${p}`], i)}`}>
                                 {pd?.avg != null ? pd.avg : '—'}
                               </td>,
                             ]
                           })}
                           {showFinalCol && (
-                            <td data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(finalAvg)} ${gradeBodyCellBg(colIndexByKey.final, i)}`}>
+                            <td data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(finalAvg)} ${hl || gradeBodyCellBg(colIndexByKey.final, i)}`}>
                               {finalAvg !== null ? finalAvg : '—'}
                             </td>
                           )}
                         </tr>
-                      ))}
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
