@@ -320,6 +320,26 @@ export default function SubjectPage() {
   const [reasonText, setReasonText] = useState('')
   const longPress = useRef({ timer: null, fired: false })
 
+  // Precalienta el hover de Asistencias: recorre cada columna/día en tiempo
+  // ocioso (classList.add + remove inmediato, invisible) para que el
+  // navegador ya haya resuelto estilo/paint de esas celdas ANTES de que el
+  // docente mueva el mouse de verdad. Sin esto, la PRIMERA vez que el cursor
+  // entra a cada columna nueva (no solo la primera de toda la tabla) paga
+  // ese costo en vivo, y se siente como una pausa a mitad del recorrido.
+  useEffect(() => {
+    if (activeTab !== 'asistencia') return undefined
+    const warmUp = () => {
+      attColElsRef.current.forEach((els) => {
+        els.forEach((el) => { el.classList.add('att-col-hover'); el.classList.remove('att-col-hover') })
+      })
+      attDayElRef.current.forEach((el) => { el.classList.add('att-day-hover'); el.classList.remove('att-day-hover') })
+    }
+    const ric = typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 200)
+    const cic = typeof cancelIdleCallback === 'function' ? cancelIdleCallback : clearTimeout
+    const id = ric(warmUp)
+    return () => cic(id)
+  }, [activeTab, attendanceRecords, groupStudents, searchAttendance])
+
   const navigate = useNavigate()
   const toast = useToast()
 
