@@ -304,11 +304,15 @@ function AgendaView({
             />
           ))}
 
-          {/* Línea de la hora actual — se disuelve hacia abajo */}
+          {/* Línea de la hora actual — punto a la izquierda + línea que se
+              disuelve hacia abajo. Solo cuando el día mostrado es hoy. */}
           {showNowLine && (
-            <div className="absolute left-0 right-0 pointer-events-none z-10" style={{ top: nowLineTop }}>
-              <div style={{ height: 2, background: 'var(--accent)' }} />
-              <div style={{ height: 28, background: 'linear-gradient(to bottom, color-mix(in srgb, var(--accent) 28%, transparent), transparent)' }} />
+            <div className="absolute left-0 right-0 pointer-events-none z-20" style={{ top: nowLineTop }}>
+              <div className="flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: 'var(--accent)' }} />
+                <div className="flex-1" style={{ height: 3, background: 'var(--accent)' }} />
+              </div>
+              <div style={{ height: 32, background: 'linear-gradient(to bottom, color-mix(in srgb, var(--accent) 40%, transparent), transparent)' }} />
             </div>
           )}
 
