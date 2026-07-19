@@ -2467,11 +2467,11 @@ export default function SubjectPage() {
         {filteredAttendanceStudents.map((s, i) => {
           const total = countPresence(attendanceAllRecords, s.id)
           return (
-          <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-            <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+          <tr key={s.id} className={`border-t border-outline-variant ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
+            <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
               {s.orden}
             </td>
-            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
               {studentFullName(s)}
             </td>
             {attendanceParciales.flatMap((g) => {
