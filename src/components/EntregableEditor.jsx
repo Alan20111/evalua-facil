@@ -13,7 +13,7 @@ import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, Eye, EyeOff, X } 
 import RubricaPicker from './rubrica/RubricaPicker'
 import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
-import { snapshotRubrica } from '../utils/rubrica'
+import { snapshotRubrica, esCotejo } from '../utils/rubrica'
 import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline, isActivityPublished } from '../utils/activityVisibility'
 import { minDeadline } from '../utils/nowIso'
@@ -350,7 +350,9 @@ export default function EntregableEditor({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-on-surface truncate">{form.rubrica.titulo}</p>
                       <p className="text-xs text-muted">
-                        {form.rubrica.criterios?.length} criterios · {form.rubrica.niveles?.length} niveles · se califica sobre 10
+                        {esCotejo(form.rubrica)
+                          ? `${form.rubrica.criterios?.length} criterios · lista de cotejo · sobre 10`
+                          : `${form.rubrica.criterios?.length} criterios · ${form.rubrica.niveles?.length} niveles · se califica sobre 10`}
                       </p>
                     </div>
                     <button type="button"

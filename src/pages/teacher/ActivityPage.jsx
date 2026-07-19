@@ -291,7 +291,15 @@ export default function ActivityPage() {
     if (activity?.rubrica?.criterios?.length && !isObservacion && !isEvaluacion) {
       const n = activity.rubrica.criterios.length
       const previa = Array.isArray(sub?.rubricaEval) && sub.rubricaEval.length === n ? [...sub.rubricaEval] : null
-      setRubricEval(previa || (sub && sub.calificacion == null ? Array(n).fill(0) : Array(n).fill(null)))
+      const prefill = previa || (sub && sub.calificacion == null ? Array(n).fill(0) : Array(n).fill(null))
+      setRubricEval(prefill)
+      // Sincroniza la calificación prellenada con el total real: una lista de
+      // cotejo puede sumar menos de 10, así que el prellenado genérico de 10 de
+      // arriba no siempre aplica.
+      if (!IS_NATIVE_APP && sub && sub.calificacion == null) {
+        const t = totalRubrica(activity.rubrica, prefill)
+        if (t != null) setGradeForm((f) => ({ ...f, calificacion: String(t) }))
+      }
     } else {
       setRubricEval(null)
     }
