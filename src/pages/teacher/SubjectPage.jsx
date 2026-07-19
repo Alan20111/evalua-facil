@@ -2598,9 +2598,9 @@ export default function SubjectPage() {
                   const estado = attendanceState(r, s.id)
                   const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
                   const ui = {
-                    presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} />, tip: 'Presente — toca para marcar falta' },
-                    falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} />, tip: 'Falta — toca para justificar (clic der./mantén para el motivo)' },
-                    justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span>, tip: motivo ? `Justificada: ${motivo} — clic der./mantén para editar` : 'Falta justificada (cuenta como asistencia) — clic der./mantén para el motivo' },
+                    presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
+                    falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} /> },
+                    justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
                   }[estado]
                   return (
                     <td key={r.id}
@@ -2612,7 +2612,6 @@ export default function SubjectPage() {
                       onPointerUp={cancelLongPress}
                       onPointerMove={cancelLongPress}
                       onPointerLeave={cancelLongPress}
-                      data-tooltip={ui.tip}
                       className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
                       <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                         {ui.icon}
