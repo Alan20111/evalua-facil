@@ -298,6 +298,11 @@ export default function SubjectPage() {
   // event delegation on the table (see handleGradeTableHover below) instead
   // of one handler per cell.
   const [hoverGradeCell, setHoverGradeCell] = useState({ row: null, col: null })
+  // Efecto de cruz de Asistencias: nodos DOM cacheados por columna/día (ver
+  // renderAttendanceTable) para resaltar con classList directo, sin state.
+  const attColElsRef = useRef(new Map())
+  const attDayElRef = useRef(new Map())
+  const attLastHoverRef = useRef({ col: null, day: null })
 
   // Asistencias — un documento por hora de clase (fecha + slot), ver utils/attendance.js
   const [attendanceRecords, setAttendanceRecords] = useState([])
@@ -2398,37 +2403,51 @@ export default function SubjectPage() {
     const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
     // Efecto "cruz" (fila + columna): un índice de columna secuencial por cada
-    // sesión (compartido entre encabezado y cuerpo vía data-col). A diferencia
-    // de Calificaciones (que usa React state + JS), aquí el resaltado es 100%
-    // CSS (:has()): no dispara re-render de la tabla completa en cada
-    // movimiento del mouse, así que se siente instantáneo sin importar cuántas
-    // filas/columnas tenga. La celda exacta bajo el cursor se resalta con
-    // :hover directo (fila); las demás celdas de su columna y el encabezado del
-    // día se resaltan vía reglas :has() generadas una sola vez por render de
-    // datos (no por cada hover).
+    // sesión (compartido entre encabezado y cuerpo vía data-col). El resaltado
+    // se aplica con classList directo sobre nodos DOM cacheados (ver refs de
+    // más arriba), no con React state ni con CSS :has() — ambos alternativas
+    // resultaron más lentas: state dispara un re-render de toda la tabla en
+    // cada cambio de columna, y :has(:hover) obliga al navegador a
+    // re-evaluar la tabla completa en cada pixel de movimiento del mouse.
+    // classList.add/remove es la vía nativa más barata que existe para esto.
+    attColElsRef.current = new Map()
+    attDayElRef.current = new Map()
     const attColIndexById = {}
-    const attDayColIndices = {}
+    const attColToDay = {}
     let _attCol = 0
     attendanceParciales.forEach((g) => {
       g.days.forEach(({ fecha, records }) => {
-        const idxs = attDayColIndices[fecha] || (attDayColIndices[fecha] = [])
-        records.forEach((r) => { attColIndexById[r.id] = _attCol; idxs.push(_attCol); _attCol++ })
+        records.forEach((r) => { attColIndexById[r.id] = _attCol; attColToDay[_attCol] = fecha; _attCol++ })
       })
     })
-    const attCrossCss = Array.from({ length: _attCol }, (_, c) =>
-      `.att-table:has([data-col="${c}"]:hover) [data-col="${c}"]{background:var(--accent-tint)}`
-    ).concat(
-      Object.entries(attDayColIndices).map(([fecha, idxs]) => {
-        const safeFecha = String(fecha).replace(/[^0-9-]/g, '')
-        const hoverSel = idxs.map((c) => `[data-col="${c}"]:hover`).join(',')
-        return `.att-table:has(${hoverSel}) [data-day="${safeFecha}"]{background:var(--accent-tint);color:var(--accent)}`
-      })
-    ).join('\n')
+    const addAttColEl = (col) => (el) => {
+      if (!el) return
+      const arr = attColElsRef.current.get(col) || []
+      arr.push(el)
+      attColElsRef.current.set(col, arr)
+    }
+    const setAttDayEl = (fecha) => (el) => { if (el) attDayElRef.current.set(fecha, el) }
+    const clearAttHighlight = () => {
+      const { col, day } = attLastHoverRef.current
+      if (col != null) (attColElsRef.current.get(col) || []).forEach((el) => el.classList.remove('att-col-hover'))
+      if (day != null) attDayElRef.current.get(day)?.classList.remove('att-day-hover')
+      attLastHoverRef.current = { col: null, day: null }
+    }
+    const handleAttHover = (e) => {
+      const cellEl = e.target.closest('[data-col]')
+      const col = cellEl ? Number(cellEl.getAttribute('data-col')) : null
+      if (col === attLastHoverRef.current.col) return
+      clearAttHighlight()
+      if (col == null) return
+      const day = attColToDay[col] ?? null
+      ;(attColElsRef.current.get(col) || []).forEach((el) => el.classList.add('att-col-hover'))
+      if (day != null) attDayElRef.current.get(day)?.classList.add('att-day-hover')
+      attLastHoverRef.current = { col, day }
+    }
 
     return (
-    <>
-    <style>{attCrossCss}</style>
-    <table className={`att-table ${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
+    <table onMouseOver={handleAttHover} onFocus={handleAttHover} onMouseLeave={clearAttHighlight}
+      className={`${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
       <colgroup>
         <col className="w-8" />
         <col className="w-[210px]" />
@@ -2511,7 +2530,7 @@ export default function SubjectPage() {
               const { dia, mes, anio } = fmtAttDateParts(fecha)
               return (
                 <th key={fecha} colSpan={records.length}
-                  data-day={fecha}
+                  ref={setAttDayEl(fecha)}
                   onClick={() => setDeleteAttendanceConfirm({ fecha })}
                   data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
                   className={`px-0.5 py-1 font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
@@ -2549,7 +2568,7 @@ export default function SubjectPage() {
             </th>
             {attendanceParciales.flatMap((g) => [
               ...g.days.flatMap(({ fecha, records }) => records.map((r) => (
-                <th key={r.id} data-col={attColIndexById[r.id]} className={`w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
+                <th key={r.id} data-col={attColIndexById[r.id]} ref={addAttColEl(attColIndexById[r.id])} className={`w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
                   {records.length > 1 ? r.slot : ''}
                 </th>
               ))),
@@ -2586,6 +2605,7 @@ export default function SubjectPage() {
                   return (
                     <td key={r.id}
                       data-col={attColIndexById[r.id]}
+                      ref={addAttColEl(attColIndexById[r.id])}
                       onClick={() => cellClick(r, s)}
                       onContextMenu={(e) => cellContextMenu(e, r, s)}
                       onPointerDown={(e) => cellPointerDown(e, r, s)}
@@ -2624,7 +2644,6 @@ export default function SubjectPage() {
         })}
       </tbody>
     </table>
-    </>
     )
   }
 
