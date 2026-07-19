@@ -4,7 +4,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useToast } from '../../components/Toast'
 import { createTeacherAccount } from '../../utils/teacherAccount'
-import { createTeacherAccountIfNew, signInWithGoogle } from '../../utils/googleAuth'
+import { createTeacherAccountIfNew, signInWithGoogle, googleErrorInfo } from '../../utils/googleAuth'
 import Spinner from '../../components/Spinner'
 import GoogleIcon from '../../components/GoogleIcon'
 import EFLogo from '../../components/EFLogo'
@@ -26,11 +26,8 @@ export default function Register() {
       await createTeacherAccountIfNew(user)
       navigate('/dashboard')
     } catch (err) {
-      if (err.code === 'auth/account-exists-with-different-credential') {
-        toast('Ya tienes una cuenta con este correo. Inicia sesión con tu contraseña.', 'error')
-      } else if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-        toast('No se pudo continuar con Google', 'error')
-      }
+      const { cancelled, message } = googleErrorInfo(err)
+      if (!cancelled) toast(message, 'error')
     } finally {
       setGoogleLoading(false)
     }

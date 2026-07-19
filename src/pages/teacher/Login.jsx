@@ -10,7 +10,7 @@ import Spinner from '../../components/Spinner'
 import GoogleIcon from '../../components/GoogleIcon'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
-import { createTeacherAccountIfNew, signInWithGoogle } from '../../utils/googleAuth'
+import { createTeacherAccountIfNew, signInWithGoogle, googleErrorInfo } from '../../utils/googleAuth'
 import LinkAccountModal from '../../components/LinkAccountModal'
 
 export default function TeacherLogin() {
@@ -30,11 +30,8 @@ export default function TeacherLogin() {
       await createTeacherAccountIfNew(user)
       navigate('/dashboard')
     } catch (err) {
-      if (err.code === 'auth/account-exists-with-different-credential') {
-        toast('Ya tienes una cuenta con este correo. Inicia sesión con tu contraseña.', 'error')
-      } else if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-        toast('No se pudo iniciar sesión con Google', 'error')
-      }
+      const { cancelled, message } = googleErrorInfo(err)
+      if (!cancelled) toast(message, 'error')
     } finally {
       setGoogleLoading(false)
     }
