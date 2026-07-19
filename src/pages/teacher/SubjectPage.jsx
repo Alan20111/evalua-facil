@@ -2345,16 +2345,17 @@ export default function SubjectPage() {
   const visibleParcials = soloParcial ? tableParcials.filter((tp) => tp.p === gradeSortParcial) : tableParcials
   const showFinalCol = !soloParcial
 
-  // Al ordenar: 20% con MAYOR promedio → fondo verde (candidatos a concursos);
-  // 20% con MENOR promedio → fondo naranja (requieren atención para no desertar).
-  // El 20% se calcula sobre los estudiantes QUE YA TIENEN promedio (no sobre el
-  // total): si pocos tienen calificación, el top no debe absorberlos a todos.
+  // Al ordenar: 20% del TOTAL con MAYOR promedio → fondo verde (candidatos a
+  // concursos); 20% del TOTAL con MENOR desempeño → fondo naranja (atención para
+  // no desertar). El verde solo entre quienes tienen promedio; el NARANJA se toma
+  // de la lista completa ordenada, así los que no han entregado nada (sin
+  // promedio, quedan al final) también caen en el 20% inferior.
+  const gradeHlCount = gradeSortOn ? Math.max(1, Math.round(sortedGradeRows.length * 0.2)) : 0
   const rankedConProm = gradeSortOn ? sortedGradeRows.filter((r) => gradeSortValue(r) != null) : []
-  const gradeHlCount = gradeSortOn ? Math.max(1, Math.round(rankedConProm.length * 0.2)) : 0
   const gradeTopIds = new Set(rankedConProm.slice(0, gradeHlCount).map((r) => r.s.id))
   // El naranja excluye a quienes ya son verdes (grupos chicos donde se traslapan).
   const gradeBottomIds = new Set(
-    rankedConProm.slice(-gradeHlCount).map((r) => r.s.id).filter((id) => !gradeTopIds.has(id))
+    sortedGradeRows.slice(-gradeHlCount).map((r) => r.s.id).filter((id) => !gradeTopIds.has(id))
   )
 
   // Filas del ranking (LUGAR, Nombre, Promedio) ordenadas por el parcial
