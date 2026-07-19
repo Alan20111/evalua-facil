@@ -129,6 +129,17 @@ function AgendaView({
   const dragStartRef = useRef(null)
   const [drag, setDrag] = useState(null)
 
+  // Línea de la hora actual (solo cuando el día mostrado es hoy) — se actualiza
+  // cada minuto para que vaya bajando por la rejilla.
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60000)
+    return () => clearInterval(id)
+  }, [])
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const showNowLine = isToday(date) && nowMinutes >= dayStart * 60 && nowMinutes <= dayEnd * 60
+  const nowLineTop = (nowMinutes - dayStart * 60) / 60 * AGENDA_ROW_H
+
   const dayBloques = bloques.filter(b => b.fecha === dateStr)
   const timedEvs = events.filter(ev => ev.dateStr === dateStr && ev.timeStr)
   const allDayEvs = events.filter(ev => ev.dateStr === dateStr && !ev.timeStr)
@@ -292,6 +303,14 @@ function AgendaView({
               aria-label={`Crear evento a las ${h}:00`}
             />
           ))}
+
+          {/* Línea de la hora actual — se disuelve hacia abajo */}
+          {showNowLine && (
+            <div className="absolute left-0 right-0 pointer-events-none z-10" style={{ top: nowLineTop }}>
+              <div style={{ height: 2, background: 'var(--accent)' }} />
+              <div style={{ height: 28, background: 'linear-gradient(to bottom, color-mix(in srgb, var(--accent) 28%, transparent), transparent)' }} />
+            </div>
+          )}
 
           {/* Día sin nada programado */}
           {placed.length === 0 && allDayEvs.length === 0 && (
