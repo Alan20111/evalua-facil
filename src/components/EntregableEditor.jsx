@@ -9,7 +9,7 @@ import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, Eye, EyeOff, X } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X } from 'lucide-react'
 import RubricaPicker from './rubrica/RubricaPicker'
 import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
@@ -345,9 +345,14 @@ export default function EntregableEditor({
               </div>
               {form.rubrica ? (
                 <>
-                  <div className="flex items-center gap-3 rounded border border-accent bg-[var(--accent-tint)] px-3 py-2.5">
-                    <ClipboardList size={20} className="text-accent flex-shrink-0" />
+                  <div className={`flex items-center gap-3 rounded border px-3 py-2.5 ${esCotejo(form.rubrica) ? 'border-teal-500 bg-teal-50' : 'border-accent bg-[var(--accent-tint)]'}`}>
+                    {esCotejo(form.rubrica)
+                      ? <ListChecks size={20} className="text-teal-600 flex-shrink-0" />
+                      : <ClipboardList size={20} className="text-accent flex-shrink-0" />}
                     <div className="flex-1 min-w-0">
+                      <p className={`text-[10px] font-bold uppercase tracking-wide ${esCotejo(form.rubrica) ? 'text-teal-700' : 'text-accent'}`}>
+                        {esCotejo(form.rubrica) ? 'Lista de cotejo' : 'Rúbrica'}
+                      </p>
                       <p className="text-sm font-semibold text-on-surface truncate">{form.rubrica.titulo}</p>
                       <p className="text-xs text-muted">
                         {esCotejo(form.rubrica)

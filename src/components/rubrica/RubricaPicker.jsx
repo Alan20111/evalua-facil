@@ -116,10 +116,16 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
           </div>
         ) : (
           rubricas.map((r) => (
-            <div key={r.id} className="bg-surface-card rounded-card shadow-card overflow-hidden">
+            <div key={r.id} className={`bg-surface-card rounded-card shadow-card overflow-hidden border-l-4 ${esCotejo(r) ? 'border-teal-500' : 'border-accent'}`}>
               <div className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 mb-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                      esCotejo(r) ? 'bg-teal-100 text-teal-700' : 'bg-[var(--accent-light)] text-accent'
+                    }`}>
+                      {esCotejo(r) ? <ListChecks size={11} /> : <ClipboardList size={11} />}
+                      {esCotejo(r) ? 'Lista de cotejo' : 'Rúbrica'}
+                    </span>
                     <p className="font-semibold text-on-surface truncate">{r.titulo}</p>
                     <p className="text-xs text-muted mt-0.5">
                       {esCotejo(r)
