@@ -17,6 +17,7 @@ import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, 
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
+import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
@@ -668,6 +669,14 @@ export default function SubjectPage() {
     lockLandscape()
     return () => { lockPortrait() }
   }, [activeTab])
+
+  // Oculta los íconos del sistema (barra de estado) mientras se agrega un día,
+  // para que no estorben en el modal de la vista horizontal (app).
+  useEffect(() => {
+    if (!IS_NATIVE_APP || !showAddAttendance) return undefined
+    hideStatusBar()
+    return () => { showStatusBar() }
+  }, [showAddAttendance])
 
   // ── Asistencias ────────────────────────────────────────────────────
   async function loadAttendance(force = false) {
