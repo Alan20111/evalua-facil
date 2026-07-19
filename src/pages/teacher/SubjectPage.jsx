@@ -2409,7 +2409,7 @@ export default function SubjectPage() {
         {!IS_NATIVE_APP && <col className="w-10" />}
         {!IS_NATIVE_APP && <col className="w-10" />}
       </colgroup>
-      <thead className={IS_NATIVE_APP ? 'sticky top-0 z-30 bg-accent-light' : undefined}>
+      <thead className="sticky top-0 z-30 bg-accent-light">
         {/* Fila de parcial — nivel superior, abarca sus días + su resumen */}
         <tr className="bg-accent-light border-b border-outline-variant">
           {IS_NATIVE_APP ? (
@@ -3224,12 +3224,16 @@ export default function SubjectPage() {
                   </div>
                 )}
 
-                <div className="overflow-x-auto rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
+                <div className="overflow-auto max-h-[65vh] rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
                   {/* table-fixed + explicit narrow per-column widths (no forced
                       min-w on the table itself) — the table only takes the
                       width its columns actually need, so the wrapper's
                       overflow-x-auto only scrolls once real content overflows,
-                      never just because of an arbitrary minimum. */}
+                      never just because of an arbitrary minimum.
+                      overflow-auto + max-h = inmovilizadores estilo Excel: la
+                      rueda del mouse baja/sube ~13-15 estudiantes por pantalla y
+                      la barra horizontal muestra las columnas; encabezado (thead
+                      sticky top) y columnas No./Nombre (sticky left) fijos. */}
                   <table
                     className="grades-table text-xs border-collapse table-fixed"
                     onMouseOver={handleGradeTableHover}
@@ -3250,7 +3254,7 @@ export default function SubjectPage() {
                       ])}
                       {showFinalCol && <col className="w-14" />}
                     </colgroup>
-                    <thead>
+                    <thead className="sticky top-0 z-30">
                       <tr className="bg-accent-light border-b border-outline-variant">
                         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
                         <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant" />
@@ -3483,7 +3487,7 @@ export default function SubjectPage() {
           )}
         </div>
       ) : (
-        <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+        <div className="px-4 py-2 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Asistencias</p>
             <button type="button" onClick={() => setShowAddAttendance(true)}
@@ -3507,7 +3511,7 @@ export default function SubjectPage() {
             <p className="text-center text-slate-400 text-sm py-12">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
+              <div className="overflow-auto max-h-[65vh] rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
                 {renderAttendanceTable()}
               </div>
               {attendanceLegend}
@@ -3759,8 +3763,8 @@ export default function SubjectPage() {
               {searchAlumnos ? 'Sin resultados' : 'No hay estudiantes en esta asignatura'}
             </div>
           ) : (
-            <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container">
+            <div className="bg-surface-card rounded-card overflow-y-auto max-h-[65vh] shadow-card">
+              <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-1.5 bg-surface-container">
                 <span className="w-5 flex-shrink-0" />
                 <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del estudiante</p>
                 <p className="w-44 flex-shrink-0 text-xs font-semibold text-muted uppercase tracking-wide">Código</p>
