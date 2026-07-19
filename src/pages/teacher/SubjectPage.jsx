@@ -2394,8 +2394,10 @@ export default function SubjectPage() {
   // app. En la app se ocultan las columnas de Totales (esos se ven en la web) y
   // el encabezado queda fijo (sticky) para que solo scrolleen los datos.
   const renderAttendanceTable = () => {
-    const dayColW = IS_NATIVE_APP ? 'w-[42px]' : 'w-9'   // columnas de asistencia +15% en la app
-    const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
+    const dayColW = IS_NATIVE_APP ? 'w-[58px]' : 'w-9'   // columnas de asistencia más anchas en la app (menos error de dedo)
+    const cellPadY = IS_NATIVE_APP ? 'py-[11px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
+    const badgeSz = IS_NATIVE_APP ? 'w-9 h-9' : 'w-6 h-6' // círculo de estado más grande en la app
+    const iconSz = IS_NATIVE_APP ? 18 : 14
     const now = new Date()
     const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
@@ -2577,9 +2579,9 @@ export default function SubjectPage() {
                   const estado = attendanceState(r, s.id)
                   const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
                   const ui = {
-                    presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} />, tip: 'Presente — toca para marcar falta' },
-                    falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} />, tip: 'Falta — toca para justificar (clic der./mantén para el motivo)' },
-                    justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span>, tip: motivo ? `Justificada: ${motivo} — clic der./mantén para editar` : 'Falta justificada (cuenta como asistencia) — clic der./mantén para el motivo' },
+                    presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={iconSz} />, tip: 'Presente — toca para marcar falta' },
+                    falta: { cls: 'bg-red-100 text-red-500', icon: <X size={iconSz} />, tip: 'Falta — toca para justificar (clic der./mantén para el motivo)' },
+                    justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className={`${IS_NATIVE_APP ? 'text-[16px]' : 'text-[12px]'} font-bold leading-none`}>J</span>, tip: motivo ? `Justificada: ${motivo} — clic der./mantén para editar` : 'Falta justificada (cuenta como asistencia) — clic der./mantén para el motivo' },
                   }[estado]
                   return (
                     <td key={r.id}
@@ -2592,7 +2594,7 @@ export default function SubjectPage() {
                       onPointerLeave={cancelLongPress}
                       data-tooltip={ui.tip}
                       className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none transition-colors ${attBodyCellBg(attColIndexById[r.id], i) || (fecha === todayISO ? 'bg-accent-light' : '')}`}>
-                      <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
+                      <span className={`relative inline-flex items-center justify-center ${badgeSz} rounded ${ui.cls}`}>
                         {ui.icon}
                         {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
                       </span>
