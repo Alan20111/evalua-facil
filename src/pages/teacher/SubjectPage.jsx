@@ -2333,8 +2333,30 @@ export default function SubjectPage() {
       <thead className={IS_NATIVE_APP ? 'sticky top-0 z-30 bg-accent-light' : undefined}>
         {/* Fila de parcial — nivel superior, abarca sus días + su resumen */}
         <tr className="bg-accent-light border-b border-outline-variant">
-          <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-          <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+          {IS_NATIVE_APP ? (
+            <>
+              <th rowSpan={2} className="sticky left-0 z-30 bg-accent-light w-8 px-0.5 text-center align-middle border-r border-outline-variant">
+                <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
+                  className="p-1 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
+                  <ArrowLeft size={18} />
+                </button>
+              </th>
+              <th rowSpan={2} className="sticky left-8 z-30 bg-accent-light w-[210px] px-2 align-middle border-r border-outline-variant">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
+                  <button type="button" onClick={() => setShowAddAttendance(true)}
+                    className="ml-auto flex items-center gap-1 px-2 py-1 bg-accent text-white text-[11px] font-medium rounded hover:bg-accent-hover transition-colors">
+                    <CalendarPlus size={13} /> Agregar día
+                  </button>
+                </div>
+              </th>
+            </>
+          ) : (
+            <>
+              <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+              <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+            </>
+          )}
           {attendanceParciales.map((g) => (
             <th key={g.parcial} colSpan={g.slotCount + 3}
               className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
@@ -2350,8 +2372,12 @@ export default function SubjectPage() {
         </tr>
         {/* Fila de mes — celda "Mes Año" que abarca sus días */}
         <tr className="bg-accent-light/70 border-b border-outline-variant">
-          <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-          <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+          {!IS_NATIVE_APP && (
+            <>
+              <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+              <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+            </>
+          )}
           {attendanceParciales.flatMap((g) => [
             ...g.months.map((mo) => (
               <th key={`m-${g.parcial}-${mo.ym}`} colSpan={mo.days.reduce((n, d) => n + d.records.length, 0)}
@@ -2521,6 +2547,23 @@ export default function SubjectPage() {
         Justificada (cuenta como asistencia)
       </span>
       <span className="text-slate-400">· Toca para cambiar el estado · Clic derecho o mantén presionado para el motivo</span>
+    </div>
+  )
+
+  // Barra simple para la vista horizontal (app) SOLO en estados sin tabla
+  // (cargando / sin alumnos / sin días). Con datos, los controles van en la
+  // esquina superior izquierda de la tabla (ver renderAttendanceTable).
+  const nativeAttBar = (
+    <div className="flex items-center gap-2 px-2 py-1 bg-accent-light border-b border-outline-variant">
+      <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
+        className="p-1 -ml-0.5 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
+        <ArrowLeft size={18} />
+      </button>
+      <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
+      <button type="button" onClick={() => setShowAddAttendance(true)}
+        className="ml-auto flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
+        <CalendarPlus size={14} /> Agregar día
+      </button>
     </div>
   )
 
@@ -3236,27 +3279,18 @@ export default function SubjectPage() {
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'asistencia' && (IS_NATIVE_APP ? (
         /* ── Vista HORIZONTAL de pantalla completa (solo app) ──────────────
-           Overlay que tapa la nav y el chrome; barra propia con Regresar,
-           ASISTENCIAS y Agregar día. Sin Buscar y sin Totales; encabezado y
+           Overlay que tapa la nav y el chrome. Con datos, los controles
+           (Regresar/ASISTENCIAS/Agregar día) van en la esquina superior
+           izquierda de la tabla para no gastar un renglón propio; los estados
+           vacíos usan una barra simple. Sin Buscar y sin Totales; encabezado y
            nombre inmovilizados, solo scrollean los datos. */
         <div className="fixed inset-0 z-[70] bg-surface flex flex-col safe-top">
-          <div className="flex items-center gap-2 px-2 py-0.5 bg-accent-light border-b border-outline-variant">
-            <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
-              className="p-1 -ml-0.5 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
-              <ArrowLeft size={18} />
-            </button>
-            <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
-            <button type="button" onClick={() => setShowAddAttendance(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
-              <CalendarPlus size={14} /> Agregar día
-            </button>
-          </div>
           {loadingAttendance ? (
-            <div className="flex-1 flex items-center justify-center"><Spinner size="lg" /></div>
+            <>{nativeAttBar}<div className="flex-1 flex items-center justify-center"><Spinner size="lg" /></div></>
           ) : groupStudents.length === 0 ? (
-            <p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">No hay estudiantes en esta asignatura</p>
+            <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">No hay estudiantes en esta asignatura</p></>
           ) : attendanceRecords.length === 0 ? (
-            <p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+            <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p></>
           ) : (
             <div className="flex-1 overflow-auto bg-surface-card">
               {renderAttendanceTable()}
