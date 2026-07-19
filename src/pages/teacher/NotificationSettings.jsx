@@ -8,7 +8,7 @@ import Spinner from '../../components/Spinner'
 import { ArrowLeft, Settings, FileCheck2, Clock, CalendarDays, Bell } from 'lucide-react'
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
-import { refreshTeacherReminders } from '../../utils/localReminders'
+import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
 
 // Colección `notificationSettings/{uid}` (misma colección que usan los
 // estudiantes, distinta por uid):
@@ -131,9 +131,19 @@ export default function TeacherNotificationSettings() {
   // Se dispara desde el handler de cambio (no desde un efecto reactivo sobre
   // `settings`) para no llamar setState de forma síncrona dentro de un efecto.
   function updateCategoria(key, next) {
+    const seActiva = (key === 'recordatorioClase' || key === 'recordatorioEvento')
+      && !settings[key]?.habilitado && next.habilitado
     const updated = { ...settings, [key]: next }
     setSettings(updated)
     if (!currentUser) return
+    // Al activar por primera vez un recordatorio de clase/evento, pide el
+    // acceso especial de "Alarmas y recordatorios" (Android 12+). No es un
+    // permiso con diálogo normal — sin él, el aviso se programa como alarma
+    // INEXACTA y puede retrasarse mucho o no llegar (confirmado en
+    // depuración con dispositivo real). Se pide aquí, a propósito, no en
+    // cada refresh silencioso — sería muy invasivo redirigir a Ajustes del
+    // sistema sin que el docente acabe de pedirlo.
+    if (seActiva) requestExactAlarmAccess()
     clearTimeout(saveTimer.current)
     setSaving(true)
     saveTimer.current = setTimeout(() => {
