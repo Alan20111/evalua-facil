@@ -285,7 +285,7 @@ function AgendaView({
         <div className="relative w-14 flex-shrink-0" style={{ height: gridH }}>
           {hours.map((h, i) => (
             <div key={h} className="absolute right-2 text-xs text-muted leading-none"
-              style={{ top: i * AGENDA_ROW_H, transform: i === 0 ? undefined : 'translateY(-50%)' }}>
+              style={{ top: i === 0 ? 2 : i * AGENDA_ROW_H - 3, transform: i === 0 ? undefined : 'translateY(-100%)' }}>
               {h}:00
             </div>
           ))}
@@ -761,7 +761,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
           <div className="relative" style={{ height: gridH }}>
             {hoursRange.map((hour, i) => (
               <div key={hour} className="absolute left-0 right-0 px-2 text-xs text-muted leading-none"
-                style={{ top: i * ROW_H, transform: i === 0 ? undefined : 'translateY(-50%)' }}>
+                style={{ top: i === 0 ? 2 : i * ROW_H - 3, transform: i === 0 ? undefined : 'translateY(-100%)' }}>
                 {hour}:00
               </div>
             ))}
