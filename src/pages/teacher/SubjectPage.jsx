@@ -3158,7 +3158,7 @@ export default function SubjectPage() {
                               className="w-full text-left px-3 py-1.5 text-xs text-on-surface hover:bg-[var(--accent-tint)]">
                               General (promedio final)
                             </button>
-                            {PARCIALES.map((p) => (
+                            {tableParcials.map(({ p }) => (
                               <button key={p} type="button" onClick={() => doExportRanking(kind, p)}
                                 className="w-full text-left px-3 py-1.5 text-xs text-on-surface hover:bg-[var(--accent-tint)]">
                                 Parcial {p}
@@ -3194,7 +3194,7 @@ export default function SubjectPage() {
                             className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent-tint)] ${gradeSortParcial == null ? 'font-bold text-accent' : 'text-on-surface'}`}>
                             General (promedio final)
                           </button>
-                          {PARCIALES.map((p) => (
+                          {tableParcials.map(({ p }) => (
                             <button key={p} type="button" onClick={() => { setGradeSortParcial(p); setGradeSortOn(true); setGradeSortMenuOpen(false) }}
                               className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent-tint)] ${gradeSortParcial === p ? 'font-bold text-accent' : 'text-on-surface'}`}>
                               Parcial {p}
