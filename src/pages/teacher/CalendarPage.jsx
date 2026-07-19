@@ -284,7 +284,8 @@ function AgendaView({
         {/* Gutter de horas */}
         <div className="relative w-14 flex-shrink-0" style={{ height: gridH }}>
           {hours.map((h, i) => (
-            <div key={h} className="absolute right-2 text-xs text-muted" style={{ top: i * AGENDA_ROW_H + 2 }}>
+            <div key={h} className="absolute right-2 text-xs text-muted leading-none"
+              style={{ top: i * AGENDA_ROW_H, transform: i === 0 ? undefined : 'translateY(-50%)' }}>
               {h}:00
             </div>
           ))}
@@ -759,7 +760,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
           {/* Time gutter */}
           <div className="relative" style={{ height: gridH }}>
             {hoursRange.map((hour, i) => (
-              <div key={hour} className="absolute left-0 right-0 px-2 text-xs text-muted" style={{ top: i * ROW_H }}>
+              <div key={hour} className="absolute left-0 right-0 px-2 text-xs text-muted leading-none"
+                style={{ top: i * ROW_H, transform: i === 0 ? undefined : 'translateY(-50%)' }}>
                 {hour}:00
               </div>
             ))}
