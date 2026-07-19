@@ -34,18 +34,17 @@ export async function exportRankingPDF({ subject, rows, label }) {
     doc.text(periodo, 14, 22)
   }
 
-  const body = rows.map((r) => [r.lugar, r.orden ?? '', r.nombre, r.promedio != null ? r.promedio.toFixed(1) : '—'])
+  const body = rows.map((r) => [r.lugar, r.nombre, r.promedio != null ? r.promedio.toFixed(1) : '—'])
   autoTable(doc, {
     startY: periodo ? 28 : 24,
-    head: [['Lugar', 'No.', 'Estudiante', label]],
+    head: [['Lugar', 'Estudiante', label]],
     body,
     styles: { fontSize: 9, cellPadding: 2.5, textColor: 30 },
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
     alternateRowStyles: { fillColor: [241, 245, 249] },
     columnStyles: {
       0: { halign: 'center', cellWidth: 16, fontStyle: 'bold' },
-      1: { halign: 'center', cellWidth: 12 },
-      3: { halign: 'center', cellWidth: 26, fontStyle: 'bold' },
+      2: { halign: 'center', cellWidth: 26, fontStyle: 'bold' },
     },
   })
   const safeLabel = label.toLowerCase().replace(/\s+/g, '')

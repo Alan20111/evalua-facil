@@ -99,14 +99,14 @@ export function parseStudentExcel(file) {
 // promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
 export function exportRankingExcel({ subject, rows, label }) {
   const periodo = subjectPeriodLabel(subject)
-  const titleRow = ['', '', '', '']
+  const titleRow = ['', '', '']
   titleRow[0] = `${subjectDisplayName(subject)} — Ranking · ${label}${periodo ? `   (${periodo})` : ''}`
-  const nameRow = ['LUGAR', 'No.', 'NOMBRE', label]
-  const dataRows = rows.map((r) => [r.lugar, r.orden, r.nombre, r.promedio != null ? r.promedio : '—'])
+  const nameRow = ['LUGAR', 'NOMBRE', label]
+  const dataRows = rows.map((r) => [r.lugar, r.nombre, r.promedio != null ? r.promedio : '—'])
   const allRows = [titleRow, [], nameRow, ...dataRows]
   const ws = XLSX.utils.aoa_to_sheet(allRows)
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }]
-  ws['!cols'] = [{ wch: 7 }, { wch: 5 }, { wch: 42 }, { wch: 14 }]
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }]
+  ws['!cols'] = [{ wch: 7 }, { wch: 42 }, { wch: 14 }]
   ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Ranking')
