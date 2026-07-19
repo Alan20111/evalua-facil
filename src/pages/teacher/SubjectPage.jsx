@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
@@ -299,7 +299,7 @@ export default function SubjectPage() {
   // of one handler per cell.
   const [hoverGradeCell, setHoverGradeCell] = useState({ row: null, col: null })
   // Efecto de cruz de Asistencias: nodos DOM cacheados por columna/día (ver
-  // renderAttendanceTable) para resaltar con classList directo, sin state.
+  // attendanceTableJsx) para resaltar con classList directo, sin state.
   const attColElsRef = useRef(new Map())
   const attDayElRef = useRef(new Map())
   const attLastHoverRef = useRef({ col: null, day: null })
@@ -2051,7 +2051,7 @@ export default function SubjectPage() {
   }
 
   // ── Computed ───────────────────────────────────────────────────────
-  const PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
+  const PARCIALES = useMemo(() => Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1), [subject?.parciales])
 
   // "Actividad" labels (1.1, 1.2…) are presentation, not stored data — always
   // derived from each activity's position within its parcial in the current
@@ -2076,17 +2076,25 @@ export default function SubjectPage() {
     : (activityLabelById[editActivityId] || '—')
 
   const filteredGradeStudents = groupStudents.filter((s) => matchesStudentSearch(s, searchGrade))
-  const filteredAttendanceStudents = groupStudents.filter((s) => matchesStudentSearch(s, searchAttendance))
+  // Memoizados: la tabla de Asistencias puede tener miles de celdas, y sin
+  // esto se recalculaba (y la tabla completa se reconstruía) en CADA cambio
+  // de estado del componente — incluyendo escribir en el modal de
+  // Justificación o cerrarlo, lo que se sentía como el propio modal
+  // trabado. Ahora solo se recalcula cuando sus datos de verdad cambian.
+  const filteredAttendanceStudents = useMemo(
+    () => groupStudents.filter((s) => matchesStudentSearch(s, searchAttendance)),
+    [groupStudents, searchAttendance]
+  )
   // Un "día" agrupa sus slots consecutivos (1..duracion) — usado tanto para el
   // encabezado (mostrar la fecha una sola vez, con su duración) como para borrar
   // el día completo de una sola vez.
   // Cada "día" (fecha) agrupa sus slots; su parcial es el de sus registros
   // (todos se crean juntos). Registros viejos sin parcial → Parcial 1.
-  const attendanceDays = [...new Set(attendanceRecords.map((r) => r.fecha))]
+  const attendanceDays = useMemo(() => [...new Set(attendanceRecords.map((r) => r.fecha))]
     .map((fecha) => {
       const records = attendanceRecords.filter((r) => r.fecha === fecha)
       return { fecha, parcial: records[0]?.parcial || 1, records }
-    })
+    }), [attendanceRecords])
 
   // Agrupa días consecutivos por mes (YYYY-MM) → celda "Mes Año" que abarca sus días.
   const groupDaysByMonth = (days) => days.reduce((acc, day) => {
@@ -2099,7 +2107,7 @@ export default function SubjectPage() {
 
   // Agrupa por parcial (nivel superior, arriba del mes). Cada grupo lleva sus meses,
   // todos sus registros (para contar asistencias) y cuántas columnas de día ocupa.
-  const attendanceParciales = PARCIALES
+  const attendanceParciales = useMemo(() => PARCIALES
     .map((p) => ({ parcial: p, days: attendanceDays.filter((d) => d.parcial === p) }))
     .filter((g) => g.days.length > 0)
     .map((g) => ({
@@ -2107,10 +2115,10 @@ export default function SubjectPage() {
       months: groupDaysByMonth(g.days),
       records: g.days.flatMap((d) => d.records),
       slotCount: g.days.reduce((n, d) => n + d.records.length, 0),
-    }))
+    })), [PARCIALES, attendanceDays])
 
   // Registros mostrados (unión de los parciales visibles) — base de los totales.
-  const attendanceAllRecords = attendanceParciales.flatMap((g) => g.records)
+  const attendanceAllRecords = useMemo(() => attendanceParciales.flatMap((g) => g.records), [attendanceParciales])
 
   // Drafts don't grade anything — keep them out of the Calificaciones table
   const tableParcials = PARCIALES.map((p) => ({
@@ -2417,7 +2425,17 @@ export default function SubjectPage() {
   // Tabla de asistencias compartida por la vista web y la vista horizontal de la
   // app. En la app se ocultan las columnas de Totales (esos se ven en la web) y
   // el encabezado queda fijo (sticky) para que solo scrolleen los datos.
-  const renderAttendanceTable = () => {
+  // Memoizado: sin esto, la tabla completa (potencialmente miles de celdas)
+  // se reconstruía en CADA re-render del componente — incluyendo escribir en
+  // el modal de Justificación o hacer clic en Cancelar/Guardar, lo que hacía
+  // que el propio modal se sintiera trabado (no era el modal: era React
+  // reconciliando toda la tabla de fondo en cada tecla/clic). Las funciones
+  // (cellClick, cellContextMenu, etc.) se omiten del arreglo de dependencias
+  // a propósito: son declaraciones `function` normales que se recrean en
+  // cada render pero SIN capturar estado que cambie entre renders (solo
+  // setters estables y los parámetros que reciben), así que no hay riesgo
+  // real de clausuras obsoletas.
+  const attendanceTableJsx = useMemo(() => {
     const dayColW = IS_NATIVE_APP ? 'w-[42px]' : 'w-9'   // columnas de asistencia +15% en la app
     const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
     const now = new Date()
@@ -2675,7 +2693,8 @@ export default function SubjectPage() {
       </tbody>
     </table>
     )
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- cellClick/cellContextMenu/cellPointerDown/switchTab: ver comentario arriba
+  }, [attendanceParciales, filteredAttendanceStudents, attendanceAllRecords])
 
   // Leyenda de estados de asistencia (compartida web/app).
   const attendanceLegend = (
@@ -2720,7 +2739,7 @@ export default function SubjectPage() {
 
   // Barra simple para la vista horizontal (app) SOLO en estados sin tabla
   // (cargando / sin alumnos / sin días). Con datos, los controles van en la
-  // esquina superior izquierda de la tabla (ver renderAttendanceTable).
+  // esquina superior izquierda de la tabla (ver attendanceTableJsx).
   const nativeAttBar = (
     <div className="flex items-center gap-2 px-2 py-1 bg-accent-light border-b border-outline-variant">
       <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
@@ -3565,7 +3584,7 @@ export default function SubjectPage() {
             <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p></>
           ) : (
             <div className="flex-1 overflow-auto bg-surface-card">
-              {renderAttendanceTable()}
+              {attendanceTableJsx}
             </div>
           )}
         </div>
@@ -3595,7 +3614,7 @@ export default function SubjectPage() {
           ) : (
             <>
               <div className="overflow-auto max-h-[65vh] rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
-                {renderAttendanceTable()}
+                {attendanceTableJsx}
               </div>
               {attendanceLegend}
               {filteredAttendanceStudents.length === 0 && searchAttendance && (
