@@ -148,6 +148,20 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Efecto "cruz" (fila + columna) de la tabla de Asistencias — clases
+   estáticas, toggleadas por JS vía classList directo (ver renderAttendanceTable
+   en SubjectPage.jsx). Evitamos `:has(:hover)` a propósito: con decenas de
+   columnas y cientos de celdas, esas reglas obligan al navegador a
+   re-evaluar la tabla completa en cada pixel de movimiento del mouse, lo
+   cual se siente MÁS lento que el toggle imperativo de una clase. */
+.att-col-hover {
+  background: var(--accent-tint);
+}
+.att-day-hover {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
 /* ── Custom tooltips — always above the cursor ───────────────────────────── */
 /* :where() = especificidad 0: da position:relative como *default* sin pisar
    utilidades como .absolute/.fixed (los items posicionados del calendario
