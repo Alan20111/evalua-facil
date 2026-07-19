@@ -732,8 +732,9 @@ export default function SubjectPage() {
 
   // Clic izquierdo = ciclar estado; clic derecho o mantener presionado = motivo.
   function openReasonModal(record, student) {
-    setReasonText(record.motivos?.[student.id] || '')
-    setReasonModal({ recordId: record.id, studentId: student.id, fecha: record.fecha, studentName: studentFullName(student) })
+    const current = record.motivos?.[student.id] || ''
+    setReasonText(current)
+    setReasonModal({ recordId: record.id, studentId: student.id, fecha: record.fecha, studentName: studentFullName(student), original: current })
   }
   function cellPointerDown(e, record, student) {
     if (e.button === 2) return
@@ -2537,6 +2538,28 @@ export default function SubjectPage() {
     </div>
   )
 
+  // Motivos rápidos para justificar una inasistencia (botones de un toque).
+  const QUICK_MOTIVOS = [
+    { emoji: '🤒', label: 'Salud' },
+    { emoji: '👨‍👩‍👧', label: 'Familiar' },
+    { emoji: '🏫', label: 'Escolar' },
+    { emoji: '📅', label: 'Cita o trámite' },
+  ]
+  const quickMotivoButtons = (
+    <div className="grid grid-cols-2 gap-2">
+      {QUICK_MOTIVOS.map((m) => (
+        <button key={m.label} type="button" onClick={() => setReasonText(m.label)}
+          className={`px-2 py-2 rounded border text-xs font-medium whitespace-nowrap transition-colors ${
+            reasonText.trim() === m.label
+              ? 'border-amber-500 bg-amber-50 text-amber-700'
+              : 'border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
+          }`}>
+          {m.emoji} {m.label}
+        </button>
+      ))}
+    </div>
+  )
+
   // Barra simple para la vista horizontal (app) SOLO en estados sin tabla
   // (cargando / sin alumnos / sin días). Con datos, los controles van en la
   // esquina superior izquierda de la tabla (ver renderAttendanceTable).
@@ -3394,7 +3417,7 @@ export default function SubjectPage() {
       {reasonModal && (
         <div className={`fixed inset-0 z-[80] flex justify-center px-4 ${IS_NATIVE_APP ? 'items-start pt-2' : 'items-center'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setReasonModal(null)} aria-label="Cerrar" />
-          <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-3xl space-y-2' : 'max-w-sm space-y-3'} p-4`}>
+          <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-3xl' : 'max-w-sm'} p-4 space-y-3`}>
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-base font-semibold text-on-surface whitespace-nowrap">Justificar inasistencia</h3>
               <p className="text-xs text-muted truncate">
@@ -3402,23 +3425,59 @@ export default function SubjectPage() {
                 {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
               </p>
             </div>
-            <div>
-              <label htmlFor="att-motivo" className="block text-xs font-medium text-muted mb-1">Motivo (opcional)</label>
-              <textarea id="att-motivo" value={reasonText} rows={IS_NATIVE_APP ? 2 : 3} autoFocus
-                onChange={(e) => setReasonText(e.target.value)}
-                placeholder="Ej. Cita médica, permiso familiar…"
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
-            </div>
-            <div className="flex gap-2 pt-1">
-              <button type="button" onClick={() => setReasonModal(null)}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
-                Cancelar
-              </button>
-              <button type="button" onClick={handleSaveReason}
-                className="flex-1 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors flex items-center justify-center gap-2">
-                Guardar justificación
-              </button>
-            </div>
+            {IS_NATIVE_APP ? (
+              /* App horizontal: 3 columnas — motivos rápidos | motivo | acciones */
+              <div className="flex items-start gap-3">
+                <div className="w-52 flex-none">
+                  <p className="text-xs font-medium text-muted mb-1">Motivo rápido</p>
+                  {quickMotivoButtons}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label htmlFor="att-motivo" className="block text-xs font-medium text-muted mb-1">Motivo ✍️</label>
+                  <textarea id="att-motivo" value={reasonText} rows={3} autoFocus
+                    onChange={(e) => setReasonText(e.target.value)}
+                    placeholder="Escribe el motivo…"
+                    className="w-full min-h-[72px] px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
+                </div>
+                <div className="w-32 flex-none flex flex-col gap-2">
+                  <button type="button" onClick={handleSaveReason}
+                    disabled={reasonText.trim() === (reasonModal.original || '').trim()}
+                    className="py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    Guardar
+                  </button>
+                  <button type="button" onClick={() => setReasonModal(null)}
+                    className="py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Web: vertical — motivos rápidos, luego caja de motivo, luego acciones */
+              <>
+                <div>
+                  <p className="text-xs font-medium text-muted mb-1">Motivo rápido</p>
+                  {quickMotivoButtons}
+                </div>
+                <div>
+                  <label htmlFor="att-motivo" className="block text-xs font-medium text-muted mb-1">Motivo ✍️</label>
+                  <textarea id="att-motivo" value={reasonText} rows={3} autoFocus
+                    onChange={(e) => setReasonText(e.target.value)}
+                    placeholder="Escribe el motivo…"
+                    className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={() => setReasonModal(null)}
+                    className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                    Cancelar
+                  </button>
+                  <button type="button" onClick={handleSaveReason}
+                    disabled={reasonText.trim() === (reasonModal.original || '').trim()}
+                    className="flex-1 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    Guardar
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
