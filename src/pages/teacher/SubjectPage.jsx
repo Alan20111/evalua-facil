@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
@@ -122,6 +122,301 @@ function gradeColor(norm) {
   if (norm >= 6) return 'text-amber-600'
   return 'text-red-500'
 }
+
+// Tabla de asistencias compartida por la vista web y la vista horizontal de la
+// app. En la app se ocultan las columnas de Totales (esos se ven en la web) y
+// el encabezado queda fijo (sticky) para que solo scrolleen los datos.
+//
+// Extraída a un componente propio (con React.memo) a propósito: envolver el
+// JSX en useMemo() DENTRO de SubjectPage NO bastaba — medido con datos reales
+// (52 alumnos × 36 columnas), abrir/cerrar el modal de Justificación seguía
+// tardando 500-950ms porque React igual reconciliaba el árbol completo de la
+// tabla en cada cambio de estado no relacionado (reasonModal, reasonText).
+// Solo un componente separado envuelto en memo() logra que React se salte
+// por completo esa reconciliación cuando sus props no cambian. Para que el
+// memo funcione de verdad, los callbacks que recibe deben tener identidad
+// ESTABLE entre renders (ver useCallback en SubjectPage) — si no, memo()
+// vería "props nuevas" en cada render y el problema seguiría igual.
+const AttendanceTable = memo(function AttendanceTable({
+  attendanceParciales, filteredAttendanceStudents, attendanceAllRecords,
+  onCellClick, onCellContextMenu, onCellPointerDown, onCancelLongPress,
+  onDeleteDay, onBack, onAddDay,
+}) {
+  // Nodos DOM cacheados por columna/día para el efecto de cruz (fila+columna)
+  // — resaltado con classList directo, sin state ni CSS :has() (ambos
+  // resultaron más lentos: state re-renderiza toda la tabla, :has(:hover)
+  // obliga al navegador a re-evaluarla completa en cada pixel de movimiento).
+  const attColElsRef = useRef(new Map())
+  const attDayElRef = useRef(new Map())
+  const attLastHoverRef = useRef({ col: null, day: null })
+  const attActiveCellRef = useRef(null)
+
+  const dayColW = IS_NATIVE_APP ? 'w-[42px]' : 'w-9'   // columnas de asistencia +15% en la app
+  const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
+  const now = new Date()
+  const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+  const attColIndexById = {}
+  const attColToDay = {}
+  let _attCol = 0
+  attendanceParciales.forEach((g) => {
+    g.days.forEach(({ fecha, records }) => {
+      records.forEach((r) => { attColIndexById[r.id] = _attCol; attColToDay[_attCol] = fecha; _attCol++ })
+    })
+  })
+  const addAttColEl = (col) => (el) => {
+    if (!el) return
+    const arr = attColElsRef.current.get(col) || []
+    arr.push(el)
+    attColElsRef.current.set(col, arr)
+  }
+  const setAttDayEl = (fecha) => (el) => { if (el) attDayElRef.current.set(fecha, el) }
+  const clearAttHighlight = () => {
+    const { col, day } = attLastHoverRef.current
+    if (col != null) (attColElsRef.current.get(col) || []).forEach((el) => el.classList.remove('att-col-hover'))
+    if (day != null) attDayElRef.current.get(day)?.classList.remove('att-day-hover')
+    attActiveCellRef.current?.classList.remove('att-cell-active')
+    attActiveCellRef.current = null
+    attLastHoverRef.current = { col: null, day: null }
+  }
+  // La celda exacta (fila+columna) se rastrea por identidad de nodo, no solo
+  // por columna, para que el resaltado "fuerte" se mueva también al cambiar
+  // de fila dentro de la misma columna.
+  const handleAttHover = (e) => {
+    const cellEl = e.target.closest('[data-col]')
+    if (cellEl === attActiveCellRef.current) return
+    const col = cellEl ? Number(cellEl.getAttribute('data-col')) : null
+    if (col !== attLastHoverRef.current.col) {
+      if (attLastHoverRef.current.col != null) (attColElsRef.current.get(attLastHoverRef.current.col) || []).forEach((el) => el.classList.remove('att-col-hover'))
+      if (attLastHoverRef.current.day != null) attDayElRef.current.get(attLastHoverRef.current.day)?.classList.remove('att-day-hover')
+      const day = col != null ? (attColToDay[col] ?? null) : null
+      if (col != null) (attColElsRef.current.get(col) || []).forEach((el) => el.classList.add('att-col-hover'))
+      if (day != null) attDayElRef.current.get(day)?.classList.add('att-day-hover')
+      attLastHoverRef.current = { col, day }
+    }
+    attActiveCellRef.current?.classList.remove('att-cell-active')
+    attActiveCellRef.current = cellEl?.classList.contains('att-cell') ? cellEl : null
+    attActiveCellRef.current?.classList.add('att-cell-active')
+  }
+
+  // Precalienta el hover: recorre cada columna/día en tiempo ocioso
+  // (add+remove inmediato, invisible) para que el navegador ya haya resuelto
+  // estilo/paint de esas celdas ANTES de que el docente mueva el mouse de
+  // verdad — si no, cada columna nueva paga ese costo la primera vez que se
+  // toca en vivo, sintiéndose como una pausa a mitad del recorrido.
+  useEffect(() => {
+    const warmUp = () => {
+      attColElsRef.current.forEach((els) => {
+        els.forEach((el) => { el.classList.add('att-col-hover'); el.classList.remove('att-col-hover') })
+      })
+      attDayElRef.current.forEach((el) => { el.classList.add('att-day-hover'); el.classList.remove('att-day-hover') })
+    }
+    const ric = typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 200)
+    const cic = typeof cancelIdleCallback === 'function' ? cancelIdleCallback : clearTimeout
+    const id = ric(warmUp)
+    return () => cic(id)
+  }, [attendanceParciales, filteredAttendanceStudents])
+
+  return (
+  <table onMouseOver={handleAttHover} onFocus={handleAttHover} onMouseLeave={clearAttHighlight}
+    className={`${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
+    <colgroup>
+      <col className="w-8" />
+      <col className="w-[210px]" />
+      {attendanceParciales.flatMap((g) => [
+        ...g.days.flatMap(({ records }) => records.map((r) => <col key={r.id} className={dayColW} />)),
+        <col key={`ca-${g.parcial}`} className="w-10" />,
+        <col key={`ci-${g.parcial}`} className="w-10" />,
+      ])}
+      {!IS_NATIVE_APP && <col className="w-10" />}
+      {!IS_NATIVE_APP && <col className="w-10" />}
+    </colgroup>
+    <thead className="sticky top-0 z-30 bg-accent-light">
+      {/* Fila de parcial — nivel superior, abarca sus días + su resumen */}
+      <tr className="bg-accent-light border-b border-outline-variant">
+        {IS_NATIVE_APP ? (
+          /* Esquina fija: Regresar + ASISTENCIAS + Agregar día en UNA sola celda
+             (sin línea divisoria), para darle más ancho al botón de regresar. */
+          <th colSpan={2} rowSpan={2} className="sticky left-0 z-30 bg-accent-light px-2 align-middle border-r border-outline-variant">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onBack} aria-label="Regresar"
+                className="flex-none px-2.5 py-1 -ml-1 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
+                <ArrowLeft size={20} />
+              </button>
+              <span className="text-xs font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
+              <button type="button" onClick={onAddDay}
+                className="ml-auto flex items-center gap-1 px-2 py-1 bg-accent text-white text-[11px] font-medium rounded hover:bg-accent-hover transition-colors">
+                <CalendarPlus size={13} /> Agregar día
+              </button>
+            </div>
+          </th>
+        ) : (
+          <>
+            <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+            <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+          </>
+        )}
+        {attendanceParciales.map((g) => (
+          <th key={g.parcial} colSpan={g.slotCount + 2}
+            className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
+            Parcial {g.parcial}
+          </th>
+        ))}
+        {!IS_NATIVE_APP && (
+          <th colSpan={2}
+            className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
+            Totales
+          </th>
+        )}
+      </tr>
+      {/* Fila de mes — celda "Mes Año" que abarca sus días */}
+      <tr className="bg-accent-light/70 border-b border-outline-variant">
+        {!IS_NATIVE_APP && (
+          <>
+            <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+            <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
+          </>
+        )}
+        {attendanceParciales.flatMap((g) => [
+          ...g.months.map((mo) => (
+            <th key={`m-${g.parcial}-${mo.ym}`} colSpan={mo.days.reduce((n, d) => n + d.records.length, 0)}
+              className="px-1 py-0.5 font-semibold text-accent text-center text-[10px] border-l border-outline-variant whitespace-nowrap">
+              {fmtAttMonth(mo.ym)}
+            </th>
+          )),
+          <th key={`res-${g.parcial}`} colSpan={2}
+            className="px-0.5 py-0.5 text-center text-[9px] font-semibold text-muted uppercase border-l-2 border-outline">
+            Resumen
+          </th>,
+        ])}
+        {!IS_NATIVE_APP && <th colSpan={2} className="border-l-2 border-outline" />}
+      </tr>
+      {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
+      <tr className="bg-accent-light/60 border-b border-outline-variant">
+        <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
+        <th className={`sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-left' : 'text-right'} text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate`}>
+          {IS_NATIVE_APP ? 'Estudiante / Día:' : 'Día:'}
+        </th>
+        {attendanceParciales.flatMap((g) => [
+          ...g.days.map(({ fecha, records }) => {
+            const { dia, mes, anio } = fmtAttDateParts(fecha)
+            return (
+              <th key={fecha} colSpan={records.length}
+                ref={setAttDayEl(fecha)}
+                onClick={() => onDeleteDay(fecha)}
+                data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
+                className={`px-0.5 py-1 font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
+                {dia}
+              </th>
+            )
+          }),
+          <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial"
+            className="px-0.5 py-1 text-center border-l-2 border-outline">
+            <CheckIcon size={13} className="inline text-green-600" />
+          </th>,
+          <th key={`hi-${g.parcial}`} data-tooltip="Inasistencias del parcial"
+            className="px-0.5 py-1 text-center">
+            <X size={13} className="inline text-red-500" />
+          </th>,
+        ])}
+        {!IS_NATIVE_APP && (
+          <>
+            <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
+              <CheckIcon size={13} className="inline text-green-600" />
+            </th>
+            <th data-tooltip="Total de inasistencias" className="px-0.5 py-1 text-center">
+              <X size={13} className="inline text-red-500" />
+            </th>
+          </>
+        )}
+      </tr>
+      {/* Renglón de sesión — solo web; en la app se oculta para ganar espacio.
+          La etiqueta "Estudiante" pasa al renglón de Día (Estudiante / Día:). */}
+      {!IS_NATIVE_APP && (
+        <tr className="bg-accent-light/50 border-b border-outline-variant">
+          <th className="sticky left-0 z-10 bg-accent-light w-8 border-r border-outline-variant" />
+          <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-0.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate">
+            Estudiante / Número de la sesión
+          </th>
+          {attendanceParciales.flatMap((g) => [
+            ...g.days.flatMap(({ fecha, records }) => records.map((r) => (
+              <th key={r.id} data-col={attColIndexById[r.id]} ref={addAttColEl(attColIndexById[r.id])} className={`w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
+                {records.length > 1 ? r.slot : ''}
+              </th>
+            ))),
+            <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
+            <th key={`si-${g.parcial}`} />,
+          ])}
+          <th className="border-l-2 border-outline" />
+          <th />
+        </tr>
+      )}
+    </thead>
+    <tbody>
+      {filteredAttendanceStudents.map((s, i) => {
+        const total = countPresence(attendanceAllRecords, s.id)
+        return (
+        <tr key={s.id} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
+          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+            {s.orden}
+          </td>
+          <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+            {studentFullName(s)}
+          </td>
+          {attendanceParciales.flatMap((g) => {
+            const { asist, inasist } = countPresence(g.records, s.id)
+            return [
+              ...g.days.flatMap(({ fecha, records }) => records.map((r) => {
+                const estado = attendanceState(r, s.id)
+                const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
+                const ui = {
+                  presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
+                  falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} /> },
+                  justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
+                }[estado]
+                return (
+                  <td key={r.id}
+                    data-col={attColIndexById[r.id]}
+                    ref={addAttColEl(attColIndexById[r.id])}
+                    onClick={() => onCellClick(r, s)}
+                    onContextMenu={(e) => onCellContextMenu(e, r, s)}
+                    onPointerDown={(e) => onCellPointerDown(e, r, s)}
+                    onPointerUp={onCancelLongPress}
+                    onPointerMove={onCancelLongPress}
+                    onPointerLeave={onCancelLongPress}
+                    className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
+                    <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
+                      {ui.icon}
+                      {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                    </span>
+                  </td>
+                )
+              })),
+              <td key={`a-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-green-600 tabular-nums bg-green-50 border-l-2 border-outline">
+                {asist}
+              </td>,
+              <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-red-500 tabular-nums bg-red-50">
+                {inasist}
+              </td>,
+            ]
+          })}
+          {!IS_NATIVE_APP && (
+            <>
+              <td className="px-0.5 py-1 text-center font-bold text-green-600 tabular-nums bg-green-100/60 border-l-2 border-outline">
+                {total.asist}
+              </td>
+              <td className="px-0.5 py-1 text-center font-bold text-red-500 tabular-nums bg-red-100/60">
+                {total.inasist}
+              </td>
+            </>
+          )}
+        </tr>
+        )
+      })}
+    </tbody>
+  </table>
+  )
+})
 
 export default function SubjectPage() {
   const { subjectId } = useParams()
@@ -298,12 +593,6 @@ export default function SubjectPage() {
   // event delegation on the table (see handleGradeTableHover below) instead
   // of one handler per cell.
   const [hoverGradeCell, setHoverGradeCell] = useState({ row: null, col: null })
-  // Efecto de cruz de Asistencias: nodos DOM cacheados por columna/día (ver
-  // attendanceTableJsx) para resaltar con classList directo, sin state.
-  const attColElsRef = useRef(new Map())
-  const attDayElRef = useRef(new Map())
-  const attLastHoverRef = useRef({ col: null, day: null })
-  const attActiveCellRef = useRef(null)
 
   // Asistencias — un documento por hora de clase (fecha + slot), ver utils/attendance.js
   const [attendanceRecords, setAttendanceRecords] = useState([])
@@ -319,26 +608,6 @@ export default function SubjectPage() {
   const [reasonModal, setReasonModal] = useState(null)
   const [reasonText, setReasonText] = useState('')
   const longPress = useRef({ timer: null, fired: false })
-
-  // Precalienta el hover de Asistencias: recorre cada columna/día en tiempo
-  // ocioso (classList.add + remove inmediato, invisible) para que el
-  // navegador ya haya resuelto estilo/paint de esas celdas ANTES de que el
-  // docente mueva el mouse de verdad. Sin esto, la PRIMERA vez que el cursor
-  // entra a cada columna nueva (no solo la primera de toda la tabla) paga
-  // ese costo en vivo, y se siente como una pausa a mitad del recorrido.
-  useEffect(() => {
-    if (activeTab !== 'asistencia') return undefined
-    const warmUp = () => {
-      attColElsRef.current.forEach((els) => {
-        els.forEach((el) => { el.classList.add('att-col-hover'); el.classList.remove('att-col-hover') })
-      })
-      attDayElRef.current.forEach((el) => { el.classList.add('att-day-hover'); el.classList.remove('att-day-hover') })
-    }
-    const ric = typeof requestIdleCallback === 'function' ? requestIdleCallback : (fn) => setTimeout(fn, 200)
-    const cic = typeof cancelIdleCallback === 'function' ? cancelIdleCallback : clearTimeout
-    const id = ric(warmUp)
-    return () => cic(id)
-  }, [activeTab, attendanceRecords, groupStudents, searchAttendance])
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -790,6 +1059,30 @@ export default function SubjectPage() {
     e.preventDefault()
     openReasonModal(record, student)
   }
+
+  // Wrappers de identidad ESTABLE para AttendanceTable (React.memo): cada uno
+  // de estos handlers cierra sobre `subjectId`/`attendanceRecords` (vía
+  // handleCycleAttendance/loadAttendance) que SÍ cambian si el docente pasa a
+  // otra asignatura sin recargar la página (useParams no desmonta el
+  // componente) — congelarlos con useCallback([]) directamente sería
+  // incorrecto (clausura obsoleta). Este patrón de "ref a la última
+  // implementación" da una función que NUNCA cambia de identidad (lo que
+  // React.memo necesita para saltarse el re-render) pero siempre ejecuta la
+  // versión más reciente.
+  const cellClickRef = useRef(); cellClickRef.current = cellClick
+  const cellContextMenuRef = useRef(); cellContextMenuRef.current = cellContextMenu
+  const cellPointerDownRef = useRef(); cellPointerDownRef.current = cellPointerDown
+  const cancelLongPressRef = useRef(); cancelLongPressRef.current = cancelLongPress
+  const stableCellClick = useCallback((record, student) => cellClickRef.current(record, student), [])
+  const stableCellContextMenu = useCallback((e, record, student) => cellContextMenuRef.current(e, record, student), [])
+  const stableCellPointerDown = useCallback((e, record, student) => cellPointerDownRef.current(e, record, student), [])
+  const stableCancelLongPress = useCallback(() => cancelLongPressRef.current(), [])
+  // setDeleteAttendanceConfirm/setActiveTab/setShowAddAttendance son setters
+  // de useState — React los garantiza estables, así que estos SÍ pueden
+  // llevar deps vacías sin riesgo de obsolescencia.
+  const stableDeleteDay = useCallback((fecha) => setDeleteAttendanceConfirm({ fecha }), [])
+  const stableAttBack = useCallback(() => setActiveTab('actividades'), [])
+  const stableAddDay = useCallback(() => setShowAddAttendance(true), [])
 
   // Guarda el motivo y deja la celda en "justificada".
   async function handleSaveReason() {
@@ -2422,279 +2715,21 @@ export default function SubjectPage() {
     (s.username || '').toLowerCase().includes(searchAlumnos.trim().toLowerCase())
   )
 
-  // Tabla de asistencias compartida por la vista web y la vista horizontal de la
-  // app. En la app se ocultan las columnas de Totales (esos se ven en la web) y
-  // el encabezado queda fijo (sticky) para que solo scrolleen los datos.
-  // Memoizado: sin esto, la tabla completa (potencialmente miles de celdas)
-  // se reconstruía en CADA re-render del componente — incluyendo escribir en
-  // el modal de Justificación o hacer clic en Cancelar/Guardar, lo que hacía
-  // que el propio modal se sintiera trabado (no era el modal: era React
-  // reconciliando toda la tabla de fondo en cada tecla/clic). Las funciones
-  // (cellClick, cellContextMenu, etc.) se omiten del arreglo de dependencias
-  // a propósito: son declaraciones `function` normales que se recrean en
-  // cada render pero SIN capturar estado que cambie entre renders (solo
-  // setters estables y los parámetros que reciben), así que no hay riesgo
-  // real de clausuras obsoletas.
-  const attendanceTableJsx = useMemo(() => {
-    const dayColW = IS_NATIVE_APP ? 'w-[42px]' : 'w-9'   // columnas de asistencia +15% en la app
-    const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
-    const now = new Date()
-    const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-
-    // Efecto "cruz" (fila + columna): un índice de columna secuencial por cada
-    // sesión (compartido entre encabezado y cuerpo vía data-col). El resaltado
-    // se aplica con classList directo sobre nodos DOM cacheados (ver refs de
-    // más arriba), no con React state ni con CSS :has() — ambos alternativas
-    // resultaron más lentas: state dispara un re-render de toda la tabla en
-    // cada cambio de columna, y :has(:hover) obliga al navegador a
-    // re-evaluar la tabla completa en cada pixel de movimiento del mouse.
-    // classList.add/remove es la vía nativa más barata que existe para esto.
-    attColElsRef.current = new Map()
-    attDayElRef.current = new Map()
-    const attColIndexById = {}
-    const attColToDay = {}
-    let _attCol = 0
-    attendanceParciales.forEach((g) => {
-      g.days.forEach(({ fecha, records }) => {
-        records.forEach((r) => { attColIndexById[r.id] = _attCol; attColToDay[_attCol] = fecha; _attCol++ })
-      })
-    })
-    const addAttColEl = (col) => (el) => {
-      if (!el) return
-      const arr = attColElsRef.current.get(col) || []
-      arr.push(el)
-      attColElsRef.current.set(col, arr)
-    }
-    const setAttDayEl = (fecha) => (el) => { if (el) attDayElRef.current.set(fecha, el) }
-    const clearAttHighlight = () => {
-      const { col, day } = attLastHoverRef.current
-      if (col != null) (attColElsRef.current.get(col) || []).forEach((el) => el.classList.remove('att-col-hover'))
-      if (day != null) attDayElRef.current.get(day)?.classList.remove('att-day-hover')
-      attActiveCellRef.current?.classList.remove('att-cell-active')
-      attActiveCellRef.current = null
-      attLastHoverRef.current = { col: null, day: null }
-    }
-    // La celda exacta (fila+columna) se rastrea por identidad de nodo, no solo
-    // por columna, para que el resaltado "fuerte" se mueva también al cambiar
-    // de fila dentro de la misma columna.
-    const handleAttHover = (e) => {
-      const cellEl = e.target.closest('[data-col]')
-      if (cellEl === attActiveCellRef.current) return
-      const col = cellEl ? Number(cellEl.getAttribute('data-col')) : null
-      if (col !== attLastHoverRef.current.col) {
-        if (attLastHoverRef.current.col != null) (attColElsRef.current.get(attLastHoverRef.current.col) || []).forEach((el) => el.classList.remove('att-col-hover'))
-        if (attLastHoverRef.current.day != null) attDayElRef.current.get(attLastHoverRef.current.day)?.classList.remove('att-day-hover')
-        const day = col != null ? (attColToDay[col] ?? null) : null
-        if (col != null) (attColElsRef.current.get(col) || []).forEach((el) => el.classList.add('att-col-hover'))
-        if (day != null) attDayElRef.current.get(day)?.classList.add('att-day-hover')
-        attLastHoverRef.current = { col, day }
-      }
-      attActiveCellRef.current?.classList.remove('att-cell-active')
-      attActiveCellRef.current = cellEl?.classList.contains('att-cell') ? cellEl : null
-      attActiveCellRef.current?.classList.add('att-cell-active')
-    }
-
-    return (
-    <table onMouseOver={handleAttHover} onFocus={handleAttHover} onMouseLeave={clearAttHighlight}
-      className={`${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
-      <colgroup>
-        <col className="w-8" />
-        <col className="w-[210px]" />
-        {attendanceParciales.flatMap((g) => [
-          ...g.days.flatMap(({ records }) => records.map((r) => <col key={r.id} className={dayColW} />)),
-          <col key={`ca-${g.parcial}`} className="w-10" />,
-          <col key={`ci-${g.parcial}`} className="w-10" />,
-        ])}
-        {!IS_NATIVE_APP && <col className="w-10" />}
-        {!IS_NATIVE_APP && <col className="w-10" />}
-      </colgroup>
-      <thead className="sticky top-0 z-30 bg-accent-light">
-        {/* Fila de parcial — nivel superior, abarca sus días + su resumen */}
-        <tr className="bg-accent-light border-b border-outline-variant">
-          {IS_NATIVE_APP ? (
-            /* Esquina fija: Regresar + ASISTENCIAS + Agregar día en UNA sola celda
-               (sin línea divisoria), para darle más ancho al botón de regresar. */
-            <th colSpan={2} rowSpan={2} className="sticky left-0 z-30 bg-accent-light px-2 align-middle border-r border-outline-variant">
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
-                  className="flex-none px-2.5 py-1 -ml-1 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
-                  <ArrowLeft size={20} />
-                </button>
-                <span className="text-xs font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
-                <button type="button" onClick={() => setShowAddAttendance(true)}
-                  className="ml-auto flex items-center gap-1 px-2 py-1 bg-accent text-white text-[11px] font-medium rounded hover:bg-accent-hover transition-colors">
-                  <CalendarPlus size={13} /> Agregar día
-                </button>
-              </div>
-            </th>
-          ) : (
-            <>
-              <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-              <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
-            </>
-          )}
-          {attendanceParciales.map((g) => (
-            <th key={g.parcial} colSpan={g.slotCount + 2}
-              className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
-              Parcial {g.parcial}
-            </th>
-          ))}
-          {!IS_NATIVE_APP && (
-            <th colSpan={2}
-              className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
-              Totales
-            </th>
-          )}
-        </tr>
-        {/* Fila de mes — celda "Mes Año" que abarca sus días */}
-        <tr className="bg-accent-light/70 border-b border-outline-variant">
-          {!IS_NATIVE_APP && (
-            <>
-              <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-              <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant" />
-            </>
-          )}
-          {attendanceParciales.flatMap((g) => [
-            ...g.months.map((mo) => (
-              <th key={`m-${g.parcial}-${mo.ym}`} colSpan={mo.days.reduce((n, d) => n + d.records.length, 0)}
-                className="px-1 py-0.5 font-semibold text-accent text-center text-[10px] border-l border-outline-variant whitespace-nowrap">
-                {fmtAttMonth(mo.ym)}
-              </th>
-            )),
-            <th key={`res-${g.parcial}`} colSpan={2}
-              className="px-0.5 py-0.5 text-center text-[9px] font-semibold text-muted uppercase border-l-2 border-outline">
-              Resumen
-            </th>,
-          ])}
-          {!IS_NATIVE_APP && <th colSpan={2} className="border-l-2 border-outline" />}
-        </tr>
-        {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
-        <tr className="bg-accent-light/60 border-b border-outline-variant">
-          <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
-          <th className={`sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-left' : 'text-right'} text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate`}>
-            {IS_NATIVE_APP ? 'Estudiante / Día:' : 'Día:'}
-          </th>
-          {attendanceParciales.flatMap((g) => [
-            ...g.days.map(({ fecha, records }) => {
-              const { dia, mes, anio } = fmtAttDateParts(fecha)
-              return (
-                <th key={fecha} colSpan={records.length}
-                  ref={setAttDayEl(fecha)}
-                  onClick={() => setDeleteAttendanceConfirm({ fecha })}
-                  data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
-                  className={`px-0.5 py-1 font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
-                  {dia}
-                </th>
-              )
-            }),
-            <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial"
-              className="px-0.5 py-1 text-center border-l-2 border-outline">
-              <CheckIcon size={13} className="inline text-green-600" />
-            </th>,
-            <th key={`hi-${g.parcial}`} data-tooltip="Inasistencias del parcial"
-              className="px-0.5 py-1 text-center">
-              <X size={13} className="inline text-red-500" />
-            </th>,
-          ])}
-          {!IS_NATIVE_APP && (
-            <>
-              <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
-                <CheckIcon size={13} className="inline text-green-600" />
-              </th>
-              <th data-tooltip="Total de inasistencias" className="px-0.5 py-1 text-center">
-                <X size={13} className="inline text-red-500" />
-              </th>
-            </>
-          )}
-        </tr>
-        {/* Renglón de sesión — solo web; en la app se oculta para ganar espacio.
-            La etiqueta "Estudiante" pasa al renglón de Día (Estudiante / Día:). */}
-        {!IS_NATIVE_APP && (
-          <tr className="bg-accent-light/50 border-b border-outline-variant">
-            <th className="sticky left-0 z-10 bg-accent-light w-8 border-r border-outline-variant" />
-            <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-0.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant truncate">
-              Estudiante / Número de la sesión
-            </th>
-            {attendanceParciales.flatMap((g) => [
-              ...g.days.flatMap(({ fecha, records }) => records.map((r) => (
-                <th key={r.id} data-col={attColIndexById[r.id]} ref={addAttColEl(attColIndexById[r.id])} className={`w-9 px-0.5 py-0.5 text-center text-[10px] font-medium text-muted border-l border-outline-variant ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
-                  {records.length > 1 ? r.slot : ''}
-                </th>
-              ))),
-              <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
-              <th key={`si-${g.parcial}`} />,
-            ])}
-            <th className="border-l-2 border-outline" />
-            <th />
-          </tr>
-        )}
-      </thead>
-      <tbody>
-        {filteredAttendanceStudents.map((s, i) => {
-          const total = countPresence(attendanceAllRecords, s.id)
-          return (
-          <tr key={s.id} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
-            <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
-              {s.orden}
-            </td>
-            <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 ${IS_NATIVE_APP ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant truncate transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
-              {studentFullName(s)}
-            </td>
-            {attendanceParciales.flatMap((g) => {
-              const { asist, inasist } = countPresence(g.records, s.id)
-              return [
-                ...g.days.flatMap(({ fecha, records }) => records.map((r) => {
-                  const estado = attendanceState(r, s.id)
-                  const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
-                  const ui = {
-                    presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
-                    falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} /> },
-                    justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
-                  }[estado]
-                  return (
-                    <td key={r.id}
-                      data-col={attColIndexById[r.id]}
-                      ref={addAttColEl(attColIndexById[r.id])}
-                      onClick={() => cellClick(r, s)}
-                      onContextMenu={(e) => cellContextMenu(e, r, s)}
-                      onPointerDown={(e) => cellPointerDown(e, r, s)}
-                      onPointerUp={cancelLongPress}
-                      onPointerMove={cancelLongPress}
-                      onPointerLeave={cancelLongPress}
-                      className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
-                      <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
-                        {ui.icon}
-                        {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
-                      </span>
-                    </td>
-                  )
-                })),
-                <td key={`a-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-green-600 tabular-nums bg-green-50 border-l-2 border-outline">
-                  {asist}
-                </td>,
-                <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-red-500 tabular-nums bg-red-50">
-                  {inasist}
-                </td>,
-              ]
-            })}
-            {!IS_NATIVE_APP && (
-              <>
-                <td className="px-0.5 py-1 text-center font-bold text-green-600 tabular-nums bg-green-100/60 border-l-2 border-outline">
-                  {total.asist}
-                </td>
-                <td className="px-0.5 py-1 text-center font-bold text-red-500 tabular-nums bg-red-100/60">
-                  {total.inasist}
-                </td>
-              </>
-            )}
-          </tr>
-          )
-        })}
-      </tbody>
-    </table>
-    )
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- cellClick/cellContextMenu/cellPointerDown/switchTab: ver comentario arriba
-  }, [attendanceParciales, filteredAttendanceStudents, attendanceAllRecords])
+  // Tabla de asistencias — ver componente AttendanceTable (memo) arriba.
+  const attendanceTableJsx = (
+    <AttendanceTable
+      attendanceParciales={attendanceParciales}
+      filteredAttendanceStudents={filteredAttendanceStudents}
+      attendanceAllRecords={attendanceAllRecords}
+      onCellClick={stableCellClick}
+      onCellContextMenu={stableCellContextMenu}
+      onCellPointerDown={stableCellPointerDown}
+      onCancelLongPress={stableCancelLongPress}
+      onDeleteDay={stableDeleteDay}
+      onBack={stableAttBack}
+      onAddDay={stableAddDay}
+    />
+  )
 
   // Leyenda de estados de asistencia (compartida web/app).
   const attendanceLegend = (
