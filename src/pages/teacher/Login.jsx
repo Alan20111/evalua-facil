@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  GoogleAuthProvider,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
-  signInWithPopup,
 } from 'firebase/auth'
 import { auth } from '../../firebase'
 import { useToast } from '../../components/Toast'
@@ -12,7 +10,7 @@ import Spinner from '../../components/Spinner'
 import GoogleIcon from '../../components/GoogleIcon'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
-import { createTeacherAccountIfNew } from '../../utils/googleAuth'
+import { createTeacherAccountIfNew, signInWithGoogle } from '../../utils/googleAuth'
 import LinkAccountModal from '../../components/LinkAccountModal'
 
 export default function TeacherLogin() {
@@ -28,8 +26,8 @@ export default function TeacherLogin() {
   async function handleGoogleSignIn() {
     setGoogleLoading(true)
     try {
-      const result = await signInWithPopup(auth, new GoogleAuthProvider())
-      await createTeacherAccountIfNew(result.user)
+      const user = await signInWithGoogle()
+      await createTeacherAccountIfNew(user)
       navigate('/dashboard')
     } catch (err) {
       if (err.code === 'auth/account-exists-with-different-credential') {
