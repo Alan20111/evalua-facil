@@ -303,6 +303,7 @@ export default function SubjectPage() {
   const attColElsRef = useRef(new Map())
   const attDayElRef = useRef(new Map())
   const attLastHoverRef = useRef({ col: null, day: null })
+  const attActiveCellRef = useRef(null)
 
   // Asistencias — un documento por hora de clase (fecha + slot), ver utils/attendance.js
   const [attendanceRecords, setAttendanceRecords] = useState([])
@@ -2431,18 +2432,28 @@ export default function SubjectPage() {
       const { col, day } = attLastHoverRef.current
       if (col != null) (attColElsRef.current.get(col) || []).forEach((el) => el.classList.remove('att-col-hover'))
       if (day != null) attDayElRef.current.get(day)?.classList.remove('att-day-hover')
+      attActiveCellRef.current?.classList.remove('att-cell-active')
+      attActiveCellRef.current = null
       attLastHoverRef.current = { col: null, day: null }
     }
+    // La celda exacta (fila+columna) se rastrea por identidad de nodo, no solo
+    // por columna, para que el resaltado "fuerte" se mueva también al cambiar
+    // de fila dentro de la misma columna.
     const handleAttHover = (e) => {
       const cellEl = e.target.closest('[data-col]')
+      if (cellEl === attActiveCellRef.current) return
       const col = cellEl ? Number(cellEl.getAttribute('data-col')) : null
-      if (col === attLastHoverRef.current.col) return
-      clearAttHighlight()
-      if (col == null) return
-      const day = attColToDay[col] ?? null
-      ;(attColElsRef.current.get(col) || []).forEach((el) => el.classList.add('att-col-hover'))
-      if (day != null) attDayElRef.current.get(day)?.classList.add('att-day-hover')
-      attLastHoverRef.current = { col, day }
+      if (col !== attLastHoverRef.current.col) {
+        if (attLastHoverRef.current.col != null) (attColElsRef.current.get(attLastHoverRef.current.col) || []).forEach((el) => el.classList.remove('att-col-hover'))
+        if (attLastHoverRef.current.day != null) attDayElRef.current.get(attLastHoverRef.current.day)?.classList.remove('att-day-hover')
+        const day = col != null ? (attColToDay[col] ?? null) : null
+        if (col != null) (attColElsRef.current.get(col) || []).forEach((el) => el.classList.add('att-col-hover'))
+        if (day != null) attDayElRef.current.get(day)?.classList.add('att-day-hover')
+        attLastHoverRef.current = { col, day }
+      }
+      attActiveCellRef.current?.classList.remove('att-cell-active')
+      attActiveCellRef.current = cellEl?.classList.contains('att-cell') ? cellEl : null
+      attActiveCellRef.current?.classList.add('att-cell-active')
     }
 
     return (
