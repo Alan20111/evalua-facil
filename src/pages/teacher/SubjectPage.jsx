@@ -2347,11 +2347,15 @@ export default function SubjectPage() {
 
   // Al ordenar: 20% con MAYOR promedio → fondo verde (candidatos a concursos);
   // 20% con MENOR promedio → fondo naranja (requieren atención para no desertar).
-  // Solo entre estudiantes con promedio en el criterio elegido.
-  const gradeHlCount = gradeSortOn ? Math.max(1, Math.round(sortedGradeRows.length * 0.2)) : 0
+  // El 20% se calcula sobre los estudiantes QUE YA TIENEN promedio (no sobre el
+  // total): si pocos tienen calificación, el top no debe absorberlos a todos.
   const rankedConProm = gradeSortOn ? sortedGradeRows.filter((r) => gradeSortValue(r) != null) : []
+  const gradeHlCount = gradeSortOn ? Math.max(1, Math.round(rankedConProm.length * 0.2)) : 0
   const gradeTopIds = new Set(rankedConProm.slice(0, gradeHlCount).map((r) => r.s.id))
-  const gradeBottomIds = new Set(rankedConProm.slice(-gradeHlCount).map((r) => r.s.id))
+  // El naranja excluye a quienes ya son verdes (grupos chicos donde se traslapan).
+  const gradeBottomIds = new Set(
+    rankedConProm.slice(-gradeHlCount).map((r) => r.s.id).filter((id) => !gradeTopIds.has(id))
+  )
 
   // Filas del ranking (LUGAR, Nombre, Promedio) ordenadas por el parcial
   // elegido (null = general) — para exportar a Excel/PDF.
