@@ -913,6 +913,7 @@ export default function ActivityPage() {
               value={searchStudents}
               onChange={setSearchStudents}
               placeholder="Buscar por nombre o por número de lista…"
+              autoFocus={!IS_NATIVE_APP}
             />
           </div>
           {!IS_NATIVE_APP && (

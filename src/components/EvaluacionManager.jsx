@@ -1287,6 +1287,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   value={searchResultados}
                   onChange={setSearchResultados}
                   placeholder="Buscar por nombre o por número de lista…"
+                  autoFocus={!IS_NATIVE_APP}
                 />
               </div>
               {/* Lista por estudiante — cada fila abre la revisión de pantalla
