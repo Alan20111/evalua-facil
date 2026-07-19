@@ -2292,6 +2292,13 @@ export default function SubjectPage() {
   }
 
   // Pre-compute grade rows
+  // Orden por promedio (mayor a menor) con columna LUGAR — opcional, por parcial
+  // o general. El número de lista del estudiante (No.) NO cambia; LUGAR es su
+  // posición en el ranking.
+  const [gradeSortOn, setGradeSortOn] = useState(false)
+  const [gradeSortParcial, setGradeSortParcial] = useState(null) // null = general
+  const [gradeSortMenuOpen, setGradeSortMenuOpen] = useState(false)
+
   const gradeRows = filteredGradeStudents.map((s) => {
     const parcialData = tableParcials.map(({ p, acts }) => {
       const grades = acts.map((a) => {
@@ -2315,6 +2322,25 @@ export default function SubjectPage() {
       : null
     return { s, parcialData, finalAvg }
   })
+
+  // Valor por el que se ordena (promedio del parcial elegido o el general).
+  const gradeSortValue = (row) => gradeSortParcial == null
+    ? row.finalAvg
+    : (row.parcialData.find((pd) => pd.p === gradeSortParcial)?.avg ?? null)
+  const sortedGradeRows = gradeSortOn
+    ? [...gradeRows].sort((a, b) => {
+        const av = gradeSortValue(a)
+        const bv = gradeSortValue(b)
+        if (av == null && bv == null) return 0
+        if (av == null) return 1      // sin promedio → al final
+        if (bv == null) return -1
+        return bv - av                // mayor a menor
+      })
+    : gradeRows
+  // Offsets de las columnas fijas: cuando hay ranking, LUGAR (w-8) va en left-0 y
+  // No./Nombre se recorren una columna a la derecha.
+  const gradeNoLeft = gradeSortOn ? 'left-8' : 'left-0'
+  const gradeNameLeft = gradeSortOn ? 'left-16' : 'left-8'
 
   const activationUrl = `${window.location.origin}/activate/${subject?.accessCode}`
   const filteredAlumnos = groupStudents.filter((s) =>
@@ -3073,6 +3099,41 @@ export default function SubjectPage() {
                   {anyPonderacionOn && (
                     <span className="text-xs text-muted">Asigna un peso a cada actividad (deben sumar 10 por parcial para exportar).</span>
                   )}
+                  {/* Ordenar de mayor a menor por promedio (con columna LUGAR).
+                      Los 3 puntitos eligen el parcial; sin elegir, es el general. */}
+                  <div className="ml-auto flex items-center gap-1 relative">
+                    <button type="button" onClick={() => setGradeSortOn((v) => !v)}
+                      data-tooltip={gradeSortOn ? 'Ordenado de mayor a menor' : 'Ordenar por promedio, de mayor a menor'}
+                      className={`px-3 py-1.5 rounded-l text-xs font-bold uppercase tracking-wide transition-colors ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
+                      Ordenar de mayor a menor{gradeSortOn ? ` · ${gradeSortParcial == null ? 'General' : `P${gradeSortParcial}`}` : ''}
+                    </button>
+                    <button type="button" onClick={() => setGradeSortMenuOpen((v) => !v)}
+                      aria-label="Elegir parcial para ordenar" data-tooltip="Elegir parcial (o general)"
+                      className={`px-1.5 py-1.5 rounded-r transition-colors ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
+                      <MoreVertical size={15} />
+                    </button>
+                    {gradeSortOn && (
+                      <button type="button" onClick={() => { setGradeSortOn(false); setGradeSortMenuOpen(false) }}
+                        aria-label="Volver al orden normal" data-tooltip="Volver al orden normal"
+                        className="p-1 text-slate-400 hover:text-red-500 rounded">
+                        <X size={16} />
+                      </button>
+                    )}
+                    {gradeSortMenuOpen && (
+                      <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[170px]">
+                        <button type="button" onClick={() => { setGradeSortParcial(null); setGradeSortOn(true); setGradeSortMenuOpen(false) }}
+                          className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent-tint)] ${gradeSortParcial == null ? 'font-bold text-accent' : 'text-on-surface'}`}>
+                          General (promedio final)
+                        </button>
+                        {PARCIALES.map((p) => (
+                          <button key={p} type="button" onClick={() => { setGradeSortParcial(p); setGradeSortOn(true); setGradeSortMenuOpen(false) }}
+                            className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent-tint)] ${gradeSortParcial === p ? 'font-bold text-accent' : 'text-on-surface'}`}>
+                            Parcial {p}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
@@ -3093,6 +3154,7 @@ export default function SubjectPage() {
                         colgroup is the only reliable way to size each real
                         column regardless of the header's rowspan/colspan. */}
                     <colgroup>
+                      {gradeSortOn && <col className="w-8" />}
                       <col className="w-8" />
                       <col className="w-[210px]" />
                       {tableParcials.map(({ p, acts }) => [
@@ -3103,8 +3165,9 @@ export default function SubjectPage() {
                     </colgroup>
                     <thead>
                       <tr className="bg-accent-light border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />
-                        <th className="sticky left-8 z-20 bg-accent-light w-[210px] px-2 py-1.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant" />
+                        {gradeSortOn && <th className="sticky left-0 z-20 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant" />}
+                        <th className={`sticky ${gradeNoLeft} z-10 bg-accent-light w-8 px-1 py-1.5 border-r border-outline-variant`} />
+                        <th className={`sticky ${gradeNameLeft} z-20 bg-accent-light w-[210px] px-2 py-1.5 text-left text-[10px] font-bold text-muted uppercase tracking-wide border-r border-outline-variant`} />
                         {tableParcials.map(({ p, acts }) => (
                           <th key={p} colSpan={acts.length + 1}
                             className="px-1.5 py-1 font-semibold text-accent text-center border-l border-outline-variant whitespace-nowrap">
@@ -3139,8 +3202,9 @@ export default function SubjectPage() {
                           "Activar" button instead. */}
                       {anyPonderacionOn && (
                         <tr className="bg-amber-50 border-b border-amber-200">
-                          <th className="sticky left-0 z-10 bg-amber-50 w-8 px-1 py-1 border-r border-outline-variant" />
-                          <th className="sticky left-8 z-10 bg-amber-50 w-[210px] px-2 py-1 border-r border-outline-variant">
+                          {gradeSortOn && <th className="sticky left-0 z-10 bg-amber-50 w-8 px-1 py-1 border-r border-outline-variant" />}
+                          <th className={`sticky ${gradeNoLeft} z-10 bg-amber-50 w-8 px-1 py-1 border-r border-outline-variant`} />
+                          <th className={`sticky ${gradeNameLeft} z-10 bg-amber-50 w-[210px] px-2 py-1 border-r border-outline-variant`}>
                             <div className="flex items-center justify-end gap-1.5">
                               <button type="button" onClick={togglePonderacionVisible}
                                 aria-label={subject?.ponderacionVisibleAlumnos
@@ -3214,10 +3278,15 @@ export default function SubjectPage() {
                         </tr>
                       )}
                       <tr className="bg-accent-light border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1.5 text-center font-medium text-muted border-r border-outline-variant whitespace-nowrap">
+                        {gradeSortOn && (
+                          <th className="sticky left-0 z-20 bg-accent-light w-8 px-1 py-1.5 text-center font-bold text-accent border-r border-outline-variant whitespace-nowrap">
+                            LUGAR
+                          </th>
+                        )}
+                        <th className={`sticky ${gradeNoLeft} z-10 bg-accent-light w-8 px-1 py-1.5 text-center font-medium text-muted border-r border-outline-variant whitespace-nowrap`}>
                           No.
                         </th>
-                        <th className="sticky left-8 z-10 bg-accent-light w-[210px] px-2 py-1.5 text-left font-medium text-muted border-r border-outline-variant whitespace-nowrap">
+                        <th className={`sticky ${gradeNameLeft} z-10 bg-accent-light w-[210px] px-2 py-1.5 text-left font-medium text-muted border-r border-outline-variant whitespace-nowrap`}>
                           Estudiante / Actividad
                         </th>
                         {tableParcials.map(({ p, acts }) => [
@@ -3244,15 +3313,20 @@ export default function SubjectPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {gradeRows.map(({ s, parcialData, finalAvg }, i) => (
+                      {sortedGradeRows.map(({ s, parcialData, finalAvg }, i) => (
                         <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          {gradeSortOn && (
+                            <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center font-bold text-accent border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                              {i + 1}
+                            </td>
+                          )}
+                          <td className={`sticky ${gradeNoLeft} z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             {s.orden}
                           </td>
                           {/* data-tooltip goes on an INNER span, never on this td:
                               [data-tooltip] forces position:relative, which would
                               override `sticky` and let left-8 shove the cell right */}
-                          <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
+                          <td className={`sticky ${gradeNameLeft} z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'}`}>
                             <span
                               className="block truncate"
                               data-tooltip={!s.activado ? 'Este estudiante aún no ha activado su cuenta — no puede entrar ni entregar' : undefined}
