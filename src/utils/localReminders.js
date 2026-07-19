@@ -73,15 +73,46 @@ export async function refreshTeacherReminders(uid) {
       }
     }
 
+    // Solo diagnóstico aquí (no interrumpe con una pantalla de ajustes en
+    // cada refresh) — ver requestExactAlarmAccess para el flujo que sí
+    // dirige al docente a concederlo, disparado explícitamente al activar
+    // un recordatorio en Ajustes. Sin este permiso, Android agenda alarmas
+    // INEXACTAS que pueden retrasarse mucho o no entregarse a tiempo.
+    try {
+      const exacta = await LocalNotifications.checkExactNotificationSetting?.()
+      if (exacta && exacta.exact_alarm !== 'granted') {
+        console.warn(`[localReminders] alarmas exactas no concedidas (exact_alarm=${exacta.exact_alarm}) — los avisos pueden llegar tarde o no llegar`)
+      }
+    } catch { /* método puede no existir en versiones viejas del plugin */ }
+
     const settingsSnap = await getDoc(doc(db, 'notificationSettings', uid))
     const settings = settingsSnap.exists() ? settingsSnap.data() : {}
     const clase = settings.recordatorioClase || { habilitado: false }
     const evento = settings.recordatorioEvento || { habilitado: false }
 
-    // Cancela todo lo nuestro antes de reprogramar — evita duplicados y
-    // avisos obsoletos si el docente cambió horario/eventos o el ajuste.
+    // Cancela lo nuestro antes de reprogramar — evita duplicados y avisos
+    // obsoletos si el docente cambió horario/eventos o el ajuste.
+    //
+    // OJO — bug real encontrado en depuración con dispositivo: esta función
+    // se dispara en CADA resume de la app (además de login/settings/crear
+    // evento), y antes cancelaba TODO lo pendiente sin excepción. Un aviso
+    // ya disparado por AlarmManager pero que Android aún no entrega (alarma
+    // inexacta bajo Doze/ahorro de batería puede tardar más de lo
+    // programado) quedaba cancelado por el siguiente resume ANTES de
+    // mostrarse — reproducido: evento a las 16:25, el docente cambió de app
+    // a las 16:56, el resume canceló el aviso porque para entonces "ya
+    // pasó" y no calificaba para reprogramarse. Se deja un margen: no se
+    // toca un aviso nuestro cuya hora ya pasó hace menos de este margen,
+    // dándole tiempo a Android de entregarlo.
+    const GRACIA_CANCELACION_MS = 60 * 60 * 1000 // 60 min
+    const nowMs = Date.now()
     const pending = await LocalNotifications.getPending()
-    const ours = pending.notifications.filter((n) => n.id >= 1_200_000_000)
+    const ours = pending.notifications.filter((n) => {
+      if (n.id < 1_200_000_000) return false
+      const at = n.schedule?.at ? new Date(n.schedule.at).getTime() : null
+      if (at != null && at <= nowMs && nowMs - at < GRACIA_CANCELACION_MS) return false
+      return true
+    })
     if (ours.length) await LocalNotifications.cancel({ notifications: ours.map((n) => ({ id: n.id })) })
 
     const now = new Date()
@@ -132,4 +163,25 @@ export function installReminderResumeListener(uid) {
   CapacitorApp.addListener('appStateChange', ({ isActive }) => {
     if (isActive) refreshTeacherReminders(uid)
   })
+}
+
+// Sin el acceso especial "Alarmas y recordatorios" (Android 12+), el plugin
+// cae a alarmas INEXACTAS: el aviso de clase/evento puede retrasarse mucho o
+// no llegar. A diferencia del permiso normal de notificaciones, este NO
+// tiene un diálogo — solo se concede llevando al docente a una pantalla de
+// Ajustes del sistema (changeExactNotificationSetting), así que solo se
+// llama a propósito (al activar un recordatorio en Ajustes), no en cada
+// refresh silencioso.
+export async function requestExactAlarmAccess() {
+  if (!Capacitor.isNativePlatform()) return true
+  try {
+    if (!LocalNotifications.checkExactNotificationSetting) return true // plugin viejo, no aplica
+    const current = await LocalNotifications.checkExactNotificationSetting()
+    if (current.exact_alarm === 'granted') return true
+    const result = await LocalNotifications.changeExactNotificationSetting()
+    return result.exact_alarm === 'granted'
+  } catch (err) {
+    console.error('[localReminders] requestExactAlarmAccess falló:', err)
+    return false
+  }
 }

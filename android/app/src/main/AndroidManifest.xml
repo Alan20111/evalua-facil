@@ -36,4 +36,14 @@
     <!-- Notificaciones push/locales (Android 13+ las requiere en runtime también,
          pero el permiso debe declararse aquí para poder pedirlo). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Sin esto, @capacitor/local-notifications cae a alarmas INEXACTAS en
+         Android 12+ (AlarmManager.canScheduleExactAlarms() siempre false):
+         el aviso de "clase por comenzar" puede retrasarse mucho o nunca
+         entregarse bajo Doze/ahorro de batería. Confirmado en depuración con
+         dispositivo real — sin este permiso, un aviso a 5 min antes de una
+         clase no se disparó ni siquiera 30 min después. En Android 13+ el
+         docente aún debe conceder el acceso especial "Alarmas y
+         recordatorios" (ver checkExactNotificationSetting/
+         changeExactNotificationSetting en utils/localReminders.js). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 </manifest>
