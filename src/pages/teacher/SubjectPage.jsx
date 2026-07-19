@@ -2613,7 +2613,7 @@ export default function SubjectPage() {
                       onPointerMove={cancelLongPress}
                       onPointerLeave={cancelLongPress}
                       data-tooltip={ui.tip}
-                      className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none transition-colors hover:bg-[var(--accent-tint-strong)] hover:ring-1 hover:ring-inset hover:ring-[var(--accent)] ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
+                      className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
                       <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                         {ui.icon}
                         {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
