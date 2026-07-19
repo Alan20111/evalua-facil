@@ -15,6 +15,43 @@ function safeFile(subject) {
     .replace(/\s+/g, '_')
 }
 
+// Ranking report: estudiantes ordenados por promedio (mayor a menor).
+// Columnas: Lugar, No., Estudiante, Promedio. `rows` = [{ lugar, orden, nombre,
+// promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
+export async function exportRankingPDF({ subject, rows, label }) {
+  const [{ jsPDF }, autoTableMod] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ])
+  const autoTable = autoTableMod.default
+
+  const doc = new jsPDF({ orientation: 'portrait' })
+  doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
+  doc.text(`${subjectDisplayName(subject) || 'Asignatura'} — Ranking · ${label}`, 14, 16)
+  const periodo = subjectPeriodLabel(subject)
+  if (periodo) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
+    doc.text(periodo, 14, 22)
+  }
+
+  const body = rows.map((r) => [r.lugar, r.orden ?? '', r.nombre, r.promedio != null ? r.promedio.toFixed(1) : '—'])
+  autoTable(doc, {
+    startY: periodo ? 28 : 24,
+    head: [['Lugar', 'No.', 'Estudiante', label]],
+    body,
+    styles: { fontSize: 9, cellPadding: 2.5, textColor: 30 },
+    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
+    alternateRowStyles: { fillColor: [241, 245, 249] },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 16, fontStyle: 'bold' },
+      1: { halign: 'center', cellWidth: 12 },
+      3: { halign: 'center', cellWidth: 26, fontStyle: 'bold' },
+    },
+  })
+  const safeLabel = label.toLowerCase().replace(/\s+/g, '')
+  doc.save(`ranking_${safeLabel}_${safeFile(subject)}.pdf`)
+}
+
 // Grades report: one row per student with per-parcial average + final.
 export async function exportSubjectGradesPDF({ subject, activities, students, submissions }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([

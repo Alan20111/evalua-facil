@@ -94,6 +94,27 @@ export function parseStudentExcel(file) {
 // grades table header. Same format as the full export but a single parcial
 // and no Final column. When ponderación is active the caller must have
 // validated the weights sum 10 before calling.
+// Ranking export: estudiantes ordenados por promedio (mayor a menor).
+// Columnas: LUGAR, No., NOMBRE, PROMEDIO. `rows` = [{ lugar, orden, nombre,
+// promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
+export function exportRankingExcel({ subject, rows, label }) {
+  const periodo = subjectPeriodLabel(subject)
+  const titleRow = ['', '', '', '']
+  titleRow[0] = `${subjectDisplayName(subject)} — Ranking · ${label}${periodo ? `   (${periodo})` : ''}`
+  const nameRow = ['LUGAR', 'No.', 'NOMBRE', label]
+  const dataRows = rows.map((r) => [r.lugar, r.orden, r.nombre, r.promedio != null ? r.promedio : '—'])
+  const allRows = [titleRow, [], nameRow, ...dataRows]
+  const ws = XLSX.utils.aoa_to_sheet(allRows)
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }]
+  ws['!cols'] = [{ wch: 7 }, { wch: 5 }, { wch: 42 }, { wch: 14 }]
+  ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Ranking')
+  const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
+  const safeLabel = label.toLowerCase().replace(/\s+/g, '')
+  XLSX.writeFile(wb, `ranking_${safeLabel}_${safeName}.xlsx`)
+}
+
 export function exportParcialGrades({ subject, activities, students, submissions, parcial }) {
   const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
   const acts = activities
