@@ -2315,18 +2315,19 @@ export default function SubjectPage() {
   // Tabla de asistencias compartida por la vista web y la vista horizontal de la
   // app. En la app se ocultan las columnas de Totales (esos se ven en la web) y
   // el encabezado queda fijo (sticky) para que solo scrolleen los datos.
-  const renderAttendanceTable = () => (
+  const renderAttendanceTable = () => {
+    const dayColW = IS_NATIVE_APP ? 'w-[42px]' : 'w-9'   // columnas de asistencia +15% en la app
+    const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
+    return (
     <table className={`${IS_NATIVE_APP ? 'text-[11px]' : 'text-xs'} border-collapse table-fixed`}>
       <colgroup>
         <col className="w-8" />
         <col className="w-[210px]" />
         {attendanceParciales.flatMap((g) => [
-          ...g.days.flatMap(({ records }) => records.map((r) => <col key={r.id} className="w-9" />)),
+          ...g.days.flatMap(({ records }) => records.map((r) => <col key={r.id} className={dayColW} />)),
           <col key={`ca-${g.parcial}`} className="w-10" />,
           <col key={`ci-${g.parcial}`} className="w-10" />,
-          <col key={`cj-${g.parcial}`} className="w-10" />,
         ])}
-        {!IS_NATIVE_APP && <col className="w-10" />}
         {!IS_NATIVE_APP && <col className="w-10" />}
         {!IS_NATIVE_APP && <col className="w-10" />}
       </colgroup>
@@ -2358,13 +2359,13 @@ export default function SubjectPage() {
             </>
           )}
           {attendanceParciales.map((g) => (
-            <th key={g.parcial} colSpan={g.slotCount + 3}
+            <th key={g.parcial} colSpan={g.slotCount + 2}
               className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
               Parcial {g.parcial}
             </th>
           ))}
           {!IS_NATIVE_APP && (
-            <th colSpan={3}
+            <th colSpan={2}
               className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
               Totales
             </th>
@@ -2385,12 +2386,12 @@ export default function SubjectPage() {
                 {fmtAttMonth(mo.ym)}
               </th>
             )),
-            <th key={`res-${g.parcial}`} colSpan={3}
+            <th key={`res-${g.parcial}`} colSpan={2}
               className="px-0.5 py-0.5 text-center text-[9px] font-semibold text-muted uppercase border-l-2 border-outline">
               Resumen
             </th>,
           ])}
-          {!IS_NATIVE_APP && <th colSpan={3} className="border-l-2 border-outline" />}
+          {!IS_NATIVE_APP && <th colSpan={2} className="border-l-2 border-outline" />}
         </tr>
         {/* Fila de día — número de cada día + encabezados de las columnas de conteo */}
         <tr className="bg-accent-light/60 border-b border-outline-variant">
@@ -2418,10 +2419,6 @@ export default function SubjectPage() {
               className="px-0.5 py-1 text-center">
               <X size={13} className="inline text-red-500" />
             </th>,
-            <th key={`hj-${g.parcial}`} data-tooltip="Faltas justificadas del parcial"
-              className="px-0.5 py-1 text-center text-[11px] font-bold text-amber-600">
-              J
-            </th>,
           ])}
           {!IS_NATIVE_APP && (
             <>
@@ -2430,9 +2427,6 @@ export default function SubjectPage() {
               </th>
               <th data-tooltip="Total de inasistencias" className="px-0.5 py-1 text-center">
                 <X size={13} className="inline text-red-500" />
-              </th>
-              <th data-tooltip="Total de faltas justificadas" className="px-0.5 py-1 text-center text-[11px] font-bold text-amber-600">
-                J
               </th>
             </>
           )}
@@ -2453,10 +2447,8 @@ export default function SubjectPage() {
               ))),
               <th key={`sa-${g.parcial}`} className="border-l-2 border-outline" />,
               <th key={`si-${g.parcial}`} />,
-              <th key={`sj-${g.parcial}`} />,
             ])}
             <th className="border-l-2 border-outline" />
-            <th />
             <th />
           </tr>
         )}
@@ -2473,7 +2465,7 @@ export default function SubjectPage() {
               {studentFullName(s)}
             </td>
             {attendanceParciales.flatMap((g) => {
-              const { asist, inasist, justif } = countPresence(g.records, s.id)
+              const { asist, inasist } = countPresence(g.records, s.id)
               return [
                 ...g.days.flatMap(({ records }) => records.map((r) => {
                   const estado = attendanceState(r, s.id)
@@ -2492,7 +2484,7 @@ export default function SubjectPage() {
                       onPointerMove={cancelLongPress}
                       onPointerLeave={cancelLongPress}
                       data-tooltip={ui.tip}
-                      className="w-9 px-0.5 py-1 text-center border-l border-outline-variant cursor-pointer select-none transition-colors">
+                      className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none transition-colors`}>
                       <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                         {ui.icon}
                         {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
@@ -2506,9 +2498,6 @@ export default function SubjectPage() {
                 <td key={`i-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-red-500 tabular-nums bg-red-50">
                   {inasist}
                 </td>,
-                <td key={`j-${g.parcial}`} className="px-0.5 py-1 text-center font-semibold text-amber-600 tabular-nums bg-amber-50">
-                  {justif}
-                </td>,
               ]
             })}
             {!IS_NATIVE_APP && (
@@ -2519,9 +2508,6 @@ export default function SubjectPage() {
                 <td className="px-0.5 py-1 text-center font-bold text-red-500 tabular-nums bg-red-100/60">
                   {total.inasist}
                 </td>
-                <td className="px-0.5 py-1 text-center font-bold text-amber-600 tabular-nums bg-amber-100/60">
-                  {total.justif}
-                </td>
               </>
             )}
           </tr>
@@ -2529,7 +2515,8 @@ export default function SubjectPage() {
         })}
       </tbody>
     </table>
-  )
+    )
+  }
 
   // Leyenda de estados de asistencia (compartida web/app).
   const attendanceLegend = (
@@ -3401,20 +3388,23 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* Motivo de la justificación — abre con clic derecho / mantener presionado
-          sobre una celda; deja la celda en "justificada". El motivo es opcional. */}
+      {/* Motivo de la justificación — se abre al pasar una celda a "J", o con clic
+          derecho / mantener presionado. En la app va ANCHO y pegado arriba para
+          seguir usable con el teclado (que en horizontal tapa la mitad inferior). */}
       {reasonModal && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
+        <div className={`fixed inset-0 z-[80] flex justify-center px-4 ${IS_NATIVE_APP ? 'items-start pt-2' : 'items-center'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setReasonModal(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
-            <h3 className="text-base font-semibold text-on-surface">Justificar inasistencia</h3>
-            <p className="text-xs text-muted">
-              {reasonModal.studentName} ·{' '}
-              {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
-            </p>
+          <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-3xl space-y-2' : 'max-w-sm space-y-3'} p-4`}>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-on-surface whitespace-nowrap">Justificar inasistencia</h3>
+              <p className="text-xs text-muted truncate">
+                {reasonModal.studentName} ·{' '}
+                {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
+              </p>
+            </div>
             <div>
               <label htmlFor="att-motivo" className="block text-xs font-medium text-muted mb-1">Motivo (opcional)</label>
-              <textarea id="att-motivo" value={reasonText} rows={3} autoFocus
+              <textarea id="att-motivo" value={reasonText} rows={IS_NATIVE_APP ? 2 : 3} autoFocus
                 onChange={(e) => setReasonText(e.target.value)}
                 placeholder="Ej. Cita médica, permiso familiar…"
                 className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
