@@ -729,7 +729,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
         {/* Day headers */}
         <div className="grid border-b border-outline-variant sticky top-0 bg-surface-card z-10" style={{ gridTemplateColumns: gridCols }}>
           <div className="py-2 px-2" />
-          {days.map((d, i) => {
+          {days.map((d) => {
             const dStr = toDateStr(d)
             const asueto = esAsuetoAlguno(asuetoMap, dStr)
             const vacacion = esAsuetoAlguno(vacacionMap, dStr)
@@ -739,7 +739,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                 className="py-2 text-center text-xs border-l border-outline-variant"
                 style={(asueto || vacacion) ? { background: '#fffbeb' } : dStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
               >
-                <span className="block uppercase text-muted">{DIAS_CORTO[i]}</span>
+                <span className="block uppercase text-muted">{DIAS_CORTO[(d.getDay() + 6) % 7]}</span>
                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold mt-0.5 ${
                   dStr === todayStr ? 'bg-accent text-white'
                     : dStr === selStr ? 'ring-2 ring-accent text-accent'
@@ -915,6 +915,12 @@ export default function CalendarPage() {
 
   const [view, setView] = useState(() => localStorage.getItem('cal_view') || 'agenda')
   const [currentDate, setCurrentDate] = useState(new Date())
+
+  // Foco inicial en el botón "Hoy" al entrar a Horario (web y app).
+  const hoyBtnRef = useRef(null)
+  useEffect(() => {
+    hoyBtnRef.current?.focus()
+  }, [])
 
   // Rango de horas visibles del día (Agenda y Semana), configurable.
   // Ojo: getItem devuelve null si no existe y Number(null) === 0, así que hay
@@ -1577,6 +1583,7 @@ export default function CalendarPage() {
 
   const hoyBtn = (
     <button
+      ref={hoyBtnRef}
       type="button"
       onClick={goToday}
       className="text-xs px-3 py-1.5 rounded border border-outline-variant text-muted hover:bg-accent-tint transition-colors"
