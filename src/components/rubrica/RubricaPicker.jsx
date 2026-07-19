@@ -3,12 +3,11 @@ import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/fire
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, ClipboardList, ListChecks, Copy, Check, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, ClipboardList, ListChecks, Check } from 'lucide-react'
 import RubricaEditor from './RubricaEditor'
 import ListaCotejoEditor from './ListaCotejoEditor'
 import RubricaTable from './RubricaTable'
 import { esCotejo } from '../../utils/rubrica'
-import { subjectDisplayName } from '../../utils/subjectName'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -16,64 +15,18 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
 // editarlas o eliminarlas. Pantalla completa sobre el editor de entregables
 // (z-[60] > z-50); el editor de rúbricas va encima (z-[70]).
-export default function RubricaPicker({ docenteId, subjectId, onClose, onSelect }) {
+export default function RubricaPicker({ docenteId, onClose, onSelect }) {
   const toast = useToast()
   const [rubricas, setRubricas] = useState([])
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(null)      // null | 'new' | 'new-cotejo' | rubrica del banco
+  const [editing, setEditing] = useState(null)      // null | 'new' | rubrica del banco
   const [previewId, setPreviewId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
-  // "Traer de otra asignatura": elegir una asignatura y luego una rúbrica/cotejo
-  // usada en sus actividades. Al elegirla se aplica igual que "Usar".
-  const [importOpen, setImportOpen] = useState(false)
-  const [importSubjects, setImportSubjects] = useState([])
-  const [importSrc, setImportSrc] = useState(null)   // asignatura origen elegida
-  const [importRubricas, setImportRubricas] = useState([])
-  const [importLoading, setImportLoading] = useState(false)
-
   // Physical Android back button — closes the "eliminar rúbrica" confirmation,
   // mirroring its own Cancelar button.
   useBackHandler(() => setConfirmDeleteId(null), !!confirmDeleteId)
-
-  async function openImport() {
-    setImportOpen(true); setImportSrc(null); setImportRubricas([]); setImportLoading(true)
-    try {
-      const snap = await getDocs(query(collection(db, 'subjects'), where('docenteId', '==', docenteId)))
-      const subs = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        .filter((s) => s.id !== subjectId)
-        .sort((a, b) => subjectDisplayName(a).localeCompare(subjectDisplayName(b), 'es'))
-      setImportSubjects(subs)
-    } catch (err) {
-      toast('Error al cargar asignaturas: ' + err.message, 'error')
-    } finally {
-      setImportLoading(false)
-    }
-  }
-
-  async function pickImportSubject(sub) {
-    setImportSrc(sub); setImportRubricas([]); setImportLoading(true)
-    try {
-      const snap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', sub.id)))
-      // Rúbricas/cotejos ÚNICOS usados en las actividades de esa asignatura
-      const seen = new Set()
-      const found = []
-      snap.docs.map((d) => d.data()).forEach((a) => {
-        if (!a.rubrica?.criterios?.length) return
-        const key = `${a.rubrica.tipo || 'rubrica'}|${(a.rubrica.titulo || '').trim().toLowerCase()}`
-        if (seen.has(key)) return
-        seen.add(key)
-        found.push(a.rubrica)
-      })
-      found.sort((a, b) => (a.titulo || '').localeCompare(b.titulo || '', 'es'))
-      setImportRubricas(found)
-    } catch (err) {
-      toast('Error al cargar las rúbricas de esa asignatura: ' + err.message, 'error')
-    } finally {
-      setImportLoading(false)
-    }
-  }
 
   // Este componente solo se monta mientras está abierto (lo controla el padre).
   useScrollLock(true)
@@ -137,22 +90,16 @@ export default function RubricaPicker({ docenteId, subjectId, onClose, onSelect 
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-3">
-        {/* Crear rúbricas / listas de cotejo nuevas o traer de otra asignatura: solo web */}
+        {/* Crear rúbricas / listas de cotejo nuevas: solo en la web */}
         {!IS_NATIVE_APP && (
-          <div className="space-y-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button type="button" onClick={() => setEditing('new')}
-                className="w-full py-3 bg-accent text-white font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors">
-                <Plus size={18} /> Crear nueva rúbrica
-              </button>
-              <button type="button" onClick={() => setEditing('new-cotejo')}
-                className="w-full py-3 border-2 border-accent text-accent font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-[var(--accent-tint)] transition-colors">
-                <ListChecks size={18} /> Crear lista de cotejo
-              </button>
-            </div>
-            <button type="button" onClick={openImport}
-              className="w-full py-2.5 border border-dashed border-outline text-muted font-medium rounded-card flex items-center justify-center gap-2 hover:border-accent hover:text-accent transition-colors">
-              <Copy size={16} /> Traer una rúbrica o lista de cotejo de otra asignatura
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button type="button" onClick={() => setEditing('new')}
+              className="w-full py-3 bg-accent text-white font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors">
+              <Plus size={18} /> Crear nueva rúbrica
+            </button>
+            <button type="button" onClick={() => setEditing('new-cotejo')}
+              className="w-full py-3 border-2 border-accent text-accent font-semibold rounded-card flex items-center justify-center gap-2 hover:bg-[var(--accent-tint)] transition-colors">
+              <ListChecks size={18} /> Crear lista de cotejo
             </button>
           </div>
         )}
@@ -235,70 +182,6 @@ export default function RubricaPicker({ docenteId, subjectId, onClose, onSelect 
         )}
         <div className="h-6 safe-bottom" />
       </div>
-
-      {/* Traer de otra asignatura — paso 1: elegir asignatura; paso 2: elegir rúbrica/cotejo */}
-      {importOpen && (
-        <div className="fixed inset-0 z-[65] bg-surface overflow-y-auto">
-          <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
-            <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-              <button type="button" onClick={() => (importSrc ? setImportSrc(null) : setImportOpen(false))}
-                aria-label="Volver" className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
-                <ArrowLeft size={22} />
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-white/70 uppercase tracking-wide">Traer de otra asignatura</p>
-                <h1 className="text-xl font-extrabold text-white truncate">
-                  {importSrc ? subjectDisplayName(importSrc) : 'Elige la asignatura'}
-                </h1>
-              </div>
-            </div>
-          </header>
-          <div className="max-w-3xl mx-auto px-4 py-6 space-y-2">
-            {importLoading ? (
-              <div className="flex justify-center py-16"><Spinner size="lg" /></div>
-            ) : !importSrc ? (
-              importSubjects.length === 0 ? (
-                <div className="bg-surface-card rounded-card shadow-card p-10 text-center">
-                  <ClipboardList size={32} className="text-slate-300 mx-auto mb-3" />
-                  <p className="text-muted text-sm">No tienes otras asignaturas de dónde traer.</p>
-                </div>
-              ) : (
-                importSubjects.map((s) => (
-                  <button key={s.id} type="button" onClick={() => pickImportSubject(s)}
-                    className="w-full flex items-center gap-3 bg-surface-card rounded-card shadow-card p-4 text-left hover:bg-[var(--accent-tint)] transition-colors">
-                    <ClipboardList size={18} className="text-accent flex-shrink-0" />
-                    <span className="flex-1 min-w-0 font-semibold text-on-surface truncate">{subjectDisplayName(s)}</span>
-                    <ChevronRight size={18} className="text-slate-400 flex-shrink-0" />
-                  </button>
-                ))
-              )
-            ) : importRubricas.length === 0 ? (
-              <div className="bg-surface-card rounded-card shadow-card p-10 text-center">
-                <ClipboardList size={32} className="text-slate-300 mx-auto mb-3" />
-                <p className="text-muted text-sm">Esta asignatura no tiene rúbricas ni listas de cotejo en sus actividades.</p>
-              </div>
-            ) : (
-              importRubricas.map((r, i) => (
-                <div key={`${i}-${r.titulo}`} className="bg-surface-card rounded-card shadow-card p-4 flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-on-surface truncate">{r.titulo}</p>
-                    <p className="text-xs text-muted mt-0.5">
-                      {esCotejo(r)
-                        ? `${r.criterios?.length} criterios · lista de cotejo · sobre 10`
-                        : `${r.criterios?.length} criterios · ${r.niveles?.length} niveles · se califica sobre 10`}
-                    </p>
-                  </div>
-                  <button type="button" onClick={() => onSelect(r)}
-                    className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">
-                    <Check size={16} /> Usar
-                  </button>
-                </div>
-              ))
-            )}
-            <div className="h-6 safe-bottom" />
-          </div>
-        </div>
-      )}
 
       {editing && (
         (editing === 'new-cotejo' || esCotejo(editing)) ? (
