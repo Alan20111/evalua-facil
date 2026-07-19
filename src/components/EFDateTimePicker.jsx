@@ -506,6 +506,7 @@ export default function EFDateTimePicker({
   defaultDate,             // YYYY-MM-DD — calendar opens here when no value is set
   headerLabel,             // e.g. "Fecha y hora de publicación" — popup header caption
   showShortcuts = true,    // atajos Hoy/Mañana/En 3 días/Próx. semana/Fin de mes
+  shortcutLabels,          // opcional: solo mostrar estos atajos (por label), en orden
 }) {
   const triggerRef  = useRef(null)
   const popoverRef  = useRef(null)
@@ -889,6 +890,7 @@ export default function EFDateTimePicker({
         {showShortcuts && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '9px 12px 4px' }}>
             {shortcuts
+              .filter(({ label }) => !shortcutLabels || shortcutLabels.includes(label))
               .filter(({ d }) => !minDateOnly || new Date(d.getFullYear(), d.getMonth(), d.getDate()) >= minDateOnly)
               .map(({ label, d }) => chip(label, () => applyShortcut(d)))}
           </div>

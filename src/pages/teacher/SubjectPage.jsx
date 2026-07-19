@@ -3346,10 +3346,10 @@ export default function SubjectPage() {
       {/* Agregar día de asistencia — el nº de sesiones crea esa misma cantidad
           de columnas (una asistencia por sesión de clase). */}
       {showAddAttendance && (
-        <div className={`fixed inset-0 z-[80] flex justify-center px-4 ${IS_NATIVE_APP ? 'items-start safe-top' : 'items-center'}`}>
+        <div className={`fixed inset-0 z-[80] flex justify-center px-4 ${IS_NATIVE_APP ? 'items-start pt-1' : 'items-center'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowAddAttendance(false)} aria-label="Cerrar" />
-          <form onSubmit={handleCreateAttendanceDay} className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-3xl' : 'max-w-sm'} p-4 space-y-3`}>
-            <h3 className="text-base font-semibold text-on-surface">Agregar día de asistencia</h3>
+          <form onSubmit={handleCreateAttendanceDay} className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-3xl p-3 space-y-2' : 'max-w-sm p-4 space-y-3'}`}>
+            <h3 className={`font-semibold text-on-surface ${IS_NATIVE_APP ? 'text-sm' : 'text-base'}`}>Agregar día de asistencia</h3>
             {/* En la app: campos en fila y modal pegado arriba, así el calendario
                 del selector de día tiene espacio para abrirse sin recortarse. */}
             <div className={IS_NATIVE_APP ? 'flex items-start gap-3' : 'space-y-3'}>
@@ -3365,7 +3365,8 @@ export default function SubjectPage() {
                 <label htmlFor="att-fecha" className="block text-xs font-medium text-muted mb-1">Día</label>
                 <EFDateTimePicker mode="date" value={newAttendanceForm.fecha}
                   onChange={(v) => setNewAttendanceForm((f) => ({ ...f, fecha: v }))}
-                  placeholder="Elige el día…" clearable={false} />
+                  placeholder="Elige el día…" clearable={false}
+                  shortcutLabels={IS_NATIVE_APP ? ['Hoy', 'Mañana', 'En 3 días'] : undefined} />
               </div>
               <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
                 <label htmlFor="att-sesiones" className="block text-xs font-medium text-muted mb-1">Número de sesiones</label>
