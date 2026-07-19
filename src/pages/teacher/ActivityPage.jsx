@@ -44,7 +44,7 @@ import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import RubricaGradeTable from '../../components/rubrica/RubricaGradeTable'
 import { ClipboardList, X } from 'lucide-react'
-import { totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
+import { totalRubrica, RUBRICA_TOTAL, esCotejo } from '../../utils/rubrica'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
@@ -192,6 +192,8 @@ export default function ActivityPage() {
   const isEvaluacion = activity?.tipo === 'evaluacion'
   // Rúbrica: solo entregables (nunca observación ni evaluación)
   const hasRubrica = !!activity?.rubrica?.criterios?.length && !isObservacion && !isEvaluacion
+  // Etiqueta según el instrumento (rúbrica o lista de cotejo) para los botones.
+  const instrumentoLabel = esCotejo(activity?.rubrica) ? 'lista de cotejo' : 'rúbrica'
   // Edit activity modal
   const [editingActivity, setEditingActivity] = useState(false)
   // Parcial cerrado: no grade can be changed until the teacher reverts the close.
@@ -1257,7 +1259,7 @@ export default function ActivityPage() {
                           }`}
                         >
                           <ClipboardList size={17} />
-                          {rubricaViewOpen ? 'Ocultar rúbrica' : 'Ver rúbrica'}
+                          {rubricaViewOpen ? `Ocultar ${instrumentoLabel}` : `Ver ${instrumentoLabel}`}
                           <span className="font-bold">
                             {totalR != null ? `— ${totalR} / ${RUBRICA_TOTAL}` : `— faltan ${faltan} criterio${faltan !== 1 ? 's' : ''}`}
                           </span>
@@ -1776,7 +1778,7 @@ export default function ActivityPage() {
                       }`}
                     >
                       <ClipboardList size={17} />
-                      {rubricaViewOpen ? 'Ocultar rúbrica' : 'Ver rúbrica'}
+                      {rubricaViewOpen ? `Ocultar ${instrumentoLabel}` : `Ver ${instrumentoLabel}`}
                       <span className="font-bold">
                         {totalR != null ? `— ${totalR} / ${RUBRICA_TOTAL}` : `— faltan ${faltan} criterio${faltan !== 1 ? 's' : ''}`}
                       </span>
@@ -2060,8 +2062,12 @@ export default function ActivityPage() {
             <div className="flex items-center gap-2 px-3 py-2 border-b border-outline-variant flex-shrink-0" style={{ background: 'var(--accent-light)' }}>
               <ClipboardList size={17} className="text-accent flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-on-surface truncate">Rúbrica: {activity.rubrica.titulo}</p>
-                <p className="text-[11px] text-muted truncate">Marca una opción por renglón — la calificación se calcula sola</p>
+                <p className="text-sm font-bold text-on-surface truncate">{esCotejo(activity.rubrica) ? 'Lista de cotejo' : 'Rúbrica'}: {activity.rubrica.titulo}</p>
+                <p className="text-[11px] text-muted truncate">
+                  {esCotejo(activity.rubrica)
+                    ? 'Marca los criterios que cumple — la calificación se calcula sola'
+                    : 'Marca una opción por renglón — la calificación se calcula sola'}
+                </p>
               </div>
               <button
                 type="button"
@@ -2085,12 +2091,18 @@ export default function ActivityPage() {
                 calificación — el botón sería redundante */}
             {!autoSaveOnNav && (
               <div className="p-2 border-t border-outline-variant flex-shrink-0">
+                {/* "Aplicar" ya GUARDA la calificación (persistGrade) — no hace
+                    falta un paso extra de "Guardar calificación". */}
                 <button
                   type="button"
-                  onClick={() => setRubricaViewOpen(false)}
-                  className="w-full py-2 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover transition-colors"
+                  disabled={saving || parcialCerrado}
+                  onClick={async () => {
+                    if (await persistGrade()) toast('Calificación guardada')
+                    setRubricaViewOpen(false)
+                  }}
+                  className="w-full py-2 bg-accent text-white text-sm font-semibold rounded flex items-center justify-center gap-2 hover:bg-accent-hover disabled:opacity-60 transition-colors"
                 >
-                  Aplicar calificación{totalR != null ? ` — ${totalR} / ${RUBRICA_TOTAL}` : ` (faltan ${faltan})`}
+                  Aplicar y guardar calificación{totalR != null ? ` — ${totalR} / ${RUBRICA_TOTAL}` : ` (faltan ${faltan})`}
                 </button>
               </div>
             )}
