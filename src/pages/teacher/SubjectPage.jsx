@@ -2549,7 +2549,7 @@ export default function SubjectPage() {
     <div className="grid grid-cols-2 gap-2">
       {QUICK_MOTIVOS.map((m) => (
         <button key={m.label} type="button" onClick={() => setReasonText(m.label)}
-          className={`px-2 py-2 rounded border text-xs font-medium whitespace-nowrap transition-colors ${
+          className={`px-1.5 py-2 rounded border text-[10px] font-medium whitespace-nowrap transition-colors ${
             reasonText.trim() === m.label
               ? 'border-amber-500 bg-amber-50 text-amber-700'
               : 'border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
@@ -3415,7 +3415,7 @@ export default function SubjectPage() {
           derecho / mantener presionado. En la app va ANCHO y pegado arriba para
           seguir usable con el teclado (que en horizontal tapa la mitad inferior). */}
       {reasonModal && (
-        <div className={`fixed inset-0 z-[80] flex justify-center ${IS_NATIVE_APP ? 'items-start pt-1 px-2' : 'items-center px-4'}`}>
+        <div className={`fixed inset-0 z-[80] flex justify-center ${IS_NATIVE_APP ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setReasonModal(null)} aria-label="Cerrar" />
           <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-none p-3 space-y-1.5' : 'max-w-sm p-4 space-y-3'}`}>
             <div className="flex items-center justify-between gap-3">
@@ -3428,12 +3428,12 @@ export default function SubjectPage() {
             {IS_NATIVE_APP ? (
               /* App horizontal: 3 columnas — motivos rápidos | motivo | acciones */
               <div className="flex items-start gap-3">
-                <div className="w-56 flex-none">
-                  <p className="text-[8px] font-medium text-muted mb-1">Motivo rápido</p>
+                <div className="w-64 flex-none">
+                  <p className="text-[9px] font-medium text-muted mb-1">Motivo rápido</p>
                   {quickMotivoButtons}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <label htmlFor="att-motivo" className="block text-[8px] font-medium text-muted mb-1">Motivo ✍️</label>
+                  <label htmlFor="att-motivo" className="block text-[9px] font-medium text-muted mb-1">Motivo ✍️</label>
                   <textarea id="att-motivo" value={reasonText} rows={2}
                     onChange={(e) => setReasonText(e.target.value)}
                     placeholder="Escribe el motivo…"
