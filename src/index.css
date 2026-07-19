@@ -167,9 +167,14 @@
   color: var(--accent);
   transition: none !important;
 }
-/* Celda exacta bajo el cursor (fila + columna a la vez) — :hover nativo,
-   también sin transición para que encienda al instante. */
-.att-cell:hover {
+/* Celda exacta bajo el cursor (fila + columna a la vez) — clase plana
+   toggleada por JS, NO :hover nativo. En tablas con miles de celdas
+   compartiendo la misma clase, el PRIMER :hover que el navegador ve sobre
+   ese selector obliga a construir su set de invalidación para toda la
+   tabla (costo de "calentamiento" que solo se paga una vez) — de ahí que
+   solo la primera pasada entre casillas se sintiera lenta. Con classList
+   ese costo no existe. */
+.att-cell-active {
   background: var(--accent-tint-strong) !important;
   box-shadow: inset 0 0 0 1px var(--accent);
   transition: none !important;
