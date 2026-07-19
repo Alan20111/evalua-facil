@@ -2338,23 +2338,21 @@ export default function SubjectPage() {
         {/* Fila de parcial — nivel superior, abarca sus días + su resumen */}
         <tr className="bg-accent-light border-b border-outline-variant">
           {IS_NATIVE_APP ? (
-            <>
-              <th rowSpan={2} className="sticky left-0 z-30 bg-accent-light w-8 px-0.5 text-center align-middle border-r border-outline-variant">
+            /* Esquina fija: Regresar + ASISTENCIAS + Agregar día en UNA sola celda
+               (sin línea divisoria), para darle más ancho al botón de regresar. */
+            <th colSpan={2} rowSpan={2} className="sticky left-0 z-30 bg-accent-light px-2 align-middle border-r border-outline-variant">
+              <div className="flex items-center gap-2">
                 <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
-                  className="p-1 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
-                  <ArrowLeft size={18} />
+                  className="flex-none px-2.5 py-1 -ml-1 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
+                  <ArrowLeft size={20} />
                 </button>
-              </th>
-              <th rowSpan={2} className="sticky left-8 z-30 bg-accent-light w-[210px] px-2 align-middle border-r border-outline-variant">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
-                  <button type="button" onClick={() => setShowAddAttendance(true)}
-                    className="ml-auto flex items-center gap-1 px-2 py-1 bg-accent text-white text-[11px] font-medium rounded hover:bg-accent-hover transition-colors">
-                    <CalendarPlus size={13} /> Agregar día
-                  </button>
-                </div>
-              </th>
-            </>
+                <span className="text-xs font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
+                <button type="button" onClick={() => setShowAddAttendance(true)}
+                  className="ml-auto flex items-center gap-1 px-2 py-1 bg-accent text-white text-[11px] font-medium rounded hover:bg-accent-hover transition-colors">
+                  <CalendarPlus size={13} /> Agregar día
+                </button>
+              </div>
+            </th>
           ) : (
             <>
               <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant" />
@@ -2487,7 +2485,7 @@ export default function SubjectPage() {
                       onPointerMove={cancelLongPress}
                       onPointerLeave={cancelLongPress}
                       data-tooltip={ui.tip}
-                      className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none transition-colors ${fecha === todayISO ? 'bg-accent-light/50' : ''}`}>
+                      className={`${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none transition-colors ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
                       <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                         {ui.icon}
                         {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
