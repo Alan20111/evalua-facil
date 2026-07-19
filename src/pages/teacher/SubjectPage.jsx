@@ -3415,9 +3415,9 @@ export default function SubjectPage() {
           derecho / mantener presionado. En la app va ANCHO y pegado arriba para
           seguir usable con el teclado (que en horizontal tapa la mitad inferior). */}
       {reasonModal && (
-        <div className={`fixed inset-0 z-[80] flex justify-center px-4 ${IS_NATIVE_APP ? 'items-start pt-2' : 'items-center'}`}>
+        <div className={`fixed inset-0 z-[80] flex justify-center ${IS_NATIVE_APP ? 'items-start pt-1 px-2' : 'items-center px-4'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setReasonModal(null)} aria-label="Cerrar" />
-          <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-3xl' : 'max-w-sm'} p-4 space-y-3`}>
+          <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-none p-3 space-y-1.5' : 'max-w-sm p-4 space-y-3'}`}>
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-base font-semibold text-on-surface whitespace-nowrap">Justificar inasistencia</h3>
               <p className="text-xs text-muted truncate">
@@ -3428,16 +3428,16 @@ export default function SubjectPage() {
             {IS_NATIVE_APP ? (
               /* App horizontal: 3 columnas — motivos rápidos | motivo | acciones */
               <div className="flex items-start gap-3">
-                <div className="w-52 flex-none">
-                  <p className="text-xs font-medium text-muted mb-1">Motivo rápido</p>
+                <div className="w-56 flex-none">
+                  <p className="text-[8px] font-medium text-muted mb-1">Motivo rápido</p>
                   {quickMotivoButtons}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <label htmlFor="att-motivo" className="block text-xs font-medium text-muted mb-1">Motivo ✍️</label>
-                  <textarea id="att-motivo" value={reasonText} rows={3} autoFocus
+                  <label htmlFor="att-motivo" className="block text-[8px] font-medium text-muted mb-1">Motivo ✍️</label>
+                  <textarea id="att-motivo" value={reasonText} rows={2}
                     onChange={(e) => setReasonText(e.target.value)}
                     placeholder="Escribe el motivo…"
-                    className="w-full min-h-[72px] px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
+                    className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
                 </div>
                 <div className="w-32 flex-none flex flex-col gap-2">
                   <button type="button" onClick={handleSaveReason}
@@ -3460,7 +3460,7 @@ export default function SubjectPage() {
                 </div>
                 <div>
                   <label htmlFor="att-motivo" className="block text-xs font-medium text-muted mb-1">Motivo ✍️</label>
-                  <textarea id="att-motivo" value={reasonText} rows={3} autoFocus
+                  <textarea id="att-motivo" value={reasonText} rows={3}
                     onChange={(e) => setReasonText(e.target.value)}
                     placeholder="Escribe el motivo…"
                     className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
