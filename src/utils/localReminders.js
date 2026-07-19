@@ -53,6 +53,7 @@ async function scheduleUpcoming(category, items, anticipacionMinutos) {
     }))
     .filter((n) => n.schedule.at.getTime() > now)
   if (notifications.length) await LocalNotifications.schedule({ notifications })
+  return notifications.length
 }
 
 let installed = false
@@ -63,7 +64,13 @@ export async function refreshTeacherReminders(uid) {
     const perm = await LocalNotifications.checkPermissions()
     if (perm.display !== 'granted') {
       const req = await LocalNotifications.requestPermissions()
-      if (req.display !== 'granted') return
+      if (req.display !== 'granted') {
+        // Sin esto, un permiso denegado dejaba el interruptor "activado" en la
+        // pantalla de Notificaciones sin que nada se programara jamás, y no
+        // había ninguna pista visible de por qué — ni un log en logcat.
+        console.warn('[localReminders] permiso de notificaciones no concedido, no se programan recordatorios')
+        return
+      }
     }
 
     const settingsSnap = await getDoc(doc(db, 'notificationSettings', uid))
@@ -82,13 +89,14 @@ export async function refreshTeacherReminders(uid) {
     const hoy = now.toISOString().slice(0, 10)
     const fin = windowEnd.toISOString().slice(0, 10)
 
+    let programadas = 0
     if (clase.habilitado) {
       const snap = await getDocs(query(collection(db, 'horarioBloques'), where('docenteId', '==', uid)))
       const items = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((b) => b.fecha >= hoy && b.fecha <= fin && b.horaInicio)
         .map((b) => ({ id: b.id, start: parseFechaHora(b.fecha, b.horaInicio), title: 'Tu clase está por comenzar', subtitle: b.lugar || '' }))
-      await scheduleUpcoming('clase', items, clase.anticipacionMinutos ?? 10)
+      programadas += await scheduleUpcoming('clase', items, clase.anticipacionMinutos ?? 10)
     }
 
     if (evento.habilitado) {
@@ -98,10 +106,19 @@ export async function refreshTeacherReminders(uid) {
         .filter((e) => e.inicio)
         .map((e) => ({ id: e.id, start: new Date(e.inicio), title: e.titulo || 'Tienes un evento', subtitle: '' }))
         .filter((e) => e.start >= now && e.start <= windowEnd)
-      await scheduleUpcoming('evento', items, evento.anticipacionMinutos ?? 10)
+      programadas += await scheduleUpcoming('evento', items, evento.anticipacionMinutos ?? 10)
     }
-  } catch {
-    // best-effort — sin esto la app sigue funcionando, solo sin recordatorios
+    // Confirma que la función corrió de principio a fin y cuántos avisos
+    // quedaron programados — antes no había ninguna señal de esto, ni
+    // siquiera cuando todo salía bien.
+    console.log(`[localReminders] recordatorios reprogramados: ${programadas}`)
+  } catch (err) {
+    // best-effort — sin esto la app sigue funcionando, solo sin recordatorios.
+    // Se deja un rastro en consola (visible por adb logcat / chrome://inspect)
+    // porque antes fallaba en silencio total: no había manera de distinguir
+    // "el plugin nativo no está en este build" de "Firestore no respondió" de
+    // cualquier otra causa, sin reconstruir la app con más instrumentación.
+    console.error('[localReminders] refreshTeacherReminders falló:', err)
   }
 }
 
