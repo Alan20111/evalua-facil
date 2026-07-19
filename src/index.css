@@ -153,13 +153,26 @@
    en SubjectPage.jsx). Evitamos `:has(:hover)` a propósito: con decenas de
    columnas y cientos de celdas, esas reglas obligan al navegador a
    re-evaluar la tabla completa en cada pixel de movimiento del mouse, lo
-   cual se siente MÁS lento que el toggle imperativo de una clase. */
+   cual se siente MÁS lento que el toggle imperativo de una clase.
+   transition: none — las celdas heredan `transition-colors` (~150ms) para
+   otros efectos (fila al pasar el cursor, etc.); sin este override, CADA
+   cambio de columna se ve como un fundido en vez de un cambio instantáneo,
+   y con muchas columnas ese fundido constante se percibe como retraso. */
 .att-col-hover {
   background: var(--accent-tint);
+  transition: none !important;
 }
 .att-day-hover {
   background: var(--accent-tint);
   color: var(--accent);
+  transition: none !important;
+}
+/* Celda exacta bajo el cursor (fila + columna a la vez) — :hover nativo,
+   también sin transición para que encienda al instante. */
+.att-cell:hover {
+  background: var(--accent-tint-strong) !important;
+  box-shadow: inset 0 0 0 1px var(--accent);
+  transition: none !important;
 }
 
 /* ── Custom tooltips — always above the cursor ───────────────────────────── */
