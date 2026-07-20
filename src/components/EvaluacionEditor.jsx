@@ -640,6 +640,13 @@ export default function EvaluacionEditor({
                   <label htmlFor="eval-notificar-docente" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
                     Notificarme cuando entreguen esta evaluación
                     <span className="text-muted text-xs block mt-0.5">Recibirás un aviso en tu celular cada vez que un estudiante la finalice</span>
+                    {/* Esta casilla no se guarda sola — es fácil marcarla y salir
+                        creyendo que ya quedó, sin notar que el botón "Guardar"
+                        de abajo sigue pendiente. Aviso justo aquí, junto al
+                        cambio, en vez de solo confiar en el estado del botón. */}
+                    {infoForm.notificarDocente !== (loadedSnapshot.current ? (JSON.parse(loadedSnapshot.current).notificarDocente ?? false) : false) && (
+                      <span className="text-amber-600 text-xs font-semibold block mt-1">⚠ Guarda los cambios para que esto aplique</span>
+                    )}
                   </label>
                 </div>
               )}
