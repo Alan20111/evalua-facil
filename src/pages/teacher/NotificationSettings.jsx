@@ -25,17 +25,36 @@ import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/lo
 //     updatedAt,
 //   }
 
+// Cada opción es una LISTA de minutos de anticipación — un aviso por cada
+// valor (ej. [15,10,5,0] programa 4 avisos independientes, uno cada 5 min,
+// terminando justo al momento). El valor guardado en Firestore siempre es
+// el arreglo completo; el <select> solo elige cuál arreglo usar.
 const ANTICIPACION_OPCIONES = [
-  { minutos: 15, label: '15 minutos antes' },
-  { minutos: 10, label: '10 minutos antes' },
-  { minutos: 5, label: '5 minutos antes' },
-  { minutos: 0, label: 'Al momento' },
+  { grupo: 'Un solo aviso', opciones: [
+    { minutos: [15], label: '15 minutos antes' },
+    { minutos: [10], label: '10 minutos antes' },
+    { minutos: [5], label: '5 minutos antes' },
+    { minutos: [0], label: 'Al momento' },
+  ] },
+  { grupo: 'Varios avisos (cada 5 min)', opciones: [
+    { minutos: [15, 10, 5, 0], label: '15, 10, 5 min y al momento (4 avisos)' },
+    { minutos: [10, 5, 0], label: '10, 5 min y al momento (3 avisos)' },
+    { minutos: [5, 0], label: '5 min y al momento (2 avisos)' },
+  ] },
 ]
+
+// Compatibilidad hacia atrás: antes de esto, anticipacionMinutos era un solo
+// número (ej. 10) — se guarda de aquí en adelante siempre como arreglo.
+function normalizeAnticipacion(v) {
+  if (Array.isArray(v) && v.length) return v
+  if (typeof v === 'number') return [v]
+  return [10]
+}
 
 const DEFAULTS = {
   nuevasEntregas: { habilitado: true },
-  recordatorioClase: { habilitado: false, anticipacionMinutos: 10 },
-  recordatorioEvento: { habilitado: false, anticipacionMinutos: 10 },
+  recordatorioClase: { habilitado: false, anticipacionMinutos: [10] },
+  recordatorioEvento: { habilitado: false, anticipacionMinutos: [10] },
 }
 
 const CATEGORIAS = [
@@ -63,8 +82,10 @@ const CATEGORIAS = [
 
 function mergeWithDefaults(data) {
   const merged = {}
-  CATEGORIAS.forEach(({ key }) => {
-    merged[key] = { ...DEFAULTS[key], ...(data?.[key] || {}) }
+  CATEGORIAS.forEach(({ key, anticipacion }) => {
+    const base = { ...DEFAULTS[key], ...(data?.[key] || {}) }
+    if (anticipacion) base.anticipacionMinutos = normalizeAnticipacion(base.anticipacionMinutos)
+    merged[key] = base
   })
   return merged
 }
@@ -193,12 +214,16 @@ export default function TeacherNotificationSettings() {
                         <label className="flex items-center justify-between gap-2 text-sm">
                           <span className="text-on-surface">Avisar</span>
                           <select
-                            value={settings[cat.key].anticipacionMinutos}
-                            onChange={(e) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: Number(e.target.value) })}
+                            value={settings[cat.key].anticipacionMinutos.join(',')}
+                            onChange={(e) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: e.target.value.split(',').map(Number) })}
                             className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface"
                           >
-                            {ANTICIPACION_OPCIONES.map((op) => (
-                              <option key={op.minutos} value={op.minutos}>{op.label}</option>
+                            {ANTICIPACION_OPCIONES.map((grupo) => (
+                              <optgroup key={grupo.grupo} label={grupo.grupo}>
+                                {grupo.opciones.map((op) => (
+                                  <option key={op.minutos.join(',')} value={op.minutos.join(',')}>{op.label}</option>
+                                ))}
+                              </optgroup>
                             ))}
                           </select>
                         </label>

@@ -42,15 +42,32 @@ function anticipacionLabel(min) {
   return min > 0 ? `Empieza en ${min} min` : 'Empieza ahora'
 }
 
+// Compatibilidad hacia atrás: antes anticipacionMinutos era un solo número
+// (ej. 10) guardado en Firestore — de aquí en adelante siempre es un
+// arreglo (ej. [10] o [15,10,5,0] para varios avisos). Ver
+// NotificationSettings.jsx (misma normalización, duplicada a propósito:
+// ese archivo no debe importar de acá ni viceversa solo por esto).
+function normalizeAnticipacion(v) {
+  if (Array.isArray(v) && v.length) return v
+  if (typeof v === 'number') return [v]
+  return [10]
+}
+
+// anticipacionMinutos es un ARREGLO — un aviso independiente por cada valor
+// (ej. [15,10,5,0] programa 4 avisos por elemento, cada uno con su propio id
+// vía idFor(category, `${item.id}:${min}`) para no chocar entre sí).
 async function scheduleUpcoming(category, items, anticipacionMinutos) {
   const now = Date.now()
+  const minutos = normalizeAnticipacion(anticipacionMinutos)
   const notifications = items
-    .map((item) => ({
-      id: idFor(category, item.id),
-      title: item.title,
-      body: `${anticipacionLabel(anticipacionMinutos)}${item.subtitle ? ` — ${item.subtitle}` : ''}`,
-      schedule: { at: new Date(item.start.getTime() - anticipacionMinutos * 60_000) },
-    }))
+    .flatMap((item) =>
+      minutos.map((min) => ({
+        id: idFor(category, `${item.id}:${min}`),
+        title: item.title,
+        body: `${anticipacionLabel(min)}${item.subtitle ? ` — ${item.subtitle}` : ''}`,
+        schedule: { at: new Date(item.start.getTime() - min * 60_000) },
+      }))
+    )
     .filter((n) => n.schedule.at.getTime() > now)
   if (notifications.length) await LocalNotifications.schedule({ notifications })
   return notifications.length
