@@ -176,8 +176,7 @@ exports.onSubmissionActualizada = onDocumentWritten('submissions/{submissionId}'
 // Solo para actividades marcadas por el docente con "Notificarme" al editarlas
 // (activity.notificarDocente — ver EntregableEditor.jsx / EvaluacionEditor.jsx).
 // docenteId YA es el Auth uid del docente (a diferencia de alumnoId, que es el
-// id del documento en `students` — distinto de su uid), así que enviarPush()
-// se llama directo con él, sin lookup extra.
+// id del documento en `students` — distinto de su uid).
 // "Entregada" significa cosas distintas según el tipo de actividad:
 //   - Entregable/observación: el doc de submission se crea de una sola vez al
 //     entregar → onCreate (before === undefined).
@@ -185,6 +184,11 @@ exports.onSubmissionActualizada = onDocumentWritten('submissions/{submissionId}'
 //     actualiza al terminar → dispara cuando estadoEvaluacion pasa a
 //     'finalizado' (igual criterio que usa el cliente en EvaluacionManager.jsx).
 // Idempotente vía notificadoEntregaDocente — una sola vez por submission.
+// Doble gate (igual que Estudiante activado): act.notificarDocente (por
+// actividad) Y notificationSettings.nuevasEntregas.habilitado (global). Título
+// y cuerpo son dinámicos (nombre del estudiante, asignatura y actividad) —
+// por eso usa enviarPushDirecto en vez de enviarPush, que solo arma texto fijo
+// desde TITULOS.
 exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', async (event) => {
   const after = event.data?.after
   if (!after?.exists) return // borrada
@@ -203,7 +207,25 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
     : !before
   if (!seAcabaDeEntregar) return
 
-  await enviarPush(act.docenteId, 'nuevasEntregas', { actividadId: afterData.actividadId, submissionId: event.params.submissionId })
+  const settingsSnap = await db.collection('notificationSettings').doc(act.docenteId).get()
+  if (settingsSnap.exists && settingsSnap.data().nuevasEntregas?.habilitado === false) return
+
+  const [studentSnap, subjSnap] = await Promise.all([
+    db.collection('students').doc(afterData.alumnoId).get(),
+    db.collection('subjects').doc(act.asignaturaId).get(),
+  ])
+  const nombreEstudiante = nombreEstudianteDe(studentSnap.data())
+  const nombreAsignatura = nombreAsignaturaDe(subjSnap.data())
+  const verbo = !esEvaluacion ? 'entregó'
+    : act.categoria === 'examen' ? 'presentó el examen'
+    : act.categoria === 'cuestionario' ? 'presentó el cuestionario'
+    : 'terminó la evaluación'
+
+  await enviarPushDirecto(
+    act.docenteId,
+    { title: 'Nueva entrega', body: `${nombreEstudiante} ${verbo} "${act.nombre}" — ${nombreAsignatura}` },
+    { categoria: 'nuevasEntregas', actividadId: afterData.actividadId, submissionId: event.params.submissionId },
+  )
   await after.ref.update({ notificadoEntregaDocente: true })
 })
 
