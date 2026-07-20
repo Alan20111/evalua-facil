@@ -59,6 +59,15 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
     setSaving(true)
     try {
       const diaSemana = (new Date(form.fecha + 'T12:00:00').getDay() + 6) % 7
+      // movido solo debe reflejar un cambio real de fecha/hora respecto al
+      // bloque recurrente original — NO cualquier guardado. Antes se
+      // marcaba movido:true siempre, así que con solo prender la alarma (sin
+      // tocar fecha/hora) el bloque quedaba excluido de derivarPatrones()
+      // (CalendarPage.jsx) y su alarma se perdía en la próxima regeneración
+      // masiva vía "Modificar bloques" — reproducido con datos reales: 66
+      // bloques regenerados, todos con la alarma apagada pese a que uno ya
+      // se había activado a mano antes.
+      const movido = bloque.movido === true || form.fecha !== bloque.fecha || form.horaInicio !== bloque.horaInicio
       const patch = {
         fecha: form.fecha,
         diaSemana,
@@ -68,7 +77,7 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
         lugar: form.lugar.trim(),
         color: form.color,
         alarma: form.alarma,
-        movido: true,
+        movido,
       }
       await updateDoc(doc(db, 'horarioBloques', bloque.id), patch)
       onUpdated?.({ ...bloque, ...patch })
