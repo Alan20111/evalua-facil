@@ -229,8 +229,13 @@ function fmtHHMM(d) {
 function describeEntry(e) {
   switch (e.categoria) {
     case 'recordatorioClase': {
+      // Mismo patrón que recordatorioEvento: cuál aviso es va en Notificación;
+      // Detalles se queda con la hora exacta en la que la clase empieza y el
+      // lugar (pedido explícito).
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
-      return { notificacion: `${asignatura}${e.lugar ? ` · ${e.lugar}` : ''}`, detalles: '' }
+      const aviso = e.anticipacionMinutos > 0 ? `Aviso de ${e.anticipacionMinutos} minutos antes` : 'Aviso al momento'
+      const detalles = e.hora ? `La clase comienza a las ${e.hora}${e.lugar ? `, en ${e.lugar}` : ''}` : ''
+      return { notificacion: `${asignatura} — ${aviso}`, detalles }
     }
     case 'recordatorioEvento': {
       // Pedido explícito: cuál aviso es (15/10/5 min antes, o al momento) va

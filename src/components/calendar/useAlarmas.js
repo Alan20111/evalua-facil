@@ -48,6 +48,14 @@ export default function useAlarmas(bloques, subjects, uid) {
         const a = b.alarma
         const key = `${b.id}:${b.fecha}:${b.horaInicio}`
         if (!a?.activa || firedRef.current.has(key)) continue
+        // Bloques seguidos de la MISMA asignatura (ej. dos periodos pegados,
+        // sin hueco entre ellos) son una sola clase larga — solo avisa el
+        // primer bloque de la cadena, pedido explícito, para no repetir el
+        // aviso en cada periodo.
+        const esContinuacion = bloques.some((otro) =>
+          otro.id !== b.id && otro.asignaturaId === b.asignaturaId && otro.fecha === b.fecha && otro.horaFin === b.horaInicio
+        )
+        if (esContinuacion) continue
         const triggerMs = new Date(`${b.fecha}T${b.horaInicio}:00`).getTime() - (a.minutosAntes || 0) * 60000
         if (Number.isNaN(triggerMs)) continue
         if (now >= triggerMs && now < triggerMs + VENTANA_MS) {
