@@ -914,7 +914,13 @@ export default function CalendarPage() {
   const { currentUser } = useAuth()
   const toast = useToast()
 
-  const [view, setView] = useState(() => localStorage.getItem('cal_view') || 'agenda')
+  // Siempre entra en Día (agenda) con hoy cargado — a propósito NO se lee de
+  // localStorage aquí: aunque el docente haya dejado otra vista puesta la
+  // última vez, cada vez que entra a Horario y Agenda debe aterrizar en Hoy,
+  // vista Día (pedido explícito). changeView() abajo sigue guardando en
+  // localStorage por si algo más llega a necesitarlo, solo no se usa para
+  // decidir el arranque.
+  const [view, setView] = useState('agenda')
   const [currentDate, setCurrentDate] = useState(new Date())
 
   // Foco inicial en el botón "Hoy" al entrar a Horario (web y app).
@@ -1711,12 +1717,12 @@ export default function CalendarPage() {
           </>
         ) : (
           <>
-            {/* Top controls */}
-            <div className="flex flex-wrap items-center gap-2 mb-4">
+            {/* Top controls — centrados como un solo grupo (antes iban con un
+                spacer flex-1 empujándolos a las orillas, se veía muy separado). */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
               {dateNav}
               {hoyBtn}
               {eventoBtn}
-              <div className="flex-1" />
               {viewSwitcher}
               {hourRangeBtn}
             </div>
