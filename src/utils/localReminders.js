@@ -68,7 +68,17 @@ async function scheduleUpcoming(category, items, anticipacionMinutos) {
   const notifications = items
     .flatMap((item) =>
       minutos.map((min) => ({
-        id: idFor(category, `${item.id}:${min}`),
+        // El id incluye la hora exacta de inicio (no solo el id del bloque)
+        // — mismo motivo que useAlarmas.js/logIfNew: si el docente mueve la
+        // clase/evento a otra hora, el aviso viejo (id:min de antes) puede
+        // seguir pendiente en Android dentro del margen de gracia de
+        // cancelación (ver GRACIA_CANCELACION_MS abajo) y, al reprogramar
+        // con el MISMO id pero un `at` distinto, AlarmManager no siempre lo
+        // reemplaza de forma confiable. Con la hora en el id, un movimiento
+        // siempre genera avisos nuevos sin chocar con los de la posición
+        // anterior — reproducido: mover una clase a una hora más tarde dejó
+        // de notificar en un caso real.
+        id: idFor(category, `${item.id}:${min}:${item.start.getTime()}`),
         title: item.title,
         body: `${anticipacionLabel(min)}${item.subtitle ? ` — ${item.subtitle}` : ''}`,
         schedule: { at: new Date(item.start.getTime() - min * 60_000) },
