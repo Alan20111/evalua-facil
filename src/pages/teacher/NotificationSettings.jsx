@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs, getDocsFromServer } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -311,12 +311,25 @@ export default function TeacherNotificationSettings() {
   useEffect(() => {
     if (!currentUser) return
     setLogLoading(true)
-    getDocs(query(collection(db, 'notificationLog'), where('uid', '==', currentUser.uid)))
+    const q = query(collection(db, 'notificationLog'), where('uid', '==', currentUser.uid))
+    // getDocsFromServer, no getDocs: pedido explícito — al tocar el globo de
+    // una notificación recién llegada y entrar aquí, un getDocs() normal
+    // puede servir la caché local con la escritura de esa MISMA notificación
+    // todavía pendiente de confirmar (createdAt aparece null hasta que el
+    // servidor la reconoce) — se veía como un renglón con fecha/hora en
+    // blanco que parecía "la anterior" en vez de la que se acababa de
+    // recibir. Forzar lectura al servidor evita servir esa caché a medias.
+    // Si de verdad no hay red, cae a getDocs (tolera caché) para no dejar la
+    // pantalla sin nada.
+    getDocsFromServer(q).catch(() => getDocs(q))
       .then((snap) => {
         // Más nueva arriba — no se puede pedir orderBy en la query (regla del
         // proyecto: solo igualdad en Firestore), así que se ordena en memoria.
+        // Si por algún motivo createdAt sigue sin resolver, se trata como
+        // "ahora mismo" (recién sucedió) en vez de mandarla al fondo de la
+        // lista o mostrarla en blanco.
         const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+          .sort((a, b) => (b.createdAt?.seconds ?? Date.now() / 1000) - (a.createdAt?.seconds ?? Date.now() / 1000))
         setLogEntries(rows)
       })
       .catch(() => toast('No se pudo cargar la bitácora de notificaciones', 'error'))
@@ -421,7 +434,9 @@ export default function TeacherNotificationSettings() {
                           {logEntries.map((e, i) => {
                             // Siempre createdAt — cuándo se RECIBIÓ el aviso, no la hora
                             // propia de la clase/evento que lo causó.
-                            const d = e.createdAt?.toDate ? e.createdAt.toDate() : null
+                            // Si createdAt no resolvió (raro, ya con getDocsFromServer arriba),
+                            // "ahora" en vez de dejar el renglón con fecha/hora en blanco.
+                            const d = e.createdAt?.toDate ? e.createdAt.toDate() : new Date()
                             const { notificacion, detalles } = describeEntry(e)
                             // logEntries ya viene ordenado con la más nueva primero — el
                             // renglón 0 es la última notificación recibida. Se resalta en
@@ -468,7 +483,9 @@ export default function TeacherNotificationSettings() {
                         </thead>
                         <tbody>
                           {logEntries.map((e, i) => {
-                            const d = e.createdAt?.toDate ? e.createdAt.toDate() : null
+                            // Si createdAt no resolvió (raro, ya con getDocsFromServer arriba),
+                            // "ahora" en vez de dejar el renglón con fecha/hora en blanco.
+                            const d = e.createdAt?.toDate ? e.createdAt.toDate() : new Date()
                             const { notificacion, detalles } = describeEntry(e)
                             // logEntries ya viene ordenado con la más nueva primero — el
                             // renglón 0 es la última notificación recibida. Se resalta en
