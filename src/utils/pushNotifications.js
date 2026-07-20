@@ -21,6 +21,9 @@ let installed = false
 // UNA sola vez (installed) pero deben reflejar SIEMPRE la sesión activa, así
 // que leen esta variable en vez de cerrar sobre el uid del primer login.
 let currentUid = null
+// Último token recibido — lo necesita clearPushToken() para poder quitarlo
+// al cerrar sesión sin tener que esperar un nuevo 'registration'.
+let currentToken = null
 const TOKEN_OWNER_KEY = 'ef_push_token_uid'
 
 // El token de FCM es del DISPOSITIVO/instalación, no de la sesión — sigue
@@ -75,6 +78,7 @@ export async function initPushNotifications(uid) {
     await LocalNotifications.requestPermissions()
 
     PushNotifications.addListener('registration', (token) => {
+      currentToken = token.value
       if (currentUid) reasignarToken(token.value, currentUid).catch(() => {})
     })
     PushNotifications.addListener('registrationError', () => {
@@ -90,5 +94,27 @@ export async function initPushNotifications(uid) {
     await PushNotifications.register()
   } catch {
     // best-effort — la app sigue funcionando sin push si algo de esto falla
+  }
+}
+
+// Quita el token de quien lo tenga registrado en este momento — se llama al
+// cerrar sesión (ver AuthContext.jsx, onAuthStateChanged con user=null).
+// Sin esto, cerrar sesión y NO volver a entrar de inmediato dejaba el
+// teléfono recibiendo avisos de la cuenta con la que se salió: initPushNotifications
+// solo reasigna el token en el PRÓXIMO login, así que el hueco entre "cerró
+// sesión" y "alguien más entró" quedaba sin cubrir. Docente y alumno en el
+// mismo dispositivo: entrar como uno debe apagar al otro, y salir sin entrar
+// a nadie más no debe dejar sonando la cuenta anterior.
+export async function clearPushToken() {
+  if (!Capacitor.isNativePlatform()) return
+  const owner = localStorage.getItem(TOKEN_OWNER_KEY)
+  const token = currentToken
+  currentUid = null
+  if (!owner || !token) return
+  try {
+    await updateDoc(doc(db, 'notificationSettings', owner), { fcmTokens: arrayRemove(token) })
+    localStorage.removeItem(TOKEN_OWNER_KEY)
+  } catch {
+    // best-effort — si falla, el próximo login de todos modos reasigna
   }
 }

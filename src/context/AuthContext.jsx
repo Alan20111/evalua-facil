@@ -3,7 +3,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { usernameCandidates } from '../utils/generate'
-import { initPushNotifications } from '../utils/pushNotifications'
+import { initPushNotifications, clearPushToken } from '../utils/pushNotifications'
 import { refreshTeacherReminders, installReminderResumeListener } from '../utils/localReminders'
 
 const AuthContext = createContext(null)
@@ -121,6 +121,10 @@ export function AuthProvider({ children }) {
         }
       } else {
         setUserProfile(null)
+        // Sin sesión — quita el token de push de quien lo tuviera antes en
+        // este dispositivo (docente o alumno), para que no le sigan
+        // llegando avisos hasta que alguien vuelva a entrar. No-op en web.
+        clearPushToken()
       }
       setLoading(false)
     })
