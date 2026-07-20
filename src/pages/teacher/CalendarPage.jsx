@@ -1787,8 +1787,13 @@ export default function CalendarPage() {
           </div>
         )}
 
-        {/* Calendar body */}
-        <div className="bg-surface-card border border-outline rounded shadow-card overflow-hidden">
+        {/* Calendar body — en web, Día y 3 días se ven mal a lo ancho de las
+            demás vistas (columnas gigantes); se acotan y centran. Semana y
+            Mes se quedan a ancho completo, como ya estaban. Solo web: en la
+            app esta franja ya es angosta por el propio viewport. */}
+        <div className={`bg-surface-card border border-outline rounded shadow-card overflow-hidden ${
+          IS_NATIVE_APP ? '' : view === 'agenda' ? 'w-1/2 mx-auto' : view === '3dias' ? 'w-3/4 mx-auto' : ''
+        }`}>
           {loading ? (
             <div className="flex justify-center py-16"><Spinner /></div>
           ) : view === 'agenda' ? (
