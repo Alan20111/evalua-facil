@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { Settings, FileCheck2, Clock, CalendarDays, UserCheck, Bell, ChevronDown, ChevronUp, Check, X, History } from 'lucide-react'
+import { Settings, FileCheck2, Clock, CalendarDays, UserCheck, Bell, ChevronDown, ChevronUp, Check, X, History, Trash2 } from 'lucide-react'
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
@@ -270,6 +270,26 @@ export default function TeacherNotificationSettings() {
   const [logOpen, setLogOpen] = useState(true)
   const [logLoading, setLogLoading] = useState(true)
   const [logEntries, setLogEntries] = useState(null)
+  // Renglón que se está por borrar (pide confirmación antes) — pedido
+  // explícito: borrar fácil, tanto en la app como en la web.
+  const [entryToDelete, setEntryToDelete] = useState(null)
+  const [deletingEntry, setDeletingEntry] = useState(false)
+  useBackHandler(() => setEntryToDelete(null), !!entryToDelete)
+  useScrollLock(!!entryToDelete)
+
+  async function confirmDeleteEntry() {
+    if (!entryToDelete) return
+    setDeletingEntry(true)
+    try {
+      await deleteDoc(doc(db, 'notificationLog', entryToDelete.id))
+      setLogEntries((prev) => prev?.filter((e) => e.id !== entryToDelete.id) ?? prev)
+      setEntryToDelete(null)
+    } catch (err) {
+      toast('No se pudo borrar: ' + err.message, 'error')
+    } finally {
+      setDeletingEntry(false)
+    }
+  }
 
   useEffect(() => {
     if (!currentUser) return
@@ -419,9 +439,10 @@ export default function TeacherNotificationSettings() {
                       <table className="w-full table-fixed text-[10.2px] border-collapse">
                         <thead>
                           <tr>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1 py-1.5 font-semibold text-accent w-[26%]">Fecha</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[42%]">Notificación</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[32%]">Detalles</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1 py-1.5 font-semibold text-accent w-[24%]">Fecha</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[38%]">Notificación</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[28%]">Detalles</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light w-[10%]" aria-label="Borrar" />
                           </tr>
                         </thead>
                         <tbody>
@@ -439,6 +460,12 @@ export default function TeacherNotificationSettings() {
                                 </td>
                                 <td className="border border-outline-variant px-1.5 py-1.5 align-top text-on-surface break-words">{notificacion}</td>
                                 <td className="border border-outline-variant px-1.5 py-1.5 align-top text-on-surface break-words">{detalles}</td>
+                                <td className="border border-outline-variant text-center align-top">
+                                  <button type="button" onClick={() => setEntryToDelete(e)} aria-label="Borrar notificación"
+                                    className="p-1 text-muted hover:text-error rounded transition-colors">
+                                    <Trash2 size={13} />
+                                  </button>
+                                </td>
                               </tr>
                             )
                           })}
@@ -455,6 +482,7 @@ export default function TeacherNotificationSettings() {
                             <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Hora</th>
                             <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Notificación</th>
                             <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Detalles</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2" aria-label="Borrar" />
                           </tr>
                         </thead>
                         <tbody>
@@ -468,6 +496,12 @@ export default function TeacherNotificationSettings() {
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtHHMM(d) : '—'}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{notificacion}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{detalles}</td>
+                                <td className="border border-outline-variant px-2 py-1.5 text-center">
+                                  <button type="button" onClick={() => setEntryToDelete(e)} aria-label="Borrar notificación" data-tooltip="Borrar"
+                                    className="p-1 text-muted hover:text-error rounded transition-colors">
+                                    <Trash2 size={15} />
+                                  </button>
+                                </td>
                               </tr>
                             )
                           })}
@@ -482,6 +516,28 @@ export default function TeacherNotificationSettings() {
           </>
         )}
       </div>
+
+      {/* ── Borrar renglón de la Bitácora — pide confirmación primero ── */}
+      {entryToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setEntryToDelete(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-on-surface mb-1">¿Borrar esta notificación?</h3>
+            <p className="text-sm text-muted mb-4">
+              "<strong>{describeEntry(entryToDelete).notificacion}</strong>" se borrará de tu bitácora permanentemente.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setEntryToDelete(null)} disabled={deletingEntry}
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+              <button type="button" onClick={confirmDeleteEntry} disabled={deletingEntry}
+                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                {deletingEntry ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                {deletingEntry ? 'Borrando…' : 'Borrar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </TeacherLayout>
   )
 }

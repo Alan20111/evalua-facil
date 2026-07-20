@@ -320,12 +320,14 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
-    // Registro de notificaciones REALMENTE enviadas (docente o alumno) — solo
-    // la Cloud Function las escribe, vía Admin SDK (bypasa estas reglas); el
-    // cliente solo lee las suyas. `uid` es el destinatario, NO el id del
-    // documento (ids autogenerados: puede haber muchas por uid).
+    // Registro de notificaciones REALMENTE enviadas (docente o alumno) —
+    // la Cloud Function las escribe vía Admin SDK (bypasa estas reglas); el
+    // cliente lee, crea (recordatorios locales, ver más abajo) y borra solo
+    // las suyas — la Bitácora de Notificaciones (docente) permite borrar
+    // cada renglón. `uid` es el destinatario, NO el id del documento (ids
+    // autogenerados: puede haber muchas por uid).
     match /notificationLog/{logId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.uid;
+      allow read, delete: if request.auth != null && request.auth.uid == resource.data.uid;
       // El docente registra sus propios recordatorios locales (clase/evento)
       // entregados en su celular — los push del servidor los sigue
       // registrando la Cloud Function (Admin SDK, no pasa por esta regla).
