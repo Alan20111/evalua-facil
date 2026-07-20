@@ -206,10 +206,27 @@ function Toggle({ checked, onChange, label, description, icon: Icon, children })
 // Bitácora en formato tabla — encabezados cortos (Día semana / Fecha / Hora /
 // Notificación / Detalles); el contenido de cada celda varía por categoría, ver
 // describeEntry. Día/fecha/hora son SIEMPRE cuándo se recibió la
-// notificación (createdAt) — no la hora propia de la clase/evento que la
-// causó (pedido explícito: "la hora... debe ser la hora en la cual se
-// recibió la notificación").
+// notificación — no la hora propia de la clase/evento que la causó (pedido
+// explícito: "la hora... debe ser la hora en la cual se recibió la
+// notificación"), PERO "se recibió" no es lo mismo que createdAt (cuándo la
+// app alcanzó a escribir el registro): para recordatorioClase/Evento
+// (avisos locales, ver localReminders.js) createdAt puede quedar minutos
+// atrás si el teléfono estaba en segundo plano y el registro se hizo hasta
+// el siguiente resume de la app — mientras que disparadoEn (la hora exacta
+// programada del aviso) no depende de eso. nuevasEntregas/activacionEstudiante
+// (push del servidor) no traen disparadoEn — createdAt ya es preciso ahí,
+// se escribe en el servidor en el momento real del evento.
 const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+
+// Un solo punto de verdad para "cuándo pasó esto" — usado tanto para
+// ordenar la Bitácora como para las columnas Día/Fecha/Hora.
+function entryTimestamp(e) {
+  return e.disparadoEn?.seconds ?? e.createdAt?.seconds ?? null
+}
+function entryDate(e) {
+  const ts = entryTimestamp(e)
+  return ts != null ? new Date(ts * 1000) : new Date()
+}
 
 function fmtDDMMAA(d) {
   const dd = String(d.getDate()).padStart(2, '0')
@@ -388,7 +405,7 @@ export default function TeacherNotificationSettings() {
         // "ahora mismo" (recién sucedió) en vez de mandarla al fondo de la
         // lista o mostrarla en blanco.
         const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.createdAt?.seconds ?? Date.now() / 1000) - (a.createdAt?.seconds ?? Date.now() / 1000))
+          .sort((a, b) => (entryTimestamp(b) ?? Date.now() / 1000) - (entryTimestamp(a) ?? Date.now() / 1000))
         setLogEntries(rows)
       })
       .catch(() => toast('No se pudo cargar la bitácora de notificaciones', 'error'))
@@ -491,11 +508,11 @@ export default function TeacherNotificationSettings() {
                         </thead>
                         <tbody>
                           {logEntries.map((e, i) => {
-                            // Siempre createdAt — cuándo se RECIBIÓ el aviso, no la hora
-                            // propia de la clase/evento que lo causó.
-                            // Si createdAt no resolvió (raro, ya con getDocsFromServer arriba),
-                            // "ahora" en vez de dejar el renglón con fecha/hora en blanco.
-                            const d = e.createdAt?.toDate ? e.createdAt.toDate() : new Date()
+                            // disparadoEn si existe (hora real del aviso, ver entryDate arriba),
+                            // si no createdAt — nunca la hora propia de la clase/evento que lo
+                            // causó. Si ninguno resolvió, "ahora" en vez de dejar el renglón con
+                            // fecha/hora en blanco.
+                            const d = entryDate(e)
                             const { notificacion, detalles } = describeEntry(e, navigate)
                             // logEntries ya viene ordenado con la más nueva primero — el
                             // renglón 0 es la última notificación recibida. Se resalta en
@@ -542,9 +559,10 @@ export default function TeacherNotificationSettings() {
                         </thead>
                         <tbody>
                           {logEntries.map((e, i) => {
-                            // Si createdAt no resolvió (raro, ya con getDocsFromServer arriba),
-                            // "ahora" en vez de dejar el renglón con fecha/hora en blanco.
-                            const d = e.createdAt?.toDate ? e.createdAt.toDate() : new Date()
+                            // disparadoEn si existe (hora real del aviso), si no createdAt — ver
+                            // entryDate arriba. Si ninguno resolvió, "ahora" en vez de dejar el
+                            // renglón con fecha/hora en blanco.
+                            const d = entryDate(e)
                             const { notificacion, detalles } = describeEntry(e, navigate)
                             // logEntries ya viene ordenado con la más nueva primero — el
                             // renglón 0 es la última notificación recibida. Se resalta en

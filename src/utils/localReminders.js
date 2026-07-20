@@ -94,6 +94,15 @@ async function scheduleUpcoming(category, items, anticipacionMinutos) {
           grupo: item.grupo || '',
           lugar: item.lugar || '',
           evento: item.evento || '',
+          // La hora EXACTA en que este aviso suena — a diferencia de
+          // createdAt (cuándo la app alcanzó a escribir el registro, que
+          // puede quedar minutos atrás si el teléfono estaba en segundo
+          // plano y el registro se hace hasta el próximo resume), esta es
+          // fija desde que se programa y no depende de cuándo la app se
+          // entera. Pedido explícito: el renglón de arriba de la Bitácora
+          // debe ser el aviso que de verdad acaba de sonar, no el último que
+          // la app alcanzó a registrar.
+          disparadoEn: new Date(item.start.getTime() - min * 60_000).toISOString(),
         },
       }))
     )
@@ -163,6 +172,9 @@ async function logIfNew(uid, id, title, body, extra) {
       fecha: extra.fecha || '',
       hora: extra.hora || '',
       anticipacionMinutos: extra.anticipacionMinutos ?? null,
+      // Hora real en que sonó (ver scheduleUpcoming) — la Bitácora ordena y
+      // muestra por esto, no por createdAt, cuando está disponible.
+      disparadoEn: extra.disparadoEn ? new Date(extra.disparadoEn) : null,
       createdAt: serverTimestamp(),
     })
   } catch (err) {
