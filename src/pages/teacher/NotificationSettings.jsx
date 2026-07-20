@@ -446,13 +446,18 @@ export default function TeacherNotificationSettings() {
                           </tr>
                         </thead>
                         <tbody>
-                          {logEntries.map((e) => {
+                          {logEntries.map((e, i) => {
                             // Siempre createdAt — cuándo se RECIBIÓ el aviso, no la hora
                             // propia de la clase/evento que lo causó.
                             const d = e.createdAt?.toDate ? e.createdAt.toDate() : null
                             const { notificacion, detalles } = describeEntry(e)
+                            // logEntries ya viene ordenado con la más nueva primero — el
+                            // renglón 0 es la última notificación recibida. Se resalta en
+                            // verde (pedido explícito) para que el docente identifique de
+                            // inmediato cuál acaba de sonar.
+                            const esUltima = i === 0
                             return (
-                              <tr key={e.id} className="odd:bg-surface even:bg-surface-card">
+                              <tr key={e.id} className={esUltima ? 'bg-green-100' : i % 2 === 0 ? 'bg-surface' : 'bg-surface-card'}>
                                 <td className="border border-outline-variant px-1 py-1.5 text-center align-top text-on-surface break-words">
                                   <div>{d ? DIAS_SEMANA[d.getDay()] : '—'}</div>
                                   <div>{d ? fmtDDMMAA(d) : '—'}</div>
@@ -486,11 +491,16 @@ export default function TeacherNotificationSettings() {
                           </tr>
                         </thead>
                         <tbody>
-                          {logEntries.map((e) => {
+                          {logEntries.map((e, i) => {
                             const d = e.createdAt?.toDate ? e.createdAt.toDate() : null
                             const { notificacion, detalles } = describeEntry(e)
+                            // logEntries ya viene ordenado con la más nueva primero — el
+                            // renglón 0 es la última notificación recibida. Se resalta en
+                            // verde (pedido explícito) para que el docente identifique de
+                            // inmediato cuál acaba de sonar.
+                            const esUltima = i === 0
                             return (
-                              <tr key={e.id} className="odd:bg-surface even:bg-surface-card">
+                              <tr key={e.id} className={esUltima ? 'bg-green-100' : i % 2 === 0 ? 'bg-surface' : 'bg-surface-card'}>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? DIAS_SEMANA[d.getDay()] : '—'}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtDDMMAA(d) : '—'}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtHHMM(d) : '—'}</td>
