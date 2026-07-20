@@ -5,7 +5,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ArrowLeft, Settings, FileCheck2, Clock, CalendarDays, Bell, ChevronDown, Check, X, History } from 'lucide-react'
+import { Settings, FileCheck2, Clock, CalendarDays, Bell, ChevronDown, Check, X, History } from 'lucide-react'
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
@@ -187,7 +187,7 @@ function Toggle({ checked, onChange, label, description, icon: Icon, children })
           />
         </span>
       </button>
-      {checked && children && <div className="mt-3 pt-3 border-t border-outline-variant">{children}</div>}
+      {checked && children && <div className="mt-3">{children}</div>}
     </div>
   )
 }
@@ -244,14 +244,6 @@ export default function TeacherNotificationSettings() {
     <TeacherLayout>
       <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER_NARROW}`}>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="p-2 -ml-2 text-muted hover:text-accent rounded transition-colors flex-shrink-0"
-            aria-label="Regresar"
-          >
-            <ArrowLeft size={20} />
-          </button>
           <h1 className="text-xl font-bold text-on-surface flex-1 min-w-0">Notificaciones</h1>
           {saving && <Spinner size="sm" />}
         </div>
