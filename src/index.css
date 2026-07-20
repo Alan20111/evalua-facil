@@ -13,12 +13,21 @@
        tope/final del scroll (efecto goma de navegador) y se siente como
        una página web dentro de un WebView, no como una app nativa. */
     overscroll-behavior-y: none;
+    /* Mismo problema en horizontal: sin esto, un swipe hacia los lados
+       sobre una tabla ancha (Horario, Calificaciones, Asistencias) hace
+       que la PANTALLA ENTERA se corra en vez de solo desplazar la tabla —
+       se sentía como si la ventana se moviera. */
+    overscroll-behavior-x: none;
   }
   body {
     @apply bg-surface text-on-surface font-sans antialiased;
     /* Quita el resaltado azul translúcido al tocar botones/enlaces en
        Android/Chrome — sin esto cada tap se ve como un clic de navegador. */
     -webkit-tap-highlight-color: transparent;
+    /* Respaldo del overscroll-behavior-x de arriba: si algún contenido
+       interno se pasa del ancho del viewport, que se recorte en vez de
+       dejar que el body entero se deslice hacia los lados. */
+    overflow-x: hidden;
   }
   #root {
     @apply min-h-screen;
