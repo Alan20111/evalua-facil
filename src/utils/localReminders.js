@@ -113,6 +113,49 @@ function saveLoggedIds(set) {
   try { localStorage.setItem(LOGGED_KEY, JSON.stringify([...set].slice(-500))) } catch { /* almacenamiento lleno */ }
 }
 
+// Un solo punto para escribir la entrada — lo usan tanto el listener
+// instantáneo (installReminderDeliveryListener) como el barrido de
+// alcance (registerDeliveredReminders), con el mismo Set en localStorage
+// para no duplicar si ambos ven la misma notificación.
+async function logIfNew(uid, id, title, body, extra) {
+  const logged = loadLoggedIds()
+  if (logged.has(id)) return
+  await addDoc(collection(db, 'notificationLog'), {
+    uid,
+    categoria: extra.categoria || '',
+    titulo: title || 'Recordatorio',
+    descripcion: body || '',
+    asignatura: extra.asignatura || '',
+    grupo: extra.grupo || '',
+    evento: extra.evento || '',
+    fecha: extra.fecha || '',
+    hora: extra.hora || '',
+    anticipacionMinutos: extra.anticipacionMinutos ?? null,
+    createdAt: serverTimestamp(),
+  })
+  logged.add(id)
+  saveLoggedIds(logged)
+}
+
+// Segunda vía para registrar un recordatorio entregado — además del barrido
+// en registerDeliveredReminders (que depende de que el docente vuelva a
+// abrir la app SIN haber descartado el aviso), este listener escucha el
+// evento de entrega mientras el proceso de la app sigue vivo (primer plano,
+// o recién puesto en segundo plano) y registra AL INSTANTE, sin depender de
+// que la notificación siga en la bandeja. Entre los dos, la única ventana
+// que queda sin cubrir es: la app fue matada por el sistema Y el docente
+// descartó el aviso antes de volver a abrirla — límite real de Android que
+// ningún listener en JS puede cerrar sin un servicio nativo en segundo plano.
+export function installReminderDeliveryListener(uid) {
+  if (!uid || !Capacitor.isNativePlatform()) return
+  LocalNotifications.addListener('localNotificationReceived', (n) => {
+    if (n.id < 1_200_000_000) return // no es nuestro (ver rango reservado arriba)
+    const extra = n.extra || {}
+    logIfNew(uid, n.id, n.title, n.body, extra)
+      .catch((err) => console.error('[localReminders] logIfNew (listener) falló:', err))
+  })
+}
+
 export async function registerDeliveredReminders(uid) {
   if (!uid || !Capacitor.isNativePlatform()) return
   try {
@@ -127,22 +170,8 @@ export async function registerDeliveredReminders(uid) {
       // (DeliveredNotificationSchema) — `extra` en esa lectura es solo iOS,
       // que esta app no tiene. Cae a `n.extra` por si acaso, sin costo.
       const extra = n.data || n.extra || {}
-      await addDoc(collection(db, 'notificationLog'), {
-        uid,
-        categoria: extra.categoria || '',
-        titulo: n.title || 'Recordatorio',
-        descripcion: n.body || '',
-        asignatura: extra.asignatura || '',
-        grupo: extra.grupo || '',
-        evento: extra.evento || '',
-        fecha: extra.fecha || '',
-        hora: extra.hora || '',
-        anticipacionMinutos: extra.anticipacionMinutos ?? null,
-        createdAt: serverTimestamp(),
-      })
-      logged.add(n.id)
+      await logIfNew(uid, n.id, n.title, n.body, extra)
     }
-    saveLoggedIds(logged)
     console.log(`[localReminders] recordatorios entregados registrados: ${nuevas.length}`)
   } catch (err) {
     console.error('[localReminders] registerDeliveredReminders falló:', err)

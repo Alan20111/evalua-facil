@@ -220,7 +220,8 @@ function fmtFechaClase(fecha) {
   return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// Etiqueta corta por categoría — encabeza cada renglón de la Bitácora.
+// Etiqueta corta por categoría — va como subtítulo de cada renglón (el
+// nombre de la clase/evento/estudiante es el encabezado, ver describeEntry).
 const CATEGORIA_LABEL = {
   recordatorioClase: 'Antes de clase',
   recordatorioEvento: 'Antes de evento',
@@ -228,35 +229,38 @@ const CATEGORIA_LABEL = {
   activacionEstudiante: 'Estudiante activado',
 }
 
-// Arma el segundo renglón de cada entrada — qué causó el aviso, quién,
-// asignatura y grupo — según la categoría. `e.categoria` falta en entradas
-// viejas (de antes de este cambio): caen al resumen simple de siempre.
+// Arma cada renglón de la Bitácora: `nombre` es lo primero que se lee — la
+// clase, el evento, o el estudiante que causó el aviso — en negritas, NUNCA
+// solo la categoría genérica (pedido explícito, dos veces). `sub` es la
+// categoría + el resto del detalle (grupo, asignatura, cuándo). `e.categoria`
+// falta en entradas viejas (de antes de este cambio): caen al resumen simple
+// de siempre, con el título original como nombre.
 function describeEntry(e) {
-  const label = CATEGORIA_LABEL[e.categoria] || e.titulo || 'Notificación'
-  let detalle
+  const categoriaLabel = CATEGORIA_LABEL[e.categoria] || ''
   switch (e.categoria) {
     case 'recordatorioClase': {
-      const quien = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
+      const nombre = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
       const cuando = e.anticipacionMinutos > 0 ? `empezaba en ${e.anticipacionMinutos} min` : 'empezaba en ese momento'
-      detalle = `${quien} · ${cuando}${e.hora ? ` (${fmtFechaClase(e.fecha)}, ${e.hora})` : ''}`
-      break
+      return { nombre, sub: `${categoriaLabel} · ${cuando}${e.hora ? ` (${fmtFechaClase(e.fecha)}, ${e.hora})` : ''}` }
     }
     case 'recordatorioEvento': {
-      const quien = e.evento || 'Tu evento'
+      const nombre = e.evento || 'Tu evento'
       const cuando = e.anticipacionMinutos > 0 ? `empezaba en ${e.anticipacionMinutos} min` : 'empezaba en ese momento'
-      detalle = `${quien} · ${cuando}${e.hora ? ` (${fmtFechaClase(e.fecha)}, ${e.hora})` : ''}`
-      break
+      return { nombre, sub: `${categoriaLabel} · ${cuando}${e.hora ? ` (${fmtFechaClase(e.fecha)}, ${e.hora})` : ''}` }
     }
     case 'nuevasEntregas':
-      detalle = `${e.estudiante || 'Un estudiante'} entregó "${e.actividad || ''}" — ${e.asignatura || ''}${e.grupo ? ` · ${e.grupo}` : ''}`
-      break
+      return {
+        nombre: e.estudiante || 'Un estudiante',
+        sub: `${categoriaLabel} · "${e.actividad || ''}" — ${e.asignatura || ''}${e.grupo ? ` · ${e.grupo}` : ''}`,
+      }
     case 'activacionEstudiante':
-      detalle = `${e.estudiante || 'Un estudiante'} — ${e.asignatura || ''}${e.grupo ? ` · ${e.grupo}` : ''}`
-      break
+      return {
+        nombre: e.estudiante || 'Un estudiante',
+        sub: `${categoriaLabel} · ${e.asignatura || ''}${e.grupo ? ` · ${e.grupo}` : ''}`,
+      }
     default:
-      detalle = e.descripcion || e.titulo || 'Notificación'
+      return { nombre: e.titulo || 'Notificación', sub: e.descripcion || '' }
   }
-  return { label, detalle }
 }
 
 export default function TeacherNotificationSettings() {
@@ -268,28 +272,28 @@ export default function TeacherNotificationSettings() {
   const [saving, setSaving] = useState(false)
   const saveTimer = useRef(null)
 
-  // Registro de notificaciones — se despliega debajo del propio botón en vez
-  // de ir a otra pantalla (pedido explícito): se carga solo la primera vez
-  // que se abre, no en cada render.
-  const [logOpen, setLogOpen] = useState(false)
-  const [logLoading, setLogLoading] = useState(false)
+  // Bitácora de notificaciones — vive en su propia caja con scroll debajo de
+  // los ajustes (pedido explícito), siempre visible y cargada sola al entrar
+  // a la pantalla — no hace falta darle clic para verla. `logOpen` solo deja
+  // colapsarla si estorba, no controla si se carga.
+  const [logOpen, setLogOpen] = useState(true)
+  const [logLoading, setLogLoading] = useState(true)
   const [logEntries, setLogEntries] = useState(null)
 
-  function toggleLog() {
-    const next = !logOpen
-    setLogOpen(next)
-    if (next && logEntries === null && currentUser) {
-      setLogLoading(true)
-      getDocs(query(collection(db, 'notificationLog'), where('uid', '==', currentUser.uid)))
-        .then((snap) => {
-          const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
-          setLogEntries(rows)
-        })
-        .catch(() => toast('No se pudo cargar el registro de notificaciones', 'error'))
-        .finally(() => setLogLoading(false))
-    }
-  }
+  useEffect(() => {
+    if (!currentUser) return
+    setLogLoading(true)
+    getDocs(query(collection(db, 'notificationLog'), where('uid', '==', currentUser.uid)))
+      .then((snap) => {
+        // Más nueva arriba — no se puede pedir orderBy en la query (regla del
+        // proyecto: solo igualdad en Firestore), así que se ordena en memoria.
+        const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+        setLogEntries(rows)
+      })
+      .catch(() => toast('No se pudo cargar la bitácora de notificaciones', 'error'))
+      .finally(() => setLogLoading(false))
+  }, [currentUser]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!currentUser) return
@@ -396,14 +400,14 @@ export default function TeacherNotificationSettings() {
               </ol>
             </div>
 
-            <div className="rounded-card border border-outline-variant overflow-hidden">
+            <div className="rounded-card border border-outline-variant overflow-hidden bg-surface-card shadow-card">
               <button
                 type="button"
-                onClick={toggleLog}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+                onClick={() => setLogOpen((v) => !v)}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
               >
-                <History size={16} className="flex-shrink-0" />
-                Bitácora de notificaciones
+                <History size={16} className="flex-shrink-0 text-accent" />
+                <span className="flex-1 text-left">Bitácora de notificaciones</span>
                 {logOpen ? <ChevronUp size={16} className="text-muted flex-shrink-0" /> : <ChevronDown size={16} className="text-muted flex-shrink-0" />}
               </button>
               {logOpen && (
@@ -413,20 +417,22 @@ export default function TeacherNotificationSettings() {
                   ) : !logEntries?.length ? (
                     <p className="text-center text-muted text-sm py-6">Aún no tienes notificaciones registradas</p>
                   ) : (
-                    // Bitácora: renglones seguidos separados por una línea delgada, no
-                    // tarjetas individuales — cada entrada, máximo dos renglones (pedido
-                    // explícito), se desplaza libremente hacia atrás y hacia adelante.
-                    <ul className="divide-y divide-outline-variant max-h-[28rem] overflow-y-auto px-3">
+                    // Toda la bitácora vive en UNA caja con scroll (pedido explícito) —
+                    // renglones seguidos separados por una línea delgada, no tarjetas
+                    // individuales, la más nueva arriba, cada entrada en máximo dos
+                    // renglones: el nombre de la clase/evento/estudiante primero (lo que
+                    // causó el aviso), la categoría y el resto del detalle abajo.
+                    <ul className="divide-y divide-outline-variant max-h-[28rem] overflow-y-auto px-4 bg-surface">
                       {logEntries.map((e) => {
                         const { fecha, hora } = fmtFechaHora(e.createdAt)
-                        const { label, detalle } = describeEntry(e)
+                        const { nombre, sub } = describeEntry(e)
                         return (
                           <li key={e.id} className="py-2">
-                            <p className="text-sm text-on-surface truncate">
-                              <span className="font-medium">{label}</span>
-                              <span className="text-muted"> · {fecha} · {hora}</span>
+                            <p className="text-sm text-on-surface font-semibold truncate">
+                              {nombre}
+                              <span className="text-muted font-normal"> · {fecha} · {hora}</span>
                             </p>
-                            <p className="text-xs text-muted truncate">{detalle}</p>
+                            {sub && <p className="text-xs text-muted truncate">{sub}</p>}
                           </li>
                         )
                       })}
