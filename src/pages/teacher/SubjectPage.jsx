@@ -2584,9 +2584,11 @@ export default function SubjectPage() {
   // de contraseña) en ESTA asignatura — a diferencia de otras categorías, no
   // vive en Ajustes > Notificaciones (un ajuste global), sino aquí: es una
   // decisión por asignatura. La Cloud Function (onEstudianteActivado) lee
-  // este campo directo del documento de la asignatura.
+  // este campo directo del documento de la asignatura. Activado por
+  // defecto (campo ausente = true) — este checkbox es para APAGARLO en una
+  // asignatura puntual, no para prenderlo.
   async function toggleNotificarActivacion() {
-    const next = !subject?.notificarActivacion
+    const next = subject?.notificarActivacion === false
     try {
       await updateDoc(doc(db, 'subjects', subjectId), { notificarActivacion: next })
       setSubject((s) => ({ ...s, notificarActivacion: next }))
@@ -3958,7 +3960,7 @@ export default function SubjectPage() {
             <input
               type="checkbox"
               id="notificar-activacion"
-              checked={subject?.notificarActivacion ?? false}
+              checked={subject?.notificarActivacion !== false}
               onChange={toggleNotificarActivacion}
               className="mt-1"
             />

@@ -265,12 +265,13 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
 })
 
 // ─── 4) Estudiante activado ─────────────────────────────────────────────────
-// Doble gate, igual que "Nuevas entregas": subj.notificarActivacion (por
-// asignatura, checkbox en la pestaña Estudiantes de SubjectPage.jsx) Y
-// notificationSettings.activacionEstudiante.habilitado (interruptor global en
-// NotificationSettings.jsx). Se usa enviarPushDirecto en vez de enviarPush
-// porque el título/cuerpo son dinámicos (nombre del estudiante y de la
-// asignatura) — enviarPush solo arma texto fijo desde TITULOS.
+// Doble gate: notificationSettings.activacionEstudiante.habilitado
+// (interruptor global en NotificationSettings.jsx) Y subj.notificarActivacion
+// (por asignatura, checkbox en la pestaña Estudiantes de SubjectPage.jsx —
+// activado por defecto, se salta solo si el docente lo apagó ahí). Se usa
+// enviarPushDirecto en vez de enviarPush porque el título/cuerpo son
+// dinámicos (nombre del estudiante y de la asignatura) — enviarPush solo
+// arma texto fijo desde TITULOS.
 //
 // Dispara tanto en la primera activación como en una reactivación tras un
 // reinicio de contraseña (Activation.jsx pone activado:true en ambos casos;
@@ -323,7 +324,12 @@ exports.onEstudianteActivado = onDocumentWritten('students/{studentId}', async (
   const subjSnap = await db.collection('subjects').doc(afterData.asignaturaId).get()
   if (!subjSnap.exists) return
   const subj = subjSnap.data()
-  if (!subj.notificarActivacion) return
+  // Igual que notificarClase (localReminders.js): activado por defecto,
+  // ausente/true = notifica, solo se salta si el docente lo apagó a
+  // propósito. Antes era al revés (ausente = false, opt-in) y como ninguna
+  // asignatura vieja tenía el campo, la notificación nunca se disparaba —
+  // confirmado con datos reales: 5 asignaturas, ninguna con el campo en true.
+  if (subj.notificarActivacion === false) return
 
   const settingsSnap = await db.collection('notificationSettings').doc(subj.docenteId).get()
   if (settingsSnap.exists && settingsSnap.data().activacionEstudiante?.habilitado === false) return

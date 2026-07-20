@@ -264,8 +264,21 @@ function describeEntry(e) {
         detalles: e.estudiante || '',
       }
     }
-    case 'activacionEstudiante':
-      return { notificacion: 'Aviso de estudiante activado', detalles: e.estudiante || '' }
+    case 'activacionEstudiante': {
+      // Pedido explícito: Notificación se queda fija en "Estudiante
+      // activado"; el nombre del estudiante y la asignatura (con grupo) van
+      // en Detalles, en renglones separados dentro de la misma celda.
+      const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : ''
+      return {
+        notificacion: 'Estudiante activado',
+        detalles: (
+          <>
+            {e.estudiante && <div>{e.estudiante}</div>}
+            {asignatura && <div>{asignatura}</div>}
+          </>
+        ),
+      }
+    }
     default:
       return { notificacion: e.descripcion || e.titulo || 'Notificación', detalles: '' }
   }
