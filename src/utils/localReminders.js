@@ -15,6 +15,7 @@ import { App as CapacitorApp } from '@capacitor/app'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { collection, doc, addDoc, getDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore'
 import { db } from '../firebase'
+import { subjectDisplayName } from './subjectName'
 
 // Ventana hacia adelante en la que se programan recordatorios — más allá de
 // esto no tiene caso programar (se reprograma de todos modos en cada
@@ -199,7 +200,14 @@ export async function refreshTeacherReminders(uid) {
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((b) => b.fecha >= hoy && b.fecha <= fin && b.horaInicio)
         .filter((b) => subjectsById[b.asignaturaId]?.notificarClase !== false)
-        .map((b) => ({ id: b.id, start: parseFechaHora(b.fecha, b.horaInicio), title: 'Tu clase está por comenzar', subtitle: b.lugar || '' }))
+        .map((b) => {
+          // El nombre de la asignatura va en el CUERPO (subtitle), no solo
+          // en el título — "Registro de notificaciones" solo muestra un
+          // renglón (descripcion), que se arma a partir del cuerpo.
+          const nombreClase = subjectDisplayName(subjectsById[b.asignaturaId]) || 'tu clase'
+          const detalle = b.lugar ? `${nombreClase} · ${b.lugar}` : nombreClase
+          return { id: b.id, start: parseFechaHora(b.fecha, b.horaInicio), title: 'Tu clase está por comenzar', subtitle: detalle }
+        })
       programadas += await scheduleUpcoming('clase', items, clase.anticipacionMinutos ?? 10)
     }
 
@@ -208,7 +216,10 @@ export async function refreshTeacherReminders(uid) {
       const items = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((e) => e.inicio)
-        .map((e) => ({ id: e.id, start: new Date(e.inicio), title: e.titulo || 'Tienes un evento', subtitle: '' }))
+        // El nombre del evento va en subtitle (cuerpo), igual que la
+        // asignatura arriba — así queda en el cuerpo del aviso, no solo en
+        // el título, y sí aparece en "Registro de notificaciones".
+        .map((e) => ({ id: e.id, start: new Date(e.inicio), title: 'Tu evento está por comenzar', subtitle: e.titulo || 'Evento' }))
         .filter((e) => e.start >= now && e.start <= windowEnd)
       programadas += await scheduleUpcoming('evento', items, evento.anticipacionMinutos ?? 10)
     }
