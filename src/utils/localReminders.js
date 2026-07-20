@@ -118,25 +118,40 @@ function saveLoggedIds(set) {
 // instantáneo (installReminderDeliveryListener) como el barrido de
 // alcance (registerDeliveredReminders), con el mismo Set en localStorage
 // para no duplicar si ambos ven la misma notificación.
+//
+// OJO — bug real encontrado con datos de producción: el id se marcaba como
+// "ya registrado" DESPUÉS de terminar el addDoc (que tarda un viaje de red
+// completo). Cuando el listener y el barrido veían la MISMA notificación
+// casi al mismo tiempo (p. ej. la app pasa a primer plano justo cuando se
+// entrega), ambos leían el Set ANTES de que el primero alcanzara a
+// guardarlo de vuelta, y los dos escribían — duplicado. Se marca el id
+// como registrado ANTES del addDoc (revirtiendo si falla) para cerrar esa
+// ventana.
 async function logIfNew(uid, id, title, body, extra) {
   const logged = loadLoggedIds()
   if (logged.has(id)) return
-  await addDoc(collection(db, 'notificationLog'), {
-    uid,
-    categoria: extra.categoria || '',
-    titulo: title || 'Recordatorio',
-    descripcion: body || '',
-    asignatura: extra.asignatura || '',
-    grupo: extra.grupo || '',
-    lugar: extra.lugar || '',
-    evento: extra.evento || '',
-    fecha: extra.fecha || '',
-    hora: extra.hora || '',
-    anticipacionMinutos: extra.anticipacionMinutos ?? null,
-    createdAt: serverTimestamp(),
-  })
   logged.add(id)
   saveLoggedIds(logged)
+  try {
+    await addDoc(collection(db, 'notificationLog'), {
+      uid,
+      categoria: extra.categoria || '',
+      titulo: title || 'Recordatorio',
+      descripcion: body || '',
+      asignatura: extra.asignatura || '',
+      grupo: extra.grupo || '',
+      lugar: extra.lugar || '',
+      evento: extra.evento || '',
+      fecha: extra.fecha || '',
+      hora: extra.hora || '',
+      anticipacionMinutos: extra.anticipacionMinutos ?? null,
+      createdAt: serverTimestamp(),
+    })
+  } catch (err) {
+    logged.delete(id)
+    saveLoggedIds(logged)
+    throw err
+  }
 }
 
 // Segunda vía para registrar un recordatorio entregado — además del barrido
@@ -148,11 +163,19 @@ async function logIfNew(uid, id, title, body, extra) {
 // que queda sin cubrir es: la app fue matada por el sistema Y el docente
 // descartó el aviso antes de volver a abrirla — límite real de Android que
 // ningún listener en JS puede cerrar sin un servicio nativo en segundo plano.
+let deliveryListenerInstalled = false
+
 export function installReminderDeliveryListener(uid) {
-  if (!uid || !Capacitor.isNativePlatform()) return
+  if (deliveryListenerInstalled || !uid || !Capacitor.isNativePlatform()) return
+  deliveryListenerInstalled = true
   LocalNotifications.addListener('localNotificationReceived', (n) => {
     if (n.id < 1_200_000_000) return // no es nuestro (ver rango reservado arriba)
-    const extra = n.extra || {}
+    // Mismo bug que en registerDeliveredReminders: en Android este evento
+    // trae los datos en `data`, no en `extra` (ese campo del tipo declarado
+    // es solo iOS) — confirmado con una entrada real en producción que
+    // quedó guardada con categoria/asignatura/evento vacíos porque solo se
+    // leía `n.extra`.
+    const extra = n.data || n.extra || {}
     logIfNew(uid, n.id, n.title, n.body, extra)
       .catch((err) => console.error('[localReminders] logIfNew (listener) falló:', err))
   })
