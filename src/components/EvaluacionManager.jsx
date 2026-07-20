@@ -26,6 +26,7 @@ import PublicacionScheduler from './PublicacionScheduler'
 import EvaluacionEditor from './EvaluacionEditor'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import { formatHora12FromDate } from '../utils/formatHora'
 
 const TIPOS_PREGUNTA = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -52,7 +53,8 @@ const TABS = [
 
 function fmtHora(ts) {
   if (!ts?.seconds) return '—'
-  return new Date(ts.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  const d = new Date(ts.seconds * 1000)
+  return `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`
 }
 function fmtDuracion(inicio, fin) {
   if (!inicio?.seconds || !fin?.seconds) return '—'

@@ -47,6 +47,7 @@ import { ClipboardList, X } from 'lucide-react'
 import { totalRubrica, RUBRICA_TOTAL, esCotejo } from '../../utils/rubrica'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { formatHora12FromDate } from '../../utils/formatHora'
 
 // La evaluación con rúbrica de un alumno "no existe" hasta que se elige algún
 // nivel — un arreglo todo-null equivale a no tener rúbrica evaluada (permite
@@ -1417,7 +1418,7 @@ export default function ActivityPage() {
                         <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
                           <span className="text-slate-400 flex-shrink-0">
                             {v.fechaEntrega?.seconds
-                              ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                              ? (d => `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`)(new Date(v.fechaEntrega.seconds * 1000))
                               : '—'}
                           </span>
                           {v.completadoSinArchivo
@@ -1935,7 +1936,7 @@ export default function ActivityPage() {
                     <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
                       <span className="text-slate-400 flex-shrink-0">
                         {v.fechaEntrega?.seconds
-                          ? new Date(v.fechaEntrega.seconds * 1000).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                          ? (d => `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`)(new Date(v.fechaEntrega.seconds * 1000))
                           : '—'}
                       </span>
                       {v.completadoSinArchivo

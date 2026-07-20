@@ -20,6 +20,7 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { refreshTeacherReminders } from '../../utils/localReminders'
+import { formatHora12 } from '../../utils/formatHora'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
@@ -64,9 +65,7 @@ function getWeekDays(date) {
   return Array.from({ length: 7 }, (_, i) => addDays(mon, i))
 }
 function fmtHour(timeStr) {
-  if (!timeStr) return ''
-  const [h, m] = timeStr.split(':')
-  return `${parseInt(h)}:${m}`
+  return formatHora12(timeStr)
 }
 
 const ROW_H = 52        // px por hora en la vista semana
@@ -287,7 +286,7 @@ function AgendaView({
           {hours.map((h, i) => (
             <div key={h} className="absolute right-1.5 text-[10px] text-muted leading-none"
               style={{ top: i * AGENDA_ROW_H + AGENDA_ROW_H / 2, transform: 'translateY(-50%)' }}>
-              {h}:00
+              {formatHora12(`${String(h).padStart(2, '0')}:00`)}
             </div>
           ))}
         </div>
@@ -302,7 +301,7 @@ function AgendaView({
               className="absolute left-0 right-0 p-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
               style={{ top: i * AGENDA_ROW_H, height: AGENDA_ROW_H }}
               data-tooltip="Crear evento a esta hora"
-              aria-label={`Crear evento a las ${h}:00`}
+              aria-label={`Crear evento a las ${formatHora12(`${String(h).padStart(2, '0')}:00`)}`}
             />
           ))}
 
@@ -428,10 +427,10 @@ function BloquePill({ b, subj, onClick }) {
       onClick={e => { e.stopPropagation(); onClick?.(b) }}
       className="flex items-center gap-1 rounded-md w-full truncate px-1 py-0.5 text-xs ring-1 ring-black/5 hover:opacity-80 transition-opacity"
       style={{ background: pal.bg, color: pal.text }}
-      data-tooltip={`${subjectDisplayName(subj)} · ${b.horaInicio}–${b.horaFin}${b.lugar ? ' · ' + b.lugar : ''}`}
+      data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}${b.lugar ? ' · ' + b.lugar : ''}`}
     >
       <span className="truncate">{subjectDisplayName(subj)}</span>
-      <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{b.horaInicio}</span>
+      <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{formatHora12(b.horaInicio)}</span>
     </button>
   )
 }
@@ -763,7 +762,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
             {hoursRange.map((hour, i) => (
               <div key={hour} className="absolute left-0 right-0 px-1.5 text-[10px] text-muted leading-none"
                 style={{ top: i * ROW_H + ROW_H / 2, transform: 'translateY(-50%)' }}>
-                {hour}:00
+                {formatHora12(`${String(hour).padStart(2, '0')}:00`)}
               </div>
             ))}
           </div>
@@ -795,7 +794,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                     onClick={() => onSlotClick?.(dStr, `${String(hour).padStart(2, '0')}:00`)}
                     className="absolute left-0 right-0 p-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
                     style={{ top: i * ROW_H, height: ROW_H }}
-                    aria-label={`Crear evento a las ${hour}:00`}
+                    aria-label={`Crear evento a las ${formatHora12(`${String(hour).padStart(2, '0')}:00`)}`}
                   />
                 ))}
 
@@ -824,10 +823,10 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                         opacity: isDragging ? 0.3 : 1,
                         touchAction: 'none',
                       }}
-                      data-tooltip={`${subjectDisplayName(subj)} · ${b.horaInicio}–${b.horaFin} · arrastra para mover`}
+                      data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)} · arrastra para mover`}
                     >
                       <span className="block text-xs font-semibold leading-tight truncate">{subjectDisplayName(subj)}</span>
-                      <span className="block text-[10px] opacity-80 leading-tight">{b.horaInicio}–{b.horaFin}</span>
+                      <span className="block text-[10px] opacity-80 leading-tight">{formatHora12(b.horaInicio)}–{formatHora12(b.horaFin)}</span>
                       {b.lugar && <span className="block text-[10px] opacity-70 leading-tight truncate">{b.lugar}</span>}
                     </div>
                   )
@@ -1641,7 +1640,9 @@ export default function CalendarPage() {
         data-tooltip="Horas visibles de tu día (Agenda y Semana)"
         data-tooltip-pos="bottom"
       >
-        <Clock size={14} /> {dayStart}:00–{dayEnd}:00
+        {/* % 24 — dayEnd puede ser 24 (medianoche, límite exclusivo del rango
+            visible), que formatHora12 debe leer como "12:00 am", no "24:00". */}
+        <Clock size={14} /> {formatHora12(`${String(dayStart % 24).padStart(2, '0')}:00`)}–{formatHora12(`${String(dayEnd % 24).padStart(2, '0')}:00`)}
       </button>
       {showHoras && (
         <>
@@ -1661,7 +1662,7 @@ export default function CalendarPage() {
                 className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
               >
                 {Array.from({ length: 23 }, (_, h) => h).map(h => (
-                  <option key={h} value={h}>{h}:00</option>
+                  <option key={h} value={h}>{formatHora12(`${String(h).padStart(2, '0')}:00`)}</option>
                 ))}
               </select>
             </div>
@@ -1673,7 +1674,7 @@ export default function CalendarPage() {
                 className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
               >
                 {Array.from({ length: 24 }, (_, h) => h + 1).filter(h => h > dayStart).map(h => (
-                  <option key={h} value={h}>{h}:00</option>
+                  <option key={h} value={h}>{formatHora12(`${String(h % 24).padStart(2, '0')}:00`)}</option>
                 ))}
               </select>
             </div>
@@ -2035,7 +2036,7 @@ export default function CalendarPage() {
                     <Plus size={14} />
                   </button>
                 </div>
-                <p className="text-xs text-muted">Termina a las <strong className="text-on-surface">{addMinutesToTime(hora, durMin)}</strong></p>
+                <p className="text-xs text-muted">Termina a las <strong className="text-on-surface">{formatHora12(addMinutesToTime(hora, durMin))}</strong></p>
                 {seEncima && (
                   <p className="text-xs text-error flex items-center gap-1">
                     <AlertTriangle size={13} className="flex-shrink-0" /> A esa hora se encima con otra clase. Elige otra hora.

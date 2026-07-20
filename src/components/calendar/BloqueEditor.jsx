@@ -11,6 +11,7 @@ import {
   addMinutesToTime, timeToMinutes,
 } from '../../utils/horarioBloques'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { formatHora12 } from '../../utils/formatHora'
 
 const HORAS_INICIO = Array.from({ length: 33 }, (_, i) => {
   const h = 6 + Math.floor(i / 2)
@@ -195,7 +196,7 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
             <div className="space-y-1">
               {label('Hora de inicio')}
               <select value={form.horaInicio} onChange={e => setForm(f => ({ ...f, horaInicio: e.target.value }))} className={`${inputCls} w-full`}>
-                {HORAS_INICIO.map(h => <option key={h} value={h}>{h}</option>)}
+                {HORAS_INICIO.map(h => <option key={h} value={h}>{formatHora12(h)}</option>)}
               </select>
             </div>
             <div className="space-y-1">
@@ -205,7 +206,7 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
                 className={`${inputCls} w-full`} />
             </div>
           </div>
-          <p className="text-xs text-muted">Termina a las <strong>{horaFin}</strong></p>
+          <p className="text-xs text-muted">Termina a las <strong>{formatHora12(horaFin)}</strong></p>
 
           <div className="space-y-1">
             {label('Lugar')}

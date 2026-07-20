@@ -1,4 +1,5 @@
 import EFDateTimePicker from './EFDateTimePicker'
+import { formatHora12FromDate } from '../utils/formatHora'
 
 // Visibility radio-group (Publicar ahora / Ocultar / Programar) shared by any
 // content type that needs the oculta/publishAt fields — activities first,
@@ -28,10 +29,7 @@ function formatPublishedAt(str) {
   if (!str) return null
   const d = new Date(str)
   if (isNaN(d.getTime())) return null
-  const h = d.getHours(), m = d.getMinutes()
-  const h12 = h % 12 || 12
-  const ap = h < 12 ? 'a.m.' : 'p.m.'
-  return `${String(d.getDate()).padStart(2,'0')} ${MESES_CORTO[d.getMonth()]} ${d.getFullYear()} · ${String(h12).padStart(2,'0')}:${String(m).padStart(2,'0')} ${ap}`
+  return `${String(d.getDate()).padStart(2,'0')} ${MESES_CORTO[d.getMonth()]} ${d.getFullYear()} · ${formatHora12FromDate(d)}`
 }
 
 export default function VisibilitySelect({ mode, publishAt, publishedAt, wasScheduled = false, isDraft = false, onModeChange, onPublishAtChange }) {

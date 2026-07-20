@@ -82,7 +82,7 @@ function formatDisplay(d, mode) {
   const ap = h < 12 ? 'am' : 'pm'
   return {
     date: dateStr,
-    time: `${String(h12).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ${ap}`,
+    time: `${h12}:${String(d.getMinutes()).padStart(2, '0')} ${ap}`,
   }
 }
 
@@ -792,7 +792,7 @@ export default function EFDateTimePicker({
     const ap  = ampmIdx === 0 ? 'am' : 'pm'
     return {
       date: dateStr,
-      time: `${String(h12).padStart(2, '0')}:${String(mm).padStart(2, '0')} ${ap}`,
+      time: `${h12}:${String(mm).padStart(2, '0')} ${ap}`,
     }
   }, [draft, mode, hourIdx, minIdx, ampmIdx])
 

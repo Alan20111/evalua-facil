@@ -13,6 +13,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { isActivityPublished, formatPublishAt } from '../../utils/activityVisibility'
+import { formatHora12FromDate } from '../../utils/formatHora'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
@@ -76,7 +77,7 @@ function formatFechaLimite(value) {
   if (!value) return ''
   const d = new Date(value)
   if (isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + ' ' + formatHora12FromDate(d)
 }
 
 function isOverdue(activity) {

@@ -4,6 +4,8 @@
 // `parcialOculto` is the subject-level override (the whole parcial hidden from
 // students) — when true it always wins over the activity's own `oculta` state.
 
+import { formatHora12FromDate } from './formatHora'
+
 export function isActivityPublished(a, parcialOculto = false) {
   if (parcialOculto) return false
   if (!a?.oculta) return true
@@ -25,8 +27,7 @@ export function activityVisibilityState(a, parcialOculto = false) {
 export function formatPublishAt(publishAt) {
   if (!publishAt) return ''
   const d = new Date(publishAt)
-  // toLocaleString (not toLocaleDateString) so hour/minute are actually rendered.
-  return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`
 }
 
 // Human-readable label for the submission deadline. `fechaLimite` used to be
@@ -36,7 +37,7 @@ export function formatDeadline(fechaLimite) {
   if (!fechaLimite) return ''
   const hasTime = fechaLimite.includes('T')
   const d = new Date(hasTime ? fechaLimite : `${fechaLimite}T00:00:00`)
-  return d.toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`
 }
 
 // ── Estado de entrega para el estudiante ────────────────────────────────
