@@ -13,7 +13,7 @@
 import { Capacitor } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
 import { LocalNotifications } from '@capacitor/local-notifications'
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore'
+import { collection, doc, addDoc, getDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore'
 import { db } from '../firebase'
 
 // Ventana hacia adelante en la que se programan recordatorios — más allá de
@@ -75,8 +75,54 @@ async function scheduleUpcoming(category, items, anticipacionMinutos) {
 
 let installed = false
 
+// A diferencia del push del servidor (que la Cloud Function registra en
+// notificationLog vía Admin SDK, ver functions/index.js), un recordatorio
+// local lo dispara el propio teléfono sin que la app se entere en el
+// momento — no hay ningún round-trip al servidor para dejar constancia.
+// Para que también aparezcan en "Registro de notificaciones", se revisa la
+// bandeja de notificaciones del sistema (getDeliveredNotifications) cada vez
+// que la app abre/vuelve a primer plano: cualquier aviso nuestro (rango de
+// id reservado) que siga ahí y todavía no se haya registrado, se guarda
+// ahora. Limitación conocida: si el docente lo descarta sin haber vuelto a
+// abrir la app, no queda registro — es lo más cercano a "se entregó de
+// verdad" que se puede confirmar sin depender de un listener que solo
+// dispara en primer plano.
+const LOGGED_KEY = 'ef_recordatorios_registrados'
+function loadLoggedIds() {
+  try { return new Set(JSON.parse(localStorage.getItem(LOGGED_KEY) || '[]')) } catch { return new Set() }
+}
+function saveLoggedIds(set) {
+  try { localStorage.setItem(LOGGED_KEY, JSON.stringify([...set].slice(-500))) } catch { /* almacenamiento lleno */ }
+}
+
+export async function registerDeliveredReminders(uid) {
+  if (!uid || !Capacitor.isNativePlatform()) return
+  try {
+    const { notifications } = await LocalNotifications.getDeliveredNotifications()
+    const nuestras = (notifications || []).filter((n) => n.id >= 1_200_000_000)
+    if (!nuestras.length) return
+    const logged = loadLoggedIds()
+    const nuevas = nuestras.filter((n) => !logged.has(n.id))
+    if (!nuevas.length) return
+    for (const n of nuevas) {
+      await addDoc(collection(db, 'notificationLog'), {
+        uid,
+        titulo: n.title || 'Recordatorio',
+        descripcion: n.body || '',
+        createdAt: serverTimestamp(),
+      })
+      logged.add(n.id)
+    }
+    saveLoggedIds(logged)
+    console.log(`[localReminders] recordatorios entregados registrados: ${nuevas.length}`)
+  } catch (err) {
+    console.error('[localReminders] registerDeliveredReminders falló:', err)
+  }
+}
+
 export async function refreshTeacherReminders(uid) {
   if (!uid || !Capacitor.isNativePlatform()) return
+  await registerDeliveredReminders(uid)
   try {
     const perm = await LocalNotifications.checkPermissions()
     if (perm.display !== 'granted') {

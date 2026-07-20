@@ -326,6 +326,10 @@ service cloud.firestore {
     // documento (ids autogenerados: puede haber muchas por uid).
     match /notificationLog/{logId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.uid;
+      // El docente registra sus propios recordatorios locales (clase/evento)
+      // entregados en su celular — los push del servidor los sigue
+      // registrando la Cloud Function (Admin SDK, no pasa por esta regla).
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
     }
   }
 }
