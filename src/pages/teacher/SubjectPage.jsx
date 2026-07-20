@@ -3226,7 +3226,7 @@ export default function SubjectPage() {
                     onClick={handleExport}
                     disabled={exporting}
                     data-tooltip="Descarga TODAS las calificaciones en una hoja de Excel"
-                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
+                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-accent rounded-l text-sm font-medium text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
                   >
                     {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
                   </button>
@@ -3234,7 +3234,7 @@ export default function SubjectPage() {
                     onClick={() => setTopExportMenu((m) => m === 'excel' ? null : 'excel')}
                     aria-label="Excel por parcial"
                     data-tooltip="Excel por parcial"
-                    className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors">
+                    className="px-1.5 border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
                     <MoreVertical size={16} />
                   </button>
                   {topExportMenu === 'excel' && (
@@ -3259,7 +3259,7 @@ export default function SubjectPage() {
                     onClick={handleExportGradesPDF}
                     disabled={exportingGradesPdf}
                     data-tooltip="Descarga TODAS las calificaciones en un PDF imprimible"
-                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
+                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-accent rounded-l text-sm font-medium text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
                   >
                     {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
                   </button>
@@ -3267,7 +3267,7 @@ export default function SubjectPage() {
                     onClick={() => setTopExportMenu((m) => m === 'pdf' ? null : 'pdf')}
                     aria-label="PDF por parcial"
                     data-tooltip="PDF por parcial"
-                    className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors">
+                    className="px-1.5 border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
                     <MoreVertical size={16} />
                   </button>
                   {topExportMenu === 'pdf' && (
@@ -3326,13 +3326,13 @@ export default function SubjectPage() {
                       <div key={kind} className="order-2 flex items-center relative">
                         <button type="button" onClick={() => doExportRanking(kind, null)}
                           data-tooltip={`${kind === 'excel' ? 'Excel' : 'PDF'} del ranking (Promedio final)`}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-l text-xs font-semibold border border-outline-variant text-muted hover:text-accent hover:border-accent transition-colors">
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-l text-xs font-semibold border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors">
                           {kind === 'excel' ? <FileSpreadsheet size={14} /> : <FileText size={14} />}
                           {kind === 'excel' ? 'Excel' : 'PDF'}
                         </button>
                         <button type="button" onClick={() => setRankingExportMenu((m) => (m === kind ? null : kind))}
                           aria-label="Elegir parcial del documento" data-tooltip="Elegir parcial (o general)"
-                          className="px-1 py-1.5 rounded-r border border-l-0 border-outline-variant text-muted hover:text-accent hover:border-accent transition-colors">
+                          className="px-1 py-1.5 rounded-r border border-l-0 border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors">
                           <MoreVertical size={14} />
                         </button>
                         {rankingExportMenu === kind && (
@@ -3683,7 +3683,7 @@ export default function SubjectPage() {
                 onClick={handleExportAttendance}
                 disabled={exportingAttendance}
                 data-tooltip="Descarga TODA la asistencia en una hoja de Excel"
-                className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
+                className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-accent rounded-l text-sm font-medium text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
               >
                 {exportingAttendance ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
               </button>
@@ -3691,7 +3691,7 @@ export default function SubjectPage() {
                 onClick={() => setAttExportMenu((m) => !m)}
                 aria-label="Excel por parcial"
                 data-tooltip="Excel por parcial"
-                className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors">
+                className="px-1.5 border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
                 <MoreVertical size={16} />
               </button>
               {attExportMenu && (
