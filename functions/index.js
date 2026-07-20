@@ -194,20 +194,21 @@ exports.onSubmissionActualizada = onDocumentWritten('submissions/{submissionId}'
 // id del documento en `students` — distinto de su uid).
 // "Entregada" significa cosas distintas según el tipo de actividad:
 //   - Entregable/observación: el doc de submission se crea de una sola vez al
-//     entregar → onCreate (before === undefined).
+//     entregar — se reclama en su única escritura.
 //   - Evaluación: el doc se crea al INICIAR el intento (tiempoInicio) y se
-//     actualiza al terminar → dispara cuando estadoEvaluacion pasa a
+//     actualiza al terminar → se reclama cuando estadoEvaluacion está
 //     'finalizado' (igual criterio que usa el cliente en EvaluacionManager.jsx).
-// Idempotente vía notificadoEntregaDocente — una sola vez por submission.
-// Doble gate (igual que Estudiante activado): act.notificarDocente (por
-// actividad) Y notificationSettings.nuevasEntregas.habilitado (global). Título
-// y cuerpo son dinámicos (nombre del estudiante, asignatura y actividad) —
-// por eso usa enviarPushDirecto en vez de enviarPush, que solo arma texto fijo
-// desde TITULOS.
+// Idempotente vía notificadoEntregaDocente — una sola vez por submission,
+// reclamado ATÓMICAMENTE en una transacción (ver más abajo), no comparando
+// contra el snapshot `before` del evento. Doble gate (igual que Estudiante
+// activado): act.notificarDocente (por actividad) Y
+// notificationSettings.nuevasEntregas.habilitado (global). Título y cuerpo
+// son dinámicos (nombre del estudiante, asignatura y actividad) — por eso
+// usa enviarPushDirecto en vez de enviarPush, que solo arma texto fijo desde
+// TITULOS.
 exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', async (event) => {
   const after = event.data?.after
   if (!after?.exists) return // borrada
-  const before = event.data.before?.data() // undefined si es creación
   const afterData = after.data()
   if (afterData.notificadoEntregaDocente) return
 
@@ -217,13 +218,29 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
   if (!act.notificarDocente) return
 
   const esEvaluacion = act.tipo === 'evaluacion'
-  const seAcabaDeEntregar = esEvaluacion
-    ? afterData.estadoEvaluacion === 'finalizado' && before?.estadoEvaluacion !== 'finalizado'
-    : !before
-  if (!seAcabaDeEntregar) return
+  if (esEvaluacion ? afterData.estadoEvaluacion !== 'finalizado' : false) return
 
   const settingsSnap = await db.collection('notificationSettings').doc(act.docenteId).get()
   if (settingsSnap.exists && settingsSnap.data().nuevasEntregas?.habilitado === false) return
+
+  // Reclama el aviso releyendo el documento EN VIVO dentro de una
+  // transacción — no depende del snapshot `before` del evento, que bajo
+  // ráfagas de escrituras muy rápidas (confirmado con un caso real: 34
+  // reintentos seguidos de un mismo cuestionario) puede coalescerse o
+  // llegar desordenado, haciendo que "antes no estaba finalizado" salga
+  // falso y la entrega nunca se notifique. Así, sin importar cuántos
+  // eventos intermedios se hayan perdido, la primera invocación que vea el
+  // documento finalizado y sin reclamar gana, y las demás se retiran solas.
+  const claimed = await db.runTransaction(async (tx) => {
+    const freshSnap = await tx.get(after.ref)
+    if (!freshSnap.exists) return false
+    const fresh = freshSnap.data()
+    if (fresh.notificadoEntregaDocente) return false
+    if (esEvaluacion && fresh.estadoEvaluacion !== 'finalizado') return false
+    tx.update(after.ref, { notificadoEntregaDocente: true })
+    return true
+  })
+  if (!claimed) return
 
   const [studentSnap, subjSnap] = await Promise.all([
     db.collection('students').doc(afterData.alumnoId).get(),
@@ -244,7 +261,6 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
     null,
     { categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '', actividad: act.nombre || '', numero: esEvaluacion ? (afterData.intentoActual || null) : null },
   )
-  await after.ref.update({ notificadoEntregaDocente: true })
 })
 
 // ─── 4) Estudiante activado ─────────────────────────────────────────────────
