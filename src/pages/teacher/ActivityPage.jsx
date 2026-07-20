@@ -783,7 +783,7 @@ export default function ActivityPage() {
               <p className="text-sm font-medium text-muted truncate">
                 {subjectDisplayName(subject)}
               </p>
-              <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
+              <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent">Evaluar</p>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-on-surface truncate">
                   {activityLabel && <span className="text-accent">{activityLabel} </span>}
@@ -910,12 +910,14 @@ export default function ActivityPage() {
           />
         </div>
 
-        {/* Student list — nombre a la izquierda, estatus a la derecha */}
+        {/* Student list — nombre a la izquierda, estatus a la derecha. Altura
+            acotada con scroll propio (rueda del mouse) para que la búsqueda
+            y los filtros de arriba no se muevan de lugar al recorrer la lista. */}
         <div className="px-4 pb-4">
           {filtered.length === 0 ? (
             <p className="text-center text-slate-400 text-sm py-8">Sin estudiantes en esta categoría</p>
           ) : (
-            <div className="bg-surface-card rounded-card overflow-hidden shadow-card">
+            <div className="bg-surface-card rounded-card overflow-y-auto max-h-[60vh] shadow-card">
               {filtered.map((s, i) => {
                 const status = getStatus(s.id)
                 const sub = submissions[s.id]
@@ -994,7 +996,7 @@ export default function ActivityPage() {
                   <p className="text-sm font-medium text-muted truncate">
                     {subjectDisplayName(subject)}
                   </p>
-                  <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluar</p>
+                  <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent">Evaluar</p>
                   <h3 className="text-xl font-bold text-on-surface truncate">
                     {activityLabel && <span className="text-accent">{activityLabel} </span>}
                     {activity?.nombre}
