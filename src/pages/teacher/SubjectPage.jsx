@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
+import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, exportSubjectAttendance, exportParcialAttendance, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
 import { importActivitiesToSubject } from '../../utils/importActivities'
 import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF, exportQRPDF } from '../../utils/pdf'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
@@ -464,6 +464,9 @@ export default function SubjectPage() {
   const [parcialMenu, setParcialMenu] = useState(null)
   // Top export split-buttons ⋮ dropdown: null | 'excel' | 'pdf'
   const [topExportMenu, setTopExportMenu] = useState(null)
+  // Asistencia — Excel split-button ⋮ dropdown (por parcial): boolean
+  const [attExportMenu, setAttExportMenu] = useState(false)
+  const [exportingAttendance, setExportingAttendance] = useState(false)
   // Activity-name tooltip over the grades-table number headers: null | { text, x, y }
   const [actTip, setActTip] = useState(null)
   // Per-activity ⋮ menu (Duplicar / Eliminar): null | { a, x, y }
@@ -2268,6 +2271,27 @@ export default function SubjectPage() {
     finally { setExportingGradesPdf(false) }
   }
 
+  // Asistencia — TODO y por parcial (⋮), mismo patrón que Calificaciones. Sin
+  // PDF: en una hoja de asistencia (muchas columnas angostas por día) no
+  // tiene caso, Excel es el formato natural. groupStudents/attendanceParciales
+  // ya están cargados porque el botón solo se ve con la pestaña abierta.
+  function handleExportAttendance() {
+    if (!subject) return
+    setExportingAttendance(true)
+    try {
+      exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales })
+    } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
+    finally { setExportingAttendance(false) }
+  }
+  function doExportParcialAttendance(p) {
+    if (!subject) return
+    setExportingAttendance(true)
+    try {
+      exportParcialAttendance({ subject, students: groupStudents, attendanceParciales, parcial: p })
+    } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
+    finally { setExportingAttendance(false) }
+  }
+
   // Per-parcial EXPORTAR from the parcial's ⋮ menu — the FORMAL export, only
   // available once the parcial is CLOSED (all grades finalized).
   async function handleExportParcial(p) {
@@ -3649,6 +3673,44 @@ export default function SubjectPage() {
               <CalendarPlus size={16} /> Agregar día
             </button>
           </div>
+
+          {/* Excel split-button — mismo patrón que Calificaciones. Sin PDF:
+              con una columna angosta por cada día de asistencia no tiene
+              caso imprimirlo. */}
+          {attendanceParciales.length > 0 && (
+            <div className="relative flex">
+              <button type="button"
+                onClick={handleExportAttendance}
+                disabled={exportingAttendance}
+                data-tooltip="Descarga TODA la asistencia en una hoja de Excel"
+                className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-outline-variant rounded-l text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
+              >
+                {exportingAttendance ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
+              </button>
+              <button type="button"
+                onClick={() => setAttExportMenu((m) => !m)}
+                aria-label="Excel por parcial"
+                data-tooltip="Excel por parcial"
+                className="px-1.5 border border-l-0 border-outline-variant rounded-r text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] transition-colors">
+                <MoreVertical size={16} />
+              </button>
+              {attExportMenu && (
+                <>
+                  <button type="button" className="fixed inset-0 z-30 border-none cursor-default bg-transparent" onClick={() => setAttExportMenu(false)} aria-label="Cerrar menú" />
+                  <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden">
+                    <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Excel de un parcial</div>
+                    {attendanceParciales.map((g) => (
+                      <button key={g.parcial} type="button"
+                        onClick={() => { setAttExportMenu(false); doExportParcialAttendance(g.parcial) }}
+                        className="w-full text-left px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors">
+                        Parcial {g.parcial}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           <SearchInput
             value={searchAttendance}

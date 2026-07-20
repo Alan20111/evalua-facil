@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
 import { subjectPeriodLabel } from './dateRange'
 import { promedioParcial, pesoDe, ponderacionActivaEnParcial } from './ponderacion'
+import { attendanceState, countPresence, fmtAttDateParts } from './attendance'
 
 // Loaded dynamically (only when actually downloading the template) because
 // it's needed for one feature `xlsx` can't do: writing real sheet protection
@@ -297,4 +298,128 @@ export function exportSubjectGrades({
   XLSX.utils.book_append_sheet(wb, ws, 'Calificaciones')
   const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
   XLSX.writeFile(wb, `calificaciones_${safeName}.xlsx`)
+}
+
+// ── Asistencia — un botón por número (1 = asistió o justificó, 0 = faltó,
+// igual que countPresence): una columna por sesión (slot) tomada tal cual de
+// la tabla en pantalla, más Asist./Faltas por parcial (igual que las columnas
+// verde/roja que ya se ven ahí). `attendanceParciales` = el mismo dato que ya
+// arma SubjectPage.jsx para pintar la tabla (uno por parcial CON días
+// registrados — no hace falta filtrar de nuevo aquí).
+function attendanceColumnHeaders(days) {
+  const headers = []
+  days.forEach(({ fecha, records }) => {
+    const { dia, mes } = fmtAttDateParts(fecha)
+    records.forEach((r) => {
+      headers.push(records.length > 1 ? `${dia}-${mes} (${r.slot})` : `${dia}-${mes}`)
+    })
+  })
+  return headers
+}
+
+function attendanceRowCells(days, studentId) {
+  const cells = []
+  days.forEach(({ records }) => {
+    records.forEach((r) => {
+      cells.push(attendanceState(r, studentId) === 'falta' ? 0 : 1)
+    })
+  })
+  return cells
+}
+
+export function exportParcialAttendance({ subject, students, attendanceParciales, parcial }) {
+  const g = attendanceParciales.find((x) => x.parcial === parcial)
+  const days = g?.days || []
+  const dayHeaders = attendanceColumnHeaders(days)
+  const FIXED = 2
+  const totalCols = FIXED + dayHeaders.length + 2
+
+  const titleRow = Array(totalCols).fill('')
+  const periodo = subjectPeriodLabel(subject)
+  titleRow[0] = `${subjectDisplayName(subject)} — Asistencia · Parcial ${parcial}${periodo ? `   (${periodo})` : ''}`
+
+  const nameRow = ['#', 'NOMBRE', ...dayHeaders, 'Asist.', 'Faltas']
+
+  const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  const dataRows = sorted.map((s) => {
+    const row = [s.orden, [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ')]
+    row.push(...attendanceRowCells(days, s.id))
+    const { asist, inasist } = countPresence(g?.records || [], s.id)
+    row.push(asist, inasist)
+    return row
+  })
+
+  const allRows = [titleRow, [], nameRow, ...dataRows]
+  const ws = XLSX.utils.aoa_to_sheet(allRows)
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }]
+  ws['!cols'] = [{ wch: 4 }, { wch: 42 }, ...Array(totalCols - FIXED).fill({ wch: 9 })]
+  ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, `Parcial ${parcial}`)
+  const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
+  XLSX.writeFile(wb, `asistencia_parcial${parcial}_${safeName}.xlsx`)
+}
+
+export function exportSubjectAttendance({ subject, students, attendanceParciales }) {
+  const FIXED = 2
+  const parcialMeta = attendanceParciales.map((g) => {
+    const dayHeaders = attendanceColumnHeaders(g.days)
+    return { ...g, dayHeaders, cols: dayHeaders.length + 2 }
+  })
+
+  const totalCols = FIXED + parcialMeta.reduce((s, m) => s + m.cols, 0) + 2
+
+  const titleRow = Array(totalCols).fill('')
+  const periodo = subjectPeriodLabel(subject)
+  titleRow[0] = periodo ? `${subjectDisplayName(subject)} — Asistencia   (${periodo})` : `${subjectDisplayName(subject)} — Asistencia`
+
+  const sectionRow = Array(totalCols).fill('')
+  let col = FIXED
+  const parcialRanges = {}
+  parcialMeta.forEach((m) => {
+    parcialRanges[m.parcial] = { start: col, end: col + m.cols - 1 }
+    sectionRow[col] = `PARCIAL ${m.parcial}`
+    col += m.cols
+  })
+  sectionRow[col] = 'TOTAL'
+
+  const nameRow = ['#', 'NOMBRE']
+  parcialMeta.forEach((m) => { nameRow.push(...m.dayHeaders, 'Asist.', 'Faltas') })
+  nameRow.push('Total Asist.', 'Total Faltas')
+
+  const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  const dataRows = sorted.map((s) => {
+    const row = [s.orden, [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ')]
+    let totalAsist = 0
+    let totalInasist = 0
+    parcialMeta.forEach((m) => {
+      row.push(...attendanceRowCells(m.days, s.id))
+      const { asist, inasist } = countPresence(m.records, s.id)
+      row.push(asist, inasist)
+      totalAsist += asist
+      totalInasist += inasist
+    })
+    row.push(totalAsist, totalInasist)
+    return row
+  })
+
+  const allRows = [titleRow, [], sectionRow, nameRow, ...dataRows]
+  const ws = XLSX.utils.aoa_to_sheet(allRows)
+
+  const merges = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
+    ...parcialMeta.map((m) => ({
+      s: { r: 2, c: parcialRanges[m.parcial].start },
+      e: { r: 2, c: parcialRanges[m.parcial].end },
+    })),
+  ]
+  ws['!merges'] = merges
+  ws['!cols'] = [{ wch: 4 }, { wch: 42 }, ...Array(totalCols - FIXED).fill({ wch: 9 })]
+  ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }, { hpt: 18 }]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Asistencia')
+  const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
+  XLSX.writeFile(wb, `asistencia_${safeName}.xlsx`)
 }
