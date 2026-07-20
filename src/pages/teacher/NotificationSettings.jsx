@@ -276,6 +276,11 @@ export default function TeacherNotificationSettings() {
   const [deletingEntry, setDeletingEntry] = useState(false)
   useBackHandler(() => setEntryToDelete(null), !!entryToDelete)
   useScrollLock(!!entryToDelete)
+  // Renglón tocado en la app (color distinto del verde de "más nueva", para
+  // que el docente se enfoque en el que acaba de tocar) — solo aplica en la
+  // app, con clic/toque; en la web el mismo color sale con hover (puro CSS,
+  // sin necesitar este estado).
+  const [tappedEntryId, setTappedEntryId] = useState(null)
 
   async function confirmDeleteEntry() {
     if (!entryToDelete) return
@@ -456,8 +461,12 @@ export default function TeacherNotificationSettings() {
                             // verde (pedido explícito) para que el docente identifique de
                             // inmediato cuál acaba de sonar.
                             const esUltima = i === 0
+                            // Tocar un renglón lo enfoca con un color distinto del verde
+                            // (pedido explícito) — toque, no hover (no aplica en touch).
+                            const tocado = e.id === tappedEntryId
+                            const filaClase = tocado ? 'bg-accent-light' : esUltima ? 'bg-green-100' : i % 2 === 0 ? 'bg-surface' : 'bg-surface-card'
                             return (
-                              <tr key={e.id} className={esUltima ? 'bg-green-100' : i % 2 === 0 ? 'bg-surface' : 'bg-surface-card'}>
+                              <tr key={e.id} onClick={() => setTappedEntryId(e.id)} className={`${filaClase} transition-colors`}>
                                 <td className="border border-outline-variant px-1 py-1.5 text-center align-top text-on-surface break-words">
                                   <div>{d ? DIAS_SEMANA[d.getDay()] : '—'}</div>
                                   <div>{d ? fmtDDMMAA(d) : '—'}</div>
@@ -499,8 +508,10 @@ export default function TeacherNotificationSettings() {
                             // verde (pedido explícito) para que el docente identifique de
                             // inmediato cuál acaba de sonar.
                             const esUltima = i === 0
+                            // Hover con color distinto del verde (pedido explícito) — solo
+                            // web, puro CSS, no necesita estado.
                             return (
-                              <tr key={e.id} className={esUltima ? 'bg-green-100' : i % 2 === 0 ? 'bg-surface' : 'bg-surface-card'}>
+                              <tr key={e.id} className={`${esUltima ? 'bg-green-100' : i % 2 === 0 ? 'bg-surface' : 'bg-surface-card'} hover:bg-accent-light transition-colors`}>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? DIAS_SEMANA[d.getDay()] : '—'}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtDDMMAA(d) : '—'}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtHHMM(d) : '—'}</td>
