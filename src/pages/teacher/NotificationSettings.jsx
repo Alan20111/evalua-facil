@@ -211,6 +211,15 @@ function fmtFechaHora(ts) {
   return { fecha, hora }
 }
 
+// La fecha/hora de la propia clase (e.fecha "YYYY-MM-DD" + e.hora "HH:MM"),
+// que es lo que el docente quiere ver — no cuándo se guardó el registro.
+function fmtFechaClase(fecha) {
+  if (!fecha) return ''
+  const d = new Date(`${fecha}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return fecha
+  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 export default function TeacherNotificationSettings() {
   const { currentUser } = useAuth()
   const toast = useToast()
@@ -368,10 +377,28 @@ export default function TeacherNotificationSettings() {
                     <ul className="space-y-2 max-h-80 overflow-y-auto">
                       {logEntries.map((e) => {
                         const { fecha, hora } = fmtFechaHora(e.createdAt)
+                        // Recordatorios de clase/evento (useAlarmas.js / localReminders.js)
+                        // traen fecha+hora propias de la clase — mostrarlas es lo que el
+                        // docente pidió (además de nombre y grupo). Otras categorías
+                        // (nuevas entregas, estudiante activado) no las tienen: se quedan
+                        // con el resumen simple de antes.
+                        const tieneClase = e.fecha && e.hora
                         return (
                           <li key={e.id} className="p-3 rounded-card border border-outline-variant bg-surface">
                             <p className="text-xs text-muted">{fecha} · {hora}</p>
-                            <p className="text-sm text-on-surface mt-0.5">{e.descripcion || e.titulo || 'Notificación'}</p>
+                            {tieneClase ? (
+                              <>
+                                <p className="text-sm font-medium text-on-surface mt-0.5">
+                                  {e.asignatura || e.titulo || 'Clase'}{e.grupo ? ` — ${e.grupo}` : ''}
+                                </p>
+                                <p className="text-xs text-muted mt-0.5">
+                                  {e.anticipacionMinutos > 0 ? `Empezaba en ${e.anticipacionMinutos} min` : 'Empezaba en ese momento'}
+                                  {' · '}{fmtFechaClase(e.fecha)}, {e.hora}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="text-sm text-on-surface mt-0.5">{e.descripcion || e.titulo || 'Notificación'}</p>
+                            )}
                           </li>
                         )
                       })}

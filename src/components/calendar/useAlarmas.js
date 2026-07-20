@@ -1,10 +1,15 @@
 import { useEffect, useRef } from 'react'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../../firebase'
 import { reproducirSonido } from '../../utils/horarioBloques'
 import { subjectDisplayName } from '../../utils/subjectName'
 
 // Dispara las alarmas de los bloques cuya hora de aviso llega mientras la app
 // está abierta: reproduce el sonido elegido y muestra una notificación del
-// navegador (si el docente concedió el permiso).
+// navegador (si el docente concedió el permiso), y deja constancia en
+// `notificationLog` (misma colección que usa el "Registro de notificaciones"
+// de Notificaciones — ver localReminders.js y NotificationSettings.jsx). Sin
+// esto sonaba pero no quedaba ningún rastro, en app y en web.
 //
 // Limitación conocida: sólo suena con la pestaña abierta (no hay backend ni
 // push). Un bloque suena una única vez — se recuerda en localStorage para no
@@ -20,7 +25,7 @@ function saveFired(set) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set].slice(-500))) } catch { /* almacenamiento lleno */ }
 }
 
-export default function useAlarmas(bloques, subjects) {
+export default function useAlarmas(bloques, subjects, uid) {
   const firedRef = useRef(loadFired())
 
   // Pide permiso de notificaciones si hay al menos una alarma activa.
@@ -51,6 +56,19 @@ export default function useAlarmas(bloques, subjects) {
             : `Empieza ahora (${b.horaInicio})${lugar}`
           if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             try { new Notification(subjectDisplayName(subj) || 'Clase', { body, tag: b.id }) } catch { /* ignore */ }
+          }
+          if (uid) {
+            addDoc(collection(db, 'notificationLog'), {
+              uid,
+              titulo: 'Tu clase está por comenzar',
+              descripcion: `${subjectDisplayName(subj) || 'Clase'} — ${body}`,
+              asignatura: subj?.nombre || '',
+              grupo: subj?.grupo || '',
+              fecha: b.fecha,
+              hora: b.horaInicio,
+              anticipacionMinutos: min,
+              createdAt: serverTimestamp(),
+            }).catch(() => { /* best-effort — no bloquea el aviso si falla */ })
           }
         }
       }
