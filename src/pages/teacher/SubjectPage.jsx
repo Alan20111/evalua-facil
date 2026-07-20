@@ -3966,7 +3966,7 @@ export default function SubjectPage() {
             />
             <label htmlFor="notificar-activacion" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
               Notificarme cuando un estudiante se active a esta asignatura
-              <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante se active</span>
+              <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante se active, según lo que tengas activado en Notificaciones</span>
             </label>
           </div>
 
