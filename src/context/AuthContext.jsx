@@ -4,7 +4,7 @@ import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'fireb
 import { auth, db } from '../firebase'
 import { usernameCandidates } from '../utils/generate'
 import { initPushNotifications, clearPushToken } from '../utils/pushNotifications'
-import { refreshTeacherReminders, installReminderResumeListener } from '../utils/localReminders'
+import { refreshTeacherReminders, installReminderResumeListener, installReminderDeliveryListener } from '../utils/localReminders'
 
 const AuthContext = createContext(null)
 
@@ -79,6 +79,7 @@ export function AuthProvider({ children }) {
             // Recordatorios de clase/evento — local, no depende de push.
             refreshTeacherReminders(user.uid)
             installReminderResumeListener(user.uid)
+            installReminderDeliveryListener(user.uid)
           }
         } else if (user.email?.endsWith('@evalua.local')) {
           // Student account: no users/{uid} doc. Prefer the enrollment(s) that already carry
