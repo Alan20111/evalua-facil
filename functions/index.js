@@ -1,9 +1,9 @@
 // Cloud Functions — notificaciones push de Evalúa Fácil.
 //
-// La mayoría respeta si el usuario habilitó esa categoría en
+// Todas respetan si el usuario habilitó esa categoría en
 // `notificationSettings/{uid}` (pantalla de notificaciones del alumno o del
-// docente); onEstudianteActivado es la excepción — se gatea por asignatura,
-// no por un ajuste global (ver su comentario):
+// docente); onSubmissionEntregada y onEstudianteActivado además tienen un
+// SEGUNDO gate más fino (por actividad/asignatura, ver sus comentarios):
 //   1. onActividadEscrita   — actividad nueva visible para el alumno.
 //   2. onSubmissionActualizada — se publicó una calificación.
 //   3. onSubmissionEntregada — un estudiante entregó una actividad marcada
@@ -208,12 +208,12 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
 })
 
 // ─── 4) Estudiante activado ─────────────────────────────────────────────────
-// A diferencia de las demás categorías (gateadas por notificationSettings del
-// docente), esta se activa/desactiva por asignatura — ver el checkbox
-// "Notificarme cuando un estudiante se active..." en la pestaña Estudiantes
-// (SubjectPage.jsx, campo subject.notificarActivacion). Por eso usa
-// enviarPushDirecto en vez de enviarPush: no hay ajuste global que revisar,
-// el gate es subj.notificarActivacion.
+// Doble gate, igual que "Nuevas entregas": subj.notificarActivacion (por
+// asignatura, checkbox en la pestaña Estudiantes de SubjectPage.jsx) Y
+// notificationSettings.activacionEstudiante.habilitado (interruptor global en
+// NotificationSettings.jsx). Se usa enviarPushDirecto en vez de enviarPush
+// porque el título/cuerpo son dinámicos (nombre del estudiante y de la
+// asignatura) — enviarPush solo arma texto fijo desde TITULOS.
 //
 // Dispara tanto en la primera activación como en una reactivación tras un
 // reinicio de contraseña (Activation.jsx pone activado:true en ambos casos;
@@ -245,6 +245,9 @@ exports.onEstudianteActivado = onDocumentWritten('students/{studentId}', async (
   if (!subjSnap.exists) return
   const subj = subjSnap.data()
   if (!subj.notificarActivacion) return
+
+  const settingsSnap = await db.collection('notificationSettings').doc(subj.docenteId).get()
+  if (settingsSnap.exists && settingsSnap.data().activacionEstudiante?.habilitado === false) return
 
   const nombreEstudiante = nombreEstudianteDe(afterData)
   const nombreAsignatura = nombreAsignaturaDe(subj)

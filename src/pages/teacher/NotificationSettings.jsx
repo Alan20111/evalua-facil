@@ -4,7 +4,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { Settings, FileCheck2, Clock, CalendarDays, Bell, ChevronDown, ChevronUp, Check, X, History } from 'lucide-react'
+import { Settings, FileCheck2, Clock, CalendarDays, UserCheck, Bell, ChevronDown, ChevronUp, Check, X, History } from 'lucide-react'
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
@@ -19,6 +19,10 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 //       propio docente marque con "Notificarme" en su editor (default
 //       apagado, ver EntregableEditor.jsx / EvaluacionEditor.jsx — campo
 //       notificarDocente). Vía push (Cloud Function).
+//     activacionEstudiante: { habilitado } — solo en las asignaturas que el
+//       propio docente marque con "Notificarme" en la pestaña Estudiantes
+//       (SubjectPage.jsx, campo subject.notificarActivacion). Vía push
+//       (Cloud Function).
 //     recordatorioClase:  { habilitado, anticipacionMinutos } — local
 //       (LocalNotifications), lee horarioBloques. Ver utils/localReminders.js.
 //     recordatorioEvento: { habilitado, anticipacionMinutos } — local,
@@ -55,6 +59,7 @@ function normalizeAnticipacion(v) {
 
 const DEFAULTS = {
   nuevasEntregas: { habilitado: true },
+  activacionEstudiante: { habilitado: true },
   recordatorioClase: { habilitado: false, anticipacionMinutos: [10] },
   recordatorioEvento: { habilitado: false, anticipacionMinutos: [10] },
 }
@@ -65,6 +70,12 @@ const CATEGORIAS = [
     label: 'Nuevas entregas',
     description: 'Cuando un estudiante entrega una actividad que marcaste para notificarte (activa esa opción al editar cada actividad)',
     icon: FileCheck2,
+  },
+  {
+    key: 'activacionEstudiante',
+    label: 'Estudiante activado',
+    description: 'Cuando un estudiante se activa en una asignatura que marcaste para notificarte (activa esa opción en la pestaña Estudiantes de la asignatura)',
+    icon: UserCheck,
   },
   {
     key: 'recordatorioClase',
