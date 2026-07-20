@@ -780,10 +780,19 @@ export default function ActivityPage() {
               <ArrowLeft size={22} />
             </button>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-muted truncate">
-                {subjectDisplayName(subject)}
-              </p>
-              <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent">Evaluar</p>
+              {IS_NATIVE_APP ? (
+                <>
+                  <p className="text-sm font-medium text-muted truncate">
+                    {subjectDisplayName(subject)}
+                  </p>
+                  <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent">Evaluar</p>
+                </>
+              ) : (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent flex-shrink-0">Evaluar</p>
+                  <p className="text-[1.75rem] leading-tight font-medium text-muted truncate">{subjectDisplayName(subject)}</p>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-on-surface truncate">
                   {activityLabel && <span className="text-accent">{activityLabel} </span>}
@@ -993,10 +1002,10 @@ export default function ActivityPage() {
                     Asignatura — Docente / Evaluar(ción) / Número y nombre + lápiz /
                     Parcial N · Tipo — ver también EvaluacionManager.jsx. */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-muted truncate">
-                    {subjectDisplayName(subject)}
-                  </p>
-                  <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent">Evaluar</p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent flex-shrink-0">Evaluar</p>
+                    <p className="text-[1.75rem] leading-tight font-medium text-muted truncate">{subjectDisplayName(subject)}</p>
+                  </div>
                   <h3 className="text-xl font-bold text-on-surface truncate">
                     {activityLabel && <span className="text-accent">{activityLabel} </span>}
                     {activity?.nombre}
