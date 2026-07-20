@@ -173,7 +173,7 @@ async function logIfNew(uid, id, title, body, extra) {
 // ningún listener en JS puede cerrar sin un servicio nativo en segundo plano.
 let deliveryListenerInstalled = false
 
-export function installReminderDeliveryListener(uid) {
+export function installReminderDeliveryListener(uid, navigate) {
   if (deliveryListenerInstalled || !uid || !Capacitor.isNativePlatform()) return
   deliveryListenerInstalled = true
   LocalNotifications.addListener('localNotificationReceived', (n) => {
@@ -186,6 +186,12 @@ export function installReminderDeliveryListener(uid) {
     const extra = n.data || n.extra || {}
     logIfNew(uid, n.id, n.title, n.body, extra)
       .catch((err) => console.error('[localReminders] logIfNew (listener) falló:', err))
+  })
+  // Al TOCAR el aviso de clase/evento (no solo recibirlo) — pedido explícito:
+  // llevar directo a Notificaciones en vez de la pantalla de bienvenida.
+  LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+    if (action?.notification?.id < 1_200_000_000) return // no es nuestro
+    navigate?.('/notificaciones')
   })
 }
 

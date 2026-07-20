@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { reproducirSonido } from '../../utils/horarioBloques'
@@ -30,6 +31,7 @@ function saveFired(set) {
 
 export default function useAlarmas(bloques, subjects, uid) {
   const firedRef = useRef(loadFired())
+  const navigate = useNavigate()
 
   // Pide permiso de notificaciones si hay al menos una alarma activa.
   useEffect(() => {
@@ -59,7 +61,12 @@ export default function useAlarmas(bloques, subjects, uid) {
             ? `Empieza en ${min} min (${b.horaInicio})${lugar}`
             : `Empieza ahora (${b.horaInicio})${lugar}`
           if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            try { new Notification(subjectDisplayName(subj) || 'Clase', { body, tag: b.id }) } catch { /* ignore */ }
+            try {
+              const notif = new Notification(subjectDisplayName(subj) || 'Clase', { body, tag: b.id })
+              // Tocar el globo del navegador lleva directo a Notificaciones,
+              // no a la pantalla de bienvenida (pedido explícito).
+              notif.onclick = () => { window.focus(); navigate('/notificaciones') }
+            } catch { /* ignore */ }
           }
           if (uid) {
             addDoc(collection(db, 'notificationLog'), {
@@ -82,5 +89,5 @@ export default function useAlarmas(bloques, subjects, uid) {
     tick()
     const iv = setInterval(tick, 20000)
     return () => clearInterval(iv)
-  }, [bloques, subjects])
+  }, [bloques, subjects, uid, navigate])
 }

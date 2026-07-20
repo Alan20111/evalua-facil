@@ -174,7 +174,7 @@ function Toggle({ checked, onChange, label, description, icon: Icon, children })
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className="w-full flex items-center gap-3 text-left"
+        className="w-full flex items-center gap-3 text-left -mx-2 px-2 py-1 rounded-card hover:bg-accent-light active:bg-accent-light transition-colors"
       >
         {Icon && (
           <span className="flex items-center justify-center w-9 h-9 rounded-full bg-accent-light flex-shrink-0">
@@ -397,25 +397,6 @@ export default function TeacherNotificationSettings() {
               </div>
             </div>
 
-            {/* Sonido, volumen y repetición los controla el teléfono, no la
-                app — aquí solo explicamos cómo activarlas ahí. */}
-            <div className="bg-surface-card rounded-card shadow-card border border-accent p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Settings size={16} className="text-accent flex-shrink-0" />
-                <p className="text-sm font-semibold text-on-surface">Cómo activar las notificaciones en tu celular</p>
-              </div>
-              <p className="text-xs text-muted mb-2">
-                El sonido, el volumen y si se repiten los controla tu teléfono, igual que con cualquier otra app.
-                Para asegurarte de recibirlas:
-              </p>
-              <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
-                <li>Abre los <strong>Ajustes</strong> de tu teléfono.</li>
-                <li>Busca <strong>Aplicaciones</strong> (o &quot;Apps&quot;) y selecciona <strong>Evalúa Fácil</strong>.</li>
-                <li>Entra a <strong>Notificaciones</strong> y actívalas.</li>
-                <li>Si tu teléfono te pregunta al abrir la app, elige <strong>Permitir</strong>.</li>
-              </ol>
-            </div>
-
             <div className="rounded-card border border-outline-variant overflow-hidden bg-surface-card shadow-card">
               <button
                 type="button"
@@ -533,6 +514,25 @@ export default function TeacherNotificationSettings() {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Sonido, volumen y repetición los controla el teléfono, no la
+                app — aquí solo explicamos cómo activarlas ahí. */}
+            <div className="bg-surface-card rounded-card shadow-card border border-accent p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Settings size={16} className="text-accent flex-shrink-0" />
+                <p className="text-sm font-semibold text-on-surface">Cómo activar las notificaciones en tu celular</p>
+              </div>
+              <p className="text-xs text-muted mb-2">
+                El sonido, el volumen y si se repiten los controla tu teléfono, igual que con cualquier otra app.
+                Para asegurarte de recibirlas:
+              </p>
+              <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
+                <li>Abre los <strong>Ajustes</strong> de tu teléfono.</li>
+                <li>Busca <strong>Aplicaciones</strong> (o &quot;Apps&quot;) y selecciona <strong>Evalúa Fácil</strong>.</li>
+                <li>Entra a <strong>Notificaciones</strong> y actívalas.</li>
+                <li>Si tu teléfono te pregunta al abrir la app, elige <strong>Permitir</strong>.</li>
+              </ol>
             </div>
           </>
         )}
