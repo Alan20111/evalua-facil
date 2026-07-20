@@ -43,6 +43,11 @@ function anticipacionLabel(min) {
   return min > 0 ? `Empieza en ${min} min` : 'Empieza ahora'
 }
 
+// category interno ('clase'/'evento', usado para el id reservado) → categoria
+// que la Bitácora de notificaciones usa para saber cómo mostrar la entrada
+// (ver describeEntry en NotificationSettings.jsx). Mismos nombres que useAlarmas.js.
+const CATEGORIA_LOG = { clase: 'recordatorioClase', evento: 'recordatorioEvento' }
+
 // Compatibilidad hacia atrás: antes anticipacionMinutos era un solo número
 // (ej. 10) guardado en Firestore — de aquí en adelante siempre es un
 // arreglo (ej. [10] o [15,10,5,0] para varios avisos). Ver
@@ -68,14 +73,16 @@ async function scheduleUpcoming(category, items, anticipacionMinutos) {
         body: `${anticipacionLabel(min)}${item.subtitle ? ` — ${item.subtitle}` : ''}`,
         schedule: { at: new Date(item.start.getTime() - min * 60_000) },
         // Se guarda de vuelta al registrar la entrega (registerDeliveredReminders)
-        // para que el registro muestre fecha/hora/anticipación/nombre/grupo por
+        // para que la Bitácora muestre fecha/hora/anticipación/nombre/grupo por
         // separado, no solo el texto ya armado del body.
         extra: {
+          categoria: CATEGORIA_LOG[category] || category,
           fecha: item.start.toISOString().slice(0, 10),
           hora: item.start.toTimeString().slice(0, 5),
           anticipacionMinutos: min,
           asignatura: item.asignatura || '',
           grupo: item.grupo || '',
+          evento: item.evento || '',
         },
       }))
     )
@@ -122,10 +129,12 @@ export async function registerDeliveredReminders(uid) {
       const extra = n.data || n.extra || {}
       await addDoc(collection(db, 'notificationLog'), {
         uid,
+        categoria: extra.categoria || '',
         titulo: n.title || 'Recordatorio',
         descripcion: n.body || '',
         asignatura: extra.asignatura || '',
         grupo: extra.grupo || '',
+        evento: extra.evento || '',
         fecha: extra.fecha || '',
         hora: extra.hora || '',
         anticipacionMinutos: extra.anticipacionMinutos ?? null,
@@ -243,10 +252,10 @@ export async function refreshTeacherReminders(uid) {
       const items = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((e) => e.inicio)
-        // El nombre del evento va en subtitle (cuerpo), igual que la
-        // asignatura arriba — así queda en el cuerpo del aviso, no solo en
-        // el título, y sí aparece en "Registro de notificaciones".
-        .map((e) => ({ id: e.id, start: new Date(e.inicio), title: 'Tu evento está por comenzar', subtitle: e.titulo || 'Evento' }))
+        // El nombre del evento va en subtitle (cuerpo) Y en `evento` (campo
+        // estructurado aparte para la Bitácora) — igual que la asignatura
+        // arriba, así queda en el cuerpo del aviso y también como dato propio.
+        .map((e) => ({ id: e.id, start: new Date(e.inicio), title: 'Tu evento está por comenzar', subtitle: e.titulo || 'Evento', evento: e.titulo || 'Evento' }))
         .filter((e) => e.start >= now && e.start <= windowEnd)
       programadas += await scheduleUpcoming('evento', items, evento.anticipacionMinutos ?? 10)
     }

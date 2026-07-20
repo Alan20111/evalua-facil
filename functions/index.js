@@ -78,32 +78,47 @@ const TOKEN_INVALIDO = new Set([
   'messaging/invalid-argument',
 ])
 
-async function enviarPushDirecto(uid, notification, data = {}, descripcion = null) {
+// `logExtra` (objeto, no null) marca las categorías propias de la Bitácora
+// del docente (nuevasEntregas, activacionEstudiante — ver más abajo): esas se
+// registran en notificationLog SIEMPRE que la categoría esté habilitada,
+// aunque el docente no tenga token (solo usa la web — los tokens FCM solo se
+// registran en la app nativa, ver src/utils/pushNotifications.js) o el envío
+// del push falle. La Bitácora es un registro de lo que pasó, no de si el
+// push llegó — antes, sin token, la entrega/activación ocurría de verdad
+// pero no quedaba ningún rastro. Las categorías del alumno (llamadas sin
+// logExtra, vía enviarPush) se quedan con el comportamiento de antes (solo
+// si el push de verdad se mandó): no hay pantalla que las muestre, así que
+// registrarlas sin push no serviría más que para inflar la base de datos.
+async function enviarPushDirecto(uid, notification, data = {}, descripcion = null, logExtra = null) {
   if (!uid) return
   const settingsSnap = await db.collection('notificationSettings').doc(uid).get()
   const tokens = settingsSnap.exists ? (settingsSnap.data().fcmTokens || []) : []
-  if (!tokens.length) return
-  try {
-    const res = await messaging.sendEachForMulticast({ tokens, notification, data })
-    res.responses.forEach((r, i) => {
-      if (!r.success) logger.error(`enviarPushDirecto(${uid}) token ${i} falló: ${r.error?.code} — ${r.error?.message}`)
-    })
-    const tokensInvalidos = res.responses
-      .map((r, i) => (!r.success && TOKEN_INVALIDO.has(r.error?.code) ? tokens[i] : null))
-      .filter(Boolean)
-    if (tokensInvalidos.length) {
-      await settingsSnap.ref.update({ fcmTokens: FieldValue.arrayRemove(...tokensInvalidos) })
-    }
-    if (res.successCount) {
-      await db.collection('notificationLog').add({
-        uid,
-        titulo: notification.title,
-        descripcion: descripcion || notification.body,
-        createdAt: FieldValue.serverTimestamp(),
+  let enviado = false
+  if (tokens.length) {
+    try {
+      const res = await messaging.sendEachForMulticast({ tokens, notification, data })
+      res.responses.forEach((r, i) => {
+        if (!r.success) logger.error(`enviarPushDirecto(${uid}) token ${i} falló: ${r.error?.code} — ${r.error?.message}`)
       })
+      const tokensInvalidos = res.responses
+        .map((r, i) => (!r.success && TOKEN_INVALIDO.has(r.error?.code) ? tokens[i] : null))
+        .filter(Boolean)
+      if (tokensInvalidos.length) {
+        await settingsSnap.ref.update({ fcmTokens: FieldValue.arrayRemove(...tokensInvalidos) })
+      }
+      enviado = res.successCount > 0
+    } catch (err) {
+      logger.error(`enviarPushDirecto(${uid}) falló:`, err.message)
     }
-  } catch (err) {
-    logger.error(`enviarPushDirecto(${uid}) falló:`, err.message)
+  }
+  if (logExtra || enviado) {
+    await db.collection('notificationLog').add({
+      uid,
+      titulo: notification.title,
+      descripcion: descripcion || notification.body,
+      ...(logExtra || {}),
+      createdAt: FieldValue.serverTimestamp(),
+    })
   }
 }
 
@@ -214,8 +229,9 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
     db.collection('students').doc(afterData.alumnoId).get(),
     db.collection('subjects').doc(act.asignaturaId).get(),
   ])
+  const subj = subjSnap.data()
   const nombreEstudiante = nombreEstudianteDe(studentSnap.data())
-  const nombreAsignatura = nombreAsignaturaDe(subjSnap.data())
+  const nombreAsignatura = nombreAsignaturaDe(subj)
   const verbo = !esEvaluacion ? 'entregó'
     : act.categoria === 'examen' ? 'presentó el examen'
     : act.categoria === 'cuestionario' ? 'presentó el cuestionario'
@@ -225,6 +241,8 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
     act.docenteId,
     { title: 'Nueva entrega', body: `${nombreEstudiante} ${verbo} "${act.nombre}" — ${nombreAsignatura}` },
     { categoria: 'nuevasEntregas', actividadId: afterData.actividadId, submissionId: event.params.submissionId },
+    null,
+    { categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '', actividad: act.nombre || '' },
   )
   await after.ref.update({ notificadoEntregaDocente: true })
 })
@@ -277,6 +295,8 @@ exports.onEstudianteActivado = onDocumentWritten('students/{studentId}', async (
     subj.docenteId,
     { title: 'Estudiante activado', body: `${nombreEstudiante} se activó en ${nombreAsignatura}` },
     { categoria: 'activacionEstudiante', asignaturaId: afterData.asignaturaId, alumnoId: event.params.studentId },
+    null,
+    { categoria: 'activacionEstudiante', estudiante: nombreEstudiante, asignatura: subj.nombre || '', grupo: subj.grupo || '' },
   )
   await after.ref.update({ notificadoActivacion: true })
 })

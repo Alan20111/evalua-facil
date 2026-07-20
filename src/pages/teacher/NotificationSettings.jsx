@@ -220,6 +220,45 @@ function fmtFechaClase(fecha) {
   return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// Etiqueta corta por categoría — encabeza cada renglón de la Bitácora.
+const CATEGORIA_LABEL = {
+  recordatorioClase: 'Antes de clase',
+  recordatorioEvento: 'Antes de evento',
+  nuevasEntregas: 'Nueva entrega',
+  activacionEstudiante: 'Estudiante activado',
+}
+
+// Arma el segundo renglón de cada entrada — qué causó el aviso, quién,
+// asignatura y grupo — según la categoría. `e.categoria` falta en entradas
+// viejas (de antes de este cambio): caen al resumen simple de siempre.
+function describeEntry(e) {
+  const label = CATEGORIA_LABEL[e.categoria] || e.titulo || 'Notificación'
+  let detalle
+  switch (e.categoria) {
+    case 'recordatorioClase': {
+      const quien = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
+      const cuando = e.anticipacionMinutos > 0 ? `empezaba en ${e.anticipacionMinutos} min` : 'empezaba en ese momento'
+      detalle = `${quien} · ${cuando}${e.hora ? ` (${fmtFechaClase(e.fecha)}, ${e.hora})` : ''}`
+      break
+    }
+    case 'recordatorioEvento': {
+      const quien = e.evento || 'Tu evento'
+      const cuando = e.anticipacionMinutos > 0 ? `empezaba en ${e.anticipacionMinutos} min` : 'empezaba en ese momento'
+      detalle = `${quien} · ${cuando}${e.hora ? ` (${fmtFechaClase(e.fecha)}, ${e.hora})` : ''}`
+      break
+    }
+    case 'nuevasEntregas':
+      detalle = `${e.estudiante || 'Un estudiante'} entregó "${e.actividad || ''}" — ${e.asignatura || ''}${e.grupo ? ` · ${e.grupo}` : ''}`
+      break
+    case 'activacionEstudiante':
+      detalle = `${e.estudiante || 'Un estudiante'} — ${e.asignatura || ''}${e.grupo ? ` · ${e.grupo}` : ''}`
+      break
+    default:
+      detalle = e.descripcion || e.titulo || 'Notificación'
+  }
+  return { label, detalle }
+}
+
 export default function TeacherNotificationSettings() {
   const { currentUser } = useAuth()
   const toast = useToast()
@@ -364,41 +403,30 @@ export default function TeacherNotificationSettings() {
                 className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
               >
                 <History size={16} className="flex-shrink-0" />
-                Registro de notificaciones
+                Bitácora de notificaciones
                 {logOpen ? <ChevronUp size={16} className="text-muted flex-shrink-0" /> : <ChevronDown size={16} className="text-muted flex-shrink-0" />}
               </button>
               {logOpen && (
-                <div className="border-t border-outline-variant p-3">
+                <div className="border-t border-outline-variant">
                   {logLoading ? (
                     <div className="flex justify-center py-6"><Spinner size="sm" /></div>
                   ) : !logEntries?.length ? (
                     <p className="text-center text-muted text-sm py-6">Aún no tienes notificaciones registradas</p>
                   ) : (
-                    <ul className="space-y-2 max-h-80 overflow-y-auto">
+                    // Bitácora: renglones seguidos separados por una línea delgada, no
+                    // tarjetas individuales — cada entrada, máximo dos renglones (pedido
+                    // explícito), se desplaza libremente hacia atrás y hacia adelante.
+                    <ul className="divide-y divide-outline-variant max-h-[28rem] overflow-y-auto px-3">
                       {logEntries.map((e) => {
                         const { fecha, hora } = fmtFechaHora(e.createdAt)
-                        // Recordatorios de clase/evento (useAlarmas.js / localReminders.js)
-                        // traen fecha+hora propias de la clase — mostrarlas es lo que el
-                        // docente pidió (además de nombre y grupo). Otras categorías
-                        // (nuevas entregas, estudiante activado) no las tienen: se quedan
-                        // con el resumen simple de antes.
-                        const tieneClase = e.fecha && e.hora
+                        const { label, detalle } = describeEntry(e)
                         return (
-                          <li key={e.id} className="p-3 rounded-card border border-outline-variant bg-surface">
-                            <p className="text-xs text-muted">{fecha} · {hora}</p>
-                            {tieneClase ? (
-                              <>
-                                <p className="text-sm font-medium text-on-surface mt-0.5">
-                                  {e.asignatura || e.titulo || 'Clase'}{e.grupo ? ` — ${e.grupo}` : ''}
-                                </p>
-                                <p className="text-xs text-muted mt-0.5">
-                                  {e.anticipacionMinutos > 0 ? `Empezaba en ${e.anticipacionMinutos} min` : 'Empezaba en ese momento'}
-                                  {' · '}{fmtFechaClase(e.fecha)}, {e.hora}
-                                </p>
-                              </>
-                            ) : (
-                              <p className="text-sm text-on-surface mt-0.5">{e.descripcion || e.titulo || 'Notificación'}</p>
-                            )}
+                          <li key={e.id} className="py-2">
+                            <p className="text-sm text-on-surface truncate">
+                              <span className="font-medium">{label}</span>
+                              <span className="text-muted"> · {fecha} · {hora}</span>
+                            </p>
+                            <p className="text-xs text-muted truncate">{detalle}</p>
                           </li>
                         )
                       })}
