@@ -203,7 +203,7 @@ function Toggle({ checked, onChange, label, description, icon: Icon, children })
 }
 
 // Bitácora en formato tabla — encabezados cortos (Día semana / Fecha / Hora /
-// Evento / Detalles); el contenido de cada celda varía por categoría, ver
+// Notificación / Detalles); el contenido de cada celda varía por categoría, ver
 // describeEntry. Día/fecha/hora son SIEMPRE cuándo se recibió la
 // notificación (createdAt) — no la hora propia de la clase/evento que la
 // causó (pedido explícito: "la hora... debe ser la hora en la cual se
@@ -220,31 +220,37 @@ function fmtHHMM(d) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-// Arma las columnas Evento/Detalles según la categoría. `e.categoria` falta
-// en entradas viejas (de antes de este cambio): caen al resumen simple de
-// siempre, sin nombre de estudiante.
+// Arma las columnas Notificación/Detalles según la categoría. La columna se
+// llama "Notificación" (no "Evento") para no confundirse con la palabra
+// "evento" que ya aparece dentro del contenido de esa misma columna en la
+// categoría recordatorioEvento. `e.categoria` falta en entradas viejas (de
+// antes de este cambio): caen al resumen simple de siempre, sin nombre de
+// estudiante.
 function describeEntry(e) {
   switch (e.categoria) {
     case 'recordatorioClase': {
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
-      return { evento: `${asignatura}${e.lugar ? ` · ${e.lugar}` : ''}`, detalles: '' }
+      return { notificacion: `${asignatura}${e.lugar ? ` · ${e.lugar}` : ''}`, detalles: '' }
     }
     case 'recordatorioEvento': {
-      // Pedido explícito: en Detalles, cuál aviso es (15/10/5 min antes, o al
-      // momento) y la hora en la que el evento en sí va a suceder.
+      // Pedido explícito: cuál aviso es (15/10/5 min antes, o al momento) va
+      // en la columna Notificación, junto al nombre del evento — no en
+      // Detalles, que se queda solo con la hora en la que el evento sucede.
       const aviso = e.anticipacionMinutos > 0 ? `Aviso de ${e.anticipacionMinutos} minutos antes` : 'Aviso al momento'
-      const detalles = e.hora ? `${aviso} · Evento a las ${e.hora}` : aviso
-      return { evento: e.evento || 'Tu evento', detalles }
+      return {
+        notificacion: `${e.evento || 'Tu evento'} — ${aviso}`,
+        detalles: e.hora ? `Evento a las ${e.hora}` : '',
+      }
     }
     case 'nuevasEntregas': {
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : ''
       const actividad = `${e.numero ? `${e.numero} - ` : ''}${e.actividad || 'Actividad'}`
-      return { evento: `${asignatura}${asignatura ? ' — ' : ''}${actividad}`, detalles: e.estudiante || '' }
+      return { notificacion: `${asignatura}${asignatura ? ' — ' : ''}${actividad}`, detalles: e.estudiante || '' }
     }
     case 'activacionEstudiante':
-      return { evento: 'Aviso de estudiante activado', detalles: e.estudiante || '' }
+      return { notificacion: 'Aviso de estudiante activado', detalles: e.estudiante || '' }
     default:
-      return { evento: e.descripcion || e.titulo || 'Notificación', detalles: '' }
+      return { notificacion: e.descripcion || e.titulo || 'Notificación', detalles: '' }
   }
 }
 
@@ -411,7 +417,7 @@ export default function TeacherNotificationSettings() {
                             <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Día semana</th>
                             <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Fecha</th>
                             <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Hora</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Evento</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Notificación</th>
                             <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Detalles</th>
                           </tr>
                         </thead>
@@ -420,13 +426,13 @@ export default function TeacherNotificationSettings() {
                             // Siempre createdAt — cuándo se RECIBIÓ el aviso, no la hora
                             // propia de la clase/evento que lo causó.
                             const d = e.createdAt?.toDate ? e.createdAt.toDate() : null
-                            const { evento, detalles } = describeEntry(e)
+                            const { notificacion, detalles } = describeEntry(e)
                             return (
                               <tr key={e.id} className="odd:bg-surface even:bg-surface-card">
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? DIAS_SEMANA[d.getDay()] : '—'}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtDDMMAA(d) : '—'}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtHHMM(d) : '—'}</td>
-                                <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{evento}</td>
+                                <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{notificacion}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{detalles}</td>
                               </tr>
                             )
