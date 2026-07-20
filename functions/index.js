@@ -69,19 +69,36 @@ async function parcialesOcultosDe(asignaturaId) {
 // debe enviarse (ver enviarPush() para el caso normal gateado por
 // notificationSettings, y onEstudianteActivado() para el caso gateado por un
 // campo de la propia asignatura en vez de un ajuste global).
+// Códigos de FCM que significan "este token ya no sirve" (se reinstaló la
+// app, se le borraron datos, o el usuario desinstaló) — se limpian solos de
+// notificationSettings para no volver a intentarlos ni ensuciar el registro.
+const TOKEN_INVALIDO = new Set([
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-registration-token',
+  'messaging/invalid-argument',
+])
+
 async function enviarPushDirecto(uid, notification, data = {}, descripcion = null) {
   if (!uid) return
   const settingsSnap = await db.collection('notificationSettings').doc(uid).get()
   const tokens = settingsSnap.exists ? (settingsSnap.data().fcmTokens || []) : []
   if (!tokens.length) return
   try {
-    await messaging.sendEachForMulticast({ tokens, notification, data })
-    await db.collection('notificationLog').add({
-      uid,
-      titulo: notification.title,
-      descripcion: descripcion || notification.body,
-      createdAt: FieldValue.serverTimestamp(),
-    })
+    const res = await messaging.sendEachForMulticast({ tokens, notification, data })
+    const tokensInvalidos = res.responses
+      .map((r, i) => (!r.success && TOKEN_INVALIDO.has(r.error?.code) ? tokens[i] : null))
+      .filter(Boolean)
+    if (tokensInvalidos.length) {
+      await settingsSnap.ref.update({ fcmTokens: FieldValue.arrayRemove(...tokensInvalidos) })
+    }
+    if (res.successCount) {
+      await db.collection('notificationLog').add({
+        uid,
+        titulo: notification.title,
+        descripcion: descripcion || notification.body,
+        createdAt: FieldValue.serverTimestamp(),
+      })
+    }
   } catch (err) {
     logger.error(`enviarPushDirecto(${uid}) falló:`, err.message)
   }

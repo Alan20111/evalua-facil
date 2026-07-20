@@ -173,6 +173,24 @@ export default function TeacherLayout({ children }) {
             Horario y Agenda
           </NavLink>
 
+          {/* Notificaciones — mismos ajustes que en la app móvil (activar/
+              desactivar avisos, el registro de lo enviado); casi todo lo que
+              controla solo aplica en el celular donde esté instalada la app,
+              pero se puede gestionar desde aquí. */}
+          <NavLink
+            to="/notificaciones"
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 mx-2 mt-1.5 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
+                isActive
+                  ? 'bg-white text-accent shadow-card'
+                  : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
+              }`
+            }
+          >
+            <Bell size={20} className="flex-shrink-0" />
+            Notificaciones
+          </NavLink>
+
           {/* Subjects header → goes to the full subjects list */}
           <NavLink to="/dashboard" className="mx-2 px-2 pt-3 pb-1 flex items-center justify-between rounded group">
             <span className="text-label-caps text-white/70 group-hover:text-white uppercase transition-colors">
@@ -291,19 +309,17 @@ export default function TeacherLayout({ children }) {
             <CalendarDays size={24} />
             <span>Horario</span>
           </NavLink>
-          {IS_NATIVE_APP && (
-            <NavLink
-              to="/notificaciones"
-              className={({ isActive }) =>
-                `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
-                  isActive ? 'text-accent' : 'text-muted'
-                }`
-              }
-            >
-              <Bell size={24} />
-              <span>Notificaciones</span>
-            </NavLink>
-          )}
+          <NavLink
+            to="/notificaciones"
+            className={({ isActive }) =>
+              `flex-1 flex flex-col items-center py-2 gap-0.5 text-metadata transition-colors ${
+                isActive ? 'text-accent' : 'text-muted'
+              }`
+            }
+          >
+            <Bell size={24} />
+            <span>Notificaciones</span>
+          </NavLink>
           <NavLink
             to="/profile"
             className={({ isActive }) =>

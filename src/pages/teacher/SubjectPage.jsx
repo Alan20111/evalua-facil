@@ -3888,25 +3888,23 @@ export default function SubjectPage() {
             </div>
           </div>
 
-          {/* Solo Android — la web no tiene push notifications configuradas
-              para el docente. Por asignatura (no un ajuste global de
-              Ajustes > Notificaciones): la Cloud Function lee este campo
-              directo del documento de la asignatura. */}
-          {IS_NATIVE_APP && (
-            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
-              <input
-                type="checkbox"
-                id="notificar-activacion"
-                checked={subject?.notificarActivacion ?? false}
-                onChange={toggleNotificarActivacion}
-                className="mt-1"
-              />
-              <label htmlFor="notificar-activacion" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
-                Notificarme cuando un estudiante se active a esta asignatura
-                <span className="text-muted text-xs block mt-0.5">Recibirás un aviso en tu celular cada vez que un estudiante se active</span>
-              </label>
-            </div>
-          )}
+          {/* Por asignatura (no un ajuste global de Ajustes > Notificaciones):
+              la Cloud Function lee este campo directo del documento de la
+              asignatura. El push solo llega al celular donde esté instalada
+              la app — se puede activar desde aquí o desde ahí. */}
+          <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
+            <input
+              type="checkbox"
+              id="notificar-activacion"
+              checked={subject?.notificarActivacion ?? false}
+              onChange={toggleNotificarActivacion}
+              className="mt-1"
+            />
+            <label htmlFor="notificar-activacion" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
+              Notificarme cuando un estudiante se active a esta asignatura
+              <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante se active</span>
+            </label>
+          </div>
 
           {/* Ordenar alfabéticamente */}
           <div className="flex justify-end pt-1">
