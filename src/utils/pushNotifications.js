@@ -21,6 +21,11 @@ let installed = false
 // UNA sola vez (installed) pero deben reflejar SIEMPRE la sesión activa, así
 // que leen esta variable en vez de cerrar sobre el uid del primer login.
 let currentUid = null
+// navigate/ruta destino al TOCAR una notificación (no solo recibirla) — se
+// actualizan en cada llamada por la misma razón que currentUid: los
+// listeners se registran una sola vez pero deben reflejar la sesión activa.
+let currentNavigate = null
+let currentDeepLink = null
 // Último token recibido — lo necesita clearPushToken() para poder quitarlo
 // al cerrar sesión sin tener que esperar un nuevo 'registration'.
 let currentToken = null
@@ -57,9 +62,11 @@ async function mostrarEnPrimerPlano(notification) {
   }
 }
 
-export async function initPushNotifications(uid) {
+export async function initPushNotifications(uid, navigate, deepLink) {
   if (!uid || !Capacitor.isNativePlatform()) return
   currentUid = uid
+  currentNavigate = navigate || null
+  currentDeepLink = deepLink || null
 
   // Los listeners ya estaban puestos de una sesión anterior EN ESTE MISMO
   // proceso (cambio de cuenta sin cerrar la app del todo) — con currentUid ya
@@ -89,6 +96,15 @@ export async function initPushNotifications(uid) {
     // Android ya mostró la notificación del sistema por su cuenta.
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
       mostrarEnPrimerPlano(notification)
+    })
+    // Al TOCAR la notificación (globo/banner), no solo recibirla — pedido
+    // explícito: llevar directo a la pantalla que corresponda (Notificaciones
+    // para el docente) en vez de caer en la pantalla de bienvenida de
+    // siempre. Capacitor entrega este evento también si la notificación fue
+    // la que abrió la app desde cerrada (cold start), una vez que el
+    // listener queda registrado.
+    PushNotifications.addListener('pushNotificationActionPerformed', () => {
+      if (currentDeepLink && currentNavigate) currentNavigate(currentDeepLink)
     })
 
     await PushNotifications.register()

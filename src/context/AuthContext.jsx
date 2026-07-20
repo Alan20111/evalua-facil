@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -12,6 +13,7 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null)
   const [userProfile, setUserProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -75,11 +77,14 @@ export function AuthProvider({ children }) {
           if (profile.role === 'docente') {
             // Fase de notificaciones del docente: registra el dispositivo para
             // push (no-op en web, solo hace algo en la app nativa de Android).
-            initPushNotifications(user.uid)
+            // Se le pasa navigate + la ruta destino para que, al TOCAR la
+            // notificación (no solo recibirla), la app abra directo en
+            // Notificaciones — antes caía en la pantalla de bienvenida.
+            initPushNotifications(user.uid, navigate, '/notificaciones')
             // Recordatorios de clase/evento — local, no depende de push.
             refreshTeacherReminders(user.uid)
             installReminderResumeListener(user.uid)
-            installReminderDeliveryListener(user.uid)
+            installReminderDeliveryListener(user.uid, navigate)
           }
         } else if (user.email?.endsWith('@evalua.local')) {
           // Student account: no users/{uid} doc. Prefer the enrollment(s) that already carry
