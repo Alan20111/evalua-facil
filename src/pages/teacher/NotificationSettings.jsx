@@ -9,6 +9,7 @@ import { ArrowLeft, Settings, FileCheck2, Clock, CalendarDays, Bell, ChevronDown
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
+import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
@@ -254,6 +255,12 @@ export default function TeacherNotificationSettings() {
           <h1 className="text-xl font-bold text-on-surface flex-1 min-w-0">Notificaciones</h1>
           {saving && <Spinner size="sm" />}
         </div>
+
+        {!IS_NATIVE_APP && (
+          <p className="text-xs text-muted -mt-2">
+            Estos avisos llegan como notificación push al celular donde tengas instalada la app Evalúa Fácil — no a este navegador.
+          </p>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
