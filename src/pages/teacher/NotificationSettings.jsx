@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs, getDocsFromServer } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -220,13 +221,33 @@ function fmtHHMM(d) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+// Rótulo fijo en MAYÚSCULAS que va SIEMPRE arriba, en su propio renglón,
+// dentro de la celda de Notificación — pedido explícito, uno por categoría
+// (y por tipo de actividad en nuevasEntregas: ENTREGA / CUESTIONARIO
+// Realizado / EXAMEN Realizado). El resto del contenido de esa columna
+// sigue igual, debajo.
+function etiquetaCategoria(e) {
+  switch (e.categoria) {
+    case 'recordatorioClase': return 'CLASE'
+    case 'recordatorioEvento': return 'EVENTO'
+    case 'activacionEstudiante': return 'ESTUDIANTE ACTIVADO'
+    case 'nuevasEntregas':
+      return e.tipoEntrega === 'examen' ? 'EXAMEN Realizado'
+        : e.tipoEntrega === 'cuestionario' ? 'CUESTIONARIO Realizado'
+        : 'ENTREGA'
+    default: return null
+  }
+}
+
 // Arma las columnas Notificación/Detalles según la categoría. La columna se
 // llama "Notificación" (no "Evento") para no confundirse con la palabra
 // "evento" que ya aparece dentro del contenido de esa misma columna en la
 // categoría recordatorioEvento. `e.categoria` falta en entradas viejas (de
 // antes de este cambio): caen al resumen simple de siempre, sin nombre de
-// estudiante.
-function describeEntry(e) {
+// estudiante. `navigate` solo lo usa nuevasEntregas, para que el nombre del
+// estudiante en Detalles sea un enlace directo a esa entrega.
+function describeEntry(e, navigate) {
+  const etiqueta = etiquetaCategoria(e)
   switch (e.categoria) {
     case 'recordatorioClase': {
       // Mismo patrón que recordatorioEvento: cuál aviso es va en Notificación;
@@ -235,7 +256,10 @@ function describeEntry(e) {
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
       const aviso = e.anticipacionMinutos > 0 ? `Aviso de ${e.anticipacionMinutos} minutos antes` : 'Aviso al momento'
       const detalles = e.hora ? `La clase comienza a las ${e.hora}${e.lugar ? `, en ${e.lugar}` : ''}` : ''
-      return { notificacion: `${asignatura} — ${aviso}`, detalles }
+      return {
+        notificacion: (<><div>{etiqueta}</div><div>{asignatura} — {aviso}</div></>),
+        detalles,
+      }
     }
     case 'recordatorioEvento': {
       // Pedido explícito: cuál aviso es (15/10/5 min antes, o al momento) va
@@ -243,7 +267,7 @@ function describeEntry(e) {
       // Detalles, que se queda solo con la hora en la que el evento sucede.
       const aviso = e.anticipacionMinutos > 0 ? `Aviso de ${e.anticipacionMinutos} minutos antes` : 'Aviso al momento'
       return {
-        notificacion: `${e.evento || 'Tu evento'} — ${aviso}`,
+        notificacion: (<><div>{etiqueta}</div><div>{e.evento || 'Tu evento'} — {aviso}</div></>),
         detalles: e.hora ? `Evento a las ${e.hora}` : '',
       }
     }
@@ -254,23 +278,39 @@ function describeEntry(e) {
       // celda de Notificación.
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : ''
       const actividad = `${e.numeroActividad ? `${e.numeroActividad} - ` : ''}${e.actividad || 'Actividad'}`
+      // El nombre del estudiante en Detalles lleva a esa entrega (pedido
+      // explícito) — mismo mecanismo que usa la tabla de calificaciones
+      // (state.openStudentId, ver ActivityPage.jsx), así funciona igual
+      // para entregables y para evaluaciones (EvaluacionManager lee el
+      // mismo state). Entradas viejas sin actividadId/alumnoId (de antes de
+      // este cambio) se quedan como texto plano, sin enlace.
+      const puedeIrAEntrega = e.actividadId && e.alumnoId
       return {
         notificacion: (
           <>
+            <div>{etiqueta}</div>
             {asignatura && <div>{asignatura}</div>}
             <div>{actividad}</div>
           </>
         ),
-        detalles: e.estudiante || '',
+        detalles: puedeIrAEntrega ? (
+          <button
+            type="button"
+            onClick={() => navigate(`/activity/${e.actividadId}`, { state: { openStudentId: e.alumnoId } })}
+            className="text-accent underline decoration-dotted underline-offset-2 text-left"
+          >
+            {e.estudiante || 'Ver entrega'}
+          </button>
+        ) : (e.estudiante || ''),
       }
     }
     case 'activacionEstudiante': {
-      // Pedido explícito: Notificación se queda fija en "Estudiante
-      // activado"; el nombre del estudiante y la asignatura (con grupo) van
+      // Pedido explícito: Notificación se queda fija en "ESTUDIANTE
+      // ACTIVADO"; el nombre del estudiante y la asignatura (con grupo) van
       // en Detalles, en renglones separados dentro de la misma celda.
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : ''
       return {
-        notificacion: 'Estudiante activado',
+        notificacion: etiqueta,
         detalles: (
           <>
             {e.estudiante && <div>{e.estudiante}</div>}
@@ -286,6 +326,7 @@ function describeEntry(e) {
 
 export default function TeacherNotificationSettings() {
   const { currentUser } = useAuth()
+  const navigate = useNavigate()
   const toast = useToast()
 
   const [settings, setSettings] = useState(DEFAULTS)
@@ -455,7 +496,7 @@ export default function TeacherNotificationSettings() {
                             // Si createdAt no resolvió (raro, ya con getDocsFromServer arriba),
                             // "ahora" en vez de dejar el renglón con fecha/hora en blanco.
                             const d = e.createdAt?.toDate ? e.createdAt.toDate() : new Date()
-                            const { notificacion, detalles } = describeEntry(e)
+                            const { notificacion, detalles } = describeEntry(e, navigate)
                             // logEntries ya viene ordenado con la más nueva primero — el
                             // renglón 0 es la última notificación recibida. Se resalta en
                             // verde (pedido explícito) para que el docente identifique de
@@ -504,7 +545,7 @@ export default function TeacherNotificationSettings() {
                             // Si createdAt no resolvió (raro, ya con getDocsFromServer arriba),
                             // "ahora" en vez de dejar el renglón con fecha/hora en blanco.
                             const d = e.createdAt?.toDate ? e.createdAt.toDate() : new Date()
-                            const { notificacion, detalles } = describeEntry(e)
+                            const { notificacion, detalles } = describeEntry(e, navigate)
                             // logEntries ya viene ordenado con la más nueva primero — el
                             // renglón 0 es la última notificación recibida. Se resalta en
                             // verde (pedido explícito) para que el docente identifique de
@@ -596,7 +637,7 @@ export default function TeacherNotificationSettings() {
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Borrar esta notificación?</h3>
             <p className="text-sm text-muted mb-4">
-              "<strong>{describeEntry(entryToDelete).notificacion}</strong>" se borrará de tu bitácora permanentemente.
+              "<strong>{describeEntry(entryToDelete, navigate).notificacion}</strong>" se borrará de tu bitácora permanentemente.
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setEntryToDelete(null)} disabled={deletingEntry}

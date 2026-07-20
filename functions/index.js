@@ -254,13 +254,27 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
     : act.categoria === 'examen' ? 'presentó el examen'
     : act.categoria === 'cuestionario' ? 'presentó el cuestionario'
     : 'terminó la evaluación'
+  // Distingue ENTREGA / CUESTIONARIO / EXAMEN en la Bitácora (pedido
+  // explícito) — mismo criterio que `verbo` arriba, pero como valor plano
+  // para que el cliente (describeEntry en NotificationSettings.jsx) arme el
+  // rótulo sin repetir esta lógica.
+  const tipoEntrega = !esEvaluacion ? 'entrega'
+    : act.categoria === 'examen' ? 'examen'
+    : act.categoria === 'cuestionario' ? 'cuestionario'
+    : 'evaluacion'
 
   await enviarPushDirecto(
     act.docenteId,
     { title: 'Nueva entrega', body: `${nombreEstudiante} ${verbo} "${act.nombre}" — ${nombreAsignatura}` },
     { categoria: 'nuevasEntregas', actividadId: afterData.actividadId, submissionId: event.params.submissionId },
     null,
-    { categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '', actividad: act.nombre || '', numeroActividad },
+    {
+      categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '',
+      actividad: act.nombre || '', numeroActividad, tipoEntrega,
+      // Para que la Bitácora pueda llevar directo a esa entrega (pedido
+      // explícito: el nombre del estudiante en Detalles es un enlace).
+      actividadId: afterData.actividadId, alumnoId: afterData.alumnoId,
+    },
   )
 })
 
