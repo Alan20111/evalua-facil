@@ -67,6 +67,16 @@ async function scheduleUpcoming(category, items, anticipacionMinutos) {
         title: item.title,
         body: `${anticipacionLabel(min)}${item.subtitle ? ` — ${item.subtitle}` : ''}`,
         schedule: { at: new Date(item.start.getTime() - min * 60_000) },
+        // Se guarda de vuelta al registrar la entrega (registerDeliveredReminders)
+        // para que el registro muestre fecha/hora/anticipación/nombre/grupo por
+        // separado, no solo el texto ya armado del body.
+        extra: {
+          fecha: item.start.toISOString().slice(0, 10),
+          hora: item.start.toTimeString().slice(0, 5),
+          anticipacionMinutos: min,
+          asignatura: item.asignatura || '',
+          grupo: item.grupo || '',
+        },
       }))
     )
     .filter((n) => n.schedule.at.getTime() > now)
@@ -106,10 +116,19 @@ export async function registerDeliveredReminders(uid) {
     const nuevas = nuestras.filter((n) => !logged.has(n.id))
     if (!nuevas.length) return
     for (const n of nuevas) {
+      // El plugin devuelve los "extra" al programar como `data` en Android
+      // (DeliveredNotificationSchema) — `extra` en esa lectura es solo iOS,
+      // que esta app no tiene. Cae a `n.extra` por si acaso, sin costo.
+      const extra = n.data || n.extra || {}
       await addDoc(collection(db, 'notificationLog'), {
         uid,
         titulo: n.title || 'Recordatorio',
         descripcion: n.body || '',
+        asignatura: extra.asignatura || '',
+        grupo: extra.grupo || '',
+        fecha: extra.fecha || '',
+        hora: extra.hora || '',
+        anticipacionMinutos: extra.anticipacionMinutos ?? null,
         createdAt: serverTimestamp(),
       })
       logged.add(n.id)
@@ -204,9 +223,17 @@ export async function refreshTeacherReminders(uid) {
           // El nombre de la asignatura va en el CUERPO (subtitle), no solo
           // en el título — "Registro de notificaciones" solo muestra un
           // renglón (descripcion), que se arma a partir del cuerpo.
-          const nombreClase = subjectDisplayName(subjectsById[b.asignaturaId]) || 'tu clase'
+          const subj = subjectsById[b.asignaturaId]
+          const nombreClase = subjectDisplayName(subj) || 'tu clase'
           const detalle = b.lugar ? `${nombreClase} · ${b.lugar}` : nombreClase
-          return { id: b.id, start: parseFechaHora(b.fecha, b.horaInicio), title: 'Tu clase está por comenzar', subtitle: detalle }
+          return {
+            id: b.id,
+            start: parseFechaHora(b.fecha, b.horaInicio),
+            title: 'Tu clase está por comenzar',
+            subtitle: detalle,
+            asignatura: subj?.nombre || '',
+            grupo: subj?.grupo || '',
+          }
         })
       programadas += await scheduleUpcoming('clase', items, clase.anticipacionMinutos ?? 10)
     }

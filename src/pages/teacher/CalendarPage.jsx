@@ -1112,7 +1112,7 @@ export default function CalendarPage() {
   const vacacionMap = useMemo(() => buildVacacionMap(vacaciones), [vacaciones])
 
   // Alarmas de los bloques (suenan con la app abierta + notificación).
-  useAlarmas(bloques, subjects)
+  useAlarmas(bloques, subjects, currentUser?.uid)
 
   // ── Navigation ─────────────────────────────────────────────────────────
   function prev() {
