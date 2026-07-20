@@ -415,12 +415,12 @@ export default function TeacherNotificationSettings() {
                     // quepa en el ancho del celular sin scroll horizontal — mismo tamaño
                     // de texto que el párrafo de "Cómo activar las notificaciones".
                     <div className="max-h-[28rem] overflow-y-auto">
-                      <table className="w-full table-fixed text-xs border-collapse">
+                      <table className="w-full table-fixed text-[10.2px] border-collapse">
                         <thead>
                           <tr>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1 py-1.5 font-semibold text-accent w-[22%]">Fecha</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1 py-1.5 font-semibold text-accent w-[26%]">Fecha</th>
                             <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[42%]">Notificación</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[36%]">Detalles</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[32%]">Detalles</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -431,7 +431,7 @@ export default function TeacherNotificationSettings() {
                             const { notificacion, detalles } = describeEntry(e)
                             return (
                               <tr key={e.id} className="odd:bg-surface even:bg-surface-card">
-                                <td className="border border-outline-variant px-1 py-1.5 text-center align-top text-on-surface">
+                                <td className="border border-outline-variant px-1 py-1.5 text-center align-top text-on-surface break-words">
                                   <div>{d ? DIAS_SEMANA[d.getDay()] : '—'}</div>
                                   <div>{d ? fmtDDMMAA(d) : '—'}</div>
                                   <div>{d ? fmtHHMM(d) : '—'}</div>
