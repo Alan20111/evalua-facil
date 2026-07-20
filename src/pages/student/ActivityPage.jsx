@@ -271,6 +271,12 @@ export default function StudentActivityPage() {
           estadoEvaluacion: 'en_progreso',
           intentoActual: (submission.intentos?.length || 0) + 1,
           tiempoInicio: serverTimestamp(),
+          // El mismo documento se reutiliza en cada reintento (ver intentos[]
+          // más abajo) — sin esto, notificadoEntregaDocente se quedaba en true
+          // desde el primer intento para siempre, y la Cloud Function
+          // (onSubmissionEntregada) nunca volvía a avisarle al docente ni a
+          // registrar nada en la Bitácora en los intentos 2, 3, ... N.
+          notificadoEntregaDocente: false,
         })
       } else {
         await addDoc(collection(db, 'submissions'), {
