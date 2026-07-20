@@ -229,8 +229,13 @@ function describeEntry(e) {
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
       return { evento: `${asignatura}${e.lugar ? ` · ${e.lugar}` : ''}`, detalles: '' }
     }
-    case 'recordatorioEvento':
-      return { evento: e.evento || 'Tu evento', detalles: '' }
+    case 'recordatorioEvento': {
+      // Pedido explícito: en Detalles, cuál aviso es (15/10/5 min antes, o al
+      // momento) y la hora en la que el evento en sí va a suceder.
+      const aviso = e.anticipacionMinutos > 0 ? `Aviso de ${e.anticipacionMinutos} minutos antes` : 'Aviso al momento'
+      const detalles = e.hora ? `${aviso} · Evento a las ${e.hora}` : aviso
+      return { evento: e.evento || 'Tu evento', detalles }
+    }
     case 'nuevasEntregas': {
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : ''
       const actividad = `${e.numero ? `${e.numero} - ` : ''}${e.actividad || 'Actividad'}`
