@@ -127,10 +127,18 @@ function saveLoggedIds(set) {
 // guardarlo de vuelta, y los dos escribían — duplicado. Se marca el id
 // como registrado ANTES del addDoc (revirtiendo si falla) para cerrar esa
 // ventana.
+//
+// La clave del Set incluye fecha+hora, no solo el id: el id de
+// LocalNotifications sale de idFor(categoria, `${bloqueId}:${min}`) — NO
+// cambia si el docente mueve la clase/evento a otra fecha/hora, así que sin
+// esto, una vez registrado el primer aviso, el aviso de la nueva posición
+// (mismo id, fecha/hora distinta) se descartaba en silencio como "ya
+// registrado" aunque de verdad sonó — pedido explícito: sí debe quedar.
 async function logIfNew(uid, id, title, body, extra) {
+  const key = `${id}:${extra.fecha || ''}:${extra.hora || ''}`
   const logged = loadLoggedIds()
-  if (logged.has(id)) return
-  logged.add(id)
+  if (logged.has(key)) return
+  logged.add(key)
   saveLoggedIds(logged)
   try {
     await addDoc(collection(db, 'notificationLog'), {
@@ -148,7 +156,7 @@ async function logIfNew(uid, id, title, body, extra) {
       createdAt: serverTimestamp(),
     })
   } catch (err) {
-    logged.delete(id)
+    logged.delete(key)
     saveLoggedIds(logged)
     throw err
   }
@@ -188,7 +196,12 @@ export async function registerDeliveredReminders(uid) {
     const nuestras = (notifications || []).filter((n) => n.id >= 1_200_000_000)
     if (!nuestras.length) return
     const logged = loadLoggedIds()
-    const nuevas = nuestras.filter((n) => !logged.has(n.id))
+    // La clave es id+fecha+hora (ver logIfNew) — un id reprogramado tras
+    // mover la clase/evento a otra fecha/hora NO cuenta como ya visto aquí.
+    const nuevas = nuestras.filter((n) => {
+      const extra = n.data || n.extra || {}
+      return !logged.has(`${n.id}:${extra.fecha || ''}:${extra.hora || ''}`)
+    })
     if (!nuevas.length) return
     for (const n of nuevas) {
       // El plugin devuelve los "extra" al programar como `data` en Android

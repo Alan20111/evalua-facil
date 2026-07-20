@@ -12,8 +12,11 @@ import { subjectDisplayName } from '../../utils/subjectName'
 // esto sonaba pero no quedaba ningún rastro, en app y en web.
 //
 // Limitación conocida: sólo suena con la pestaña abierta (no hay backend ni
-// push). Un bloque suena una única vez — se recuerda en localStorage para no
-// repetir la alarma al recargar dentro de la ventana de disparo.
+// push). Un bloque suena una única vez PARA CADA fecha/hora — se recuerda en
+// localStorage (clave = id + fecha + horaInicio, no solo el id) para no
+// repetir la alarma al recargar dentro de la ventana de disparo, PERO sí
+// volver a sonar si el docente mueve el bloque a una fecha/hora distinta,
+// aunque ya hubiera sonado antes en su posición original (pedido explícito).
 
 const STORAGE_KEY = 'ef_alarmas_disparadas'
 const VENTANA_MS = 2 * 60 * 1000 // sólo dispara si el aviso ocurrió en los últimos 2 min
@@ -41,11 +44,12 @@ export default function useAlarmas(bloques, subjects, uid) {
       const now = Date.now()
       for (const b of bloques) {
         const a = b.alarma
-        if (!a?.activa || firedRef.current.has(b.id)) continue
+        const key = `${b.id}:${b.fecha}:${b.horaInicio}`
+        if (!a?.activa || firedRef.current.has(key)) continue
         const triggerMs = new Date(`${b.fecha}T${b.horaInicio}:00`).getTime() - (a.minutosAntes || 0) * 60000
         if (Number.isNaN(triggerMs)) continue
         if (now >= triggerMs && now < triggerMs + VENTANA_MS) {
-          firedRef.current.add(b.id)
+          firedRef.current.add(key)
           saveFired(firedRef.current)
           reproducirSonido(a.sonido)
           const subj = subjects[b.asignaturaId]
