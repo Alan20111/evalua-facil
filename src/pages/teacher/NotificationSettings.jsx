@@ -202,64 +202,56 @@ function Toggle({ checked, onChange, label, description, icon: Icon, children })
   )
 }
 
-// Se comparte con el registro inline de abajo — nada más se usa aquí.
-function fmtFechaHora(ts) {
-  const d = ts?.toDate ? ts.toDate() : null
-  if (!d) return { fecha: '—', hora: '' }
-  const fecha = d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
-  const hora = d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })
-  return { fecha, hora }
+// Bitácora en formato tabla (pedido explícito, con muestra de columnas):
+// DÍA SEMANA | DD/MM/AA | HH:MM | evento/asignatura-grupo-lugar/actividad
+// entregada/aviso de activación | estudiante que se activa o entrega.
+const DIAS_SEMANA = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO']
+
+function fmtDDMMAA(d) {
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const aa = String(d.getFullYear()).slice(-2)
+  return `${dd}/${mm}/${aa}`
+}
+function fmtHHMM(d) {
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-// La fecha/hora de la propia clase (e.fecha "YYYY-MM-DD" + e.hora "HH:MM"),
-// que es lo que el docente quiere ver — no cuándo se guardó el registro.
-function fmtFechaClase(fecha) {
-  if (!fecha) return ''
-  const d = new Date(`${fecha}T00:00:00`)
-  if (Number.isNaN(d.getTime())) return fecha
-  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+// Para clase/evento, la fecha/hora que le importa al docente es la DE LA
+// CLASE/EVENTO (e.fecha + e.hora), no cuándo se guardó el registro. Nuevas
+// entregas, activaciones, y entradas viejas sin categoria no tienen una hora
+// propia distinta — ahí sí se usa createdAt (cuándo pasó de verdad).
+function fechaHoraDe(e) {
+  if (e.fecha && e.hora) {
+    const d = new Date(`${e.fecha}T${e.hora}:00`)
+    if (!Number.isNaN(d.getTime())) return d
+  }
+  return e.createdAt?.toDate ? e.createdAt.toDate() : null
 }
 
-// Etiqueta corta por categoría — va como subtítulo de cada renglón (el
-// nombre de la clase/evento/estudiante es el encabezado, ver describeEntry).
-const CATEGORIA_LABEL = {
-  recordatorioClase: 'Antes de clase',
-  recordatorioEvento: 'Antes de evento',
-  nuevasEntregas: 'Nueva entrega',
-  activacionEstudiante: 'Estudiante activado',
-}
-
-// Arma cada renglón de la Bitácora: `nombre` es lo primero que se lee — la
-// clase, el evento, o el estudiante que causó el aviso — en negritas, NUNCA
-// solo la categoría genérica (pedido explícito, dos veces). `sub` es la
-// categoría + el resto del detalle (grupo, asignatura, cuándo). `e.categoria`
-// falta en entradas viejas (de antes de este cambio): caen al resumen simple
-// de siempre, con el título original como nombre.
+// Arma las dos últimas columnas según la categoría. `e.categoria` falta en
+// entradas viejas (de antes de este cambio): caen al resumen simple de
+// siempre, sin nombre de estudiante.
 function describeEntry(e) {
-  const categoriaLabel = CATEGORIA_LABEL[e.categoria] || ''
   switch (e.categoria) {
     case 'recordatorioClase': {
-      const nombre = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
-      const cuando = e.anticipacionMinutos > 0 ? `empezaba en ${e.anticipacionMinutos} min` : 'empezaba en ese momento'
-      return { nombre, sub: `${categoriaLabel} · ${cuando}${e.hora ? ` (${fmtFechaClase(e.fecha)}, ${e.hora})` : ''}` }
+      const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
+      return { col4: `${asignatura}${e.lugar ? ` · ${e.lugar}` : ''}`, col5: '' }
     }
-    case 'recordatorioEvento': {
-      const nombre = e.evento || 'Tu evento'
-      const cuando = e.anticipacionMinutos > 0 ? `empezaba en ${e.anticipacionMinutos} min` : 'empezaba en ese momento'
-      return { nombre, sub: `${categoriaLabel} · ${cuando}${e.hora ? ` (${fmtFechaClase(e.fecha)}, ${e.hora})` : ''}` }
-    }
+    case 'recordatorioEvento':
+      return { col4: e.evento || 'Tu evento', col5: '' }
     case 'nuevasEntregas':
       return {
-        nombre: e.estudiante || 'Un estudiante',
-        sub: `${categoriaLabel} · "${e.actividad || ''}" — ${e.asignatura || ''}${e.grupo ? ` · ${e.grupo}` : ''}`,
+        col4: `${e.actividad || 'Actividad'}${e.asignatura ? ` — ${e.asignatura}` : ''}${e.grupo ? ` (${e.grupo})` : ''}`,
+        col5: e.estudiante || '',
       }
     case 'activacionEstudiante':
       return {
-        nombre: e.estudiante || 'Un estudiante',
-        sub: `${categoriaLabel} · ${e.asignatura || ''}${e.grupo ? ` · ${e.grupo}` : ''}`,
+        col4: `Aviso de estudiante activado${e.asignatura ? ` — ${e.asignatura}` : ''}${e.grupo ? ` (${e.grupo})` : ''}`,
+        col5: e.estudiante || '',
       }
     default:
-      return { nombre: e.titulo || 'Notificación', sub: e.descripcion || '' }
+      return { col4: e.descripcion || e.titulo || 'Notificación', col5: '' }
   }
 }
 
@@ -417,26 +409,40 @@ export default function TeacherNotificationSettings() {
                   ) : !logEntries?.length ? (
                     <p className="text-center text-muted text-sm py-6">Aún no tienes notificaciones registradas</p>
                   ) : (
-                    // Toda la bitácora vive en UNA caja con scroll (pedido explícito) —
-                    // renglones seguidos separados por una línea delgada, no tarjetas
-                    // individuales, la más nueva arriba, cada entrada en máximo dos
-                    // renglones: el nombre de la clase/evento/estudiante primero (lo que
-                    // causó el aviso), la categoría y el resto del detalle abajo.
-                    <ul className="divide-y divide-outline-variant max-h-[28rem] overflow-y-auto px-4 bg-surface">
-                      {logEntries.map((e) => {
-                        const { fecha, hora } = fmtFechaHora(e.createdAt)
-                        const { nombre, sub } = describeEntry(e)
-                        return (
-                          <li key={e.id} className="py-2">
-                            <p className="text-sm text-on-surface font-semibold truncate">
-                              {nombre}
-                              <span className="text-muted font-normal"> · {fecha} · {hora}</span>
-                            </p>
-                            {sub && <p className="text-xs text-muted truncate">{sub}</p>}
-                          </li>
-                        )
-                      })}
-                    </ul>
+                    // Toda la bitácora vive en UNA caja con scroll (pedido explícito),
+                    // en formato tabla, la notificación más nueva hasta arriba.
+                    <div className="max-h-[28rem] overflow-y-auto overflow-x-auto">
+                      <table className="w-full min-w-[640px] text-xs border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent">Día semana</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">DD/MM/AA</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">HH:MM</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">
+                              Evento / asignatura con grupo y lugar / actividad de la que se entrega o realiza / aviso de estudiante activado
+                            </th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">
+                              Estudiante que se activa / que entrega
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {logEntries.map((e) => {
+                            const d = fechaHoraDe(e)
+                            const { col4, col5 } = describeEntry(e)
+                            return (
+                              <tr key={e.id} className="odd:bg-surface even:bg-surface-card">
+                                <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? DIAS_SEMANA[d.getDay()] : '—'}</td>
+                                <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtDDMMAA(d) : '—'}</td>
+                                <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtHHMM(d) : '—'}</td>
+                                <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{col4}</td>
+                                <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{col5}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               )}

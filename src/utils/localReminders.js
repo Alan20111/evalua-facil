@@ -82,6 +82,7 @@ async function scheduleUpcoming(category, items, anticipacionMinutos) {
           anticipacionMinutos: min,
           asignatura: item.asignatura || '',
           grupo: item.grupo || '',
+          lugar: item.lugar || '',
           evento: item.evento || '',
         },
       }))
@@ -127,6 +128,7 @@ async function logIfNew(uid, id, title, body, extra) {
     descripcion: body || '',
     asignatura: extra.asignatura || '',
     grupo: extra.grupo || '',
+    lugar: extra.lugar || '',
     evento: extra.evento || '',
     fecha: extra.fecha || '',
     hora: extra.hora || '',
@@ -271,6 +273,7 @@ export async function refreshTeacherReminders(uid) {
             subtitle: detalle,
             asignatura: subj?.nombre || '',
             grupo: subj?.grupo || '',
+            lugar: b.lugar || '',
           }
         })
       programadas += await scheduleUpcoming('clase', items, clase.anticipacionMinutos ?? 10)
