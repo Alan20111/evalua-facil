@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { Settings, FileCheck2, Clock, CalendarDays, Bell, ChevronDown, Check, X, History } from 'lucide-react'
+import { Settings, FileCheck2, Clock, CalendarDays, Bell, ChevronDown, ChevronUp, Check, X, History } from 'lucide-react'
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
@@ -192,15 +191,46 @@ function Toggle({ checked, onChange, label, description, icon: Icon, children })
   )
 }
 
+// Se comparte con el registro inline de abajo — nada más se usa aquí.
+function fmtFechaHora(ts) {
+  const d = ts?.toDate ? ts.toDate() : null
+  if (!d) return { fecha: '—', hora: '' }
+  const fecha = d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+  const hora = d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })
+  return { fecha, hora }
+}
+
 export default function TeacherNotificationSettings() {
   const { currentUser } = useAuth()
-  const navigate = useNavigate()
   const toast = useToast()
 
   const [settings, setSettings] = useState(DEFAULTS)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const saveTimer = useRef(null)
+
+  // Registro de notificaciones — se despliega debajo del propio botón en vez
+  // de ir a otra pantalla (pedido explícito): se carga solo la primera vez
+  // que se abre, no en cada render.
+  const [logOpen, setLogOpen] = useState(false)
+  const [logLoading, setLogLoading] = useState(false)
+  const [logEntries, setLogEntries] = useState(null)
+
+  function toggleLog() {
+    const next = !logOpen
+    setLogOpen(next)
+    if (next && logEntries === null && currentUser) {
+      setLogLoading(true)
+      getDocs(query(collection(db, 'notificationLog'), where('uid', '==', currentUser.uid)))
+        .then((snap) => {
+          const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+          setLogEntries(rows)
+        })
+        .catch(() => toast('No se pudo cargar el registro de notificaciones', 'error'))
+        .finally(() => setLogLoading(false))
+    }
+  }
 
   useEffect(() => {
     if (!currentUser) return
@@ -307,14 +337,38 @@ export default function TeacherNotificationSettings() {
               </ol>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate('/notificaciones/registro')}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-card border border-outline-variant text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
-            >
-              <History size={16} className="flex-shrink-0" />
-              Registro de notificaciones
-            </button>
+            <div className="rounded-card border border-outline-variant overflow-hidden">
+              <button
+                type="button"
+                onClick={toggleLog}
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+              >
+                <History size={16} className="flex-shrink-0" />
+                Registro de notificaciones
+                {logOpen ? <ChevronUp size={16} className="text-muted flex-shrink-0" /> : <ChevronDown size={16} className="text-muted flex-shrink-0" />}
+              </button>
+              {logOpen && (
+                <div className="border-t border-outline-variant p-3">
+                  {logLoading ? (
+                    <div className="flex justify-center py-6"><Spinner size="sm" /></div>
+                  ) : !logEntries?.length ? (
+                    <p className="text-center text-muted text-sm py-6">Aún no tienes notificaciones registradas</p>
+                  ) : (
+                    <ul className="space-y-2 max-h-80 overflow-y-auto">
+                      {logEntries.map((e) => {
+                        const { fecha, hora } = fmtFechaHora(e.createdAt)
+                        return (
+                          <li key={e.id} className="p-3 rounded-card border border-outline-variant bg-surface">
+                            <p className="text-xs text-muted">{fecha} · {hora}</p>
+                            <p className="text-sm text-on-surface mt-0.5">{e.descripcion || e.titulo || 'Notificación'}</p>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
