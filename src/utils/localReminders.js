@@ -297,10 +297,18 @@ export async function refreshTeacherReminders(uid) {
       ])
       const subjectsById = {}
       snapSubjects.docs.forEach((d) => { subjectsById[d.id] = d.data() })
-      const items = snapBloques.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
+      const todosLosBloques = snapBloques.docs.map((d) => ({ id: d.id, ...d.data() }))
+      // Bloques seguidos de la MISMA asignatura (ej. dos periodos pegados,
+      // sin hueco entre ellos) son una sola clase larga — solo se programa
+      // aviso para el primer bloque de la cadena, pedido explícito, para no
+      // repetir el aviso en cada periodo.
+      const esContinuacion = (b) => todosLosBloques.some((otro) =>
+        otro.id !== b.id && otro.asignaturaId === b.asignaturaId && otro.fecha === b.fecha && otro.horaFin === b.horaInicio
+      )
+      const items = todosLosBloques
         .filter((b) => b.fecha >= hoy && b.fecha <= fin && b.horaInicio)
         .filter((b) => subjectsById[b.asignaturaId]?.notificarClase !== false)
+        .filter((b) => !esContinuacion(b))
         .map((b) => {
           // El nombre de la asignatura va en el CUERPO (subtitle), no solo
           // en el título — "Registro de notificaciones" solo muestra un
