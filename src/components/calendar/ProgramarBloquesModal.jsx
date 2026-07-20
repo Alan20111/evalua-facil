@@ -1,9 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import EFDateTimePicker from '../EFDateTimePicker'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { Bell, BellOff, Play, ArrowRight, CalendarPlus, Pencil, Trash2 } from 'lucide-react'
-import { BLOQUE_COLORS, ALARMA_SONIDOS, reproducirSonido } from '../../utils/horarioBloques'
+import { ArrowRight, CalendarPlus, Pencil, Trash2 } from 'lucide-react'
+import { BLOQUE_COLORS } from '../../utils/horarioBloques'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
@@ -31,8 +33,37 @@ export default function ProgramarBloquesModal({
   const [duracionMin, setDuracionMin] = useState(initial?.duracionMin || 60)
   const [bloquesPorSemana, setBloquesPorSemana] = useState(initial?.bloquesPorSemana || 1)
   const [color, setColor] = useState(initial?.color || 'blue')
-  const [alarma, setAlarma] = useState(initial?.alarma || { activa: false, sonido: 'campana', minutosAntes: 10 })
+  // Se mantiene sin exponer en este modal (el sistema viejo de alarma por
+  // sonido/minutos, por bloque, sigue vivo en BloqueEditor.jsx) — aquí solo
+  // se pasa tal cual para no borrar alarmas que el docente ya haya puesto en
+  // bloques individuales. La casilla de abajo (notificarClase) es el sistema
+  // nuevo: push real vía la configuración global de Notificaciones.
+  const [alarma] = useState(initial?.alarma || { activa: false, sonido: 'campana', minutosAntes: 10 })
   const [confirmDel, setConfirmDel] = useState(false)
+
+  // Notificarme antes de clase — a diferencia de `alarma` (viejo, por bloque,
+  // solo suena con la pestaña/app abierta), esto es un ajuste POR ASIGNATURA
+  // que se guarda directo en subjects/{id} y alimenta el sistema de push real
+  // (recordatorioClase en NotificationSettings.jsx + localReminders.js filtra
+  // por este campo). Por defecto true: hoy TODAS las asignaturas se
+  // consideran si no se ha guardado nada distinto.
+  const [notificarClase, setNotificarClase] = useState(() => subjects[asignaturaId]?.notificarClase ?? true)
+  useEffect(() => {
+    if (!esModificar) setNotificarClase(subjects[asignaturaId]?.notificarClase ?? true)
+  }, [asignaturaId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function toggleNotificarClase() {
+    const targetId = esModificar ? initial?.asignaturaId : asignaturaId
+    if (!targetId) return
+    const next = !notificarClase
+    setNotificarClase(next)
+    try {
+      await updateDoc(doc(db, 'subjects', targetId), { notificarClase: next })
+    } catch (err) {
+      setNotificarClase(!next)
+      toast('Error al guardar: ' + err.message, 'error')
+    }
+  }
 
   // Botón atrás físico (Android): si está pidiendo confirmación de borrado,
   // solo la cancela (no cierra todo el modal). El cierre del modal en sí lo
@@ -202,58 +233,23 @@ export default function ProgramarBloquesModal({
             )}
           </div>
 
-          {/* Alarma */}
-          <div className="space-y-2 rounded-card border border-outline-variant p-3">
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                id="alarma-activa"
-                checked={alarma.activa}
-                onChange={e => setAlarma(a => ({ ...a, activa: e.target.checked }))}
-                className="mt-1"
-              />
-              <label htmlFor="alarma-activa" className="text-sm font-medium text-on-surface cursor-pointer flex-1 flex items-center gap-2">
-                {alarma.activa ? <Bell size={16} className="text-accent" /> : <BellOff size={16} className="text-muted" />}
-                Alarma antes de la clase
-              </label>
-            </div>
-            {alarma.activa && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div className="space-y-1.5">
-                  {label('Sonido')}
-                  <div className="flex gap-2">
-                    <select
-                      value={alarma.sonido}
-                      onChange={e => setAlarma(a => ({ ...a, sonido: e.target.value }))}
-                      className={`${inputCls} flex-1`}
-                    >
-                      {ALARMA_SONIDOS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => reproducirSonido(alarma.sonido)}
-                      className="px-2.5 rounded border border-outline-variant text-accent hover:bg-accent-tint transition-colors"
-                      data-tooltip="Probar sonido"
-                      aria-label="Probar sonido"
-                    >
-                      <Play size={14} />
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  {label('Minutos antes')}
-                  <input
-                    type="number" min={0} max={120}
-                    value={alarma.minutosAntes}
-                    onChange={e => setAlarma(a => ({ ...a, minutosAntes: Math.max(0, Number(e.target.value) || 0) }))}
-                    className={`${inputCls} w-full`}
-                  />
-                </div>
-              </div>
-            )}
-            {esModificar && alarma.activa && (
-              <p className="text-xs text-muted">La alarma se aplica al primer bloque de cada día (los seguidos no suenan en plena clase).</p>
-            )}
+          {/* Notificarme antes de clase — guarda directo en la asignatura,
+              independiente de "Continuar" (como las demás casillas
+              "Notificarme cuando..." de la app). El aviso en sí usa la
+              anticipación y el sonido que ya configuraste en Notificaciones. */}
+          <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
+            <input
+              type="checkbox"
+              id="notificar-clase"
+              checked={notificarClase}
+              onChange={toggleNotificarClase}
+              disabled={!esModificar && !asignaturaId}
+              className="mt-1"
+            />
+            <label htmlFor="notificar-clase" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
+              Notificarme antes de que empiecen las clases de esta asignatura
+              <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, según la anticipación que configures en Notificaciones</span>
+            </label>
           </div>
 
           {/* Borrar toda la programación (solo al modificar) */}
