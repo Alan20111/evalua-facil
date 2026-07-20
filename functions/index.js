@@ -1,16 +1,24 @@
 // Cloud Functions — notificaciones push de Evalúa Fácil.
 //
-// Cada función respeta si el usuario habilitó esa categoría en
+// La mayoría respeta si el usuario habilitó esa categoría en
 // `notificationSettings/{uid}` (pantalla de notificaciones del alumno o del
-// docente):
+// docente); onEstudianteActivado es la excepción — se gatea por asignatura,
+// no por un ajuste global (ver su comentario):
 //   1. onActividadEscrita   — actividad nueva visible para el alumno.
 //   2. onSubmissionActualizada — se publicó una calificación.
 //   3. onSubmissionEntregada — un estudiante entregó una actividad marcada
 //      por el docente con "Notificarme" (activity.notificarDocente).
-//   4. revisarProgramados   — programada cada 30 min: actividades cuyo
+//   4. onEstudianteActivado — un estudiante se activó en una asignatura
+//      marcada por el docente con "Notificarme" (subject.notificarActivacion,
+//      ver la pestaña Estudiantes en SubjectPage.jsx).
+//   5. revisarProgramados   — programada cada 30 min: actividades cuyo
 //      publishAt ya pasó (visibilidad puramente por tiempo, sin escritura de
 //      doc) + recordatorios de entrega, con la anticipación que cada
 //      estudiante haya elegido (recordatorios.anticipacionMinutos).
+//
+// Todo push que de verdad se manda (sin importar la categoría) queda
+// registrado en `notificationLog` — ver enviarPushDirecto() — que alimenta
+// la pantalla "Registro de notificaciones" del docente.
 //
 // Sonido, volumen y repetición los controla el propio teléfono del
 // estudiante (como con cualquier otra app) — la app NO los configura, así
@@ -21,7 +29,7 @@
 // simple usando el mismo título/cuerpo.
 
 const { initializeApp } = require('firebase-admin/app')
-const { getFirestore } = require('firebase-admin/firestore')
+const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
@@ -54,29 +62,47 @@ async function parcialesOcultosDe(asignaturaId) {
 }
 
 // ─── Envío ───────────────────────────────────────────────────────────────
-// Lee la preferencia del estudiante para esa categoría; si está deshabilitada
-// o no tiene tokens registrados, no hace nada. Los valores de `data` deben
-// ser strings (requisito de FCM).
+// Nivel bajo: manda el push (si hay tokens) y deja un registro en
+// `notificationLog` — origen único de datos para la pantalla "Registro de
+// notificaciones" (src/pages/teacher/NotificationLog.jsx), sin importar por
+// cuál categoría haya llegado. Sin gate de categoría: quien llama decide si
+// debe enviarse (ver enviarPush() para el caso normal gateado por
+// notificationSettings, y onEstudianteActivado() para el caso gateado por un
+// campo de la propia asignatura en vez de un ajuste global).
+async function enviarPushDirecto(uid, notification, data = {}, descripcion = null) {
+  if (!uid) return
+  const settingsSnap = await db.collection('notificationSettings').doc(uid).get()
+  const tokens = settingsSnap.exists ? (settingsSnap.data().fcmTokens || []) : []
+  if (!tokens.length) return
+  try {
+    await messaging.sendEachForMulticast({ tokens, notification, data })
+    await db.collection('notificationLog').add({
+      uid,
+      titulo: notification.title,
+      descripcion: descripcion || notification.body,
+      createdAt: FieldValue.serverTimestamp(),
+    })
+  } catch (err) {
+    logger.error(`enviarPushDirecto(${uid}) falló:`, err.message)
+  }
+}
+
+// Lee la preferencia del usuario para esa categoría (notificationSettings);
+// si está deshabilitada, no hace nada. Los valores de `data` deben ser
+// strings (requisito de FCM).
 async function enviarPush(uid, categoria, dataExtra = {}) {
   if (!uid) return
   const settingsSnap = await db.collection('notificationSettings').doc(uid).get()
   if (!settingsSnap.exists) return
-  const settings = settingsSnap.data()
-  const cfg = settings[categoria]
+  const cfg = settingsSnap.data()[categoria]
   if (!cfg?.habilitado) return
-  const tokens = settings.fcmTokens || []
-  if (!tokens.length) return
 
   const notification = TITULOS[categoria]
   const data = {
     categoria,
     ...Object.fromEntries(Object.entries(dataExtra).map(([k, v]) => [k, String(v)])),
   }
-  try {
-    await messaging.sendEachForMulticast({ tokens, notification, data })
-  } catch (err) {
-    logger.error(`enviarPush(${uid}, ${categoria}) falló:`, err.message)
-  }
+  await enviarPushDirecto(uid, notification, data)
 }
 
 async function estudiantesDeAsignatura(asignaturaId) {
@@ -161,7 +187,56 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
   await after.ref.update({ notificadoEntregaDocente: true })
 })
 
-// ─── 4) Programadas + recordatorios de entrega ─────────────────────────────
+// ─── 4) Estudiante activado ─────────────────────────────────────────────────
+// A diferencia de las demás categorías (gateadas por notificationSettings del
+// docente), esta se activa/desactiva por asignatura — ver el checkbox
+// "Notificarme cuando un estudiante se active..." en la pestaña Estudiantes
+// (SubjectPage.jsx, campo subject.notificarActivacion). Por eso usa
+// enviarPushDirecto en vez de enviarPush: no hay ajuste global que revisar,
+// el gate es subj.notificarActivacion.
+//
+// Dispara tanto en la primera activación como en una reactivación tras un
+// reinicio de contraseña (Activation.jsx pone activado:true en ambos casos;
+// antes de eso el campo es undefined o false, nunca true) — el docente
+// probablemente quiere saber de las dos.
+//
+// Réplica de studentFullName()/subjectDisplayName() (src/utils/studentSearch.js
+// y src/utils/subjectName.js) — mismas reglas, duplicadas a propósito: el
+// backend de Functions es CommonJS y no puede importar los módulos ES del
+// cliente.
+function nombreEstudianteDe(s) {
+  return `${s?.apellidoPaterno || ''} ${s?.apellidoMaterno || ''} ${s?.nombre || ''}`.replace(/\s+/g, ' ').trim() || 'Un estudiante'
+}
+function nombreAsignaturaDe(subj) {
+  const nombre = subj?.nombre || ''
+  const grupo = subj?.grupo || ''
+  return grupo ? `${nombre} — ${grupo}` : nombre
+}
+
+exports.onEstudianteActivado = onDocumentWritten('students/{studentId}', async (event) => {
+  const after = event.data?.after
+  if (!after?.exists) return // borrado
+  const before = event.data.before?.data()
+  const afterData = after.data()
+  if (afterData.activado !== true || before?.activado === true) return
+  if (afterData.notificadoActivacion) return
+
+  const subjSnap = await db.collection('subjects').doc(afterData.asignaturaId).get()
+  if (!subjSnap.exists) return
+  const subj = subjSnap.data()
+  if (!subj.notificarActivacion) return
+
+  const nombreEstudiante = nombreEstudianteDe(afterData)
+  const nombreAsignatura = nombreAsignaturaDe(subj)
+  await enviarPushDirecto(
+    subj.docenteId,
+    { title: 'Estudiante activado', body: `${nombreEstudiante} se activó en ${nombreAsignatura}` },
+    { categoria: 'activacionEstudiante', asignaturaId: afterData.asignaturaId, alumnoId: event.params.studentId },
+  )
+  await after.ref.update({ notificadoActivacion: true })
+})
+
+// ─── 5) Programadas + recordatorios de entrega ─────────────────────────────
 // Corre cada 30 min. Ventana de 35 min (> intervalo del scheduler) para no
 // perder ninguna actividad entre corridas.
 const SCHEDULE_INTERVAL = 'every 30 minutes'

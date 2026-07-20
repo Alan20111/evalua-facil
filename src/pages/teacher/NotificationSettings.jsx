@@ -5,7 +5,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ArrowLeft, Settings, FileCheck2, Clock, CalendarDays, Bell, ChevronDown, Check, X } from 'lucide-react'
+import { ArrowLeft, Settings, FileCheck2, Clock, CalendarDays, Bell, ChevronDown, Check, X, History } from 'lucide-react'
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
@@ -307,6 +307,15 @@ export default function TeacherNotificationSettings() {
                 <li>Si tu teléfono te pregunta al abrir la app, elige <strong>Permitir</strong>.</li>
               </ol>
             </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/notificaciones/registro')}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-card border border-outline-variant text-sm font-medium text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+            >
+              <History size={16} className="flex-shrink-0" />
+              Registro de notificaciones
+            </button>
           </>
         )}
       </div>

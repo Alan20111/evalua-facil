@@ -2556,6 +2556,19 @@ export default function SubjectPage() {
     } catch (err) { toast('Error: ' + err.message, 'error') }
   }
 
+  // Aviso push cuando un estudiante se activa (o se reactiva tras un reinicio
+  // de contraseña) en ESTA asignatura — a diferencia de otras categorías, no
+  // vive en Ajustes > Notificaciones (un ajuste global), sino aquí: es una
+  // decisión por asignatura. La Cloud Function (onEstudianteActivado) lee
+  // este campo directo del documento de la asignatura.
+  async function toggleNotificarActivacion() {
+    const next = !subject?.notificarActivacion
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), { notificarActivacion: next })
+      setSubject((s) => ({ ...s, notificarActivacion: next }))
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+  }
+
 
   // Points still available in the parcial (10 − sum of the OTHER activities),
   // using in-progress edits. Used ONLY to cap each box so the total can never
@@ -3874,6 +3887,26 @@ export default function SubjectPage() {
               </button>
             </div>
           </div>
+
+          {/* Solo Android — la web no tiene push notifications configuradas
+              para el docente. Por asignatura (no un ajuste global de
+              Ajustes > Notificaciones): la Cloud Function lee este campo
+              directo del documento de la asignatura. */}
+          {IS_NATIVE_APP && (
+            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
+              <input
+                type="checkbox"
+                id="notificar-activacion"
+                checked={subject?.notificarActivacion ?? false}
+                onChange={toggleNotificarActivacion}
+                className="mt-1"
+              />
+              <label htmlFor="notificar-activacion" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
+                Notificarme cuando un estudiante se active a esta asignatura
+                <span className="text-muted text-xs block mt-0.5">Recibirás un aviso en tu celular cada vez que un estudiante se active</span>
+              </label>
+            </div>
+          )}
 
           {/* Ordenar alfabéticamente */}
           <div className="flex justify-end pt-1">
