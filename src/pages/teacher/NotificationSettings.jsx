@@ -409,16 +409,18 @@ export default function TeacherNotificationSettings() {
                     <p className="text-center text-muted text-sm py-6">Aún no tienes notificaciones registradas</p>
                   ) : (
                     // Toda la bitácora vive en UNA caja con scroll (pedido explícito),
-                    // en formato tabla, la notificación más nueva hasta arriba.
-                    <div className="max-h-[28rem] overflow-y-auto overflow-x-auto">
-                      <table className="w-full min-w-[640px] text-xs border-collapse">
+                    // en formato tabla, la notificación más nueva hasta arriba. Solo 3
+                    // columnas (Fecha/Notificación/Detalles, con día+fecha+hora apiladas
+                    // sin línea entre ellas dentro de la misma celda de Fecha) para que
+                    // quepa en el ancho del celular sin scroll horizontal — mismo tamaño
+                    // de texto que el párrafo de "Cómo activar las notificaciones".
+                    <div className="max-h-[28rem] overflow-y-auto">
+                      <table className="w-full table-fixed text-xs border-collapse">
                         <thead>
                           <tr>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Día semana</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Fecha</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Hora</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Notificación</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Detalles</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1 py-1.5 font-semibold text-accent w-[22%]">Fecha</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[42%]">Notificación</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-1.5 py-1.5 font-semibold text-accent text-left w-[36%]">Detalles</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -429,11 +431,13 @@ export default function TeacherNotificationSettings() {
                             const { notificacion, detalles } = describeEntry(e)
                             return (
                               <tr key={e.id} className="odd:bg-surface even:bg-surface-card">
-                                <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? DIAS_SEMANA[d.getDay()] : '—'}</td>
-                                <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtDDMMAA(d) : '—'}</td>
-                                <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtHHMM(d) : '—'}</td>
-                                <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{notificacion}</td>
-                                <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{detalles}</td>
+                                <td className="border border-outline-variant px-1 py-1.5 text-center align-top text-on-surface">
+                                  <div>{d ? DIAS_SEMANA[d.getDay()] : '—'}</div>
+                                  <div>{d ? fmtDDMMAA(d) : '—'}</div>
+                                  <div>{d ? fmtHHMM(d) : '—'}</div>
+                                </td>
+                                <td className="border border-outline-variant px-1.5 py-1.5 align-top text-on-surface break-words">{notificacion}</td>
+                                <td className="border border-outline-variant px-1.5 py-1.5 align-top text-on-surface break-words">{detalles}</td>
                               </tr>
                             )
                           })}
