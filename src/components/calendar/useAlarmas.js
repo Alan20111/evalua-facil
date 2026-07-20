@@ -60,6 +60,7 @@ export default function useAlarmas(bloques, subjects, uid) {
           if (uid) {
             addDoc(collection(db, 'notificationLog'), {
               uid,
+              categoria: 'recordatorioClase',
               titulo: 'Tu clase está por comenzar',
               descripcion: `${subjectDisplayName(subj) || 'Clase'} — ${body}`,
               asignatura: subj?.nombre || '',
