@@ -5,10 +5,12 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ArrowLeft, Settings, FileCheck2, Clock, CalendarDays, Bell } from 'lucide-react'
+import { ArrowLeft, Settings, FileCheck2, Clock, CalendarDays, Bell, ChevronDown, Check, X } from 'lucide-react'
 import TeacherLayout from '../../components/Layout'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
+import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 // Colección `notificationSettings/{uid}` (misma colección que usan los
 // estudiantes, distinta por uid):
@@ -88,6 +90,68 @@ function mergeWithDefaults(data) {
     merged[key] = base
   })
   return merged
+}
+
+// Selector propio para "Avisar" — el <select> nativo de Android se veía como
+// el picker crudo del sistema (fondo oscuro, sin el estilo de la app). Un
+// botón que abre una hoja con las opciones agrupadas se ve consistente con
+// el resto de la app y sigue siendo compacto en la fila del interruptor.
+function AnticipacionPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  useScrollLock(open)
+  useBackHandler(() => setOpen(false), open)
+  const valueKey = value.join(',')
+  const current = ANTICIPACION_OPCIONES.flatMap((g) => g.opciones).find((op) => op.minutos.join(',') === valueKey)
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+      >
+        <span>{current?.label || 'Elegir…'}</span>
+        <ChevronDown size={14} className="text-muted flex-shrink-0" />
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setOpen(false)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-t-card sm:rounded-card shadow-2xl w-full sm:max-w-sm max-h-[80vh] overflow-y-auto safe-bottom">
+            <div className="sticky top-0 bg-surface-card px-4 py-3 border-b border-outline-variant flex items-center justify-between">
+              <p className="font-semibold text-on-surface">Avisar</p>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="p-1 -mr-1 text-muted hover:text-on-surface rounded transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-2">
+              {ANTICIPACION_OPCIONES.map((grupo) => (
+                <div key={grupo.grupo} className="mb-2 last:mb-0">
+                  <p className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">{grupo.grupo}</p>
+                  {grupo.opciones.map((op) => {
+                    const key = op.minutos.join(',')
+                    const selected = key === valueKey
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => { onChange(op.minutos); setOpen(false) }}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded text-left text-sm transition-colors ${
+                          selected ? 'bg-[var(--accent-tint)] text-accent font-medium' : 'text-on-surface hover:bg-[var(--accent-tint)]'
+                        }`}
+                      >
+                        <span>{op.label}</span>
+                        {selected && <Check size={16} className="flex-shrink-0" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
 }
 
 // Interruptor simple — mismo patrón visual que src/pages/student/NotificationSettings.jsx,
@@ -211,22 +275,13 @@ export default function TeacherNotificationSettings() {
                       icon={cat.icon}
                     >
                       {cat.anticipacion && (
-                        <label className="flex items-center justify-between gap-2 text-sm">
+                        <div className="flex items-center justify-between gap-2 text-sm">
                           <span className="text-on-surface">Avisar</span>
-                          <select
-                            value={settings[cat.key].anticipacionMinutos.join(',')}
-                            onChange={(e) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: e.target.value.split(',').map(Number) })}
-                            className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface"
-                          >
-                            {ANTICIPACION_OPCIONES.map((grupo) => (
-                              <optgroup key={grupo.grupo} label={grupo.grupo}>
-                                {grupo.opciones.map((op) => (
-                                  <option key={op.minutos.join(',')} value={op.minutos.join(',')}>{op.label}</option>
-                                ))}
-                              </optgroup>
-                            ))}
-                          </select>
-                        </label>
+                          <AnticipacionPicker
+                            value={settings[cat.key].anticipacionMinutos}
+                            onChange={(minutos) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: minutos })}
+                          />
+                        </div>
                       )}
                     </Toggle>
                   </div>
