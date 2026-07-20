@@ -367,36 +367,10 @@ export default function TeacherNotificationSettings() {
           <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
         ) : (
           <>
-            <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
-              <div className="px-4 py-3 bg-accent-light border-b border-accent flex items-center gap-2">
-                <Bell size={18} className="text-accent flex-shrink-0" />
-                <h2 className="font-semibold text-accent">Tus notificaciones</h2>
-              </div>
-              <div className="p-4 divide-y divide-outline-variant">
-                {CATEGORIAS.map((cat) => (
-                  <div key={cat.key} className={cat.key !== CATEGORIAS[0].key ? 'pt-3' : ''}>
-                    <Toggle
-                      checked={settings[cat.key].habilitado}
-                      onChange={(v) => updateCategoria(cat.key, { ...settings[cat.key], habilitado: v })}
-                      label={cat.label}
-                      description={cat.description}
-                      icon={cat.icon}
-                    >
-                      {cat.anticipacion && (
-                        <div className="flex items-center justify-between gap-2 text-sm">
-                          <span className="text-on-surface">Avisar</span>
-                          <AnticipacionPicker
-                            value={settings[cat.key].anticipacionMinutos}
-                            onChange={(minutos) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: minutos })}
-                          />
-                        </div>
-                      )}
-                    </Toggle>
-                  </div>
-                ))}
-              </div>
-            </div>
-
+            {/* Bitácora PRIMERO (pedido explícito): al tocar el globo de una
+                notificación y entrar a esta pantalla, la última notificación
+                (resaltada en verde) debe verse de inmediato, sin bajar ni
+                subir nada — así que va antes de "Tus notificaciones". */}
             <div className="rounded-card border border-outline-variant overflow-hidden bg-surface-card shadow-card">
               <button
                 type="button"
@@ -514,6 +488,36 @@ export default function TeacherNotificationSettings() {
                   )}
                 </div>
               )}
+            </div>
+
+            <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
+              <div className="px-4 py-3 bg-accent-light border-b border-accent flex items-center gap-2">
+                <Bell size={18} className="text-accent flex-shrink-0" />
+                <h2 className="font-semibold text-accent">Tus notificaciones</h2>
+              </div>
+              <div className="p-4 divide-y divide-outline-variant">
+                {CATEGORIAS.map((cat) => (
+                  <div key={cat.key} className={cat.key !== CATEGORIAS[0].key ? 'pt-3' : ''}>
+                    <Toggle
+                      checked={settings[cat.key].habilitado}
+                      onChange={(v) => updateCategoria(cat.key, { ...settings[cat.key], habilitado: v })}
+                      label={cat.label}
+                      description={cat.description}
+                      icon={cat.icon}
+                    >
+                      {cat.anticipacion && (
+                        <div className="flex items-center justify-between gap-2 text-sm">
+                          <span className="text-on-surface">Avisar</span>
+                          <AnticipacionPicker
+                            value={settings[cat.key].anticipacionMinutos}
+                            onChange={(minutos) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: minutos })}
+                          />
+                        </div>
+                      )}
+                    </Toggle>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Sonido, volumen y repetición los controla el teléfono, no la
