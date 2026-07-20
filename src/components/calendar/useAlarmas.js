@@ -65,6 +65,7 @@ export default function useAlarmas(bloques, subjects, uid) {
               descripcion: `${subjectDisplayName(subj) || 'Clase'} — ${body}`,
               asignatura: subj?.nombre || '',
               grupo: subj?.grupo || '',
+              lugar: b.lugar || '',
               fecha: b.fecha,
               hora: b.horaInicio,
               anticipacionMinutos: min,
