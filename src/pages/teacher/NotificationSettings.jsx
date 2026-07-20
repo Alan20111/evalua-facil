@@ -243,9 +243,21 @@ function describeEntry(e) {
       }
     }
     case 'nuevasEntregas': {
+      // Pedido explícito: asignatura+grupo en un renglón, número de la
+      // ACTIVIDAD (no el intento del estudiante, que es intrascendente) +
+      // nombre de la actividad en el renglón de abajo, dentro de la misma
+      // celda de Notificación.
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : ''
-      const actividad = `${e.numero ? `${e.numero} - ` : ''}${e.actividad || 'Actividad'}`
-      return { notificacion: `${asignatura}${asignatura ? ' — ' : ''}${actividad}`, detalles: e.estudiante || '' }
+      const actividad = `${e.numeroActividad ? `${e.numeroActividad} - ` : ''}${e.actividad || 'Actividad'}`
+      return {
+        notificacion: (
+          <>
+            {asignatura && <div>{asignatura}</div>}
+            <div>{actividad}</div>
+          </>
+        ),
+        detalles: e.estudiante || '',
+      }
     }
     case 'activacionEstudiante':
       return { notificacion: 'Aviso de estudiante activado', detalles: e.estudiante || '' }
