@@ -202,10 +202,13 @@ function Toggle({ checked, onChange, label, description, icon: Icon, children })
   )
 }
 
-// Bitácora en formato tabla (pedido explícito, con muestra de columnas):
-// DÍA SEMANA | DD/MM/AA | HH:MM | evento/asignatura-grupo-lugar/actividad
-// entregada/aviso de activación | estudiante que se activa o entrega.
-const DIAS_SEMANA = ['DOMINGO', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO']
+// Bitácora en formato tabla — encabezados cortos (Día semana / Fecha / Hora /
+// Evento / Detalles); el contenido de cada celda varía por categoría, ver
+// describeEntry. Día/fecha/hora son SIEMPRE cuándo se recibió la
+// notificación (createdAt) — no la hora propia de la clase/evento que la
+// causó (pedido explícito: "la hora... debe ser la hora en la cual se
+// recibió la notificación").
+const DIAS_SEMANA = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
 function fmtDDMMAA(d) {
   const dd = String(d.getDate()).padStart(2, '0')
@@ -217,41 +220,26 @@ function fmtHHMM(d) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-// Para clase/evento, la fecha/hora que le importa al docente es la DE LA
-// CLASE/EVENTO (e.fecha + e.hora), no cuándo se guardó el registro. Nuevas
-// entregas, activaciones, y entradas viejas sin categoria no tienen una hora
-// propia distinta — ahí sí se usa createdAt (cuándo pasó de verdad).
-function fechaHoraDe(e) {
-  if (e.fecha && e.hora) {
-    const d = new Date(`${e.fecha}T${e.hora}:00`)
-    if (!Number.isNaN(d.getTime())) return d
-  }
-  return e.createdAt?.toDate ? e.createdAt.toDate() : null
-}
-
-// Arma las dos últimas columnas según la categoría. `e.categoria` falta en
-// entradas viejas (de antes de este cambio): caen al resumen simple de
+// Arma las columnas Evento/Detalles según la categoría. `e.categoria` falta
+// en entradas viejas (de antes de este cambio): caen al resumen simple de
 // siempre, sin nombre de estudiante.
 function describeEntry(e) {
   switch (e.categoria) {
     case 'recordatorioClase': {
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
-      return { col4: `${asignatura}${e.lugar ? ` · ${e.lugar}` : ''}`, col5: '' }
+      return { evento: `${asignatura}${e.lugar ? ` · ${e.lugar}` : ''}`, detalles: '' }
     }
     case 'recordatorioEvento':
-      return { col4: e.evento || 'Tu evento', col5: '' }
-    case 'nuevasEntregas':
-      return {
-        col4: `${e.actividad || 'Actividad'}${e.asignatura ? ` — ${e.asignatura}` : ''}${e.grupo ? ` (${e.grupo})` : ''}`,
-        col5: e.estudiante || '',
-      }
+      return { evento: e.evento || 'Tu evento', detalles: '' }
+    case 'nuevasEntregas': {
+      const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : ''
+      const actividad = `${e.numero ? `${e.numero} - ` : ''}${e.actividad || 'Actividad'}`
+      return { evento: `${asignatura}${asignatura ? ' — ' : ''}${actividad}`, detalles: e.estudiante || '' }
+    }
     case 'activacionEstudiante':
-      return {
-        col4: `Aviso de estudiante activado${e.asignatura ? ` — ${e.asignatura}` : ''}${e.grupo ? ` (${e.grupo})` : ''}`,
-        col5: e.estudiante || '',
-      }
+      return { evento: 'Aviso de estudiante activado', detalles: e.estudiante || '' }
     default:
-      return { col4: e.descripcion || e.titulo || 'Notificación', col5: '' }
+      return { evento: e.descripcion || e.titulo || 'Notificación', detalles: '' }
   }
 }
 
@@ -415,28 +403,26 @@ export default function TeacherNotificationSettings() {
                       <table className="w-full min-w-[640px] text-xs border-collapse">
                         <thead>
                           <tr>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent">Día semana</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">DD/MM/AA</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">HH:MM</th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">
-                              Evento / asignatura con grupo y lugar / actividad de la que se entrega o realiza / aviso de estudiante activado
-                            </th>
-                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">
-                              Estudiante que se activa / que entrega
-                            </th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Día semana</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Fecha</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent whitespace-nowrap">Hora</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Evento</th>
+                            <th className="sticky top-0 z-10 border border-outline-variant bg-accent-light px-2 py-2 font-semibold text-accent text-left">Detalles</th>
                           </tr>
                         </thead>
                         <tbody>
                           {logEntries.map((e) => {
-                            const d = fechaHoraDe(e)
-                            const { col4, col5 } = describeEntry(e)
+                            // Siempre createdAt — cuándo se RECIBIÓ el aviso, no la hora
+                            // propia de la clase/evento que lo causó.
+                            const d = e.createdAt?.toDate ? e.createdAt.toDate() : null
+                            const { evento, detalles } = describeEntry(e)
                             return (
                               <tr key={e.id} className="odd:bg-surface even:bg-surface-card">
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? DIAS_SEMANA[d.getDay()] : '—'}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtDDMMAA(d) : '—'}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center whitespace-nowrap text-on-surface">{d ? fmtHHMM(d) : '—'}</td>
-                                <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{col4}</td>
-                                <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{col5}</td>
+                                <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{evento}</td>
+                                <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{detalles}</td>
                               </tr>
                             )
                           })}
