@@ -85,6 +85,9 @@ async function enviarPushDirecto(uid, notification, data = {}, descripcion = nul
   if (!tokens.length) return
   try {
     const res = await messaging.sendEachForMulticast({ tokens, notification, data })
+    res.responses.forEach((r, i) => {
+      if (!r.success) logger.error(`enviarPushDirecto(${uid}) token ${i} falló: ${r.error?.code} — ${r.error?.message}`)
+    })
     const tokensInvalidos = res.responses
       .map((r, i) => (!r.success && TOKEN_INVALIDO.has(r.error?.code) ? tokens[i] : null))
       .filter(Boolean)
