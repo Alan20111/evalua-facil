@@ -242,7 +242,7 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
     { title: 'Nueva entrega', body: `${nombreEstudiante} ${verbo} "${act.nombre}" — ${nombreAsignatura}` },
     { categoria: 'nuevasEntregas', actividadId: afterData.actividadId, submissionId: event.params.submissionId },
     null,
-    { categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '', actividad: act.nombre || '' },
+    { categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '', actividad: act.nombre || '', numero: esEvaluacion ? (afterData.intentoActual || null) : null },
   )
   await after.ref.update({ notificadoEntregaDocente: true })
 })
