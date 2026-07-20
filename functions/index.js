@@ -242,9 +242,10 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
   })
   if (!claimed) return
 
-  const [studentSnap, subjSnap] = await Promise.all([
+  const [studentSnap, subjSnap, numeroActividad] = await Promise.all([
     db.collection('students').doc(afterData.alumnoId).get(),
     db.collection('subjects').doc(act.asignaturaId).get(),
+    actividadLabelDe(act, afterData.actividadId),
   ])
   const subj = subjSnap.data()
   const nombreEstudiante = nombreEstudianteDe(studentSnap.data())
@@ -259,7 +260,7 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
     { title: 'Nueva entrega', body: `${nombreEstudiante} ${verbo} "${act.nombre}" — ${nombreAsignatura}` },
     { categoria: 'nuevasEntregas', actividadId: afterData.actividadId, submissionId: event.params.submissionId },
     null,
-    { categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '', actividad: act.nombre || '', numero: esEvaluacion ? (afterData.intentoActual || null) : null },
+    { categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '', actividad: act.nombre || '', numeroActividad },
   )
 })
 
@@ -287,6 +288,28 @@ function nombreAsignaturaDe(subj) {
   const nombre = subj?.nombre || ''
   const grupo = subj?.grupo || ''
   return grupo ? `${nombre} — ${grupo}` : nombre
+}
+
+// "1.2" — el número que el docente reconoce como "el de la actividad" (NO
+// el número de intento del estudiante, que es intrascendente — pedido
+// explícito de corregirlo). Mismo cálculo que activityLabelById en
+// SubjectPage.jsx: la posición de esta actividad entre sus hermanas del
+// MISMO parcial, contando solo las publicadas — nunca un campo guardado,
+// para que el número no se desalinee si algo se borra o reordena. Así el
+// número en la Bitácora es siempre el mismo que el docente ve en su lista
+// de actividades.
+async function actividadLabelDe(act, actividadId) {
+  const snap = await db.collection('activities')
+    .where('asignaturaId', '==', act.asignaturaId)
+    .where('parcial', '==', act.parcial)
+    .get()
+  const esBorrador = (a) => a.oculta && !a.publishedAt && !a.publishAt
+  const hermanas = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((a) => !esBorrador(a))
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  const idx = hermanas.findIndex((a) => a.id === actividadId)
+  return idx >= 0 ? `${act.parcial}.${idx + 1}` : ''
 }
 
 exports.onEstudianteActivado = onDocumentWritten('students/{studentId}', async (event) => {
