@@ -755,7 +755,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             </button>
             <div className="flex-1 min-w-0">
               {contextLine && <p className="text-sm font-medium text-muted truncate">{contextLine}</p>}
-              <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluación</p>
+              <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent">Evaluación</p>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 truncate">
                   {activityLabel && <span className="text-accent">{activityLabel}</span>}
@@ -1293,7 +1293,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               </div>
               {/* Lista por estudiante — cada fila abre la revisión de pantalla
                   completa (openReview), donde se ve la entrega y, si hay
-                  reactivos de respuesta breve o de archivo, se pueden calificar. */}
+                  reactivos de respuesta breve o de archivo, se pueden calificar.
+                  Altura acotada con scroll propio (rueda del mouse) para que
+                  los filtros y la búsqueda de arriba no se muevan de lugar. */}
+              <div className="max-h-[60vh] overflow-y-auto">
               {visibles.length === 0 ? (
                 <p className="text-center text-slate-400 text-sm py-8 flex items-center justify-center gap-2"><Users size={16} /> {students.length === 0 ? 'Sin estudiantes' : 'Sin estudiantes en esta categoría'}</p>
               ) : (
@@ -1334,6 +1337,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   )
                 })
               )}
+              </div>
             </div>
             </>
               )
@@ -1392,7 +1396,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 </button>
                 <div className="flex-1 min-w-0">
                   {contextLine && <p className="text-sm font-medium text-muted truncate">{contextLine}</p>}
-                  <p className="text-sm font-bold uppercase tracking-wide text-accent">Evaluación</p>
+                  <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent">Evaluación</p>
                   <h1 className="text-xl font-bold text-on-surface truncate">
                     {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
                   </h1>
