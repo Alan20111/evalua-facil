@@ -4,6 +4,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { reproducirSonido } from '../../utils/horarioBloques'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { formatHora12 } from '../../utils/formatHora'
 
 // Dispara las alarmas de los bloques cuya hora de aviso llega mientras la app
 // está abierta: reproduce el sonido elegido y muestra una notificación del
@@ -66,8 +67,8 @@ export default function useAlarmas(bloques, subjects, uid) {
           const min = a.minutosAntes || 0
           const lugar = b.lugar ? ` · ${b.lugar}` : ''
           const body = min > 0
-            ? `Empieza en ${min} min (${b.horaInicio})${lugar}`
-            : `Empieza ahora (${b.horaInicio})${lugar}`
+            ? `Empieza en ${min} min (${formatHora12(b.horaInicio)})${lugar}`
+            : `Empieza ahora (${formatHora12(b.horaInicio)})${lugar}`
           if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             try {
               const notif = new Notification(subjectDisplayName(subj) || 'Clase', { body, tag: b.id })

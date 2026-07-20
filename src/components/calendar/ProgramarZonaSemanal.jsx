@@ -10,6 +10,7 @@ import {
 } from '../../utils/horarioBloques'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { formatHora12 } from '../../utils/formatHora'
 
 const ROW_H = 52 // px por hora — igual que la vista Semana
 const SNAP_MIN = 10 // los bloques se colocan/arrastran alineados a 10 min
@@ -42,7 +43,7 @@ function HoraStepper({ value, onChange, minMin, maxMin, step = SNAP_MIN }) {
       <button type="button" onClick={() => onChange(minsToTime(Math.max(minMin, cur - step)))} disabled={cur <= minMin} className={btn} aria-label="−10 minutos">
         <Minus size={14} />
       </button>
-      <span className="flex-1 text-center text-base font-semibold tabular-nums py-1.5 rounded border border-outline-variant bg-surface select-none">{value}</span>
+      <span className="flex-1 text-center text-base font-semibold tabular-nums py-1.5 rounded border border-outline-variant bg-surface select-none">{formatHora12(value)}</span>
       <button type="button" onClick={() => onChange(minsToTime(Math.min(maxMin, cur + step)))} disabled={cur >= maxMin} className={btn} aria-label="+10 minutos">
         <Plus size={14} />
       </button>
@@ -341,7 +342,7 @@ export default function ProgramarZonaSemanal({
               <div className="relative" style={{ height: gridH }}>
                 {hoursRange.map((hour, i) => (
                   <div key={hour} className="absolute left-0 right-0 px-2 text-xs text-muted" style={{ top: i * ROW_H }}>
-                    {hour}:00
+                    {formatHora12(`${String(hour).padStart(2, '0')}:00`)}
                   </div>
                 ))}
               </div>
@@ -366,7 +367,7 @@ export default function ProgramarZonaSemanal({
                         disabled={restantes <= 0}
                         className={`absolute left-0 right-0 border-b border-outline-variant transition-colors text-left ${restantes > 0 ? 'hover:bg-accent-tint cursor-pointer' : 'cursor-default'}`}
                         style={{ top: i * ROW_H, height: ROW_H }}
-                        aria-label={`Colocar bloque el ${DIAS_SEMANA[dia]} a las ${String(hour).padStart(2, '0')}:00`}
+                        aria-label={`Colocar bloque el ${DIAS_SEMANA[dia]} a las ${formatHora12(`${String(hour).padStart(2, '0')}:00`)}`}
                       />
                     ))}
 
@@ -389,7 +390,7 @@ export default function ProgramarZonaSemanal({
                           <span className="block text-[10px] font-medium leading-tight truncate">
                             {subjectDisplayName(osubj) || 'Otra clase'}
                           </span>
-                          <span className="block text-[10px] opacity-80 leading-tight">{minsToTime(o.start)}</span>
+                          <span className="block text-[10px] opacity-80 leading-tight">{formatHora12(minsToTime(o.start))}</span>
                         </div>
                       )
                     })}
@@ -426,7 +427,7 @@ export default function ProgramarZonaSemanal({
                           <span className="block text-xs font-semibold leading-tight truncate">
                             {subjectDisplayName(subj)}
                           </span>
-                          <span className="block text-[10px] opacity-80 leading-tight">{p.horaInicio}–{horaFin}</span>
+                          <span className="block text-[10px] opacity-80 leading-tight">{formatHora12(p.horaInicio)}–{formatHora12(horaFin)}</span>
                           {p.lugar && <span className="block text-[10px] opacity-70 leading-tight truncate">{p.lugar}</span>}
                         </div>
                       )
@@ -487,7 +488,7 @@ export default function ProgramarZonaSemanal({
             }}
           >
             <span className="block text-xs font-semibold leading-tight truncate">{subjectDisplayName(subj)}</span>
-            <span className="block text-[10px] opacity-80 leading-tight">{p.horaInicio}–{addMinutesToTime(p.horaInicio, p.duracionMin)}</span>
+            <span className="block text-[10px] opacity-80 leading-tight">{formatHora12(p.horaInicio)}–{formatHora12(addMinutesToTime(p.horaInicio, p.duracionMin))}</span>
           </div>
         )
       })()}

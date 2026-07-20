@@ -36,6 +36,7 @@ import { ClipboardList } from 'lucide-react'
 import { PlayCircle, ListChecks, Timer, RotateCcw } from 'lucide-react'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { formatHora12FromDate } from '../../utils/formatHora'
 
 async function uploadToCloudinary(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -59,8 +60,7 @@ function fmtDate(dateStr) {
   const d = new Date(hasTime ? dateStr : dateStr + 'T00:00:00')
   const datePart = d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })
   if (!hasTime) return datePart
-  const timePart = d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })
-  return `${datePart}, ${timePart} hrs`
+  return `${datePart}, ${formatHora12FromDate(d)}`
 }
 
 export default function StudentActivityPage() {

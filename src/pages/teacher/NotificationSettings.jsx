@@ -12,6 +12,7 @@ import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/lo
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { formatHora12, formatHora12FromDate } from '../../utils/formatHora'
 
 // Colección `notificationSettings/{uid}` (misma colección que usan los
 // estudiantes, distinta por uid):
@@ -235,7 +236,7 @@ function fmtDDMMAA(d) {
   return `${dd}/${mm}/${aa}`
 }
 function fmtHHMM(d) {
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return formatHora12FromDate(d)
 }
 
 // Rótulo fijo en MAYÚSCULAS que va SIEMPRE arriba, en su propio renglón,
@@ -272,7 +273,7 @@ function describeEntry(e, navigate) {
       // lugar (pedido explícito).
       const asignatura = e.asignatura ? `${e.asignatura}${e.grupo ? ` — ${e.grupo}` : ''}` : 'Tu clase'
       const aviso = e.anticipacionMinutos > 0 ? `Aviso de ${e.anticipacionMinutos} minutos antes` : 'Aviso al momento'
-      const detalles = e.hora ? `La clase comienza a las ${e.hora}${e.lugar ? `, en ${e.lugar}` : ''}` : ''
+      const detalles = e.hora ? `La clase comienza a las ${formatHora12(e.hora)}${e.lugar ? `, en ${e.lugar}` : ''}` : ''
       return {
         notificacion: (<><div>{etiqueta}</div><div>{asignatura} — {aviso}</div></>),
         detalles,
@@ -285,7 +286,7 @@ function describeEntry(e, navigate) {
       const aviso = e.anticipacionMinutos > 0 ? `Aviso de ${e.anticipacionMinutos} minutos antes` : 'Aviso al momento'
       return {
         notificacion: (<><div>{etiqueta}</div><div>{e.evento || 'Tu evento'} — {aviso}</div></>),
-        detalles: e.hora ? `Evento a las ${e.hora}` : '',
+        detalles: e.hora ? `Evento a las ${formatHora12(e.hora)}` : '',
       }
     }
     case 'nuevasEntregas': {

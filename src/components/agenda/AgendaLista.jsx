@@ -4,6 +4,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
 import { MESES, DIAS_LARGO, addDays, isSameDay } from '../../utils/calendarGrid'
 import { toDateStr } from '../../utils/horarioBloques'
+import { formatHora12FromDate } from '../../utils/formatHora'
 
 const CATEGORIA_ICON = { examen: GraduationCap, cuestionario: ListChecks, observacion: ClipboardCheck }
 
@@ -29,7 +30,7 @@ function ActividadCard({ item, onClick }) {
   const Icon = CATEGORIA_ICON[a.categoria] || FileText
   const pal = subjectColors(subject)
   const pill = ESTADO_PILL[estado]
-  const hora = item.fecha.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit' })
+  const hora = formatHora12FromDate(item.fecha)
 
   return (
     <button
