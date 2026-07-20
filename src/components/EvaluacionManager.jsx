@@ -754,8 +754,17 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <ArrowLeft size={22} />
             </button>
             <div className="flex-1 min-w-0">
-              {contextLine && <p className="text-sm font-medium text-muted truncate">{contextLine}</p>}
-              <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent">Evaluación</p>
+              {IS_NATIVE_APP ? (
+                <>
+                  {contextLine && <p className="text-sm font-medium text-muted truncate">{contextLine}</p>}
+                  <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent">Evaluación</p>
+                </>
+              ) : (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent flex-shrink-0">Evaluación</p>
+                  {contextLine && <p className="text-[1.75rem] leading-tight font-medium text-muted truncate">{contextLine}</p>}
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-on-surface flex items-baseline gap-2 truncate">
                   {activityLabel && <span className="text-accent">{activityLabel}</span>}
@@ -1395,8 +1404,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   <ArrowLeft size={20} /> Regresar
                 </button>
                 <div className="flex-1 min-w-0">
-                  {contextLine && <p className="text-sm font-medium text-muted truncate">{contextLine}</p>}
-                  <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent">Evaluación</p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <p className="text-[1.75rem] leading-tight font-bold uppercase tracking-wide text-accent flex-shrink-0">Evaluación</p>
+                    {contextLine && <p className="text-[1.75rem] leading-tight font-medium text-muted truncate">{contextLine}</p>}
+                  </div>
                   <h1 className="text-xl font-bold text-on-surface truncate">
                     {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
                   </h1>
