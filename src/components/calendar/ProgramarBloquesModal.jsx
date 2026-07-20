@@ -204,17 +204,19 @@ export default function ProgramarBloquesModal({
 
           {/* Alarma */}
           <div className="space-y-2 rounded-card border border-outline-variant p-3">
-            <button
-              type="button"
-              onClick={() => setAlarma(a => ({ ...a, activa: !a.activa }))}
-              className="flex items-center gap-2 text-sm font-medium text-on-surface"
-            >
-              {alarma.activa ? <Bell size={16} className="text-accent" /> : <BellOff size={16} className="text-muted" />}
-              Alarma antes de la clase
-              <span className={`ml-1 text-xs px-2 py-0.5 rounded-full ${alarma.activa ? 'bg-accent text-white' : 'bg-surface text-muted border border-outline-variant'}`}>
-                {alarma.activa ? 'Activada' : 'Desactivada'}
-              </span>
-            </button>
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="alarma-activa"
+                checked={alarma.activa}
+                onChange={e => setAlarma(a => ({ ...a, activa: e.target.checked }))}
+                className="mt-1"
+              />
+              <label htmlFor="alarma-activa" className="text-sm font-medium text-on-surface cursor-pointer flex-1 flex items-center gap-2">
+                {alarma.activa ? <Bell size={16} className="text-accent" /> : <BellOff size={16} className="text-muted" />}
+                Alarma antes de la clase
+              </label>
+            </div>
             {alarma.activa && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1.5">
