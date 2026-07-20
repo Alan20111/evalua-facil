@@ -13,10 +13,32 @@
 import { Capacitor } from '@capacitor/core'
 import { PushNotifications } from '@capacitor/push-notifications'
 import { LocalNotifications } from '@capacitor/local-notifications'
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore'
+import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { db } from '../firebase'
 
 let installed = false
+// uid "dueño" del token en este proceso — los listeners de abajo se registran
+// UNA sola vez (installed) pero deben reflejar SIEMPRE la sesión activa, así
+// que leen esta variable en vez de cerrar sobre el uid del primer login.
+let currentUid = null
+const TOKEN_OWNER_KEY = 'ef_push_token_uid'
+
+// El token de FCM es del DISPOSITIVO/instalación, no de la sesión — sigue
+// siendo el mismo aunque se cierre sesión y entre otra cuenta en el mismo
+// teléfono (docente probando como alumno, o viceversa). Antes de esto, el
+// token se agregaba (arrayUnion) a quien iniciara sesión SIN quitarlo nunca
+// de la cuenta anterior — el teléfono terminaba recibiendo avisos de ambas
+// cuentas a la vez sin importar cuál tuviera la sesión abierta. Se detecta
+// comparando contra el uid guardado la última vez que este dispositivo
+// registró un token.
+async function reasignarToken(token, uid) {
+  const anterior = localStorage.getItem(TOKEN_OWNER_KEY)
+  if (anterior && anterior !== uid) {
+    updateDoc(doc(db, 'notificationSettings', anterior), { fcmTokens: arrayRemove(token) }).catch(() => {})
+  }
+  localStorage.setItem(TOKEN_OWNER_KEY, uid)
+  await updateDoc(doc(db, 'notificationSettings', uid), { fcmTokens: arrayUnion(token) })
+}
 
 async function mostrarEnPrimerPlano(notification) {
   try {
@@ -33,7 +55,17 @@ async function mostrarEnPrimerPlano(notification) {
 }
 
 export async function initPushNotifications(uid) {
-  if (installed || !uid || !Capacitor.isNativePlatform()) return
+  if (!uid || !Capacitor.isNativePlatform()) return
+  currentUid = uid
+
+  // Los listeners ya estaban puestos de una sesión anterior EN ESTE MISMO
+  // proceso (cambio de cuenta sin cerrar la app del todo) — con currentUid ya
+  // actualizado arriba, solo falta volver a registrar para que 'registration'
+  // dispare de nuevo y reasignarToken() mueva el token a la cuenta nueva.
+  if (installed) {
+    PushNotifications.register().catch(() => {})
+    return
+  }
   installed = true
 
   try {
@@ -42,10 +74,8 @@ export async function initPushNotifications(uid) {
     if (perm.receive !== 'granted') return
     await LocalNotifications.requestPermissions()
 
-    // Se agrega (no reemplaza) — el estudiante puede tener más de un
-    // dispositivo con la app instalada.
     PushNotifications.addListener('registration', (token) => {
-      updateDoc(doc(db, 'notificationSettings', uid), { fcmTokens: arrayUnion(token.value) }).catch(() => {})
+      if (currentUid) reasignarToken(token.value, currentUid).catch(() => {})
     })
     PushNotifications.addListener('registrationError', () => {
       // best-effort — sin token registrado, la Cloud Function simplemente no
