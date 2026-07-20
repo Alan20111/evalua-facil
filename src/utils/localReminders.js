@@ -139,10 +139,20 @@ export async function refreshTeacherReminders(uid) {
 
     let programadas = 0
     if (clase.habilitado) {
-      const snap = await getDocs(query(collection(db, 'horarioBloques'), where('docenteId', '==', uid)))
-      const items = snap.docs
+      // subjects.notificarClase — palomita "Notificarme antes de que empiecen
+      // las clases de esta asignatura" (ProgramarBloquesModal.jsx). Ausente =
+      // true (asignaturas de antes de que existiera este campo se incluyen,
+      // como siempre se hizo).
+      const [snapBloques, snapSubjects] = await Promise.all([
+        getDocs(query(collection(db, 'horarioBloques'), where('docenteId', '==', uid))),
+        getDocs(query(collection(db, 'subjects'), where('docenteId', '==', uid))),
+      ])
+      const subjectsById = {}
+      snapSubjects.docs.forEach((d) => { subjectsById[d.id] = d.data() })
+      const items = snapBloques.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .filter((b) => b.fecha >= hoy && b.fecha <= fin && b.horaInicio)
+        .filter((b) => subjectsById[b.asignaturaId]?.notificarClase !== false)
         .map((b) => ({ id: b.id, start: parseFechaHora(b.fecha, b.horaInicio), title: 'Tu clase está por comenzar', subtitle: b.lugar || '' }))
       programadas += await scheduleUpcoming('clase', items, clase.anticipacionMinutos ?? 10)
     }
