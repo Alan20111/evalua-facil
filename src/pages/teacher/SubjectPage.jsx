@@ -4034,7 +4034,7 @@ export default function SubjectPage() {
                 <div className="w-32 flex-none flex flex-col gap-2">
                   <button type="button" onClick={handleSaveReason}
                     disabled={reasonText.trim() === (reasonModal.original || '').trim()}
-                    className="py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    className="py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
                     Guardar
                   </button>
                   <button type="button" onClick={cancelReasonModal}
@@ -4064,7 +4064,7 @@ export default function SubjectPage() {
                   </button>
                   <button type="button" onClick={handleSaveReason}
                     disabled={reasonText.trim() === (reasonModal.original || '').trim()}
-                    className="flex-1 py-2.5 rounded bg-amber-500 text-white text-base font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    className="flex-1 py-2.5 rounded bg-amber-500 text-white text-base font-semibold hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
                     Guardar
                   </button>
                 </div>
