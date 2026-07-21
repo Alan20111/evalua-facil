@@ -1894,28 +1894,6 @@ export default function ActivityPage() {
                   </div>
                 </div>
 
-                {/* Comentario/retroalimentación — pedido explícito: solo
-                    para entregable (no observación ni evaluación, mismo
-                    criterio que Nueva fecha/Anular arriba). Antes solo
-                    existía en la vista web; calificar desde el celular no
-                    dejaba forma de escribir retroalimentación. */}
-                {!isObservacion && !isEvaluacion && (
-                  <div>
-                    <label htmlFor="act-comentario-app" className="block text-sm font-medium text-muted mb-1">
-                      Comentario <span className="text-slate-400">(opcional)</span>
-                    </label>
-                    <textarea
-                      id="act-comentario-app"
-                      value={gradeForm.comentario}
-                      onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
-                      rows={3}
-                      disabled={parcialCerrado}
-                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none disabled:opacity-60 disabled:cursor-not-allowed"
-                      placeholder="Retroalimentación para el estudiante…"
-                    />
-                  </div>
-                )}
-
                 {!canCreate && (
                   <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">
                     Activa tu suscripción mensual para registrar calificaciones nuevas — toda la información de este estudiante sigue disponible.
