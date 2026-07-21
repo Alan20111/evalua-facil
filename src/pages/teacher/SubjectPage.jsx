@@ -593,6 +593,12 @@ export default function SubjectPage() {
   const [gradeSubMap, setGradeSubMap] = useState({})
   const [gradesLoaded, setGradesLoaded] = useState(false)
   const [loadingGrades, setLoadingGrades] = useState(false)
+  // Clic derecho en una celda YA calificada: popover pegado al cursor para
+  // corregir el número sin navegar a la actividad (clic izquierdo sigue
+  // llevando ahí — necesario para calificar por primera vez / revisar la
+  // entrega). { x, y, subId, activityId, studentId, maxCalif, value }
+  const [gradeQuickEdit, setGradeQuickEdit] = useState(null)
+  const [savingQuickGrade, setSavingQuickGrade] = useState(false)
   // Calificaciones view state persists across the round-trip to a student's
   // activity/review (which fully navigates away and remounts this page). Saved
   // to sessionStorage on navigate-away, restored here so search + scroll survive.
@@ -711,6 +717,47 @@ export default function SubjectPage() {
   function goToActivityFromGrades(path, state) {
     saveCalifState()
     navigate(path, state)
+  }
+
+  // Clic derecho sobre una celda de Calificaciones que ya tiene entrega
+  // calificada: abre el popover de corrección rápida. Sin entrega/sin
+  // calificar no hay nada que corregir ahí — el clic izquierdo (que sigue
+  // llevando a la actividad) es el único camino para calificar por primera vez.
+  function openGradeQuickEdit(e, sub, activity, student) {
+    e.preventDefault()
+    if (!sub || sub.calificacion == null) return
+    const popW = 200, popH = 120
+    setGradeQuickEdit({
+      x: Math.min(e.clientX, window.innerWidth - popW - 8),
+      y: Math.min(e.clientY, window.innerHeight - popH - 8),
+      subId: sub.id,
+      activityId: activity.id,
+      studentId: student.id,
+      maxCalif: activity.maxCalif || 10,
+      value: String(sub.calificacion),
+    })
+  }
+
+  async function saveGradeQuickEdit() {
+    if (!gradeQuickEdit) return
+    const { subId, activityId, studentId, maxCalif, value } = gradeQuickEdit
+    const n = parseFloat(value)
+    if (isNaN(n) || n < 0 || n > maxCalif) {
+      toast(`La calificación debe estar entre 0 y ${maxCalif}`, 'error')
+      return
+    }
+    setSavingQuickGrade(true)
+    try {
+      await updateDoc(doc(db, 'submissions', subId), { calificacion: n })
+      const key = `${studentId}-${activityId}`
+      setGradeSubMap((prev) => ({ ...prev, [key]: { ...prev[key], calificacion: n } }))
+      toast('Calificación actualizada')
+      setGradeQuickEdit(null)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingQuickGrade(false)
+    }
   }
 
   // Guard on currentUser + depend on it: on a cold load the Firestore reads in loadAll()
@@ -980,7 +1027,7 @@ export default function SubjectPage() {
       const subDocs = await fetchSubmissionsForActivities((actsOverride || activities).map((a) => a.id))
       const map = {}
       subDocs.forEach((d) => {
-        const data = d.data()
+        const data = { id: d.id, ...d.data() }
         map[`${data.alumnoId}-${data.actividadId}`] = data
       })
       setGradeSubMap(map)
@@ -2182,7 +2229,7 @@ export default function SubjectPage() {
       if (!gradesLoaded) {
         const subDocs = await fetchSubmissionsForActivities(activities.map((a) => a.id))
         subMap = {}
-        subDocs.forEach((d) => { const data = d.data(); subMap[`${data.alumnoId}-${data.actividadId}`] = data })
+        subDocs.forEach((d) => { const data = { id: d.id, ...d.data() }; subMap[`${data.alumnoId}-${data.actividadId}`] = data })
         setGradeSubMap(subMap); setGradesLoaded(true)
       }
       exportSubjectGrades({
@@ -2282,7 +2329,7 @@ export default function SubjectPage() {
             fechaEntrega: serverTimestamp(),
           }
           batch.set(ref, data)
-          newSubs.push({ key: `${s.id}-${a.id}`, data })
+          newSubs.push({ key: `${s.id}-${a.id}`, data: { id: ref.id, ...data } })
         })
         await batch.commit()
       }
@@ -2316,7 +2363,7 @@ export default function SubjectPage() {
     if (!gradesLoaded) {
       const subDocs = await fetchSubmissionsForActivities(activities.map((a) => a.id))
       subMap = {}
-      subDocs.forEach((d) => { const data = d.data(); subMap[`${data.alumnoId}-${data.actividadId}`] = data })
+      subDocs.forEach((d) => { const data = { id: d.id, ...d.data() }; subMap[`${data.alumnoId}-${data.actividadId}`] = data })
       setGradeSubMap(subMap); setGradesLoaded(true)
     }
     return { students, submissions: Object.values(subMap) }
@@ -2409,7 +2456,7 @@ export default function SubjectPage() {
       if (!gradesLoaded) {
         const subDocs = await fetchSubmissionsForActivities(activities.map((a) => a.id))
         subMap = {}
-        subDocs.forEach((d) => { const data = d.data(); subMap[`${data.alumnoId}-${data.actividadId}`] = data })
+        subDocs.forEach((d) => { const data = { id: d.id, ...d.data() }; subMap[`${data.alumnoId}-${data.actividadId}`] = data })
         setGradeSubMap(subMap); setGradesLoaded(true)
       }
       await exportSubjectGradesPDF({ subject, activities, students, submissions: Object.values(subMap) })
@@ -3692,8 +3739,9 @@ export default function SubjectPage() {
                                 <td
                                   key={a.id}
                                   data-col={colIndexByKey[`act-${a.id}`]}
-                                  data-tooltip={gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó)' : a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'}
+                                  data-tooltip={gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó)' : grades[ai] != null ? 'Ver entrega · clic derecho para corregir rápido' : a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'}
                                   onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
+                                  onContextMenu={(e) => openGradeQuickEdit(e, gradeSubMap[`${s.id}-${a.id}`], a, s)}
                                   className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] == null ? 'text-slate-300' : 'text-on-surface'} ${hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
                                 >
                                   {grades[ai] != null ? grades[ai] : '—'}
@@ -4837,6 +4885,42 @@ export default function SubjectPage() {
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left border-t border-outline-variant">
               <Trash2 size={16} className="flex-shrink-0" /> Eliminar
             </button>
+          </div>
+        </>
+      )}
+
+      {/* ── Corrección rápida de calificación (clic derecho en la celda) ──
+          Mismo patrón que el menú ⋮ de arriba: backdrop invisible + tarjeta
+          fija pegada al punto donde se hizo clic. */}
+      {gradeQuickEdit && (
+        <>
+          <button type="button" className="fixed inset-0 z-40 border-none cursor-default bg-transparent" onClick={() => setGradeQuickEdit(null)} aria-label="Cerrar" />
+          <div
+            className="fixed z-50 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl p-3 space-y-2"
+            style={{ top: gradeQuickEdit.y, left: gradeQuickEdit.x }}
+          >
+            <p className="text-xs font-medium text-muted">Corregir calificación</p>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number" min={0} max={gradeQuickEdit.maxCalif} step="0.1"
+                ref={(el) => el?.focus()}
+                value={gradeQuickEdit.value}
+                onChange={(e) => setGradeQuickEdit((g) => ({ ...g, value: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveGradeQuickEdit(); if (e.key === 'Escape') setGradeQuickEdit(null) }}
+                className="w-16 px-2 py-1.5 text-center text-sm font-bold border border-outline-variant rounded bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              />
+              <span className="text-xs text-muted">/ {gradeQuickEdit.maxCalif}</span>
+            </div>
+            <div className="flex gap-1.5">
+              <button type="button" onClick={() => setGradeQuickEdit(null)} disabled={savingQuickGrade}
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60">
+                Cancelar
+              </button>
+              <button type="button" onClick={saveGradeQuickEdit} disabled={savingQuickGrade}
+                className="flex-1 py-1.5 rounded bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center justify-center gap-1">
+                {savingQuickGrade ? <Spinner size="sm" /> : <CheckIcon size={13} />} Guardar
+              </button>
+            </div>
           </div>
         </>
       )}
