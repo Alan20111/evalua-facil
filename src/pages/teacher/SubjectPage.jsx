@@ -152,7 +152,7 @@ const AttendanceTable = memo(function AttendanceTable({
   const attLastHoverRef = useRef({ col: null, day: null })
   const attActiveCellRef = useRef(null)
 
-  const dayColW = IS_NATIVE_APP ? 'w-16' : 'w-14'   // ensanchadas para que quepa el círculo del doble de grande (pedido explícito, se notaba muy poco)
+  const dayColW = IS_NATIVE_APP ? 'w-[50px]' : 'w-9'   // columnas de asistencia más anchas en la app — pedido explícito, seguía habiendo error de dedo con 42px
   const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
   const now = new Date()
   const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -371,9 +371,9 @@ const AttendanceTable = memo(function AttendanceTable({
                 const estado = attendanceState(r, s.id)
                 const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
                 const ui = {
-                  presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={28} /> },
-                  falta: { cls: 'bg-red-100 text-red-500', icon: <X size={28} /> },
-                  justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[24px] font-bold leading-none">J</span> },
+                  presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
+                  falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} /> },
+                  justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
                 }[estado]
                 return (
                   <td key={r.id}
@@ -386,11 +386,9 @@ const AttendanceTable = memo(function AttendanceTable({
                     onPointerMove={onCancelLongPress}
                     onPointerLeave={onCancelLongPress}
                     className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
-                    {/* Círculo e ícono al doble de tamaño (pedido explícito — se
-                        notaba muy poco); dayColW se ensanchó para que quepa. */}
-                    <span className={`relative inline-flex items-center justify-center w-12 h-12 rounded ${ui.cls}`}>
+                    <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                       {ui.icon}
-                      {motivo && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-500" />}
+                      {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
                     </span>
                   </td>
                 )
@@ -2942,19 +2940,21 @@ export default function SubjectPage() {
     />
   )
 
-  // Leyenda de estados de asistencia (compartida web/app).
+  // Leyenda de estados de asistencia (compartida web/app) — el texto se nota
+  // muy poco en la web (pedido explícito), ahí va al doble; en la app se
+  // queda como estaba.
   const attendanceLegend = (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 px-1 text-[11px] text-muted">
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 px-1 text-muted ${IS_NATIVE_APP ? 'text-[11px]' : 'text-[22px]'}`}>
       <span className="inline-flex items-center gap-1">
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-green-100 text-green-600"><CheckIcon size={11} /></span>
+        <span className={`inline-flex items-center justify-center rounded bg-green-100 text-green-600 ${IS_NATIVE_APP ? 'w-4 h-4' : 'w-8 h-8'}`}><CheckIcon size={IS_NATIVE_APP ? 11 : 22} /></span>
         Asistencia
       </span>
       <span className="inline-flex items-center gap-1">
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-red-100 text-red-500"><X size={11} /></span>
+        <span className={`inline-flex items-center justify-center rounded bg-red-100 text-red-500 ${IS_NATIVE_APP ? 'w-4 h-4' : 'w-8 h-8'}`}><X size={IS_NATIVE_APP ? 11 : 22} /></span>
         Falta
       </span>
       <span className="inline-flex items-center gap-1">
-        <span className="inline-flex items-center justify-center w-4 h-4 rounded bg-amber-100 text-amber-600 text-[10px] font-bold leading-none">J</span>
+        <span className={`inline-flex items-center justify-center rounded bg-amber-100 text-amber-600 font-bold leading-none ${IS_NATIVE_APP ? 'w-4 h-4 text-[10px]' : 'w-8 h-8 text-[20px]'}`}>J</span>
         Justificada (cuenta como asistencia)
       </span>
       <span className="text-slate-400">· Toca para cambiar el estado · Clic derecho o mantén presionado para el motivo</span>
