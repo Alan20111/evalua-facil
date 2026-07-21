@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
-  addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch,
+  addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, deleteField,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -18,8 +18,8 @@ import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
-import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime } from '../../utils/activityVisibility'
-import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
+import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity } from '../../utils/activityVisibility'
+import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -37,7 +37,7 @@ import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from 
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import { TEACHER_CONTAINER, TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { uploadToCloudinary, downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../../utils/cloudinary'
-import { RESOURCE_ACCEPT, getResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
+import { RESOURCE_ACCEPT, getResourceIcon, getLinkResourceIcon, isResourceFileAllowed } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import AttachmentList, { FilePreviewModal, canPreviewFile } from '../../components/AttachmentList'
 import SearchInput from '../../components/SearchInput'
@@ -49,6 +49,7 @@ import {
   Link, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
+  AlertTriangle,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
@@ -562,6 +563,14 @@ export default function SubjectPage() {
   const [newStudent, setNewStudent] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '' })
   const [savingStudent, setSavingStudent] = useState(false)
   const [searchAlumnos, setSearchAlumnos] = useState('')
+  // Vista previa antes de importar el Excel de estudiantes — pedido
+  // explícito: antes se subía directo a Firestore sin mostrar qué se iba a
+  // crear ni avisar de filas mal capturadas.
+  const [excelPreview, setExcelPreview] = useState(null) // { rows, invalid, schoolDocs, taken }
+  const [parsingExcel, setParsingExcel] = useState(false)
+  const [importingExcel, setImportingExcel] = useState(false)
+  useBackHandler(() => !importingExcel && setExcelPreview(null), !!excelPreview)
+  useScrollLock(!!excelPreview)
 
   // Resources (Recursos tab) — independent entity scoped by asignaturaId,
   // not tied to activities (see the `resources` collection in firestore.rules).
@@ -571,7 +580,10 @@ export default function SubjectPage() {
   const [loadingResources, setLoadingResources] = useState(false)
   const [showResourceModal, setShowResourceModal] = useState(false)
   const [resourceModalMode, setResourceModalMode] = useState('create') // 'create' | 'edit'
-  const [resourceForm, setResourceForm] = useState({ id: null, nombre: '', descripcion: '' })
+  // tipo: 'archivo' | 'link' — origTipo remembers what the doc was when the
+  // edit modal opened, so we know a file is still required if the teacher
+  // switches a link-type resource back to an uploaded file.
+  const [resourceForm, setResourceForm] = useState({ id: null, nombre: '', descripcion: '', tipo: 'archivo', enlace: '', origTipo: 'archivo' })
   const [resourceFile, setResourceFile] = useState(null)
   const [savingResource, setSavingResource] = useState(false)
   const [deleteResourceConfirm, setDeleteResourceConfirm] = useState(null)
@@ -857,14 +869,15 @@ export default function SubjectPage() {
 
   function openAddResource() {
     setResourceModalMode('create')
-    setResourceForm({ id: null, nombre: '', descripcion: '' })
+    setResourceForm({ id: null, nombre: '', descripcion: '', tipo: 'archivo', enlace: '', origTipo: 'archivo' })
     setResourceFile(null)
     setShowResourceModal(true)
   }
 
   function openEditResource(r) {
     setResourceModalMode('edit')
-    setResourceForm({ id: r.id, nombre: r.nombre, descripcion: r.descripcion || '' })
+    const tipo = r.tipo === 'link' ? 'link' : 'archivo'
+    setResourceForm({ id: r.id, nombre: r.nombre, descripcion: r.descripcion || '', tipo, enlace: tipo === 'link' ? (r.url || '') : '', origTipo: tipo })
     setResourceFile(null)
     setShowResourceModal(true)
   }
@@ -872,32 +885,59 @@ export default function SubjectPage() {
   async function handleSaveResource(e) {
     e.preventDefault()
     if (!resourceForm.nombre.trim()) { toast('Escribe un nombre', 'error'); return }
-    if (resourceModalMode === 'create' && !resourceFile) { toast('Selecciona un archivo', 'error'); return }
-    if (resourceFile) {
-      if (!isResourceFileAllowed(resourceFile)) { toast('Tipo de archivo no permitido', 'error'); return }
-      if (resourceFile.size > MAX_RESOURCE_SIZE) { toast('El archivo no puede superar 15 MB', 'error'); return }
+    const isLink = resourceForm.tipo === 'link'
+    let enlaceUrl = ''
+    if (isLink) {
+      enlaceUrl = resourceForm.enlace.trim()
+      if (!enlaceUrl) { toast('Escribe un enlace', 'error'); return }
+      if (!/^https?:\/\//i.test(enlaceUrl)) enlaceUrl = `https://${enlaceUrl}`
+    } else {
+      const needsFile = resourceModalMode === 'create' || resourceForm.origTipo === 'link'
+      if (needsFile && !resourceFile) { toast('Selecciona un archivo', 'error'); return }
+      if (resourceFile) {
+        if (!isResourceFileAllowed(resourceFile)) { toast('Tipo de archivo no permitido', 'error'); return }
+        if (resourceFile.size > MAX_RESOURCE_SIZE) { toast('El archivo no puede superar 15 MB', 'error'); return }
+      }
     }
     setSavingResource(true)
     try {
       if (resourceModalMode === 'create') {
-        const url = await uploadToCloudinary(resourceFile, 'evalua-facil/recursos')
-        await addDoc(collection(db, 'resources'), {
-          asignaturaId: subjectId,
-          docenteId: currentUser.uid,
-          nombre: resourceForm.nombre.trim(),
-          descripcion: resourceForm.descripcion.trim(),
-          url,
-          nombreArchivo: resourceFile.name,
-          tamano: resourceFile.size,
-          fechaPublicacion: serverTimestamp(),
-        })
+        if (isLink) {
+          await addDoc(collection(db, 'resources'), {
+            asignaturaId: subjectId,
+            docenteId: currentUser.uid,
+            nombre: resourceForm.nombre.trim(),
+            descripcion: resourceForm.descripcion.trim(),
+            tipo: 'link',
+            url: enlaceUrl,
+            fechaPublicacion: serverTimestamp(),
+          })
+        } else {
+          const url = await uploadToCloudinary(resourceFile, 'evalua-facil/recursos')
+          await addDoc(collection(db, 'resources'), {
+            asignaturaId: subjectId,
+            docenteId: currentUser.uid,
+            nombre: resourceForm.nombre.trim(),
+            descripcion: resourceForm.descripcion.trim(),
+            tipo: 'archivo',
+            url,
+            nombreArchivo: resourceFile.name,
+            tamano: resourceFile.size,
+            fechaPublicacion: serverTimestamp(),
+          })
+        }
         toast('Recurso agregado')
       } else {
         const patch = {
           nombre: resourceForm.nombre.trim(),
           descripcion: resourceForm.descripcion.trim(),
+          tipo: isLink ? 'link' : 'archivo',
         }
-        if (resourceFile) {
+        if (isLink) {
+          patch.url = enlaceUrl
+          patch.nombreArchivo = deleteField()
+          patch.tamano = deleteField()
+        } else if (resourceFile) {
           patch.url = await uploadToCloudinary(resourceFile, 'evalua-facil/recursos')
           patch.nombreArchivo = resourceFile.name
           patch.tamano = resourceFile.size
@@ -1227,30 +1267,64 @@ export default function SubjectPage() {
     }
   }
 
-  async function handleExcelImport(e) {
+  // Paso 1: leer el archivo y armar la vista previa — pedido explícito, NO
+  // se escribe nada en Firestore todavía. Cada fila se clasifica (nueva /
+  // vinculada a una cuenta existente / ya inscrita) para que el docente vea
+  // exactamente qué va a pasar, y las filas que no se pudieron leer se
+  // muestran aparte con su número de fila real de Excel para poder
+  // corregirlas — antes desaparecían en silencio.
+  async function handleExcelFileSelected(e) {
     const file = e.target.files[0]
+    e.target.value = ''
     if (!file) return
-    setSavingStudent(true)
+    setParsingExcel(true)
     try {
-      const rows = await parseStudentExcel(file)
-      if (rows.length === 0) { toast('El archivo no tiene estudiantes con los 3 campos requeridos', 'error'); return }
+      const { valid, invalid } = await parseStudentExcel(file)
+      if (valid.length === 0 && invalid.length === 0) {
+        toast('El archivo está vacío', 'error')
+        return
+      }
       const schoolDocs = await fetchSchoolStudents()
       const taken = new Set(schoolDocs.map((d) => d.username))
+      const rows = valid.map((row) => {
+        const identity = findStudentIdentity(schoolDocs, row)
+        if (identity && identity.matches.some((m) => m.asignaturaId === subjectId)) {
+          return { row, status: 'skip', identity }
+        }
+        if (identity) return { row, status: 'link', identity }
+        return { row, status: 'new' }
+      })
+      setExcelPreview({ rows, invalid, schoolDocs, taken })
+    } catch (err) {
+      toast('Error leyendo el Excel: ' + err.message, 'error')
+    } finally {
+      setParsingExcel(false)
+    }
+  }
+
+  // Paso 2: el docente ya revisó la vista previa y confirma — aquí sí se
+  // escribe en Firestore, igual que antes.
+  async function confirmExcelImport() {
+    if (!excelPreview) return
+    setImportingExcel(true)
+    try {
+      const { rows, schoolDocs, taken } = excelPreview
       const batch = writeBatch(db)
       let nextOrden = groupStudents.length + 1
+      let created = 0
       let linked = 0
       let skipped = 0
-      for (const row of rows) {
-        const identity = findStudentIdentity(schoolDocs, row)
-        // Already in this subject → skip (avoid duplicate enrollment).
-        if (identity && identity.matches.some((m) => m.asignaturaId === subjectId)) { skipped++; continue }
+      for (const item of rows) {
+        if (item.status === 'skip') { skipped++; continue }
+        const row = item.row
         let username, uid = null, activado = false
-        if (identity) {
+        if (item.status === 'link') {
           // Same person elsewhere → bulk import links automatically to their account.
-          username = identity.username; uid = identity.uid || null; activado = identity.activado; linked++
+          username = item.identity.username; uid = item.identity.uid || null; activado = item.identity.activado; linked++
         } else {
           username = uniqueUsername(generateUsername(row.apellidoPaterno, row.apellidoMaterno, row.nombre), taken)
           taken.add(username)
+          created++
         }
         const ref = doc(collection(db, 'students'))
         batch.set(ref, {
@@ -1266,16 +1340,16 @@ export default function SubjectPage() {
         })
       }
       await batch.commit()
-      const parts = [`${rows.length - skipped} estudiantes importados`]
+      const parts = [`${created} estudiantes importados`]
       if (linked) parts.push(`${linked} vinculados a cuentas existentes`)
       if (skipped) parts.push(`${skipped} ya estaban en la asignatura`)
       toast(parts.join(' · '))
+      setExcelPreview(null)
       await refreshGroupStudents()
     } catch (err) {
       toast('Error importando Excel: ' + err.message, 'error')
     } finally {
-      setSavingStudent(false)
-      e.target.value = ''
+      setImportingExcel(false)
     }
   }
 
@@ -1410,7 +1484,6 @@ export default function SubjectPage() {
   }
 
   // ── Traer actividad de otra asignatura ─────────────────────────────
-  const isDraftAct = (a) => a.oculta && !a.publishedAt && !a.publishAt
   async function openImport(parcial) {
     if (!canCreate) {
       toast('Activa tu suscripción mensual para crear nuevas actividades — toda tu información sigue disponible')
@@ -1441,7 +1514,7 @@ export default function SubjectPage() {
       const snap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', sub.id)))
       const acts = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((a) => !isDraftAct(a))
+        .filter((a) => !isDraftActivity(a))
         .sort((a, b) => (a.parcial - b.parcial) || ((a.orden ?? 0) - (b.orden ?? 0)))
       setImportSrcActs(acts)
     } catch (err) {
@@ -2377,7 +2450,6 @@ export default function SubjectPage() {
   // Drafts (hidden, never published, not scheduled) get NO number until they
   // are published — the sequence belongs to published activities only, so a
   // deleted publication's number passes to the next thing published.
-  const isDraftActivity = (a) => a.oculta && !a.publishedAt && !a.publishAt
   const activityLabelById = {}
   PARCIALES.forEach((p) => {
     activities.filter((a) => a.parcial === p && !isDraftActivity(a)).forEach((a, i) => {
@@ -2669,9 +2741,7 @@ export default function SubjectPage() {
     const parcialData = tableParcials.map(({ p, acts }) => {
       const grades = acts.map((a) => {
         const sub = gradeSubMap[`${s.id}-${a.id}`]
-        return sub?.calificacion != null
-          ? parseFloat(((sub.calificacion / (a.maxCalif || 10)) * 10).toFixed(1))
-          : null
+        return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
       })
       // Which grades were auto-assigned by closing the parcial (shown in red)
       const gradesCierre = acts.map((a) => {
@@ -3124,7 +3194,10 @@ export default function SubjectPage() {
                           "actividad sin calificación". */}
                       {mats.length > 0 && (
                         <>
-                          <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-1">Material de apoyo</p>
+                          <div className="pt-1">
+                            <p className="text-xs font-semibold text-muted uppercase tracking-wide">Material de apoyo</p>
+                            <p className="text-xs text-slate-400 mb-1">Vas agregando esto sobre la marcha de este parcial — no genera entrega ni número de actividad.</p>
+                          </div>
                           {mats.map((m) => {
                             const visState = activityVisibilityState(m, parcialOculto)
                             const isHidden = visState !== 'visible'
@@ -3940,10 +4013,10 @@ export default function SubjectPage() {
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">2</span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5">{savingStudent ? <Spinner size="sm" /> : <Upload size={16} className="flex-shrink-0" />} Subir plantilla</p>
+                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5">{parsingExcel ? <Spinner size="sm" /> : <Upload size={16} className="flex-shrink-0" />} Subir plantilla</p>
                   <p className="text-xs text-muted truncate">El archivo del paso 1, ya llenado</p>
                 </div>
-                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} disabled={savingStudent} />
+                <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelFileSelected} disabled={parsingExcel} />
               </label>
               <ChevronRight size={18} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
               <button
@@ -4067,7 +4140,7 @@ export default function SubjectPage() {
         <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
           <div className="flex items-start justify-between gap-3">
             <p className="text-sm text-muted leading-relaxed">
-              Materiales permanentes del curso (programa, reglamento, guías, presentaciones…), disponibles para tus estudiantes durante todo el semestre. No generan entrega ni calificación.
+              Materiales permanentes de toda la asignatura (programa, reglamento, guías, presentaciones, enlaces, videos…), disponibles para tus estudiantes durante todo el semestre. No generan entrega ni calificación.
             </p>
             <button type="button" onClick={openAddResource}
               data-tooltip="Agregar recurso"
@@ -4085,7 +4158,8 @@ export default function SubjectPage() {
           ) : (
             <div className="space-y-1.5">
               {resources.map((r) => {
-                const { icon: Icon, color } = getResourceIcon(r.nombreArchivo)
+                const isLink = r.tipo === 'link'
+                const { icon: Icon, color } = isLink ? getLinkResourceIcon(r.url) : getResourceIcon(r.nombreArchivo)
                 const isPreviewOpen = previewResourceId === r.id
                 return (
                   <div key={r.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card">
@@ -4097,10 +4171,10 @@ export default function SubjectPage() {
                           <p className="text-xs text-slate-500 truncate">{r.descripcion}</p>
                         )}
                         <p className="text-xs text-slate-400 mt-0.5">
-                          {formatFileSize(r.tamano)}{r.tamano ? ' · ' : ''}{formatResourceDate(r.fechaPublicacion)}
+                          {isLink ? 'Enlace · ' : `${formatFileSize(r.tamano)}${r.tamano ? ' · ' : ''}`}{formatResourceDate(r.fechaPublicacion)}
                         </p>
                       </div>
-                      {canPreviewFile(r.nombreArchivo || r.nombre) && (
+                      {!isLink && canPreviewFile(r.nombreArchivo || r.nombre) && (
                         <button type="button" onClick={() => setPreviewResourceId(isPreviewOpen ? null : r.id)}
                           aria-label="Vista previa"
                           data-tooltip="Vista previa"
@@ -4108,16 +4182,18 @@ export default function SubjectPage() {
                           <FileSearch size={18} />
                         </button>
                       )}
-                      <a href={isImageDeliveredPdf(r.url) ? pdfPageImageUrl(r.url, 1) : r.url} target="_blank" rel="noreferrer"
-                        aria-label={isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva'}
-                        data-tooltip={isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva'}
+                      <a href={isLink ? r.url : (isImageDeliveredPdf(r.url) ? pdfPageImageUrl(r.url, 1) : r.url)} target="_blank" rel="noreferrer"
+                        aria-label={isLink ? 'Abrir enlace' : (isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva')}
+                        data-tooltip={isLink ? 'Abrir enlace' : (isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva')}
                         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <ExternalLink size={18} />
                       </a>
-                      <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" aria-label="Descargar" data-tooltip="Descargar"
-                        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                        <Download size={18} />
-                      </a>
+                      {!isLink && (
+                        <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" aria-label="Descargar" data-tooltip="Descargar"
+                          className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                          <Download size={18} />
+                        </a>
+                      )}
                       <button type="button" onClick={() => openEditResource(r)} aria-label="Editar" data-tooltip="Editar"
                         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                         <Pencil size={18} />
@@ -4127,7 +4203,7 @@ export default function SubjectPage() {
                         <Trash2 size={18} />
                       </button>
                     </div>
-                    {isPreviewOpen && (
+                    {isPreviewOpen && !isLink && (
                       <FilePreviewModal
                         url={r.url}
                         nombre={r.nombreArchivo || r.nombre}
@@ -4404,6 +4480,7 @@ export default function SubjectPage() {
               </h3>
               <button type="button" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
+            <p className="text-xs text-slate-400 -mt-2 mb-3">Este material queda solo en el Parcial {materialParcial} y no genera entrega ni número de actividad. Para materiales de toda la asignatura usa la pestaña Recursos.</p>
             <form onSubmit={handleSaveMaterial} className="space-y-2">
               <div>
                 <label htmlFor="material-nombre" className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
@@ -5090,6 +5167,68 @@ export default function SubjectPage() {
         </div>
       )}
 
+      {/* ── Vista previa antes de importar el Excel de estudiantes ── pedido
+          explícito: revisar y confirmar antes de escribir en Firestore, y
+          avisar de filas que no se pudieron leer en vez de que
+          desaparezcan en silencio. */}
+      {excelPreview && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-lg rounded-t-card sm:rounded-card shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-outline-variant flex-shrink-0 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-on-surface">Revisa antes de importar</h3>
+              <button type="button" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" className="p-1 text-slate-400 hover:text-muted rounded"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {excelPreview.invalid.length > 0 && (
+                <div className="rounded-card border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                    <AlertTriangle size={16} className="flex-shrink-0" /> {excelPreview.invalid.length} fila{excelPreview.invalid.length !== 1 ? 's' : ''} no se {excelPreview.invalid.length !== 1 ? 'pudieron' : 'pudo'} leer
+                  </p>
+                  <ul className="mt-1.5 space-y-0.5 text-xs text-amber-800">
+                    {excelPreview.invalid.map((inv) => (
+                      <li key={inv.fila}>Fila {inv.fila} del Excel: “{inv.texto || '(vacía)'}”</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1.5 text-xs text-amber-700">Estas filas se van a omitir. Corrígelas en el archivo y vuelve a subirlo si quieres incluirlas.</p>
+                </div>
+              )}
+              {excelPreview.rows.length > 0 ? (
+                <div>
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">
+                    {excelPreview.rows.filter((r) => r.status !== 'skip').length} estudiante{excelPreview.rows.filter((r) => r.status !== 'skip').length !== 1 ? 's' : ''} se van a agregar
+                  </p>
+                  <ul className="space-y-1">
+                    {excelPreview.rows.map((item, i) => (
+                      <li key={i} className="flex items-center justify-between gap-2 text-sm px-2.5 py-1.5 rounded bg-surface border border-outline-variant">
+                        <span className="text-on-surface truncate">{studentFullName(item.row)}</span>
+                        {item.status === 'new' && <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex-shrink-0">Nuevo</span>}
+                        {item.status === 'link' && <span className="text-[10px] font-semibold text-accent bg-accent-light px-1.5 py-0.5 rounded flex-shrink-0">Cuenta existente</span>}
+                        {item.status === 'skip' && <span className="text-[10px] font-semibold text-muted bg-surface-container px-1.5 py-0.5 rounded flex-shrink-0">Ya inscrito — se omite</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-sm text-muted text-center py-6">No hay estudiantes válidos para importar.</p>
+              )}
+            </div>
+            <div className="p-3 border-t border-outline-variant flex-shrink-0 flex gap-2">
+              <button type="button" onClick={() => setExcelPreview(null)} disabled={importingExcel}
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                Cancelar
+              </button>
+              <button type="button" onClick={confirmExcelImport}
+                disabled={importingExcel || excelPreview.rows.every((r) => r.status === 'skip')}
+                className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                {importingExcel ? <Spinner size="sm" /> : <CheckIcon size={16} />}
+                {importingExcel ? 'Importando…' : 'Confirmar e importar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Recovery enabled confirmation ── */}
       {resetPwdResult && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
@@ -5484,18 +5623,46 @@ export default function SubjectPage() {
                 />
               </div>
               <div>
-                <label htmlFor="resource-archivo" className="block text-xs font-medium text-muted mb-1">
-                  Archivo {resourceModalMode === 'edit' && '(déjalo vacío para conservar el actual)'}
-                </label>
-                <input
-                  id="resource-archivo"
-                  type="file"
-                  accept={RESOURCE_ACCEPT}
-                  onChange={(e) => setResourceFile(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-accent-light file:text-accent file:text-sm file:font-medium"
-                />
-                <p className="text-xs text-slate-400 mt-1">PDF, Word, Excel, Power Point, JPG o PNG · máximo 15 MB</p>
+                <p className="block text-xs font-medium text-muted mb-1">Tipo de recurso</p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setResourceForm((f) => ({ ...f, tipo: 'archivo' }))}
+                    className={`flex-1 py-1.5 rounded border text-sm font-medium transition-colors ${resourceForm.tipo === 'archivo' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted'}`}>
+                    Archivo
+                  </button>
+                  <button type="button" onClick={() => setResourceForm((f) => ({ ...f, tipo: 'link' }))}
+                    className={`flex-1 py-1.5 rounded border text-sm font-medium transition-colors ${resourceForm.tipo === 'link' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted'}`}>
+                    Enlace o video
+                  </button>
+                </div>
               </div>
+              {resourceForm.tipo === 'archivo' ? (
+                <div>
+                  <label htmlFor="resource-archivo" className="block text-xs font-medium text-muted mb-1">
+                    Archivo {resourceModalMode === 'edit' && resourceForm.origTipo === 'archivo' && '(déjalo vacío para conservar el actual)'}
+                  </label>
+                  <input
+                    id="resource-archivo"
+                    type="file"
+                    accept={RESOURCE_ACCEPT}
+                    onChange={(e) => setResourceFile(e.target.files?.[0] || null)}
+                    className="w-full text-sm text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-accent-light file:text-accent file:text-sm file:font-medium"
+                  />
+                  <p className="text-xs text-slate-400 mt-1">PDF, Word, Excel, Power Point, JPG o PNG · máximo 15 MB</p>
+                </div>
+              ) : (
+                <div>
+                  <label htmlFor="resource-enlace" className="block text-xs font-medium text-muted mb-1">Enlace</label>
+                  <input
+                    id="resource-enlace"
+                    type="text"
+                    value={resourceForm.enlace}
+                    onChange={(e) => setResourceForm((f) => ({ ...f, enlace: e.target.value }))}
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    placeholder="https://..."
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Video de YouTube, documento de Google Drive, sitio externo, etc.</p>
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={savingResource}

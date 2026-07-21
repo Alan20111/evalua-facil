@@ -22,7 +22,7 @@ import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
-import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
+import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -149,9 +149,7 @@ export default function StudentDashboard() {
         const PARC = Array.from({ length: s.parciales || 3 }, (_, i) => i + 1)
         const parcAvgs = PARC.map((p) => {
           const pacts = acts.filter((a) => a.parcial === p)
-          const grades = pacts.map((a) =>
-            gradeByActivity[a.id] != null ? (gradeByActivity[a.id] / (a.maxCalif || 10)) * 10 : null
-          )
+          const grades = pacts.map((a) => normalizeGrade(gradeByActivity[a.id], a.maxCalif))
           return promedioParcial(pacts, grades, ponderacionActivaEnParcial(s, p))
         }).filter((v) => v !== null)
         const avg = parcAvgs.length

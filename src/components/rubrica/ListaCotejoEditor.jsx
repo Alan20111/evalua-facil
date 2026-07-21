@@ -3,12 +3,13 @@ import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/fi
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { ArrowLeft, Plus, Trash2, Scale, Check } from 'lucide-react'
+import { ArrowLeft, Trash2, Scale, Check } from 'lucide-react'
 import {
   RUBRICA_TOTAL, MIN_CRITERIOS, MAX_CRITERIOS, COTEJO_NIVEL,
   pesosEquitativos, validarRubrica, round1,
 } from '../../utils/rubrica'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 
 // Editor de LISTA DE COTEJO — variante simple de la rúbrica: solo 3 columnas
 // (Num, Criterio, Nivel de desempeño con sus puntos). Al calificar cada criterio
@@ -28,15 +29,6 @@ function estadoInicial(initial) {
       puntos: String(c.puntos?.[0] ?? c.peso ?? ''),
     })),
   }
-}
-
-function BotonMas({ onClick, label }) {
-  return (
-    <button type="button" onClick={onClick} aria-label={label} data-tooltip={label}
-      className="w-9 h-9 rounded-full border-2 border-on-surface bg-surface-card text-on-surface flex items-center justify-center hover:border-accent hover:text-accent transition-colors flex-shrink-0 shadow-card">
-      <Plus size={20} />
-    </button>
-  )
 }
 
 export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved }) {
@@ -118,7 +110,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
     }
   }
 
-  const inputCell = 'bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1'
+  const inputCell = EDITOR_INPUT_CELL
 
   return (
     <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">

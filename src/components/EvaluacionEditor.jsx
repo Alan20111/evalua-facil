@@ -8,18 +8,18 @@ import Spinner from './Spinner'
 import VisibilitySelect from './VisibilitySelect'
 import RichTextEditor from './RichTextEditor'
 import { uploadToCloudinary } from '../utils/cloudinary'
-import { sanitizeHtml, toRichHtml, htmlToPlainText } from '../utils/sanitizeHtml'
+import { sanitizeHtml, toRichHtml, htmlToPlainText, richTextContentClass } from '../utils/sanitizeHtml'
 import { repartirPonderacionParejo } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy, Scale, CheckSquare, Square,
-  Image as ImageIcon, CalendarDays,
+  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import SearchInput from './SearchInput'
 import { minDeadline, nowIsoLocal, isoLocalFromDate } from '../utils/nowIso'
-import { isActivityPublished, resolveVisibilidad } from '../utils/activityVisibility'
+import { isActivityPublished, resolveVisibilidad, isDraftActivity } from '../utils/activityVisibility'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -108,6 +108,7 @@ export default function EvaluacionEditor({
   const loadedAttachCount = useRef(0)
   const [attachExisting, setAttachExisting] = useState([])
   const [attachNew, setAttachNew] = useState([])
+  const [preview, setPreview] = useState(false)
 
   // ── Configuración state ───────────────────────────────────────────
   const [configForm, setConfigForm] = useState(EVALUACION_DEFAULTS[categoria] || EVALUACION_DEFAULTS.cuestionario)
@@ -173,7 +174,7 @@ export default function EvaluacionEditor({
         loadedSnapshot.current = JSON.stringify(loaded)
         loadedAttachCount.current = (d.archivosAdjuntos || []).length
         setWasScheduled(!!d.publishAt && !d.publishedAt)
-        setWasDraft(!!d.oculta && !d.publishedAt && !d.publishAt)
+        setWasDraft(isDraftActivity(d))
         setWasAlreadyPublished(isActivityPublished(d))
         setAttachExisting(d.archivosAdjuntos || [])
         if (d.evaluacion) {
@@ -750,6 +751,47 @@ export default function EvaluacionEditor({
             </form>
           )}
         </div>
+
+        {/* Vista previa: la evaluación exactamente como la verá el estudiante
+            antes de empezarla (resumen — no un simulacro de cada reactivo). */}
+        <button type="button" onClick={() => setPreview((v) => !v)}
+          className="w-full py-2 text-sm text-accent font-medium flex items-center justify-center gap-1.5 hover:underline">
+          {preview ? <EyeOff size={16} /> : <Eye size={16} />}
+          {preview ? 'Ocultar vista del estudiante' : 'Ver cómo vería el estudiante esta evaluación'}
+        </button>
+        {preview && (
+          <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
+            <h2 className="text-lg font-bold text-on-surface">{infoForm.nombre || 'Evaluación sin nombre'}</h2>
+            {infoForm.instrucciones && (
+              <div>
+                <h3 className="text-sm font-semibold text-on-surface mb-1">Instrucciones</h3>
+                <div
+                  className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(infoForm.instrucciones)) }}
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-on-surface">Resumen</h3>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted flex items-center gap-1.5"><ListChecks size={16} /> Número de preguntas</span>
+                <span className="font-semibold text-on-surface">{configForm.numPreguntas || 0}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted flex items-center gap-1.5"><Timer size={16} /> Tiempo disponible</span>
+                <span className="font-semibold text-on-surface">{configForm.tiempoLimiteMin ? `${configForm.tiempoLimiteMin} min` : 'Sin límite'}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted flex items-center gap-1.5"><RotateCcw size={16} /> Intentos</span>
+                <span className="font-semibold text-on-surface">{configForm.intentosPermitidos ? configForm.intentosPermitidos : 'Ilimitados'}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted">Navegación</span>
+                <span className="font-semibold text-on-surface">{configForm.navegacion === 'secuencial' ? 'Secuencial — no puede regresar' : 'Libre'}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Acciones de la información general — arriba de Configuración:
             Configuración tiene su propio guardar y los reactivos se guardan

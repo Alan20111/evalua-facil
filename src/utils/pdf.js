@@ -1,12 +1,10 @@
 // Lazy-loads jsPDF + autotable + qrcode only when the teacher actually exports,
 // so these heavy libs stay out of the main bundle.
 import { subjectDisplayName } from './subjectName'
-import { promedioParcial, ponderacionActivaEnParcial } from './ponderacion'
+import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
+import { isDraftActivity } from './activityVisibility'
 import { subjectPeriodLabel } from './dateRange'
-
-function fullName(s) {
-  return [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ').trim()
-}
+import { studentFullName as fullName } from './studentSearch'
 
 function safeFile(subject) {
   return (subjectDisplayName(subject) || 'asignatura')
@@ -81,7 +79,7 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
       const acts = activities.filter((a) => a.parcial === p)
       const grades = acts.map((a) => {
         const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
-        return sub?.calificacion != null ? (sub.calificacion / (a.maxCalif || 10)) * 10 : null
+        return normalizeGrade(sub?.calificacion, a.maxCalif)
       })
       const avg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, p))
       row.push(avg != null ? avg.toFixed(1) : '—')
@@ -118,9 +116,8 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
   ])
   const autoTable = autoTableMod.default
 
-  const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
   const acts = activities
-    .filter((a) => a.parcial === parcial && !isDraft(a))
+    .filter((a) => a.parcial === parcial && !isDraftActivity(a))
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
 
   const doc = new jsPDF({ orientation: acts.length > 6 ? 'landscape' : 'portrait' })

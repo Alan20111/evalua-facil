@@ -1,4 +1,4 @@
-import { FileText, FileSpreadsheet, Presentation, Image as ImageIcon, File as FileIcon, Music, Video, FileArchive } from 'lucide-react'
+import { FileText, FileSpreadsheet, Presentation, Image as ImageIcon, File as FileIcon, Music, Video, FileArchive, Link2 } from 'lucide-react'
 
 // One entry per supported resource format — adding a new format later (e.g.
 // .zip, .mp4) is a single new entry here, used by both the upload <input
@@ -44,4 +44,21 @@ export function isResourceFileAllowed(file) {
   const ext = resourceExtension(file.name)
   if (RECURSOS_TAB_EXTS.includes(ext)) return true
   return RECURSOS_TAB_EXTS.some((e) => RESOURCE_FILE_TYPES[e].mime === file.type)
+}
+
+const VIDEO_HOSTS = ['youtube.com', 'youtu.be', 'vimeo.com']
+
+// "Recursos" can also be a plain link instead of an uploaded file (a video,
+// an external site, a Drive folder…). Video hosts get the Video icon so they
+// stand out from a generic link; everything else falls back to Link2.
+export function getLinkResourceIcon(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '')
+    if (VIDEO_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))) {
+      return { icon: Video, color: 'text-indigo-500' }
+    }
+  } catch {
+    // not a valid absolute URL — fall through to the generic link icon
+  }
+  return { icon: Link2, color: 'text-cyan-600' }
 }

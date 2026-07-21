@@ -35,7 +35,7 @@ import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sani
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import { nowIsoLocal } from '../../utils/nowIso'
-import { formatDeadline, formatPublishAt, parseFechaLimite, withDefaultTime } from '../../utils/activityVisibility'
+import { formatDeadline, formatPublishAt, parseFechaLimite, withDefaultTime, isDraftActivity } from '../../utils/activityVisibility'
 import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
@@ -243,10 +243,9 @@ export default function ActivityPage() {
       // Drafts are EXCLUDED from the numbering, same rule as the subject page
       // (otherwise clicking "1.6" in the grades table lands on a page titled
       // "1.9" when drafts sit earlier in the orden).
-      const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
       const siblings = siblingActsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((a) => a.parcial === actData.parcial && !isDraft(a))
+        .filter((a) => a.parcial === actData.parcial && !isDraftActivity(a))
         .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       const idx = siblings.findIndex((a) => a.id === activityId)
       setActivityLabel(idx >= 0 ? `${actData.parcial}.${idx + 1}.` : null)

@@ -3,13 +3,14 @@ import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/fi
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { ArrowLeft, Plus, Trash2, Scale, Check, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Trash2, Scale, Check, Eye, EyeOff } from 'lucide-react'
 import {
   RUBRICA_TOTAL, MIN_CRITERIOS, MAX_CRITERIOS, MIN_NIVELES, MAX_NIVELES,
   pesosEquitativos, validarRubrica, round1,
 } from '../../utils/rubrica'
 import RubricaTable from './RubricaTable'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 
 // ── Estado del editor ────────────────────────────────────────────────────────
 // La tabla se edita con strings (inputs numéricos sin pelear con decimales):
@@ -103,16 +104,6 @@ function estadoInicial(initial) {
       descriptores: [...(c.descriptores || [])],
     })),
   }
-}
-
-// Botón circular "+" (agregar criterios hacia abajo / niveles a la derecha)
-function BotonMas({ onClick, label }) {
-  return (
-    <button type="button" onClick={onClick} aria-label={label} data-tooltip={label}
-      className="w-9 h-9 rounded-full border-2 border-on-surface bg-surface-card text-on-surface flex items-center justify-center hover:border-accent hover:text-accent transition-colors flex-shrink-0 shadow-card">
-      <Plus size={20} />
-    </button>
-  )
 }
 
 // Editor de rúbricas del banco personal del docente — misma tabla que ve el
@@ -406,7 +397,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   })
   const todoOk = subtotales.every((s) => s.ok)
 
-  const inputCell = 'bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded px-1'
+  const inputCell = EDITOR_INPUT_CELL
   const anchoMinTabla = 44 + colW.crit + colW.niveles.reduce((s, w) => s + w, 0) + 48 + 130
 
   return (

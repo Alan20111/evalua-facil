@@ -7,15 +7,15 @@ import VisibilitySelect from './VisibilitySelect'
 import RichTextEditor from './RichTextEditor'
 import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
-import { sanitizeHtml, htmlToPlainText } from '../utils/sanitizeHtml'
-import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../config/fileTypes'
+import { sanitizeHtml, htmlToPlainText, toRichHtml, richTextContentClass } from '../utils/sanitizeHtml'
+import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts, fileTypesInstructions } from '../config/fileTypes'
 import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X } from 'lucide-react'
 import RubricaPicker from './rubrica/RubricaPicker'
 import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
 import { snapshotRubrica, esCotejo } from '../utils/rubrica'
 import EFDateTimePicker from './EFDateTimePicker'
-import { formatDeadline, isActivityPublished, resolveVisibilidad } from '../utils/activityVisibility'
+import { formatDeadline, isActivityPublished, resolveVisibilidad, isDraftActivity } from '../utils/activityVisibility'
 import { minDeadline, isoLocalFromDate } from '../utils/nowIso'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -95,6 +95,7 @@ export default function EntregableEditor({
   const [rubricaPickerOpen, setRubricaPickerOpen] = useState(false)
   const [rubricaEditorOpen, setRubricaEditorOpen] = useState(false)
   const [rubricaPreview, setRubricaPreview] = useState(false)
+  const [preview, setPreview] = useState(false)
 
   // Physical Android back button: this component is only mounted while open
   // (the parent conditionally renders it), so it mirrors the "Volver" button
@@ -118,7 +119,7 @@ export default function EntregableEditor({
 
   // Editing a saved draft: primary button becomes "Guardar y publicar" and
   // the secondary keeps it as a draft.
-  const wasDraft = !isNew && !!initialForm && initialForm.oculta && !initialForm.publishedAt && !initialForm.publishAt
+  const wasDraft = !isNew && !!initialForm && isDraftActivity(initialForm)
 
   // Was this activity already visible to students BEFORE this edit started?
   // Used to warn the teacher, on save, that students already saw the old
@@ -471,6 +472,43 @@ export default function EntregableEditor({
               </div>
             )}
           </div>
+
+          {/* Vista previa: la actividad exactamente como la verá el estudiante */}
+          <button type="button" onClick={() => setPreview((v) => !v)}
+            className="w-full py-2 text-sm text-accent font-medium flex items-center justify-center gap-1.5 hover:underline">
+            {preview ? <EyeOff size={16} /> : <Eye size={16} />}
+            {preview ? 'Ocultar vista del estudiante' : 'Ver cómo vería el estudiante esta actividad'}
+          </button>
+          {preview && (
+            <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
+              <h2 className="text-lg font-bold text-on-surface">{form.nombre || `${isObservacion ? 'Observación' : 'Entregable'} sin nombre`}</h2>
+              {form.instrucciones && (
+                <div>
+                  <h3 className="text-sm font-semibold text-on-surface mb-1">Instrucciones</h3>
+                  <div
+                    className={`text-sm text-on-surface leading-relaxed break-words [overflow-wrap:anywhere] ${richTextContentClass}`}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(toRichHtml(form.instrucciones)) }}
+                  />
+                </div>
+              )}
+              {!isObservacion && form.fechaLimite && (
+                <p className="text-sm text-muted flex items-center gap-1.5">
+                  <CalendarDays size={15} className="flex-shrink-0" /> Fecha límite: <span className="font-medium text-on-surface">{formatDeadline(form.fechaLimite)}</span>
+                </p>
+              )}
+              {!isObservacion && (
+                <div>
+                  <h3 className="text-sm font-semibold text-on-surface mb-1">Archivos permitidos</h3>
+                  <ul className="text-sm text-muted list-disc pl-5">
+                    {fileTypesInstructions(form.tiposArchivo, form.extensionesCustom).map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {form.rubrica && <RubricaTable rubrica={form.rubrica} />}
+            </div>
+          )}
 
           {wasDraft && form.visibilidadMode === 'hide' ? (
             // Draft with "Borrador" selected: the only save action keeps it as draft

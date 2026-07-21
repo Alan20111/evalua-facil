@@ -12,12 +12,12 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { isActivityPublished, formatPublishAt, isOverdue } from '../../utils/activityVisibility'
+import { isActivityPublished, formatPublishAt, isOverdue, isDraftActivity } from '../../utils/activityVisibility'
 import { formatHora12FromDate } from '../../utils/formatHora'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
-import { getResourceIcon } from '../../utils/resourceTypes'
+import { getResourceIcon, getLinkResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -26,16 +26,17 @@ import AttachmentList from '../../components/AttachmentList'
 import {
   ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
   Clock, Circle, Star, FolderOpen, BookOpen, Paperclip,
-  GraduationCap, ListChecks, FileText, ClipboardCheck,
+  GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
-import { promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
+import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 
 function ResourceCard({ resource: r }) {
-  const { icon: Icon, color } = getResourceIcon(r.nombreArchivo || r.nombre || '')
+  const isLink = r.tipo === 'link'
+  const { icon: Icon, color } = isLink ? getLinkResourceIcon(r.url) : getResourceIcon(r.nombreArchivo || r.nombre || '')
   return (
     <div className="border border-outline-variant rounded">
       <div className="flex items-start gap-3 px-3 py-2.5">
@@ -46,17 +47,26 @@ function ResourceCard({ resource: r }) {
             <p className="text-xs text-slate-500 mt-0.5">{r.descripcion}</p>
           )}
           <p className="text-xs text-slate-400 mt-0.5">
-            {r.tamano != null ? formatFileSize(r.tamano) + ' · ' : ''}
+            {isLink ? 'Enlace · ' : (r.tamano != null ? formatFileSize(r.tamano) + ' · ' : '')}
             {formatResourceDate(r.fechaPublicacion)}
           </p>
         </div>
       </div>
-      <div className="px-3 pb-2">
-        <AttachmentList
-          files={[{ url: r.url, nombre: r.nombreArchivo || r.nombre, tamano: r.tamano }]}
-          title={null}
-        />
-      </div>
+      {isLink ? (
+        <div className="px-3 pb-2.5">
+          <a href={r.url} target="_blank" rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-accent font-medium hover:underline">
+            Abrir enlace <ExternalLink size={14} />
+          </a>
+        </div>
+      ) : (
+        <div className="px-3 pb-2">
+          <AttachmentList
+            files={[{ url: r.url, nombre: r.nombreArchivo || r.nombre, tamano: r.tamano }]}
+            title={null}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -145,10 +155,9 @@ export default function StudentSubjectPage() {
       // parcial over ALL non-draft activities — computed before the visibility
       // filter so numbers match the teacher's even when a scheduled or hidden
       // activity isn't visible to the student yet.
-      const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
       const labels = {}
       const countByParcial = {}
-      allActs.filter((a) => !isDraft(a)).forEach((a) => {
+      allActs.filter((a) => !isDraftActivity(a)).forEach((a) => {
         countByParcial[a.parcial] = (countByParcial[a.parcial] || 0) + 1
         labels[a.id] = `${a.parcial}.${countByParcial[a.parcial]}.`
       })
@@ -192,7 +201,7 @@ export default function StudentSubjectPage() {
     const acts = activities.filter((a) => a.parcial === parcial)
     const grades = acts.map((a) => {
       const sub = submissions[a.id]
-      return sub?.calificacion != null ? (sub.calificacion / (a.maxCalif || 10)) * 10 : null
+      return normalizeGrade(sub?.calificacion, a.maxCalif)
     })
     // Same math as the teacher's table — weighted when THIS parcial uses ponderación
     const avg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, parcial))

@@ -642,8 +642,7 @@ export default function ProgramarZonaSemanal({
             {/* Alarma — sistema viejo, solo suena con esta pantalla abierta
                 en el navegador; distinto del aviso de "Antes de una clase"
                 en Notificaciones (llega al celular en segundo plano). Se
-                oculta en la App para no confundir los dos (mismo criterio
-                que BloqueEditor.jsx). */}
+                oculta en la App para no confundir los dos. */}
             {IS_NATIVE_APP ? (
               <p className="text-xs text-muted rounded-card border border-outline-variant p-2.5">
                 Para el aviso en tu celular, activa “Antes de una clase” en Notificaciones.

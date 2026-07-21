@@ -1,8 +1,10 @@
 import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
 import { subjectPeriodLabel } from './dateRange'
-import { promedioParcial, pesoDe, ponderacionActivaEnParcial } from './ponderacion'
+import { promedioParcial, pesoDe, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
 import { attendanceState, countPresence, fmtAttDateParts } from './attendance'
+import { studentFullName } from './studentSearch'
+import { isDraftActivity } from './activityVisibility'
 
 // Loaded dynamically (only when actually downloading the template) because
 // it's needed for one feature `xlsx` can't do: writing real sheet protection
@@ -56,6 +58,12 @@ function splitFullName(full) {
   return { apellidoPaterno: parts[0], apellidoMaterno: parts[1], nombre: parts.slice(2).join(' ') }
 }
 
+// Devuelve { valid, invalid } en vez de solo un arreglo — pedido explícito:
+// antes una fila mal capturada simplemente desaparecía sin explicación.
+// `invalid` trae la fila de Excel real (encabezado = fila 1) y el texto tal
+// cual se leyó, para que el docente pueda ubicarla y corregirla. Filas
+// realmente vacías (sin ningún contenido) no cuentan como inválidas — son
+// el relleno normal de cualquier hoja de cálculo, no un error de captura.
 export function parseStudentExcel(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -64,24 +72,30 @@ export function parseStudentExcel(file) {
         const wb = XLSX.read(e.target.result, { type: 'array' })
         const ws = wb.Sheets[wb.SheetNames[0]]
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1 })
-        const students = rows
-          .slice(1)
-          .map((r) => {
-            const c0 = String(r[0] ?? '').trim()
-            const c1 = String(r[1] ?? '').trim()
-            const c2 = String(r[2] ?? '').trim()
-            // Backward-compat: old 3-column template (Paterno | Materno | Nombre),
-            // where the first cell is a surname (not a list number).
-            if (c0 && c1 && c2 && Number.isNaN(Number(c0))) {
-              return { apellidoPaterno: c0, apellidoMaterno: c1, nombre: c2 }
-            }
+        const valid = []
+        const invalid = []
+        rows.slice(1).forEach((r, i) => {
+          const c0 = String(r[0] ?? '').trim()
+          const c1 = String(r[1] ?? '').trim()
+          const c2 = String(r[2] ?? '').trim()
+          let student
+          // Backward-compat: old 3-column template (Paterno | Materno | Nombre),
+          // where the first cell is a surname (not a list number).
+          if (c0 && c1 && c2 && Number.isNaN(Number(c0))) {
+            student = { apellidoPaterno: c0, apellidoMaterno: c1, nombre: c2 }
+          } else {
             // New template: [#, "Apellido Paterno Apellido Materno Nombre(s)"].
             // The full name is the first cell that has text beyond a plain number.
             const full = c1 || (Number.isNaN(Number(c0)) ? c0 : '')
-            return splitFullName(full)
-          })
-          .filter((s) => s && (s.apellidoPaterno || s.nombre))
-        resolve(students)
+            student = splitFullName(full)
+          }
+          if (student && (student.apellidoPaterno || student.nombre)) {
+            valid.push(student)
+          } else if (c0 || c1 || c2) {
+            invalid.push({ fila: i + 2, texto: [c0, c1, c2].filter(Boolean).join(' — ') })
+          }
+        })
+        resolve({ valid, invalid })
       } catch (err) {
         reject(err)
       }
@@ -117,9 +131,8 @@ export function exportRankingExcel({ subject, rows, label }) {
 }
 
 export function exportParcialGrades({ subject, activities, students, submissions, parcial }) {
-  const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
   const acts = activities
-    .filter((a) => a.parcial === parcial && !isDraft(a))
+    .filter((a) => a.parcial === parcial && !isDraftActivity(a))
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
 
   const totalCols = 2 + acts.length + 1
@@ -143,12 +156,10 @@ export function exportParcialGrades({ subject, activities, students, submissions
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const dataRows = sorted.map((s) => {
-    const row = [s.orden, [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ')]
+    const row = [s.orden, studentFullName(s)]
     const grades = acts.map((a) => {
       const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
-      return sub?.calificacion != null
-        ? parseFloat(((sub.calificacion / (a.maxCalif || 10)) * 10).toFixed(2))
-        : null
+      return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 2 })
     })
     grades.forEach((g) => row.push(g !== null ? g : ''))
     const rawAvg = promedioParcial(acts, grades, pondOn)
@@ -180,10 +191,9 @@ export function exportSubjectGrades({
 
   const FIXED = 2
   // Drafts are excluded — same as the on-screen grades table
-  const isDraft = (a) => a.oculta && !a.publishedAt && !a.publishAt
   const parcialMeta = PARCIALES.map((p) => {
     const acts = activities
-      .filter((a) => a.parcial === p && !isDraft(a))
+      .filter((a) => a.parcial === p && !isDraftActivity(a))
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
     return { p, acts, cols: acts.length + 1 }
   })
@@ -239,7 +249,7 @@ export function exportSubjectGrades({
   // Data rows
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const dataRows = sorted.map((s) => {
-    const row = [s.orden, [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ')]
+    const row = [s.orden, studentFullName(s)]
     const finalGrades = []
 
     PARCIALES.forEach((p, pi) => {
@@ -249,14 +259,9 @@ export function exportSubjectGrades({
         const sub = submissions.find(
           (sub) => sub.alumnoId === s.id && sub.actividadId === a.id
         )
-        if (sub?.calificacion != null) {
-          const norm = parseFloat(((sub.calificacion / (a.maxCalif || 10)) * 10).toFixed(2))
-          row.push(norm)
-          parGrades.push(norm)
-        } else {
-          row.push('')
-          parGrades.push(null)
-        }
+        const norm = normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 2 })
+        row.push(norm !== null ? norm : '')
+        parGrades.push(norm)
       })
       const rawAvg = promedioParcial(acts, parGrades, ponderacionActivaEnParcial(subject, p))
       const parAvg = rawAvg !== null ? parseFloat(rawAvg.toFixed(2)) : ''
@@ -342,7 +347,7 @@ export function exportParcialAttendance({ subject, students, attendanceParciales
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const dataRows = sorted.map((s) => {
-    const row = [s.orden, [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ')]
+    const row = [s.orden, studentFullName(s)]
     row.push(...attendanceRowCells(days, s.id))
     const { asist, inasist } = countPresence(g?.records || [], s.id)
     row.push(asist, inasist)
@@ -390,7 +395,7 @@ export function exportSubjectAttendance({ subject, students, attendanceParciales
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const dataRows = sorted.map((s) => {
-    const row = [s.orden, [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ')]
+    const row = [s.orden, studentFullName(s)]
     let totalAsist = 0
     let totalInasist = 0
     parcialMeta.forEach((m) => {
