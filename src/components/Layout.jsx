@@ -32,6 +32,14 @@ import ConfirmModal from './ConfirmModal'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
+// Indicador de pestaña activa en la barra inferior — un rectángulo de
+// esquinas ovaladas relleno de color detrás del ícono (pedido explícito,
+// solo en la App; en la web móvil solo cambia de color como antes).
+function navIconPillCls(isActive) {
+  if (!IS_NATIVE_APP) return ''
+  return `px-5 py-1 rounded-full transition-colors ${isActive ? 'bg-[var(--accent-light)]' : ''}`
+}
+
 export default function TeacherLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
@@ -295,8 +303,10 @@ export default function TeacherLayout({ children }) {
               }`
             }
           >
-            <LayoutDashboard size={24} />
-            <span>Asignaturas</span>
+            {({ isActive }) => (<>
+              <span className={navIconPillCls(isActive)}><LayoutDashboard size={24} /></span>
+              <span>Asignaturas</span>
+            </>)}
           </NavLink>
           <NavLink
             to="/calendario"
@@ -306,8 +316,10 @@ export default function TeacherLayout({ children }) {
               }`
             }
           >
-            <CalendarDays size={24} />
-            <span>Horario</span>
+            {({ isActive }) => (<>
+              <span className={navIconPillCls(isActive)}><CalendarDays size={24} /></span>
+              <span>Horario</span>
+            </>)}
           </NavLink>
           <NavLink
             to="/notificaciones"
@@ -317,8 +329,10 @@ export default function TeacherLayout({ children }) {
               }`
             }
           >
-            <Bell size={24} />
-            <span>Notificaciones</span>
+            {({ isActive }) => (<>
+              <span className={navIconPillCls(isActive)}><Bell size={24} /></span>
+              <span>Notificaciones</span>
+            </>)}
           </NavLink>
           <NavLink
             to="/profile"
@@ -328,8 +342,10 @@ export default function TeacherLayout({ children }) {
               }`
             }
           >
-            <User size={24} />
-            <span>Perfil</span>
+            {({ isActive }) => (<>
+              <span className={navIconPillCls(isActive)}><User size={24} /></span>
+              <span>Perfil</span>
+            </>)}
           </NavLink>
         </div>
       </nav>
