@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   addDoc,
   doc,
   writeBatch,
@@ -15,7 +15,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
-import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -66,9 +66,47 @@ export default function TeacherDashboard() {
   useBackHandler(() => setShowSubjectModal(false), showSubjectModal)
   useScrollLock(showSubjectModal)
 
+  // Datos en vivo — mismo mecanismo (onSnapshot) que usa el sidebar en
+  // Layout.jsx, en vez de una carga única propia: antes ambos podían
+  // mostrar un orden distinto hasta que se recargaba la página (archivar
+  // desde SubjectPage, por ejemplo, actualizaba el sidebar al instante pero
+  // el Dashboard se quedaba con la lista vieja hasta el siguiente montaje).
   useEffect(() => {
     if (!currentUser) return
-    loadAll()
+    // Sin setLoading(true) aquí — arranca en true por el useState de arriba
+    // (mismo patrón que el sidebar en Layout.jsx); llamarlo de forma
+    // síncrona dentro del efecto dispara react-hooks/set-state-in-effect.
+    const q = query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid))
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        let subList = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        // Subjects predate manual ordering — the first time we see one without an
+        // `orden`, assign one from its current alphabetical position and persist it,
+        // so the list has a stable order the teacher can then rearrange by hand.
+        if (subList.some((s) => s.orden == null)) {
+          subList = subList.sort((a, b) => {
+            const nc = (a.nombre || '').localeCompare(b.nombre || '', 'es')
+            if (nc !== 0) return nc
+            return (a.grupo || '').localeCompare(b.grupo || '', 'es')
+          })
+          const batch = writeBatch(db)
+          subList = subList.map((s, i) => {
+            const orden = i + 1
+            if (s.orden !== orden) batch.update(doc(db, 'subjects', s.id), { orden })
+            return { ...s, orden }
+          })
+          batch.commit().catch(() => {}) // best-effort; the in-memory order is already correct
+        } else {
+          subList = subList.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        }
+        setSubjects(subList)
+        setLoading(false)
+      },
+      (err) => { toast('Error al cargar: ' + err.message, 'error'); setLoading(false) }
+    )
+    return () => unsub()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser])
 
   // Open the "Nueva asignatura" modal when navigated here with openCreate — including
@@ -90,41 +128,12 @@ export default function TeacherDashboard() {
     setShowSubjectModal(true)
   }
 
-  async function loadAll() {
-    setLoading(true)
-    try {
-      const subSnap = await getDocs(
-        query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid))
-      )
-      let subList = subSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-
-      // Subjects predate manual ordering — the first time we see one without an
-      // `orden`, assign one from its current alphabetical position and persist it,
-      // so the list has a stable order the teacher can then rearrange by hand.
-      if (subList.some((s) => s.orden == null)) {
-        subList = subList.sort((a, b) => {
-          const nc = (a.nombre || '').localeCompare(b.nombre || '', 'es')
-          if (nc !== 0) return nc
-          return (a.grupo || '').localeCompare(b.grupo || '', 'es')
-        })
-        const batch = writeBatch(db)
-        subList = subList.map((s, i) => {
-          const orden = i + 1
-          if (s.orden !== orden) batch.update(doc(db, 'subjects', s.id), { orden })
-          return { ...s, orden }
-        })
-        batch.commit().catch(() => {}) // best-effort; the in-memory order is already correct
-      } else {
-        subList = subList.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-      }
-      setSubjects(subList)
-    } catch (err) {
-      toast('Error al cargar: ' + err.message, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // moveSubject/dragPointerUp SÍ hacen su propio setSubjects optimista (para
+  // que no haya un parpadeo visible antes de que llegue la confirmación),
+  // pero ya no llaman a un loadAll() de respaldo si el commit falla: el
+  // listener onSnapshot de arriba es ahora la única fuente de verdad y se
+  // vuelve a disparar solo con el estado real en cuanto Firestore resuelve
+  // la escritura (exitosa o no).
   async function moveSubject(index, direction) {
     const newList = [...subjects]
     const targetIndex = index + direction
@@ -137,7 +146,70 @@ export default function TeacherDashboard() {
       await batch.commit()
     } catch (err) {
       toast('No se pudo reordenar: ' + err.message, 'error')
-      loadAll()
+    }
+  }
+
+  // Reordenar arrastrando — SOLO en la App (pedido explícito: en la web ya
+  // están las flechas subir/bajar, que ahí funcionan bien con mouse; en la
+  // App no había NINGUNA forma de reordenar, las flechas quedaban ocultas).
+  // Reusa el mismo commit por lotes que moveSubject, solo cambia cómo se
+  // arma la lista nueva (mover un elemento a cualquier posición, no solo
+  // intercambiar con el vecino).
+  const [dragIndex, setDragIndex] = useState(null)
+  const [overIndex, setOverIndex] = useState(null)
+  const dragCardRefs = useRef([])
+  const dragStateRef = useRef({ dragIndex: null, overIndex: null })
+
+  // Lista mostrada mientras se arrastra: el elemento arrastrado ya aparece
+  // en su posición "de prueba" (overIndex), aunque todavía no se guardó
+  // nada — el commit real solo pasa al soltar.
+  const displaySubjects = dragIndex == null ? subjects : (() => {
+    const arr = [...subjects]
+    const [item] = arr.splice(dragIndex, 1)
+    arr.splice(overIndex ?? dragIndex, 0, item)
+    return arr
+  })()
+
+  function dragPointerDown(e, index) {
+    e.preventDefault()
+    setDragIndex(index)
+    setOverIndex(index)
+    dragStateRef.current = { dragIndex: index, overIndex: index }
+    window.addEventListener('pointermove', dragPointerMove)
+    window.addEventListener('pointerup', dragPointerUp)
+    window.addEventListener('pointercancel', dragPointerUp)
+  }
+  function dragPointerMove(e) {
+    const y = e.clientY
+    let newOver = dragStateRef.current.overIndex
+    dragCardRefs.current.forEach((el, i) => {
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      if (y >= rect.top && y <= rect.bottom) newOver = i
+    })
+    if (newOver !== dragStateRef.current.overIndex) {
+      dragStateRef.current.overIndex = newOver
+      setOverIndex(newOver)
+    }
+  }
+  async function dragPointerUp() {
+    window.removeEventListener('pointermove', dragPointerMove)
+    window.removeEventListener('pointerup', dragPointerUp)
+    window.removeEventListener('pointercancel', dragPointerUp)
+    const { dragIndex: from, overIndex: to } = dragStateRef.current
+    setDragIndex(null)
+    setOverIndex(null)
+    if (from == null || to == null || from === to) return
+    const newList = [...subjects]
+    const [item] = newList.splice(from, 1)
+    newList.splice(to, 0, item)
+    setSubjects(newList.map((s, i) => ({ ...s, orden: i + 1 })))
+    try {
+      const batch = writeBatch(db)
+      newList.forEach((s, i) => batch.update(doc(db, 'subjects', s.id), { orden: i + 1 }))
+      await batch.commit()
+    } catch (err) {
+      toast('No se pudo reordenar: ' + err.message, 'error')
     }
   }
 
@@ -230,14 +302,27 @@ export default function TeacherDashboard() {
               </div>
             ) : (
               <div className="space-y-2 mb-4">
-                {subjects.map((s, i) => (
+                {displaySubjects.map((s, i) => (
                   <div
                     key={s.id}
+                    ref={(el) => { dragCardRefs.current[i] = el }}
                     {...subjectPaletteProps(s.colorPalette)}
-                    className="w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-1"
+                    className={`w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-1 ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}
                   >
-                    {/* Reordenar asignaturas: solo en la web */}
-                    {!IS_NATIVE_APP && (
+                    {/* Reordenar: flechas en la web, arrastrar en la App
+                        (pedido explícito — antes no había forma de
+                        reordenar desde el celular). */}
+                    {IS_NATIVE_APP ? (
+                      <button
+                        type="button"
+                        onPointerDown={(e) => dragPointerDown(e, i)}
+                        aria-label="Arrastrar para reordenar"
+                        data-tooltip="Mantén y arrastra para reordenar"
+                        className="p-2 -m-1 text-slate-400 hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                      >
+                        <GripVertical size={18} />
+                      </button>
+                    ) : (
                       <div className="flex flex-col flex-shrink-0">
                         <button
                           type="button"

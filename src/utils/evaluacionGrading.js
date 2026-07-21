@@ -87,6 +87,28 @@ export function publicacionVisible(modo, fecha, flag, ahoraISO) {
 }
 
 /**
+ * Reparte 10 puntos entre `n` preguntas en partes iguales (2 decimales),
+ * ajustando la última fracción de centavo para que la suma dé EXACTO 10 —
+ * redondear cada una por separado sin esto puede dejar el total en 9.99 o
+ * 10.01. Función pura (sin Firestore) para que EvaluacionEditor.jsx y
+ * EvaluacionManager.jsx compartan el mismo cálculo del botón "Repartir
+ * parejo" en vez de reimplementarlo cada quien por su lado.
+ * @param {number} n número de preguntas
+ * @returns {number[]} un valor de ponderación por pregunta, en el mismo orden
+ */
+export function repartirPonderacionParejo(n) {
+  if (!n || n <= 0) return []
+  const base = Math.floor((10 / n) * 100) / 100
+  const values = Array(n).fill(base)
+  let centavosFaltantes = Math.round((10 - base * n) * 100)
+  for (let i = n - 1; i >= 0 && centavosFaltantes > 0; i--) {
+    values[i] = parseFloat((values[i] + 0.01).toFixed(2))
+    centavosFaltantes--
+  }
+  return values
+}
+
+/**
  * Group stats for the teacher view (average, max, min, pass/fail %).
  * `calificaciones` is an array of finished attempts' final scores.
  */

@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { Settings, FileCheck2, Clock, CalendarDays, UserCheck, Bell, ChevronDown, ChevronUp, Check, X, History, Trash2 } from 'lucide-react'
 import TeacherLayout from '../../components/Layout'
+import ConfirmModal from '../../components/ConfirmModal'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -469,10 +470,43 @@ export default function TeacherNotificationSettings() {
           <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
         ) : (
           <>
-            {/* Bitácora PRIMERO (pedido explícito): al tocar el globo de una
-                notificación y entrar a esta pantalla, la última notificación
-                (resaltada en verde) debe verse de inmediato, sin bajar ni
-                subir nada — así que va antes de "Tus notificaciones". */}
+            {/* "Tus notificaciones" PRIMERO — orden natural de ajustes (lo
+                que el docente vino a configurar) antes que el historial.
+                Antes la Bitácora iba primero como workaround porque tocar el
+                globo de una notificación no llevaba de forma confiable a
+                verla; eso ya está resuelto (navigate a /notificaciones al
+                tocar, más el orden por disparadoEn — ver entryDate abajo),
+                así que ya no hace falta el workaround. */}
+            <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
+              <div className="px-4 py-3 bg-accent-light border-b border-accent flex items-center gap-2">
+                <Bell size={18} className="text-accent flex-shrink-0" />
+                <h2 className="font-semibold text-accent">Tus notificaciones</h2>
+              </div>
+              <div className="p-4 divide-y divide-outline-variant">
+                {CATEGORIAS.map((cat) => (
+                  <div key={cat.key} className={cat.key !== CATEGORIAS[0].key ? 'pt-3' : ''}>
+                    <Toggle
+                      checked={settings[cat.key].habilitado}
+                      onChange={(v) => updateCategoria(cat.key, { ...settings[cat.key], habilitado: v })}
+                      label={cat.label}
+                      description={cat.description}
+                      icon={cat.icon}
+                    >
+                      {cat.anticipacion && (
+                        <div className="flex items-center justify-between gap-2 text-sm">
+                          <span className="text-on-surface">Avisar</span>
+                          <AnticipacionPicker
+                            value={settings[cat.key].anticipacionMinutos}
+                            onChange={(minutos) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: minutos })}
+                          />
+                        </div>
+                      )}
+                    </Toggle>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="rounded-card border border-outline-variant overflow-hidden bg-surface-card shadow-card">
               <button
                 type="button"
@@ -597,36 +631,6 @@ export default function TeacherNotificationSettings() {
               )}
             </div>
 
-            <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent">
-              <div className="px-4 py-3 bg-accent-light border-b border-accent flex items-center gap-2">
-                <Bell size={18} className="text-accent flex-shrink-0" />
-                <h2 className="font-semibold text-accent">Tus notificaciones</h2>
-              </div>
-              <div className="p-4 divide-y divide-outline-variant">
-                {CATEGORIAS.map((cat) => (
-                  <div key={cat.key} className={cat.key !== CATEGORIAS[0].key ? 'pt-3' : ''}>
-                    <Toggle
-                      checked={settings[cat.key].habilitado}
-                      onChange={(v) => updateCategoria(cat.key, { ...settings[cat.key], habilitado: v })}
-                      label={cat.label}
-                      description={cat.description}
-                      icon={cat.icon}
-                    >
-                      {cat.anticipacion && (
-                        <div className="flex items-center justify-between gap-2 text-sm">
-                          <span className="text-on-surface">Avisar</span>
-                          <AnticipacionPicker
-                            value={settings[cat.key].anticipacionMinutos}
-                            onChange={(minutos) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: minutos })}
-                          />
-                        </div>
-                      )}
-                    </Toggle>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Sonido, volumen y repetición los controla el teléfono, no la
                 app — aquí solo explicamos cómo activarlas ahí. */}
             <div className="bg-surface-card rounded-card shadow-card border border-accent p-4">
@@ -651,24 +655,18 @@ export default function TeacherNotificationSettings() {
 
       {/* ── Borrar renglón de la Bitácora — pide confirmación primero ── */}
       {entryToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setEntryToDelete(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
-            <h3 className="text-base font-semibold text-on-surface mb-1">¿Borrar esta notificación?</h3>
-            <p className="text-sm text-muted mb-4">
-              "<strong>{describeEntry(entryToDelete, navigate).notificacion}</strong>" se borrará de tu bitácora permanentemente.
-            </p>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setEntryToDelete(null)} disabled={deletingEntry}
-                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
-              <button type="button" onClick={confirmDeleteEntry} disabled={deletingEntry}
-                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-                {deletingEntry ? <Spinner size="sm" /> : <Trash2 size={16} />}
-                {deletingEntry ? 'Borrando…' : 'Borrar'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="¿Borrar esta notificación?"
+          message={<>"<strong>{describeEntry(entryToDelete, navigate).notificacion}</strong>" se borrará de tu bitácora permanentemente.</>}
+          confirmLabel="Borrar"
+          confirmingLabel="Borrando…"
+          confirmIcon={<Trash2 size={16} />}
+          danger
+          busy={deletingEntry}
+          showClose={false}
+          onConfirm={confirmDeleteEntry}
+          onCancel={() => setEntryToDelete(null)}
+        />
       )}
     </TeacherLayout>
   )

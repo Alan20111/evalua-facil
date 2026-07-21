@@ -1,9 +1,5 @@
 import EFDateTimePicker from './EFDateTimePicker'
-
-function toIsoNow() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
+import { nowIsoLocal as toIsoNow } from '../utils/nowIso'
 
 // Shared publication scheduler — same three-way choice for "Publicar resultados"
 // (calificación) and "Publicar respuestas". Kept as one component so both blocks

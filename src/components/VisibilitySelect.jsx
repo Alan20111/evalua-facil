@@ -1,5 +1,6 @@
 import EFDateTimePicker from './EFDateTimePicker'
 import { formatHora12FromDate } from '../utils/formatHora'
+import { nowIsoLocal as toIsoNowLocal } from '../utils/nowIso'
 
 // Visibility radio-group (Publicar ahora / Ocultar / Programar) shared by any
 // content type that needs the oculta/publishAt fields — activities first,
@@ -18,12 +19,6 @@ import { formatHora12FromDate } from '../utils/formatHora'
 
 const MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
-// A scheduled publication can never be in the past — pickers get "now" as
-// their minimum, computed fresh on every render
-function toIsoNowLocal() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
-}
 
 function formatPublishedAt(str) {
   if (!str) return null
