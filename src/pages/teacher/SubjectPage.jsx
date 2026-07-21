@@ -719,22 +719,30 @@ export default function SubjectPage() {
     navigate(path, state)
   }
 
-  // Clic derecho sobre una celda de Calificaciones que ya tiene entrega
-  // calificada: abre el popover de corrección rápida. Sin entrega/sin
-  // calificar no hay nada que corregir ahí — el clic izquierdo (que sigue
-  // llevando a la actividad) es el único camino para calificar por primera vez.
+  // Clic derecho sobre cualquier celda de Calificaciones: abre el popover de
+  // calificación rápida, sin salir a la actividad. El clic izquierdo sigue
+  // llevando ahí (necesario para revisar la entrega). Funciona tanto para
+  // corregir una ya puesta como para calificar directo a quien no entregó
+  // nada (mismo caso que "sin entrega" en la pantalla de la actividad).
   function openGradeQuickEdit(e, sub, activity, student) {
     e.preventDefault()
-    if (!sub || sub.calificacion == null) return
-    const popW = 200, popH = 120
+    if (subject?.parcialesCerrados?.[activity.parcial]) {
+      toast('El parcial está cerrado — revierte el cierre para editar calificaciones', 'error')
+      return
+    }
+    if (!sub && !canCreate) {
+      toast('Activa tu suscripción mensual para registrar calificaciones — toda tu información sigue disponible')
+      return
+    }
+    const popW = 200, popH = 130
     setGradeQuickEdit({
       x: Math.min(e.clientX, window.innerWidth - popW - 8),
       y: Math.min(e.clientY, window.innerHeight - popH - 8),
-      subId: sub.id,
+      subId: sub?.id || null,
       activityId: activity.id,
       studentId: student.id,
       maxCalif: activity.maxCalif || 10,
-      value: String(sub.calificacion),
+      value: sub?.calificacion != null ? String(sub.calificacion) : '',
     })
   }
 
@@ -748,10 +756,28 @@ export default function SubjectPage() {
     }
     setSavingQuickGrade(true)
     try {
-      await updateDoc(doc(db, 'submissions', subId), { calificacion: n })
       const key = `${studentId}-${activityId}`
-      setGradeSubMap((prev) => ({ ...prev, [key]: { ...prev[key], calificacion: n } }))
-      toast('Calificación actualizada')
+      if (subId) {
+        await updateDoc(doc(db, 'submissions', subId), { calificacion: n })
+        setGradeSubMap((prev) => ({ ...prev, [key]: { ...prev[key], calificacion: n } }))
+      } else {
+        // Igual que "Calificar sin entrega" en la actividad: crea la
+        // submission directo. NO cierreParcial — queda como calificación
+        // manual, no como las asignadas al cerrar el parcial en bloque.
+        const data = {
+          actividadId: activityId,
+          alumnoId: studentId,
+          calificacion: n,
+          comentario: '',
+          motivoSinEntrega: '',
+          estado: 'calificado',
+          sinEntrega: true,
+          fechaEntrega: serverTimestamp(),
+        }
+        const ref = await addDoc(collection(db, 'submissions'), data)
+        setGradeSubMap((prev) => ({ ...prev, [key]: { id: ref.id, ...data } }))
+      }
+      toast('Calificación guardada')
       setGradeQuickEdit(null)
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -3739,7 +3765,11 @@ export default function SubjectPage() {
                                 <td
                                   key={a.id}
                                   data-col={colIndexByKey[`act-${a.id}`]}
-                                  data-tooltip={gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó)' : grades[ai] != null ? 'Ver entrega · clic derecho para corregir rápido' : a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'}
+                                  data-tooltip={
+                                    gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó) — revierte el cierre para corregirla'
+                                    : grades[ai] != null ? `${a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'} · clic derecho para corregir rápido`
+                                    : `${a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'} · clic derecho para calificar rápido`
+                                  }
                                   onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
                                   onContextMenu={(e) => openGradeQuickEdit(e, gradeSubMap[`${s.id}-${a.id}`], a, s)}
                                   className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] == null ? 'text-slate-300' : 'text-on-surface'} ${hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
@@ -4899,7 +4929,7 @@ export default function SubjectPage() {
             className="fixed z-50 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl p-3 space-y-2"
             style={{ top: gradeQuickEdit.y, left: gradeQuickEdit.x }}
           >
-            <p className="text-xs font-medium text-muted">Corregir calificación</p>
+            <p className="text-xs font-medium text-muted">{gradeQuickEdit.subId ? 'Corregir calificación' : 'Calificar (sin entrega)'}</p>
             <div className="flex items-center gap-1.5">
               <input
                 type="number" min={0} max={gradeQuickEdit.maxCalif} step="0.1"
