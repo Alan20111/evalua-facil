@@ -375,9 +375,14 @@ const AttendanceTable = memo(function AttendanceTable({
                   falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} /> },
                   justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
                 }[estado]
+                const cellTooltip = estado === 'presente' ? 'Asistencia'
+                  : estado === 'falta' ? 'Falta'
+                  : motivo ? 'Justificada con motivo'
+                  : 'Justificada sin motivo (cuenta como asistencia)'
                 return (
                   <td key={r.id}
                     data-col={attColIndexById[r.id]}
+                    data-tooltip={cellTooltip}
                     ref={addAttColEl(attColIndexById[r.id])}
                     onClick={() => onCellClick(r, s)}
                     onContextMenu={(e) => onCellContextMenu(e, r, s)}
@@ -1128,17 +1133,18 @@ export default function SubjectPage() {
     }
   }
 
-  // Un toque cicla el estado: Presente → Falta → Justificada → Presente.
-  // En la App el tercer toque (el que saldría de Justificada) NO vuelve a
-  // Presente directo — abre la ventana de motivo (pedido explícito: mantener
-  // presionado no era algo que el docente fuera a adivinar solo). Cancelar ahí
-  // sí completa el ciclo a Presente; elegir/escribir un motivo se queda en
-  // Justificada. En la web sigue ciclando directo — ahí el motivo opcional se
-  // abre con clic derecho (ver cellContextMenu/cellPointerDown abajo), un
-  // gesto ya estándar de escritorio.
+  // Un toque/clic cicla el estado: Presente → Falta → Justificada → Presente.
+  // Igual en web y app (pedido explícito — que no sea distinto de lo que ya
+  // hace el móvil): el tercer toque (el que saldría de Justificada) NO vuelve
+  // a Presente directo — abre la ventana de motivo. Cancelar ahí sí completa
+  // el ciclo a Presente; elegir/escribir un motivo y guardar se queda en
+  // Justificada con ese motivo. Clic derecho / mantener presionado sigue
+  // abriendo la misma ventana directo, sin ciclar (ver cellContextMenu/
+  // cellPointerDown abajo) — solo para editar el motivo de una falta que YA
+  // estaba justificada, sin tocar el estado.
   async function handleCycleAttendance(record, student) {
     const studentId = student.id
-    if (IS_NATIVE_APP && attendanceState(record, studentId) === 'justificada') {
+    if (attendanceState(record, studentId) === 'justificada') {
       openReasonModal(record, student, { revertOnCancel: true })
       return
     }
@@ -1159,12 +1165,13 @@ export default function SubjectPage() {
     }
   }
 
-  // Clic izquierdo = ciclar estado (en la App, el 3er toque abre esto mismo);
-  // clic derecho o mantener presionado = motivo directo, sin ciclar.
-  // `revertOnCancel` solo se prende cuando se abrió AL ciclar (el toque que
-  // hubiera vuelto a Presente) — así Cancelar completa ese ciclo. Abierta por
-  // clic derecho/mantener presionado (solo para editar el motivo de una falta
-  // que ya estaba justificada) Cancelar no debe tocar el estado.
+  // Clic/toque = ciclar estado (el 3er clic/toque abre esto mismo, ver
+  // handleCycleAttendance arriba); clic derecho o mantener presionado =
+  // motivo directo, sin ciclar. `revertOnCancel` solo se prende cuando se
+  // abrió AL ciclar (el toque que hubiera vuelto a Presente) — así Cancelar
+  // completa ese ciclo. Abierta por clic derecho/mantener presionado (solo
+  // para editar el motivo de una falta que ya estaba justificada) Cancelar
+  // no debe tocar el estado.
   function openReasonModal(record, student, { revertOnCancel = false } = {}) {
     const current = record.motivos?.[student.id] || ''
     setReasonText(current)
@@ -4004,9 +4011,9 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* Motivo de la justificación — en la App se abre al TERCER toque sobre una
-          celda ya en "J" (cancelar ahí completa el ciclo a Presente); en la web
-          y con clic derecho / mantener presionado en la App, se abre directo
+      {/* Motivo de la justificación — se abre al TERCER clic/toque sobre una
+          celda ya en "J" (cancelar ahí completa el ciclo a Presente, igual en
+          web y app); con clic derecho / mantener presionado se abre directo
           para editar el motivo sin tocar el estado. En la app va ANCHO y
           pegado arriba para seguir usable con el teclado (que en horizontal
           tapa la mitad inferior). */}
