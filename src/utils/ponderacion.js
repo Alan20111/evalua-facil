@@ -18,6 +18,20 @@ export function ponderacionActivaEnParcial(subject, parcial) {
   return !!subject?.ponderacionActivada
 }
 
+// Normaliza una calificación cruda (sobre `maxCalif`) a una escala base — 10
+// por defecto — para que actividades con distinto máximo (un examen sobre
+// 100, un cuestionario sobre 20…) puedan promediarse juntas. Antes esta
+// misma división vivía copiada en 7 sitios distintos (excel.js x2, pdf.js
+// x2, SubjectPage.jsx docente y alumno, Dashboard.jsx alumno), cada uno
+// redondeando distinto (o sin redondear). Sin `decimals` regresa el número
+// completo, para quien todavía va a promediar/agregar antes de mostrar; con
+// `decimals` regresa ya redondeado a esos decimales.
+export function normalizeGrade(calificacion, maxCalif, { base = 10, decimals } = {}) {
+  if (calificacion == null) return null
+  const value = (calificacion / (maxCalif || 10)) * base
+  return decimals == null ? value : parseFloat(value.toFixed(decimals))
+}
+
 export const pesoDe = (a) => {
   const n = parseFloat(a?.pesoCalificacion)
   return isNaN(n) || n < 0 ? 0 : n

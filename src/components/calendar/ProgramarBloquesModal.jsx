@@ -33,10 +33,10 @@ export default function ProgramarBloquesModal({
   const [duracionMin, setDuracionMin] = useState(initial?.duracionMin || 60)
   const [bloquesPorSemana, setBloquesPorSemana] = useState(initial?.bloquesPorSemana || 1)
   const [color, setColor] = useState(initial?.color || 'blue')
-  // Se mantiene sin exponer en este modal (el sistema viejo de alarma por
-  // sonido/minutos, por bloque, sigue vivo en BloqueEditor.jsx) — aquí solo
-  // se pasa tal cual para no borrar alarmas que el docente ya haya puesto en
-  // bloques individuales. La casilla de abajo (notificarClase) es el sistema
+  // Se mantiene sin exponer en este modal — solo se pasa tal cual para no
+  // borrar el valor con el que se generaron los bloques la primera vez (ese
+  // sistema viejo de alarma por sonido/minutos ya no tiene una pantalla de
+  // edición individual). La casilla de abajo (notificarClase) es el sistema
   // nuevo: push real vía la configuración global de Notificaciones.
   const [alarma] = useState(initial?.alarma || { activa: false, sonido: 'campana', minutosAntes: 10 })
   const [confirmDel, setConfirmDel] = useState(false)
@@ -132,7 +132,7 @@ export default function ProgramarBloquesModal({
               <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">
                 {subjectName}
               </div>
-              <p className="text-xs text-muted">Estás modificando toda esta asignatura. Al guardar se reemplazan sus bloques.</p>
+              <p className="text-xs text-muted">Estás modificando toda esta asignatura. Al guardar se reemplazan sus bloques — clases que hayas movido de horario o cancelado sueltas se pierden y vuelven al patrón general.</p>
             </div>
           ) : sinDisponibles ? (
             <div className="rounded-card border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">

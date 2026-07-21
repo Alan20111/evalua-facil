@@ -1,10 +1,7 @@
 // Lazy-loads JSZip only when the teacher actually exports,
 // keeping it out of the main bundle.
 import { subjectDisplayName } from './subjectName'
-
-function fullName(s) {
-  return [s.apellidoPaterno, s.apellidoMaterno, s.nombre].filter(Boolean).join(' ').trim()
-}
+import { studentFullName as fullName } from './studentSearch'
 
 function sanitize(name) {
   return (name || '').replace(/[/\\?%*:|"<>]/g, ' ').replace(/\s+/g, ' ').trim()

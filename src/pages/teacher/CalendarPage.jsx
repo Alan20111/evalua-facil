@@ -19,6 +19,7 @@ import { TEACHER_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { usePointerDrag } from '../../hooks/usePointerDrag'
 import { refreshTeacherReminders } from '../../utils/localReminders'
 import { formatHora12 } from '../../utils/formatHora'
 import {
@@ -126,8 +127,6 @@ function AgendaView({
 
   const gridRef = useRef(null)
   const chipRefs = useRef([])
-  const dragStartRef = useRef(null)
-  const [drag, setDrag] = useState(null)
 
   // Línea de la hora actual (solo cuando el día mostrado es hoy) — se actualiza
   // cada minuto para que vaya bajando por la rejilla.
@@ -168,43 +167,21 @@ function AgendaView({
 
   const isMovable = it => it.kind === 'bloque' || it.ev?.editable
 
-  function startDrag(e, it) {
-    if (e.button != null && e.button !== 0) return
-    if (!isMovable(it)) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    dragStartRef.current = { x: e.clientX, y: e.clientY }
-    setDrag({
-      item: it,
-      x: e.clientX, y: e.clientY,
-      grabDX: e.clientX - rect.left, grabDY: e.clientY - rect.top,
-      w: rect.width, h: rect.height,
-      moved: false,
-    })
-  }
-
-  useEffect(() => {
-    if (!drag) return
-    function onMove(e) {
-      const s = dragStartRef.current
-      // En Android, un toque nunca cuenta como "arrastre" — siempre se trata
-      // como tap, así que onUp abre el diálogo de mover/borrar en vez de
-      // reposicionar directo con el dedo.
-      const moved = !IS_NATIVE_APP && s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
-      setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
+  const { drag, startDrag: startDragRaw } = usePointerDrag((d, e) => {
+    const { item } = d
+    if (!d.moved) {
+      // Clic: evento → su editor; bloque de clase → diálogo de acciones.
+      if (item.kind === 'bloque') onBlockClick?.(item.b)
+      else onEventClick?.(item.ev)
+      return
     }
-    function onUp(e) {
-      // Handlers del padre FUERA del updater de setDrag (evita setState en render).
-      const d = drag
-      setDrag(null)
-      if (!d) return
-      const { item } = d
-      if (!d.moved) {
-        // Clic: evento → su editor; bloque de clase → diálogo de acciones.
-        if (item.kind === 'bloque') onBlockClick?.(item.b)
-        else onEventClick?.(item.ev)
-        return
-      }
-      // 1) ¿Soltó sobre un chip de día posterior?
+    // 1) ¿Soltó sobre un chip de día posterior? Los bloques de clase NUNCA
+    // cambian de día arrastrando aquí (pedido explícito: solo la misma
+    // hora, mismo día — un cambio suelto nunca debe afectar la
+    // programación general de la asignatura ni las clases del día
+    // siguiente). Los chips solo aplican a eventos personales, que sí
+    // pueden moverse de día.
+    if (item.kind !== 'bloque') {
       let chip = null
       chipRefs.current.forEach(c => {
         if (!c?.el) return
@@ -212,31 +189,28 @@ function AgendaView({
         if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) chip = c
       })
       if (chip) {
-        if (item.kind === 'bloque') onMoveBloque?.(item.b, chip.dateStr, item.b.horaInicio)
-        else onMoveEvent?.(item.ev.rawEvent, chip.dateStr, item.ev.timeStr)
+        onMoveEvent?.(item.ev.rawEvent, chip.dateStr, item.ev.timeStr)
         return
       }
-      // 2) ¿Soltó sobre la rejilla? → nueva hora, mismo día.
-      const g = gridRef.current?.getBoundingClientRect()
-      if (g && e.clientX >= g.left && e.clientX < g.right) {
-        const blockTop = e.clientY - d.grabDY
-        let mins = Math.round(((blockTop - g.top) / AGENDA_ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
-        mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
-        const hora = minutesToTimeStr(mins)
-        if (item.kind === 'bloque') {
-          if (hora !== item.b.horaInicio) onMoveBloque?.(item.b, dateStr, hora)
-        } else if (hora !== item.ev.timeStr) {
-          onMoveEvent?.(item.ev.rawEvent, dateStr, hora)
-        }
+    }
+    // 2) ¿Soltó sobre la rejilla? → nueva hora, mismo día.
+    const g = gridRef.current?.getBoundingClientRect()
+    if (g && e.clientX >= g.left && e.clientX < g.right) {
+      const blockTop = e.clientY - d.grabDY
+      let mins = Math.round(((blockTop - g.top) / AGENDA_ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+      mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
+      const hora = minutesToTimeStr(mins)
+      if (item.kind === 'bloque') {
+        if (hora !== item.b.horaInicio) onMoveBloque?.(item.b, dateStr, hora)
+      } else if (hora !== item.ev.timeStr) {
+        onMoveEvent?.(item.ev.rawEvent, dateStr, hora)
       }
     }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-    }
-  }, [drag, dateStr, dayStart, dayEnd, onBlockClick, onEventClick, onMoveBloque, onMoveEvent])
+  })
+  function startDrag(e, it) {
+    if (!isMovable(it)) return
+    startDragRaw(e, { item: it })
+  }
 
   return (
     <div>
@@ -248,8 +222,11 @@ function AgendaView({
         </div>
       )}
 
-      {/* Chips de días posteriores, visibles mientras se arrastra */}
-      {drag?.moved && (
+      {/* Chips de días posteriores, visibles mientras se arrastra un EVENTO —
+          nunca para un bloque de clase, que solo puede cambiar de hora el
+          mismo día (pedido explícito). Mostrarlos también para un bloque
+          invitaría a soltar donde no pasa nada. */}
+      {drag?.moved && drag.item.kind !== 'bloque' && (
         <div className="sticky top-0 z-20 flex items-center gap-1.5 flex-wrap px-3 py-2 bg-surface-card border-b border-outline-variant">
           <span className="text-xs text-muted mr-1">Soltar en:</span>
           {dayTargets.map((d, i) => {
@@ -435,13 +412,11 @@ function BloquePill({ b, subj, onClick }) {
   )
 }
 
-function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick, onMoveEvent, onMoveBloque, asuetoMap = {}, vacacionMap = {} }) {
+function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick, onMoveEvent, asuetoMap = {}, vacacionMap = {} }) {
   const cells = getMonthGrid(year, month)
   const selStr = selectedDate ? toDateStr(selectedDate) : null
 
   const cellRefs = useRef({})
-  const dragStartRef = useRef(null)
-  const [drag, setDrag] = useState(null) // { kind, b?, ev?, x, y, w, moved }
 
   const bloquesByDate = useMemo(() => {
     const m = {}
@@ -450,57 +425,25 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
     return m
   }, [bloques])
 
-  // Arrastrar una pastilla a otro día del mes: los eventos personales se
-  // mueven directo (conservan su hora); los bloques de clase preguntan si el
-  // cambio es solo para ese bloque o también para los siguientes.
-  function startDrag(e, item) {
-    if (e.button != null && e.button !== 0) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    dragStartRef.current = { x: e.clientX, y: e.clientY }
-    setDrag({ ...item, x: e.clientX, y: e.clientY, w: rect.width, moved: false })
-  }
-
-  useEffect(() => {
-    if (!drag) return
-    function onMove(e) {
-      const s = dragStartRef.current
-      // En Android, un toque nunca cuenta como "arrastre" — siempre se trata
-      // como tap, así que onUp abre el diálogo de mover/borrar en vez de
-      // reposicionar directo con el dedo.
-      const moved = !IS_NATIVE_APP && s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
-      setDrag(d => d && ({ ...d, x: e.clientX, y: e.clientY, moved: d.moved || moved }))
+  // Arrastrar una pastilla a otro día del mes: solo eventos personales — los
+  // bloques de clase no se arrastran en esta vista (ver `movable` más abajo),
+  // así que solo se mueven directo conservando su hora.
+  const { drag, startDrag } = usePointerDrag((d, e) => {
+    if (!d.moved) {
+      // Clic: evento → su editor; bloque de clase → diálogo de acciones.
+      if (d.kind === 'bloque') onBlockClick?.(d.b)
+      else onEventClick?.(d.ev)
+      return
     }
-    function onUp(e) {
-      // Handlers del padre FUERA del updater de setDrag (evita setState en render).
-      const d = drag
-      setDrag(null)
-      if (!d) return
-      if (!d.moved) {
-        // Clic: evento → su editor; bloque de clase → diálogo de acciones.
-        if (d.kind === 'bloque') onBlockClick?.(d.b)
-        else onEventClick?.(d.ev)
-        return
-      }
-      let target = null
-      Object.entries(cellRefs.current).forEach(([dStr, el]) => {
-        if (!el) return
-        const r = el.getBoundingClientRect()
-        if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) target = dStr
-      })
-      if (!target) return
-      if (d.kind === 'bloque') {
-        if (target !== d.b.fecha) onMoveBloque?.(d.b, target, d.b.horaInicio)
-      } else if (target !== d.ev.dateStr) {
-        onMoveEvent?.(d.ev.rawEvent, target, d.ev.timeStr || null)
-      }
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-    }
-  }, [drag, onBlockClick, onEventClick, onMoveBloque, onMoveEvent])
+    let target = null
+    Object.entries(cellRefs.current).forEach(([dStr, el]) => {
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) target = dStr
+    })
+    if (!target || target === d.ev.dateStr) return
+    onMoveEvent?.(d.ev.rawEvent, target, d.ev.timeStr || null)
+  }, { grab: false })
 
   return (
     <div>
@@ -560,17 +503,14 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
                   // bloques"). Solo los eventos personales se arrastran a otro
                   // día. Al tocar un bloque se abre el diálogo para borrarlo.
                   const movable = it.kind === 'event' && it.ev?.editable
-                  const isDraggingThis = drag?.moved && (
-                    (it.kind === 'bloque' && drag.kind === 'bloque' && drag.b?.id === it.b.id) ||
-                    (it.kind === 'event' && drag.kind === 'event' && drag.ev?.id === it.ev.id)
-                  )
+                  const isDraggingThis = drag?.moved && it.kind === 'event' && drag.kind === 'event' && drag.ev?.id === it.ev.id
                   const pill = it.kind === 'bloque'
-                    ? <BloquePill b={it.b} subj={subjects[it.b.asignaturaId]} onClick={movable ? undefined : onBlockClick} />
+                    ? <BloquePill b={it.b} subj={subjects[it.b.asignaturaId]} onClick={onBlockClick} />
                     : <EventPill ev={it.ev} compact onClick={movable ? undefined : onEventClick} />
                   return (
                     <div
                       key={it.kind === 'bloque' ? it.b.id : it.ev.id}
-                      onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, it.kind === 'bloque' ? { kind: 'bloque', b: it.b } : { kind: 'event', ev: it.ev }) } : undefined}
+                      onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev: it.ev }) } : undefined}
                       className={movable ? 'cursor-grab active:cursor-grabbing select-none' : ''}
                       style={{ touchAction: 'none', opacity: isDraggingThis ? 0.3 : 1 }}
                     >
@@ -587,20 +527,16 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
         })}
       </div>
 
-      {/* Fantasma que sigue al cursor mientras se arrastra */}
-      {drag?.moved && (() => {
-        const esEvento = drag.kind === 'event'
-        const pal = esEvento ? { bg: drag.ev.bg, text: drag.ev.text } : bloqueColor(drag.b.color)
-        const titulo = esEvento ? drag.ev.titulo : subjectDisplayName(subjects[drag.b.asignaturaId])
-        return (
-          <div
-            className="fixed z-50 rounded px-2 py-1 shadow-lg pointer-events-none opacity-90 text-xs font-semibold truncate"
-            style={{ left: drag.x + 8, top: drag.y + 8, maxWidth: drag.w, background: pal.bg, color: pal.text }}
-          >
-            {titulo}
-          </div>
-        )
-      })()}
+      {/* Fantasma que sigue al cursor mientras se arrastra — solo eventos
+          personales, los bloques de clase no se arrastran en esta vista. */}
+      {drag?.moved && (
+        <div
+          className="fixed z-50 rounded px-2 py-1 shadow-lg pointer-events-none opacity-90 text-xs font-semibold truncate"
+          style={{ left: drag.x + 8, top: drag.y + 8, maxWidth: drag.w, background: drag.ev.bg, color: drag.ev.text }}
+        >
+          {drag.ev.titulo}
+        </div>
+      )}
     </div>
   )
 }
@@ -627,9 +563,6 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
   const gridCols = `3.5rem repeat(${numDays}, 1fr)`
 
   const colRefs = useRef([])
-  const dragStartRef = useRef(null)
-  // { kind: 'bloque'|'event', bloque?, ev?, x, y, grabDX, grabDY, w, h, moved }
-  const [drag, setDrag] = useState(null)
 
   // Bloques agrupados por fecha.
   const byDate = useMemo(() => {
@@ -642,81 +575,47 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
     return (timeToMinutes(time) - dayStart * 60) / 60 * ROW_H
   }
 
-  function startDrag(e, item) {
-    if (e.button != null && e.button !== 0) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    dragStartRef.current = { x: e.clientX, y: e.clientY }
-    setDrag({
-      ...item,
-      x: e.clientX, y: e.clientY,
-      grabDX: e.clientX - rect.left,
-      grabDY: e.clientY - rect.top,
-      w: rect.width, h: rect.height,
-      moved: false,
-    })
-  }
-
-  useEffect(() => {
-    if (!drag) return
-    function onMove(e) {
-      const s = dragStartRef.current
-      // En Android, un toque nunca cuenta como "arrastre" — siempre se trata
-      // como tap, así que onUp abre el diálogo de mover/borrar en vez de
-      // reposicionar directo con el dedo.
-      const moved = !IS_NATIVE_APP && s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 5
-      // Los bloques de clase solo se mueven en VERTICAL (mismo día): el fantasma
-      // no se desplaza en horizontal (x fija).
-      setDrag(d => d && ({ ...d, x: d.kind === 'bloque' ? d.x : e.clientX, y: e.clientY, moved: d.moved || moved }))
+  const { drag, startDrag } = usePointerDrag((d, e) => {
+    if (!d.moved) {
+      // Clic: en evento abre su editor; en bloque de clase abre el diálogo de
+      // acciones (mover el mismo día / borrar esta clase), NO su editor.
+      if (d.kind === 'event') onEventClick?.(d.ev)
+      else onBlockClick?.(d.bloque)
+      return
     }
-    function onUp(e) {
-      // Los handlers del padre (onMove*/onEventClick) se llaman FUERA del
-      // updater de setDrag: llamarlos dentro dispara "setState durante render".
-      const d = drag
-      setDrag(null)
-      if (!d) return
-      if (!d.moved) {
-        // Clic: en evento abre su editor; en bloque de clase abre el diálogo de
-        // acciones (mover el mismo día / borrar esta clase), NO su editor.
-        if (d.kind === 'event') onEventClick?.(d.ev)
-        else onBlockClick?.(d.bloque)
-        return
-      }
-      const blockTop = e.clientY - d.grabDY
-      if (d.kind === 'bloque') {
-        // SOLO vertical y el MISMO día: el día no cambia; la hora sale de la
-        // posición vertical (todas las columnas comparten el mismo `top`).
-        const anyCol = colRefs.current.find(el => el)
-        const colTop = anyCol ? anyCol.getBoundingClientRect().top : 0
-        let mins = Math.round(((blockTop - colTop) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
-        mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
-        const nuevaHora = minutesToTimeStr(mins)
-        if (nuevaHora !== d.bloque.horaInicio) onMoveBloque?.(d.bloque, d.bloque.fecha, nuevaHora)
-        return
-      }
-      // Eventos personales: pueden cambiar de día (se detecta la columna).
-      let target = null
-      colRefs.current.forEach((el, idx) => {
-        if (!el) return
-        const r = el.getBoundingClientRect()
-        if (e.clientX >= r.left && e.clientX < r.right) target = { idx, top: r.top }
-      })
-      if (!target) return
-      let mins = Math.round(((blockTop - target.top) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+    const blockTop = e.clientY - d.grabDY
+    if (d.kind === 'bloque') {
+      // SOLO vertical y el MISMO día: el día no cambia; la hora sale de la
+      // posición vertical (todas las columnas comparten el mismo `top`).
+      const anyCol = colRefs.current.find(el => el)
+      const colTop = anyCol ? anyCol.getBoundingClientRect().top : 0
+      let mins = Math.round(((blockTop - colTop) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
       mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
-      const nuevaFecha = toDateStr(days[target.idx])
       const nuevaHora = minutesToTimeStr(mins)
-      // Evento personal: se mueve directo, sin preguntar.
-      if (nuevaFecha !== d.ev.dateStr || nuevaHora !== d.ev.timeStr) {
-        onMoveEvent?.(d.ev.rawEvent, nuevaFecha, nuevaHora)
-      }
+      if (nuevaHora !== d.bloque.horaInicio) onMoveBloque?.(d.bloque, d.bloque.fecha, nuevaHora)
+      return
     }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
+    // Eventos personales: pueden cambiar de día (se detecta la columna).
+    let target = null
+    colRefs.current.forEach((el, idx) => {
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      if (e.clientX >= r.left && e.clientX < r.right) target = { idx, top: r.top }
+    })
+    if (!target) return
+    let mins = Math.round(((blockTop - target.top) / ROW_H * 60 + dayStart * 60) / SNAP_MIN) * SNAP_MIN
+    mins = Math.max(dayStart * 60, Math.min(dayEnd * 60 - SNAP_MIN, mins))
+    const nuevaFecha = toDateStr(days[target.idx])
+    const nuevaHora = minutesToTimeStr(mins)
+    // Evento personal: se mueve directo, sin preguntar.
+    if (nuevaFecha !== d.ev.dateStr || nuevaHora !== d.ev.timeStr) {
+      onMoveEvent?.(d.ev.rawEvent, nuevaFecha, nuevaHora)
     }
-  }, [drag, days, dayStart, dayEnd, onBlockClick, onEventClick, onMoveBloque, onMoveEvent])
+  }, {
+    // Los bloques de clase solo se mueven en VERTICAL (mismo día): el
+    // fantasma no se desplaza en horizontal (x fija).
+    freezeX: d => d.kind === 'bloque',
+  })
 
   return (
     <div className="overflow-x-auto">
@@ -913,14 +812,21 @@ export default function CalendarPage() {
   const { currentUser } = useAuth()
   const toast = useToast()
 
-  // Siempre entra en Día (agenda) con hoy cargado — a propósito NO se lee de
-  // localStorage aquí: aunque el docente haya dejado otra vista puesta la
-  // última vez, cada vez que entra a Horario y Agenda debe aterrizar en Hoy,
-  // vista Día (pedido explícito). changeView() abajo sigue guardando en
-  // localStorage por si algo más llega a necesitarlo, solo no se usa para
-  // decidir el arranque.
-  const [view, setView] = useState('agenda')
-  const [currentDate, setCurrentDate] = useState(new Date())
+  // Entra donde el docente lo dejó la última vez (vista y fecha) — pedido
+  // explícito: no siempre debe aterrizar en Hoy/Día. "Hoy" sigue disponible
+  // como botón para volver rápido a la fecha actual.
+  const [view, setView] = useState(() => {
+    const raw = localStorage.getItem('cal_view')
+    return VIEWS.some((v) => v.id === raw) ? raw : 'agenda'
+  })
+  const [currentDate, setCurrentDate] = useState(() => {
+    const raw = localStorage.getItem('cal_current_date')
+    const d = raw ? new Date(raw) : null
+    return d && !isNaN(d) ? d : new Date()
+  })
+  useEffect(() => {
+    localStorage.setItem('cal_current_date', currentDate.toISOString())
+  }, [currentDate])
 
   // Foco inicial en el botón "Hoy" al entrar a Horario (web y app).
   const hoyBtnRef = useRef(null)
@@ -1230,6 +1136,29 @@ export default function CalendarPage() {
   // que se EXCLUYEN de la plantilla de "Modificar". Así, mover una clase en el
   // horario normal nunca afecta a "Modificar bloques". (Si por algún caso todos
   // los bloques estuvieran movidos, se usan todos como respaldo.)
+  // Combinación de lugar/color/alarma que más se repite entre las muestras de
+  // un mismo (día, hora) — empate se resuelve a favor de la que apareció
+  // primero. Antes se tomaba siempre muestras[0] (la primera, sin importar
+  // cuántas veces se repitiera cada combinación), contradiciendo el propio
+  // comentario de la función.
+  function comboMasFrecuente(muestras) {
+    const counts = new Map()
+    muestras.forEach(m => {
+      const combo = {
+        lugar: m.lugar || '',
+        color: m.color || 'blue',
+        alarma: m.alarma || { activa: false, sonido: 'campana', minutosAntes: 10 },
+      }
+      const key = JSON.stringify(combo)
+      const entry = counts.get(key)
+      if (entry) entry.count++
+      else counts.set(key, { combo, count: 1 })
+    })
+    let best = null
+    counts.forEach(entry => { if (!best || entry.count > best.count) best = entry })
+    return best.combo
+  }
+
   function derivarPatrones(asignaturaId) {
     const todos = bloques.filter(b => b.asignaturaId === asignaturaId)
     const recurrentes = todos.filter(b => !b.movido)
@@ -1244,15 +1173,7 @@ export default function CalendarPage() {
     })
     return Object.values(porClave)
       .sort((a, b) => a.diaSemana - b.diaSemana || timeToMinutes(a.horaInicio) - timeToMinutes(b.horaInicio))
-      .map(({ muestras, ...p }) => {
-        const m = muestras[0]
-        return {
-          ...p,
-          lugar: m.lugar || '',
-          color: m.color || 'blue',
-          alarma: m.alarma || { activa: false, sonido: 'campana', minutosAntes: 10 },
-        }
-      })
+      .map(({ muestras, ...p }) => ({ ...p, ...comboMasFrecuente(muestras) }))
   }
 
   // "Modificar bloques" → paso 1 (modal de configuración con la asignatura fija

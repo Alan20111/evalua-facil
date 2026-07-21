@@ -23,8 +23,9 @@ import {
 import { resolveFileTypes, isFileAllowed, allowsMultipleFiles, fileTypesInstructions, MAX_IMAGES_PER_SUBMISSION } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
-import { isActivityPublished } from '../../utils/activityVisibility'
+import { isActivityPublished, isDraftActivity } from '../../utils/activityVisibility'
 import { publicacionVisible } from '../../utils/evaluacionGrading'
+import { normalizeGrade } from '../../utils/ponderacion'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import AttachmentList from '../../components/AttachmentList'
@@ -145,9 +146,8 @@ export default function StudentActivityPage() {
       // ordenadas por `orden`.
       try {
         const sibSnap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', actData.asignaturaId)))
-        const isDraftAct = (a) => a.oculta && !a.publishedAt && !a.publishAt
         const sibs = sibSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-          .filter((a) => !isDraftAct(a))
+          .filter((a) => !isDraftActivity(a))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         const countByParcial = {}
         let label = null
@@ -380,7 +380,7 @@ export default function StudentActivityPage() {
                       <span className="text-5xl font-bold text-accent">{submission.calificacion}</span>
                       <span className="text-xl text-slate-400 mb-1">/{activity?.maxCalif}</span>
                       {ev.mostrarPorcentaje && (
-                        <span className="text-sm text-muted mb-1.5">({Math.round((submission.calificacion / (activity?.maxCalif || 10)) * 100)}%)</span>
+                        <span className="text-sm text-muted mb-1.5">({Math.round(normalizeGrade(submission.calificacion, activity?.maxCalif, { base: 100 }))}%)</span>
                       )}
                     </div>
                   </>

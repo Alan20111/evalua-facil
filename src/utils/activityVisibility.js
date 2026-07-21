@@ -24,6 +24,15 @@ export function activityVisibilityState(a, parcialOculto = false) {
   return 'hidden'
 }
 
+// Un borrador es una actividad oculta que NUNCA se ha publicado (ni ahora ni
+// programada) — distinto de "oculta" a secas, que puede ser una actividad ya
+// publicada que el docente volvió a esconder. Antes este mismo predicado
+// estaba copiado suelto en ~10 sitios (SubjectPage.jsx del docente lo tenía
+// definido DOS veces distintas), cada uno con su propio nombre de variable.
+export function isDraftActivity(a) {
+  return !!a?.oculta && !a.publishedAt && !a.publishAt
+}
+
 // Human-readable label for scheduled date
 export function formatPublishAt(publishAt) {
   if (!publishAt) return ''
