@@ -348,10 +348,12 @@ function AgendaView({
                 data-tooltip={movable ? 'Editar' : 'Se edita desde la actividad'}
               >
                 <div className="flex h-full">
-                  {/* Horas a la izquierda */}
-                  <div className="w-14 flex-shrink-0 text-right pr-2 py-1.5 border-r" style={{ borderColor: `${fg}22` }}>
-                    <span className="block text-xs font-bold leading-tight">{fmtHour(horaIni)}</span>
-                    {horaFin && <span className="block text-[11px] opacity-70 leading-tight">{fmtHour(horaFin)}</span>}
+                  {/* Horas a la izquierda — texto sin salto de línea (evita que
+                      "am"/"pm" se corte o se pegue al borde) y una columna un
+                      poco más ancha para que quepa completo a este tamaño. */}
+                  <div className="w-16 flex-shrink-0 text-right pl-1 pr-1.5 py-1.5 border-r" style={{ borderColor: `${fg}22` }}>
+                    <span className="block text-[10px] font-bold leading-tight whitespace-nowrap">{fmtHour(horaIni)}</span>
+                    {horaFin && <span className="block text-[9px] opacity-70 leading-tight whitespace-nowrap">{fmtHour(horaFin)}</span>}
                   </div>
                   {/* Evento y descripción a la derecha */}
                   <div className="flex-1 min-w-0 pl-2.5 py-1.5">
