@@ -258,10 +258,12 @@ function AgendaView({
 
       {/* Rejilla del día */}
       <div className="flex">
-        {/* Gutter de horas */}
-        <div className="relative w-14 flex-shrink-0" style={{ height: gridH }}>
+        {/* Gutter de horas — un poco más ancho, con más aire respecto a la
+            línea de la rejilla y sin salto de línea, para que "am"/"pm" no
+            se corte ni quede pegado al borde (pedido explícito). */}
+        <div className="relative w-16 flex-shrink-0" style={{ height: gridH }}>
           {hours.map((h, i) => (
-            <div key={h} className="absolute right-1.5 text-[10px] text-muted leading-none"
+            <div key={h} className="absolute right-2 text-[11px] text-muted leading-none whitespace-nowrap"
               style={{ top: i * AGENDA_ROW_H + AGENDA_ROW_H / 2, transform: 'translateY(-50%)' }}>
               {formatHora12(`${String(h).padStart(2, '0')}:00`)}
             </div>
@@ -349,11 +351,13 @@ function AgendaView({
               >
                 <div className="flex h-full">
                   {/* Horas a la izquierda — texto sin salto de línea (evita que
-                      "am"/"pm" se corte o se pegue al borde) y una columna un
-                      poco más ancha para que quepa completo a este tamaño. */}
-                  <div className="w-16 flex-shrink-0 text-right pl-1 pr-1.5 py-1.5 border-r" style={{ borderColor: `${fg}22` }}>
-                    <span className="block text-[10px] font-bold leading-tight whitespace-nowrap">{fmtHour(horaIni)}</span>
-                    {horaFin && <span className="block text-[9px] opacity-70 leading-tight whitespace-nowrap">{fmtHour(horaFin)}</span>}
+                      "am"/"pm" se corte o se pegue al borde). En la app ya
+                      quedó bien de tamaño; en la web se veía demasiado chico,
+                      un punto más grande ahí (con su columna un poco más
+                      ancha para que siga cabiendo completo). */}
+                  <div className={`flex-shrink-0 text-right pl-1 pr-1.5 py-1.5 border-r ${IS_NATIVE_APP ? 'w-16' : 'w-[72px]'}`} style={{ borderColor: `${fg}22` }}>
+                    <span className={`block font-bold leading-tight whitespace-nowrap ${IS_NATIVE_APP ? 'text-[10px]' : 'text-[11px]'}`}>{fmtHour(horaIni)}</span>
+                    {horaFin && <span className={`block opacity-70 leading-tight whitespace-nowrap ${IS_NATIVE_APP ? 'text-[9px]' : 'text-[10px]'}`}>{fmtHour(horaFin)}</span>}
                   </div>
                   {/* Evento y descripción a la derecha */}
                   <div className="flex-1 min-w-0 pl-2.5 py-1.5">
