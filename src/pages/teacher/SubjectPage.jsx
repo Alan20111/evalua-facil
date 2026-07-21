@@ -2940,21 +2940,22 @@ export default function SubjectPage() {
     />
   )
 
-  // Leyenda de estados de asistencia (compartida web/app) — el texto se nota
-  // muy poco en la web (pedido explícito), ahí va al doble; en la app se
-  // queda como estaba.
+  // Leyenda de estados de asistencia (compartida web/app) — en la web el
+  // texto queda solo un poco más grande que los nombres de la tabla (text-sm),
+  // y los íconos del mismo tamaño que tienen en las celdas (w-6 h-6, 14px);
+  // la app se queda como estaba.
   const attendanceLegend = (
-    <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 px-1 text-muted ${IS_NATIVE_APP ? 'text-[11px]' : 'text-[22px]'}`}>
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 px-1 text-muted ${IS_NATIVE_APP ? 'text-[11px]' : 'text-base'}`}>
       <span className="inline-flex items-center gap-1">
-        <span className={`inline-flex items-center justify-center rounded bg-green-100 text-green-600 ${IS_NATIVE_APP ? 'w-4 h-4' : 'w-8 h-8'}`}><CheckIcon size={IS_NATIVE_APP ? 11 : 22} /></span>
+        <span className={`inline-flex items-center justify-center rounded bg-green-100 text-green-600 ${IS_NATIVE_APP ? 'w-4 h-4' : 'w-6 h-6'}`}><CheckIcon size={IS_NATIVE_APP ? 11 : 14} /></span>
         Asistencia
       </span>
       <span className="inline-flex items-center gap-1">
-        <span className={`inline-flex items-center justify-center rounded bg-red-100 text-red-500 ${IS_NATIVE_APP ? 'w-4 h-4' : 'w-8 h-8'}`}><X size={IS_NATIVE_APP ? 11 : 22} /></span>
+        <span className={`inline-flex items-center justify-center rounded bg-red-100 text-red-500 ${IS_NATIVE_APP ? 'w-4 h-4' : 'w-6 h-6'}`}><X size={IS_NATIVE_APP ? 11 : 14} /></span>
         Falta
       </span>
       <span className="inline-flex items-center gap-1">
-        <span className={`inline-flex items-center justify-center rounded bg-amber-100 text-amber-600 font-bold leading-none ${IS_NATIVE_APP ? 'w-4 h-4 text-[10px]' : 'w-8 h-8 text-[20px]'}`}>J</span>
+        <span className={`inline-flex items-center justify-center rounded bg-amber-100 text-amber-600 font-bold leading-none ${IS_NATIVE_APP ? 'w-4 h-4 text-[10px]' : 'w-6 h-6 text-[12px]'}`}>J</span>
         Justificada (cuenta como asistencia)
       </span>
       <span className="text-slate-400">· Toca para cambiar el estado · Clic derecho o mantén presionado para el motivo</span>
