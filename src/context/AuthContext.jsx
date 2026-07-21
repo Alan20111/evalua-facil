@@ -27,7 +27,18 @@ export function AuthProvider({ children }) {
               const schoolSnap = await getDoc(doc(db, 'schools', profile.escuelaId))
               if (schoolSnap.exists()) {
                 const schoolData = schoolSnap.data()
-                profile.schoolName = schoolData.nombre
+                // El docente elige/escribe el nombre completo, pero lo que se
+                // muestra en toda la app (docente, alumno, web) es el corto —
+                // más legible en headers/sidebars angostos. Se re-escribe en
+                // el doc del docente si quedó desactualizado (p. ej. escuelas
+                // registradas antes de que existiera esta preferencia), para
+                // que también se vea corto donde el alumno lo lee directo del
+                // doc del docente (StudentLayout) sin pasar por este fetch.
+                const shortName = schoolData.shortName || schoolData.nombre
+                if (shortName !== profile.schoolName) {
+                  updateDoc(doc(db, 'users', user.uid), { schoolName: shortName }).catch(() => {})
+                }
+                profile.schoolName = shortName
                 profile.claveSEP = schoolData.claveSEP
               }
             } catch {

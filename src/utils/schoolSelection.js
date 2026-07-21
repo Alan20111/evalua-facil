@@ -57,7 +57,7 @@ export async function resolveSchoolSelection(plantel, createdBy) {
       if (!byCCT.empty) {
         const match = byCCT.docs[0]
         if (Object.keys(extra).length) await setDoc(doc(db, 'schools', match.id), extra, { merge: true })
-        return { escuelaId: match.id, schoolName: match.data().nombre || name }
+        return { escuelaId: match.id, schoolName: match.data().shortName || match.data().nombre || name }
       }
     }
 
@@ -74,7 +74,7 @@ export async function resolveSchoolSelection(plantel, createdBy) {
     })
     if (cityMatch) {
       if (Object.keys(extra).length) await setDoc(doc(db, 'schools', cityMatch.id), extra, { merge: true })
-      return { escuelaId: cityMatch.id, schoolName: cityMatch.data().nombre || name }
+      return { escuelaId: cityMatch.id, schoolName: cityMatch.data().shortName || cityMatch.data().nombre || name }
     }
 
     // Fallback for schools created before nombreNormalizado existed at all —
@@ -88,7 +88,7 @@ export async function resolveSchoolSelection(plantel, createdBy) {
     })
     if (legacyMatch) {
       await setDoc(doc(db, 'schools', legacyMatch.id), { nombreNormalizado, ...extra }, { merge: true })
-      return { escuelaId: legacyMatch.id, schoolName: legacyMatch.data().nombre || name }
+      return { escuelaId: legacyMatch.id, schoolName: legacyMatch.data().shortName || legacyMatch.data().nombre || name }
     }
 
     const ref = doc(collection(db, 'schools'))
