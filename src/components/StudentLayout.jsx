@@ -69,7 +69,7 @@ export default function StudentLayout({ children }) {
     const eid = userProfile?.escuelaId || studentInfo?.escuelaId
     if (!eid) return
     getDoc(doc(db, 'schools', eid))
-      .then((snap) => { if (snap.exists()) setSchoolName(snap.data().nombre || '') })
+      .then((snap) => { if (snap.exists()) setSchoolName(snap.data().shortName || snap.data().nombre || '') })
       .catch(() => {})
   }, [subjects, userProfile?.escuelaId, studentInfo?.escuelaId])
 
