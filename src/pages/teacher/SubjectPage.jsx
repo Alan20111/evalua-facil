@@ -152,7 +152,7 @@ const AttendanceTable = memo(function AttendanceTable({
   const attLastHoverRef = useRef({ col: null, day: null })
   const attActiveCellRef = useRef(null)
 
-  const dayColW = IS_NATIVE_APP ? 'w-[50px]' : 'w-9'   // columnas de asistencia más anchas en la app — pedido explícito, seguía habiendo error de dedo con 42px
+  const dayColW = IS_NATIVE_APP ? 'w-16' : 'w-14'   // ensanchadas para que quepa el círculo del doble de grande (pedido explícito, se notaba muy poco)
   const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
   const now = new Date()
   const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -371,9 +371,9 @@ const AttendanceTable = memo(function AttendanceTable({
                 const estado = attendanceState(r, s.id)
                 const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
                 const ui = {
-                  presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
-                  falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} /> },
-                  justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
+                  presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={28} /> },
+                  falta: { cls: 'bg-red-100 text-red-500', icon: <X size={28} /> },
+                  justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[24px] font-bold leading-none">J</span> },
                 }[estado]
                 return (
                   <td key={r.id}
@@ -386,9 +386,11 @@ const AttendanceTable = memo(function AttendanceTable({
                     onPointerMove={onCancelLongPress}
                     onPointerLeave={onCancelLongPress}
                     className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
-                    <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
+                    {/* Círculo e ícono al doble de tamaño (pedido explícito — se
+                        notaba muy poco); dayColW se ensanchó para que quepa. */}
+                    <span className={`relative inline-flex items-center justify-center w-12 h-12 rounded ${ui.cls}`}>
                       {ui.icon}
-                      {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                      {motivo && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-500" />}
                     </span>
                   </td>
                 )
