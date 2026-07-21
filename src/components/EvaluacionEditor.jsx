@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  collection, query, where, doc, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, getDoc,
+  collection, query, where, doc, getDocs, addDoc, updateDoc, deleteDoc, serverTimestamp, getDoc, writeBatch,
 } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { useToast } from './Toast'
@@ -9,28 +9,27 @@ import VisibilitySelect from './VisibilitySelect'
 import RichTextEditor from './RichTextEditor'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, toRichHtml, htmlToPlainText } from '../utils/sanitizeHtml'
+import { repartirPonderacionParejo } from '../utils/evaluacionGrading'
 import {
-  ArrowLeft, Plus, Trash2, Library, Pencil, Copy,
+  ArrowLeft, Plus, Trash2, Library, Pencil, Copy, Scale, CheckSquare, Square,
   Image as ImageIcon, CalendarDays,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import SearchInput from './SearchInput'
-import { minDeadline } from '../utils/nowIso'
-import { isActivityPublished } from '../utils/activityVisibility'
+import { minDeadline, nowIsoLocal, isoLocalFromDate } from '../utils/nowIso'
+import { isActivityPublished, resolveVisibilidad } from '../utils/activityVisibility'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
 function toIsoNow() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+  return nowIsoLocal()
 }
 
 function computeScheduleDefault() {
-  const d = new Date(Date.now() + 2 * 60 * 60 * 1000)
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+  return isoLocalFromDate(new Date(Date.now() + 2 * 60 * 60 * 1000))
 }
 
 const TIPOS_PREGUNTA = [
@@ -130,6 +129,10 @@ export default function EvaluacionEditor({
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
   const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')
+  // Selección múltiple para agregar varios reactivos del banco de un jalón
+  // (pedido explícito) — antes solo se podía agregar uno a la vez, cada uno
+  // con su propio viaje de red.
+  const [selectedBancoIds, setSelectedBancoIds] = useState(() => new Set())
   // Single afterglow: at most ONE reactivo (bank or preguntas list) keeps
   // the accent highlight — the most recently edited/created one. Starting a
   // new edit/creation moves the focus there.
@@ -218,28 +221,12 @@ export default function EvaluacionEditor({
     if (!htmlToPlainText(infoForm.instrucciones) && !infoForm.nombre.trim()) {
       toast('Escribe al menos el nombre de la evaluación', 'error'); return
     }
-    // Effective mode: a non-draft save of a never-published hidden evaluación
-    // means PUBLISH NOW — keeping it draft is the explicit secondary button.
-    const mode = !asDraft && infoForm.visibilidadMode === 'hide' && !infoForm.publishedAt
-      ? 'show' : infoForm.visibilidadMode
-    // A scheduled publication must be in the future
-    if (!asDraft && mode === 'schedule') {
-      if (!infoForm.publishAt) { toast('Elige la fecha y hora de publicación', 'error'); return }
-      if (infoForm.publishAt <= toIsoNow()) {
-        toast('La fecha de publicación programada debe ser posterior a este momento', 'error'); return
-      }
-    }
-    // Backend validation: fechaLimite must be strictly after the effective publish datetime
-    const effectivePublishAt = asDraft ? null :
-      mode === 'show'      ? toIsoNow() :
-      mode === 'published' ? (infoForm.publishedAt || null) :
-      mode === 'schedule'  ? (infoForm.publishAt || null) :
-      (infoForm.publishedAt || null)  // hide: published-then-hidden still validates vs original date
-    if (infoForm.fechaLimite && effectivePublishAt) {
-      if (infoForm.fechaLimite <= effectivePublishAt) {
-        toast('La fecha límite debe ser posterior a la fecha de publicación', 'error'); return
-      }
-    }
+    const resolved = resolveVisibilidad({
+      visibilidadMode: infoForm.visibilidadMode, publishedAt: infoForm.publishedAt,
+      publishAt: infoForm.publishAt, fechaLimite: infoForm.fechaLimite, asDraft,
+    })
+    if (!resolved.ok) { toast(resolved.error, 'error'); return }
+    const { mode, oculta, publishAt: resolvedPublishAt, publishedAt: newPublishedAt } = resolved
 
     setSavingInfo(true)
     try {
@@ -249,17 +236,14 @@ export default function EvaluacionEditor({
           nombre: file.name, tamano: file.size,
         }))
       )
-      // publishedAt is permanent once set — hiding keeps the original date
-      const newPublishedAt =
-        !asDraft && mode === 'show' ? toIsoNow() : (infoForm.publishedAt || null)
       const payload = {
         nombre: infoForm.nombre.trim(),
         categoria,
         instrucciones: sanitizeHtml(infoForm.instrucciones),
         archivosAdjuntos: [...attachExisting, ...uploaded],
         fechaLimite: infoForm.fechaLimite || null,
-        oculta: asDraft || mode === 'schedule' || mode === 'hide',
-        publishAt: !asDraft && mode === 'schedule' ? (infoForm.publishAt || null) : null,
+        oculta,
+        publishAt: resolvedPublishAt,
         publishedAt: newPublishedAt,
         maxCalif: 10,
         notificarDocente: !!infoForm.notificarDocente,
@@ -506,6 +490,50 @@ export default function EvaluacionEditor({
     setGlowId(ref.id)
     await syncNumPreguntas(updated.length)
     toast('Pregunta agregada desde tu banco')
+  }
+
+  // Agregar varias reactivos del banco de un jalón (pedido explícito) — un
+  // solo writeBatch en vez de un addDoc por pregunta.
+  async function handleAddFromBancoMultiple(items) {
+    if (!currentActivityId || !items.length) return
+    setSavingPregunta(true)
+    try {
+      const batch = writeBatch(db)
+      let orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
+      const nuevas = []
+      for (const item of items) {
+        const ref = doc(collection(db, 'activities', currentActivityId, 'preguntas'))
+        const data = { tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
+          respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
+          imagenUrl: null, orden: orden++, origenBancoId: item.id }
+        batch.set(ref, data)
+        nuevas.push({ id: ref.id, ...data })
+      }
+      await batch.commit()
+      const updated = [...preguntas, ...nuevas]
+      setPreguntas(updated)
+      await syncNumPreguntas(updated.length)
+      setSelectedBancoIds(new Set())
+      toast(`${items.length} pregunta${items.length > 1 ? 's' : ''} agregada${items.length > 1 ? 's' : ''} desde tu banco`)
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setSavingPregunta(false) }
+  }
+
+  // "Repartir parejo" — pedido explícito: reparte los 10 puntos entre todas
+  // las preguntas existentes en partes iguales, en vez de tener que calcular
+  // y escribir la ponderación de cada una a mano.
+  async function handleRepartirParejo() {
+    if (!preguntas.length) return
+    const values = repartirPonderacionParejo(preguntas.length)
+    setSavingPregunta(true)
+    try {
+      const batch = writeBatch(db)
+      preguntas.forEach((p, i) => batch.update(doc(db, 'activities', currentActivityId, 'preguntas', p.id), { ponderacion: values[i] }))
+      await batch.commit()
+      setPreguntas((prev) => prev.map((p, i) => ({ ...p, ponderacion: values[i] })))
+      toast('Ponderación repartida en partes iguales')
+    } catch (err) { toast('Error: ' + err.message, 'error') }
+    finally { setSavingPregunta(false) }
   }
 
   const temas = [...new Set(banco.map((b) => b.tema).filter(Boolean))]
@@ -870,6 +898,19 @@ export default function EvaluacionEditor({
           </div>
 
           <div className="p-4 space-y-3">
+            {/* Repartir parejo — pedido explícito: evita calcular a mano la
+                ponderación de cada pregunta cuando se quiere el mismo peso
+                para todas. */}
+            {preguntas.length > 1 && Math.abs(ponderacionUsada - 10) >= 0.01 && (
+              <button
+                type="button"
+                onClick={handleRepartirParejo}
+                disabled={savingPregunta}
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded border border-accent text-accent text-sm font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
+              >
+                <Scale size={15} /> Repartir 10 pts parejo entre las {preguntas.length} preguntas
+              </button>
+            )}
             {!currentActivityId ? (
               <p className="text-sm text-muted text-center py-4">Guarda la información de arriba para empezar a agregar preguntas.</p>
             ) : loadingPreguntas ? (
@@ -1062,7 +1103,7 @@ export default function EvaluacionEditor({
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm bg-accent text-white font-medium rounded-card">
                         <Plus size={15} /> Crear reactivo nuevo
                       </button>
-                      <button type="button" onClick={() => { setShowBanco(true); loadBanco() }}
+                      <button type="button" onClick={() => { setShowBanco(true); loadBanco(); setSelectedBancoIds(new Set()) }}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm border border-accent text-accent font-medium rounded-card">
                         <Library size={15} /> Agregar desde el Banco
                       </button>
@@ -1104,6 +1145,28 @@ export default function EvaluacionEditor({
                   </select>
                 )}
               </div>
+              {/* Barra de selección múltiple — pedido explícito: agregar
+                  varios reactivos de un jalón. */}
+              {selectedBancoIds.size > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-muted flex-1">{selectedBancoIds.size} seleccionada{selectedBancoIds.size > 1 ? 's' : ''}</span>
+                  <button type="button" onClick={() => setSelectedBancoIds(new Set())} className="text-xs text-muted px-2 py-1.5">
+                    Quitar selección
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingPregunta}
+                    onClick={() => {
+                      const items = bancoFiltrado.filter((b) => selectedBancoIds.has(b.id))
+                      handleAddFromBancoMultiple(items)
+                      setShowBanco(false)
+                    }}
+                    className="text-xs font-medium bg-accent text-white rounded px-3 py-1.5 disabled:opacity-60"
+                  >
+                    Agregar {selectedBancoIds.size} a la evaluación
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Lista con scroll */}
@@ -1156,6 +1219,21 @@ export default function EvaluacionEditor({
                       ) : (
                         <div>
                           <div className="flex items-start gap-2">
+                            {/* Selección múltiple — pedido explícito, para
+                                agregar varios reactivos de un jalón en vez
+                                de uno a la vez. */}
+                            <button
+                              type="button"
+                              aria-label={selectedBancoIds.has(item.id) ? 'Quitar de la selección' : 'Seleccionar'}
+                              onClick={() => setSelectedBancoIds((prev) => {
+                                const next = new Set(prev)
+                                next.has(item.id) ? next.delete(item.id) : next.add(item.id)
+                                return next
+                              })}
+                              className="mt-0.5 flex-shrink-0 text-accent"
+                            >
+                              {selectedBancoIds.has(item.id) ? <CheckSquare size={18} /> : <Square size={18} className="text-slate-300" />}
+                            </button>
                             <div className="flex-1">
                               <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent-light px-1.5 py-0.5 rounded mb-1">
                                 {TIPOS_PREGUNTA.find((t) => t.value === item.tipo)?.label}

@@ -12,7 +12,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { isActivityPublished, formatPublishAt } from '../../utils/activityVisibility'
+import { isActivityPublished, formatPublishAt, isOverdue } from '../../utils/activityVisibility'
 import { formatHora12FromDate } from '../../utils/formatHora'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
@@ -78,12 +78,6 @@ function formatFechaLimite(value) {
   const d = new Date(value)
   if (isNaN(d.getTime())) return ''
   return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + ' ' + formatHora12FromDate(d)
-}
-
-function isOverdue(activity) {
-  if (!activity.fechaLimite) return false
-  const d = new Date(activity.fechaLimite)
-  return !isNaN(d.getTime()) && d < new Date()
 }
 
 export default function StudentSubjectPage() {

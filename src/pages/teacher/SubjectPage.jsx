@@ -18,7 +18,7 @@ import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
-import { activityVisibilityState, formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
+import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime } from '../../utils/activityVisibility'
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -151,7 +151,7 @@ const AttendanceTable = memo(function AttendanceTable({
   const attLastHoverRef = useRef({ col: null, day: null })
   const attActiveCellRef = useRef(null)
 
-  const dayColW = IS_NATIVE_APP ? 'w-[42px]' : 'w-9'   // columnas de asistencia +15% en la app
+  const dayColW = IS_NATIVE_APP ? 'w-[50px]' : 'w-9'   // columnas de asistencia más anchas en la app — pedido explícito, seguía habiendo error de dedo con 42px
   const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
   const now = new Date()
   const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -1016,6 +1016,12 @@ export default function SubjectPage() {
   }
 
   // Un toque cicla el estado: Presente → Falta → Justificada → Presente.
+  // Ya NO abre la ventana de motivo automáticamente al llegar a Justificada
+  // (pedido explícito) — antes interrumpía cada tercer toque al ir marcando
+  // varios estudiantes seguido, rompiendo el ritmo. El motivo sigue
+  // disponible cuando el docente sí lo quiere escribir: clic derecho o
+  // mantener presionado (ver cellContextMenu/cellPointerDown abajo) — es
+  // opcional, no bloquea el estado.
   async function handleCycleAttendance(record, student) {
     const studentId = student.id
     const next = nextAttendanceState(attendanceState(record, studentId))
@@ -1027,8 +1033,6 @@ export default function SubjectPage() {
         justificadas: { ...(r.justificadas || {}), [studentId]: next === 'justificada' },
       }
     }))
-    // Al pasar a justificada, abrir la ventana para escribir el motivo.
-    if (next === 'justificada') openReasonModal(record, student)
     try {
       await setAttendanceState(record.id, studentId, next)
     } catch (err) {
@@ -1498,9 +1502,7 @@ export default function SubjectPage() {
       initialForm: {
         nombre: activity.nombre || '',
         instrucciones: toRichHtml(activity.instrucciones || ''),
-        fechaLimite: activity.fechaLimite
-          ? (activity.fechaLimite.includes('T') ? activity.fechaLimite : `${activity.fechaLimite}T00:00`)
-          : '',
+        fechaLimite: activity.fechaLimite ? withDefaultTime(activity.fechaLimite, '00:00') : '',
         tiposArchivo: normalizeFileTypeKeys(activity.tiposArchivo),
         extensionesCustom: activity.extensionesCustom || '',
         oculta: activity.oculta || false,
@@ -1519,11 +1521,8 @@ export default function SubjectPage() {
 
   // Published entregable being edited? Only then does the editor offer "Nueva
   // fecha límite de entrega" — same group/per-student extension ActivityPage uses.
-  const editorIsPublished = !!entregableEditor?.initialForm?.publishedAt && new Date(
-    entregableEditor.initialForm.publishedAt.includes('T')
-      ? entregableEditor.initialForm.publishedAt
-      : `${entregableEditor.initialForm.publishedAt}T00:00:00`
-  ).getTime() <= Date.now()
+  const editorIsPublished = !!entregableEditor?.initialForm?.publishedAt
+    && new Date(withDefaultTime(entregableEditor.initialForm.publishedAt, '00:00:00')).getTime() <= Date.now()
 
   // Live copy of the activity being edited — used to show its current
   // extensiones/extensionesMotivo (per-student prórrogas) in the editor,
@@ -2941,6 +2940,15 @@ export default function SubjectPage() {
               </button>
             ))}
           </div>
+          {/* Aviso simple y permanente (no solo cuando no hay estudiantes,
+              ver arriba) de por qué Calificaciones/Estudiantes no aparecen
+              en la App — pedido explícito: son áreas complejas para usar en
+              móvil, mejor decirlo claro que dejarlas sin explicación. */}
+          {IS_NATIVE_APP && (
+            <p className="text-[11px] text-muted mt-1.5 text-center">
+              Para ver Calificaciones o administrar Estudiantes, usa la web.
+            </p>
+          )}
         </div>
 
         {/* ══════════════════════════════════════════════════════════

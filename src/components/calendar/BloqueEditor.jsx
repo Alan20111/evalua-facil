@@ -12,6 +12,7 @@ import {
 } from '../../utils/horarioBloques'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
+import { IS_NATIVE_APP } from '../../utils/platform'
 
 const HORAS_INICIO = Array.from({ length: 33 }, (_, i) => {
   const h = 6 + Math.floor(i / 2)
@@ -228,29 +229,43 @@ export default function BloqueEditor({ bloque, bloques, subjects, onClose, onUpd
             </div>
           </div>
 
-          {/* Alarma */}
-          <div className="space-y-2 rounded-card border border-outline-variant p-3">
-            <button type="button" onClick={() => setForm(f => ({ ...f, alarma: { ...f.alarma, activa: !f.alarma.activa } }))}
-              className="flex items-center gap-2 text-sm font-medium text-on-surface">
-              {form.alarma.activa ? <Bell size={16} className="text-accent" /> : <BellOff size={16} className="text-muted" />}
-              Alarma
-            </button>
-            {form.alarma.activa && (
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex gap-1.5">
-                  <select value={form.alarma.sonido} onChange={e => setForm(f => ({ ...f, alarma: { ...f.alarma, sonido: e.target.value } }))} className={`${inputCls} flex-1`}>
-                    {ALARMA_SONIDOS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                  </select>
-                  <button type="button" onClick={() => reproducirSonido(form.alarma.sonido)} className="px-2 rounded border border-outline-variant text-accent hover:bg-accent-tint" aria-label="Probar">
-                    <Play size={14} />
-                  </button>
+          {/* Alarma — sistema VIEJO: solo suena mientras esta pantalla de
+              Horario sigue abierta en este navegador (útil en la web si
+              tienes el horario abierto en una pestaña todo el día). Es
+              distinto del aviso de "Antes de una clase" en Notificaciones
+              (empuja al celular en segundo plano, sin depender de tener
+              nada abierto) — para no confundir los dos sistemas (pedido
+              explícito, causa real de bugs pasados), en la App se oculta
+              este control por completo y solo se explica el otro. */}
+          {IS_NATIVE_APP ? (
+            <p className="text-xs text-muted rounded-card border border-outline-variant p-3">
+              Para que tu celular te avise cuando esté por comenzar esta clase, activa “Antes de una clase” en Notificaciones — ese aviso llega aunque la app esté cerrada.
+            </p>
+          ) : (
+            <div className="space-y-2 rounded-card border border-outline-variant p-3">
+              <button type="button" onClick={() => setForm(f => ({ ...f, alarma: { ...f.alarma, activa: !f.alarma.activa } }))}
+                className="flex items-center gap-2 text-sm font-medium text-on-surface">
+                {form.alarma.activa ? <Bell size={16} className="text-accent" /> : <BellOff size={16} className="text-muted" />}
+                Alarma
+              </button>
+              <p className="text-xs text-muted">Suena solo mientras dejas esta pantalla de Horario abierta en el navegador. Para un aviso en tu celular aunque la app esté cerrada, usa “Antes de una clase” en Notificaciones.</p>
+              {form.alarma.activa && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex gap-1.5">
+                    <select value={form.alarma.sonido} onChange={e => setForm(f => ({ ...f, alarma: { ...f.alarma, sonido: e.target.value } }))} className={`${inputCls} flex-1`}>
+                      {ALARMA_SONIDOS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                    </select>
+                    <button type="button" onClick={() => reproducirSonido(form.alarma.sonido)} className="px-2 rounded border border-outline-variant text-accent hover:bg-accent-tint" aria-label="Probar">
+                      <Play size={14} />
+                    </button>
+                  </div>
+                  <input type="number" min={0} max={120} value={form.alarma.minutosAntes}
+                    onChange={e => setForm(f => ({ ...f, alarma: { ...f.alarma, minutosAntes: Math.max(0, Number(e.target.value) || 0) } }))}
+                    className={`${inputCls} w-full`} placeholder="min antes" />
                 </div>
-                <input type="number" min={0} max={120} value={form.alarma.minutosAntes}
-                  onChange={e => setForm(f => ({ ...f, alarma: { ...f.alarma, minutosAntes: Math.max(0, Number(e.target.value) || 0) } }))}
-                  className={`${inputCls} w-full`} placeholder="min antes" />
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Eliminar */}
           <div className="pt-1 border-t border-outline-variant">

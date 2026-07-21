@@ -94,6 +94,22 @@ export function canCreateContent(subscription) {
   return !isSubscriptionExpired(subscription)
 }
 
+// Whether to offer "renovar/activar" — no plan at all, already expired/vencida,
+// a pending payment to finish, still on trial, or a paid plan that's about to
+// expire (7 días o menos). Single source of truth — antes Profile.jsx volvía a
+// calcular esta misma regla por su cuenta en vez de leerla de aquí.
+export function canRenew(subscription) {
+  if (!subscription) return true
+  if (subscription.status === 'vencida') return true
+  if (subscription.status === 'pendiente_pago') return true
+  if (subscription.status === 'trial') return true
+  if (subscription.status === 'activa') {
+    const daysRemaining = calcDaysRemaining(effectiveVencimiento(subscription))
+    return daysRemaining !== null && daysRemaining <= 7
+  }
+  return false
+}
+
 // Trial banner copy — the day counter is always visible from day 1 of the
 // trial; a warning notice is added only for the last stretch. Continuity-first
 // wording throughout: never implies lost work, always a clear next step

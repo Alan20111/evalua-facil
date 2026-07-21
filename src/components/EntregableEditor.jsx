@@ -15,8 +15,8 @@ import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
 import { snapshotRubrica, esCotejo } from '../utils/rubrica'
 import EFDateTimePicker from './EFDateTimePicker'
-import { formatDeadline, isActivityPublished } from '../utils/activityVisibility'
-import { minDeadline } from '../utils/nowIso'
+import { formatDeadline, isActivityPublished, resolveVisibilidad } from '../utils/activityVisibility'
+import { minDeadline, isoLocalFromDate } from '../utils/nowIso'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../utils/platform'
@@ -43,15 +43,9 @@ function groupExtensions(extensiones, extensionesMotivo, students) {
   return [...byKey.values()].sort((a, b) => a.date.localeCompare(b.date))
 }
 
-function toIsoNow() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
-}
-
 // Returns ISO datetime string for "now + 2 hours", used as smart default for scheduled publication
 function computeScheduleDefault() {
-  const d = new Date(Date.now() + 2 * 60 * 60 * 1000)
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+  return isoLocalFromDate(new Date(Date.now() + 2 * 60 * 60 * 1000))
 }
 
 // Full-screen editor for Entregable activities (file submission / mark-complete)
@@ -163,28 +157,12 @@ export default function EntregableEditor({
     if (!isObservacion && !htmlToPlainText(form.instrucciones)) {
       toast('Escribe las instrucciones de la actividad', 'error'); return
     }
-    // Effective mode: a non-draft save of a never-published hidden activity
-    // means PUBLISH NOW — keeping it draft is the explicit secondary button.
-    const mode = !asDraft && form.visibilidadMode === 'hide' && !form.publishedAt
-      ? 'show' : form.visibilidadMode
-    // A scheduled publication must be in the future
-    if (!asDraft && mode === 'schedule') {
-      if (!form.publishAt) { toast('Elige la fecha y hora de publicación', 'error'); return }
-      if (form.publishAt <= toIsoNow()) {
-        toast('La fecha de publicación programada debe ser posterior a este momento', 'error'); return
-      }
-    }
-    // Backend validation: fechaLimite must be strictly after the effective publish datetime
-    const effectivePublishAt = asDraft ? null :
-      mode === 'show'      ? toIsoNow() :
-      mode === 'published' ? (form.publishedAt || null) :
-      mode === 'schedule'  ? (form.publishAt || null) :
-      (form.publishedAt || null)  // hide: published-then-hidden still validates vs original date
-    if (form.fechaLimite && effectivePublishAt) {
-      if (form.fechaLimite <= effectivePublishAt) {
-        toast('La fecha límite debe ser posterior a la fecha de publicación', 'error'); return
-      }
-    }
+    const resolved = resolveVisibilidad({
+      visibilidadMode: form.visibilidadMode, publishedAt: form.publishedAt,
+      publishAt: form.publishAt, fechaLimite: form.fechaLimite, asDraft,
+    })
+    if (!resolved.ok) { toast(resolved.error, 'error'); return }
+    const { mode, oculta, publishAt: resolvedPublishAt, publishedAt: newPublishedAt } = resolved
 
     setSaving(true)
     try {
@@ -194,10 +172,6 @@ export default function EntregableEditor({
           nombre: file.name, tamano: file.size,
         }))
       )
-      // Determine publishedAt for this save — once set it is permanent:
-      // hiding a published activity keeps the original publication date
-      const newPublishedAt =
-        !asDraft && mode === 'show' ? toIsoNow() : (form.publishedAt || null)
       const payload = {
         nombre: form.nombre.trim(),
         categoria: categoria || 'entregable',
@@ -207,8 +181,8 @@ export default function EntregableEditor({
         fechaLimite: isObservacion ? null : (form.fechaLimite || null),
         tiposArchivo,
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
-        oculta: asDraft || mode === 'schedule' || mode === 'hide',
-        publishAt: !asDraft && mode === 'schedule' ? (form.publishAt || null) : null,
+        oculta,
+        publishAt: resolvedPublishAt,
         publishedAt: newPublishedAt,
         // The checkbox is worded as "cerrar en la fecha programada" (positive framing),
         // but the field the student-facing page actually reads is the inverse: recibirTarde.

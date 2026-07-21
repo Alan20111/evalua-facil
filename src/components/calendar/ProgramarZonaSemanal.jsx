@@ -11,6 +11,7 @@ import {
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
+import { IS_NATIVE_APP } from '../../utils/platform'
 
 const ROW_H = 52 // px por hora — igual que la vista Semana
 const SNAP_MIN = 10 // los bloques se colocan/arrastran alineados a 10 min
@@ -638,7 +639,16 @@ export default function ProgramarZonaSemanal({
               </div>
             </div>
 
-            {/* Alarma */}
+            {/* Alarma — sistema viejo, solo suena con esta pantalla abierta
+                en el navegador; distinto del aviso de "Antes de una clase"
+                en Notificaciones (llega al celular en segundo plano). Se
+                oculta en la App para no confundir los dos (mismo criterio
+                que BloqueEditor.jsx). */}
+            {IS_NATIVE_APP ? (
+              <p className="text-xs text-muted rounded-card border border-outline-variant p-2.5">
+                Para el aviso en tu celular, activa “Antes de una clase” en Notificaciones.
+              </p>
+            ) : (
             <div className="space-y-2 rounded-card border border-outline-variant p-2.5">
               <button
                 type="button"
@@ -648,6 +658,7 @@ export default function ProgramarZonaSemanal({
                 {editP.alarma?.activa ? <Bell size={15} className="text-accent" /> : <BellOff size={15} className="text-muted" />}
                 Alarma antes de la clase
               </button>
+              <p className="text-[11px] text-muted">Suena solo con esta pantalla abierta en el navegador. Para el celular, usa “Antes de una clase” en Notificaciones.</p>
               {editP.alarma?.activa && (
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex gap-1.5">
@@ -671,6 +682,7 @@ export default function ProgramarZonaSemanal({
                 </div>
               )}
             </div>
+            )}
 
             {/* Acciones: Borrar · Duplicar · Confirmar */}
             <div className="flex items-center gap-1.5 pt-0.5">

@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
+import ConfirmModal from '../../components/ConfirmModal'
 import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
 import { resolveSchoolSelection, normalizeName, findSimilarSchools } from '../../utils/schoolSelection'
@@ -30,6 +31,7 @@ import {
   getDaysLabel,
   getPaymentStatusColor,
   getSubscriptionStatusColor,
+  canRenew as canRenewSubscription,
 } from '../../utils/subscriptionHelpers'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
@@ -341,12 +343,7 @@ export default function Profile() {
   const displayName = userProfile?.nombreMostrar || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
   const daysRemaining = subscription ? calcDaysRemaining(effectiveVencimiento(subscription)) : null
-  const canRenew =
-    !subscription ||
-    subscription.status === 'vencida' ||
-    subscription.status === 'pendiente_pago' ||
-    subscription.status === 'trial' ||
-    (subscription.status === 'activa' && daysRemaining !== null && daysRemaining <= 7)
+  const canRenew = canRenewSubscription(subscription)
 
   return (
     <TeacherLayout>
@@ -610,28 +607,13 @@ export default function Profile() {
 
       {/* ── Confirmation modal ── */}
       {confirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !confirming && setConfirm(null)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
-            <button type="button" onClick={() => !confirming && setConfirm(null)} aria-label="Cerrar"
-              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-muted rounded">
-              <X size={20} />
-            </button>
-            <h3 className="text-base font-semibold text-on-surface mb-2 pr-6">{confirm.title}</h3>
-            <p className="text-sm text-muted mb-4 leading-relaxed">{confirm.message}</p>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setConfirm(null)} disabled={confirming}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-                Cancelar
-              </button>
-              <button type="button" onClick={handleConfirm} disabled={confirming}
-                className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                {confirming ? <Spinner size="sm" /> : null}
-                {confirming ? 'Procesando…' : 'Confirmar'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title={confirm.title}
+          message={confirm.message}
+          busy={confirming}
+          onConfirm={handleConfirm}
+          onCancel={() => setConfirm(null)}
+        />
       )}
 
       {/* School picker overlay */}

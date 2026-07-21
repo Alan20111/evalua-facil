@@ -35,7 +35,7 @@ import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sani
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import { nowIsoLocal } from '../../utils/nowIso'
-import { formatDeadline, formatPublishAt } from '../../utils/activityVisibility'
+import { formatDeadline, formatPublishAt, parseFechaLimite, withDefaultTime } from '../../utils/activityVisibility'
 import { ALL_FILES_KEY, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
 import AttachmentList from '../../components/AttachmentList'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
@@ -63,7 +63,7 @@ function formatLateness(sub, student, activity) {
   const dl = activity?.extensiones?.[student?.id] || activity?.fechaLimite
   const submitMs = sub.fechaEntrega?.seconds ? sub.fechaEntrega.seconds * 1000 : null
   if (!dl || !submitMs) return 'Entrega tarde'
-  const dlMs = new Date(dl.includes('T') ? dl : `${dl}T23:59:59`).getTime()
+  const dlMs = parseFechaLimite(dl).getTime()
   const diff = submitMs - dlMs
   if (diff <= 60000) return 'Entrega tarde'
   const mins = Math.floor(diff / 60000)
@@ -569,9 +569,7 @@ export default function ActivityPage() {
   // Already published? The "Nueva fecha límite de entrega" action lives in the
   // editor and is offered once the activity is published (a student may fall
   // behind the group deadline and need their own extension).
-  const isPublished = !!activity?.publishedAt && new Date(
-    activity.publishedAt.includes('T') ? activity.publishedAt : `${activity.publishedAt}T00:00:00`
-  ).getTime() <= Date.now()
+  const isPublished = !!activity?.publishedAt && new Date(withDefaultTime(activity.publishedAt, '00:00:00')).getTime() <= Date.now()
 
   // Merges the result of NuevaFechaEntregaModal into local activity state.
   function applyNewDateResult(result) {
@@ -1896,6 +1894,28 @@ export default function ActivityPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Comentario/retroalimentación — pedido explícito: solo
+                    para entregable (no observación ni evaluación, mismo
+                    criterio que Nueva fecha/Anular arriba). Antes solo
+                    existía en la vista web; calificar desde el celular no
+                    dejaba forma de escribir retroalimentación. */}
+                {!isObservacion && !isEvaluacion && (
+                  <div>
+                    <label htmlFor="act-comentario-app" className="block text-sm font-medium text-muted mb-1">
+                      Comentario <span className="text-slate-400">(opcional)</span>
+                    </label>
+                    <textarea
+                      id="act-comentario-app"
+                      value={gradeForm.comentario}
+                      onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
+                      rows={3}
+                      disabled={parcialCerrado}
+                      className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                      placeholder="Retroalimentación para el estudiante…"
+                    />
+                  </div>
+                )}
 
                 {!canCreate && (
                   <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 leading-relaxed">

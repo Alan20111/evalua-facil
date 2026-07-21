@@ -10,7 +10,6 @@ import {
   Timer,
   CalendarDays,
   Bell,
-  X,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -29,6 +28,7 @@ import { IS_NATIVE_APP } from '../utils/platform'
 import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
+import ConfirmModal from './ConfirmModal'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
@@ -336,42 +336,13 @@ export default function TeacherLayout({ children }) {
 
       {/* Confirmación de cierre de sesión — solo en la app nativa */}
       {confirmLogout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40 border-none cursor-default"
-            onClick={() => setConfirmLogout(false)}
-            aria-label="Cerrar"
-          />
-          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
-            <button
-              type="button"
-              onClick={() => setConfirmLogout(false)}
-              aria-label="Cerrar"
-              className="absolute top-4 right-4 p-1 text-slate-400 hover:text-muted rounded"
-            >
-              <X size={20} />
-            </button>
-            <h3 className="text-base font-semibold text-on-surface mb-2 pr-6">Cerrar sesión</h3>
-            <p className="text-sm text-muted mb-4 leading-relaxed">¿Seguro que quieres salir?</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmLogout(false)}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors"
-              >
-                Salir
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="Cerrar sesión"
+          message="¿Seguro que quieres salir?"
+          confirmLabel="Salir"
+          onConfirm={handleLogout}
+          onCancel={() => setConfirmLogout(false)}
+        />
       )}
 
     </div>

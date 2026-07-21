@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  collection, query, where, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, doc, serverTimestamp,
+  collection, query, where, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../utils/sanitizeHtml'
 import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
+import { nowIsoLocal as toIsoNow } from '../utils/nowIso'
 import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { uploadToCloudinary } from '../utils/cloudinary'
@@ -16,9 +17,12 @@ import SearchInput from './SearchInput'
 import { TEACHER_CONTAINER_NARROW } from '../config/layout'
 import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision,
-  resolverCalificacionFinal, TIPOS_REVISION_MANUAL,
+  resolverCalificacionFinal, TIPOS_REVISION_MANUAL, repartirPonderacionParejo,
 } from '../utils/evaluacionGrading'
-import { ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays, Star } from 'lucide-react'
+import {
+  ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays, Star,
+  Scale, CheckSquare, Square,
+} from 'lucide-react'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 import EvaluacionGraficas from './EvaluacionGraficas'
@@ -36,10 +40,6 @@ const TIPOS_PREGUNTA = [
 ]
 const OPCION_IDS = ['a', 'b', 'c', 'd']
 
-function toIsoNow() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
-}
 const EMPTY_PREGUNTA = {
   tipo: 'opcion_multiple', enunciado: '', opciones: { a: '', b: '', c: '', d: '' }, respuestaCorrecta: 'a',
   vfRespuesta: 'v', ponderacion: 1, retroalimentacion: '', imagenFile: null, guardarEnBanco: false, tema: '',
@@ -105,6 +105,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [bancoSearch, setBancoSearch] = useState('')
   const [bancoTemaFilter, setBancoTemaFilter] = useState('')
   const [bancoMateriaFilter, setBancoMateriaFilter] = useState('')
+  // Selección múltiple para agregar varios reactivos del banco de un jalón
+  // (pedido explícito) — mismo patrón que EvaluacionEditor.jsx.
+  const [selectedBancoIds, setSelectedBancoIds] = useState(() => new Set())
   // Single afterglow: at most ONE reactivo (bank or preguntas list) keeps
   // the accent highlight — the most recently edited/created one. Starting a
   // new edit/creation moves the focus there.
@@ -290,6 +293,58 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     }
   }
 
+  // Agregar varios reactivos del banco de un jalón (pedido explícito) — un
+  // solo writeBatch en vez de un addDoc por pregunta. Mismo patrón que
+  // EvaluacionEditor.jsx.
+  async function handleAddFromBancoMultiple(items) {
+    if (!items.length) return
+    setSaving(true)
+    try {
+      const batch = writeBatch(db)
+      let orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
+      const nuevas = []
+      for (const item of items) {
+        const ref = doc(collection(db, 'activities', activityId, 'preguntas'))
+        const data = {
+          tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
+          respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
+          imagenUrl: null, orden: orden++, origenBancoId: item.id,
+        }
+        batch.set(ref, data)
+        nuevas.push({ id: ref.id, ...data })
+      }
+      await batch.commit()
+      setPreguntas((prev) => [...prev, ...nuevas])
+      await syncNumPreguntas(preguntas.length + nuevas.length)
+      setSelectedBancoIds(new Set())
+      toast(`${items.length} pregunta${items.length > 1 ? 's' : ''} agregada${items.length > 1 ? 's' : ''} desde tu banco`)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // "Repartir parejo" — pedido explícito: reparte los 10 puntos entre todas
+  // las preguntas existentes en partes iguales. Mismo cálculo compartido
+  // (repartirPonderacionParejo) que usa EvaluacionEditor.jsx.
+  async function handleRepartirParejo() {
+    if (!preguntas.length) return
+    const values = repartirPonderacionParejo(preguntas.length)
+    setSaving(true)
+    try {
+      const batch = writeBatch(db)
+      preguntas.forEach((p, i) => batch.update(doc(db, 'activities', activityId, 'preguntas', p.id), { ponderacion: values[i] }))
+      await batch.commit()
+      setPreguntas((prev) => prev.map((p, i) => ({ ...p, ponderacion: values[i] })))
+      toast('Ponderación repartida en partes iguales')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleDeletePregunta(id) {
     if (!confirm('¿Eliminar esta pregunta?')) return
     try {
@@ -466,12 +521,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   async function handleDuplicateBancoItem(item) {
     try {
+      // asignaturaId debe copiarse igual que en EvaluacionEditor.jsx — sin
+      // esto, la copia perdía la materia con la que el banco filtra/organiza
+      // (bug real encontrado al comparar ambas copias de esta función).
       const ref = await addDoc(collection(db, 'bancoReactivos'), {
         docenteId: auth.currentUser.uid, tipo: item.tipo, enunciado: `${item.enunciado} (copia)`,
         opciones: item.opciones || null, respuestaCorrecta: item.respuestaCorrecta || null,
-        tema: item.tema || null, materia: item.materia || null, createdAt: serverTimestamp(),
+        tema: item.tema || null, materia: item.materia || null, asignaturaId: item.asignaturaId || null, createdAt: serverTimestamp(),
       })
-      setBanco((prev) => [...prev, { id: ref.id, docenteId: auth.currentUser.uid, tipo: item.tipo, enunciado: `${item.enunciado} (copia)`, opciones: item.opciones, respuestaCorrecta: item.respuestaCorrecta, tema: item.tema }])
+      setBanco((prev) => [...prev, { id: ref.id, docenteId: auth.currentUser.uid, tipo: item.tipo, enunciado: `${item.enunciado} (copia)`, opciones: item.opciones, respuestaCorrecta: item.respuestaCorrecta, tema: item.tema, materia: item.materia, asignaturaId: item.asignaturaId }])
       toast('Pregunta duplicada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -804,6 +862,27 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       <div className={`p-4 ${TEACHER_CONTAINER_NARROW}`}>
         {tab === 'preguntas' && (
           <div>
+            {!loadingPreguntas && preguntas.length > 0 && (() => {
+              const ponderacionUsada = preguntas.reduce((s, p) => s + (parseFloat(p.ponderacion) || 0), 0)
+              return (
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className={`text-sm font-semibold ${Math.abs(ponderacionUsada - 10) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    {parseFloat(ponderacionUsada.toFixed(2))} / 10 pts
+                  </span>
+                  {/* Repartir parejo — pedido explícito. */}
+                  {preguntas.length > 1 && Math.abs(ponderacionUsada - 10) >= 0.01 && (
+                    <button
+                      type="button"
+                      onClick={handleRepartirParejo}
+                      disabled={saving}
+                      className="flex items-center gap-1.5 py-1.5 px-3 rounded border border-accent text-accent text-xs font-medium hover:bg-accent-tint transition-colors disabled:opacity-60"
+                    >
+                      <Scale size={14} /> Repartir parejo
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
             {loadingPreguntas ? (
               <div className="flex justify-center py-10"><Spinner /></div>
             ) : (
@@ -917,7 +996,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 <button type="button" onClick={() => { setGlowId(null); setShowPreguntaForm(true) }} className="flex-1 flex items-center justify-center gap-1 py-2 bg-accent text-white text-sm font-medium rounded">
                   <Plus size={17} /> Agregar pregunta
                 </button>
-                <button type="button" onClick={() => setShowBanco(true)} className="flex items-center justify-center gap-1 px-3 py-2 border border-accent text-accent text-sm font-medium rounded">
+                <button type="button" onClick={() => { setShowBanco(true); setSelectedBancoIds(new Set()) }} className="flex items-center justify-center gap-1 px-3 py-2 border border-accent text-accent text-sm font-medium rounded">
                   <Library size={17} /> Mi banco
                 </button>
               </div>
@@ -1034,6 +1113,24 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       </select>
                     )}
                   </div>
+                  {/* Barra de selección múltiple — pedido explícito, para
+                      agregar varios reactivos de un jalón. */}
+                  {selectedBancoIds.size > 0 && (
+                    <div className="flex items-center gap-2 mb-3 -mt-1.5">
+                      <span className="text-xs text-muted flex-1">{selectedBancoIds.size} seleccionada{selectedBancoIds.size > 1 ? 's' : ''}</span>
+                      <button type="button" onClick={() => setSelectedBancoIds(new Set())} className="text-xs text-muted px-2 py-1.5">
+                        Quitar selección
+                      </button>
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => handleAddFromBancoMultiple(bancoFiltrado.filter((b) => selectedBancoIds.has(b.id)))}
+                        className="text-xs font-medium bg-accent text-white rounded px-3 py-1.5 disabled:opacity-60"
+                      >
+                        Agregar {selectedBancoIds.size} a la evaluación
+                      </button>
+                    </div>
+                  )}
                   {bancoFiltrado.length === 0 ? (
                     <p className="text-sm text-slate-400 text-center py-6">
                       {banco.length === 0 ? 'Aún no tienes preguntas guardadas en tu banco' : 'Sin resultados'}
@@ -1093,6 +1190,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             </div>
                           ) : (
                             <div className="flex items-start gap-2">
+                              <button
+                                type="button"
+                                aria-label={selectedBancoIds.has(item.id) ? 'Quitar de la selección' : 'Seleccionar'}
+                                onClick={() => setSelectedBancoIds((prev) => {
+                                  const next = new Set(prev)
+                                  next.has(item.id) ? next.delete(item.id) : next.add(item.id)
+                                  return next
+                                })}
+                                className="mt-0.5 flex-shrink-0 text-accent"
+                              >
+                                {selectedBancoIds.has(item.id) ? <CheckSquare size={16} /> : <Square size={16} className="text-slate-300" />}
+                              </button>
                               <button type="button" onClick={() => handleAddFromBanco(item)} disabled={saving}
                                 className="flex-1 text-left text-sm hover:text-accent transition-colors disabled:opacity-60">
                                 {item.enunciado}
