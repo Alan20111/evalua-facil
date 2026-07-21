@@ -87,6 +87,7 @@ function estadoInicial(initial) {
     return {
       titulo: '',
       descripcion: '',
+      tema: '',
       niveles,
       criterios: [criterioNuevo(niveles, '5'), criterioNuevo(niveles, '5')],
     }
@@ -94,6 +95,7 @@ function estadoInicial(initial) {
   return {
     titulo: initial.titulo || '',
     descripcion: initial.descripcion || '',
+    tema: initial.tema || '',
     niveles: (initial.niveles || []).map((n) => ({
       nombre: n.nombre || '',
       valor: String(round1((parseFloat(n.porcentaje) || 0) / 10)),
@@ -342,6 +344,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
     return {
       titulo: r.titulo.trim(),
       descripcion: r.descripcion.trim(),
+      tema: r.tema.trim() || null,
       niveles: r.niveles.map((n) => ({
         nombre: n.nombre.trim(),
         // porcentaje es el campo almacenado (compatibilidad): 10 pts → 100%
@@ -435,6 +438,12 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
             <input type="text" value={r.descripcion}
               onChange={(e) => setR((prev) => ({ ...prev, descripcion: e.target.value }))}
               placeholder="Descripción de la tarea (opcional)…"
+              className="w-full px-2 py-1 text-xs text-muted border-b border-outline-variant focus:border-accent focus:outline-none bg-transparent" />
+            {/* Tema — etiqueta libre para encontrarla rápido en el banco
+                (mismo patrón que el tema de los reactivos). */}
+            <input type="text" value={r.tema}
+              onChange={(e) => setR((prev) => ({ ...prev, tema: e.target.value }))}
+              placeholder="Tema (opcional) — para buscarla rápido en tu banco"
               className="w-full px-2 py-1 text-xs text-muted border-b border-outline-variant focus:border-accent focus:outline-none bg-transparent" />
           </div>
 
