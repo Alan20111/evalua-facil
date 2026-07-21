@@ -140,7 +140,7 @@ function gradeColor(norm) {
 // vería "props nuevas" en cada render y el problema seguiría igual.
 const AttendanceTable = memo(function AttendanceTable({
   attendanceParciales, filteredAttendanceStudents, attendanceAllRecords,
-  onCellClick, onCellContextMenu, onCellPointerDown, onCancelLongPress,
+  onCellClick,
   onDeleteDay, onBack, onAddDay,
 }) {
   // Nodos DOM cacheados por columna/día para el efecto de cruz (fila+columna)
@@ -385,11 +385,6 @@ const AttendanceTable = memo(function AttendanceTable({
                     data-tooltip={cellTooltip}
                     ref={addAttColEl(attColIndexById[r.id])}
                     onClick={() => onCellClick(r, s)}
-                    onContextMenu={(e) => onCellContextMenu(e, r, s)}
-                    onPointerDown={(e) => onCellPointerDown(e, r, s)}
-                    onPointerUp={onCancelLongPress}
-                    onPointerMove={onCancelLongPress}
-                    onPointerLeave={onCancelLongPress}
                     className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
                     <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                       {ui.icon}
@@ -633,7 +628,6 @@ export default function SubjectPage() {
   // Motivo de justificación — { recordId, studentId, fecha, studentName }
   const [reasonModal, setReasonModal] = useState(null)
   const [reasonText, setReasonText] = useState('')
-  const longPress = useRef({ timer: null, fired: false })
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -1134,18 +1128,21 @@ export default function SubjectPage() {
   }
 
   // Un toque/clic cicla el estado: Presente → Falta → Justificada → Presente.
-  // Igual en web y app (pedido explícito — que no sea distinto de lo que ya
-  // hace el móvil): el tercer toque (el que saldría de Justificada) NO vuelve
-  // a Presente directo — abre la ventana de motivo. Cancelar ahí sí completa
-  // el ciclo a Presente; elegir/escribir un motivo y guardar se queda en
-  // Justificada con ese motivo. Clic derecho / mantener presionado sigue
-  // abriendo la misma ventana directo, sin ciclar (ver cellContextMenu/
-  // cellPointerDown abajo) — solo para editar el motivo de una falta que YA
-  // estaba justificada, sin tocar el estado.
+  // Igual en web y app (pedido explícito): el tercer toque (el que saldría de
+  // Justificada) NO vuelve a Presente directo — abre la ventana de motivo.
+  // Mismo camino para revisar/editar una falta que YA tenía motivo (un clic
+  // más sobre su "J con puntito") — ya no hay clic derecho ni mantener
+  // presionado como atajo aparte (pedido explícito, se quitaron por
+  // completo). Cancelar se comporta distinto según de dónde venía:
+  //  · sin motivo todavía (se estaba completando la justificación por
+  //    primera vez) → Cancelar completa el ciclo, vuelve a Presente.
+  //  · ya tenía motivo (solo se estaba revisando/editando) → Cancelar no
+  //    toca nada, se queda en Justificada con el motivo que ya tenía.
   async function handleCycleAttendance(record, student) {
     const studentId = student.id
     if (attendanceState(record, studentId) === 'justificada') {
-      openReasonModal(record, student, { revertOnCancel: true })
+      const yaTieneMotivo = !!(record.motivos?.[studentId] || '').trim()
+      openReasonModal(record, student, { revertOnCancel: !yaTieneMotivo })
       return
     }
     const next = nextAttendanceState(attendanceState(record, studentId))
@@ -1165,13 +1162,8 @@ export default function SubjectPage() {
     }
   }
 
-  // Clic/toque = ciclar estado (el 3er clic/toque abre esto mismo, ver
-  // handleCycleAttendance arriba); clic derecho o mantener presionado =
-  // motivo directo, sin ciclar. `revertOnCancel` solo se prende cuando se
-  // abrió AL ciclar (el toque que hubiera vuelto a Presente) — así Cancelar
-  // completa ese ciclo. Abierta por clic derecho/mantener presionado (solo
-  // para editar el motivo de una falta que ya estaba justificada) Cancelar
-  // no debe tocar el estado.
+  // `revertOnCancel` decide qué hace Cancelar en el modal — ver el comentario
+  // de handleCycleAttendance arriba, la única que ahora abre esta ventana.
   function openReasonModal(record, student, { revertOnCancel = false } = {}) {
     const current = record.motivos?.[student.id] || ''
     setReasonText(current)
@@ -1195,43 +1187,20 @@ export default function SubjectPage() {
       await loadAttendance(true)
     }
   }
-  function cellPointerDown(e, record, student) {
-    if (e.button === 2) return
-    longPress.current.fired = false
-    longPress.current.timer = setTimeout(() => {
-      longPress.current.fired = true
-      openReasonModal(record, student)
-    }, 500)
-  }
-  function cancelLongPress() {
-    if (longPress.current.timer) { clearTimeout(longPress.current.timer); longPress.current.timer = null }
-  }
   function cellClick(record, student) {
-    if (longPress.current.fired) { longPress.current.fired = false; return }
     handleCycleAttendance(record, student)
   }
-  function cellContextMenu(e, record, student) {
-    e.preventDefault()
-    openReasonModal(record, student)
-  }
 
-  // Wrappers de identidad ESTABLE para AttendanceTable (React.memo): cada uno
-  // de estos handlers cierra sobre `subjectId`/`attendanceRecords` (vía
-  // handleCycleAttendance/loadAttendance) que SÍ cambian si el docente pasa a
-  // otra asignatura sin recargar la página (useParams no desmonta el
-  // componente) — congelarlos con useCallback([]) directamente sería
-  // incorrecto (clausura obsoleta). Este patrón de "ref a la última
-  // implementación" da una función que NUNCA cambia de identidad (lo que
-  // React.memo necesita para saltarse el re-render) pero siempre ejecuta la
-  // versión más reciente.
+  // Wrapper de identidad ESTABLE para AttendanceTable (React.memo): cierra
+  // sobre `subjectId`/`attendanceRecords` (vía handleCycleAttendance/
+  // loadAttendance) que SÍ cambian si el docente pasa a otra asignatura sin
+  // recargar la página (useParams no desmonta el componente) — congelarlo
+  // con useCallback([]) directamente sería incorrecto (clausura obsoleta).
+  // Este patrón de "ref a la última implementación" da una función que NUNCA
+  // cambia de identidad (lo que React.memo necesita para saltarse el
+  // re-render) pero siempre ejecuta la versión más reciente.
   const cellClickRef = useRef(); cellClickRef.current = cellClick
-  const cellContextMenuRef = useRef(); cellContextMenuRef.current = cellContextMenu
-  const cellPointerDownRef = useRef(); cellPointerDownRef.current = cellPointerDown
-  const cancelLongPressRef = useRef(); cancelLongPressRef.current = cancelLongPress
   const stableCellClick = useCallback((record, student) => cellClickRef.current(record, student), [])
-  const stableCellContextMenu = useCallback((e, record, student) => cellContextMenuRef.current(e, record, student), [])
-  const stableCellPointerDown = useCallback((e, record, student) => cellPointerDownRef.current(e, record, student), [])
-  const stableCancelLongPress = useCallback(() => cancelLongPressRef.current(), [])
   // setDeleteAttendanceConfirm/setActiveTab/setShowAddAttendance son setters
   // de useState — React los garantiza estables, así que estos SÍ pueden
   // llevar deps vacías sin riesgo de obsolescencia.
@@ -2938,9 +2907,6 @@ export default function SubjectPage() {
       filteredAttendanceStudents={filteredAttendanceStudents}
       attendanceAllRecords={attendanceAllRecords}
       onCellClick={stableCellClick}
-      onCellContextMenu={stableCellContextMenu}
-      onCellPointerDown={stableCellPointerDown}
-      onCancelLongPress={stableCancelLongPress}
       onDeleteDay={stableDeleteDay}
       onBack={stableAttBack}
       onAddDay={stableAddDay}
@@ -2950,7 +2916,9 @@ export default function SubjectPage() {
   // Leyenda de estados de asistencia (compartida web/app) — en la web el
   // texto queda solo un poco más grande que los nombres de la tabla (text-sm),
   // y los íconos del mismo tamaño que tienen en las celdas (w-6 h-6, 14px);
-  // la app se queda como estaba.
+  // la app se queda como estaba. Ya no hay clic derecho/mantener presionado
+  // como atajo aparte (se quitó por completo) — un clic/toque más sobre la
+  // "J con puntito" abre lo mismo para revisar/editar el motivo.
   const attendanceLegend = (
     <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 px-1 text-muted ${IS_NATIVE_APP ? 'text-[11px]' : 'text-base'}`}>
       <span className="inline-flex items-center gap-1">
@@ -2963,9 +2931,16 @@ export default function SubjectPage() {
       </span>
       <span className="inline-flex items-center gap-1">
         <span className={`inline-flex items-center justify-center rounded bg-amber-100 text-amber-600 font-bold leading-none ${IS_NATIVE_APP ? 'w-4 h-4 text-[10px]' : 'w-6 h-6 text-[12px]'}`}>J</span>
-        Justificada (cuenta como asistencia)
+        Justificada sin motivo (cuenta como asistencia)
       </span>
-      <span className="text-slate-400">· Toca para cambiar el estado · Clic derecho o mantén presionado para el motivo</span>
+      <span className="inline-flex items-center gap-1">
+        <span className={`relative inline-flex items-center justify-center rounded bg-amber-100 text-amber-600 font-bold leading-none ${IS_NATIVE_APP ? 'w-4 h-4 text-[10px]' : 'w-6 h-6 text-[12px]'}`}>
+          J
+          <span className={`absolute -top-0.5 -right-0.5 rounded-full bg-amber-500 ${IS_NATIVE_APP ? 'w-1.5 h-1.5' : 'w-2 h-2'}`} />
+        </span>
+        Justificada con motivo
+      </span>
+      <span className="text-slate-400">· Toca para cambiar el estado</span>
     </div>
   )
 
@@ -4011,12 +3986,13 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* Motivo de la justificación — se abre al TERCER clic/toque sobre una
-          celda ya en "J" (cancelar ahí completa el ciclo a Presente, igual en
-          web y app); con clic derecho / mantener presionado se abre directo
-          para editar el motivo sin tocar el estado. En la app va ANCHO y
-          pegado arriba para seguir usable con el teclado (que en horizontal
-          tapa la mitad inferior). */}
+      {/* Motivo de la justificación — se abre con un clic/toque más sobre una
+          celda ya en "J" (mismo camino sin motivo o con motivo ya puesto).
+          Cancelar: si no tenía motivo, completa el ciclo y vuelve a Presente;
+          si ya tenía motivo (se estaba revisando/editando), no toca nada,
+          se queda en Justificada con su motivo. Igual en web y app. En la
+          app va ANCHO y pegado arriba para seguir usable con el teclado (que
+          en horizontal tapa la mitad inferior). */}
       {reasonModal && (
         <div className={`fixed inset-0 z-[80] flex justify-center ${IS_NATIVE_APP ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={cancelReasonModal} aria-label="Cerrar" />
