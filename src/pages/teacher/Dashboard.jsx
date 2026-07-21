@@ -228,6 +228,11 @@ export default function TeacherDashboard() {
         docenteId: currentUser.uid,
         escuelaId: userProfile.escuelaId || 'sin-escuela',
         parciales: newSubjectParciales,
+        // Al crearla ningún parcial tiene contenido todavía — el primero
+        // queda visible para el estudiante desde el inicio, los demás
+        // ocultos por defecto (pedido explícito) hasta que el docente
+        // decida mostrarlos con el ojo del encabezado del parcial.
+        parcialesOcultos: Array.from({ length: Math.max(0, newSubjectParciales - 1) }, (_, i) => i + 2),
         fechaInicio: newSubjectFechaInicio || '',
         fechaFin: newSubjectFechaFin || '',
         colorPalette: newSubjectPalette,

@@ -11,6 +11,7 @@ import { esCotejo } from '../../utils/rubrica'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import SearchInput from '../SearchInput'
 
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
 // editarlas o eliminarlas. Pantalla completa sobre el editor de entregables
@@ -23,6 +24,9 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
   const [previewId, setPreviewId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  // Búsqueda + filtro por tema — mismo patrón que el banco de reactivos.
+  const [search, setSearch] = useState('')
+  const [temaFilter, setTemaFilter] = useState('')
 
   // Physical Android back button — closes the "eliminar rúbrica" confirmation,
   // mirroring its own Cancelar button.
@@ -75,6 +79,12 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
     }
   }
 
+  const temas = [...new Set(rubricas.map((r) => r.tema).filter(Boolean))]
+  const filtered = rubricas.filter((r) =>
+    (!search.trim() || r.titulo.toLowerCase().includes(search.trim().toLowerCase())) &&
+    (!temaFilter || r.tema === temaFilter)
+  )
+
   return (
     <div className="fixed inset-0 z-[60] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
@@ -115,7 +125,24 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
             </p>
           </div>
         ) : (
-          rubricas.map((r) => (
+          <>
+            {/* Buscador + filtro por tema — mismo patrón que el banco de reactivos. */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nombre…" />
+              </div>
+              {temas.length > 0 && (
+                <select value={temaFilter} onChange={(e) => setTemaFilter(e.target.value)}
+                  className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface">
+                  <option value="">Todos los temas</option>
+                  {temas.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              )}
+            </div>
+            {filtered.length === 0 && (
+              <p className="text-center text-slate-400 text-sm py-8">Ninguna rúbrica coincide con la búsqueda</p>
+            )}
+            {filtered.map((r) => (
             <div key={r.id} className={`bg-surface-card rounded-card shadow-card overflow-hidden border-l-4 ${esCotejo(r) ? 'border-teal-500' : 'border-accent'}`}>
               <div className="p-4">
                 <div className="flex items-start gap-3">
@@ -126,6 +153,11 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
                       {esCotejo(r) ? <ListChecks size={11} /> : <ClipboardList size={11} />}
                       {esCotejo(r) ? 'Lista de cotejo' : 'Rúbrica'}
                     </span>
+                    {r.tema && (
+                      <span className="ml-2 inline-block px-2 py-0.5 mb-1 rounded-full text-[10px] font-medium bg-surface-container text-muted">
+                        {r.tema}
+                      </span>
+                    )}
                     <p className="font-semibold text-on-surface truncate">{r.titulo}</p>
                     <p className="text-xs text-muted mt-0.5">
                       {esCotejo(r)
@@ -184,7 +216,8 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
                 </div>
               )}
             </div>
-          ))
+            ))}
+          </>
         )}
         <div className="h-6 safe-bottom" />
       </div>

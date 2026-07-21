@@ -19,11 +19,12 @@ import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 
 function estadoInicial(initial) {
   if (!initial) {
-    return { titulo: '', descripcion: '', criterios: [{ nombre: '', puntos: '5' }, { nombre: '', puntos: '5' }] }
+    return { titulo: '', descripcion: '', tema: '', criterios: [{ nombre: '', puntos: '5' }, { nombre: '', puntos: '5' }] }
   }
   return {
     titulo: initial.titulo || '',
     descripcion: initial.descripcion || '',
+    tema: initial.tema || '',
     criterios: (initial.criterios || []).map((c) => ({
       nombre: c.nombre || '',
       puntos: String(c.puntos?.[0] ?? c.peso ?? ''),
@@ -76,6 +77,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
       tipo: 'cotejo',
       titulo: r.titulo.trim(),
       descripcion: r.descripcion.trim(),
+      tema: r.tema.trim() || null,
       niveles: [{ nombre: COTEJO_NIVEL, porcentaje: 100 }],
       criterios: r.criterios.map((c) => {
         const pts = round1(parseFloat(c.puntos) || 0)
@@ -145,6 +147,12 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             <input type="text" value={r.descripcion}
               onChange={(e) => setR((prev) => ({ ...prev, descripcion: e.target.value }))}
               placeholder="Descripción de la tarea (opcional)…"
+              className="w-full px-2 py-1 text-xs text-muted border-b border-outline-variant focus:border-accent focus:outline-none bg-transparent" />
+            {/* Tema — etiqueta libre para encontrarla rápido en el banco
+                (mismo patrón que el tema de los reactivos). */}
+            <input type="text" value={r.tema}
+              onChange={(e) => setR((prev) => ({ ...prev, tema: e.target.value }))}
+              placeholder="Tema (opcional) — para buscarla rápido en tu banco"
               className="w-full px-2 py-1 text-xs text-muted border-b border-outline-variant focus:border-accent focus:outline-none bg-transparent" />
           </div>
 

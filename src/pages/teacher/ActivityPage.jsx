@@ -939,7 +939,12 @@ export default function ActivityPage() {
                     }`}
                   >
                     <span className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} text-accent flex-shrink-0 whitespace-nowrap`}>{s.orden}.&nbsp;</span>
-                    <div className="flex-1 min-w-0" data-tooltip="Evaluar" data-tooltip-pos="bottom">
+                    {/* data-tooltip-follow (no la variante CSS de siempre): esta fila
+                        ocupa casi todo el ancho de una tarjeta con scroll propio — el
+                        tooltip normal quedaba recortado por ese overflow, sobre todo
+                        en la primera fila (pegada al borde superior visible). El que
+                        sigue al cursor se dibuja fuera de ese contenedor, sin ese problema. */}
+                    <div className="flex-1 min-w-0" data-tooltip-follow={isEvaluacion ? 'Ver resultado' : 'Evaluar'}>
                       <p className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} font-medium text-on-surface truncate`}>
                         {studentFullName(s)}
                       </p>
