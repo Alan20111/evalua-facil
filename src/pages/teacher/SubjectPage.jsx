@@ -1131,14 +1131,19 @@ export default function SubjectPage() {
   }
 
   // Un toque cicla el estado: Presente → Falta → Justificada → Presente.
-  // Ya NO abre la ventana de motivo automáticamente al llegar a Justificada
-  // (pedido explícito) — antes interrumpía cada tercer toque al ir marcando
-  // varios estudiantes seguido, rompiendo el ritmo. El motivo sigue
-  // disponible cuando el docente sí lo quiere escribir: clic derecho o
-  // mantener presionado (ver cellContextMenu/cellPointerDown abajo) — es
-  // opcional, no bloquea el estado.
+  // En la App el tercer toque (el que saldría de Justificada) NO vuelve a
+  // Presente directo — abre la ventana de motivo (pedido explícito: mantener
+  // presionado no era algo que el docente fuera a adivinar solo). Cancelar ahí
+  // sí completa el ciclo a Presente; elegir/escribir un motivo se queda en
+  // Justificada. En la web sigue ciclando directo — ahí el motivo opcional se
+  // abre con clic derecho (ver cellContextMenu/cellPointerDown abajo), un
+  // gesto ya estándar de escritorio.
   async function handleCycleAttendance(record, student) {
     const studentId = student.id
+    if (IS_NATIVE_APP && attendanceState(record, studentId) === 'justificada') {
+      openReasonModal(record, student, { revertOnCancel: true })
+      return
+    }
     const next = nextAttendanceState(attendanceState(record, studentId))
     setAttendanceRecords((prev) => prev.map((r) => {
       if (r.id !== record.id) return r
@@ -1156,11 +1161,34 @@ export default function SubjectPage() {
     }
   }
 
-  // Clic izquierdo = ciclar estado; clic derecho o mantener presionado = motivo.
-  function openReasonModal(record, student) {
+  // Clic izquierdo = ciclar estado (en la App, el 3er toque abre esto mismo);
+  // clic derecho o mantener presionado = motivo directo, sin ciclar.
+  // `revertOnCancel` solo se prende cuando se abrió AL ciclar (el toque que
+  // hubiera vuelto a Presente) — así Cancelar completa ese ciclo. Abierta por
+  // clic derecho/mantener presionado (solo para editar el motivo de una falta
+  // que ya estaba justificada) Cancelar no debe tocar el estado.
+  function openReasonModal(record, student, { revertOnCancel = false } = {}) {
     const current = record.motivos?.[student.id] || ''
     setReasonText(current)
-    setReasonModal({ recordId: record.id, studentId: student.id, fecha: record.fecha, studentName: studentFullName(student), original: current })
+    setReasonModal({ recordId: record.id, studentId: student.id, fecha: record.fecha, studentName: studentFullName(student), original: current, revertOnCancel })
+  }
+  async function cancelReasonModal() {
+    const modal = reasonModal
+    setReasonModal(null)
+    if (!modal?.revertOnCancel) return
+    const { recordId, studentId } = modal
+    setAttendanceRecords((prev) => prev.map((r) => r.id === recordId ? {
+      ...r,
+      presentes: { ...r.presentes, [studentId]: true },
+      justificadas: { ...(r.justificadas || {}), [studentId]: false },
+      motivos: { ...(r.motivos || {}), [studentId]: '' },
+    } : r))
+    try {
+      await setAttendanceState(recordId, studentId, 'presente')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+      await loadAttendance(true)
+    }
   }
   function cellPointerDown(e, record, student) {
     if (e.button === 2) return
@@ -3975,12 +4003,15 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* Motivo de la justificación — se abre al pasar una celda a "J", o con clic
-          derecho / mantener presionado. En la app va ANCHO y pegado arriba para
-          seguir usable con el teclado (que en horizontal tapa la mitad inferior). */}
+      {/* Motivo de la justificación — en la App se abre al TERCER toque sobre una
+          celda ya en "J" (cancelar ahí completa el ciclo a Presente); en la web
+          y con clic derecho / mantener presionado en la App, se abre directo
+          para editar el motivo sin tocar el estado. En la app va ANCHO y
+          pegado arriba para seguir usable con el teclado (que en horizontal
+          tapa la mitad inferior). */}
       {reasonModal && (
         <div className={`fixed inset-0 z-[80] flex justify-center ${IS_NATIVE_APP ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setReasonModal(null)} aria-label="Cerrar" />
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={cancelReasonModal} aria-label="Cerrar" />
           <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-none p-3 space-y-1.5' : 'max-w-lg p-5 space-y-4'}`}>
             {IS_NATIVE_APP ? (
               <div className="flex items-center justify-between gap-3">
@@ -4022,7 +4053,7 @@ export default function SubjectPage() {
                     className="py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     Guardar
                   </button>
-                  <button type="button" onClick={() => setReasonModal(null)}
+                  <button type="button" onClick={cancelReasonModal}
                     className="py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                     Cancelar
                   </button>
@@ -4043,7 +4074,7 @@ export default function SubjectPage() {
                     className="w-full px-3 py-2.5 rounded border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setReasonModal(null)}
+                  <button type="button" onClick={cancelReasonModal}
                     className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                     Cancelar
                   </button>
