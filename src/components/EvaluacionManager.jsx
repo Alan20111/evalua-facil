@@ -1432,7 +1432,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       className={`w-full text-left py-2 cursor-pointer hover:bg-[var(--accent-tint)] ${IS_NATIVE_APP ? 'pl-1 pr-3' : 'px-3'} ${i > 0 ? 'border-t border-outline-variant' : ''}`}>
                       <div className={`flex items-center ${IS_NATIVE_APP ? 'gap-1' : 'gap-2'}`}>
                         <span className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} text-accent flex-shrink-0 whitespace-nowrap`}>{s.orden}.&nbsp;</span>
-                        <div className="flex-1 min-w-0">
+                        {/* data-tooltip-follow (no la variante CSS de siempre): esta fila
+                            ocupa casi todo el ancho de una tarjeta con scroll propio — el
+                            tooltip normal quedaba recortado por ese overflow, sobre todo
+                            en la primera fila (pegada al borde superior visible). */}
+                        <div className="flex-1 min-w-0" data-tooltip-follow="Ver resultado">
                           <p className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} font-medium text-on-surface truncate`}>{studentFullName(s)}</p>
                         </div>
                         {!IS_NATIVE_APP && (
