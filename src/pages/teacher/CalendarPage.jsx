@@ -258,10 +258,10 @@ function AgendaView({
 
       {/* Rejilla del día */}
       <div className="flex">
-        {/* Gutter de horas — un poco más ancho, con más aire respecto a la
-            línea de la rejilla y sin salto de línea, para que "am"/"pm" no
-            se corte ni quede pegado al borde (pedido explícito). */}
-        <div className="relative w-16 flex-shrink-0" style={{ height: gridH }}>
+        {/* Gutter de horas — ancho suficiente para que "12:00 pm" (el más
+            largo, 2 dígitos + am/pm) quepa completo sin que el primer
+            carácter se salga por la izquierda y la tarjeta lo recorte. */}
+        <div className="relative w-20 flex-shrink-0" style={{ height: gridH }}>
           {hours.map((h, i) => (
             <div key={h} className="absolute right-2 text-[11px] text-muted leading-none whitespace-nowrap"
               style={{ top: i * AGENDA_ROW_H + AGENDA_ROW_H / 2, transform: 'translateY(-50%)' }}>
