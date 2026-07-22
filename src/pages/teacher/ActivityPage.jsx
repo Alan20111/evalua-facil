@@ -914,6 +914,7 @@ export default function ActivityPage() {
             onChange={setSearchStudents}
             placeholder="Buscar por nombre o por número de lista…"
             autoFocus={!IS_NATIVE_APP}
+            className="!border-2 !border-accent shadow-sm"
           />
           <p className="text-xs text-red-600 text-center mt-1.5">Presiona un nombre para evaluar</p>
         </div>
