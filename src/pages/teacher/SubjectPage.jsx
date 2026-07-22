@@ -1084,36 +1084,25 @@ export default function SubjectPage() {
     if (!IS_NATIVE_APP || activeTab !== 'asistencia') return undefined
     lockLandscape()
     // Salida por rotación física: la pantalla está BLOQUEADA en horizontal,
-    // así que girar el teléfono no dispara ningún evento de orientación de
-    // pantalla — se lee el sensor físico. deviceorientation (beta/gamma) no
-    // llega en todos los WebView de Android, así que se escucha TAMBIÉN
-    // devicemotion (aceleración con gravedad: en vertical la gravedad cae
-    // casi toda en el eje Y del dispositivo). Cuando el docente sostiene el
-    // teléfono en vertical ~0.7 s (para no salirse por un movimiento
-    // accidental), se regresa solo, igual que con la flechita.
-    let timer = null
-    const marcarVertical = (enVertical) => {
-      if (enVertical) {
-        if (!timer) timer = setTimeout(() => setActiveTab('actividades'), 700)
-      } else if (timer) {
-        clearTimeout(timer); timer = null
+    // así que girar el teléfono no dispara eventos de orientación de
+    // pantalla, y los sensores web (deviceorientation/devicemotion) no
+    // llegan en este WebView. La orientación física la manda el lado NATIVO
+    // (MainActivity.java, OrientationEventListener) con el CustomEvent
+    // "fisicaorientacion" (detail: portrait | portrait-reverse | landscape).
+    // Regla: solo se regresa si el docente YA tuvo el teléfono en horizontal
+    // dentro de esta vista (si no, al entrar —aún en vertical físico— se
+    // saldría solo de inmediato) y luego lo vuelve a vertical.
+    let vioHorizontal = false
+    const onFisicaOrientacion = (e) => {
+      const d = e.detail
+      if (d === 'landscape') { vioHorizontal = true; return }
+      if (vioHorizontal && (d === 'portrait' || d === 'portrait-reverse')) {
+        setActiveTab('actividades')
       }
     }
-    const onDeviceOrientation = (e) => {
-      if (e.beta == null || e.gamma == null) return
-      marcarVertical(Math.abs(e.gamma) < 25 && e.beta > 55 && e.beta < 125)
-    }
-    const onDeviceMotion = (e) => {
-      const g = e.accelerationIncludingGravity
-      if (!g || g.x == null || g.y == null) return
-      marcarVertical(Math.abs(g.y) > 7 && Math.abs(g.x) < 4)
-    }
-    window.addEventListener('deviceorientation', onDeviceOrientation)
-    window.addEventListener('devicemotion', onDeviceMotion)
+    window.addEventListener('fisicaorientacion', onFisicaOrientacion)
     return () => {
-      window.removeEventListener('deviceorientation', onDeviceOrientation)
-      window.removeEventListener('devicemotion', onDeviceMotion)
-      if (timer) clearTimeout(timer)
+      window.removeEventListener('fisicaorientacion', onFisicaOrientacion)
       lockPortrait()
     }
   }, [activeTab])
