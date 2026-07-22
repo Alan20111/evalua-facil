@@ -1184,6 +1184,11 @@ export default function SubjectPage() {
     if (!modal?.revertOnCancel) return
     await markPresenteFrom(modal)
   }
+  // Botón "Salir": cierra el modal sin tocar nada — para solo ver el motivo
+  // guardado y no hacer nada más (pedido explícito).
+  function closeReasonModal() {
+    setReasonModal(null)
+  }
   // Botón "Asistencia" del modal: siempre deja la celda en Presente
   // (palomita), venga de donde venga — completa el ciclo J → Presente sin
   // pasos extra (pedido explícito, reemplaza al viejo "Cancelar").
@@ -4019,15 +4024,7 @@ export default function SubjectPage() {
         <div className={`fixed inset-0 z-[80] flex justify-center ${IS_NATIVE_APP ? 'items-start safe-top px-2' : 'items-center px-4'}`}>
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={cancelReasonModal} aria-label="Cerrar" />
           <div className={`relative bg-surface-card rounded-card shadow-2xl w-full ${IS_NATIVE_APP ? 'max-w-none p-3 space-y-1.5' : 'max-w-lg p-5 space-y-4'}`}>
-            {IS_NATIVE_APP ? (
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-base font-semibold text-on-surface whitespace-nowrap">Justificar inasistencia</h3>
-                <p className="text-xs text-muted truncate">
-                  {reasonModal.studentName} ·{' '}
-                  {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
-                </p>
-              </div>
-            ) : (
+            {IS_NATIVE_APP ? null : (
               // Web: nombre del estudiante en su propio renglón (evita truncar
               // nombres largos) y textos más grandes que en la app, donde el
               // modal comparte columna angosta con el teclado en horizontal.
@@ -4040,18 +4037,33 @@ export default function SubjectPage() {
               </div>
             )}
             {IS_NATIVE_APP ? (
-              /* App horizontal: 3 columnas — motivos rápidos | motivo | acciones */
+              /* App horizontal: columna izquierda (título + nombre a la
+                 izquierda, motivos rápidos, motivo) y columna derecha con los
+                 3 botones apilados — Guardar / Asistencia / Salir. El nombre
+                 va pegado a la izquierda para dejarle ese espacio a los
+                 botones (pedido explícito). */
               <div className="flex items-start gap-3">
-                <div className="w-64 flex-none">
-                  <p className="text-[9px] font-medium text-muted mb-1">Motivo rápido</p>
-                  {quickMotivoButtons}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <label htmlFor="att-motivo" className="block text-[9px] font-medium text-muted mb-1">Motivo ✍️</label>
-                  <textarea id="att-motivo" value={reasonText} rows={2}
-                    onChange={(e) => setReasonText(e.target.value)}
-                    placeholder="Escribe el motivo…"
-                    className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h3 className="text-base font-semibold text-on-surface whitespace-nowrap">Justificar inasistencia</h3>
+                    <p className="text-xs text-muted truncate">
+                      {reasonModal.studentName} ·{' '}
+                      {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-64 flex-none">
+                      <p className="text-[9px] font-medium text-muted mb-1">Motivo rápido</p>
+                      {quickMotivoButtons}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <label htmlFor="att-motivo" className="block text-[9px] font-medium text-muted mb-1">Motivo ✍️</label>
+                      <textarea id="att-motivo" value={reasonText} rows={2}
+                        onChange={(e) => setReasonText(e.target.value)}
+                        placeholder="Escribe el motivo…"
+                        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
+                    </div>
+                  </div>
                 </div>
                 <div className="w-32 flex-none flex flex-col gap-2">
                   <button type="button" onClick={handleSaveReason}
@@ -4062,6 +4074,10 @@ export default function SubjectPage() {
                   <button type="button" onClick={markPresenteFromModal}
                     className="py-2 rounded bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1">
                     <CheckIcon size={15} /> Asistencia
+                  </button>
+                  <button type="button" onClick={closeReasonModal}
+                    className="py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                    Salir
                   </button>
                 </div>
               </div>
@@ -4080,6 +4096,10 @@ export default function SubjectPage() {
                     className="w-full px-3 py-2.5 rounded border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
                 </div>
                 <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={closeReasonModal}
+                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                    Salir
+                  </button>
                   <button type="button" onClick={markPresenteFromModal}
                     className="flex-1 py-2.5 rounded bg-green-600 text-white text-base font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5">
                     <CheckIcon size={17} /> Asistencia
