@@ -3025,9 +3025,11 @@ export default function SubjectPage() {
   // esquina superior izquierda de la tabla (ver attendanceTableJsx).
   const nativeAttBar = (
     <div className="flex items-center gap-2 px-2 py-1 bg-accent-light border-b border-outline-variant">
+      {/* Mismo botón verde fosforescente que en la tabla con datos — igual
+          color y tamaño en cualquier asignatura */}
       <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
-        className="p-1 -ml-0.5 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
-        <ArrowLeft size={18} />
+        className="flex-none px-2.5 py-1 rounded bg-[#39FF14] text-black hover:bg-[#2ee510] transition-colors">
+        <ArrowLeft size={20} />
       </button>
       <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
       <button type="button" onClick={() => setShowAddAttendance(true)}
