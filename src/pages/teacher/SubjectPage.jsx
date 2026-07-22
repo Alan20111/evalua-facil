@@ -142,6 +142,7 @@ const AttendanceTable = memo(function AttendanceTable({
   attendanceParciales, filteredAttendanceStudents, attendanceAllRecords,
   onCellClick,
   onDeleteDay, onBack, onAddDay,
+  lastEditedCell, // "recordId:studentId" — la última celda revisada/modificada, resaltada de forma persistente
 }) {
   // Nodos DOM cacheados por columna/día para el efecto de cruz (fila+columna)
   // — resaltado con classList directo, sin state ni CSS :has() (ambos
@@ -384,9 +385,8 @@ const AttendanceTable = memo(function AttendanceTable({
                     data-col={attColIndexById[r.id]}
                     data-tooltip={cellTooltip}
                     ref={addAttColEl(attColIndexById[r.id])}
-                    tabIndex={-1}
-                    onClick={(e) => onCellClick(r, s, e.currentTarget)}
-                    className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:ring-2 focus:ring-accent ${fecha === todayISO ? 'bg-accent-light' : ''}`}>
+                    onClick={() => onCellClick(r, s)}
+                    className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none ${lastEditedCell === `${r.id}:${s.id}` ? 'ring-2 ring-inset ring-accent bg-[var(--accent-medium)]' : fecha === todayISO ? 'bg-accent-light' : ''}`}>
                     <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                       {ui.icon}
                       {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
@@ -629,6 +629,9 @@ export default function SubjectPage() {
   // Motivo de justificación — { recordId, studentId, fecha, studentName }
   const [reasonModal, setReasonModal] = useState(null)
   const [reasonText, setReasonText] = useState('')
+  // "recordId:studentId" de la última celda de asistencia revisada/modificada
+  // — se resalta persistente en la tabla hasta que se toque otra.
+  const [lastEditedAttCell, setLastEditedAttCell] = useState(null)
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -1139,15 +1142,16 @@ export default function SubjectPage() {
   //    primera vez) → Cancelar completa el ciclo, vuelve a Presente.
   //  · ya tenía motivo (solo se estaba revisando/editando) → Cancelar no
   //    toca nada, se queda en Justificada con el motivo que ya tenía.
-  // `cellEl` es el <td> en el que se hizo clic — se guarda para poder
-  // devolverle el foco al terminar (edición directa o al cerrar el modal de
-  // motivo, con Guardar o con Cancelar), así el docente siempre ve claro en
-  // qué celda quedó parado el cambio que acaba de hacer (pedido explícito).
-  async function handleCycleAttendance(record, student, cellEl) {
+  // La última celda revisada/modificada queda resaltada de forma persistente
+  // (anillo azul + fondo) hasta que se toque otra celda — el foco del teclado
+  // se pierde al mover el mouse, así que esto va por estado, no por :focus
+  // (pedido explícito: que se NOTE cuál fue la que se acaba de ver).
+  async function handleCycleAttendance(record, student) {
     const studentId = student.id
+    setLastEditedAttCell(`${record.id}:${studentId}`)
     if (attendanceState(record, studentId) === 'justificada') {
       const yaTieneMotivo = !!(record.motivos?.[studentId] || '').trim()
-      openReasonModal(record, student, { revertOnCancel: !yaTieneMotivo, cellEl })
+      openReasonModal(record, student, { revertOnCancel: !yaTieneMotivo })
       return
     }
     const next = nextAttendanceState(attendanceState(record, studentId))
@@ -1159,7 +1163,6 @@ export default function SubjectPage() {
         justificadas: { ...(r.justificadas || {}), [studentId]: next === 'justificada' },
       }
     }))
-    cellEl?.focus()
     try {
       await setAttendanceState(record.id, studentId, next)
     } catch (err) {
@@ -1170,15 +1173,14 @@ export default function SubjectPage() {
 
   // `revertOnCancel` decide qué hace Cancelar en el modal — ver el comentario
   // de handleCycleAttendance arriba, la única que ahora abre esta ventana.
-  function openReasonModal(record, student, { revertOnCancel = false, cellEl = null } = {}) {
+  function openReasonModal(record, student, { revertOnCancel = false } = {}) {
     const current = record.motivos?.[student.id] || ''
     setReasonText(current)
-    setReasonModal({ recordId: record.id, studentId: student.id, fecha: record.fecha, studentName: studentFullName(student), original: current, revertOnCancel, cellEl })
+    setReasonModal({ recordId: record.id, studentId: student.id, fecha: record.fecha, studentName: studentFullName(student), original: current, revertOnCancel })
   }
   async function cancelReasonModal() {
     const modal = reasonModal
     setReasonModal(null)
-    modal?.cellEl?.focus()
     if (!modal?.revertOnCancel) return
     const { recordId, studentId } = modal
     setAttendanceRecords((prev) => prev.map((r) => r.id === recordId ? {
@@ -1194,8 +1196,8 @@ export default function SubjectPage() {
       await loadAttendance(true)
     }
   }
-  function cellClick(record, student, cellEl) {
-    handleCycleAttendance(record, student, cellEl)
+  function cellClick(record, student) {
+    handleCycleAttendance(record, student)
   }
 
   // Wrapper de identidad ESTABLE para AttendanceTable (React.memo): cierra
@@ -1207,7 +1209,7 @@ export default function SubjectPage() {
   // cambia de identidad (lo que React.memo necesita para saltarse el
   // re-render) pero siempre ejecuta la versión más reciente.
   const cellClickRef = useRef(); cellClickRef.current = cellClick
-  const stableCellClick = useCallback((record, student, cellEl) => cellClickRef.current(record, student, cellEl), [])
+  const stableCellClick = useCallback((record, student) => cellClickRef.current(record, student), [])
   // setDeleteAttendanceConfirm/setActiveTab/setShowAddAttendance son setters
   // de useState — React los garantiza estables, así que estos SÍ pueden
   // llevar deps vacías sin riesgo de obsolescencia.
@@ -1218,7 +1220,7 @@ export default function SubjectPage() {
   // Guarda el motivo y deja la celda en "justificada".
   async function handleSaveReason() {
     if (!reasonModal) return
-    const { recordId, studentId, cellEl } = reasonModal
+    const { recordId, studentId } = reasonModal
     const motivo = reasonText.trim()
     setAttendanceRecords((prev) => prev.map((r) => r.id === recordId ? {
       ...r,
@@ -1227,7 +1229,6 @@ export default function SubjectPage() {
       motivos: { ...(r.motivos || {}), [studentId]: motivo },
     } : r))
     setReasonModal(null)
-    cellEl?.focus()
     try {
       await setAttendanceState(recordId, studentId, 'justificada', motivo)
     } catch (err) {
@@ -2918,6 +2919,7 @@ export default function SubjectPage() {
       onDeleteDay={stableDeleteDay}
       onBack={stableAttBack}
       onAddDay={stableAddDay}
+      lastEditedCell={lastEditedAttCell}
     />
   )
 
