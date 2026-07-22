@@ -915,6 +915,7 @@ export default function ActivityPage() {
             placeholder="Buscar por nombre o por número de lista…"
             autoFocus={!IS_NATIVE_APP}
           />
+          <p className="text-xs text-muted mt-1.5">Presiona un nombre para evaluar</p>
         </div>
 
         {/* Student list — nombre a la izquierda, estatus a la derecha. Altura
