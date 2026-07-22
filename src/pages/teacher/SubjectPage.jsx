@@ -241,8 +241,10 @@ const AttendanceTable = memo(function AttendanceTable({
              (sin línea divisoria), para darle más ancho al botón de regresar. */
           <th colSpan={2} rowSpan={2} className="sticky left-0 z-30 bg-accent-light px-2 align-middle border-r border-outline-variant">
             <div className="flex items-center gap-2">
+              {/* Verde fosforescente con flecha negra — que se note dónde se
+                  regresa (pedido explícito) */}
               <button type="button" onClick={onBack} aria-label="Regresar"
-                className="flex-none px-2.5 py-1 -ml-1 rounded text-on-surface hover:bg-[var(--accent-medium)] transition-colors">
+                className="flex-none px-2.5 py-1 -ml-1 rounded bg-[#39FF14] text-black hover:bg-[#2ee510] transition-colors">
                 <ArrowLeft size={20} />
               </button>
               <span className="text-xs font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
@@ -1081,7 +1083,28 @@ export default function SubjectPage() {
   useEffect(() => {
     if (!IS_NATIVE_APP || activeTab !== 'asistencia') return undefined
     lockLandscape()
-    return () => { lockPortrait() }
+    // Salida por rotación física: la pantalla está BLOQUEADA en horizontal,
+    // así que girar el teléfono no dispara ningún evento de orientación de
+    // pantalla — se lee el acelerómetro (deviceorientation). Cuando el
+    // docente sostiene el teléfono en vertical de forma sostenida (~0.7 s,
+    // para no salirse por un movimiento accidental), se regresa solo, igual
+    // que con la flechita (pedido explícito).
+    let timer = null
+    const onDeviceOrientation = (e) => {
+      if (e.beta == null || e.gamma == null) return
+      const enVertical = Math.abs(e.gamma) < 25 && e.beta > 55 && e.beta < 125
+      if (enVertical) {
+        if (!timer) timer = setTimeout(() => setActiveTab('actividades'), 700)
+      } else if (timer) {
+        clearTimeout(timer); timer = null
+      }
+    }
+    window.addEventListener('deviceorientation', onDeviceOrientation)
+    return () => {
+      window.removeEventListener('deviceorientation', onDeviceOrientation)
+      if (timer) clearTimeout(timer)
+      lockPortrait()
+    }
   }, [activeTab])
 
   // Oculta los íconos del sistema (barra de estado) mientras se agrega un día,
