@@ -1182,6 +1182,18 @@ export default function SubjectPage() {
     const modal = reasonModal
     setReasonModal(null)
     if (!modal?.revertOnCancel) return
+    await markPresenteFrom(modal)
+  }
+  // Botón "Asistencia" del modal: siempre deja la celda en Presente
+  // (palomita), venga de donde venga — completa el ciclo J → Presente sin
+  // pasos extra (pedido explícito, reemplaza al viejo "Cancelar").
+  async function markPresenteFromModal() {
+    const modal = reasonModal
+    setReasonModal(null)
+    await markPresenteFrom(modal)
+  }
+  async function markPresenteFrom(modal) {
+    if (!modal) return
     const { recordId, studentId } = modal
     setAttendanceRecords((prev) => prev.map((r) => r.id === recordId ? {
       ...r,
@@ -4047,9 +4059,9 @@ export default function SubjectPage() {
                     className="py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
                     Guardar
                   </button>
-                  <button type="button" onClick={cancelReasonModal}
-                    className="py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
-                    Cancelar
+                  <button type="button" onClick={markPresenteFromModal}
+                    className="py-2 rounded bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1">
+                    <CheckIcon size={15} /> Asistencia
                   </button>
                 </div>
               </div>
@@ -4068,9 +4080,9 @@ export default function SubjectPage() {
                     className="w-full px-3 py-2.5 rounded border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={cancelReasonModal}
-                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
-                    Cancelar
+                  <button type="button" onClick={markPresenteFromModal}
+                    className="flex-1 py-2.5 rounded bg-green-600 text-white text-base font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5">
+                    <CheckIcon size={17} /> Asistencia
                   </button>
                   <button type="button" onClick={handleSaveReason}
                     disabled={reasonText.trim() === (reasonModal.original || '').trim()}
