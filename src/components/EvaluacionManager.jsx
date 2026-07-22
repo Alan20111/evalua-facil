@@ -1410,6 +1410,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   placeholder="Buscar por nombre o por número de lista…"
                   autoFocus={!IS_NATIVE_APP}
                 />
+                <p className="text-xs text-red-600 text-center mt-1.5">Presiona un nombre para evaluar</p>
               </div>
               {/* Lista por estudiante — cada fila abre la revisión de pantalla
                   completa (openReview), donde se ve la entrega y, si hay
