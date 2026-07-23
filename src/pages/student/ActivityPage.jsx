@@ -161,16 +161,22 @@ export default function StudentActivityPage() {
       }
 
       // Resolve this student's enrollment record for the activity's subject.
+      // Sin inscripción, fuera: las actividades son de lectura pública y sin este
+      // guard cualquier estudiante con la URL vería (e intentaría entregar) una
+      // actividad de una asignatura ajena.
       const studData = await getEnrollmentForSubject(currentUser, userProfile, actData.asignaturaId)
+      if (!studData) {
+        toast('No estás inscrito en esta asignatura', 'error')
+        navigate('/alumno/dashboard')
+        return
+      }
       setStudent(studData)
 
-      const subsSnap = studData
-        ? await getDocs(query(
-            collection(db, 'submissions'),
-            where('actividadId', '==', activityId),
-            where('alumnoId', '==', studData.id)
-          ))
-        : null
+      const subsSnap = await getDocs(query(
+        collection(db, 'submissions'),
+        where('actividadId', '==', activityId),
+        where('alumnoId', '==', studData.id)
+      ))
       if (subsSnap && !subsSnap.empty) {
         setSubmission({ id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() })
       }

@@ -42,6 +42,17 @@ service cloud.firestore {
         get(/databases/$(database)/documents/students/$(studentId)).data.uid == request.auth.uid;
     }
 
+    // True when the enrollment doc `studentId` belongs to the SAME subject as the
+    // activity `actId`. Without this, a student could create a submission on any
+    // activity in the platform by pairing it with their own enrollment doc —
+    // ownsStudentDoc alone only proves the enrollment is theirs, not that it
+    // matches the activity's subject.
+    function enrollmentMatchesActivity(studentId, actId) {
+      return exists(/databases/$(database)/documents/activities/$(actId)) &&
+        get(/databases/$(database)/documents/students/$(studentId)).data.asignaturaId ==
+          get(/databases/$(database)/documents/activities/$(actId)).data.asignaturaId;
+    }
+
     match /schools/{schoolId} {
       allow read: if request.auth != null;
       // Schools are created/edited only from teacher flows (Register/Onboarding
@@ -185,7 +196,10 @@ service cloud.firestore {
       // the grade client-side, so closing that requires moving grading server-side
       // (tracked as a follow-up).
       allow create: if request.auth != null && (
-        ownsStudentDoc(request.resource.data.alumnoId) ||
+        (
+          ownsStudentDoc(request.resource.data.alumnoId) &&
+          enrollmentMatchesActivity(request.resource.data.alumnoId, request.resource.data.actividadId)
+        ) ||
         ownsActivity(request.resource.data.actividadId)
       );
       allow update: if request.auth != null && (

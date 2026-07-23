@@ -89,8 +89,15 @@ export default function EvaluacionRunner() {
       const subSnap = await getDoc(doc(db, 'subjects', actData.asignaturaId))
       setSubject({ id: subSnap.id, ...subSnap.data() })
 
+      // Sin inscripción no hay evaluación que correr — mismo guard que en
+      // SubjectPage/ActivityPage para URLs directas de asignaturas ajenas.
       const studData = await getEnrollmentForSubject(currentUser, userProfile, actData.asignaturaId)
-      if (studData) setStudent(studData)
+      if (!studData) {
+        toast('No estás inscrito en esta asignatura', 'error')
+        navigate('/alumno/dashboard')
+        return
+      }
+      setStudent(studData)
       if (actData.docenteId) {
         getDoc(doc(db, 'users', actData.docenteId))
           .then((s) => { if (s.exists()) { const d = s.data(); setTeacherName(teacherDisplayName(d)) } })
