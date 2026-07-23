@@ -145,15 +145,27 @@ service cloud.firestore {
     // Asistencia — un documento por "hora" de clase (fecha + slot), con un mapa
     // presentes: { alumnoId: bool }. Mismo patrón de propiedad que activities.
     match /attendance/{attendanceId} {
-      // Solo docentes/admin: ninguna vista de alumno lee asistencia, y sin esta
-      // restricción cualquier alumno podía listar los pases de lista de toda la
-      // plataforma.
+      // Solo docentes/admin: ninguna vista de alumno lee asistencia directamente
+      // (cada columna es compartida por TODO el grupo, con motivos de
+      // justificación en texto libre) — sin esta restricción cualquier alumno
+      // podía listar los pases de lista de toda la plataforma. El alumno ve su
+      // propio resumen vía attendanceSummaries (ver más abajo).
       allow read: if isDocente() || isAdmin();
       allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
       allow update, delete: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
+    }
+
+    // Resumen de asistencia POR ALUMNO — lo escribe solo la Cloud Function
+    // onAttendanceEscrita (Admin SDK, no pasa por estas reglas), recalculado
+    // desde `attendance` cada vez que cambia una columna del grupo. El id del
+    // documento ES el mismo id que su enrollment en `students`, así
+    // ownsStudentDoc ya resuelve la propiedad sin ayuda adicional. Ningún
+    // cliente escribe aquí — de ahí que no haya create/update/delete.
+    match /attendanceSummaries/{studentId} {
+      allow read: if request.auth != null && ownsStudentDoc(studentId);
     }
 
     // Personal question bank (Evaluaciones) — strictly owner-only.
