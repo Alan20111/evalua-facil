@@ -13,7 +13,6 @@ import {
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -264,7 +263,7 @@ export default function TeacherDashboard() {
   const teacherGreetingName = teacherDisplayName(userProfile) || 'Docente'
 
   return (
-    <TeacherLayout>
+    <>
       <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
         {/* Greeting — dos renglones, cada uno truncate (nunca se parte en dos
@@ -500,7 +499,6 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
-
-    </TeacherLayout>
+    </>
   )
 }

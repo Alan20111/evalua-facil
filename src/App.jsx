@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './components/Toast'
 import AndroidBackButton from './components/AndroidBackButton'
@@ -6,6 +6,7 @@ import { needsPasswordSetup } from './utils/authLinking'
 import { installDraggableOverlays } from './utils/draggableOverlays'
 import { installFollowTooltips } from './utils/followTooltip'
 import { installWheelStep } from './utils/wheelStep'
+import TeacherLayout from './components/Layout'
 
 import Landing from './pages/Landing'
 import TeacherLogin from './pages/teacher/Login'
@@ -84,6 +85,20 @@ function ProtectedTeacherProtectAccount({ children }) {
   return children
 }
 
+// Layout compartido de las rutas del docente: se monta UNA sola vez y
+// persiste mientras se navega entre /dashboard, /subject/:id, /calendario…
+// (el <Outlet/> es lo único que cambia). Antes cada página envolvía su propio
+// <TeacherLayout>, así que React lo desmontaba y volvía a montar en cada
+// navegación — el sidebar se vaciaba y se volvía a llenar (spinner, refetch
+// de asignaturas, banner de prueba) en cada clic, el parpadeo reportado.
+function TeacherLayoutRoute() {
+  return (
+    <TeacherLayout>
+      <Outlet />
+    </TeacherLayout>
+  )
+}
+
 function ProtectedStudent({ children }) {
   const { currentUser, loading } = useAuth()
   if (loading) return null
@@ -146,12 +161,16 @@ export default function App() {
             {/* Teacher protected */}
             <Route path="/onboarding" element={<ProtectedTeacherOnboarding><Onboarding /></ProtectedTeacherOnboarding>} />
             <Route path="/protect-account" element={<ProtectedTeacherProtectAccount><ProtectAccount /></ProtectedTeacherProtectAccount>} />
-            <Route path="/dashboard" element={<ProtectedTeacher><TeacherDashboard /></ProtectedTeacher>} />
-            <Route path="/subject/:subjectId" element={<ProtectedTeacher><SubjectPage /></ProtectedTeacher>} />
-            <Route path="/activity/:activityId" element={<ProtectedTeacher><ActivityPage /></ProtectedTeacher>} />
-            <Route path="/profile" element={<ProtectedTeacher><Profile /></ProtectedTeacher>} />
-            <Route path="/calendario" element={<ProtectedTeacher><CalendarPage /></ProtectedTeacher>} />
-            <Route path="/notificaciones" element={<ProtectedTeacher><TeacherNotificationSettings /></ProtectedTeacher>} />
+            {/* Layout compartido — un solo TeacherLayout montado para las 6 rutas;
+                ver TeacherLayoutRoute arriba. */}
+            <Route element={<ProtectedTeacher><TeacherLayoutRoute /></ProtectedTeacher>}>
+              <Route path="/dashboard" element={<TeacherDashboard />} />
+              <Route path="/subject/:subjectId" element={<SubjectPage />} />
+              <Route path="/activity/:activityId" element={<ActivityPage />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/calendario" element={<CalendarPage />} />
+              <Route path="/notificaciones" element={<TeacherNotificationSettings />} />
+            </Route>
 
             {/* Student protected */}
             <Route path="/alumno/dashboard" element={<ProtectedStudent><StudentDashboard /></ProtectedStudent>} />

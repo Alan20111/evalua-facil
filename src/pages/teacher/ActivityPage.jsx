@@ -15,7 +15,6 @@ import {
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import SearchInput from '../../components/SearchInput'
 import {
@@ -745,13 +744,10 @@ export default function ActivityPage() {
   // Keep the spinner while a grades-table cell is about to open a student, so the
   // list never flashes before the grading view opens.
   if (loading || pendingOpenId) return (
-    <TeacherLayout>
       <div className="flex justify-center py-20"><Spinner size="lg" /></div>
-    </TeacherLayout>
   )
 
   return (
-    <TeacherLayout>
       <div {...subjectPaletteProps(subject?.colorPalette)}>
       {/* Evaluaciones render their manager as the page body, but share the
           fullscreen per-student grading overlay below (so a grades-table cell
@@ -2175,6 +2171,5 @@ export default function ActivityPage() {
       )}
 
       </div>
-    </TeacherLayout>
   )
 }
