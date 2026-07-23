@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   getDoc,
@@ -13,14 +13,13 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
-  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Bell, Archive, Camera, CalendarDays, CircleUserRound,
+  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Bell, Archive, CalendarDays,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
-import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
-import { uploadToCloudinary } from '../../utils/cloudinary'
+import { getEnrollments } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
@@ -57,15 +56,13 @@ async function fetchSubmissionsForStudents(studentDocIds) {
 }
 
 export default function StudentDashboard() {
-  const { currentUser, userProfile, setUserProfile } = useAuth()
+  const { currentUser, userProfile } = useAuth()
   const [subjects, setSubjects] = useState([])
   const [studentInfo, setStudentInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showJoin, setShowJoin] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const [showArchived, setShowArchived] = useState(false)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const fileInputRef = useRef(null)
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -166,23 +163,6 @@ export default function StudentDashboard() {
     }
   }
 
-  async function handlePhotoChange(e) {
-    const file = e.target.files?.[0]
-    if (!file || !currentUser) return
-    setUploadingPhoto(true)
-    try {
-      const url = await uploadToCloudinary(file, 'evalua-facil/profiles')
-      await updateAllEnrollments(currentUser.uid, { photoURL: url })
-      setUserProfile((prev) => ({ ...prev, photoURL: url }))
-      setStudentInfo((prev) => (prev ? { ...prev, photoURL: url } : prev))
-    } catch {
-      // best-effort — silent failure
-    } finally {
-      setUploadingPhoto(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
   if (loading) return (
     <StudentLayout>
       <div className="flex items-center justify-center py-20">
@@ -210,56 +190,34 @@ export default function StudentDashboard() {
 
   return (
     <StudentLayout>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handlePhotoChange}
-      />
-
       <div className={`px-4 py-6 ${STUDENT_CONTAINER}`}>
-        {/* Foto/nombre + Notificaciones — solo móvil (el logo tocable ya vive en la barra superior) */}
+        {/* Foto/nombre + Notificaciones — solo móvil (el logo tocable ya vive en la barra superior).
+            Dar clic al nombre ES la entrada al perfil (Don't Make Me Think: sin
+            fila "Mi perfil" aparte; la foto se cambia dentro del perfil). */}
         <div className="md:hidden bg-surface-card rounded-card shadow-card overflow-hidden mb-4">
-          <div className="flex items-center gap-3 px-4 py-4 border-b-2 border-outline-variant">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="relative w-11 h-11 rounded-full flex-shrink-0 group focus:outline-none"
-              data-tooltip="Cambiar foto"
-              aria-label="Cambiar foto"
-            >
-              <div className="w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center">
-                {uploadingPhoto ? (
-                  <Spinner size="sm" />
-                ) : photoURL ? (
-                  <img src={photoURL} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-base font-bold text-accent">{initials}</span>
-                )}
-              </div>
-              <span className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                <Camera size={16} className="text-white" />
-              </span>
-            </button>
+          <button
+            type="button"
+            onClick={() => navigate('/alumno/perfil')}
+            className="w-full flex items-center gap-3 px-4 py-4 border-b-2 border-outline-variant hover:bg-accent-tint transition-colors text-left"
+            aria-label="Mi perfil"
+          >
+            <div className="w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0">
+              {photoURL ? (
+                <img src={photoURL} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-base font-bold text-accent">{initials}</span>
+              )}
+            </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-on-surface truncate">{firstName}</p>
               {apellidos && <p className="text-sm text-muted truncate">{apellidos}</p>}
             </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate('/alumno/perfil')}
-            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent-tint transition-colors"
-          >
-            <CircleUserRound size={20} className="text-accent flex-shrink-0" />
-            <span className="font-medium text-on-surface flex-1 text-left">Mi perfil</span>
             <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
           </button>
           <button
             type="button"
             onClick={() => navigate('/alumno/notificaciones')}
-            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent-tint transition-colors border-t border-outline-variant"
+            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent-tint transition-colors"
           >
             <Bell size={20} className="text-accent flex-shrink-0" />
             <span className="font-medium text-on-surface flex-1 text-left">Notificaciones</span>
@@ -276,7 +234,27 @@ export default function StudentDashboard() {
           </button>
         </div>
 
-        <h1 className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
+        <div className="flex items-start justify-between gap-3 mb-1">
+          <h1 className="text-xl font-bold text-on-surface">Mis asignaturas</h1>
+          {/* Notificaciones/Agenda en escritorio — en móvil ya viven en la
+              tarjeta de arriba; su casa es el dashboard, no el perfil. */}
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/alumno/notificaciones')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-muted hover:bg-accent-tint hover:text-accent transition-colors"
+            >
+              <Bell size={15} /> Notificaciones
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/alumno/agenda')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-muted hover:bg-accent-tint hover:text-accent transition-colors"
+            >
+              <CalendarDays size={15} /> Agenda
+            </button>
+          </div>
+        </div>
         <p className="text-slate-400 text-sm mb-5">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's' : ''} activas</p>
 
         {activeSubjects.length === 0 ? (

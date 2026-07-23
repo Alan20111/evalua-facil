@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, ChevronRight, Camera } from 'lucide-react'
+import { LogOut, ChevronRight } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { getDoc, doc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import { uploadToCloudinary } from '../utils/cloudinary'
 import Spinner from './Spinner'
 import SubjectIcon from './SubjectIcon'
 import { subjectDisplayName } from '../utils/subjectName'
@@ -17,16 +16,14 @@ import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
 export default function StudentLayout({ children }) {
-  const { currentUser, userProfile, setUserProfile } = useAuth()
+  const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [schoolName, setSchoolName] = useState('')
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [studentInfo, setStudentInfo] = useState(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showFullLogo, setShowFullLogo] = useState(false)
-  const fileInputRef = useRef(null)
 
   useBackHandler(() => setShowLogoutConfirm(false), showLogoutConfirm)
   useScrollLock(showLogoutConfirm)
@@ -90,22 +87,6 @@ export default function StudentLayout({ children }) {
     navigate('/alumno')
   }
 
-  async function handlePhotoChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploadingPhoto(true)
-    try {
-      const url = await uploadToCloudinary(file, 'evalua-facil/profiles')
-      await updateAllEnrollments(currentUser.uid, { photoURL: url })
-      setUserProfile((prev) => ({ ...prev, photoURL: url }))
-    } catch {
-      // best-effort — silent failure
-    } finally {
-      setUploadingPhoto(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
   const displayName =
     [userProfile?.nombre, userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
     || [studentInfo?.nombre, studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].filter(Boolean).join(' ')
@@ -117,15 +98,6 @@ export default function StudentLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-surface">
-      {/* Hidden file input for photo upload */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handlePhotoChange}
-      />
-
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top">
         <button
@@ -170,42 +142,29 @@ export default function StudentLayout({ children }) {
             <PortalBadge role="alumno" />
           </div>
 
-          {/* Student profile — click avatar to change photo */}
-          <div className="flex items-center gap-3 px-3 py-2 mx-2 mt-1 rounded">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="relative w-9 h-9 rounded-full flex-shrink-0 group focus:outline-none"
-              data-tooltip="Cambiar foto"
-              aria-label="Cambiar foto"
-            >
-              <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center">
-                {uploadingPhoto ? (
-                  <Spinner size="sm" />
-                ) : photoURL ? (
-                  <img src={photoURL} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-sm font-bold text-accent">{initials}</span>
-                )}
-              </div>
-              <span className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                <Camera size={15} className="text-white" />
-              </span>
-            </button>
-            {/* El nombre lleva al perfil; el avatar sigue cambiando la foto. */}
-            <button
-              type="button"
-              onClick={() => navigate('/alumno/perfil')}
-              className="min-w-0 flex-1 text-left group/perfil focus:outline-none"
-              data-tooltip="Mi perfil"
-            >
-              <p className="text-body-sm font-semibold text-white truncate group-hover/perfil:underline">{displayName}</p>
+          {/* Identidad → clic = Mi perfil (la foto se cambia DENTRO del perfil —
+              una sola casa por función, Don't Make Me Think). */}
+          <button
+            type="button"
+            onClick={() => navigate('/alumno/perfil')}
+            className="flex items-center gap-3 px-3 py-2 mx-2 mt-1 rounded text-left hover:bg-white/10 transition-colors focus:outline-none"
+            data-tooltip="Mi perfil"
+          >
+            <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
+              {photoURL ? (
+                <img src={photoURL} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-sm font-bold text-accent">{initials}</span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-body-sm font-semibold text-white truncate">{displayName}</p>
               {schoolName && (
                 <p className="text-metadata text-white/70 truncate">{schoolName}</p>
               )}
-            </button>
+            </div>
             <ChevronRight size={14} className="text-white/50 flex-shrink-0" />
-          </div>
+          </button>
 
           {/* Subjects heading — links to dashboard */}
           <NavLink
