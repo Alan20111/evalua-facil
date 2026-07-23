@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { signInWithEmailAndPassword } from 'firebase/auth'
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
 import Spinner from '../../components/Spinner'
@@ -29,6 +29,11 @@ export default function StudentLogin() {
   const [confirmNewPassword, setConfirmNewPassword] = useState('')
   const [recoverError, setRecoverError] = useState('')
 
+  // Recuperación por correo de recuperación (registrado en Mi perfil)
+  const [recoverEmail, setRecoverEmail] = useState('')
+  const [recoverEmailMsg, setRecoverEmailMsg] = useState('')
+  const [sendingEmail, setSendingEmail] = useState(false)
+
   const navigate = useNavigate()
   const submitting = useRef(false) // guards against double-submit (rapid taps)
 
@@ -43,6 +48,17 @@ export default function StudentLogin() {
     if (submitting.current) return
     setError(''); submitting.current = true; setLoading(true)
     try {
+      // Con '@' es un correo (estudiante con correo de recuperación confirmado,
+      // cuyo correo de cuenta ya es el real) — entra directo con él.
+      if (username.includes('@')) {
+        try {
+          await signInWithEmailAndPassword(auth, username.trim().toLowerCase(), password)
+          navigate('/alumno/dashboard')
+        } catch {
+          setError('Correo o contraseña incorrectos. Si la olvidaste, usa “Recuperar contraseña”.')
+        }
+        return
+      }
       // Legacy codes are UPPERCASE, new ones lowercase — search both
       const snaps = await Promise.all(usernameCandidates(username).map((u) =>
         getDocs(query(collection(db, 'students'), where('username', '==', u)))
@@ -66,6 +82,14 @@ export default function StudentLogin() {
             navigate('/alumno/dashboard')
             return
           } catch { /* wrong password for this school — try the next */ }
+        }
+        // Si la cuenta ya está vinculada a un correo verificado, el correo falso
+        // @evalua.local dejó de existir: el username por sí solo YA no entra —
+        // oriéntalo con la máscara pública (nunca el correo completo).
+        const conCorreo = docs.find((d) => d.correoVerificado && d.correoMask)
+        if (conCorreo) {
+          setError(`Tu cuenta entra con tu correo (${conCorreo.correoMask}). Escríbelo en lugar de tu username; si olvidaste la contraseña, usa “Recuperar contraseña” con ese correo.`)
+          return
         }
         setError('Contraseña incorrecta. Si la olvidaste, usa “Recuperar contraseña”.')
         return
@@ -110,6 +134,24 @@ export default function StudentLogin() {
   function backToLogin() {
     setMode('login')
     setRecoverError('')
+    setRecoverEmailMsg('')
+  }
+
+  // Restablecer con el correo de recuperación: Firebase manda el enlace a ese
+  // correo (que ES el correo de la cuenta una vez verificado). Respuesta
+  // genérica exista o no la cuenta — no revela qué correos están registrados.
+  const handleRecoverByEmail = async (e) => {
+    e.preventDefault()
+    const email = recoverEmail.trim().toLowerCase()
+    if (!email) return
+    setSendingEmail(true)
+    setRecoverEmailMsg('')
+    try {
+      auth.languageCode = 'es'
+      await sendPasswordResetEmail(auth, email)
+    } catch { /* misma respuesta genérica — no revelar si existe */ }
+    setRecoverEmailMsg('Si ese correo está vinculado a una cuenta, en unos minutos te llegará un enlace para elegir una contraseña nueva. Revisa también tu carpeta de spam.')
+    setSendingEmail(false)
   }
 
   // Step 1: find the student and check the teacher enabled recovery (resetPassword set).
@@ -128,6 +170,13 @@ export default function StudentLogin() {
         return
       }
       const docs = found.map((d) => ({ id: d.id, ...d.data() }))
+      // Cuenta con correo verificado: se recupera sola con su correo (arriba) —
+      // el flujo del maestro ya no aplica (su email de Auth ya no es el falso).
+      const conCorreo = docs.find((d) => d.correoVerificado && d.correoMask)
+      if (conCorreo) {
+        setRecoverError(`Tu cuenta tiene un correo de recuperación (${conCorreo.correoMask}). Usa la opción de arriba con ese correo.`)
+        return
+      }
       const enabled = docs.find((d) => d.resetPassword)
       if (!enabled) {
         setRecoverError('La recuperación de contraseña está inhabilitada. Pídele a tu maestro que la habilite desde su panel y vuelve a intentar.')
@@ -205,10 +254,39 @@ export default function StudentLogin() {
           /* ── Recovery ── */
           <div className="bg-surface-card rounded-card shadow-card p-5">
             {recoverStep === 'username' ? (
+              <>
+              {/* ── Opción 1: correo de recuperación (registrado en Mi perfil) ── */}
+              <form onSubmit={handleRecoverByEmail} className="space-y-3 mb-4 pb-4 border-b border-outline-variant">
+                <p className="text-sm text-muted">
+                  ¿Registraste un <strong>correo de recuperación</strong> en tu perfil? Escríbelo y te
+                  mandamos un enlace para elegir una contraseña nueva:
+                </p>
+                <input
+                  type="email"
+                  value={recoverEmail}
+                  onChange={(e) => { setRecoverEmail(e.target.value); setRecoverEmailMsg('') }}
+                  autoComplete="email"
+                  placeholder="tucorreo@gmail.com"
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                />
+                {recoverEmailMsg && (
+                  <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-4 py-2.5">{recoverEmailMsg}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={sendingEmail || !recoverEmail.trim()}
+                  className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {sendingEmail ? <Spinner size="sm" /> : <KeyRound size={18} />}
+                  {sendingEmail ? 'Enviando…' : 'Enviarme el enlace'}
+                </button>
+              </form>
+
+              {/* ── Opción 2: recuperación habilitada por el maestro ── */}
               <form onSubmit={handleRecoverFind} className="space-y-3">
                 <p className="text-sm text-muted">
-                  Tu maestro debe <strong>habilitar la recuperación</strong> antes de que puedas elegir
-                  una nueva contraseña. Escribe tu username:
+                  ¿Sin correo registrado? Tu maestro debe <strong>habilitar la recuperación</strong> antes
+                  de que puedas elegir una nueva contraseña. Escribe tu username:
                 </p>
                 <div>
                   <label htmlFor="recover-username" className="block text-sm font-medium text-muted mb-1">Username</label>
@@ -242,6 +320,7 @@ export default function StudentLogin() {
                   {loading ? 'Verificando…' : 'Continuar'}
                 </button>
               </form>
+              </>
             ) : (
               <form onSubmit={handleRecoverSetPassword} className="space-y-3">
                 <div className="flex items-center gap-3 p-3 bg-accent-light rounded">
@@ -307,7 +386,7 @@ export default function StudentLogin() {
             <div className="bg-surface-card rounded-card shadow-card p-5">
               <form onSubmit={handleLogin} className="space-y-3">
                 <div>
-                  <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Username</label>
+                  <label htmlFor="login-username" className="block text-sm font-medium text-muted mb-1">Username o correo</label>
                   <input
                     id="login-username"
                     type="text"
