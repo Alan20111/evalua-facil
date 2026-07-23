@@ -15,7 +15,7 @@ import { maskEmail } from '../../utils/generate'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { Camera, Copy, Check, KeyRound, Mail, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Camera, Copy, Check, KeyRound, Mail, ShieldCheck } from 'lucide-react'
 
 // Perfil del estudiante — SOLO lo que no vive en otra pantalla (filosofía
 // Don't Make Me Think: cero redundancia): identidad + foto, usuario, cambio de
@@ -204,7 +204,20 @@ export default function StudentProfile() {
       />
 
       <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
-        <h1 className="text-xl font-bold text-on-surface mb-4">Mi perfil</h1>
+        {/* Flechita de regreso visible — respaldo para móviles donde el botón
+            físico/gesto de atrás no responde (el hardware ya lo cubre
+            useBackHandler arriba). */}
+        <div className="flex items-center gap-2 mb-4">
+          <button
+            type="button"
+            onClick={() => navigate('/alumno/dashboard')}
+            className="p-2 -ml-2 rounded hover:bg-accent-tint text-muted hover:text-accent transition-colors flex-shrink-0"
+            aria-label="Regresar"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold text-on-surface">Mi perfil</h1>
+        </div>
 
         {/* ── Identidad ── */}
         <div className="bg-surface-card rounded-card shadow-card p-5 mb-4 flex items-center gap-4">

@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import StudentBottomNav from '../../components/StudentBottomNav'
 import { useBackHandler } from '../../hooks/useBackHandler'
 
 // Pantalla completa (no usa StudentLayout — mismo patrón que EvaluacionRunner:
@@ -145,7 +146,8 @@ export default function NotificationSettings() {
       {loading ? (
         <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
       ) : (
-        <div className={`px-4 py-5 space-y-4 ${STUDENT_CONTAINER_NARROW}`}>
+        // pb extra: que la última tarjeta no quede tapada por la barra inferior
+        <div className={`px-4 py-5 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-5 space-y-4 ${STUDENT_CONTAINER_NARROW}`}>
           <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4 divide-y divide-outline-variant">
             {CATEGORIAS.map((cat) => (
               <div key={cat.key} className={cat.key !== CATEGORIAS[0].key ? 'pt-3' : ''}>
@@ -194,6 +196,7 @@ export default function NotificationSettings() {
           </div>
         </div>
       )}
+      <StudentBottomNav />
     </div>
   )
 }

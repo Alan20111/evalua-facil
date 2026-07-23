@@ -14,6 +14,7 @@ import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import StudentBottomNav from './StudentBottomNav'
 
 export default function StudentLayout({ children }) {
   const { currentUser, userProfile } = useAuth()
@@ -216,9 +217,15 @@ export default function StudentLayout({ children }) {
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 min-w-0 min-h-screen">{children}</main>
+        {/* Main content — pb reserva el alto de la barra inferior (5rem) MÁS el
+            inset de seguridad de Android que ya se le suma a esa barra
+            (.safe-bottom en <nav> abajo); si no, el último contenido de cada
+            página queda tapado detrás de la barra. Mismo estándar que el docente. */}
+        <main className="flex-1 min-w-0 min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-0">{children}</main>
       </div>
+
+      {/* Mobile bottom nav — mismo estándar que la App del docente */}
+      <StudentBottomNav />
 
       {/* Confirmación antes de cerrar sesión (header móvil) */}
       {showLogoutConfirm && (
