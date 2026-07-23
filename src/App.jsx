@@ -31,6 +31,7 @@ import EvaluacionRunner from './pages/student/EvaluacionRunner'
 import EvaluacionRevision from './pages/student/EvaluacionRevision'
 import NotificationSettings from './pages/student/NotificationSettings'
 import StudentAgenda from './pages/student/Agenda'
+import StudentProfile from './pages/student/Profile'
 
 import AdminDashboard from './pages/admin/Dashboard'
 
@@ -160,6 +161,7 @@ export default function App() {
             <Route path="/alumno/evaluacion/:activityId/revision" element={<ProtectedStudent><EvaluacionRevision /></ProtectedStudent>} />
             <Route path="/alumno/notificaciones" element={<ProtectedStudent><NotificationSettings /></ProtectedStudent>} />
             <Route path="/alumno/agenda" element={<ProtectedStudent><StudentAgenda /></ProtectedStudent>} />
+            <Route path="/alumno/perfil" element={<ProtectedStudent><StudentProfile /></ProtectedStudent>} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
