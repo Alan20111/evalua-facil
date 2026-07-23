@@ -12,14 +12,16 @@ import { toDateStr } from '../../utils/horarioBloques'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import AgendaLista from '../../components/agenda/AgendaLista'
 import AgendaCalendario from '../../components/agenda/AgendaCalendario'
-import StudentBottomNav from '../../components/StudentBottomNav'
+import StudentLayout from '../../components/StudentLayout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { teacherDisplayName } from '../../utils/studentSearch'
 
-// Pantalla completa (mismo patrón que NotificationSettings.jsx/EvaluacionRunner:
-// overlay fixed inset-0, sin la barra lateral de asignaturas) — la Agenda del
-// estudiante, con dos pestañas: Lista (vencidas/hoy/próximas, cronológica) y
-// Calendario (Día/Semana/Mes).
+// Dentro de StudentLayout (no "pantalla completa" como NotificationSettings/
+// EvaluacionRunner): en escritorio debe quedar visible y clicable el sidebar
+// azul de asignaturas a la izquierda — pedido explícito, antes un overlay
+// fixed inset-0 lo tapaba por completo. La Agenda del estudiante, con dos
+// pestañas: Lista (vencidas/hoy/próximas, cronológica) y Calendario (Día/
+// Semana/Mes).
 
 async function fetchActivitiesForSubjects(subjectIds) {
   if (subjectIds.length === 0) return []
@@ -128,13 +130,17 @@ export default function Agenda() {
   }, [items])
 
   return (
-    <div className="fixed inset-0 z-50 bg-surface overflow-y-auto">
+    <StudentLayout>
+    <div className="bg-surface">
       <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 safe-top">
         <div className="flex items-center gap-3">
+          {/* Solo móvil: en escritorio el sidebar ya permite navegar a otro
+              lado, la flecha ahí sería redundante (mismo criterio que
+              asignatura/actividad). */}
           <button
             type="button"
             onClick={goBack}
-            className="p-2 -ml-2 hover:bg-white/10 rounded flex-shrink-0 transition-colors"
+            className="md:hidden p-2 -ml-2 hover:bg-white/10 rounded flex-shrink-0 transition-colors"
             aria-label="Regresar"
           >
             <ArrowLeft size={20} />
@@ -163,8 +169,7 @@ export default function Agenda() {
       {loading ? (
         <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
       ) : (
-        // pb extra: que el último renglón no quede tapado por la barra inferior
-        <div className={`px-4 py-5 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-5 ${STUDENT_CONTAINER_NARROW}`}>
+        <div className={`px-4 py-5 ${STUDENT_CONTAINER_NARROW}`}>
           {tab === 'lista' ? (
             <AgendaLista itemsByDate={itemsByDate} todayStr={todayStr} onActivityClick={(id) => navigate(`/alumno/actividad/${id}`)} />
           ) : (
@@ -172,7 +177,7 @@ export default function Agenda() {
           )}
         </div>
       )}
-      <StudentBottomNav />
     </div>
+    </StudentLayout>
   )
 }
