@@ -133,6 +133,15 @@ export default function StudentSubjectPage() {
         query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))
       ).catch(() => ({ docs: [] }))
 
+      // Sin inscripción no hay nada que mostrar: subjects/activities son de lectura
+      // pública (necesario para la activación por QR), así que sin este guard
+      // cualquier estudiante con la URL vería el contenido completo de la asignatura.
+      if (!studData) {
+        toast('No estás inscrito en esta asignatura', 'error')
+        navigate('/alumno/dashboard')
+        return
+      }
+
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
 
@@ -175,11 +184,6 @@ export default function StudentSubjectPage() {
           .filter((m) => isActivityPublished(m, parcialesOcultos.includes(m.parcial)))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       )
-      if (!studData) {
-        toast('No se encontró tu inscripción en esta asignatura', 'error')
-        return
-      }
-
       const subsSnap = await getDocs(
         query(collection(db, 'submissions'), where('alumnoId', '==', studData.id))
       )
