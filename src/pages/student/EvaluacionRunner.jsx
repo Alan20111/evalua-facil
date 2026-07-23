@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc, arrayUnion, serverTimestamp,
+  collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -9,9 +9,6 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { ChevronLeft, ChevronRight, Timer, CheckCircle2, LogOut, Upload, FileText } from 'lucide-react'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
-import {
-  calcularPuntosPregunta, calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal,
-} from '../../utils/evaluacionGrading'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fileTypes'
@@ -218,36 +215,16 @@ export default function EvaluacionRunner() {
     finishedRef.current = true
     setFinishing(true)
     try {
-      const respuestasPorPregunta = {}
-      preguntas.forEach((p) => {
-        const valor = respuestas[p.id] ?? null
-        const respuestaForm = p.tipo === 'respuesta_corta' ? { textoRespuesta: valor }
-          : p.tipo === 'subir_archivo' ? { archivoURL: valor?.archivoURL ?? null }
-          : { opcionSeleccionada: valor }
-        respuestasPorPregunta[p.id] = { ...respuestaForm, puntosObtenidos: calcularPuntosPregunta(p, respuestaForm) }
-      })
-      // Persist each pregunta's resolved points (objective types now, respuesta_corta stays null/pending).
-      await Promise.all(preguntas.map((p) => setDoc(
-        doc(db, 'submissions', submission.id, 'respuestas', p.id),
-        { puntosObtenidos: respuestasPorPregunta[p.id].puntosObtenidos },
-        { merge: true }
-      )))
-
-      const calificacionIntento = calcularCalificacion(preguntas, respuestasPorPregunta, activity?.maxCalif || 10)
-      const pendienteRevision = resolverPendienteRevision(preguntas, respuestasPorPregunta)
-      const intentosPrevios = submission.intentos || []
-      const calificacionFinal = resolverCalificacionFinal(intentosPrevios, calificacionIntento, activity?.evaluacion?.conservar)
-
+      // La calificación se calcula en el SERVIDOR (Cloud Function
+      // onEvaluacionFinalizada) a partir de las respuestas ya autoguardadas —
+      // el cliente solo marca el intento como finalizado. Las reglas de
+      // Firestore le prohíben al alumno escribir calificacion/intentos/
+      // puntosObtenidos, así que un cliente modificado no puede inventarse
+      // su nota.
       await updateDoc(doc(db, 'submissions', submission.id), {
         estadoEvaluacion: 'finalizado',
-        calificacion: calificacionFinal,
-        pendienteRevision,
-        estado: pendienteRevision ? 'entregado' : 'calificado',
+        estado: 'entregado',
         fechaEntrega: serverTimestamp(),
-        intentos: arrayUnion({
-          numero: submission.intentoActual || intentosPrevios.length + 1,
-          calificacion: calificacionIntento,
-        }),
       })
       toast('Evaluación finalizada')
       // El flag en el state de navegación le dice a ActivityPage que dispare

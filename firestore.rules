@@ -53,6 +53,19 @@ service cloud.firestore {
           get(/databases/$(database)/documents/activities/$(actId)).data.asignaturaId;
     }
 
+    // La calificación de una evaluación la escribe SOLO el servidor (Cloud
+    // Function onEvaluacionFinalizada, vía Admin SDK — no pasa por estas
+    // reglas) o el docente. Un alumno nunca toca los campos de nota en sus
+    // propias escrituras: ni en updates (diff) ni marcándose 'calificado'.
+    function studentNoTocaCalificacion() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['calificacion', 'intentos', 'pendienteRevision']) &&
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['estado']) ||
+          request.resource.data.estado != 'calificado'
+        );
+    }
+
     match /schools/{schoolId} {
       allow read: if request.auth != null;
       // Schools are created/edited only from teacher flows (Register/Onboarding
@@ -202,26 +215,28 @@ service cloud.firestore {
       // resubmit / evaluación autosave) or by the teacher who owns the activity
       // (grading, marking complete). `alumnoId` is the STUDENT ENROLLMENT DOC ID
       // (not the auth uid), so ownership resolves through ownsStudentDoc().
-      // NOTE: this restores per-student / per-teacher isolation (a student can no
-      // longer touch another student's submission). It does NOT yet stop a student
-      // from writing their OWN `calificacion` — auto-graded evaluaciones compute
-      // the grade client-side, so closing that requires moving grading server-side
-      // (tracked as a follow-up).
+      // El alumno NO escribe su nota: al crear, calificacion debe ser null y
+      // estado no puede ser 'calificado'; al actualizar aplica
+      // studentNoTocaCalificacion(). La nota real la pone la Cloud Function
+      // onEvaluacionFinalizada (Admin SDK) o el docente (ownsActivity).
       allow create: if request.auth != null && (
         (
           ownsStudentDoc(request.resource.data.alumnoId) &&
-          enrollmentMatchesActivity(request.resource.data.alumnoId, request.resource.data.actividadId)
+          enrollmentMatchesActivity(request.resource.data.alumnoId, request.resource.data.actividadId) &&
+          request.resource.data.get('calificacion', null) == null &&
+          request.resource.data.get('estado', '') != 'calificado'
         ) ||
         ownsActivity(request.resource.data.actividadId)
       );
       allow update: if request.auth != null && (
-        ownsStudentDoc(resource.data.alumnoId) ||
+        (ownsStudentDoc(resource.data.alumnoId) && studentNoTocaCalificacion()) ||
         ownsActivity(resource.data.actividadId)
       );
-      allow delete: if request.auth != null && (
-        ownsStudentDoc(resource.data.alumnoId) ||
-        ownsActivity(resource.data.actividadId)
-      );
+      // Borrar una submission borra su nota — eso es manipulación de
+      // calificaciones si lo hace el alumno (ningún flujo del alumno borra
+      // submissions). Solo el docente dueño de la actividad.
+      allow delete: if request.auth != null &&
+        ownsActivity(resource.data.actividadId);
 
       // Evaluación answers (autosave + teacher revision). Only the student who
       // owns the parent submission, or the teacher who owns the parent activity,
@@ -229,14 +244,32 @@ service cloud.firestore {
       // authenticated account could see or edit anyone's answers. Reads are
       // always scoped to a concrete submissionId (single doc or subcollection
       // query under it), so the parent get() resolves for list queries too.
+      // El alumno solo autoguarda su respuesta — puntosObtenidos lo escriben
+      // únicamente el servidor (Admin SDK) y el docente: sin este candado, un
+      // cliente modificado podía asignarse los puntos de las preguntas de
+      // revisión manual antes de que el docente las revisara.
       match /respuestas/{preguntaId} {
-        allow read, write: if request.auth != null && (
+        allow read: if request.auth != null && (
           (
             exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
             ownsStudentDoc(get(/databases/$(database)/documents/submissions/$(submissionId)).data.alumnoId)
           ) || (
             exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
             ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId)
+          )
+        );
+        allow write: if request.auth != null && (
+          (
+            exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
+            ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId)
+          ) || (
+            exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
+            ownsStudentDoc(get(/databases/$(database)/documents/submissions/$(submissionId)).data.alumnoId) &&
+            (
+              resource == null
+                ? !request.resource.data.keys().hasAny(['puntosObtenidos'])
+                : !request.resource.data.diff(resource.data).affectedKeys().hasAny(['puntosObtenidos'])
+            )
           )
         );
       }
