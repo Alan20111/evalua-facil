@@ -30,12 +30,13 @@ async function fetchActivitiesForSubjects(subjectIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
+// Una consulta `==` por inscripción, en paralelo — NO `in` por lotes: la regla
+// de lectura de submissions verifica la propiedad por alumnoId con un get() al
+// doc de inscripción, y una disyunción `in` multiplica esos get()s más allá del
+// límite por consulta de Firestore. (Mismo patrón que el Dashboard del alumno.)
 async function fetchSubmissionsForStudents(studentDocIds) {
-  if (studentDocIds.length === 0) return []
-  const chunks = []
-  for (let i = 0; i < studentDocIds.length; i += 30) chunks.push(studentDocIds.slice(i, i + 30))
   const snaps = await Promise.all(
-    chunks.map((ids) => getDocs(query(collection(db, 'submissions'), where('alumnoId', 'in', ids))))
+    studentDocIds.map((id) => getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', id))))
   )
   return snaps.flatMap((s) => s.docs)
 }
