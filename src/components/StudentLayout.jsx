@@ -9,6 +9,7 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import Spinner from './Spinner'
 import SubjectIcon from './SubjectIcon'
 import { subjectDisplayName } from '../utils/subjectName'
+import { maskEmail } from '../utils/generate'
 import { getEnrollments, updateAllEnrollments } from '../utils/studentLookup'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
@@ -40,6 +41,17 @@ export default function StudentLayout({ children }) {
         // edge cases — `getEnrollments` looks it up by `uid` first and is more reliable,
         // so use whichever enrollment it found as a fallback source for name/photo.
         setStudentInfo(enrollments[0] || null)
+        // El correo de la cuenta ya no es el @evalua.local falso → el estudiante
+        // confirmó su correo de recuperación desde el enlace. Sella la máscara y
+        // el flag en sus inscripciones (públicas: solo máscara, nunca el correo)
+        // para que el login pueda orientarlo a entrar con su correo.
+        const emailReal = currentUser.email && !currentUser.email.endsWith('@evalua.local')
+        if (emailReal && enrollments.length && enrollments[0].correoVerificado !== true) {
+          updateAllEnrollments(currentUser.uid, {
+            correoVerificado: true,
+            correoMask: maskEmail(currentUser.email),
+          }).catch(() => {})
+        }
         const subjectIds = [...new Set(enrollments.map((e) => e.asignaturaId).filter(Boolean))]
         if (subjectIds.length === 0) { setSubjects([]); return }
         const snaps = await Promise.all(subjectIds.map((id) => getDoc(doc(db, 'subjects', id))))

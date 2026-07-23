@@ -36,3 +36,12 @@ export function generateResetPassword() {
 export function studentEmail(username, escuelaId) {
   return `${username.toLowerCase()}.${escuelaId}@evalua.local`
 }
+
+// Máscara pública de un correo real: 'gabriel@gmail.com' → 'g•••@gmail.com'.
+// Es lo ÚNICO del correo de recuperación que se guarda en `students` (colección
+// de lectura pública) — el correo completo vive solo en Firebase Auth.
+export function maskEmail(email) {
+  const [local, domain] = String(email || '').split('@')
+  if (!domain || !local) return ''
+  return `${local.slice(0, 1)}•••@${domain}`
+}

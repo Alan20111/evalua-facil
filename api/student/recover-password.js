@@ -69,6 +69,13 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'La recuperación de contraseña no está habilitada. Pídele a tu maestro que la habilite.' })
     }
 
+    // Cuenta vinculada a un correo verificado: su email de Auth ya no es el
+    // @evalua.local — setAuthPassword con el correo falso CREARÍA una segunda
+    // cuenta (bifurcación). Ese estudiante se recupera solo, con su correo.
+    if (enabled.correoVerificado) {
+      return res.status(403).json({ error: 'Esta cuenta está vinculada a un correo. Usa “¿Registraste un correo de recuperación?” en la pantalla de recuperar contraseña.' })
+    }
+
     const email = studentEmail(enabled.username, enabled.escuelaId)
     const uid = await setAuthPassword(email, newPassword)
 

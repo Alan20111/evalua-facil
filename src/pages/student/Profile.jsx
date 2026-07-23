@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getDoc, doc, collection, query, where, getDocs } from 'firebase/firestore'
-import { signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth'
+import {
+  signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword, verifyBeforeUpdateEmail,
+} from 'firebase/auth'
 import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -12,6 +14,7 @@ import StudentLayout from '../../components/StudentLayout'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
+import { maskEmail } from '../../utils/generate'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
@@ -19,7 +22,7 @@ import { teacherDisplayName } from '../../utils/studentSearch'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import {
-  Camera, Copy, Check, KeyRound, Bell, CalendarDays, LogOut, ChevronRight, GraduationCap,
+  Camera, Copy, Check, KeyRound, Bell, CalendarDays, LogOut, ChevronRight, GraduationCap, Mail, ShieldCheck,
 } from 'lucide-react'
 
 // Todas las actividades de un conjunto de asignaturas (chunked `in` — permitido
@@ -55,6 +58,12 @@ export default function StudentProfile() {
   const [passNueva, setPassNueva] = useState('')
   const [passConfirm, setPassConfirm] = useState('')
   const [savingPass, setSavingPass] = useState(false)
+  // Correo de recuperación
+  const [correoNuevo, setCorreoNuevo] = useState('')
+  const [correoPass, setCorreoPass] = useState('')
+  const [savingCorreo, setSavingCorreo] = useState(false)
+  const [correoEnviadoA, setCorreoEnviadoA] = useState('')
+  const [showCorreoForm, setShowCorreoForm] = useState(false)
   const fileInputRef = useRef(null)
   const navigate = useNavigate()
   const toast = useToast()
@@ -68,6 +77,9 @@ export default function StudentProfile() {
   async function loadAll() {
     setLoading(true)
     try {
+      // Refresca el User de Auth: si el estudiante acaba de confirmar su correo
+      // de recuperación desde el enlace, currentUser.email ya trae el real.
+      await currentUser.reload().catch(() => {})
       const enrollments = await getEnrollments(currentUser, userProfile)
       if (enrollments.length === 0) { setSubjects([]); return }
       setStudentInfo(enrollments[0])
@@ -196,6 +208,44 @@ export default function StudentProfile() {
     }
   }
 
+  async function handleRegistrarCorreo(e) {
+    e.preventDefault()
+    const email = correoNuevo.trim().toLowerCase()
+    if (!email || !email.includes('@')) { toast('Escribe un correo válido', 'error'); return }
+    if (email.endsWith('@evalua.local')) { toast('Ese correo no es válido', 'error'); return }
+    setSavingCorreo(true)
+    try {
+      // Reautenticación: confirmar el correo lo convierte en la llave de la
+      // cuenta, así que exigimos la contraseña actual antes de iniciarlo.
+      const cred = EmailAuthProvider.credential(currentUser.email, correoPass)
+      await reauthenticateWithCredential(currentUser, cred)
+      auth.languageCode = 'es'
+      // Firebase manda el enlace de verificación al correo NUEVO; hasta que el
+      // estudiante lo abra, la cuenta no cambia. Al confirmarlo, ese correo se
+      // vuelve el de la cuenta → sirve para entrar y para restablecer contraseña.
+      await verifyBeforeUpdateEmail(currentUser, email)
+      // En `students` (lectura pública) solo la máscara — nunca el correo completo.
+      await updateAllEnrollments(currentUser.uid, { correoMask: maskEmail(email), correoVerificado: false })
+      setStudentInfo((prev) => (prev ? { ...prev, correoMask: maskEmail(email), correoVerificado: false } : prev))
+      setCorreoEnviadoA(email)
+      setCorreoNuevo(''); setCorreoPass(''); setShowCorreoForm(false)
+    } catch (err) {
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        toast('La contraseña no es correcta', 'error')
+      } else if (err.code === 'auth/email-already-in-use') {
+        toast('Ese correo ya está vinculado a otra cuenta', 'error')
+      } else if (err.code === 'auth/invalid-email') {
+        toast('Escribe un correo válido', 'error')
+      } else if (err.code === 'auth/too-many-requests') {
+        toast('Demasiados intentos. Espera unos minutos e intenta de nuevo.', 'error')
+      } else {
+        toast('Error: ' + err.message, 'error')
+      }
+    } finally {
+      setSavingCorreo(false)
+    }
+  }
+
   const handleLogout = async () => {
     await signOut(auth)
     navigate('/alumno')
@@ -208,6 +258,9 @@ export default function StudentProfile() {
   const initials = displayName.charAt(0).toUpperCase()
   const photoURL = userProfile?.photoURL || studentInfo?.photoURL
   const username = studentInfo?.username || userProfile?.username || ''
+  // El correo de la CUENTA dejó de ser el @evalua.local falso → el estudiante ya
+  // confirmó su correo de recuperación desde el enlace.
+  const correoVerificado = !!currentUser?.email && !currentUser.email.endsWith('@evalua.local')
   const conPromedio = subjects.filter((s) => s.avg != null)
   const promedioGeneral = conPromedio.length
     ? (conPromedio.reduce((sum, s) => sum + s.avg, 0) / conPromedio.length).toFixed(1)
@@ -322,6 +375,97 @@ export default function StudentProfile() {
               {savingPass ? <Spinner size="sm" /> : 'Guardar contraseña nueva'}
             </button>
           </form>
+        </div>
+
+        {/* ── Correo de recuperación ── */}
+        <div className="bg-surface-card rounded-card shadow-card p-5 mb-4">
+          <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
+            <Mail size={16} className="text-accent" /> Correo de recuperación
+          </h2>
+          {correoVerificado ? (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <code className="flex-1 px-3 py-2 rounded bg-surface border border-outline-variant text-sm font-mono text-on-surface truncate">
+                  {currentUser.email}
+                </code>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-50 text-green-700 text-xs font-semibold flex-shrink-0">
+                  <ShieldCheck size={13} /> Verificado
+                </span>
+              </div>
+              <p className="text-xs text-muted leading-relaxed">
+                Con este correo <strong>inicias sesión</strong> y, si un día olvidas tu contraseña,
+                puedes restablecerla tú mismo desde «¿Olvidaste tu contraseña?» en la pantalla de entrada
+                — sin pedirle nada a tu maestro.
+              </p>
+            </>
+          ) : correoEnviadoA || (studentInfo?.correoMask && studentInfo?.correoVerificado === false) ? (
+            <>
+              <p className="text-sm text-muted leading-relaxed mb-3">
+                Te enviamos un enlace a <strong>{correoEnviadoA || studentInfo?.correoMask}</strong>.
+                Ábrelo para confirmar tu correo. Al confirmarlo, entrarás a Evalúa Fácil <strong>con ese
+                correo</strong> y tu misma contraseña (puede que te pida iniciar sesión de nuevo).
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowCorreoForm(true)}
+                className="text-sm text-accent font-medium hover:underline"
+              >
+                ¿No te llegó? Volver a intentar
+              </button>
+            </>
+          ) : !showCorreoForm ? (
+            <>
+              <p className="text-sm text-muted leading-relaxed mb-3">
+                Registra un correo tuyo (Gmail, Outlook…). Si un día olvidas tu contraseña, podrás
+                restablecerla tú mismo desde ese correo, sin pedirle nada a tu maestro. Después de
+                confirmarlo, entrarás a Evalúa Fácil con tu correo.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowCorreoForm(true)}
+                className="w-full py-2.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
+              >
+                Registrar mi correo
+              </button>
+            </>
+          ) : null}
+          {showCorreoForm && !correoVerificado && (
+            <form onSubmit={handleRegistrarCorreo} className="space-y-3 mt-3">
+              <input
+                type="email"
+                value={correoNuevo}
+                onChange={(e) => setCorreoNuevo(e.target.value)}
+                placeholder="tucorreo@gmail.com"
+                autoComplete="email"
+                required
+                className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+              />
+              <PasswordInput
+                value={correoPass}
+                onChange={(e) => setCorreoPass(e.target.value)}
+                placeholder="Tu contraseña actual (para confirmar que eres tú)"
+                autoComplete="current-password"
+                required
+                className="w-full px-3 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowCorreoForm(false); setCorreoNuevo(''); setCorreoPass('') }}
+                  className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCorreo || !correoNuevo || !correoPass}
+                  className="flex-1 py-2.5 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {savingCorreo ? <Spinner size="sm" /> : 'Enviarme el enlace'}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         {/* ── Mis asignaturas ── */}

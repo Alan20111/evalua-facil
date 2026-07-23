@@ -168,6 +168,12 @@ export default function StudentActivation() {
       setPasswordError('Las contraseñas no coinciden')
       return
     }
+    // Cuenta vinculada a un correo verificado: su correo de cuenta YA no es el
+    // @evalua.local — crear aquí con el correo falso bifurcaría la cuenta en dos.
+    if (student?.correoVerificado) {
+      setPasswordError(`Tu cuenta entra con tu correo${student.correoMask ? ` (${student.correoMask})` : ''}. Inicia sesión en la pantalla de estudiantes con ese correo; si olvidaste tu contraseña, recupérala ahí con tu correo.`)
+      return
+    }
     submitting.current = true
     setLoading(true)
     const email = studentEmail(student.username, student.escuelaId)
