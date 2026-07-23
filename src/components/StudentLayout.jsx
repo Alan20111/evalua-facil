@@ -180,12 +180,19 @@ export default function StudentLayout({ children }) {
                 <Camera size={15} className="text-white" />
               </span>
             </button>
-            <div className="min-w-0 flex-1">
-              <p className="text-body-sm font-semibold text-white truncate">{displayName}</p>
+            {/* El nombre lleva al perfil; el avatar sigue cambiando la foto. */}
+            <button
+              type="button"
+              onClick={() => navigate('/alumno/perfil')}
+              className="min-w-0 flex-1 text-left group/perfil focus:outline-none"
+              data-tooltip="Mi perfil"
+            >
+              <p className="text-body-sm font-semibold text-white truncate group-hover/perfil:underline">{displayName}</p>
               {schoolName && (
                 <p className="text-metadata text-white/70 truncate">{schoolName}</p>
               )}
-            </div>
+            </button>
+            <ChevronRight size={14} className="text-white/50 flex-shrink-0" />
           </div>
 
           {/* Subjects heading — links to dashboard */}

@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
-  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Bell, Archive, Camera, CalendarDays,
+  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Bell, Archive, Camera, CalendarDays, CircleUserRound,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
@@ -249,8 +249,17 @@ export default function StudentDashboard() {
           </div>
           <button
             type="button"
-            onClick={() => navigate('/alumno/notificaciones')}
+            onClick={() => navigate('/alumno/perfil')}
             className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent-tint transition-colors"
+          >
+            <CircleUserRound size={20} className="text-accent flex-shrink-0" />
+            <span className="font-medium text-on-surface flex-1 text-left">Mi perfil</span>
+            <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/alumno/notificaciones')}
+            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent-tint transition-colors border-t border-outline-variant"
           >
             <Bell size={20} className="text-accent flex-shrink-0" />
             <span className="font-medium text-on-surface flex-1 text-left">Notificaciones</span>
