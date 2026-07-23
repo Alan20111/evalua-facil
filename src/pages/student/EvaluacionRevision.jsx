@@ -45,7 +45,12 @@ export default function EvaluacionRevision() {
       const subSnap = await getDoc(doc(db, 'subjects', actData.asignaturaId))
       setSubject({ id: subSnap.id, ...subSnap.data() })
 
+      // Sin inscripción no hay revisión que mostrar — mismo guard que en el
+      // resto de páginas del alumno para URLs directas de asignaturas ajenas.
       const studData = await getEnrollmentForSubject(currentUser, userProfile, actData.asignaturaId)
+      if (!studData) {
+        navigate('/alumno/dashboard'); return
+      }
       const subsSnap = await getDocs(query(
         collection(db, 'submissions'), where('actividadId', '==', activityId), where('alumnoId', '==', studData.id)
       ))

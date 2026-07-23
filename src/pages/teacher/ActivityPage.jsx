@@ -13,6 +13,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
+import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
@@ -178,6 +179,7 @@ export default function ActivityPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const toast = useToast()
+  const { currentUser } = useAuth()
   // Grade-table cells navigate here with the student to open right away —
   // and closing the grading view must land back on that Calificaciones screen.
   const [pendingOpenId, setPendingOpenId] = useState(location.state?.openStudentId || null)
@@ -199,7 +201,11 @@ export default function ActivityPage() {
   // Parcial cerrado: no grade can be changed until the teacher reverts the close.
   const parcialCerrado = !!(subject?.parcialesCerrados && activity?.parcial != null && subject.parcialesCerrados[activity.parcial])
 
-  useEffect(() => { loadAll() }, [activityId])
+  // Guard on currentUser + depend on it — mismo patrón que SubjectPage: en un
+  // cold load Firebase Auth puede no haber restaurado la sesión todavía y el
+  // guard de propiedad (docenteId !== currentUser.uid) expulsaría a un docente
+  // legítimo antes de tiempo.
+  useEffect(() => { if (currentUser) loadAll() }, [activityId, currentUser])
 
   // Coming from a grade-table cell: open that student's grading view once the
   // data is committed (openGrade reads `submissions`/`activity` from state).
@@ -227,6 +233,13 @@ export default function ActivityPage() {
     setLoading(true)
     try {
       const actSnap = await getDoc(doc(db, 'activities', activityId))
+      // Una actividad ajena jamás se muestra — mismo guard que en SubjectPage:
+      // sin él, cualquier cuenta con la URL vería las entregas del grupo.
+      if (!actSnap.exists() || actSnap.data().docenteId !== currentUser.uid) {
+        toast('Esta actividad no pertenece a tu cuenta', 'error')
+        navigate('/dashboard')
+        return
+      }
       const actData = { id: actSnap.id, ...actSnap.data() }
       setActivity(actData)
       const subSnap = await getDoc(doc(db, 'subjects', actData.asignaturaId))

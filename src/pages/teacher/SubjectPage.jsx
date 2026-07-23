@@ -839,6 +839,14 @@ export default function SubjectPage() {
         getDoc(doc(db, 'subjects', subjectId)),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
       ])
+      // Una asignatura ajena jamás se muestra: subjects es de lectura pública
+      // (activación por QR) así que sin este guard cualquier cuenta con la URL
+      // vería el grupo completo con sus calificaciones.
+      if (!subSnap.exists() || subSnap.data().docenteId !== currentUser.uid) {
+        toast('Esta asignatura no pertenece a tu cuenta', 'error')
+        navigate('/dashboard')
+        return
+      }
       const matsSnap = await getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))).catch(() => ({ docs: [] }))
       let subData = { id: subSnap.id, ...subSnap.data() }
       if (!subData.accessCode) {

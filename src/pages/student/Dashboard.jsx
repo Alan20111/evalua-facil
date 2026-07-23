@@ -42,14 +42,15 @@ async function fetchActivitiesForSubjects(subjectIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-// All submissions belonging to a set of student enrollment docs (chunked `in`).
+// All submissions belonging to a set of student enrollment docs — one `==` query
+// per enrollment, in parallel. NO `in` chunks here: the submissions read rule
+// verifies ownership per alumnoId with a get() on the enrollment doc, and an
+// `in` disjunction multiplies those get()s past Firestore's per-query limit.
+// A student has a handful of enrollments, so this stays cheap.
 async function fetchSubmissionsForStudents(studentDocIds) {
-  if (studentDocIds.length === 0) return []
-  const chunks = []
-  for (let i = 0; i < studentDocIds.length; i += 30) chunks.push(studentDocIds.slice(i, i + 30))
   const snaps = await Promise.all(
-    chunks.map((ids) =>
-      getDocs(query(collection(db, 'submissions'), where('alumnoId', 'in', ids)))
+    studentDocIds.map((id) =>
+      getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', id)))
     )
   )
   return snaps.flatMap((s) => s.docs)

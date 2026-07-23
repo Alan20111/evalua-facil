@@ -132,7 +132,10 @@ service cloud.firestore {
     // Asistencia — un documento por "hora" de clase (fecha + slot), con un mapa
     // presentes: { alumnoId: bool }. Mismo patrón de propiedad que activities.
     match /attendance/{attendanceId} {
-      allow read: if request.auth != null;
+      // Solo docentes/admin: ninguna vista de alumno lee asistencia, y sin esta
+      // restricción cualquier alumno podía listar los pases de lista de toda la
+      // plataforma.
+      allow read: if isDocente() || isAdmin();
       allow create: if isDocente() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
@@ -184,7 +187,16 @@ service cloud.firestore {
     }
 
     match /submissions/{submissionId} {
-      allow read: if request.auth != null;
+      // Un alumno solo lee SUS entregas (calificaciones incluidas) — antes
+      // cualquier cuenta autenticada podía listar las de toda la plataforma.
+      // Los docentes/admin conservan lectura amplia: sus consultas (por
+      // actividad, exports, tablas) no siempre pueden probar propiedad
+      // por-documento y el dato sensible protegido aquí es el del alumno.
+      // OJO clientes: las consultas de alumno deben filtrar alumnoId con `==`
+      // (no `in`) para que ownsStudentDoc sea demostrable dentro del límite
+      // de get()s por consulta.
+      allow read: if isAdmin() || isDocente() ||
+        (request.auth != null && ownsStudentDoc(resource.data.alumnoId));
 
       // A submission is written either by the student who owns it (submit /
       // resubmit / evaluación autosave) or by the teacher who owns the activity
