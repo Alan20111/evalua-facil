@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
-  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Bell, Archive, CalendarDays,
+  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
@@ -191,17 +191,12 @@ export default function StudentDashboard() {
   return (
     <StudentLayout>
       <div className={`px-4 py-6 ${STUDENT_CONTAINER}`}>
-        {/* Foto/nombre — solo móvil (el logo tocable ya vive en la barra superior).
-            Dar clic al nombre ES la entrada al perfil (Don't Make Me Think: sin
-            fila "Mi perfil" aparte; la foto se cambia dentro del perfil).
-            Notificaciones y Agenda viven en la barra inferior. */}
+        {/* Foto/nombre — solo móvil, informativo (el logo tocable ya vive en la
+            barra superior). Ya NO navega al perfil: la barra inferior tiene su
+            propio botón "Perfil" — dos caminos al mismo destino desde la misma
+            pantalla era la redundancia que Don't Make Me Think prohíbe. */}
         <div className="md:hidden bg-surface-card rounded-card shadow-card overflow-hidden mb-4">
-          <button
-            type="button"
-            onClick={() => navigate('/alumno/perfil')}
-            className="w-full flex items-center gap-3 px-4 py-4 hover:bg-accent-tint transition-colors text-left"
-            aria-label="Mi perfil"
-          >
+          <div className="w-full flex items-center gap-3 px-4 py-4">
             <div className="w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0">
               {photoURL ? (
                 <img src={photoURL} alt="" className="w-full h-full object-cover" />
@@ -213,31 +208,10 @@ export default function StudentDashboard() {
               <p className="font-semibold text-on-surface truncate">{firstName}</p>
               {apellidos && <p className="text-sm text-muted truncate">{apellidos}</p>}
             </div>
-            <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
-          </button>
-        </div>
-
-        <div className="flex items-start justify-between gap-3 mb-1">
-          <h1 className="text-xl font-bold text-on-surface">Mis asignaturas</h1>
-          {/* Notificaciones/Agenda en escritorio — en móvil ya viven en la
-              tarjeta de arriba; su casa es el dashboard, no el perfil. */}
-          <div className="hidden md:flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigate('/alumno/notificaciones')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-muted hover:bg-accent-tint hover:text-accent transition-colors"
-            >
-              <Bell size={15} /> Notificaciones
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/alumno/agenda')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-sm text-muted hover:bg-accent-tint hover:text-accent transition-colors"
-            >
-              <CalendarDays size={15} /> Agenda
-            </button>
           </div>
         </div>
+
+        <h1 className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
         <p className="text-slate-400 text-sm mb-5">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's' : ''} activas</p>
 
         {activeSubjects.length === 0 ? (

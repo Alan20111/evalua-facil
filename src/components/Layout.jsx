@@ -181,24 +181,6 @@ export default function TeacherLayout({ children }) {
             Horario y Agenda
           </NavLink>
 
-          {/* Notificaciones — mismos ajustes que en la app móvil (activar/
-              desactivar avisos, el registro de lo enviado); casi todo lo que
-              controla solo aplica en el celular donde esté instalada la app,
-              pero se puede gestionar desde aquí. */}
-          <NavLink
-            to="/notificaciones"
-            className={({ isActive }) =>
-              `flex items-center gap-2.5 mx-2 mt-1.5 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
-                isActive
-                  ? 'bg-white text-accent shadow-card'
-                  : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
-              }`
-            }
-          >
-            <Bell size={20} className="flex-shrink-0" />
-            Notificaciones
-          </NavLink>
-
           {/* Subjects header → goes to the full subjects list */}
           <NavLink to="/dashboard" className="mx-2 px-2 pt-3 pb-1 flex items-center justify-between rounded group">
             <span className="text-label-caps text-white/70 group-hover:text-white uppercase transition-colors">
@@ -243,9 +225,30 @@ export default function TeacherLayout({ children }) {
             </button>
           </div>
 
+          {/* Notificaciones — reubicada aquí a propósito, deliberadamente menos
+              prominente que "Horario y Agenda" (pedido explícito: no darle
+              tanto énfasis en la web). Fija justo arriba de "Archivadas",
+              exista o no todavía alguna asignatura archivada. Mismos ajustes
+              que en la app móvil (activar/desactivar avisos, el registro de lo
+              enviado); casi todo lo que controla solo aplica en el celular
+              donde esté instalada la app, pero se puede gestionar desde aquí. */}
+          <div className="px-2 pt-2 border-t border-white/15">
+            <NavLink
+              to="/notificaciones"
+              className={({ isActive }) =>
+                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
+                  isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
+                }`
+              }
+            >
+              <Bell size={17} className="flex-shrink-0" />
+              Notificaciones
+            </NavLink>
+          </div>
+
           {/* Archivadas — fixed at the bottom, above logout */}
           {archivedSubjects.length > 0 && (
-            <div className="px-2 pt-2 border-t border-white/15 max-h-48 overflow-y-auto">
+            <div className="px-2 pt-2 max-h-48 overflow-y-auto">
               <button
                 type="button"
                 onClick={() => setShowArchived((a) => !a)}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, ChevronRight } from 'lucide-react'
+import { LogOut, ChevronRight, CalendarDays } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { getDoc, doc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -166,6 +166,23 @@ export default function StudentLayout({ children }) {
             </div>
             <ChevronRight size={14} className="text-white/50 flex-shrink-0" />
           </button>
+
+          {/* Agenda — debajo del perfil, único enlace fijo del sidebar (sin
+              Notificaciones aquí: en la web solo vive en la barra inferior
+              cuando se navega desde un móvil; la escritorio no le da casa). */}
+          <NavLink
+            to="/alumno/agenda"
+            className={({ isActive }) =>
+              `flex items-center gap-2.5 mx-2 mt-1.5 px-3 py-2.5 rounded-card text-base font-semibold transition-colors ${
+                isActive
+                  ? 'bg-white text-accent shadow-card'
+                  : 'bg-white/15 text-white hover:bg-white/25 ring-1 ring-white/30'
+              }`
+            }
+          >
+            <CalendarDays size={20} className="flex-shrink-0" />
+            Agenda
+          </NavLink>
 
           {/* Subjects heading — links to dashboard */}
           <NavLink
