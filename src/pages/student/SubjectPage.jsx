@@ -24,8 +24,8 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import SubjectIcon from '../../components/SubjectIcon'
 import AttachmentList from '../../components/AttachmentList'
 import {
-  ArrowLeft, ChevronDown, ChevronUp, CheckCircle,
-  Clock, Circle, Star, FolderOpen, BookOpen, Paperclip,
+  ArrowLeft, ChevronDown, ChevronUp,
+  Clock, Star, FolderOpen, BookOpen, Paperclip,
   GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
@@ -441,50 +441,56 @@ export default function StudentSubjectPage() {
                   )}
                 </div>
 
-                {/* Activity grades list */}
+                {/* Activity grades list — mismo lenguaje visual que Actividades
+                    (ícono por tipo, tarjeta con borde, insignia en píldora):
+                    antes esta pestaña usaba íconos de estado genéricos y texto
+                    plano, y se veía como una pantalla distinta. */}
                 {acts.length === 0 ? (
                   <p className="text-slate-400 text-sm text-center py-4">Sin actividades</p>
                 ) : (
-                  <div className="divide-y divide-outline-variant">
+                  <div className="p-3 space-y-1.5">
                     {acts.map((a) => {
                       const sub = submissions[a.id]
                       const graded = sub?.calificacion != null
                       const delivered = sub && !graded
                       const overdue = !graded && !delivered && isOverdue(a)
+                      // Mismo ícono por tipo que Actividades y que la lista del docente.
+                      const ActIcon = a.categoria === 'examen' ? GraduationCap
+                        : a.categoria === 'cuestionario' ? ListChecks
+                        : a.categoria === 'observacion' ? ClipboardCheck
+                        : FileText
                       return (
-                        <div key={a.id} className="flex items-center gap-3 px-4 py-2.5">
-                          <div className="flex-shrink-0">
-                            {graded ? (
-                              <CheckCircle size={18} className="text-emerald-500" />
-                            ) : delivered ? (
-                              <Clock size={18} className="text-accent" />
-                            ) : overdue ? (
-                              <Circle size={18} className="text-red-400" />
-                            ) : (
-                              <Circle size={18} className="text-slate-300" />
-                            )}
-                          </div>
+                        <button
+                          type="button"
+                          key={a.id}
+                          onClick={() => navigate(`/alumno/actividad/${a.id}`)}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded border border-outline-variant bg-surface-card hover:border-accent hover:bg-[var(--accent-tint)] transition-colors duration-200 text-left"
+                        >
+                          <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm text-on-surface truncate">
+                            <p className="text-sm font-medium leading-tight text-on-surface truncate">
                               {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} </span>}
                               {a.nombre}
+                              <span className="text-xs font-normal text-slate-400"> ({CATEGORIA_LABELS[a.categoria] || 'Entregable'})</span>
                             </p>
-                            <p className="text-xs text-slate-400 truncate">{CATEGORIA_LABELS[a.categoria] || 'Entregable'}</p>
                           </div>
                           <div className="flex-shrink-0 text-right">
                             {graded ? (
-                              <p className="text-sm font-bold text-emerald-600">
-                                {sub.calificacion} <span className="font-normal text-slate-400">/ {a.maxCalif}</span>
-                              </p>
+                              <div>
+                                <p className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
+                                  <Star size={13} /> {sub.calificacion}
+                                </p>
+                                <p className="text-xs text-slate-500">/{a.maxCalif}</p>
+                              </div>
                             ) : delivered ? (
-                              <span className="text-xs text-accent font-medium">Entregada</span>
+                              <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregada</span>
                             ) : overdue ? (
-                              <span className="text-xs text-red-500 font-medium">Vencida</span>
+                              <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">Vencida</span>
                             ) : (
-                              <span className="text-xs text-slate-400">Pendiente</span>
+                              <span className="text-xs bg-surface-container text-muted px-2 py-1 rounded-full">Pendiente</span>
                             )}
                           </div>
-                        </div>
+                        </button>
                       )
                     })}
                   </div>
