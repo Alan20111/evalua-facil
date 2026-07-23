@@ -17,6 +17,7 @@ import { formatHora12FromDate } from '../../utils/formatHora'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
+import { fmtAttDateParts } from '../../utils/attendance'
 import { getResourceIcon, getLinkResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import { teacherDisplayName } from '../../utils/studentSearch'
@@ -76,7 +77,14 @@ function formatResourceDate(ts) {
   return ts.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const TABS = ['Actividades', 'Calificaciones', 'Recursos']
+const TABS = ['Actividades', 'Calificaciones', 'Asistencias', 'Recursos']
+
+// 'YYYY-MM-DD' → '18 jul' — mismo formato compacto que usa el docente en las
+// columnas de Asistencias (fmtAttDateParts), aquí para el chip por día.
+function formatFechaCorta(fecha) {
+  const { dia, mes } = fmtAttDateParts(fecha)
+  return `${dia} ${mes}`
+}
 
 // 'actividad'/'tarea' are legacy categoria values from before they were
 // merged into a single "Entregable" option — still mapped here so old
@@ -99,6 +107,7 @@ export default function StudentSubjectPage() {
   const [submissions, setSubmissions] = useState({})
   const [resources, setResources] = useState([])
   const [materials, setMaterials] = useState([])
+  const [attendanceSummary, setAttendanceSummary] = useState(null)
   const [teacherName, setTeacherName] = useState('')
   const [openParcial, setOpenParcial] = useState(1)
   const [activeTab, setActiveTab] = useState('Actividades')
@@ -184,9 +193,13 @@ export default function StudentSubjectPage() {
           .filter((m) => isActivityPublished(m, parcialesOcultos.includes(m.parcial)))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       )
-      const subsSnap = await getDocs(
-        query(collection(db, 'submissions'), where('alumnoId', '==', studData.id))
-      )
+      const [subsSnap, attSummarySnap] = await Promise.all([
+        getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', studData.id))),
+        // Resumen propio (nunca la asistencia compartida del grupo) — lo
+        // mantiene la Cloud Function onAttendanceEscrita; puede no existir
+        // todavía si el docente nunca ha tomado asistencia.
+        getDoc(doc(db, 'attendanceSummaries', studData.id)).catch(() => null),
+      ])
       const actIds = new Set(acts.map((a) => a.id))
       const subsMap = {}
       subsSnap.docs.forEach((d) => {
@@ -194,6 +207,7 @@ export default function StudentSubjectPage() {
         if (actIds.has(data.actividadId)) subsMap[data.actividadId] = { id: d.id, ...data }
       })
       setSubmissions(subsMap)
+      setAttendanceSummary(attSummarySnap?.exists() ? attSummarySnap.data() : null)
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -498,6 +512,62 @@ export default function StudentSubjectPage() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Tab: Asistencias — mismo lenguaje visual que Calificaciones (tarjeta
+          por parcial con % arriba a la derecha); en vez de una lista de
+          actividades, chips por día (uno por fecha, no por hora de clase). */}
+      {activeTab === 'Asistencias' && (
+        <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
+          {PARCIALES.length === 0 || !attendanceSummary || attendanceSummary.total?.total === 0 ? (
+            <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
+              <p className="text-muted text-sm">Tu maestro aún no ha registrado asistencia.</p>
+            </div>
+          ) : (
+            PARCIALES.map((p) => {
+              const stat = attendanceSummary.porParcial?.[String(p)]
+              if (!stat) return null
+              const pct = stat.total > 0 ? Math.round((stat.asist / stat.total) * 100) : null
+              const registrosParcial = (attendanceSummary.registros || []).filter((r) => r.parcial === p)
+              return (
+                <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
+                  <div className="px-4 py-3 flex items-center gap-3 border-b border-outline-variant">
+                    <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                      <span className="text-accent font-bold text-sm">{p}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-on-surface">Parcial {p}</p>
+                      <p className="text-xs text-slate-500">
+                        {stat.asist} de {stat.total} clases
+                        {stat.justif > 0 ? ` (${stat.justif} justificada${stat.justif !== 1 ? 's' : ''})` : ''}
+                      </p>
+                    </div>
+                    {pct != null && (
+                      <div className="text-right flex-shrink-0">
+                        <p className={`text-2xl font-bold leading-none ${pct < 80 ? 'text-red-500' : 'text-accent'}`}>{pct}%</p>
+                        <p className="text-xs text-slate-400">asistencia</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3 flex flex-wrap gap-1.5">
+                    {registrosParcial.map((r) => (
+                      <span
+                        key={r.fecha}
+                        className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          r.estado === 'presente' ? 'bg-emerald-100 text-emerald-700'
+                          : r.estado === 'justificada' ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-600'
+                        }`}
+                      >
+                        {formatFechaCorta(r.fecha)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       )}
 

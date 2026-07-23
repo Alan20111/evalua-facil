@@ -466,6 +466,98 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   })
 })
 
+// ─── 4.6) Resumen de asistencia por alumno ──────────────────────────────────
+// `attendance/{id}` es una "columna" (fecha+hora) COMPARTIDA por todo el
+// grupo: presentes/justificadas/motivos de TODOS los estudiantes en un solo
+// documento. Por eso las reglas solo dejan leerlo al docente — el motivo de
+// una justificación (texto libre) puede ser información sensible (salud,
+// familia) que un compañero no debe ver, y antes de la auditoría de
+// seguridad cualquier alumno podía listar la asistencia de toda la
+// plataforma con un cliente modificado.
+//
+// Esta función mantiene, por cada alumno afectado, un resumen PROPIO en
+// `attendanceSummaries/{studentId}` (mismo id que su enrollment en
+// `students` — así `ownsStudentDoc` en las reglas ya sirve tal cual). El
+// alumno nunca lee el documento compartido: solo su resumen, recalculado
+// aquí a partir de la fuente de verdad, igual que onEvaluacionFinalizada
+// recalcula la calificación en vez de confiar en lo que mande el cliente.
+function idsAfectados(before, after) {
+  if (!before) return Object.keys(after?.presentes || {})
+  if (!after) return Object.keys(before?.presentes || {}) // se borró la columna completa
+  const ids = new Set([...Object.keys(before.presentes || {}), ...Object.keys(after.presentes || {})])
+  const cambiaron = []
+  for (const id of ids) {
+    const antesPresente = before.presentes?.[id] !== false
+    const despuesPresente = after.presentes?.[id] !== false
+    const antesJustif = !!before.justificadas?.[id]
+    const despuesJustif = !!after.justificadas?.[id]
+    if (antesPresente !== despuesPresente || antesJustif !== despuesJustif) cambiaron.push(id)
+  }
+  return cambiaron
+}
+
+// Recalcula TODO el resumen del alumno desde cero (todas las columnas de su
+// asignatura) — más simple y siempre correcto que ir acumulando deltas, y el
+// volumen de columnas por asignatura (decenas, no miles) hace que un
+// recálculo completo sea barato.
+async function recalcularResumenAsistencia(asignaturaId, studentId) {
+  const snap = await db.collection('attendance').where('asignaturaId', '==', asignaturaId).get()
+  const records = snap.docs.map((d) => d.data())
+    .sort((a, b) => (a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha)))
+
+  const porParcial = {}
+  // Mismo cálculo por-slot que countPresence() del docente (src/utils/
+  // attendance.js) — así el % que ve el alumno siempre coincide con el que
+  // ve su maestro. Un día con varias horas (duracion > 1) suma varios slots.
+  let asistTotal = 0, inasistTotal = 0, justifTotal = 0
+  // `registros` es SOLO para la lista visual del alumno — un chip por DÍA
+  // (no por slot), para no mostrar la misma fecha repetida cuando el día
+  // tuvo varias horas de clase. Si alguna hora de ese día fue falta, el día
+  // se muestra como falta (el peor estado gana); "justificada" pesa más que
+  // "presente" para que una falta justificada no se pierda entre horas
+  // presentes del mismo día.
+  const RANGO = { falta: 2, justificada: 1, presente: 0 }
+  const porDia = {}
+
+  for (const r of records) {
+    const presente = r.presentes?.[studentId] !== false
+    const justificada = !!r.justificadas?.[studentId]
+    const estado = presente ? 'presente' : justificada ? 'justificada' : 'falta'
+    const p = String(r.parcial)
+    if (!porParcial[p]) porParcial[p] = { asist: 0, inasist: 0, justif: 0, total: 0 }
+    porParcial[p].total++
+    if (estado === 'falta') { porParcial[p].inasist++; inasistTotal++ }
+    else {
+      porParcial[p].asist++; asistTotal++
+      if (estado === 'justificada') { porParcial[p].justif++; justifTotal++ }
+    }
+    const actual = porDia[r.fecha]
+    if (!actual || RANGO[estado] > RANGO[actual.estado]) {
+      porDia[r.fecha] = { fecha: r.fecha, parcial: r.parcial, estado }
+    }
+  }
+
+  const registros = Object.values(porDia).sort((a, b) => a.fecha.localeCompare(b.fecha))
+
+  await db.doc(`attendanceSummaries/${studentId}`).set({
+    asignaturaId,
+    porParcial,
+    total: { asist: asistTotal, inasist: inasistTotal, justif: justifTotal, total: records.length },
+    registros,
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+}
+
+exports.onAttendanceEscrita = onDocumentWritten('attendance/{attendanceId}', async (event) => {
+  const before = event.data?.before?.exists ? event.data.before.data() : null
+  const after = event.data?.after?.exists ? event.data.after.data() : null
+  if (!before && !after) return
+  const asignaturaId = (after || before).asignaturaId
+  const afectados = idsAfectados(before, after)
+  if (!afectados.length) return
+  await Promise.all(afectados.map((studentId) => recalcularResumenAsistencia(asignaturaId, studentId)))
+})
+
 // ─── 5) Programadas + recordatorios de entrega ─────────────────────────────
 // Corre cada 30 min. Ventana de 35 min (> intervalo del scheduler) para no
 // perder ninguna actividad entre corridas.
