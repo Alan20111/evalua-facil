@@ -191,14 +191,15 @@ export default function StudentDashboard() {
   return (
     <StudentLayout>
       <div className={`px-4 py-6 ${STUDENT_CONTAINER}`}>
-        {/* Foto/nombre + Notificaciones — solo móvil (el logo tocable ya vive en la barra superior).
+        {/* Foto/nombre — solo móvil (el logo tocable ya vive en la barra superior).
             Dar clic al nombre ES la entrada al perfil (Don't Make Me Think: sin
-            fila "Mi perfil" aparte; la foto se cambia dentro del perfil). */}
+            fila "Mi perfil" aparte; la foto se cambia dentro del perfil).
+            Notificaciones y Agenda viven en la barra inferior. */}
         <div className="md:hidden bg-surface-card rounded-card shadow-card overflow-hidden mb-4">
           <button
             type="button"
             onClick={() => navigate('/alumno/perfil')}
-            className="w-full flex items-center gap-3 px-4 py-4 border-b-2 border-outline-variant hover:bg-accent-tint transition-colors text-left"
+            className="w-full flex items-center gap-3 px-4 py-4 hover:bg-accent-tint transition-colors text-left"
             aria-label="Mi perfil"
           >
             <div className="w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0">
@@ -212,24 +213,6 @@ export default function StudentDashboard() {
               <p className="font-semibold text-on-surface truncate">{firstName}</p>
               {apellidos && <p className="text-sm text-muted truncate">{apellidos}</p>}
             </div>
-            <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/alumno/notificaciones')}
-            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent-tint transition-colors"
-          >
-            <Bell size={20} className="text-accent flex-shrink-0" />
-            <span className="font-medium text-on-surface flex-1 text-left">Notificaciones</span>
-            <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/alumno/agenda')}
-            className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent-tint transition-colors border-t border-outline-variant"
-          >
-            <CalendarDays size={20} className="text-accent flex-shrink-0" />
-            <span className="font-medium text-on-surface flex-1 text-left">Agenda</span>
             <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
           </button>
         </div>

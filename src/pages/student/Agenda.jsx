@@ -12,6 +12,7 @@ import { toDateStr } from '../../utils/horarioBloques'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import AgendaLista from '../../components/agenda/AgendaLista'
 import AgendaCalendario from '../../components/agenda/AgendaCalendario'
+import StudentBottomNav from '../../components/StudentBottomNav'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { teacherDisplayName } from '../../utils/studentSearch'
 
@@ -162,7 +163,8 @@ export default function Agenda() {
       {loading ? (
         <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
       ) : (
-        <div className={`px-4 py-5 ${STUDENT_CONTAINER_NARROW}`}>
+        // pb extra: que el último renglón no quede tapado por la barra inferior
+        <div className={`px-4 py-5 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-5 ${STUDENT_CONTAINER_NARROW}`}>
           {tab === 'lista' ? (
             <AgendaLista itemsByDate={itemsByDate} todayStr={todayStr} onActivityClick={(id) => navigate(`/alumno/actividad/${id}`)} />
           ) : (
@@ -170,6 +172,7 @@ export default function Agenda() {
           )}
         </div>
       )}
+      <StudentBottomNav />
     </div>
   )
 }
