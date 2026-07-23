@@ -360,6 +360,112 @@ exports.onEstudianteActivado = onDocumentWritten('students/{studentId}', async (
   await after.ref.update({ notificadoActivacion: true })
 })
 
+// ─── 4.5) Calificación server-side de evaluaciones ─────────────────────────
+// El cliente YA NO calcula ni escribe la calificación al finalizar un
+// cuestionario/examen (las reglas se lo prohíben): solo marca
+// estadoEvaluacion:'finalizado'. Esta función recalcula todo con la fuente
+// de verdad del servidor (preguntas con respuestaCorrecta + respuestas del
+// alumno) — así un cliente modificado no puede inventarse su nota.
+//
+// Réplica exacta de src/utils/evaluacionGrading.js (calcularPuntosPregunta,
+// calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal)
+// — duplicada a propósito: Functions es CommonJS y no importa los módulos ES
+// del cliente (mismo criterio que nombreEstudianteDe / actividadVisible).
+const TIPOS_OBJETIVOS = ['opcion_multiple', 'verdadero_falso']
+const TIPOS_REVISION_MANUAL = ['respuesta_corta', 'subir_archivo']
+
+function calcularPuntosPregunta(pregunta, respuesta) {
+  if (!TIPOS_OBJETIVOS.includes(pregunta.tipo)) return null
+  const correcta = respuesta?.opcionSeleccionada != null && respuesta.opcionSeleccionada === pregunta.respuestaCorrecta
+  return correcta ? (pregunta.ponderacion || 0) : 0
+}
+
+function calcularCalificacion(preguntas, respuestasPorPregunta, maxCalif = 10) {
+  const totalPonderacion = preguntas.reduce((sum, p) => sum + (p.ponderacion || 0), 0)
+  if (totalPonderacion === 0) return 0
+  const obtenida = preguntas.reduce((sum, p) => sum + (respuestasPorPregunta[p.id]?.puntosObtenidos ?? 0), 0)
+  return Math.round((obtenida / totalPonderacion) * maxCalif * 10) / 10
+}
+
+function resolverPendienteRevision(preguntas, respuestasPorPregunta) {
+  return preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo) && (respuestasPorPregunta[p.id]?.puntosObtenidos ?? null) == null)
+}
+
+function resolverCalificacionFinal(intentosPrevios, calificacionNueva, conservar) {
+  if (intentosPrevios.length === 0) return calificacionNueva
+  const previas = intentosPrevios.map((i) => i.calificacion)
+  switch (conservar) {
+    case 'primero':
+      return previas[0]
+    case 'promedio':
+      return Math.round((([...previas, calificacionNueva].reduce((a, b) => a + b, 0)) / (previas.length + 1)) * 10) / 10
+    case 'mejor':
+      return Math.max(...previas, calificacionNueva)
+    case 'ultimo':
+    default:
+      return calificacionNueva
+  }
+}
+
+// Idempotente por INTENTO: el número de intento en curso (intentoActual) se
+// registra en intentos[] al calificar — cualquier re-disparo (la propia
+// escritura de esta función, ediciones del docente, notificaciones) ve el
+// intento ya registrado y se retira. La transacción relee el doc EN VIVO
+// (mismo patrón anti-ráfagas que onSubmissionEntregada).
+exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}', async (event) => {
+  const after = event.data?.after
+  if (!after?.exists) return // borrada
+  const sub = after.data()
+  if (sub.estadoEvaluacion !== 'finalizado') return
+  const intentoNum = sub.intentoActual || ((sub.intentos?.length || 0) + 1)
+  if ((sub.intentos || []).some((i) => i.numero === intentoNum)) return // este intento ya se calificó
+
+  const actSnap = await db.collection('activities').doc(sub.actividadId).get()
+  if (!actSnap.exists || actSnap.data().tipo !== 'evaluacion') return
+  const act = actSnap.data()
+
+  const [pregSnap, respSnap] = await Promise.all([
+    actSnap.ref.collection('preguntas').get(),
+    after.ref.collection('respuestas').get(),
+  ])
+  const preguntas = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const respuestasGuardadas = {}
+  respSnap.docs.forEach((d) => { respuestasGuardadas[d.id] = d.data() })
+
+  // Puntos por pregunta desde la fuente de verdad del servidor. Los tipos de
+  // revisión manual quedan null (pendientes) — igual que hacía el cliente:
+  // cada intento nuevo resetea la revisión manual del anterior.
+  const respuestasPorPregunta = {}
+  preguntas.forEach((p) => {
+    respuestasPorPregunta[p.id] = { puntosObtenidos: calcularPuntosPregunta(p, respuestasGuardadas[p.id] || {}) }
+  })
+  await Promise.all(preguntas.map((p) =>
+    after.ref.collection('respuestas').doc(p.id).set(
+      { puntosObtenidos: respuestasPorPregunta[p.id].puntosObtenidos },
+      { merge: true }
+    )
+  ))
+
+  const calificacionIntento = calcularCalificacion(preguntas, respuestasPorPregunta, act.maxCalif || 10)
+  const pendienteRevision = resolverPendienteRevision(preguntas, respuestasPorPregunta)
+
+  await db.runTransaction(async (tx) => {
+    const freshSnap = await tx.get(after.ref)
+    if (!freshSnap.exists) return
+    const fresh = freshSnap.data()
+    if (fresh.estadoEvaluacion !== 'finalizado') return
+    const num = fresh.intentoActual || ((fresh.intentos?.length || 0) + 1)
+    const previos = fresh.intentos || []
+    if (previos.some((i) => i.numero === num)) return
+    tx.update(after.ref, {
+      calificacion: resolverCalificacionFinal(previos, calificacionIntento, act.evaluacion?.conservar),
+      pendienteRevision,
+      estado: pendienteRevision ? 'entregado' : 'calificado',
+      intentos: [...previos, { numero: num, calificacion: calificacionIntento }],
+    })
+  })
+})
+
 // ─── 5) Programadas + recordatorios de entrega ─────────────────────────────
 // Corre cada 30 min. Ventana de 35 min (> intervalo del scheduler) para no
 // perder ninguna actividad entre corridas.

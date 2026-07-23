@@ -107,6 +107,19 @@ export default function StudentActivityPage() {
     return () => unsub()
   }, [activityId])
 
+  // La calificación de una evaluación la escribe el SERVIDOR (Cloud Function
+  // onEvaluacionFinalizada) unos instantes después de que el alumno finaliza —
+  // este listener refleja esa nota (y cualquier calificación del docente) en
+  // vivo, sin que el alumno tenga que recargar.
+  useEffect(() => {
+    if (!submission?.id) return
+    const unsub = onSnapshot(doc(db, 'submissions', submission.id), (snap) => {
+      if (snap.exists()) setSubmission({ id: snap.id, ...snap.data() })
+    })
+    return () => unsub()
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- solo re-suscribe al cambiar el doc
+  }, [submission?.id])
+
   // One-time load for everything else (student, subject, submission). Guarded on
   // `currentUser` — on a fresh/incognito session Firebase Auth may not have restored
   // yet on first mount, and firing these reads before then gets rejected by Firestore
