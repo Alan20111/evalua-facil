@@ -7,7 +7,6 @@ import {
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, exportSubjectAttendance, exportParcialAttendance, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
 import { importActivitiesToSubject } from '../../utils/importActivities'
@@ -3048,11 +3047,11 @@ export default function SubjectPage() {
   )
 
   if (loading) return (
-    <TeacherLayout><div className="flex justify-center py-20"><Spinner size="lg" /></div></TeacherLayout>
+    <div className="flex justify-center py-20"><Spinner size="lg" /></div>
   )
 
   return (
-    <TeacherLayout>
+    <>
       <div {...subjectPaletteProps(subject?.colorPalette)}>
       <div className={TEACHER_CONTAINER}>
 
@@ -5968,6 +5967,6 @@ export default function SubjectPage() {
           }}
         />
       )}
-    </TeacherLayout>
+    </>
   )
 }

@@ -3,7 +3,6 @@ import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, writeBat
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import EventEditor, { EVENT_COLORS } from '../../components/calendar/EventEditor'
@@ -1625,7 +1624,7 @@ export default function CalendarPage() {
   )
 
   return (
-    <TeacherLayout>
+    <>
       <div className={`px-4 py-4 ${TEACHER_CONTAINER}`}>
 
         {IS_NATIVE_APP ? (
@@ -2017,7 +2016,7 @@ export default function CalendarPage() {
           </div>
         )
       })()}
-    </TeacherLayout>
+    </>
   )
 }
 

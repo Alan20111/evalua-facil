@@ -8,7 +8,6 @@ import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/fire
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import TeacherLayout from '../../components/Layout'
 import Spinner from '../../components/Spinner'
 import ConfirmModal from '../../components/ConfirmModal'
 import PasswordInput from '../../components/PasswordInput'
@@ -346,7 +345,7 @@ export default function Profile() {
   const canRenew = canRenewSubscription(subscription)
 
   return (
-    <TeacherLayout>
+    <>
       <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER_NARROW}`}>
 
         {/* Mi plan */}
@@ -802,6 +801,6 @@ export default function Profile() {
           </div>
         </div>
       )}
-    </TeacherLayout>
+    </>
   )
 }
