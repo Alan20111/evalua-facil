@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'rea
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './components/Toast'
 import AndroidBackButton from './components/AndroidBackButton'
+import PwaInstallPrompt from './components/PwaInstallPrompt'
 import { needsPasswordSetup } from './utils/authLinking'
 import { installDraggableOverlays } from './utils/draggableOverlays'
 import { installFollowTooltips } from './utils/followTooltip'
@@ -198,6 +199,7 @@ export default function App() {
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <PwaInstallPrompt />
           </RoleWrapper>
         </ToastProvider>
       </AuthProvider>
