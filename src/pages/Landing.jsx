@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import EFLogo from '../components/EFLogo'
+import { DocenteIcon, EstudianteIcon } from '../components/RoleIcons'
 
 // Public entry: pick a role. Teacher = blue, Student = orange. No mixed content.
 export default function Landing() {
@@ -20,8 +21,7 @@ export default function Landing() {
             to="/docente"
             className="group bg-surface-card rounded-card shadow-card hover:shadow-md transition-shadow p-5 text-center"
           >
-            {/* Mismo ícono de la marca para ambos roles */}
-            <EFLogo subtitle={false} className="w-14 h-14 mx-auto mb-3" />
+            <DocenteIcon className="w-14 h-14 mx-auto mb-3 text-blue-600" />
             <h2 className="text-lg font-bold text-on-surface">Soy Docente</h2>
             <p className="text-sm text-muted mt-1">Administra y evalúa tus asignaturas</p>
             <span className="mt-3 inline-flex items-center gap-1 text-blue-600 font-semibold text-sm group-hover:gap-2 transition-all">
@@ -34,8 +34,7 @@ export default function Landing() {
             to="/alumno"
             className="group bg-surface-card rounded-card shadow-card hover:shadow-md transition-shadow p-5 text-center"
           >
-            {/* Mismo ícono de la marca para ambos roles */}
-            <EFLogo subtitle={false} className="w-14 h-14 mx-auto mb-3" />
+            <EstudianteIcon className="w-14 h-14 mx-auto mb-3 text-orange-600" />
             <h2 className="text-lg font-bold text-on-surface">Soy Estudiante</h2>
             <p className="text-sm text-muted mt-1">Entra a tus asignaturas y entregas</p>
             <span className="mt-3 inline-flex items-center gap-1 text-orange-600 font-semibold text-sm group-hover:gap-2 transition-all">

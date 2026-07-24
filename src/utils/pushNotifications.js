@@ -13,7 +13,7 @@
 import { Capacitor } from '@capacitor/core'
 import { PushNotifications } from '@capacitor/push-notifications'
 import { LocalNotifications } from '@capacitor/local-notifications'
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore'
+import { doc, setDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { db } from '../firebase'
 
 let installed = false
@@ -42,10 +42,21 @@ const TOKEN_OWNER_KEY = 'ef_push_token_uid'
 async function reasignarToken(token, uid) {
   const anterior = localStorage.getItem(TOKEN_OWNER_KEY)
   if (anterior && anterior !== uid) {
+    // best-effort — si esa cuenta nunca tuvo notificationSettings, updateDoc
+    // truena ("no document to update") y el .catch lo absorbe; no pasa nada,
+    // no había nada que quitarle.
     updateDoc(doc(db, 'notificationSettings', anterior), { fcmTokens: arrayRemove(token) }).catch(() => {})
   }
   localStorage.setItem(TOKEN_OWNER_KEY, uid)
-  await updateDoc(doc(db, 'notificationSettings', uid), { fcmTokens: arrayUnion(token) })
+  // Bug real confirmado con logcat en dispositivo: updateDoc EXIGE que el
+  // documento ya exista — para una cuenta que JAMÁS había registrado un
+  // dispositivo (p. ej. un alumno que nunca abrió la app antes), el doc
+  // notificationSettings/{uid} no existe todavía, así que updateDoc tronaba
+  // "no document to update" y el .catch(()=>{}) del llamador lo tragaba en
+  // silencio — el token nunca quedaba asignado a esa cuenta, sin ningún
+  // error visible. setDoc con merge:true crea el doc si hace falta (mismo
+  // patrón que ya usa webPush.js) y de todos modos solo toca este campo.
+  await setDoc(doc(db, 'notificationSettings', uid), { fcmTokens: arrayUnion(token) }, { merge: true })
 }
 
 // A dónde llevar al tocar la notificación (push real o su reflejo local en

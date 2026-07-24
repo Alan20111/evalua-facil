@@ -47,6 +47,40 @@ const TITULOS = {
   nuevasEntregas: { title: 'Nueva entrega', body: 'Un estudiante entregó una actividad.' },
 }
 
+// ─── 0) Reconciliación de tokens push duplicados ───────────────────────────
+// El token de FCM es del DISPOSITIVO, no de la cuenta — al cambiar de sesión
+// en el mismo teléfono (docente↔alumno, o dos cuentas del mismo rol), el
+// cliente (reasignarToken en src/utils/pushNotifications.js y webPush.js)
+// AGREGA el token a la cuenta nueva, pero el intento de QUITARLO de la
+// cuenta anterior lo hace escribiendo en notificationSettings/{cuenta
+// anterior} — un doc que ya no le pertenece. La regla de Firestore
+// (`allow write: if request.auth.uid == uid`) rechaza esa escritura sin
+// avisar (el cliente la manda con .catch(()=>{}) a propósito, best-effort),
+// así que el token se queda huérfano en la cuenta vieja para siempre: dos
+// cuentas reciben el mismo push físico hasta que alguien lo limpie a mano.
+// Esta función corre con permisos de Admin (sí puede escribir en cualquier
+// doc) y hace exactamente esa limpieza: cuando aparece un token NUEVO en un
+// notificationSettings/{uid}, lo quita de cualquier OTRA cuenta que lo
+// tuviera. Documento pequeño (nada de submissions/activities), así que un
+// query array-contains sin índice compuesto es suficiente.
+exports.onTokenPushEscrito = onDocumentWritten('notificationSettings/{uid}', async (event) => {
+  const after = event.data?.after
+  if (!after?.exists) return
+  const afterTokens = after.data().fcmTokens || []
+  const beforeTokens = event.data.before?.exists ? (event.data.before.data().fcmTokens || []) : []
+  const nuevos = afterTokens.filter((t) => !beforeTokens.includes(t))
+  if (!nuevos.length) return
+  const uid = event.params.uid
+  for (const token of nuevos) {
+    const dupSnap = await db.collection('notificationSettings').where('fcmTokens', 'array-contains', token).get()
+    await Promise.all(
+      dupSnap.docs
+        .filter((d) => d.id !== uid)
+        .map((d) => d.ref.update({ fcmTokens: FieldValue.arrayRemove(token) }))
+    )
+  }
+})
+
 // ─── Visibilidad de actividad — replica isActivityPublished() de
 // src/utils/activityVisibility.js (single source of truth en el cliente). ───
 function actividadVisible(a, parcialOculto) {
@@ -123,14 +157,22 @@ async function enviarPushDirecto(uid, notification, data = {}, descripcion = nul
 }
 
 // Lee la preferencia del usuario para esa categoría (notificationSettings);
-// si está deshabilitada, no hace nada. Los valores de `data` deben ser
-// strings (requisito de FCM).
+// si está deshabilitada A PROPÓSITO, no hace nada. Opt-OUT, no opt-in —
+// mismo criterio que enviarPushDirecto usa para el docente (nuevasEntregas,
+// activacionEstudiante): ausente/true = notifica, solo se salta si el
+// usuario lo apagó explícitamente. Antes exigía `cfg?.habilitado === true`
+// (opt-in) — bug real confirmado: la pantalla de Notificaciones del alumno
+// (NotificationSettings.jsx) MUESTRA los interruptores activados por
+// defecto aunque nunca se haya guardado nada (mergeWithDefaults), pero
+// nunca escribe el campo hasta que el alumno toca un interruptor — como
+// casi ningún alumno abre esa pantalla, "Calificaciones"/"Actividades
+// nuevas"/"Recordatorios" nunca se enviaban a la gran mayoría, aunque la
+// app les mostrara que estaban activadas.
 async function enviarPush(uid, categoria, dataExtra = {}) {
   if (!uid) return
   const settingsSnap = await db.collection('notificationSettings').doc(uid).get()
-  if (!settingsSnap.exists) return
-  const cfg = settingsSnap.data()[categoria]
-  if (!cfg?.habilitado) return
+  const cfg = settingsSnap.exists ? settingsSnap.data()[categoria] : null
+  if (cfg?.habilitado === false) return
 
   const notification = TITULOS[categoria]
   const data = {
@@ -634,9 +676,13 @@ exports.revisarProgramados = onSchedule(SCHEDULE_INTERVAL, async () => {
     ))
     const nuevosEnviados = []
     await Promise.all(candidatos.map(async (d, i) => {
+      // Opt-out, no opt-in — mismo criterio y mismo motivo que enviarPush()
+      // arriba: sin cfg guardado (alumno que nunca abrió Notificaciones), se
+      // usa el default del cliente (habilitado, 1 día antes) en vez de
+      // saltarse el recordatorio en silencio.
       const cfg = settingsSnaps[i]?.data()?.recordatorios
-      if (!cfg?.habilitado) return
-      const anticipacionMs = (cfg.anticipacionMinutos || 60) * 60_000
+      if (cfg?.habilitado === false) return
+      const anticipacionMs = (cfg?.anticipacionMinutos || 1440) * 60_000
       if (msLeft > anticipacionMs || msLeft < anticipacionMs - WINDOW_MS) return
       await enviarPush(d.data().uid, 'recordatorios', { actividadId: doc.id })
       nuevosEnviados.push(d.id)
