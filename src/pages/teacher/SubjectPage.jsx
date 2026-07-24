@@ -30,6 +30,7 @@ import FileTypeSelect from '../../components/FileTypeSelect'
 import RichTextEditor from '../../components/RichTextEditor'
 import VisibilitySelect from '../../components/VisibilitySelect'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
+import ParcialesFechas from '../../components/ParcialesFechas'
 import { minDeadline } from '../../utils/nowIso'
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
@@ -2014,6 +2015,7 @@ export default function SubjectPage() {
         grupo: subject.grupo || '',
         fechaInicio: subject.fechaInicio || '',
         fechaFin: subject.fechaFin || '',
+        parcialesFechas: subject.parcialesFechas || [],
         parciales: String(subject.parciales || 3),
         colorPalette: subject.colorPalette || 'default',
         icon: subject.icon || 'book',
@@ -2085,6 +2087,7 @@ export default function SubjectPage() {
         grupo: unarchiveEdits.grupo.trim(),
         fechaInicio: unarchiveEdits.fechaInicio || '',
         fechaFin: unarchiveEdits.fechaFin || '',
+        parcialesFechas: (unarchiveEdits.fechaInicio && unarchiveEdits.fechaFin) ? (unarchiveEdits.parcialesFechas || []) : [],
         parciales: newParciales,
         colorPalette: unarchiveEdits.colorPalette || 'default',
         icon: unarchiveEdits.icon || 'book',
@@ -2199,6 +2202,7 @@ export default function SubjectPage() {
       grupo: subject?.grupo || '',
       fechaInicio: subject?.fechaInicio || '',
       fechaFin: subject?.fechaFin || '',
+      parcialesFechas: subject?.parcialesFechas || [],
       parciales: String(subject?.parciales || 3),
       colorPalette: subject?.colorPalette || 'default',
       icon: subject?.icon || 'book',
@@ -2221,6 +2225,7 @@ export default function SubjectPage() {
         grupo: editSubjectForm.grupo.trim(),
         fechaInicio: editSubjectForm.fechaInicio || '',
         fechaFin: editSubjectForm.fechaFin || '',
+        parcialesFechas: (editSubjectForm.fechaInicio && editSubjectForm.fechaFin) ? (editSubjectForm.parcialesFechas || []) : [],
         parciales: newParciales,
         colorPalette: editSubjectForm.colorPalette || 'default',
         icon: editSubjectForm.icon || 'book',
@@ -5588,6 +5593,15 @@ export default function SubjectPage() {
                   {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
                 </select>
               </div>
+              {editSubjectForm.fechaInicio && editSubjectForm.fechaFin && (
+                <ParcialesFechas
+                  fechaInicio={editSubjectForm.fechaInicio}
+                  fechaFin={editSubjectForm.fechaFin}
+                  numParciales={parseInt(editSubjectForm.parciales) || 3}
+                  value={editSubjectForm.parcialesFechas}
+                  onChange={(v) => setEditSubjectForm((f) => ({ ...f, parcialesFechas: v }))}
+                />
+              )}
               <div>
                 <p className="block text-sm font-medium text-muted mb-2">Color de la asignatura <span className="text-slate-400 font-normal text-xs">(elige el color base que identificará a la asignatura)</span></p>
                 <PaletteSelect value={editSubjectForm.colorPalette} onChange={(p) => setEditSubjectForm((f) => ({ ...f, colorPalette: p }))} />
@@ -5784,6 +5798,15 @@ export default function SubjectPage() {
                     className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface">
                     {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
                   </select>
+                  {unarchiveEdits.fechaInicio && unarchiveEdits.fechaFin && (
+                    <ParcialesFechas
+                      fechaInicio={unarchiveEdits.fechaInicio}
+                      fechaFin={unarchiveEdits.fechaFin}
+                      numParciales={parseInt(unarchiveEdits.parciales) || 3}
+                      value={unarchiveEdits.parcialesFechas}
+                      onChange={(v) => setUnarchiveEdits((f) => ({ ...f, parcialesFechas: v }))}
+                    />
+                  )}
                 </div>
               </div>
 
