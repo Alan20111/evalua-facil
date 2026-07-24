@@ -17,7 +17,7 @@ import { formatHora12FromDate } from '../../utils/formatHora'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
-import { fmtAttDateParts } from '../../utils/attendance'
+import { fmtAttMonth } from '../../utils/attendance'
 import { toDateStr } from '../../utils/horarioBloques'
 import { getResourceIcon, getLinkResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
@@ -79,13 +79,6 @@ function formatResourceDate(ts) {
 }
 
 const TABS = ['Actividades', 'Calificaciones', 'Asistencias', 'Recursos']
-
-// 'YYYY-MM-DD' → '18 jul' — mismo formato compacto que usa el docente en las
-// columnas de Asistencias (fmtAttDateParts), aquí para el chip por día.
-function formatFechaCorta(fecha) {
-  const { dia, mes } = fmtAttDateParts(fecha)
-  return `${dia} ${mes}`
-}
 
 const DIAS_SEMANA = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
@@ -581,7 +574,13 @@ export default function StudentSubjectPage() {
                   {/* Cuadrícula semanal (L a D) — un renglón por semana, en vez
                       de una lista de chips en fila. Los días sin clase (el
                       típico caso de sábado/domingo, pero también cualquier
-                      día sin registro) quedan en blanco. */}
+                      día sin registro) quedan en blanco. Celdas bajas
+                      (altura fija, NO aspect-square: en escritorio la columna
+                      es ancha y un cuadrado se ve altísimo) con esquinas
+                      apenas redondeadas (rounded-md, NO rounded-card: ese
+                      radio es para tarjetas grandes — en una celda tan chica
+                      terminaba pareciendo un círculo). Un renglón con el mes
+                      aparece arriba de cada semana en la que cambia. */}
                   <div className="p-3">
                     <div className="grid grid-cols-7 gap-1.5 mb-1.5">
                       {DIAS_SEMANA.map((d, i) => (
@@ -589,27 +588,44 @@ export default function StudentSubjectPage() {
                       ))}
                     </div>
                     <div className="grid grid-cols-7 gap-1.5">
-                      {semanas.map((fecha) => {
-                        const r = registrosPorFecha[fecha]
-                        if (!r) return <div key={fecha} />
-                        const tieneMotivo = r.estado === 'justificada' && r.motivo
-                        return (
-                          <button
-                            type="button"
-                            key={fecha}
-                            disabled={!tieneMotivo}
-                            onClick={() => tieneMotivo && toast(r.motivo)}
-                            data-tooltip={tieneMotivo ? r.motivo : undefined}
-                            className={`aspect-square rounded-card flex items-center justify-center text-xs font-semibold transition-colors ${
-                              r.estado === 'presente' ? 'bg-emerald-100 text-emerald-700'
-                              : r.estado === 'justificada' ? `bg-amber-100 text-amber-700 ${tieneMotivo ? 'hover:bg-amber-200 cursor-pointer' : ''}`
-                              : 'bg-red-100 text-red-600'
-                            }`}
-                          >
-                            {Number(fecha.slice(8, 10))}
-                          </button>
-                        )
-                      })}
+                      {(() => {
+                        let mesActual = null
+                        const celdas = []
+                        for (let i = 0; i < semanas.length; i += 7) {
+                          const semana = semanas.slice(i, i + 7)
+                          const mesSemana = fmtAttMonth(semana[0])
+                          if (mesSemana !== mesActual) {
+                            mesActual = mesSemana
+                            celdas.push(
+                              <p key={`mes-${semana[0]}`} className={`col-span-7 text-xs font-semibold text-muted capitalize ${i === 0 ? '' : 'mt-2'}`}>
+                                {mesSemana}
+                              </p>
+                            )
+                          }
+                          semana.forEach((fecha) => {
+                            const r = registrosPorFecha[fecha]
+                            if (!r) { celdas.push(<div key={fecha} />); return }
+                            const tieneMotivo = r.estado === 'justificada' && r.motivo
+                            celdas.push(
+                              <button
+                                type="button"
+                                key={fecha}
+                                disabled={!tieneMotivo}
+                                onClick={() => tieneMotivo && toast(r.motivo)}
+                                data-tooltip={tieneMotivo ? r.motivo : undefined}
+                                className={`h-8 rounded-md flex items-center justify-center text-xs font-semibold transition-colors ${
+                                  r.estado === 'presente' ? 'bg-emerald-100 text-emerald-700'
+                                  : r.estado === 'justificada' ? `bg-amber-100 text-amber-700 ${tieneMotivo ? 'hover:bg-amber-200 cursor-pointer' : ''}`
+                                  : 'bg-red-100 text-red-600'
+                                }`}
+                              >
+                                {Number(fecha.slice(8, 10))}
+                              </button>
+                            )
+                          })
+                        }
+                        return celdas
+                      })()}
                     </div>
                   </div>
                 </div>
