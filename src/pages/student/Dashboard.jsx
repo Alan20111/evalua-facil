@@ -212,7 +212,7 @@ export default function StudentDashboard() {
         </div>
 
         <h1 className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
-        <p className="text-slate-400 text-sm mb-5">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's' : ''} activas</p>
+        <p className="text-slate-400 text-sm mb-5">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's activas' : ' activa'}</p>
 
         {activeSubjects.length === 0 ? (
           <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">

@@ -120,6 +120,19 @@ function RootRedirect({ guest = <TeacherLogin /> }) {
   return <Navigate to="/alumno/dashboard" replace />
 }
 
+// Same idea as RootRedirect but for /alumno: a student who's already signed in
+// (e.g. bounced here from the "ya está en tu cuenta" edge case while joining a
+// subject they're already enrolled in) should land on their dashboard instead
+// of a confusing login form that makes it look like they got signed out.
+function StudentRootRedirect() {
+  const { currentUser, userProfile, loading } = useAuth()
+  if (loading) return null
+  if (!currentUser) return <StudentLogin />
+  if (userProfile?.role === 'alumno') return <Navigate to="/alumno/dashboard" replace />
+  if (!userProfile && currentUser.email?.endsWith('@evalua.local')) return <Navigate to="/alumno/dashboard" replace />
+  return <StudentLogin />
+}
+
 // Sets the accent theme by role: orange for students (incl. pre-auth /alumno and
 // /activate routes), blue for everyone else. Identity elements read --accent.
 function RoleWrapper({ children }) {
@@ -150,7 +163,7 @@ export default function App() {
             <Route path="/docente" element={<RootRedirect />} />
             <Route path="/register" element={<TeacherRegister />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/alumno" element={<StudentLogin />} />
+            <Route path="/alumno" element={<StudentRootRedirect />} />
             <Route path="/activate/:accessCode" element={<StudentActivation />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/pago-resultado" element={<PagoResultado />} />
