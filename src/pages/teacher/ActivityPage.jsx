@@ -775,8 +775,13 @@ export default function ActivityPage() {
       ) : (
       <div className={TEACHER_CONTAINER_NARROW}>
         {/* Header */}
-        {/* Header on the page background — the Instrucciones card floats like Entregas below */}
-        <div className="px-4 py-2">
+        {/* Header on the page background — the Instrucciones card floats like Entregas below.
+            overflow-hidden: el botón "Editar actividad" (con su tooltip CSS absolute,
+            más ancho que el ícono) queda pegado al borde derecho en la app — sin esto,
+            el tooltip hace crecer el scrollWidth de toda la página unos px de más
+            aunque nada se vea cortado (mismo "scrollWidth fantasma" ya visto en
+            SubjectPage.jsx). */}
+        <div className="px-4 py-2 overflow-hidden">
           <div className="flex items-center gap-2">
             <button
               type="button"
