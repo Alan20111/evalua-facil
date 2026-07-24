@@ -1196,10 +1196,18 @@ export default function CalendarPage() {
     const durComun = patrones[0]?.duracionMin || 60
     const primerAlarma = patrones.find(p => p.alarma?.activa)?.alarma
       || { activa: false, sonido: 'campana', minutosAntes: 10 }
+    // Si la asignatura ya tiene fechas de curso, ProgramarBloquesModal las
+    // muestra fijas (no editables) en vez de las derivadas del primer/último
+    // bloque real — el baseline debe coincidir con eso, si no, abrir
+    // "Modificar" sin tocar nada ya marcaría un cambio falso (fechas
+    // derivadas ≠ fechas del curso) y habilitaría "Guardar" de balde.
+    const subj = subjects[asignaturaId]
+    const fechaInicioBase = (subj?.fechaInicio && subj?.fechaFin) ? subj.fechaInicio : fechas[0]
+    const fechaFinBase = (subj?.fechaInicio && subj?.fechaFin) ? subj.fechaFin : fechas[fechas.length - 1]
     const baseline = {
       asignaturaId,
-      fechaInicio: fechas[0],
-      fechaFin: fechas[fechas.length - 1],
+      fechaInicio: fechaInicioBase,
+      fechaFin: fechaFinBase,
       duracionMin: durComun,
       bloquesPorSemana: patrones.length,
       color: patrones[0]?.color || 'blue',

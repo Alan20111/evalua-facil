@@ -1137,26 +1137,32 @@ export default function SubjectPage() {
   }, [showAddAttendance])
 
   // ── Asistencias ────────────────────────────────────────────────────
-  async function loadAttendance(force = false) {
+  // `subjectOverride`: cuando el llamador acaba de escribir un cambio en
+  // `subjects/{id}` (p. ej. attendanceExcluded) y llama a loadAttendance en
+  // la misma función, el `subject` del estado de React TODAVÍA no lo
+  // refleja (setState es asíncrono) — pasar el valor ya actualizado evita
+  // que esta sincronización lea el dato viejo y deshaga ese cambio.
+  async function loadAttendance(force = false, subjectOverride = null) {
+    const subj = subjectOverride || subject
     setLoadingAttendance(true)
     try {
       const students = await ensureGroupStudents(force)
       let records = await loadAttendanceRecords(subjectId)
-      if (subject?.parcialesFechas?.length) {
+      if (subj?.parcialesFechas?.length) {
         const { created, diasSemana, missing } = await syncAutoAttendanceDays({
           subjectId,
-          docenteId: subject.docenteId,
-          parcialesFechas: subject.parcialesFechas,
+          docenteId: subj.docenteId,
+          parcialesFechas: subj.parcialesFechas,
           existingFechas: new Set(records.map((r) => r.fecha)),
-          excludedFechas: subject.attendanceExcluded || [],
+          excludedFechas: subj.attendanceExcluded || [],
           studentIds: (students || groupStudents).map((s) => s.id),
         })
         if (created > 0) records = await loadAttendanceRecords(subjectId)
         setAttendanceMissingAutoDias(missing)
         const noClase = await loadAsuetoVacacionDiasClase({
-          docenteId: subject.docenteId,
-          fechaInicio: subject.fechaInicio,
-          fechaFin: subject.fechaFin,
+          docenteId: subj.docenteId,
+          fechaInicio: subj.fechaInicio,
+          fechaFin: subj.fechaFin,
           diasSemana,
         })
         setAttendanceNoClaseDias(noClase)
@@ -1343,13 +1349,18 @@ export default function SubjectPage() {
       await deleteAttendanceDay(attendanceRecords, fecha)
       // Si el curso ya tiene fechas configuradas, este día pudo haberse
       // generado solo (horarioBloques) — sin esto, loadAttendance(true) de
-      // abajo lo volvería a crear de inmediato al re-sincronizar.
+      // abajo lo volvería a crear de inmediato al re-sincronizar. Se pasa
+      // el subject YA actualizado (subjectOverride): setSubject es
+      // asíncrono, así que el `subject` del estado todavía no lo refleja
+      // en este mismo tick.
+      let subjectForSync = subject
       if (subject?.fechaInicio && subject?.fechaFin) {
+        subjectForSync = { ...subject, attendanceExcluded: [...(subject.attendanceExcluded || []), fecha] }
         await updateDoc(doc(db, 'subjects', subjectId), { attendanceExcluded: arrayUnion(fecha) })
-        setSubject((s) => ({ ...s, attendanceExcluded: [...(s.attendanceExcluded || []), fecha] }))
+        setSubject(subjectForSync)
       }
       setDeleteAttendanceConfirm(null)
-      await loadAttendance(true)
+      await loadAttendance(true, subjectForSync)
       toast('Día de asistencia eliminado')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -1372,10 +1383,11 @@ export default function SubjectPage() {
         parcial: dia.parcial,
         studentIds: groupStudents.map((s) => s.id),
       })
+      const subjectForSync = { ...subject, attendanceExcluded: (subject.attendanceExcluded || []).filter((f) => f !== dia.fecha) }
       await updateDoc(doc(db, 'subjects', subjectId), { attendanceExcluded: arrayRemove(dia.fecha) })
-      setSubject((s) => ({ ...s, attendanceExcluded: (s.attendanceExcluded || []).filter((f) => f !== dia.fecha) }))
+      setSubject(subjectForSync)
       setShowRestoreAttendance(false)
-      await loadAttendance(true)
+      await loadAttendance(true, subjectForSync)
       toast('Día de asistencia restaurado')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
