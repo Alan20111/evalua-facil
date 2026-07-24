@@ -69,10 +69,19 @@ export async function initPushNotifications(uid, navigate, deepLink) {
   currentDeepLink = deepLink || null
 
   // Los listeners ya estaban puestos de una sesión anterior EN ESTE MISMO
-  // proceso (cambio de cuenta sin cerrar la app del todo) — con currentUid ya
-  // actualizado arriba, solo falta volver a registrar para que 'registration'
-  // dispare de nuevo y reasignarToken() mueva el token a la cuenta nueva.
+  // proceso (cambio de cuenta sin cerrar la app del todo). Antes esto solo
+  // volvía a llamar register() esperando que 'registration' disparara de
+  // nuevo para que reasignarToken() moviera el token a la cuenta nueva —
+  // bug real confirmado: en Android el plugin no siempre reemite
+  // 'registration' si el token nativo no cambió (case normal: mismo
+  // dispositivo, mismo token, solo cambia la cuenta), así que el cambio de
+  // cuenta se quedaba sin reasignar y el teléfono seguía recibiendo avisos
+  // de la cuenta anterior. Con el token ya conocido (currentToken, guardado
+  // del último 'registration'), se reasigna aquí mismo de inmediato, sin
+  // depender de que el evento nativo vuelva a disparar — register() se
+  // sigue llamando también, por si acaso el token cambió de verdad.
   if (installed) {
+    if (currentToken) reasignarToken(currentToken, uid).catch(() => {})
     PushNotifications.register().catch(() => {})
     return
   }
