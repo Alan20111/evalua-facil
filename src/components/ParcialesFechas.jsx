@@ -1,5 +1,20 @@
 import EFDateTimePicker from './EFDateTimePicker'
 
+const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+]
+
+// Mismo formato largo que EFDateTimePicker ("Viernes 24 de Julio de 2026"),
+// para que las fechas fijas (no editables) se vean igual que las elegibles.
+function formatLong(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(`${dateStr}T00:00:00`)
+  if (isNaN(d)) return ''
+  return `${DIAS_SEMANA[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
+}
+
 // Un día después de 'YYYY-MM-DD' (aritmética en local time para evitar el
 // desfase de un día que da parsear como UTC).
 export function addOneDay(dateStr) {
@@ -60,11 +75,11 @@ export default function ParcialesFechas({ fechaInicio, fechaFin, numParciales, v
                   <span className="block text-xs text-slate-500 mb-1">Inicio</span>
                   {isFirst ? (
                     <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
-                      {inicio || '—'}
+                      {formatLong(inicio) || '—'}
                     </div>
                   ) : (
                     <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
-                      {inicio || '— (se define al elegir el fin del parcial anterior)'}
+                      {formatLong(inicio) || '— (se define al elegir el fin del parcial anterior)'}
                     </div>
                   )}
                 </div>
@@ -72,7 +87,7 @@ export default function ParcialesFechas({ fechaInicio, fechaFin, numParciales, v
                   <span className="block text-xs text-slate-500 mb-1">Fin</span>
                   {isLast ? (
                     <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
-                      {fin || '—'}
+                      {formatLong(fin) || '—'}
                     </div>
                   ) : (
                     <EFDateTimePicker
