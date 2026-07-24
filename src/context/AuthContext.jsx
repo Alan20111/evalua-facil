@@ -5,6 +5,7 @@ import { collection, doc, getDoc, getDocs, query, updateDoc, where } from 'fireb
 import { auth, db } from '../firebase'
 import { usernameCandidates } from '../utils/generate'
 import { initPushNotifications, clearPushToken } from '../utils/pushNotifications'
+import { initWebPush, clearWebPushToken } from '../utils/webPush'
 import { refreshTeacherReminders, installReminderResumeListener, installReminderDeliveryListener } from '../utils/localReminders'
 
 const AuthContext = createContext(null)
@@ -92,6 +93,10 @@ export function AuthProvider({ children }) {
             // notificación (no solo recibirla), la app abra directo en
             // Notificaciones — antes caía en la pantalla de bienvenida.
             initPushNotifications(user.uid, navigate, '/notificaciones')
+            // Web push (PWA): re-registro silencioso si el permiso ya estaba
+            // concedido. No-op en la app nativa; el prompt para PEDIR permiso
+            // por primera vez vive en PwaInstallPrompt.jsx.
+            initWebPush(user.uid).catch(() => {})
             // Recordatorios de clase/evento — local, no depende de push.
             refreshTeacherReminders(user.uid)
             installReminderResumeListener(user.uid)
@@ -127,6 +132,9 @@ export function AuthProvider({ children }) {
               // Fase 4 de notificaciones: registra el dispositivo para push
               // (no-op en web, solo hace algo en la app nativa de Android).
               initPushNotifications(user.uid)
+              // Web push (PWA): re-registro silencioso si el permiso ya estaba
+              // concedido. El prompt para pedirlo vive en PwaInstallPrompt.jsx.
+              initWebPush(user.uid).catch(() => {})
             } else {
               setUserProfile(null)
             }
@@ -142,6 +150,8 @@ export function AuthProvider({ children }) {
         // este dispositivo (docente o alumno), para que no le sigan
         // llegando avisos hasta que alguien vuelva a entrar. No-op en web.
         clearPushToken()
+        // Igual para el web push (PWA) — no-op en la app nativa.
+        clearWebPushToken()
       }
       setLoading(false)
     })
