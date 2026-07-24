@@ -18,6 +18,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { fmtAttDateParts } from '../../utils/attendance'
+import { toDateStr } from '../../utils/horarioBloques'
 import { getResourceIcon, getLinkResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import { teacherDisplayName } from '../../utils/studentSearch'
@@ -84,6 +85,31 @@ const TABS = ['Actividades', 'Calificaciones', 'Asistencias', 'Recursos']
 function formatFechaCorta(fecha) {
   const { dia, mes } = fmtAttDateParts(fecha)
   return `${dia} ${mes}`
+}
+
+const DIAS_SEMANA = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+
+// Arma TODAS las fechas (lunes a domingo) entre la primera y la última fecha
+// con registro, para dibujar la cuadrícula semanal — pedido explícito: un
+// renglón por semana con encabezado L-D, en blanco cuando no hubo clase ese
+// día (el caso típico es sábado/domingo, pero aplica a cualquier día sin
+// registro). Al ser un solo grid-cols-7 continuo, las semanas intermedias
+// "caen" solas sin necesidad de armarlas por separado.
+function buildAttendanceWeeks(fechas) {
+  if (!fechas.length) return []
+  const parse = (f) => new Date(`${f}T12:00:00`) // mediodía: evita saltos de día por zona horaria
+  const ordenadas = fechas.map(parse).sort((a, b) => a - b)
+  const primerLunes = new Date(ordenadas[0])
+  primerLunes.setDate(primerLunes.getDate() - ((primerLunes.getDay() + 6) % 7))
+  const ultimo = ordenadas[ordenadas.length - 1]
+  const ultimoDomingo = new Date(ultimo)
+  ultimoDomingo.setDate(ultimoDomingo.getDate() + (6 - (ultimo.getDay() + 6) % 7))
+
+  const dias = []
+  for (const d = new Date(primerLunes); d <= ultimoDomingo; d.setDate(d.getDate() + 1)) {
+    dias.push(toDateStr(d))
+  }
+  return dias
 }
 
 // 'actividad'/'tarea' are legacy categoria values from before they were
@@ -530,6 +556,8 @@ export default function StudentSubjectPage() {
               if (!stat) return null
               const pct = stat.total > 0 ? Math.round((stat.asist / stat.total) * 100) : null
               const registrosParcial = (attendanceSummary.registros || []).filter((r) => r.parcial === p)
+              const registrosPorFecha = Object.fromEntries(registrosParcial.map((r) => [r.fecha, r]))
+              const semanas = buildAttendanceWeeks(registrosParcial.map((r) => r.fecha))
               return (
                 <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                   <div className="px-4 py-3 flex items-center gap-3 border-b border-outline-variant">
@@ -550,19 +578,39 @@ export default function StudentSubjectPage() {
                       </div>
                     )}
                   </div>
-                  <div className="p-3 flex flex-wrap gap-1.5">
-                    {registrosParcial.map((r) => (
-                      <span
-                        key={r.fecha}
-                        className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          r.estado === 'presente' ? 'bg-emerald-100 text-emerald-700'
-                          : r.estado === 'justificada' ? 'bg-amber-100 text-amber-700'
-                          : 'bg-red-100 text-red-600'
-                        }`}
-                      >
-                        {formatFechaCorta(r.fecha)}
-                      </span>
-                    ))}
+                  {/* Cuadrícula semanal (L a D) — un renglón por semana, en vez
+                      de una lista de chips en fila. Los días sin clase (el
+                      típico caso de sábado/domingo, pero también cualquier
+                      día sin registro) quedan en blanco. */}
+                  <div className="p-3">
+                    <div className="grid grid-cols-7 gap-1.5 mb-1.5">
+                      {DIAS_SEMANA.map((d, i) => (
+                        <span key={i} className="text-[10px] font-semibold text-slate-400 uppercase text-center">{d}</span>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {semanas.map((fecha) => {
+                        const r = registrosPorFecha[fecha]
+                        if (!r) return <div key={fecha} />
+                        const tieneMotivo = r.estado === 'justificada' && r.motivo
+                        return (
+                          <button
+                            type="button"
+                            key={fecha}
+                            disabled={!tieneMotivo}
+                            onClick={() => tieneMotivo && toast(r.motivo)}
+                            data-tooltip={tieneMotivo ? r.motivo : undefined}
+                            className={`aspect-square rounded-card flex items-center justify-center text-xs font-semibold transition-colors ${
+                              r.estado === 'presente' ? 'bg-emerald-100 text-emerald-700'
+                              : r.estado === 'justificada' ? `bg-amber-100 text-amber-700 ${tieneMotivo ? 'hover:bg-amber-200 cursor-pointer' : ''}`
+                              : 'bg-red-100 text-red-600'
+                            }`}
+                          >
+                            {Number(fecha.slice(8, 10))}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
               )

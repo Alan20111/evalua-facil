@@ -541,7 +541,11 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
     }
     const actual = porDia[r.fecha]
     if (!actual || RANGO[estado] > RANGO[actual.estado]) {
-      porDia[r.fecha] = { fecha: r.fecha, parcial: r.parcial, estado }
+      // El motivo (texto libre del docente al justificar) es propio del
+      // alumno — se guarda igual que el estado, solo para SU resumen; nunca
+      // se expone el documento compartido `attendance` con los motivos de
+      // todo el grupo. Vacío si no aplica (falta/presente).
+      porDia[r.fecha] = { fecha: r.fecha, parcial: r.parcial, estado, motivo: r.motivos?.[studentId] || '' }
     }
   }
 
