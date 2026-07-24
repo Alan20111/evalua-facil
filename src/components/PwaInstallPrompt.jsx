@@ -46,7 +46,7 @@ function IosInstallGuide({ onClose }) {
     <div className="fixed inset-0 z-[120] bg-surface flex flex-col overflow-y-auto">
       {/* Header */}
       <div className="sticky top-0 bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center justify-between shadow-card">
-        <p className="text-base font-bold text-on-surface">Instalar en tu iPhone</p>
+        <p className="text-lg font-bold text-on-surface">Instalar en tu iPhone</p>
         <button
           type="button"
           onClick={onClose}
@@ -58,17 +58,18 @@ function IosInstallGuide({ onClose }) {
       </div>
 
       <div className="flex-1 px-4 py-5 max-w-md w-full mx-auto space-y-5">
-        <p className="text-sm text-muted">
-          Son solo 2 toques — sin App Store. Al terminar, Evalúa Fácil se abre
-          desde tu inicio como cualquier app y podrás recibir notificaciones.
+        <p className="text-[15px] leading-relaxed text-on-surface font-medium">
+          Son solo <span className="font-bold text-accent">2 toques</span> — sin App Store.
+          Al terminar, Evalúa Fácil se abre desde tu inicio como cualquier app
+          y podrás recibir notificaciones.
         </p>
 
         {/* Paso 1 — botón Compartir de Safari */}
         <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="w-6 h-6 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
-            <p className="text-sm font-semibold text-on-surface">
-              Toca <span className="text-accent">Compartir</span> en la barra de Safari
+            <span className="w-7 h-7 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">1</span>
+            <p className="text-base font-bold text-on-surface">
+              Toca <span className="bg-accent-light text-accent font-bold px-1.5 py-0.5 rounded">Compartir</span> en la barra de Safari
             </p>
           </div>
           {/* Mock de la barra inferior de Safari con flecha animada */}
@@ -95,9 +96,9 @@ function IosInstallGuide({ onClose }) {
         {/* Paso 2 — Agregar a pantalla de inicio */}
         <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="w-6 h-6 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
-            <p className="text-sm font-semibold text-on-surface">
-              Elige <span className="text-accent">&quot;Agregar a inicio&quot;</span>
+            <span className="w-7 h-7 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">2</span>
+            <p className="text-base font-bold text-on-surface">
+              Elige <span className="bg-accent-light text-accent font-bold px-1.5 py-0.5 rounded">Agregar a inicio</span>
             </p>
           </div>
           {/* Mock del menú de compartir de iOS */}
@@ -123,9 +124,9 @@ function IosInstallGuide({ onClose }) {
         {/* Paso 3 — confirmar */}
         <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4">
           <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
-            <p className="text-sm font-semibold text-on-surface">
-              Toca <span className="text-accent">&quot;Agregar&quot;</span> — ¡y listo!
+            <span className="w-7 h-7 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">3</span>
+            <p className="text-base font-bold text-on-surface">
+              Toca <span className="bg-accent-light text-accent font-bold px-1.5 py-0.5 rounded">Agregar</span> — ¡y listo!
             </p>
           </div>
           <p className="text-xs text-muted mt-2 pl-8">
