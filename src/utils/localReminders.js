@@ -112,6 +112,13 @@ async function scheduleUpcoming(category, items, anticipacionMinutos) {
 }
 
 let installed = false
+// uid "vivo" que usa el listener de resume — se actualiza en cada llamada a
+// installReminderResumeListener (no solo la primera) para que, si un
+// segundo docente inicia sesión en el MISMO dispositivo, el próximo resume
+// reprograme SUS recordatorios y no siga reprogramando los del docente
+// anterior. Mismo patrón de indirección que pushNotifications.js usa para
+// el token de push (ver reasignarToken/currentUid ahí).
+let activeUid = null
 
 // A diferencia del push del servidor (que la Cloud Function registra en
 // notificationLog vía Admin SDK, ver functions/index.js), un recordatorio
@@ -382,10 +389,12 @@ export async function refreshTeacherReminders(uid) {
 // en segundo plano días atrás no se queda con recordatorios obsoletos hasta
 // el próximo login. Se instala una sola vez por sesión de la app.
 export function installReminderResumeListener(uid) {
-  if (installed || !uid || !Capacitor.isNativePlatform()) return
+  if (!uid || !Capacitor.isNativePlatform()) return
+  activeUid = uid
+  if (installed) return
   installed = true
   CapacitorApp.addListener('appStateChange', ({ isActive }) => {
-    if (isActive) refreshTeacherReminders(uid)
+    if (isActive) refreshTeacherReminders(activeUid)
   })
 }
 
