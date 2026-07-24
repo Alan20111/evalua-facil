@@ -28,7 +28,15 @@ export function parcialForDate(parcialesFechas, fecha) {
 export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFechas, existingFechas, studentIds }) {
   if (!parcialesFechas?.length || !studentIds?.length) return { created: 0, diasSemana: new Set() }
 
-  const bloquesSnap = await getDocs(query(collection(db, 'horarioBloques'), where('asignaturaId', '==', subjectId)))
+  // Filtra también por docenteId (no solo asignaturaId) porque la regla de
+  // Firestore de horarioBloques exige resource.data.docenteId == auth.uid —
+  // mismo patrón que ya usa CalendarPage.jsx. Doble igualdad, sin índice
+  // compuesto nuevo (regla del proyecto: solo where('==') encadenados).
+  const bloquesSnap = await getDocs(query(
+    collection(db, 'horarioBloques'),
+    where('docenteId', '==', docenteId),
+    where('asignaturaId', '==', subjectId),
+  ))
   const porFecha = {}
   const diasSemana = new Set()
   bloquesSnap.docs.forEach((d) => {
