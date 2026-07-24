@@ -6,6 +6,7 @@ import { auth, db } from '../firebase'
 import { usernameCandidates } from '../utils/generate'
 import { initPushNotifications, clearPushToken } from '../utils/pushNotifications'
 import { initWebPush, clearWebPushToken } from '../utils/webPush'
+import { createTeacherAccount } from '../utils/teacherAccount'
 import { refreshTeacherReminders, installReminderResumeListener, installReminderDeliveryListener } from '../utils/localReminders'
 
 const AuthContext = createContext(null)
@@ -20,7 +21,16 @@ export function AuthProvider({ children }) {
     const unsub = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user)
       if (user) {
-        const snap = await getDoc(doc(db, 'users', user.uid))
+        let snap
+        try {
+          snap = await getDoc(doc(db, 'users', user.uid))
+        } catch {
+          // Una lectura denegada/fallida no debe dejar `loading` en true para
+          // siempre (AuthProvider no renderiza children mientras carga).
+          setUserProfile(null)
+          setLoading(false)
+          return
+        }
         if (snap.exists()) {
           const profile = snap.data()
           if (profile.escuelaId && profile.role !== 'alumno') {
@@ -142,7 +152,32 @@ export function AuthProvider({ children }) {
             setUserProfile(null)
           }
         } else {
-          setUserProfile(null)
+          // Autenticado con correo real (docente) pero SIN doc users/{uid} — el
+          // registro creó la cuenta de Firebase Auth pero la escritura del
+          // perfil nunca aterrizó (interrumpida, red caída). Dejado en null,
+          // esto se colaba por los checks de ProtectedTeacher (todos escritos
+          // como `userProfile?.role === ...`, vacuously false para null) directo
+          // a /dashboard, donde el primer acceso a userProfile.escuelaId tronaba
+          // ("null is not an object"). Se autorrepara creando el perfil docente
+          // mínimo (mismo shape que googleAuth.js para el flujo de Google) y el
+          // redirect profileComplete:false → /onboarding ya existente lo lleva a
+          // completar sus datos.
+          try {
+            const provider = user.providerData?.some((p) => p.providerId === 'google.com')
+              ? 'google'
+              : 'password'
+            await createTeacherAccount(user.uid, user.email, user.photoURL || null, provider, false)
+            setUserProfile({
+              role: 'docente',
+              email: user.email.trim().toLowerCase(),
+              photoURL: user.photoURL || null,
+              profileComplete: false,
+              provider,
+              hasLocalPassword: provider === 'password',
+            })
+          } catch {
+            setUserProfile(null)
+          }
         }
       } else {
         setUserProfile(null)
