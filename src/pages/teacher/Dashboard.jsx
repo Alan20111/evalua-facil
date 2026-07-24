@@ -241,8 +241,15 @@ export default function TeacherDashboard() {
         orden: subjects.length + 1,
         createdAt: serverTimestamp(),
       }
+      // Sin append optimista aquí: el onSnapshot de arriba (única fuente de
+      // verdad, mismo criterio que moveSubject/dragPointerUp) ya recibe esta
+      // asignatura nueva por su cuenta — casi siempre ANTES de que este
+      // await se resuelva, porque Firestore refleja la escritura local de
+      // inmediato. Un append manual sobre `prev` corría el riesgo real de
+      // sumarla otra vez sobre un estado que el snapshot ya había
+      // actualizado, duplicando la key en el sidebar (bug real observado:
+      // "Encountered two children with the same key").
       const ref = await addDoc(collection(db, 'subjects'), subData)
-      setSubjects((prev) => [...prev, { id: ref.id, ...subData }])
       setShowSubjectModal(false)
       setNewSubjectName('')
       setNewSubjectGrupo('')

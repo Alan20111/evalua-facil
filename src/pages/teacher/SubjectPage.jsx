@@ -3050,6 +3050,71 @@ export default function SubjectPage() {
     <div className="flex justify-center py-20"><Spinner size="lg" /></div>
   )
 
+  // Botones de acción del encabezado, en dos grupos reutilizables (izquierda:
+  // QR/link/código — derecha: editar/duplicar/archivar/eliminar). Se renderizan
+  // en DOS layouts distintos más abajo (móvil apilado / escritorio en fila) en
+  // vez de un solo flex-wrap responsivo: varios intentos de hacerlo con un
+  // único contenedor (spacer flex-1, flex-shrink-0, basis-full, w-max — todos
+  // fallaron) tropezaron con una ambigüedad conocida de flexbox cuando un div
+  // es a la vez flex-item de la fila exterior Y flex-container con su propio
+  // wrap para sus botones — el navegador terminaba encogiéndolo por debajo de
+  // su contenido real (o reportando un scrollWidth "fantasma"), desbordando
+  // toda la página. Con display:none/flex (hidden/flex) en vez de shrink/basis
+  // no hay ambigüedad posible: cada layout es una fila plana normal.
+  const subjectHeaderLeftIcons = (
+    <>
+      <button type="button" onClick={() => setShowQR(true)}
+        aria-label="Código QR de registro al curso para estudiantes"
+        data-tooltip="Código QR de registro al curso para estudiantes"
+        className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        <QrCode size={21} />
+      </button>
+      <button type="button" onClick={copyActivationLink}
+        aria-label="Copiar link de registro al curso para estudiantes"
+        data-tooltip="Copiar link de registro al curso para estudiantes"
+        className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
+        {copiedLink ? <CheckIcon size={21} /> : <Link size={21} />}
+      </button>
+      <button type="button" onClick={copyAccessCode}
+        data-tooltip="Copiar código de acceso para estudiantes"
+        className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
+        {copiedCode
+          ? <><CheckIcon size={22} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
+          : <span>{subject?.accessCode}</span>}
+      </button>
+    </>
+  )
+  // Editar/duplicar/archivar/eliminar la asignatura: solo en la web — en la
+  // app nativa esas acciones se manejan desde ahí.
+  const subjectHeaderRightIcons = !IS_NATIVE_APP && (
+    <>
+      <button type="button" onClick={openEditSubject}
+        aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
+        data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
+        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        <Pencil size={21} />
+      </button>
+      <button type="button" onClick={openCopyModal}
+        aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
+        data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
+        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        <Copy size={21} />
+      </button>
+      <button type="button" onClick={handleToggleArchive} disabled={archiving}
+        aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
+        data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
+        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
+        {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
+      </button>
+      <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
+        aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
+        data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
+        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+        <Trash2 size={21} />
+      </button>
+    </>
+  )
+
   return (
     <>
       <div {...subjectPaletteProps(subject?.colorPalette)}>
@@ -3076,58 +3141,23 @@ export default function SubjectPage() {
             </div>
           </div>
 
-          {/* Action buttons — wrap on mobile so they never overflow */}
-          <div className="flex flex-wrap items-center gap-1 mt-2">
-            <button type="button" onClick={() => setShowQR(true)}
-              aria-label="Código QR de registro al curso para estudiantes"
-              data-tooltip="Código QR de registro al curso para estudiantes"
-              className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-              <QrCode size={21} />
-            </button>
-            <button type="button" onClick={copyActivationLink}
-              aria-label="Copiar link de registro al curso para estudiantes"
-              data-tooltip="Copiar link de registro al curso para estudiantes"
-              className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
-              {copiedLink ? <CheckIcon size={21} /> : <Link size={21} />}
-            </button>
-            <button type="button" onClick={copyAccessCode}
-              data-tooltip="Copiar código de acceso para estudiantes"
-              className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
-              {copiedCode
-                ? <><CheckIcon size={22} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
-                : <span>{subject?.accessCode}</span>}
-            </button>
-            <div className="flex-1" />
-            {/* Editar/duplicar/archivar/eliminar la asignatura: solo en la web —
-                en la app nativa esas acciones se manejan desde ahí. */}
-            {!IS_NATIVE_APP && (
-              <>
-                <button type="button" onClick={openEditSubject}
-                  aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-                  data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                  <Pencil size={21} />
-                </button>
-                <button type="button" onClick={openCopyModal}
-                  aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
-                  data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
-                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                  <Copy size={21} />
-                </button>
-                <button type="button" onClick={handleToggleArchive} disabled={archiving}
-                  aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
-                  data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
-                  className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
-                  {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
-                </button>
-                <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
-                  aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
-                  data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
-                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
-                  <Trash2 size={21} />
-                </button>
-              </>
-            )}
+          {/* Action buttons — UNA sola fila plana con flex-wrap, sin grupos
+              anidados: cada intento de agrupar visualmente "izquierda" y
+              "derecha" (spacer flex-1, flex-shrink-0, basis-full, w-max,
+              incluso dos layouts hidden/flex separados) fallaba en algún
+              ancho de pantalla por una ambigüedad de flexbox anidado — un div
+              que es a la vez flex-item de la fila exterior Y flex-container
+              con su propio wrap terminaba encogiéndose por debajo de su
+              contenido real (o reportando un scrollWidth "fantasma"),
+              desbordando toda la página. Con los botones como hijos PLANOS de
+              un solo flex-wrap no hay nada anidado que ambigüe: el navegador
+              envuelve la fila en tantos renglones como haga falta, en
+              cualquier ancho, sin excepción. Se pierde el espacio extra entre
+              el grupo de "compartir" y el de "administrar", pero la fila
+              nunca vuelve a desbordar la página. */}
+          <div className="flex flex-wrap items-center gap-1 mt-2 overflow-hidden">
+            {subjectHeaderLeftIcons}
+            {subjectHeaderRightIcons}
           </div>
 
           {/* Aún sin estudiantes: aviso debajo del código de acceso. totalStudents
@@ -3142,13 +3172,19 @@ export default function SubjectPage() {
 
           {/* Tabs — Calificaciones/Estudiantes solo en la web; Asistencia en ambos
               (en nativo va entre Actividades y Recursos, único hueco disponible). */}
-          <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
+          {/* overflow-x-auto + sin flex-1 forzado en móvil (mismo patrón que
+              la barra de pestañas del alumno): 5 pestañas a ancho igual no
+              caben legibles en 375px ("Calificaciones"/"Estudiantes" se
+              recortaban), forzando overflow de TODA la página en vez de solo
+              esta fila. sm:flex-1 restaura el ancho igual de siempre en
+              escritorio, donde sí caben cómodas. */}
+          <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded overflow-x-auto">
             {(IS_NATIVE_APP
               ? ['actividades', 'asistencia', 'recursos']
               : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos']
             ).map((t) => (
               <button type="button" key={t} onClick={() => switchTab(t)}
-                className={`flex-1 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
+                className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                   activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}>
                 {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : 'Recursos'}
@@ -3447,9 +3483,15 @@ export default function SubjectPage() {
                  ofrece una descarga por parcial (progreso, sin cerrar). */}
             <div>
               <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
-              <div className="flex gap-2">
+              {/* min-w-0 en cada split-button + overflow-hidden en la fila:
+                  mismo par de correcciones que la fila de buscar/agregar
+                  estudiante — dos flex-1 competiendo por espacio sin
+                  min-w-0 se negaban a encoger, y el navegador seguía
+                  reportando scrollWidth de más aunque el contenido ya
+                  cupiera, forzando scroll horizontal en toda la página. */}
+              <div className="flex gap-2 overflow-hidden">
                 {/* Excel split-button */}
-                <div className="flex-1 relative flex">
+                <div className="flex-1 min-w-0 relative flex">
                   <button type="button"
                     onClick={handleExport}
                     disabled={exporting}
@@ -3482,7 +3524,7 @@ export default function SubjectPage() {
                   )}
                 </div>
                 {/* PDF split-button */}
-                <div className="flex-1 relative flex">
+                <div className="flex-1 min-w-0 relative flex">
                   <button type="button"
                     onClick={handleExportGradesPDF}
                     disabled={exportingGradesPdf}
@@ -4235,8 +4277,17 @@ export default function SubjectPage() {
           </div>
 
           {/* 3 — Buscar alumno + agregar manualmente */}
-          <div className="flex gap-2">
-            <div className="flex-1">
+          {/* overflow-hidden en la fila: min-w-0 (abajo) ya corrige el ancho
+              VISUAL, pero el navegador seguía reportando un scrollWidth
+              "fantasma" mayor al contenido realmente visible (quirk conocido
+              de flex-basis con inputs) — eso solo, sin verse nada distinto,
+              bastaba para forzar scroll horizontal en toda la página. */}
+          <div className="flex gap-2 overflow-hidden">
+            {/* min-w-0: sin esto, un flex item se niega a encoger por debajo
+                del ancho mínimo intrínseco de su <input> hijo (el gotcha
+                clásico de flexbox) — en móvil desbordaba esta fila y con
+                ella toda la página, aunque el input ya tenía w-full. */}
+            <div className="flex-1 min-w-0">
               <SearchInput
                 value={searchAlumnos}
                 onChange={setSearchAlumnos}
