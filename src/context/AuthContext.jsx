@@ -141,7 +141,10 @@ export function AuthProvider({ children }) {
               setUserProfile({ role: 'alumno', studentId: s.id, ...s })
               // Fase 4 de notificaciones: registra el dispositivo para push
               // (no-op en web, solo hace algo en la app nativa de Android).
-              initPushNotifications(user.uid)
+              // Se pasa navigate para que tocar la notificación lleve directo
+              // a la actividad correspondiente (ver resolveDestino en
+              // pushNotifications.js) — antes no llevaba a ningún lado.
+              initPushNotifications(user.uid, navigate)
               // Web push (PWA): re-registro silencioso si el permiso ya estaba
               // concedido. El prompt para pedirlo vive en PwaInstallPrompt.jsx.
               initWebPush(user.uid).catch(() => {})
