@@ -15,6 +15,7 @@ import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloa
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
+import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase } from '../../utils/attendanceAuto'
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity } from '../../utils/activityVisibility'
@@ -382,13 +383,14 @@ const AttendanceTable = memo(function AttendanceTable({
                   : estado === 'falta' ? 'Falta'
                   : motivo ? 'Justificada con motivo'
                   : 'Justificada sin motivo (cuenta como asistencia)'
+                const esFuturo = fecha > todayISO
                 return (
                   <td key={r.id}
                     data-col={attColIndexById[r.id]}
-                    data-tooltip={cellTooltip}
+                    data-tooltip={esFuturo ? 'Este día aún no llega — se generó automáticamente' : cellTooltip}
                     ref={addAttColEl(attColIndexById[r.id])}
                     onClick={() => onCellClick(r, s)}
-                    className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant cursor-pointer select-none ${lastEditedCell === `${r.id}:${s.id}` ? 'ring-2 ring-inset ring-accent bg-[var(--accent-medium)]' : fecha === todayISO ? 'bg-accent-light' : ''}`}>
+                    className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none ${esFuturo ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${lastEditedCell === `${r.id}:${s.id}` ? 'ring-2 ring-inset ring-accent bg-[var(--accent-medium)]' : fecha === todayISO ? 'bg-accent-light' : ''}`}>
                     <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
                       {ui.icon}
                       {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
@@ -634,6 +636,9 @@ export default function SubjectPage() {
   // "recordId:studentId" de la última celda de asistencia revisada/modificada
   // — se resalta persistente en la tabla hasta que se toque otra.
   const [lastEditedAttCell, setLastEditedAttCell] = useState(null)
+  // Días dentro del periodo del curso sin clase por asueto/vacaciones (solo
+  // informativo, no genera filas de asistencia) — ver utils/attendanceAuto.js
+  const [attendanceNoClaseDias, setAttendanceNoClaseDias] = useState([])
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -1127,8 +1132,25 @@ export default function SubjectPage() {
   async function loadAttendance(force = false) {
     setLoadingAttendance(true)
     try {
-      await ensureGroupStudents(force)
-      const records = await loadAttendanceRecords(subjectId)
+      const students = await ensureGroupStudents(force)
+      let records = await loadAttendanceRecords(subjectId)
+      if (subject?.parcialesFechas?.length) {
+        const { created, diasSemana } = await syncAutoAttendanceDays({
+          subjectId,
+          docenteId: subject.docenteId,
+          parcialesFechas: subject.parcialesFechas,
+          existingFechas: new Set(records.map((r) => r.fecha)),
+          studentIds: (students || groupStudents).map((s) => s.id),
+        })
+        if (created > 0) records = await loadAttendanceRecords(subjectId)
+        const noClase = await loadAsuetoVacacionDiasClase({
+          docenteId: subject.docenteId,
+          fechaInicio: subject.fechaInicio,
+          fechaFin: subject.fechaFin,
+          diasSemana,
+        })
+        setAttendanceNoClaseDias(noClase)
+      }
       setAttendanceRecords(records)
       setAttendanceLoaded(true)
     } catch (err) {
@@ -1178,6 +1200,12 @@ export default function SubjectPage() {
   // se pierde al mover el mouse, así que esto va por estado, no por :focus
   // (pedido explícito: que se NOTE cuál fue la que se acaba de ver).
   async function handleCycleAttendance(record, student) {
+    const now = new Date()
+    const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    if (record.fecha > todayISO) {
+      toast('Este día aún no llega — la asistencia se generó automáticamente y se podrá editar cuando llegue la fecha', 'error')
+      return
+    }
     const studentId = student.id
     setLastEditedAttCell(`${record.id}:${studentId}`)
     if (attendanceState(record, studentId) === 'justificada') {
@@ -3957,6 +3985,23 @@ export default function SubjectPage() {
               <CalendarPlus size={16} /> Agregar día
             </button>
           </div>
+
+          {attendanceNoClaseDias.length > 0 && (
+            <div className="text-xs text-muted bg-surface-container border border-outline-variant rounded px-3 py-2">
+              <span className="font-semibold">Sin clase por asueto/vacaciones dentro del curso:</span>{' '}
+              {attendanceNoClaseDias.map((d, i) => {
+                const [, m, dd] = d.fecha.split('-')
+                return (
+                  <span key={d.fecha}>
+                    {i > 0 && ', '}
+                    <span className={d.tipo === 'vacaciones' ? 'text-purple-600 font-medium' : 'text-amber-600 font-medium'}>
+                      {dd}/{m} ({d.tipo})
+                    </span>
+                  </span>
+                )
+              })}
+            </div>
+          )}
 
           {/* Excel split-button — mismo patrón que Calificaciones. Sin PDF:
               con una columna angosta por cada día de asistencia no tiene
