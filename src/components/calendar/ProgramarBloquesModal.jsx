@@ -28,8 +28,25 @@ export default function ProgramarBloquesModal({
   const esModificar = mode === 'modificar'
 
   const [asignaturaId, setAsignaturaId] = useState(initial?.asignaturaId || '')
-  const [fechaInicio, setFechaInicio] = useState(initial?.fechaInicio || '')
-  const [fechaFin, setFechaFin] = useState(initial?.fechaFin || '')
+
+  // Si la asignatura ya tiene fechas de curso (Dashboard/SubjectPage → "Nueva
+  // asignatura" / "Editar asignatura"), el horario las reutiliza y no las
+  // vuelve a preguntar — evita que queden desincronizadas de las fechas que
+  // ya alimentan las asistencias automáticas (ver utils/attendanceAuto.js).
+  const targetSubject = esModificar ? subjects[initial?.asignaturaId] : subjects[asignaturaId]
+  const fechasDelCurso = !!(targetSubject?.fechaInicio && targetSubject?.fechaFin)
+
+  const [fechaInicio, setFechaInicio] = useState(initial?.fechaInicio || targetSubject?.fechaInicio || '')
+  const [fechaFin, setFechaFin] = useState(initial?.fechaFin || targetSubject?.fechaFin || '')
+  // En modo 'crear', la asignatura se elige DESPUÉS de montar el modal — al
+  // seleccionarla, si ya tiene fechas de curso, se copian aquí (una sola vez
+  // por selección; el docente no las edita en ese caso).
+  useEffect(() => {
+    if (targetSubject?.fechaInicio && targetSubject?.fechaFin) {
+      setFechaInicio(targetSubject.fechaInicio)
+      setFechaFin(targetSubject.fechaFin)
+    }
+  }, [targetSubject?.fechaInicio, targetSubject?.fechaFin]) // eslint-disable-line react-hooks/exhaustive-deps
   const [duracionMin, setDuracionMin] = useState(initial?.duracionMin || 60)
   const [bloquesPorSemana, setBloquesPorSemana] = useState(initial?.bloquesPorSemana || 1)
   const [color, setColor] = useState(initial?.color || 'blue')
@@ -158,31 +175,39 @@ export default function ProgramarBloquesModal({
 
           {!sinDisponibles && <>
 
-          {/* Rango de fechas */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              {label('Fecha de inicio')}
-              <EFDateTimePicker
-                mode="date"
-                value={fechaInicio}
-                onChange={v => { setFechaInicio(v); if (fechaFin && fechaFin < v) setFechaFin('') }}
-                placeholder="Desde…"
-                clearable={false}
-                showShortcuts={false}
-              />
-            </div>
-            <div className="space-y-1.5">
-              {label('Fecha de finalización')}
-              <EFDateTimePicker
-                mode="date"
-                value={fechaFin}
-                onChange={setFechaFin}
-                minDateTime={fechaInicio ? `${fechaInicio}T00:00` : undefined}
-                placeholder="Hasta…"
-                clearable={false}
-                showShortcuts={false}
-              />
-            </div>
+          {/* Rango de fechas — fijo (tomado del curso) si la asignatura ya
+              tiene fechaInicio/fechaFin configuradas; si no, se piden aquí. */}
+          <div className="space-y-1.5">
+            {label('Rango de fechas')}
+            {fechasDelCurso ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">{fechaInicio}</div>
+                  <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">{fechaFin}</div>
+                </div>
+                <p className="text-xs text-muted">Son las fechas de inicio y fin del curso — se cambian editando la asignatura, no aquí.</p>
+              </>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <EFDateTimePicker
+                  mode="date"
+                  value={fechaInicio}
+                  onChange={v => { setFechaInicio(v); if (fechaFin && fechaFin < v) setFechaFin('') }}
+                  placeholder="Desde…"
+                  clearable={false}
+                  showShortcuts={false}
+                />
+                <EFDateTimePicker
+                  mode="date"
+                  value={fechaFin}
+                  onChange={setFechaFin}
+                  minDateTime={fechaInicio ? `${fechaInicio}T00:00` : undefined}
+                  placeholder="Hasta…"
+                  clearable={false}
+                  showShortcuts={false}
+                />
+              </div>
+            )}
           </div>
 
           {/* Duración + bloques por semana */}

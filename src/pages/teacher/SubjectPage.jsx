@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
-  addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, deleteField,
+  addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, deleteField, arrayUnion, arrayRemove,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -142,7 +142,7 @@ function gradeColor(norm) {
 const AttendanceTable = memo(function AttendanceTable({
   attendanceParciales, filteredAttendanceStudents, attendanceAllRecords,
   onCellClick,
-  onDeleteDay, onBack, onAddDay,
+  onDeleteDay, onBack, onAddDay, addDayLabel, // addDayLabel null = ya no hace falta (todo automático y sin días faltantes) → botón oculto
   lastEditedCell, // "recordId:studentId" — la última celda revisada/modificada, resaltada de forma persistente
 }) {
   // Nodos DOM cacheados por columna/día para el efecto de cruz (fila+columna)
@@ -249,10 +249,12 @@ const AttendanceTable = memo(function AttendanceTable({
                 <ArrowLeft size={20} />
               </button>
               <span className="text-xs font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
-              <button type="button" onClick={onAddDay}
-                className="ml-auto flex items-center gap-1 px-2 py-1 bg-accent text-white text-[11px] font-medium rounded hover:bg-accent-hover transition-colors">
-                <CalendarPlus size={13} /> Agregar día
-              </button>
+              {addDayLabel && (
+                <button type="button" onClick={onAddDay}
+                  className="ml-auto flex items-center gap-1 px-2 py-1 bg-accent text-white text-[11px] font-medium rounded hover:bg-accent-hover transition-colors">
+                  <CalendarPlus size={13} /> {addDayLabel}
+                </button>
+              )}
             </div>
           </th>
         ) : (
@@ -639,6 +641,12 @@ export default function SubjectPage() {
   // Días dentro del periodo del curso sin clase por asueto/vacaciones (solo
   // informativo, no genera filas de asistencia) — ver utils/attendanceAuto.js
   const [attendanceNoClaseDias, setAttendanceNoClaseDias] = useState([])
+  // Días de clase automáticos que el docente borró a propósito (quedan en
+  // subject.attendanceExcluded para que la sincronización no los regenere
+  // solos) y siguen siendo válidos — se pueden restaurar uno por uno.
+  const [attendanceMissingAutoDias, setAttendanceMissingAutoDias] = useState([]) // [{fecha, duracion, parcial}]
+  const [showRestoreAttendance, setShowRestoreAttendance] = useState(false)
+  const [restoringFecha, setRestoringFecha] = useState(null)
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -1135,14 +1143,16 @@ export default function SubjectPage() {
       const students = await ensureGroupStudents(force)
       let records = await loadAttendanceRecords(subjectId)
       if (subject?.parcialesFechas?.length) {
-        const { created, diasSemana } = await syncAutoAttendanceDays({
+        const { created, diasSemana, missing } = await syncAutoAttendanceDays({
           subjectId,
           docenteId: subject.docenteId,
           parcialesFechas: subject.parcialesFechas,
           existingFechas: new Set(records.map((r) => r.fecha)),
+          excludedFechas: subject.attendanceExcluded || [],
           studentIds: (students || groupStudents).map((s) => s.id),
         })
         if (created > 0) records = await loadAttendanceRecords(subjectId)
+        setAttendanceMissingAutoDias(missing)
         const noClase = await loadAsuetoVacacionDiasClase({
           docenteId: subject.docenteId,
           fechaInicio: subject.fechaInicio,
@@ -1291,7 +1301,19 @@ export default function SubjectPage() {
   // llevar deps vacías sin riesgo de obsolescencia.
   const stableDeleteDay = useCallback((fecha) => setDeleteAttendanceConfirm({ fecha }), [])
   const stableAttBack = useCallback(() => setActiveTab('actividades'), [])
-  const stableAddDay = useCallback(() => setShowAddAttendance(true), [])
+  // Con fechas de curso configuradas, todo es automático: "Agregar día" pasa
+  // a ser "Restaurar día" (solo fechas que el docente borró y siguen siendo
+  // válidas) — sin fechas de curso, sigue siendo el alta manual de siempre.
+  const autoAttendanceReady = !!(subject?.fechaInicio && subject?.fechaFin)
+  const addDayLabel = !autoAttendanceReady
+    ? 'Agregar día'
+    : (attendanceMissingAutoDias.length > 0 ? 'Restaurar día' : null)
+  function handleAddDayClick() {
+    if (!autoAttendanceReady) { setShowAddAttendance(true); return }
+    setShowRestoreAttendance(true)
+  }
+  const addDayClickRef = useRef(); addDayClickRef.current = handleAddDayClick
+  const stableAddDay = useCallback(() => addDayClickRef.current(), [])
 
   // Guarda el motivo y deja la celda en "justificada".
   async function handleSaveReason() {
@@ -1315,9 +1337,17 @@ export default function SubjectPage() {
 
   async function handleDeleteAttendanceDay() {
     if (!deleteAttendanceConfirm) return
+    const fecha = deleteAttendanceConfirm.fecha
     setDeletingAttendance(true)
     try {
-      await deleteAttendanceDay(attendanceRecords, deleteAttendanceConfirm.fecha)
+      await deleteAttendanceDay(attendanceRecords, fecha)
+      // Si el curso ya tiene fechas configuradas, este día pudo haberse
+      // generado solo (horarioBloques) — sin esto, loadAttendance(true) de
+      // abajo lo volvería a crear de inmediato al re-sincronizar.
+      if (subject?.fechaInicio && subject?.fechaFin) {
+        await updateDoc(doc(db, 'subjects', subjectId), { attendanceExcluded: arrayUnion(fecha) })
+        setSubject((s) => ({ ...s, attendanceExcluded: [...(s.attendanceExcluded || []), fecha] }))
+      }
       setDeleteAttendanceConfirm(null)
       await loadAttendance(true)
       toast('Día de asistencia eliminado')
@@ -1325,6 +1355,32 @@ export default function SubjectPage() {
       toast('Error: ' + err.message, 'error')
     } finally {
       setDeletingAttendance(false)
+    }
+  }
+
+  // Restaura UN día que el docente había borrado (sigue siendo válido según
+  // el horario y las fechas del curso) — lo quita de attendanceExcluded y
+  // vuelve a crear sus columnas, igual que uno agregado a mano.
+  async function handleRestoreAttendanceDay(dia) {
+    setRestoringFecha(dia.fecha)
+    try {
+      await createAttendanceDay({
+        subjectId,
+        docenteId: subject.docenteId,
+        fecha: dia.fecha,
+        duracion: dia.duracion,
+        parcial: dia.parcial,
+        studentIds: groupStudents.map((s) => s.id),
+      })
+      await updateDoc(doc(db, 'subjects', subjectId), { attendanceExcluded: arrayRemove(dia.fecha) })
+      setSubject((s) => ({ ...s, attendanceExcluded: (s.attendanceExcluded || []).filter((f) => f !== dia.fecha) }))
+      setShowRestoreAttendance(false)
+      await loadAttendance(true)
+      toast('Día de asistencia restaurado')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setRestoringFecha(null)
     }
   }
 
@@ -3003,6 +3059,7 @@ export default function SubjectPage() {
       onDeleteDay={stableDeleteDay}
       onBack={stableAttBack}
       onAddDay={stableAddDay}
+      addDayLabel={addDayLabel}
       lastEditedCell={lastEditedAttCell}
     />
   )
@@ -3076,10 +3133,12 @@ export default function SubjectPage() {
         <ArrowLeft size={20} />
       </button>
       <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
-      <button type="button" onClick={() => setShowAddAttendance(true)}
-        className="ml-auto flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
-        <CalendarPlus size={14} /> Agregar día
-      </button>
+      {addDayLabel && (
+        <button type="button" onClick={handleAddDayClick}
+          className="ml-auto flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
+          <CalendarPlus size={14} /> {addDayLabel}
+        </button>
+      )}
     </div>
   )
 
@@ -3980,10 +4039,12 @@ export default function SubjectPage() {
         <div className="px-4 py-2 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Asistencias</p>
-            <button type="button" onClick={() => setShowAddAttendance(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
-              <CalendarPlus size={16} /> Agregar día
-            </button>
+            {addDayLabel && (
+              <button type="button" onClick={handleAddDayClick}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                <CalendarPlus size={16} /> {addDayLabel}
+              </button>
+            )}
           </div>
 
           {attendanceNoClaseDias.length > 0 && (
@@ -4113,6 +4174,38 @@ export default function SubjectPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Restaurar día(s) de asistencia borrados — solo aparece cuando el
+          curso ya tiene fechas (todo automático) y hay días que el docente
+          quitó pero siguen siendo válidos según el horario. */}
+      {showRestoreAttendance && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowRestoreAttendance(false)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4">
+            <h3 className="text-base font-semibold text-on-surface mb-1">Restaurar día de asistencia</h3>
+            <p className="text-sm text-muted mb-3">
+              Estos días se generan solos según el horario y las fechas del curso — los borraste antes, pero siguen siendo válidos. Elige cuál restaurar.
+            </p>
+            <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              {attendanceMissingAutoDias.map((dia) => {
+                const { dia: d, mes, anio } = fmtAttDateParts(dia.fecha)
+                return (
+                  <button key={dia.fecha} type="button" onClick={() => handleRestoreAttendanceDay(dia)}
+                    disabled={restoringFecha === dia.fecha}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded border border-outline-variant text-sm hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                    <span>{d}/{mes}/{anio} — Parcial {dia.parcial}</span>
+                    {restoringFecha === dia.fecha ? <Spinner size="sm" /> : <CalendarPlus size={16} className="text-accent" />}
+                  </button>
+                )
+              })}
+            </div>
+            <button type="button" onClick={() => setShowRestoreAttendance(false)}
+              className="w-full mt-3 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+              Cerrar
+            </button>
+          </div>
         </div>
       )}
 

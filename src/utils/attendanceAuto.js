@@ -25,8 +25,8 @@ export function parcialForDate(parcialesFechas, fecha) {
 // las faltas, igual que con un día agregado a mano. No toca fechas que
 // caigan fuera de todos los parciales (curso sin fechas configuradas aún, o
 // bloque fuera de rango).
-export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFechas, existingFechas, studentIds }) {
-  if (!parcialesFechas?.length || !studentIds?.length) return { created: 0, diasSemana: new Set() }
+export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFechas, existingFechas, excludedFechas, studentIds }) {
+  if (!parcialesFechas?.length || !studentIds?.length) return { created: 0, diasSemana: new Set(), missing: [] }
 
   // Filtra también por docenteId (no solo asignaturaId) porque la regla de
   // Firestore de horarioBloques exige resource.data.docenteId == auth.uid —
@@ -47,12 +47,17 @@ export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFe
   })
 
   const existing = new Set(existingFechas)
+  // Fechas que el docente borró a propósito — no se regeneran solas, pero se
+  // reportan en `missing` para que el docente las restaure si quiere.
+  const excluded = new Set(excludedFechas)
   const presentes = Object.fromEntries(studentIds.map((id) => [id, true]))
   const writes = [] // { fecha, slot, parcial }
+  const missing = [] // { fecha, duracion, parcial } — excluidas pero aún válidas
   Object.keys(porFecha).forEach((fecha) => {
     if (existing.has(fecha)) return
     const parcial = parcialForDate(parcialesFechas, fecha)
     if (!parcial) return
+    if (excluded.has(fecha)) { missing.push({ fecha, duracion: porFecha[fecha], parcial }); return }
     for (let slot = 1; slot <= porFecha[fecha]; slot++) writes.push({ fecha, slot, parcial })
   })
 
@@ -65,7 +70,8 @@ export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFe
     await batch.commit()
   }
 
-  return { created: writes.length, diasSemana }
+  missing.sort((a, b) => a.fecha.localeCompare(b.fecha))
+  return { created: writes.length, diasSemana, missing }
 }
 
 // Días dentro de [fechaInicio, fechaFin] en los que, por caer en el mismo día
