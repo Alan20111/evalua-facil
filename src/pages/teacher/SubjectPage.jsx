@@ -5747,7 +5747,7 @@ export default function SubjectPage() {
                 <label htmlFor="edit-subject-parciales" className="block text-sm font-medium text-muted mb-1">Número de parciales</label>
                 <select id="edit-subject-parciales" value={editSubjectForm.parciales} onChange={(e) => setEditSubjectForm((f) => ({ ...f, parciales: e.target.value }))}
                   className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface">
-                  {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
+                  {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} {n === 1 ? 'parcial' : 'parciales'}</option>)}
                 </select>
               </div>
               {editSubjectForm.fechaInicio && editSubjectForm.fechaFin && (
@@ -5958,7 +5958,7 @@ export default function SubjectPage() {
                   </div>
                   <select value={unarchiveEdits.parciales} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, parciales: e.target.value }))}
                     className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface">
-                    {[2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} parciales</option>)}
+                    {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} {n === 1 ? 'parcial' : 'parciales'}</option>)}
                   </select>
                   {unarchiveEdits.fechaInicio && unarchiveEdits.fechaFin && (
                     <ParcialesFechas
