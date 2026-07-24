@@ -48,6 +48,31 @@ async function reasignarToken(token, uid) {
   await updateDoc(doc(db, 'notificationSettings', uid), { fcmTokens: arrayUnion(token) })
 }
 
+// A dónde llevar al tocar la notificación (push real o su reflejo local en
+// primer plano), según `data.categoria` — pedido explícito: no basta con
+// abrir la pantalla de Notificaciones, tiene que llevar directo a la entrega
+// (o lo que haya pasado) que la disparó. `data` son los valores que manda la
+// Cloud Function (ver functions/index.js) — todos strings, requisito de FCM.
+// Sin match conocido (categoría vieja, o faltan ids) devuelve null y el
+// llamador cae al deep link genérico (currentDeepLink).
+function resolveDestino(data) {
+  if (!data?.categoria) return null
+  if (data.categoria === 'nuevasEntregas' && data.actividadId) {
+    return { path: `/activity/${data.actividadId}`, state: data.alumnoId ? { openStudentId: data.alumnoId } : undefined }
+  }
+  if ((data.categoria === 'calificaciones' || data.categoria === 'actividadesNuevas') && data.actividadId) {
+    return { path: `/alumno/actividad/${data.actividadId}` }
+  }
+  return null
+}
+
+function irADestino(data) {
+  if (!currentNavigate) return
+  const destino = resolveDestino(data)
+  if (destino) currentNavigate(destino.path, destino.state ? { state: destino.state } : undefined)
+  else if (currentDeepLink) currentNavigate(currentDeepLink)
+}
+
 async function mostrarEnPrimerPlano(notification) {
   try {
     await LocalNotifications.schedule({
@@ -55,6 +80,10 @@ async function mostrarEnPrimerPlano(notification) {
         id: Math.floor(Date.now() % 1_000_000_000),
         title: notification.title || 'Evalúa Fácil',
         body: notification.body || 'Toca para ver los detalles',
+        // `extra` viaja tal cual al listener de abajo (localNotificationActionPerformed)
+        // — para que tocar el reflejo EN PRIMER PLANO también lleve directo a
+        // la entrega, igual que el push real en segundo plano/cerrado.
+        extra: notification.data || null,
       }],
     })
   } catch {
@@ -107,13 +136,19 @@ export async function initPushNotifications(uid, navigate, deepLink) {
       mostrarEnPrimerPlano(notification)
     })
     // Al TOCAR la notificación (globo/banner), no solo recibirla — pedido
-    // explícito: llevar directo a la pantalla que corresponda (Notificaciones
-    // para el docente) en vez de caer en la pantalla de bienvenida de
-    // siempre. Capacitor entrega este evento también si la notificación fue
-    // la que abrió la app desde cerrada (cold start), una vez que el
-    // listener queda registrado.
-    PushNotifications.addListener('pushNotificationActionPerformed', () => {
-      if (currentDeepLink && currentNavigate) currentNavigate(currentDeepLink)
+    // explícito: llevar directo a la entrega (o lo que haya pasado) que la
+    // disparó, no solo a la pantalla de Notificaciones. Capacitor entrega
+    // este evento también si la notificación fue la que abrió la app desde
+    // cerrada (cold start), una vez que el listener queda registrado.
+    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      irADestino(action?.notification?.data)
+    })
+    // Mismo destino, pero para el reflejo local que se muestra con la app en
+    // PRIMER PLANO (ver mostrarEnPrimerPlano) — sin este listener, tocar esa
+    // notificación no hacía nada porque LocalNotifications es un sistema
+    // aparte de PushNotifications.
+    LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+      irADestino(action?.notification?.extra)
     })
 
     await PushNotifications.register()

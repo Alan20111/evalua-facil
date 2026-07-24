@@ -266,7 +266,11 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
   await enviarPushDirecto(
     act.docenteId,
     { title: 'Nueva entrega', body: `${nombreEstudiante} ${verbo} "${act.nombre}" — ${nombreAsignatura}` },
-    { categoria: 'nuevasEntregas', actividadId: afterData.actividadId, submissionId: event.params.submissionId },
+    // alumnoId viaja aquí también (no solo en logExtra) porque este `data` es
+    // lo único que de verdad llega al dispositivo por FCM — sin él, tocar la
+    // notificación push no sabía a qué entrega específica ir (ver
+    // resolveDestino en src/utils/pushNotifications.js).
+    { categoria: 'nuevasEntregas', actividadId: afterData.actividadId, submissionId: event.params.submissionId, alumnoId: afterData.alumnoId },
     null,
     {
       categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '',
