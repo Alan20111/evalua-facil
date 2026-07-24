@@ -475,13 +475,15 @@ export default function StudentSubjectPage() {
                 </div>
 
                 {/* Activity grades list — mismo lenguaje visual que Actividades
-                    (ícono por tipo, tarjeta con borde, insignia en píldora):
-                    antes esta pestaña usaba íconos de estado genéricos y texto
-                    plano, y se veía como una pantalla distinta. */}
+                    (ícono por tipo, tarjeta con borde, insignia en píldora, Y
+                    la misma raya azul indentada a la izquierda): antes esta
+                    pestaña usaba íconos de estado genéricos y texto plano, y
+                    se veía como una pantalla distinta. */}
                 {acts.length === 0 ? (
                   <p className="text-slate-400 text-sm text-center py-4">Sin actividades</p>
                 ) : (
-                  <div className="p-3 space-y-1.5">
+                  <div className="border-t border-outline-variant pr-4 py-2">
+                  <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
                     {acts.map((a) => {
                       const sub = submissions[a.id]
                       const graded = sub?.calificacion != null
@@ -526,6 +528,7 @@ export default function StudentSubjectPage() {
                         </button>
                       )
                     })}
+                  </div>
                   </div>
                 )}
               </div>
