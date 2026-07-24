@@ -40,3 +40,20 @@ export function formatLongDate(dateStr) {
   if (isNaN(d)) return ''
   return `${DIAS_SEMANA[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
 }
+
+// 'YYYY-MM-DD' → 'DD/MM/AA' — formato corto para mostrar junto al nombre de
+// la asignatura o de cada parcial, donde el formato largo no cabe.
+export function formatShortDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(`${dateStr}T00:00:00`)
+  if (isNaN(d)) return ''
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(-2)}`
+}
+
+/** "24/07/26 – 18/12/26" para el rango del curso, en formato corto. */
+export function formatShortDateRange(fechaInicio, fechaFin) {
+  const a = formatShortDate(fechaInicio)
+  const b = formatShortDate(fechaFin)
+  if (a && b) return `${a} – ${b}`
+  return a || b || ''
+}

@@ -22,6 +22,7 @@ import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTi
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { formatShortDate, formatShortDateRange } from '../../utils/dateRange'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import PaletteSelect from '../../components/PaletteSelect'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
@@ -144,6 +145,7 @@ const AttendanceTable = memo(function AttendanceTable({
   onCellClick,
   onDeleteDay, onBack, onAddDay, addDayLabel, // addDayLabel null = ya no hace falta (todo automático y sin días faltantes) → botón oculto
   lastEditedCell, // "recordId:studentId" — la última celda revisada/modificada, resaltada de forma persistente
+  parcialesFechas, // subject.parcialesFechas — fecha corta bajo "Parcial N", si existe
 }) {
   // Nodos DOM cacheados por columna/día para el efecto de cruz (fila+columna)
   // — resaltado con classList directo, sin state ni CSS :has() (ambos
@@ -267,6 +269,11 @@ const AttendanceTable = memo(function AttendanceTable({
           <th key={g.parcial} colSpan={g.slotCount + 2}
             className="px-1 py-1 font-bold text-accent text-center text-[11px] uppercase tracking-wide border-l-2 border-outline whitespace-nowrap">
             Parcial {g.parcial}
+            {parcialesFechas?.[g.parcial - 1] && (
+              <span className="block text-[9px] font-normal text-slate-400 normal-case tabular-nums">
+                {formatShortDate(parcialesFechas[g.parcial - 1].inicio)}–{formatShortDate(parcialesFechas[g.parcial - 1].fin)}
+              </span>
+            )}
           </th>
         ))}
         {!IS_NATIVE_APP && (
@@ -3073,6 +3080,7 @@ export default function SubjectPage() {
       onAddDay={stableAddDay}
       addDayLabel={addDayLabel}
       lastEditedCell={lastEditedAttCell}
+      parcialesFechas={subject?.parcialesFechas}
     />
   )
 
@@ -3245,6 +3253,11 @@ export default function SubjectPage() {
                 {subject?.archived && (
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">Archivada</span>
                 )}
+                {subject?.fechaInicio && subject?.fechaFin && (
+                  <span className="text-xs font-medium text-slate-400 flex-shrink-0 ml-auto tabular-nums">
+                    {formatShortDateRange(subject.fechaInicio, subject.fechaFin)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -3333,6 +3346,9 @@ export default function SubjectPage() {
                       <div className="text-left min-w-0">
                         <p className={`font-semibold text-base leading-tight truncate ${parcialOculto ? 'text-slate-400' : 'text-on-surface'}`}>
                           Parcial {p}{parcialOculto && <span className="text-xs font-normal text-slate-400"> · oculto a estudiantes</span>}
+                          {subject?.parcialesFechas?.[p - 1] && (
+                            <span className="text-xs font-medium text-slate-400 tabular-nums"> · {formatShortDate(subject.parcialesFechas[p - 1].inicio)} – {formatShortDate(subject.parcialesFechas[p - 1].fin)}</span>
+                          )}
                         </p>
                         <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
                       </div>
@@ -3824,7 +3840,14 @@ export default function SubjectPage() {
                               {subject?.parcialesCerrados?.[p] && (
                                 <Lock size={12} className="text-emerald-600 flex-shrink-0" data-tooltip="Parcial cerrado" />
                               )}
-                              <span>Parcial {p}</span>
+                              <span>
+                                Parcial {p}
+                                {subject?.parcialesFechas?.[p - 1] && (
+                                  <span className="block text-[9px] font-normal text-slate-400 normal-case tabular-nums">
+                                    {formatShortDate(subject.parcialesFechas[p - 1].inicio)}–{formatShortDate(subject.parcialesFechas[p - 1].fin)}
+                                  </span>
+                                )}
+                              </span>
                               <button type="button" id={`parcial-menu-${p}`}
                                 onClick={(e) => {
                                   const r = e.currentTarget.getBoundingClientRect()
