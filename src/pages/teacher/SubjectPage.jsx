@@ -30,7 +30,7 @@ import FileTypeSelect from '../../components/FileTypeSelect'
 import RichTextEditor from '../../components/RichTextEditor'
 import VisibilitySelect from '../../components/VisibilitySelect'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
-import ParcialesFechas from '../../components/ParcialesFechas'
+import ParcialesFechas, { normalizeParcialesFechas, addOneDay } from '../../components/ParcialesFechas'
 import { minDeadline } from '../../utils/nowIso'
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
@@ -2087,7 +2087,9 @@ export default function SubjectPage() {
         grupo: unarchiveEdits.grupo.trim(),
         fechaInicio: unarchiveEdits.fechaInicio || '',
         fechaFin: unarchiveEdits.fechaFin || '',
-        parcialesFechas: (unarchiveEdits.fechaInicio && unarchiveEdits.fechaFin) ? (unarchiveEdits.parcialesFechas || []) : [],
+        parcialesFechas: (unarchiveEdits.fechaInicio && unarchiveEdits.fechaFin)
+          ? normalizeParcialesFechas(unarchiveEdits.fechaInicio, unarchiveEdits.fechaFin, newParciales, unarchiveEdits.parcialesFechas)
+          : [],
         parciales: newParciales,
         colorPalette: unarchiveEdits.colorPalette || 'default',
         icon: unarchiveEdits.icon || 'book',
@@ -2225,7 +2227,9 @@ export default function SubjectPage() {
         grupo: editSubjectForm.grupo.trim(),
         fechaInicio: editSubjectForm.fechaInicio || '',
         fechaFin: editSubjectForm.fechaFin || '',
-        parcialesFechas: (editSubjectForm.fechaInicio && editSubjectForm.fechaFin) ? (editSubjectForm.parcialesFechas || []) : [],
+        parcialesFechas: (editSubjectForm.fechaInicio && editSubjectForm.fechaFin)
+          ? normalizeParcialesFechas(editSubjectForm.fechaInicio, editSubjectForm.fechaFin, newParciales, editSubjectForm.parcialesFechas)
+          : [],
         parciales: newParciales,
         colorPalette: editSubjectForm.colorPalette || 'default',
         icon: editSubjectForm.icon || 'book',
@@ -5582,7 +5586,9 @@ export default function SubjectPage() {
                   </div>
                   <div>
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
-                    <EFDateTimePicker mode="date" value={editSubjectForm.fechaFin} onChange={v => setEditSubjectForm(f => ({ ...f, fechaFin: v }))} />
+                    <EFDateTimePicker mode="date" value={editSubjectForm.fechaFin} onChange={v => setEditSubjectForm(f => ({ ...f, fechaFin: v }))}
+                      minDateTime={editSubjectForm.fechaInicio ? addOneDay(editSubjectForm.fechaInicio) : undefined}
+                      disabled={!editSubjectForm.fechaInicio} />
                   </div>
                 </div>
               </div>
@@ -5655,7 +5661,9 @@ export default function SubjectPage() {
                   </div>
                   <div>
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
-                    <EFDateTimePicker mode="date" value={copyFechas.fechaFin} onChange={v => setCopyFechas(f => ({ ...f, fechaFin: v }))} />
+                    <EFDateTimePicker mode="date" value={copyFechas.fechaFin} onChange={v => setCopyFechas(f => ({ ...f, fechaFin: v }))}
+                      minDateTime={copyFechas.fechaInicio ? addOneDay(copyFechas.fechaInicio) : undefined}
+                      disabled={!copyFechas.fechaInicio} />
                   </div>
                 </div>
               </div>
@@ -5791,7 +5799,9 @@ export default function SubjectPage() {
                     </div>
                     <div>
                       <span className="block text-sm text-slate-500 mb-1">Fin</span>
-                      <EFDateTimePicker mode="date" value={unarchiveEdits.fechaFin} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaFin: v }))} />
+                      <EFDateTimePicker mode="date" value={unarchiveEdits.fechaFin} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaFin: v }))}
+                        minDateTime={unarchiveEdits.fechaInicio ? addOneDay(unarchiveEdits.fechaInicio) : undefined}
+                        disabled={!unarchiveEdits.fechaInicio} />
                     </div>
                   </div>
                   <select value={unarchiveEdits.parciales} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, parciales: e.target.value }))}

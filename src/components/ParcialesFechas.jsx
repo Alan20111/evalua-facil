@@ -2,7 +2,7 @@ import EFDateTimePicker from './EFDateTimePicker'
 
 // Un día después de 'YYYY-MM-DD' (aritmética en local time para evitar el
 // desfase de un día que da parsear como UTC).
-function addOneDay(dateStr) {
+export function addOneDay(dateStr) {
   if (!dateStr) return ''
   const d = new Date(`${dateStr}T00:00:00`)
   if (isNaN(d)) return ''
@@ -10,12 +10,21 @@ function addOneDay(dateStr) {
   return d.toISOString().slice(0, 10)
 }
 
+/** Fuerza inicio[0]=fechaInicio y fin[last]=fechaFin antes de guardar. */
+export function normalizeParcialesFechas(fechaInicio, fechaFin, numParciales, arr) {
+  const rows = Array.from({ length: numParciales }, (_, i) => arr?.[i] || { inicio: '', fin: '' })
+  rows[0] = { ...rows[0], inicio: fechaInicio }
+  rows[rows.length - 1] = { ...rows[rows.length - 1], fin: fechaFin }
+  return rows
+}
+
 /**
- * Fechas de inicio/fin por parcial, encadenadas: el inicio de cada parcial
- * (excepto el primero) es automático (día siguiente al fin del anterior),
- * y el fin del último parcial es automático (= fin del curso). Solo el
- * inicio del primer parcial y el fin de los parciales intermedios/primero
- * los elige el docente.
+ * Fechas de inicio/fin por parcial, encadenadas: el inicio del primer
+ * parcial siempre es el inicio del curso (no editable); el inicio de los
+ * demás parciales es automático (día siguiente al fin del anterior); y el
+ * fin del último parcial siempre es el fin del curso (no editable). Solo
+ * los fines de los parciales que no son el último los elige el docente,
+ * y no puede elegir una fecha anterior o igual al inicio de ese parcial.
  *
  * `value` es un array de { inicio, fin } de longitud `numParciales`.
  */
@@ -34,42 +43,47 @@ export default function ParcialesFechas({ fechaInicio, fechaFin, numParciales, v
     onChange(next)
   }
 
-  function setPrimerInicio(inicio) {
-    const next = rows.map((r) => ({ ...r }))
-    next[0] = { ...next[0], inicio }
-    onChange(next)
-  }
-
   return (
     <div>
       <p className="block text-sm font-medium text-muted mb-1">Fechas por parcial</p>
-      <div className="space-y-2">
+      <div className="w-full rounded border border-outline-variant divide-y divide-outline-variant overflow-hidden">
         {rows.map((row, i) => {
           const isFirst = i === 0
           const isLast = i === numParciales - 1
-          const inicio = isFirst ? (row.inicio || fechaInicio) : (row.inicio || '')
+          const inicio = isFirst ? fechaInicio : (row.inicio || '')
           const fin = isLast ? fechaFin : (row.fin || '')
           return (
-            <div key={i} className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500 w-6 flex-shrink-0">P{i + 1}</span>
-              <div className="flex-1">
-                {isFirst ? (
-                  <EFDateTimePicker mode="date" value={inicio} onChange={setPrimerInicio} />
-                ) : (
-                  <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
-                    {inicio || '—'}
-                  </div>
-                )}
-              </div>
-              <span className="text-slate-400 text-xs">a</span>
-              <div className="flex-1">
-                {isLast ? (
-                  <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
-                    {fin || '—'}
-                  </div>
-                ) : (
-                  <EFDateTimePicker mode="date" value={fin} onChange={(v) => setFin(i, v)} />
-                )}
+            <div key={i} className="p-2.5 bg-surface">
+              <p className="text-xs font-semibold text-slate-500 mb-1.5">Parcial {i + 1}</p>
+              <div className="space-y-2">
+                <div>
+                  <span className="block text-xs text-slate-500 mb-1">Inicio</span>
+                  {isFirst ? (
+                    <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
+                      {inicio || '—'}
+                    </div>
+                  ) : (
+                    <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
+                      {inicio || '— (se define al elegir el fin del parcial anterior)'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <span className="block text-xs text-slate-500 mb-1">Fin</span>
+                  {isLast ? (
+                    <div className="w-full px-3 py-2 rounded border border-outline-variant bg-surface-variant text-sm text-slate-500">
+                      {fin || '—'}
+                    </div>
+                  ) : (
+                    <EFDateTimePicker
+                      mode="date"
+                      value={fin}
+                      onChange={(v) => setFin(i, v)}
+                      minDateTime={inicio ? addOneDay(inicio) : undefined}
+                      disabled={!inicio}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           )

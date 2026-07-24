@@ -20,7 +20,7 @@ import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
-import ParcialesFechas from '../../components/ParcialesFechas'
+import ParcialesFechas, { normalizeParcialesFechas, addOneDay } from '../../components/ParcialesFechas'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -236,7 +236,9 @@ export default function TeacherDashboard() {
         parcialesOcultos: Array.from({ length: Math.max(0, newSubjectParciales - 1) }, (_, i) => i + 2),
         fechaInicio: newSubjectFechaInicio || '',
         fechaFin: newSubjectFechaFin || '',
-        parcialesFechas: (newSubjectFechaInicio && newSubjectFechaFin) ? newSubjectParcialesFechas : [],
+        parcialesFechas: (newSubjectFechaInicio && newSubjectFechaFin)
+          ? normalizeParcialesFechas(newSubjectFechaInicio, newSubjectFechaFin, newSubjectParciales, newSubjectParcialesFechas)
+          : [],
         colorPalette: newSubjectPalette,
         icon: newSubjectIcon,
         accessCode: generateAccessCode(),
@@ -454,7 +456,9 @@ export default function TeacherDashboard() {
                   </div>
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
-                    <EFDateTimePicker mode="date" value={newSubjectFechaFin} onChange={setNewSubjectFechaFin} />
+                    <EFDateTimePicker mode="date" value={newSubjectFechaFin} onChange={setNewSubjectFechaFin}
+                      minDateTime={newSubjectFechaInicio ? addOneDay(newSubjectFechaInicio) : undefined}
+                      disabled={!newSubjectFechaInicio} />
                   </div>
                 </div>
               </div>
