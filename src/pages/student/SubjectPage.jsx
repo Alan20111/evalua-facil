@@ -584,15 +584,25 @@ export default function StudentSubjectPage() {
                       radio es para tarjetas grandes — en una celda tan chica
                       terminaba pareciendo un círculo). Un renglón con el mes
                       aparece arriba de cada semana en la que cambia. */}
-                  <div className="p-3">
-                    <div className="grid grid-cols-7 gap-1.5 mb-1.5">
+                  {/* Grid con 10 columnas: SEMANA + L-D + Asistencias + Inasistencias
+                      (pedido explícito) — grid-template-columns fijo en vez de
+                      grid-cols-N de Tailwind porque las columnas de conteo
+                      necesitan más ancho que un día. Cada celda fija su columna
+                      con gridColumn para que el auto-flow no la desalinee en
+                      los renglones de mes (que solo ocupan la zona de días). */}
+                  <div className="p-3 overflow-x-auto">
+                    <div className="grid gap-1.5 min-w-[420px]" style={{ gridTemplateColumns: '2.5rem repeat(7, 1fr) 4.5rem 4.5rem' }}>
+                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: 1 }}>Semana</span>
                       {DIAS_SEMANA.map((d, i) => (
-                        <span key={i} className="text-[10px] font-semibold text-slate-400 uppercase text-center">{d}</span>
+                        <span key={i} className="text-[10px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: i + 2 }}>{d}</span>
                       ))}
+                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: 9 }}>Asistencias</span>
+                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: 10 }}>Inasistencias</span>
                     </div>
-                    <div className="grid grid-cols-7 gap-1.5">
+                    <div className="grid gap-1.5 mt-1.5 min-w-[420px]" style={{ gridTemplateColumns: '2.5rem repeat(7, 1fr) 4.5rem 4.5rem' }}>
                       {(() => {
                         let mesActual = null
+                        let semanaNum = 0
                         const celdas = []
                         for (let i = 0; i < semanas.length; i += 7) {
                           const semana = semanas.slice(i, i + 7)
@@ -600,19 +610,30 @@ export default function StudentSubjectPage() {
                           if (mesSemana !== mesActual) {
                             mesActual = mesSemana
                             celdas.push(
-                              <p key={`mes-${semana[0]}`} className={`col-span-7 text-xs font-semibold text-muted capitalize ${i === 0 ? '' : 'mt-2'}`}>
+                              <p key={`mes-${semana[0]}`} className={`text-xs font-semibold text-muted capitalize ${i === 0 ? '' : 'mt-2'}`} style={{ gridColumn: '2 / span 7' }}>
                                 {mesSemana}
                               </p>
                             )
                           }
-                          semana.forEach((fecha) => {
+                          semanaNum++
+                          let semAsist = 0
+                          let semInasist = 0
+                          celdas.push(
+                            <span key={`sem-${semana[0]}`} className="h-8 flex items-center justify-center text-[11px] font-semibold text-slate-400" style={{ gridColumn: 1 }}>
+                              {semanaNum}
+                            </span>
+                          )
+                          semana.forEach((fecha, dIdx) => {
                             const r = registrosPorFecha[fecha]
-                            if (!r) { celdas.push(<div key={fecha} />); return }
+                            if (!r) { celdas.push(<div key={fecha} style={{ gridColumn: dIdx + 2 }} />); return }
+                            if (r.estado === 'falta') semInasist++
+                            else semAsist++
                             const tieneMotivo = r.estado === 'justificada' && r.motivo
                             celdas.push(
                               <button
                                 type="button"
                                 key={fecha}
+                                style={{ gridColumn: dIdx + 2 }}
                                 disabled={!tieneMotivo}
                                 onClick={() => tieneMotivo && toast(r.motivo)}
                                 data-tooltip={tieneMotivo ? r.motivo : undefined}
@@ -626,9 +647,29 @@ export default function StudentSubjectPage() {
                               </button>
                             )
                           })
+                          celdas.push(
+                            <span key={`sa-${semana[0]}`} className="h-8 flex items-center justify-center text-xs font-semibold text-emerald-700" style={{ gridColumn: 9 }}>
+                              {semAsist}
+                            </span>
+                          )
+                          celdas.push(
+                            <span key={`si-${semana[0]}`} className="h-8 flex items-center justify-center text-xs font-semibold text-red-600" style={{ gridColumn: 10 }}>
+                              {semInasist}
+                            </span>
+                          )
                         }
                         return celdas
                       })()}
+                      {/* Total del parcial — bajo la columna de Domingo, con las
+                          sumas en Asistencias/Inasistencias (mismos números que
+                          el resumen de arriba, stat.asist/stat.inasist). */}
+                      <span className="text-xs font-semibold text-muted text-right pr-1 mt-1" style={{ gridColumn: 8 }}>Total</span>
+                      <span className="h-8 flex items-center justify-center text-sm font-bold text-emerald-700 mt-1" style={{ gridColumn: 9 }}>
+                        {stat.asist}
+                      </span>
+                      <span className="h-8 flex items-center justify-center text-sm font-bold text-red-600 mt-1" style={{ gridColumn: 10 }}>
+                        {stat.inasist}
+                      </span>
                     </div>
                   </div>
                 </div>
