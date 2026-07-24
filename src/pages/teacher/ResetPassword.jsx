@@ -13,6 +13,8 @@ import Spinner from '../../components/Spinner'
 import { CheckCircle2 } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
+import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
 
 // Action-handler for Firebase's password-reset email links. actionCodeSettings.url
 // (set in Login.jsx) is used by Firebase's OWN hosted reset page as its "continue"
@@ -140,16 +142,14 @@ export default function ResetPassword() {
                   </p>
                 </>
               )}
-              <div>
-                <label htmlFor="reset-email" className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
-                <input
-                  id="reset-email"
-                  type="email"
-                  value={email}
-                  disabled
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant text-sm bg-surface text-muted"
-                />
-              </div>
+              <Input
+                label="Correo electrónico"
+                id="reset-email"
+                type="email"
+                value={email}
+                disabled
+                className="text-muted"
+              />
               <div>
                 <label htmlFor="reset-password" className="block text-sm font-medium text-muted mb-1">Nueva contraseña</label>
                 <PasswordInput
@@ -175,14 +175,9 @@ export default function ResetPassword() {
                   placeholder="Repite la contraseña"
                 />
               </div>
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {saving ? <Spinner size="sm" /> : null}
+              <Button type="submit" fullWidth busy={saving}>
                 {saving ? 'Guardando…' : (isGoogleLinking ? 'Guardar y entrar' : 'Guardar nueva contraseña')}
-              </button>
+              </Button>
             </form>
           )}
 
@@ -202,13 +197,9 @@ export default function ResetPassword() {
               <p className="text-sm font-medium text-amber-600 leading-relaxed">
                 Anótala o guárdala en tu administrador de contraseñas, ya que no volverá a mostrarse.
               </p>
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard')}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
-              >
+              <Button fullWidth onClick={() => navigate('/dashboard')}>
                 Entrar a Evalúa Fácil
-              </button>
+              </Button>
             </div>
           )}
 
@@ -218,13 +209,9 @@ export default function ResetPassword() {
               <p className="text-sm font-medium text-on-surface">
                 Tu contraseña ha sido actualizada correctamente.
               </p>
-              <button
-                type="button"
-                onClick={() => navigate('/docente')}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
-              >
+              <Button fullWidth onClick={() => navigate('/docente')}>
                 Ir a iniciar sesión
-              </button>
+              </Button>
             </div>
           )}
         </div>

@@ -89,13 +89,15 @@ Cada componente nuevo en `ui/` se construye **extrayendo exactamente lo que ya e
 
 Cada etapa es su propio PR contra `main`, con el mismo gate de siempre: `npm run build` limpio, `npm run lint` sin subir el conteo (203 hoy), `npm run check:design` en 0, y para cambios visuales, verificación en navegador antes de pedir merge.
 
-### Etapa 0 — Fundar `components/ui/` (Button, Input, Select, Modal, Table)
+### Etapa 0 — Fundar `components/ui/` (Button, Input, Select, Modal, Table) — ✅ COMPLETADA (jul-2026)
 
 Construir los 5 componentes base descritos en §1-§2, **sin migrar ningún uso todavía** — solo que existan, documentados con un comentario corto de sus props, y probados en aislamiento (una página de prueba o Storybook-lite no es necesario; basta con usarlos en 1 sitio real de bajo riesgo para confirmar que se ven idénticos al patrón actual).
 
 Candidato de bajo riesgo para la primera migración real: `Login.jsx`/`Register.jsx`/`ResetPassword.jsx` (páginas de auth, pequeñas, ya reconocidas como "reasonably sized" en la auditoría) — sirven de prueba de fuego para `Input`/`Button` antes de tocar nada grande.
 
 **Por qué primero:** todo lo demás (Etapas 1-4) depende de que estos componentes existan y sean confiables. Hacerlo al final significaría reescribir código migrado dos veces.
+
+**Resultado (✅):** `src/components/ui/` creada con `Button.jsx` (8 variantes de §6.1 + tamaños + `busy`/`fullWidth`), `Input.jsx` (§6.2, con label/hint/error), `Select.jsx` (§6.2, select nativo genérico), `Modal.jsx` (§6.7, backdrop-button hermano + Escape + tamaños sm/lg/3xl), `Table.jsx` (§6.6 admin, columnas con `render`), `cn.js` (helper de clases, sin dependencia nueva) y `index.js` (barrel). Probados migrando `Login`/`Register`/`ResetPassword` (botones primary/secondary + inputs) — verificado en navegador que quedan pixel-idénticos. `ConfirmModal.jsx` ya usaba el patrón canónico de backdrop, así que Modal lo generaliza (su migración es de Etapa 1). El candado detectó un falso positivo por el string `role="presentation"` dentro de un comentario de Modal.jsx → se reformuló el comentario (lección: el grep del candado también mira comentarios).
 
 ### Etapa 1 — Migrar modales ad hoc → `<Modal>`
 
