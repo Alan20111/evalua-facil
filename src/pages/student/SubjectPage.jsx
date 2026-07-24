@@ -540,7 +540,10 @@ export default function StudentSubjectPage() {
       {/* Tab: Asistencias — mismo lenguaje visual que Calificaciones (tarjeta
           por parcial con % arriba a la derecha); en vez de una lista de
           actividades, chips por día (uno por fecha, no por hora de clase). */}
-      {activeTab === 'Asistencias' && (
+      {activeTab === 'Asistencias' && (() => {
+        const now = new Date()
+        const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+        return (
         <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
           {PARCIALES.length === 0 || !attendanceSummary || attendanceSummary.total?.total === 0 ? (
             <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
@@ -548,10 +551,23 @@ export default function StudentSubjectPage() {
             </div>
           ) : (
             PARCIALES.map((p) => {
-              const stat = attendanceSummary.porParcial?.[String(p)]
-              if (!stat) return null
+              const statCompleto = attendanceSummary.porParcial?.[String(p)]
+              if (!statCompleto) return null
+              // Los días futuros (generados solos desde el horario del docente,
+              // ver utils/attendanceAuto.js) llegan ya marcados "presente" por
+              // defecto — al estudiante no deben aparecérsele hasta que
+              // realmente sucedan, así que se filtran aquí antes de mostrar
+              // celdas, conteos y el % del encabezado (pedido explícito).
+              const registrosParcial = (attendanceSummary.registros || [])
+                .filter((r) => r.parcial === p && r.fecha <= todayISO)
+              const stat = registrosParcial.reduce((acc, r) => {
+                acc.total++
+                if (r.estado === 'falta') acc.inasist++
+                else { acc.asist++; if (r.estado === 'justificada') acc.justif++ }
+                return acc
+              }, { asist: 0, inasist: 0, justif: 0, total: 0 })
+              if (stat.total === 0) return null
               const pct = stat.total > 0 ? Math.round((stat.asist / stat.total) * 100) : null
-              const registrosParcial = (attendanceSummary.registros || []).filter((r) => r.parcial === p)
               const registrosPorFecha = Object.fromEntries(registrosParcial.map((r) => [r.fecha, r]))
               const semanas = buildAttendanceWeeks(registrosParcial.map((r) => r.fecha))
               return (
@@ -677,7 +693,8 @@ export default function StudentSubjectPage() {
             })
           )}
         </div>
-      )}
+        )
+      })()}
 
       {/* Tab: Recursos */}
       {activeTab === 'Recursos' && (
