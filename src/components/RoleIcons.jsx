@@ -8,9 +8,9 @@ export function DocenteIcon({ className }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
       strokeLinecap="round" strokeLinejoin="round" className={className}>
       {/* Documento con dos líneas (checklist) */}
-      <path d="M10 2h6a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" />
+      <path d="M8 5V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2" />
       <line x1="10.5" y1="6" x2="15.5" y2="6" />
-      <line x1="10.5" y1="8" x2="15.5" y2="8" />
+      <line x1="12" y1="9.5" x2="15.5" y2="9.5" />
       {/* Persona con palomita — asignar/aprobar */}
       <circle cx="5.5" cy="11" r="2.5" />
       <path d="M2 20.5c0-2.2 1.75-4 3.5-4s3.5 1.8 3.5 4" />
