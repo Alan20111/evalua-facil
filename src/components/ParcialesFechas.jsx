@@ -1,19 +1,5 @@
 import EFDateTimePicker from './EFDateTimePicker'
-
-const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
-const MESES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-]
-
-// Mismo formato largo que EFDateTimePicker ("Viernes 24 de Julio de 2026"),
-// para que las fechas fijas (no editables) se vean igual que las elegibles.
-function formatLong(dateStr) {
-  if (!dateStr) return ''
-  const d = new Date(`${dateStr}T00:00:00`)
-  if (isNaN(d)) return ''
-  return `${DIAS_SEMANA[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
-}
+import { formatLongDate as formatLong } from '../utils/dateRange'
 
 // Un día después de 'YYYY-MM-DD' (aritmética en local time para evitar el
 // desfase de un día que da parsear como UTC).

@@ -6,6 +6,7 @@ import EFDateTimePicker from '../EFDateTimePicker'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { ArrowRight, CalendarPlus, Pencil, Trash2 } from 'lucide-react'
 import { BLOQUE_COLORS } from '../../utils/horarioBloques'
+import { formatLongDate } from '../../utils/dateRange'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
@@ -182,8 +183,8 @@ export default function ProgramarBloquesModal({
             {fechasDelCurso ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">{fechaInicio}</div>
-                  <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">{fechaFin}</div>
+                  <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">{formatLongDate(fechaInicio)}</div>
+                  <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">{formatLongDate(fechaFin)}</div>
                 </div>
                 <p className="text-xs text-muted">Son las fechas de inicio y fin del curso — se cambian editando la asignatura, no aquí.</p>
               </>
