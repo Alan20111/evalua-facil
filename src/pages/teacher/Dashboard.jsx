@@ -20,6 +20,7 @@ import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
+import ParcialesFechas from '../../components/ParcialesFechas'
 import IconSelect from '../../components/IconSelect'
 import SubjectIcon from '../../components/SubjectIcon'
 import { useSubscription } from '../../hooks/useSubscription'
@@ -54,6 +55,7 @@ export default function TeacherDashboard() {
   const [newSubjectIcon, setNewSubjectIcon] = useState('book')
   const [newSubjectFechaInicio, setNewSubjectFechaInicio] = useState('')
   const [newSubjectFechaFin, setNewSubjectFechaFin] = useState('')
+  const [newSubjectParcialesFechas, setNewSubjectParcialesFechas] = useState([])
   const [creatingSubject, setCreatingSubject] = useState(false)
 
   const navigate = useNavigate()
@@ -234,6 +236,7 @@ export default function TeacherDashboard() {
         parcialesOcultos: Array.from({ length: Math.max(0, newSubjectParciales - 1) }, (_, i) => i + 2),
         fechaInicio: newSubjectFechaInicio || '',
         fechaFin: newSubjectFechaFin || '',
+        parcialesFechas: (newSubjectFechaInicio && newSubjectFechaFin) ? newSubjectParcialesFechas : [],
         colorPalette: newSubjectPalette,
         icon: newSubjectIcon,
         accessCode: generateAccessCode(),
@@ -258,6 +261,7 @@ export default function TeacherDashboard() {
       setNewSubjectIcon('book')
       setNewSubjectFechaInicio('')
       setNewSubjectFechaFin('')
+      setNewSubjectParcialesFechas([])
       toast('Asignatura creada')
       navigate(`/subject/${ref.id}`)
     } catch (err) {
@@ -477,6 +481,17 @@ export default function TeacherDashboard() {
                   ))}
                 </div>
               </div>
+
+              {/* Fechas por parcial (solo si ya hay fechas del curso) */}
+              {newSubjectFechaInicio && newSubjectFechaFin && (
+                <ParcialesFechas
+                  fechaInicio={newSubjectFechaInicio}
+                  fechaFin={newSubjectFechaFin}
+                  numParciales={newSubjectParciales}
+                  value={newSubjectParcialesFechas}
+                  onChange={setNewSubjectParcialesFechas}
+                />
+              )}
 
               {/* Paleta de color */}
               <div>
