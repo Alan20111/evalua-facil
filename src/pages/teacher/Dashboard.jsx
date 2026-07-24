@@ -447,8 +447,9 @@ export default function TeacherDashboard() {
               {/* Fechas (opcionales) */}
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">
-                  Fechas <span className="text-slate-400 font-normal text-xs">(opcional)</span>
+                  Fechas <span className="text-accent font-normal text-xs">(recomendado)</span>
                 </p>
+                <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, la asistencia se genera sola y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y ponerlas después.</p>
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
