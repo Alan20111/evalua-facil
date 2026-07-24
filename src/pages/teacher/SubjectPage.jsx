@@ -4044,7 +4044,7 @@ export default function SubjectPage() {
                 <select id="att-sesiones" value={newAttendanceForm.duracion}
                   onChange={(e) => setNewAttendanceForm((f) => ({ ...f, duracion: Number(e.target.value) }))}
                   className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                  {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} sesión{n !== 1 ? 'es' : ''} ({n} asistencia{n !== 1 ? 's' : ''})</option>)}
+                  {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} {n !== 1 ? 'sesiones' : 'sesión'} ({n} asistencia{n !== 1 ? 's' : ''})</option>)}
                 </select>
               </div>
             </div>
