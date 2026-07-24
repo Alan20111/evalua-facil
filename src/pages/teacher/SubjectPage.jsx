@@ -271,7 +271,7 @@ const AttendanceTable = memo(function AttendanceTable({
             Parcial {g.parcial}
             {parcialesFechas?.[g.parcial - 1] && (
               <span className="block text-[9px] font-normal text-slate-400 normal-case tabular-nums">
-                {formatShortDate(parcialesFechas[g.parcial - 1].inicio)}–{formatShortDate(parcialesFechas[g.parcial - 1].fin)}
+                ({formatShortDate(parcialesFechas[g.parcial - 1].inicio)}–{formatShortDate(parcialesFechas[g.parcial - 1].fin)})
               </span>
             )}
           </th>
@@ -3246,17 +3246,17 @@ export default function SubjectPage() {
               <SubjectIcon iconKey={subject?.icon} size={20} className="text-accent" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-on-surface truncate">
+              <div className="flex items-center gap-2 min-w-0">
+                <h1 className="text-xl font-bold text-on-surface truncate min-w-0">
                   {subjectDisplayName(subject)}
+                  {subject?.fechaInicio && subject?.fechaFin && (
+                    <span className="text-xs font-medium text-slate-400 ml-1.5 tabular-nums align-middle">
+                      ({formatShortDateRange(subject.fechaInicio, subject.fechaFin)})
+                    </span>
+                  )}
                 </h1>
                 {subject?.archived && (
                   <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full flex-shrink-0">Archivada</span>
-                )}
-                {subject?.fechaInicio && subject?.fechaFin && (
-                  <span className="text-xs font-medium text-slate-400 flex-shrink-0 ml-auto tabular-nums">
-                    {formatShortDateRange(subject.fechaInicio, subject.fechaFin)}
-                  </span>
                 )}
               </div>
             </div>
@@ -3347,7 +3347,7 @@ export default function SubjectPage() {
                         <p className={`font-semibold text-base leading-tight truncate ${parcialOculto ? 'text-slate-400' : 'text-on-surface'}`}>
                           Parcial {p}{parcialOculto && <span className="text-xs font-normal text-slate-400"> · oculto a estudiantes</span>}
                           {subject?.parcialesFechas?.[p - 1] && (
-                            <span className="text-xs font-medium text-slate-400 tabular-nums"> · {formatShortDate(subject.parcialesFechas[p - 1].inicio)} – {formatShortDate(subject.parcialesFechas[p - 1].fin)}</span>
+                            <span className="text-xs font-medium text-slate-400 tabular-nums"> ({formatShortDate(subject.parcialesFechas[p - 1].inicio)} – {formatShortDate(subject.parcialesFechas[p - 1].fin)})</span>
                           )}
                         </p>
                         <p className="text-sm text-slate-500 leading-tight -mt-0.5">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
@@ -3844,7 +3844,7 @@ export default function SubjectPage() {
                                 Parcial {p}
                                 {subject?.parcialesFechas?.[p - 1] && (
                                   <span className="block text-[9px] font-normal text-slate-400 normal-case tabular-nums">
-                                    {formatShortDate(subject.parcialesFechas[p - 1].inicio)}–{formatShortDate(subject.parcialesFechas[p - 1].fin)}
+                                    ({formatShortDate(subject.parcialesFechas[p - 1].inicio)}–{formatShortDate(subject.parcialesFechas[p - 1].fin)})
                                   </span>
                                 )}
                               </span>
