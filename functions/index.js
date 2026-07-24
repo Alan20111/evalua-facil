@@ -491,7 +491,13 @@ function idsAfectados(before, after) {
     const despuesPresente = after.presentes?.[id] !== false
     const antesJustif = !!before.justificadas?.[id]
     const despuesJustif = !!after.justificadas?.[id]
-    if (antesPresente !== despuesPresente || antesJustif !== despuesJustif) cambiaron.push(id)
+    // El texto del motivo también cuenta como cambio — si solo se edita la
+    // justificación (sin tocar presente/justificada), antes esto no
+    // disparaba un recálculo y el resumen del alumno se quedaba con el
+    // motivo viejo para siempre (bug real reportado).
+    const antesMotivo = before.motivos?.[id] || ''
+    const despuesMotivo = after.motivos?.[id] || ''
+    if (antesPresente !== despuesPresente || antesJustif !== despuesJustif || antesMotivo !== despuesMotivo) cambiaron.push(id)
   }
   return cambiaron
 }
