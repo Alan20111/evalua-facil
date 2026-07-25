@@ -188,7 +188,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 const plan = plansMap[sub.planId]
                 const days = calcDaysRemaining(sub.fechaVencimiento)
                 return (
-                  <tr key={sub.id} className="hover:bg-slate-50/50">
+                  <tr key={sub.id} className="hover:bg-[var(--accent-tint)]">
                     <td className="px-4 py-2">
                       <p className="font-medium text-on-surface">
                         {teacher?.username || teacher?.email || sub.docenteId.slice(0, 8)}

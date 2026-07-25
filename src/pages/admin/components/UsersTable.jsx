@@ -69,7 +69,7 @@ export default function UsersTable({ stats }) {
                 const school = schoolsMap[teacher.escuelaId]
 
                 return (
-                  <tr key={teacher.id} className="hover:bg-slate-50/50">
+                  <tr key={teacher.id} className="hover:bg-[var(--accent-tint)]">
                     <td className="px-4 py-2 font-mono text-xs font-semibold text-on-surface">
                       {teacher.username || '—'}
                     </td>
@@ -81,7 +81,7 @@ export default function UsersTable({ stats }) {
                     </td>
                     <td className="px-4 py-2">
                       {sub?.status === 'trial' ? (
-                        <span className="text-xs text-blue-600 font-medium">Trial</span>
+                        <span className="text-xs text-accent font-medium">Trial</span>
                       ) : plan ? (
                         plan.nombre
                       ) : (

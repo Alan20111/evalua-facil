@@ -136,12 +136,17 @@ function StudentRootRedirect() {
 }
 
 // Sets the accent theme by role: orange for students (incl. pre-auth /alumno and
-// /activate routes), blue for everyone else. Identity elements read --accent.
+// /activate routes), guinda for admins, blue for everyone else. Identity
+// elements read --accent (ver [data-role] en src/index.css).
 function RoleWrapper({ children }) {
   const { userProfile } = useAuth()
   const { pathname } = useLocation()
   const isStudentRoute = pathname.startsWith('/alumno') || pathname.startsWith('/activate')
-  const role = userProfile?.role === 'alumno' || isStudentRoute ? 'alumno' : 'docente'
+  const role = userProfile?.role === 'alumno' || isStudentRoute
+    ? 'alumno'
+    : userProfile?.role === 'admin'
+      ? 'admin'
+      : 'docente'
   return <div data-role={role}>{children}</div>
 }
 

@@ -24,14 +24,9 @@ const TABS = [
   { id: 'usuarios', label: 'Usuarios', icon: Users },
 ]
 
-// Guinda institucional — colores literales a propósito: el panel admin no usa
-// el acento por rol (--accent, azul del docente) porque es una zona distinta de
-// la plataforma y debe leerse como tal de un vistazo. Mismo criterio que
-// Landing.jsx, que también fija colores a mano.
-const GUINDA = '#611232'        // fondo de la barra
-const GUINDA_LIGHT = '#9F2241'  // pestaña activa y separador
-const GUINDA_DARK = '#4A0E26'   // cabecera de la barra
-
+// Los tonos guinda viven en [data-role='admin'] (src/index.css), no aquí: la
+// zona admin entera —tarjetas, tablas, botones— comparte esa misma paleta a
+// través de --accent, así que un solo lugar la define.
 export default function AdminLayout({ activeTab, onTabChange, children }) {
   const { userProfile } = useAuth()
   const navigate = useNavigate()
@@ -51,10 +46,10 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
     <div className="min-h-screen bg-surface">
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded flex items-center justify-center text-white text-xs font-bold" style={{ background: GUINDA }}>
+          <div className="w-9 h-9 rounded bg-[var(--admin-plane)] flex items-center justify-center text-white text-sm font-bold">
             AD
           </div>
-          <span className="font-semibold text-on-surface text-sm">Admin</span>
+          <span className="font-semibold text-on-surface text-base">Admin</span>
         </div>
         <button
           type="button"
@@ -72,26 +67,23 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
             menú es más alto que la pantalla. */}
         <aside
           ref={asideRef}
-          style={{ '--admin-sidebar-w': `${width}px`, background: GUINDA }}
+          style={{ '--admin-sidebar-w': `${width}px` }}
           className={`${
             mobileOpen ? 'flex' : 'hidden'
-          } md:flex flex-col w-64 md:w-[var(--admin-sidebar-w)] h-screen fixed md:sticky top-0 flex-shrink-0 overflow-hidden z-40 md:z-20`}
+          } md:flex flex-col w-64 md:w-[var(--admin-sidebar-w)] h-screen fixed md:sticky top-0 flex-shrink-0 overflow-hidden z-40 md:z-20 bg-[var(--admin-plane)]`}
         >
-          <div
-            className="px-5 py-3 border-b border-white/10 flex items-center gap-2.5"
-            style={{ background: GUINDA_DARK }}
-          >
-            <div className="w-8 h-8 rounded bg-white flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ color: GUINDA }}>
+          <div className="px-5 py-3.5 border-b border-white/10 flex items-center gap-3 bg-[var(--admin-plane-dark)]">
+            <div className="w-10 h-10 rounded bg-white flex items-center justify-center text-sm font-bold flex-shrink-0 text-[var(--admin-plane)]">
               AD
             </div>
             <div className="min-w-0">
-              <span className="font-bold text-white block truncate">Evalúa Fácil</span>
-              <span className="text-xs font-medium text-white/70">Panel Admin</span>
+              <span className="font-bold text-white block truncate text-lg">Evalúa Fácil</span>
+              <span className="text-sm font-medium text-white/70">Panel Admin</span>
             </div>
           </div>
 
-          <div className="px-4 py-2.5 border-b border-white/10">
-            <p className="text-xs text-white/60 truncate">{displayName}</p>
+          <div className="px-4 py-3 border-b border-white/10">
+            <p className="text-sm text-white/65 truncate">{displayName}</p>
           </div>
 
           <nav className="flex-1 px-2 py-2.5 space-y-0.5 overflow-y-auto">
@@ -103,14 +95,13 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
                   onTabChange(id)
                   setMobileOpen(false)
                 }}
-                style={activeTab === id ? { background: GUINDA_LIGHT } : undefined}
-                className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded text-sm transition-colors ${
+                className={`flex items-center gap-3 w-full px-3 py-3 rounded text-base transition-colors ${
                   activeTab === id
-                    ? 'text-white font-semibold shadow-card'
-                    : 'text-white/75 hover:bg-white/10 hover:text-white'
+                    ? 'bg-[var(--admin-plane-active)] text-white font-semibold shadow-card'
+                    : 'text-white/85 hover:bg-white/20 hover:text-white'
                 }`}
               >
-                <Icon size={18} className="flex-shrink-0" />
+                <Icon size={20} className="flex-shrink-0" />
                 <span className="truncate">{label}</span>
               </button>
             ))}
@@ -120,9 +111,9 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 w-full px-3 py-2 rounded text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+              className="flex items-center gap-3 w-full px-3 py-2.5 rounded text-base text-white/80 hover:bg-white/20 hover:text-white transition-colors"
             >
-              <LogOut size={16} className="flex-shrink-0" />
+              <LogOut size={18} className="flex-shrink-0" />
               <span className="truncate">Cerrar sesión</span>
             </button>
           </div>
@@ -145,8 +136,9 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
             className="hidden md:flex absolute top-0 right-0 h-full w-2.5 cursor-col-resize items-stretch justify-end group focus:outline-none"
           >
             <div
-              className={`w-[3px] h-full transition-colors ${resizing ? '' : 'bg-white/10 group-hover:bg-white/40 group-focus:bg-white/60'}`}
-              style={resizing ? { background: '#FFFFFF' } : undefined}
+              className={`w-[3px] h-full transition-colors ${
+                resizing ? 'bg-white' : 'bg-white/15 group-hover:bg-white/50 group-focus:bg-white/70'
+              }`}
             />
           </div>
         </aside>

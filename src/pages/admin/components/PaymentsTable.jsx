@@ -128,7 +128,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
               rows.map((payment) => {
                 const teacher = teachersMap[payment.docenteId]
                 return (
-                  <tr key={payment.id} className="hover:bg-slate-50/50">
+                  <tr key={payment.id} className="hover:bg-[var(--accent-tint)]">
                     <td className="px-4 py-2">
                       <p className="font-medium text-on-surface">
                         {teacher?.username || teacher?.email || '—'}

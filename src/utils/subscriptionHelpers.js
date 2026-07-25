@@ -166,7 +166,10 @@ export function getSubscriptionStatusColor(status) {
     vencida: 'bg-red-100 text-red-700',
     cancelada: 'bg-slate-100 text-slate-600',
     pendiente_pago: 'bg-amber-100 text-amber-700',
-    trial: 'bg-blue-100 text-blue-700',
+    // Trial no es un estado semántico (éxito/alerta/error) sino informativo,
+    // así que usa el acento del rol: guinda en el panel admin, azul en el
+    // perfil del docente. Los demás SÍ son semánticos y no se tocan.
+    trial: 'bg-accent-light text-accent',
   }
   return colors[status] || 'bg-slate-100 text-slate-600'
 }
