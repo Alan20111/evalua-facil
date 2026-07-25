@@ -4634,7 +4634,6 @@ export default function SubjectPage() {
                 onChange={setSearchAlumnos}
                 placeholder="Buscar por nombre o por número de lista…"
                 autoFocus
-                className={IS_NATIVE_APP ? '!border-2 !border-accent shadow-sm' : ''}
               />
             </div>
             <button type="button"
