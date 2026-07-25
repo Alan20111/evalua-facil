@@ -295,8 +295,6 @@ export default function EntregableEditor({
               />
             </div>
 
-            <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
-
             {!isObservacion && (
               <div>
                 <FileTypeSelect

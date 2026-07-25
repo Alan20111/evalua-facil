@@ -656,14 +656,6 @@ export default function StudentActivityPage() {
           </div>
         )}
 
-        {/* Info — fecha límite ahora vive debajo del nombre en el encabezado */}
-        <div className="bg-surface-card rounded-card p-4 shadow-card">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted">Calificación máxima</span>
-            <span className="font-semibold text-on-surface">{activity?.maxCalif} pts</span>
-          </div>
-        </div>
-
         {/* Upload (never shown for observación — nothing to deliver, nor once
             ya hay una entrega: el estudiante tiene una sola ocasión; solo
             vuelve a aparecer si el docente anula la entrega) */}
