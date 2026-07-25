@@ -2618,7 +2618,11 @@ export default function SubjectPage() {
     if (!subject) return
     setExportingAttendance(true)
     try {
-      exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales })
+      // Exportar SIEMPRE es del curso completo, sin importar el interruptor
+      // "Parcial actual / Todo el curso" (ese es solo para lo que se pinta
+      // en pantalla) — por eso usa attendanceParcialesAll, no la variable
+      // filtrada attendanceParciales.
+      exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
@@ -2626,7 +2630,7 @@ export default function SubjectPage() {
     if (!subject) return
     setExportingAttendance(true)
     try {
-      exportParcialAttendance({ subject, students: groupStudents, attendanceParciales, parcial: p })
+      exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
@@ -2762,7 +2766,10 @@ export default function SubjectPage() {
 
   // Agrupa por parcial (nivel superior, arriba del mes). Cada grupo lleva sus meses,
   // todos sus registros (para contar asistencias) y cuántas columnas de día ocupa.
-  const attendanceParciales = useMemo(() => PARCIALES
+  // TODOS los parciales con días — la tabla real solo pinta un subconjunto
+  // de esto (ver attendanceParciales abajo), pero se necesita completo para
+  // calcular cuál es "el parcial actual".
+  const attendanceParcialesAll = useMemo(() => PARCIALES
     .map((p) => ({ parcial: p, days: attendanceDays.filter((d) => d.parcial === p) }))
     .filter((g) => g.days.length > 0)
     .map((g) => ({
@@ -2771,6 +2778,35 @@ export default function SubjectPage() {
       records: g.days.flatMap((d) => d.records),
       slotCount: g.days.reduce((n, d) => n + d.records.length, 0),
     })), [PARCIALES, attendanceDays])
+
+  // El parcial "actual" — el que contiene la fecha de hoy según
+  // subject.parcialesFechas. Si el curso no tiene fechas configuradas, o hoy
+  // cae fuera de todos los rangos (antes de empezar / ya terminó), cae al
+  // primero o último parcial CON días de asistencia (nunca a uno vacío).
+  const attendanceParcialActual = useMemo(() => {
+    const hoy = new Date().toISOString().slice(0, 10)
+    const pf = subject?.parcialesFechas
+    if (pf?.length) {
+      const idx = pf.findIndex((r) => r?.inicio && r?.fin && hoy >= r.inicio && hoy <= r.fin)
+      if (idx >= 0) return idx + 1
+      if (pf[0]?.inicio && hoy < pf[0].inicio) return 1
+      return pf.length
+    }
+    if (!attendanceParcialesAll.length) return 1
+    return attendanceParcialesAll[attendanceParcialesAll.length - 1].parcial
+  }, [subject?.parcialesFechas, attendanceParcialesAll])
+
+  // Pedido explícito: por defecto (y siempre en la App) solo se pinta el
+  // parcial actual — antes se armaba TODA la tabla del curso completo de
+  // una sola vez, la causa real de que la pestaña se sintiera pesada con un
+  // semestre entero de días. En la web, un interruptor deja ver el curso
+  // completo cuando de verdad se necesita.
+  const [showAllParciales, setShowAllParciales] = useState(false)
+  const attendanceParciales = useMemo(() => (
+    !IS_NATIVE_APP && showAllParciales
+      ? attendanceParcialesAll
+      : attendanceParcialesAll.filter((g) => g.parcial === attendanceParcialActual)
+  ), [attendanceParcialesAll, attendanceParcialActual, showAllParciales])
 
   // Registros mostrados (unión de los parciales visibles) — base de los totales.
   const attendanceAllRecords = useMemo(() => attendanceParciales.flatMap((g) => g.records), [attendanceParciales])
@@ -4087,6 +4123,8 @@ export default function SubjectPage() {
             <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">No hay estudiantes en esta asignatura</p></>
           ) : attendanceRecords.length === 0 ? (
             <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p></>
+          ) : attendanceParciales.length === 0 ? (
+            <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Sin días de asistencia en el parcial actual.</p></>
           ) : (
             <div className="flex-1 overflow-auto bg-surface-card">
               {attendanceTableJsx}
@@ -4103,6 +4141,22 @@ export default function SubjectPage() {
                 <CalendarPlus size={16} /> {addDayLabel}
               </button>
             )}
+          </div>
+
+          {/* Por defecto solo se pinta el parcial actual — pedido explícito,
+              antes se armaba TODA la tabla del curso completo de una sola
+              vez, la causa real de que la pestaña se sintiera pesada con un
+              semestre entero de días. Este interruptor solo existe en la
+              web; en la App siempre es el parcial actual, sin opción. */}
+          <div className="flex bg-surface-container p-1 rounded w-fit">
+            <button type="button" onClick={() => setShowAllParciales(false)}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${!showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+              Parcial actual
+            </button>
+            <button type="button" onClick={() => setShowAllParciales(true)}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+              Todo el curso
+            </button>
           </div>
 
           {attendanceNoClaseDias.length > 0 && (
@@ -4125,7 +4179,7 @@ export default function SubjectPage() {
           {/* Excel split-button — mismo patrón que Calificaciones. Sin PDF:
               con una columna angosta por cada día de asistencia no tiene
               caso imprimirlo. */}
-          {attendanceParciales.length > 0 && (
+          {attendanceParcialesAll.length > 0 && (
             <div className="relative flex">
               <button type="button"
                 onClick={handleExportAttendance}
@@ -4147,7 +4201,7 @@ export default function SubjectPage() {
                   <button type="button" className="fixed inset-0 z-30 border-none cursor-default bg-transparent" onClick={() => setAttExportMenu(false)} aria-label="Cerrar menú" />
                   <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden">
                     <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Excel de un parcial</div>
-                    {attendanceParciales.map((g) => (
+                    {attendanceParcialesAll.map((g) => (
                       <button key={g.parcial} type="button"
                         onClick={() => { setAttExportMenu(false); doExportParcialAttendance(g.parcial) }}
                         className="w-full text-left px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors">
@@ -4173,6 +4227,8 @@ export default function SubjectPage() {
             <p className="text-center text-slate-400 text-sm py-12">No hay estudiantes en esta asignatura</p>
           ) : attendanceRecords.length === 0 ? (
             <p className="text-center text-slate-400 text-sm py-12">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
+          ) : attendanceParciales.length === 0 ? (
+            <p className="text-center text-slate-400 text-sm py-12">Sin días de asistencia en el parcial actual — toca &quot;Todo el curso&quot; para ver los demás.</p>
           ) : (
             <>
               <div className="overflow-auto max-h-[65vh] rounded-card shadow-card bg-surface-card -mx-4 sm:mx-0">
