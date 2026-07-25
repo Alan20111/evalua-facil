@@ -15,7 +15,7 @@ import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloa
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
-import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase } from '../../utils/attendanceAuto'
+import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana } from '../../utils/attendanceAuto'
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity } from '../../utils/activityVisibility'
@@ -1153,28 +1153,50 @@ export default function SubjectPage() {
     const subj = subjectOverride || subject
     setLoadingAttendance(true)
     try {
-      const students = await ensureGroupStudents(force)
-      let records = await loadAttendanceRecords(subjectId)
-      if (subj?.parcialesFechas?.length) {
-        const { created, diasSemana, missing } = await syncAutoAttendanceDays({
-          subjectId,
-          docenteId: subj.docenteId,
-          parcialesFechas: subj.parcialesFechas,
-          existingFechas: new Set(records.map((r) => r.fecha)),
-          excludedFechas: subj.attendanceExcluded || [],
-          studentIds: (students || groupStudents).map((s) => s.id),
-        })
-        if (created > 0) records = await loadAttendanceRecords(subjectId)
+      // Antes esto era 5-6 lecturas de Firestore EN SECUENCIA (estudiantes →
+      // asistencia → bloques → [reintento de asistencia] → asuetos/
+      // vacaciones), cada una pagando su propio round-trip — la causa real de
+      // la lentitud al abrir la pestaña, no el volumen de datos. Las tres
+      // primeras no dependen entre sí, así que corren en paralelo.
+      const [students, records, bloquesInfo] = await Promise.all([
+        ensureGroupStudents(force),
+        loadAttendanceRecords(subjectId),
+        subj?.parcialesFechas?.length
+          ? fetchClaseDiasSemana({ subjectId, docenteId: subj.docenteId })
+          : Promise.resolve(null),
+      ])
+      let finalRecords = records
+      if (subj?.parcialesFechas?.length && bloquesInfo) {
+        // Crear los días faltantes y buscar asuetos/vacaciones tampoco
+        // dependen entre sí (solo comparten diasSemana, ya calculado arriba)
+        // — también en paralelo.
+        const [{ created, missing, nuevos }, noClase] = await Promise.all([
+          syncAutoAttendanceDays({
+            subjectId,
+            docenteId: subj.docenteId,
+            parcialesFechas: subj.parcialesFechas,
+            existingFechas: new Set(records.map((r) => r.fecha)),
+            excludedFechas: subj.attendanceExcluded || [],
+            studentIds: (students || groupStudents).map((s) => s.id),
+            porFecha: bloquesInfo.porFecha,
+          }),
+          loadAsuetoVacacionDiasClase({
+            docenteId: subj.docenteId,
+            fechaInicio: subj.fechaInicio,
+            fechaFin: subj.fechaFin,
+            diasSemana: bloquesInfo.diasSemana,
+          }),
+        ])
+        // Los recién creados se agregan en memoria — ya no se vuelve a
+        // descargar TODA la asistencia por segunda vez para incluirlos.
+        if (created > 0) {
+          finalRecords = [...records, ...nuevos].sort((a, b) =>
+            a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha))
+        }
         setAttendanceMissingAutoDias(missing)
-        const noClase = await loadAsuetoVacacionDiasClase({
-          docenteId: subj.docenteId,
-          fechaInicio: subj.fechaInicio,
-          fechaFin: subj.fechaFin,
-          diasSemana,
-        })
         setAttendanceNoClaseDias(noClase)
       }
-      setAttendanceRecords(records)
+      setAttendanceRecords(finalRecords)
       setAttendanceLoaded(true)
     } catch (err) {
       toast('Error al cargar asistencias: ' + err.message, 'error')
