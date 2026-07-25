@@ -9,6 +9,8 @@ import Spinner from '../../components/Spinner'
 import GoogleIcon from '../../components/GoogleIcon'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
+import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
 
 export default function Register() {
   const [email, setEmail] = useState('')
@@ -62,15 +64,10 @@ export default function Register() {
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5 space-y-3">
-          <button
-            type="button"
-            onClick={handleGoogleSignUp}
-            disabled={googleLoading}
-            className="w-full py-2.5 border border-outline-variant rounded font-semibold text-sm text-on-surface hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-          >
+          <Button variant="secondary" fullWidth onClick={handleGoogleSignUp} disabled={googleLoading}>
             {googleLoading ? <Spinner size="sm" /> : <GoogleIcon />}
             {googleLoading ? 'Conectando…' : 'Continuar con Google'}
-          </button>
+          </Button>
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-outline-variant" />
@@ -81,19 +78,16 @@ export default function Register() {
           <p className="text-xs font-semibold text-muted uppercase tracking-wide">Crear cuenta con correo electrónico</p>
 
           <form onSubmit={handleSubmit} className="space-y-3">
-            <div>
-              <label htmlFor="register-email" className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
-              <input
-                id="register-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="nombre@correo.com"
-              />
-            </div>
+            <Input
+              label="Correo electrónico"
+              id="register-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              placeholder="nombre@correo.com"
+            />
 
             <div>
               <label htmlFor="register-password" className="block text-sm font-medium text-muted mb-1">Contraseña</label>
@@ -121,14 +115,9 @@ export default function Register() {
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {loading ? <Spinner size="sm" /> : null}
+            <Button type="submit" fullWidth busy={loading}>
               {loading ? 'Creando cuenta…' : 'Crear cuenta'}
-            </button>
+            </Button>
           </form>
         </div>
 

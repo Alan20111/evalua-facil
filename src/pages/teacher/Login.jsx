@@ -10,6 +10,8 @@ import Spinner from '../../components/Spinner'
 import GoogleIcon from '../../components/GoogleIcon'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
+import Button from '../../components/ui/Button'
+import Input from '../../components/ui/Input'
 import { createTeacherAccountIfNew, signInWithGoogle, googleErrorInfo } from '../../utils/googleAuth'
 import LinkAccountModal from '../../components/LinkAccountModal'
 
@@ -83,15 +85,10 @@ export default function TeacherLogin() {
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5 space-y-3">
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            disabled={googleLoading}
-            className="w-full py-2.5 border border-outline-variant rounded font-semibold text-sm text-on-surface hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-          >
+          <Button variant="secondary" fullWidth onClick={handleGoogleSignIn} disabled={googleLoading}>
             {googleLoading ? <Spinner size="sm" /> : <GoogleIcon />}
             {googleLoading ? 'Conectando…' : 'Continuar con Google'}
-          </button>
+          </Button>
 
           <button
             type="button"
@@ -108,19 +105,17 @@ export default function TeacherLogin() {
           </div>
 
           <form onSubmit={handleLogin} className="space-y-3">
-            <div>
-              <label htmlFor="login-email" className="block text-sm font-medium text-muted mb-1">Correo electrónico</label>
-              <input
-                id="login-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus:border-transparent text-sm bg-surface"
-                placeholder="nombre@correo.com"
-              />
-            </div>
+            <Input
+              label="Correo electrónico"
+              id="login-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              className="focus:border-transparent"
+              placeholder="nombre@correo.com"
+            />
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label htmlFor="login-password" className="block text-sm font-medium text-muted">Contraseña</label>
@@ -143,14 +138,9 @@ export default function TeacherLogin() {
                 placeholder="••••••••"
               />
             </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {loading ? <Spinner size="sm" /> : null}
+            <Button type="submit" fullWidth busy={loading}>
               {loading ? 'Entrando…' : 'Iniciar sesión'}
-            </button>
+            </Button>
           </form>
         </div>
 
