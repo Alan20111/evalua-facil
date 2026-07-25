@@ -93,6 +93,11 @@ export default function NotificationSettings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const saveTimer = useRef(null)
+  // Guardado pendiente (debounce de 400ms) — mismo bug real reportado del
+  // lado docente: togglear y salir de la pantalla antes de los 400ms
+  // cancelaba el guardado sin escribirlo. Se guarda aquí el `updated`
+  // pendiente para poder escribirlo de inmediato al desmontar.
+  const pendingSaveRef = useRef(null)
   const goBack = () => navigate('/alumno/dashboard')
   useBackHandler(goBack)
 
@@ -106,7 +111,14 @@ export default function NotificationSettings() {
       .finally(() => setLoading(false))
   }, [currentUser]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => () => clearTimeout(saveTimer.current), [])
+  useEffect(() => () => {
+    clearTimeout(saveTimer.current)
+    const pending = pendingSaveRef.current
+    if (pending) {
+      pendingSaveRef.current = null
+      setDoc(doc(db, 'notificationSettings', pending.uid), { ...pending.data, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {})
+    }
+  }, [])
 
   // Se dispara desde el handler de cambio (no desde un efecto reactivo sobre
   // `settings`) para no llamar setState de forma síncrona dentro de un efecto.
@@ -116,7 +128,9 @@ export default function NotificationSettings() {
     if (!currentUser) return
     clearTimeout(saveTimer.current)
     setSaving(true)
+    pendingSaveRef.current = { uid: currentUser.uid, data: updated }
     saveTimer.current = setTimeout(() => {
+      pendingSaveRef.current = null
       setDoc(doc(db, 'notificationSettings', currentUser.uid), { ...updated, updatedAt: serverTimestamp() }, { merge: true })
         .catch(() => toast('No se pudo guardar: intenta de nuevo', 'error'))
         .finally(() => setSaving(false))
