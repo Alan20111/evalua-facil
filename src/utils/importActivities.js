@@ -1,6 +1,8 @@
 import {
-  collection, doc, setDoc, getDocs, writeBatch, serverTimestamp,
+  collection, doc, getDocs, serverTimestamp,
 } from 'firebase/firestore'
+// Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
+import { setDoc, writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
 
 // Copies selected activities from ANOTHER subject into `targetSubjectId`, as

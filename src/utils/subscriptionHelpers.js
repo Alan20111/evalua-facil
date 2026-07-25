@@ -74,22 +74,24 @@ export function effectiveVencimiento(subscription) {
   return subscription.fechaVencimiento
 }
 
-// A subscription stops allowing new content the moment it's expired — a
-// trial past its real end, or a paid plan marked `vencida`. This is the one
-// place that decides "expired"; everything else (banners, create buttons)
-// reads from here instead of re-deriving the rule.
+// Vencida = su ventana efectiva ya pasó, sin importar en qué estado esté
+// guardada. Una sola regla para todos los casos, que es lo único que la
+// mantiene coherente: antes solo caducaban las pruebas y una suscripción
+// pagada seguía contando como vigente para siempre después de su fecha
+// (nada en el cliente ni en el servidor la marca `vencida`), así que quien
+// pagaba un mes y dejaba de pagar nunca se topaba con ningún límite.
+// Sin fecha de vencimiento no se bloquea a nadie: dato faltante nunca debe
+// dejar a un docente fuera de su propio trabajo.
 export function isSubscriptionExpired(subscription) {
   if (!subscription) return false
   if (subscription.status === 'vencida') return true
-  if (subscription.status === 'trial') {
-    const days = calcDaysRemaining(effectiveVencimiento(subscription))
-    return days !== null && days <= 0
-  }
-  return false
+  const days = calcDaysRemaining(effectiveVencimiento(subscription))
+  return days !== null && days <= 0
 }
 
-// Viewing, exporting and everything already created stays available forever.
-// Only NEW content (subjects, activities, grades) is gated by this check.
+// Consultar, exportar y todo lo ya creado sigue disponible siempre. Esto
+// gatea el TRABAJO: crear, editar, calificar, pasar lista, publicar… (ver
+// utils/firestoreGuard.js, que lo aplica sobre las escrituras mismas).
 export function canCreateContent(subscription) {
   return !isSubscriptionExpired(subscription)
 }

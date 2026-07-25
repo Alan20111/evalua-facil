@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  collection, query, where, getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch,
+  collection, query, where, getDocs, getDoc, doc, serverTimestamp,
 } from 'firebase/firestore'
+// Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
+import { addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from '../utils/firestoreGuard'
 import { db, auth } from '../firebase'
 import { useToast } from './Toast'
 import Spinner from './Spinner'

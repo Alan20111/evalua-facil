@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -10,6 +10,7 @@ import {
   Timer,
   CalendarDays,
   Bell,
+  Lock,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -22,7 +23,9 @@ import { auth, db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import Spinner from './Spinner'
 import { useSubscription } from '../hooks/useSubscription'
-import { getTrialBannerMessage } from '../utils/subscriptionHelpers'
+import { getTrialBannerMessage, isSubscriptionExpired } from '../utils/subscriptionHelpers'
+import { configurarBloqueoEscritura } from '../utils/firestoreGuard'
+import SuscripcionVencidaModal from './SuscripcionVencidaModal'
 import { subjectDisplayName } from '../utils/subjectName'
 import { IS_NATIVE_APP } from '../utils/platform'
 import SubjectIcon from './SubjectIcon'
@@ -81,8 +84,34 @@ export default function TeacherLayout({ children }) {
   const activeSubjects = subjects.filter((s) => !s.archived)
   const archivedSubjects = subjects.filter((s) => s.archived)
 
-  const { subscription } = useSubscription()
+  const { subscription, refresh: refreshSubscription } = useSubscription()
   const trialBanner = getTrialBannerMessage(subscription)
+
+  // ── Suscripción vencida ────────────────────────────────────────────
+  // Consultar y descargar sigue libre; lo que se bloquea es trabajar. El
+  // candado real vive en utils/firestoreGuard.js (las pantallas del docente
+  // escriben a través de él), y aquí se le dice cuándo apretar y cómo avisar.
+  const vencida = isSubscriptionExpired(subscription)
+  // Qué suscripción tiene la ventana cerrada "para consultar". Guardar el id
+  // —en vez de un simple sí/no— hace que la ventana vuelva sola en cuanto la
+  // suscripción cambia (se renovó, o llegó una nueva), sin efectos de por medio.
+  const [ventanaCerradaPara, setVentanaCerradaPara] = useState(null)
+  const claveSuscripcion = subscription?.id || 'sin-suscripcion'
+  const paywallAbierto = vencida && ventanaCerradaPara !== claveSuscripcion
+
+  // El guard corre fuera de React: necesita leer el valor de AHORA, no el que
+  // había cuando se registró.
+  const vencidaRef = useRef(vencida)
+  useEffect(() => { vencidaRef.current = vencida }, [vencida])
+
+  useEffect(() => {
+    configurarBloqueoEscritura({
+      vencida: () => vencidaRef.current,
+      // Intentó trabajar: ese es el momento de volver a mostrarle cómo seguir.
+      onIntento: () => setVentanaCerradaPara(null),
+    })
+    return () => configurarBloqueoEscritura({ vencida: () => false, onIntento: null })
+  }, [])
 
   const displayName =
     userProfile?.nombreMostrar || userProfile?.nombre || 'Docente'
@@ -352,6 +381,26 @@ export default function TeacherLayout({ children }) {
           </NavLink>
         </div>
       </nav>
+
+      {/* Suscripción vencida: la ventana de pago y, cuando el docente la cierra
+          para consultar lo suyo, el botón fijo que la vuelve a abrir. */}
+      <SuscripcionVencidaModal
+        open={paywallAbierto}
+        subscription={subscription}
+        onSoloConsultar={() => setVentanaCerradaPara(claveSuscripcion)}
+        onPagado={refreshSubscription}
+      />
+      {vencida && !paywallAbierto && (
+        <button
+          type="button"
+          onClick={() => setVentanaCerradaPara(null)}
+          // Por encima de la barra inferior en móvil (donde existe) y pegado a
+          // la esquina en escritorio.
+          className="fixed right-4 bottom-20 md:bottom-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-card bg-amber-500 text-white text-sm font-semibold shadow-2xl hover:bg-amber-600 transition-colors"
+        >
+          <Lock size={16} /> Suscripción vencida — activar
+        </button>
+      )}
 
       {/* Confirmación de cierre de sesión — solo en la app nativa */}
       {confirmLogout && (

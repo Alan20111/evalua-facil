@@ -5,12 +5,11 @@ import {
   query,
   where,
   onSnapshot,
-  addDoc,
   doc,
-  writeBatch,
   serverTimestamp,
-  updateDoc,
 } from 'firebase/firestore'
+// Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
+import { addDoc, writeBatch, updateDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'

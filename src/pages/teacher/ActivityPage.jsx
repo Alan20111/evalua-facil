@@ -6,12 +6,11 @@ import {
   where,
   getDocs,
   getDoc,
-  updateDoc,
-  addDoc,
-  deleteDoc,
   doc,
   serverTimestamp,
 } from 'firebase/firestore'
+// Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
+import { updateDoc, addDoc, deleteDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'

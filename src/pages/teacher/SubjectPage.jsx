@@ -2,8 +2,11 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
-  addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch, deleteField, arrayUnion, arrayRemove,
+  doc, serverTimestamp, deleteField, arrayUnion, arrayRemove,
 } from 'firebase/firestore'
+// Las escrituras pasan por el candado de suscripción vencida (mismos nombres y
+// firmas que 'firebase/firestore'); leer sigue siendo directo.
+import { addDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'

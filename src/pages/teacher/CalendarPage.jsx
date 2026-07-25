@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, writeBatch, serverTimestamp, addDoc, deleteDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, onSnapshot, doc, serverTimestamp } from 'firebase/firestore'
+// Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
+import { updateDoc, writeBatch, addDoc, deleteDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
