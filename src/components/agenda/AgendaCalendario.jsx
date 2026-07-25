@@ -139,7 +139,7 @@ function VistaMes({ fecha, itemsByDate, onActivityClick, onSelectDay }) {
 }
 
 export default function AgendaCalendario({ itemsByDate, onActivityClick }) {
-  const [vista, setVista] = useState('mes')
+  const [vista, setVista] = useState('dia')
   const [fecha, setFecha] = useState(new Date())
 
   function ir(delta) {
