@@ -30,18 +30,25 @@ const COLS = [
   { key: 'escuela', label: 'Escuela', filtro: 'texto', w: 150 },
   { key: 'profesor', label: 'Profesor', filtro: 'texto', w: 165 },
   { key: 'asignatura', label: 'Asignatura', filtro: 'texto', w: 175 },
-  { key: 'alta', label: 'Fecha de alta', filtro: 'fecha', w: 145 },
-  { key: 'hora', label: 'Hora de alta', w: 105 },
-  { key: 'activado', label: 'Activado', filtro: 'sino', w: 130 },
+  { key: 'alta', label: 'Fecha de alta', filtro: 'fecha', w: 165 },
+  { key: 'activado', label: 'Activado', filtro: 'sino', w: 125 },
+  { key: 'activadoEl', label: 'Fecha activado', w: 165 },
 ]
 
 const CAMPOS_TEXTO = ['escuela', 'profesor', 'asignatura']
 const CAMPOS_FILTRO = COLS.filter((c) => c.filtro).map((c) => c.key)
 const SIN_FILTROS = Object.fromEntries(CAMPOS_FILTRO.map((k) => [k, '']))
 
-// v4: cambian los anchos por defecto al quitar la fila de orden y ensanchar
-// Activado. Clave nueva para no arrastrar proporciones viejas.
-const WIDTHS_KEY = 'admin-estudiantes-cols-v4'
+// v5: se fue la columna "Hora de alta" (ahora la hora va junto a la fecha) y
+// llegó "Fecha activado". Clave nueva para no arrastrar proporciones viejas.
+const WIDTHS_KEY = 'admin-estudiantes-cols-v5'
+
+// "12 jul 2026, 6:53 pm" — fecha y hora en una sola celda.
+function fechaYHora(valor) {
+  const d = toDate(valor)
+  if (!d) return '—'
+  return `${formatDate(valor)}, ${formatHora12FromDate(d)}`
+}
 
 // El profesor se muestra por su nombre real; `teacherDisplayName` no sirve
 // aquí porque antepone el prefijo pensado para los alumnos ("Profe X").
@@ -172,11 +179,14 @@ export default function StudentsTable({ stats }) {
         escuela: school?.shortName || school?.nombre || school?.claveSEP || '—',
         profesor: teacherName(teacher) || '—',
         asignatura: subjectDisplayName(subject) || '—',
-        alta: formatDate(s.createdAt), // ya devuelve '—' si no hay fecha
+        alta: fechaYHora(s.createdAt),
         altaISO: fecha ? isoLocal(fecha) : '',
-        hora: fecha ? formatHora12FromDate(fecha) : '—',
         altaMs: fecha ? fecha.getTime() : 0,
         activado: s.activado === true,
+        // Solo tiene valor quien activó DESPUÉS de que se empezó a registrar
+        // `activadoAt` (ver finishActivation en student/Activation.jsx). Para
+        // los activados antes de eso el dato no existe y se muestra un guion.
+        activadoEl: s.activado === true ? fechaYHora(s.activadoAt) : '—',
       }
     })
   }, [stats])
@@ -340,8 +350,7 @@ export default function StudentsTable({ stats }) {
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.profesor}>{r.profesor}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.asignatura}>{r.asignatura}</td>
-                  <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
-                  <td className="px-3 py-2 text-muted truncate tabular-nums">{r.hora}</td>
+                  <td className="px-3 py-2 text-muted truncate" title={r.alta}>{r.alta}</td>
                   <td className="px-3 py-2">
                     <span
                       className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
@@ -351,6 +360,7 @@ export default function StudentsTable({ stats }) {
                       {r.activado ? 'Sí' : 'No'}
                     </span>
                   </td>
+                  <td className="px-3 py-2 text-muted truncate" title={r.activadoEl}>{r.activadoEl}</td>
                 </tr>
               ))
             )}
