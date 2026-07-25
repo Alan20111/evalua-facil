@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   getDoc,
@@ -13,19 +13,22 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
-  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive,
+  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive, Camera,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
-import { getEnrollments } from '../../utils/studentLookup'
+import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
+import { uploadToCloudinary } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
+import AvatarCropModal from '../../components/AvatarCropModal'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName } from '../../utils/studentSearch'
+import { IS_NATIVE_APP } from '../../utils/platform'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -56,13 +59,41 @@ async function fetchSubmissionsForStudents(studentDocIds) {
 }
 
 export default function StudentDashboard() {
-  const { currentUser, userProfile } = useAuth()
+  const { currentUser, userProfile, setUserProfile } = useAuth()
   const [subjects, setSubjects] = useState([])
   const [studentInfo, setStudentInfo] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showJoin, setShowJoin] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  // Pedido explícito: en la App (no en la web), poder cambiar la foto tocándola
+  // aquí directamente, sin entrar al perfil.
+  const [cropFile, setCropFile] = useState(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef(null)
+
+  function handlePhotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file || !currentUser) return
+    setCropFile(file)
+    if (photoInputRef.current) photoInputRef.current.value = ''
+  }
+
+  async function handleCropConfirm(croppedFile) {
+    setUploadingPhoto(true)
+    try {
+      const url = await uploadToCloudinary(croppedFile, 'evalua-facil/profiles')
+      await updateAllEnrollments(currentUser.uid, { photoURL: url })
+      setUserProfile((prev) => ({ ...prev, photoURL: url }))
+      setStudentInfo((prev) => (prev ? { ...prev, photoURL: url } : prev))
+      setCropFile(null)
+      toast('Foto actualizada')
+    } catch {
+      toast('No se pudo subir la foto', 'error')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -197,19 +228,57 @@ export default function StudentDashboard() {
             pantalla era la redundancia que Don't Make Me Think prohíbe. */}
         <div className="md:hidden bg-surface-card rounded-card shadow-card overflow-hidden mb-4">
           <div className="w-full flex items-center gap-3 px-4 py-4">
-            <div className="w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0">
-              {photoURL ? (
-                <img src={photoURL} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-base font-bold text-accent">{initials}</span>
-              )}
-            </div>
+            {/* Pedido explícito: en la App se puede tocar la foto para
+                cambiarla al vuelo, sin entrar al perfil (en la web sigue
+                viviendo solo dentro del perfil). */}
+            {IS_NATIVE_APP ? (
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                aria-label="Cambiar foto de perfil"
+                className="relative w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0"
+              >
+                {photoURL ? (
+                  <img src={photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-base font-bold text-accent">{initials}</span>
+                )}
+                <span className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                  <Camera size={16} className="text-white" />
+                </span>
+              </button>
+            ) : (
+              <div className="w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0">
+                {photoURL ? (
+                  <img src={photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-base font-bold text-accent">{initials}</span>
+                )}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-on-surface truncate">{firstName}</p>
               {apellidos && <p className="text-sm text-muted truncate">{apellidos}</p>}
             </div>
           </div>
         </div>
+        {IS_NATIVE_APP && (
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handlePhotoChange}
+          />
+        )}
+        {cropFile && (
+          <AvatarCropModal
+            file={cropFile}
+            onCancel={() => setCropFile(null)}
+            onConfirm={handleCropConfirm}
+            saving={uploadingPhoto}
+          />
+        )}
 
         <h1 className="text-xl font-bold text-on-surface mb-1">Mis asignaturas</h1>
         <p className="text-slate-400 text-sm mb-5">{activeSubjects.length} asignatura{activeSubjects.length !== 1 ? 's activas' : ' activa'}</p>
