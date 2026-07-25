@@ -123,9 +123,19 @@ export function useAdminStats() {
         subsistemaDist[sub] = (subsistemaDist[sub] || 0) + 1
       })
 
+      // `subjects` ya se cargaba para las medias por docente, pero no se
+      // exponía; la tabla de Estudiantes lo necesita para resolver la
+      // asignatura de cada alumno y, a través de ella, su profesor (students
+      // no guarda docenteId propio).
+      const subjectsMap = Object.fromEntries(subjects.map((s) => [s.id, s]))
+      const teachersMap = Object.fromEntries(teachers.map((t) => [t.id, t]))
+
       setStats({
         teachers,
+        teachersMap,
         students,
+        subjects,
+        subjectsMap,
         subscriptions,
         payments,
         plans,
