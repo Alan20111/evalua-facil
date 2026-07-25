@@ -54,7 +54,7 @@ export default function Agenda() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  const [tab, setTab] = useState('lista')
+  const [tab, setTab] = useState('calendario')
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState([]) // { id, activity, submission, subject, teacherName, estado, fecha (Date) }
   const goBack = () => navigate('/alumno/dashboard')
