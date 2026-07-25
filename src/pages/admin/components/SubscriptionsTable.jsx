@@ -18,7 +18,6 @@ import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
-import { subjectDisplayName } from '../../../utils/subjectName'
 import {
   calcDaysRemaining,
   effectiveVencimiento,
@@ -91,13 +90,6 @@ const COLS = [
   },
   { key: 'escuela', label: 'Escuela', filtro: 'texto', w: 150 },
   {
-    key: 'asignatura',
-    label: 'Asignatura',
-    filtro: 'texto',
-    w: 190,
-    ayuda: 'La suscripción es del docente, no de una asignatura: aquí van todas las que tiene dadas de alta.',
-  },
-  {
     key: 'alta',
     label: 'Fecha de alta',
     filtro: 'fecha',
@@ -138,7 +130,7 @@ const COLS = [
   { key: 'acciones', label: 'Acciones', w: 120 },
 ]
 
-const CAMPOS_TEXTO = ['codigoPostal', 'estado', 'ciudad', 'escuela', 'asignatura']
+const CAMPOS_TEXTO = ['codigoPostal', 'estado', 'ciudad', 'escuela']
 const CAMPOS_LISTA = ['plan', 'situacion']
 const CAMPOS_FILTRO = COLS.filter((c) => c.filtro).map((c) => c.key)
 const SIN_FILTROS = Object.fromEntries(CAMPOS_FILTRO.map((k) => [k, '']))
@@ -150,6 +142,44 @@ const isoLocal = (d) =>
 // queda el usuario o el correo, que es lo único que hay.
 function teacherName(teacher) {
   return teacher?.nombreMostrar || teacher?.nombre || teacher?.username || ''
+}
+
+// Etiqueta del docente en la lista desplegable. Se arma con las partes que
+// EXISTEN y sin repetir ninguna: antes era `{username || email} — {email}`, así
+// que a quien no tiene usuario le salía el correo dos veces.
+function etiquetaDocente(t) {
+  const partes = []
+  const nombre = t?.nombreMostrar || t?.nombre || ''
+  if (nombre) partes.push(nombre)
+  if (t?.username && t.username !== nombre) partes.push(t.username)
+  if (t?.email && !partes.includes(t.email)) partes.push(t.email)
+  return partes.join(' — ') || '(docente sin datos)'
+}
+
+// "Cortesía" no es un documento de `plans`: es un plan sin cobro que el
+// administrador otorga por un número de días. Se guarda como este valor
+// literal en `planId`, junto con `cortesiaDias`.
+const PLAN_CORTESIA = 'cortesia'
+
+// Fecha en que termina una cortesía. Los días se cuentan desde el inicio, o
+// desde el vencimiento vigente cuando se pide extender — así extender no
+// regala de más ni recorta lo que al docente le quedaba.
+// El mediodía evita que "2026-07-25" se corra un día por zona horaria.
+function calcFinCortesia(form, vencimientoActual) {
+  const dias = parseInt(form.cortesiaDias, 10)
+  if (!Number.isFinite(dias) || dias <= 0) return null
+  const base = form.extender && vencimientoActual
+    ? new Date(vencimientoActual)
+    : (form.fechaInicio ? new Date(`${form.fechaInicio}T12:00:00`) : null)
+  if (!base || Number.isNaN(base.getTime())) return null
+  const fin = new Date(base)
+  fin.setDate(fin.getDate() + dias)
+  return fin
+}
+
+function vencimientoCortesia(modal) {
+  const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
+  return fin ? formatDate(fin) : null
 }
 
 function StatusBadge({ status }) {
@@ -169,13 +199,12 @@ function pasaFiltros(r, filtros, search, excepto) {
   if (t('estado') && !r.buscarEstado.includes(t('estado'))) return false
   if (t('ciudad') && !r.buscarCiudad.includes(t('ciudad'))) return false
   if (t('escuela') && !r.buscarEscuela.includes(t('escuela'))) return false
-  if (t('asignatura') && !r.buscarAsignatura.includes(t('asignatura'))) return false
   if (excepto !== 'alta' && filtros.alta && r.altaISO !== filtros.alta) return false
   if (excepto !== 'vencimiento' && filtros.vencimiento && r.vencimientoISO !== filtros.vencimiento) return false
   if (excepto !== 'plan' && filtros.plan && r.plan !== filtros.plan) return false
   if (excepto !== 'situacion' && filtros.situacion && r.situacionLabel !== filtros.situacion) return false
   // La caja de arriba busca en TODO el renglón (docente, usuario, correo,
-  // ciudad, escuela, asignatura, plan, situación…), no solo en el nombre:
+  // ciudad, escuela, plan, situación, fechas…), no solo en el nombre:
   // quien escribe "guanajuato" o "vencida" ahí espera encontrarlo.
   const q = normalizeName(search)
   if (q && !r.buscarTodo.includes(q)) return false
@@ -259,21 +288,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   const teachersMap = useMemo(() => Object.fromEntries(teachers.map((t) => [t.id, t])), [teachers])
   const plansMap = useMemo(() => Object.fromEntries(plans.map((p) => [p.id, p])), [plans])
 
-  // Asignaturas por docente: la suscripción es del docente, así que la columna
-  // Asignatura junta todas las suyas (sin archivar primero, que son las vivas).
-  const subjectsByTeacher = useMemo(() => {
-    const map = {}
-    ;(stats?.subjects || []).forEach((s) => {
-      if (!s.docenteId) return
-      ;(map[s.docenteId] ||= []).push(subjectDisplayName(s) || '—')
-    })
-    Object.values(map).forEach((list) => list.sort((a, b) => a.localeCompare(b, 'es')))
-    return map
-  }, [stats?.subjects])
-
   // Cada suscripción se "aplana" una sola vez a las columnas visibles: así el
   // filtro trabaja sobre texto ya resuelto en vez de volver a cruzar docente,
-  // escuela y asignaturas en cada tecla.
+  // escuela y ubicación en cada tecla.
   const rows = useMemo(() => {
     if (!stats) return []
     const { subscriptions = [], schoolsMap = {}, payments = [] } = stats
@@ -318,11 +335,11 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       const estadoUbicacion = teacher?.estado || school?.estado || '—'
       const ciudad = teacher?.ciudad || teacher?.municipio || school?.municipio || '—'
       const escuela = school?.shortName || school?.nombre || school?.claveSEP || sub?.schoolName || '—'
-      const asignaturasLista = subjectsByTeacher[teacher?.id] || []
-      const asignatura = asignaturasLista.join(' · ') || '—'
-      const planNombre = sub
-        ? (plan?.nombre || (sub.status === 'trial' ? 'Sin plan (prueba)' : '—'))
-        : '—'
+      const planNombre = !sub
+        ? '—'
+        : sub.planId === PLAN_CORTESIA
+          ? `Cortesía${sub.cortesiaDias ? ` (${sub.cortesiaDias} días)` : ''}`
+          : (plan?.nombre || (sub.status === 'trial' ? 'Sin plan (prueba)' : '—'))
       const situacion = sub ? sub.status : 'sin_suscripcion'
       const situacionLabel = ESTADO_LABEL[situacion] || situacion || '—'
       const altaTexto = sub ? formatDate(altaValor) : '—'
@@ -337,19 +354,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         estado: estadoUbicacion,
         ciudad,
         escuela,
-        asignatura,
-        asignaturasLista,
         ultimoPago,
         buscarCodigoPostal: normalizeName(codigoPostal),
         buscarEstado: normalizeName(estadoUbicacion),
         buscarCiudad: normalizeName(ciudad),
         buscarEscuela: normalizeName(escuela),
-        buscarAsignatura: normalizeName(asignatura),
         // Todo el renglón en una sola cadena para la caja de búsqueda de
         // arriba, que busca por cualquier motivo (ciudad, escuela, nombre…).
         buscarTodo: normalizeName(
           [docente, usuario, correo, codigoPostal, estadoUbicacion, ciudad, escuela,
-            asignatura, altaTexto, planNombre, situacionLabel, vencTexto, ultimoPago].join(' ')
+            altaTexto, planNombre, situacionLabel, vencTexto, ultimoPago].join(' ')
         ),
         alta: altaTexto,
         altaISO: alta ? isoLocal(alta) : '',
@@ -367,7 +381,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     const conSub = new Set(subscriptions.map((s) => s.docenteId))
     const sinSuscripcion = teachers.filter((t) => !conSub.has(t.id)).map((t) => construir(null, t))
     return [...conSuscripcion, ...sinSuscripcion]
-  }, [stats, teachers, teachersMap, plansMap, subjectsByTeacher])
+  }, [stats, teachers, teachersMap, plansMap])
 
   // Orden fijo: la suscripción más reciente hasta arriba; dentro del mismo día
   // desempata el nombre del docente.
@@ -417,6 +431,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         status: 'activa',
         fechaInicio: new Date().toISOString().slice(0, 10),
         fechaVencimiento: '',
+        cortesiaDias: '30',
+        extender: false,
       },
     })
   }
@@ -427,12 +443,18 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     setModal({
       mode: 'edit',
       id: sub.id,
+      // El vencimiento vigente se guarda aparte del formulario: es la base
+      // sobre la que se extiende una cortesía, y no debe cambiar mientras el
+      // administrador teclea.
+      vencimientoActual: effectiveVencimiento(sub) ? toDate(effectiveVencimiento(sub)) : null,
       form: {
         docenteId: sub.docenteId,
         planId: sub.planId || '',
         status: sub.status,
         fechaInicio: fi ? fi.toISOString().slice(0, 10) : '',
         fechaVencimiento: fv ? fv.toISOString().slice(0, 10) : '',
+        cortesiaDias: sub.cortesiaDias ? String(sub.cortesiaDias) : '30',
+        extender: false,
       },
     })
   }
@@ -457,9 +479,22 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         return Number.isNaN(d.getTime()) ? null : Timestamp.fromDate(d)
       }
       const tsInicio = toTimestamp(modal.form.fechaInicio)
-      const tsVencimiento = toTimestamp(modal.form.fechaVencimiento)
       if (tsInicio) data.fechaInicio = tsInicio
-      if (tsVencimiento) data.fechaVencimiento = tsVencimiento
+
+      if (modal.form.planId === PLAN_CORTESIA) {
+        // En cortesía el vencimiento SIEMPRE sale de los días concedidos: no
+        // se toma la fecha tecleada, que podría no cuadrar con esos días.
+        const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
+        if (!fin) {
+          toast('Indica cuántos días de cortesía', 'error')
+          return
+        }
+        data.fechaVencimiento = Timestamp.fromDate(fin)
+        data.cortesiaDias = parseInt(modal.form.cortesiaDias, 10)
+      } else {
+        const tsVencimiento = toTimestamp(modal.form.fechaVencimiento)
+        if (tsVencimiento) data.fechaVencimiento = tsVencimiento
+      }
 
       if (modal.mode === 'create') {
         await addDoc(collection(db, 'subscriptions'), { ...data, createdAt: serverTimestamp() })
@@ -635,12 +670,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate" title={r.estado}>{r.estado}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.ciudad}>{r.ciudad}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
-                  <td
-                    className="px-3 py-2 text-muted truncate"
-                    title={r.asignaturasLista.length ? r.asignaturasLista.join('\n') : undefined}
-                  >
-                    {r.asignatura}
-                  </td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.plan}>{r.plan}</td>
                   <td className="px-3 py-2"><StatusBadge status={r.situacion} /></td>
@@ -720,8 +749,12 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+        // Es el FONDO el que se desplaza (overflow-y-auto + items-start), no la
+        // tarjeta: con la tarjeta centrada y de alto limitado, en pantallas
+        // bajas el final del formulario quedaba fuera de alcance. Así siempre
+        // se llega al botón Guardar, por largo que sea el contenido.
+        <div className="fixed inset-0 z-50 bg-black/40 overflow-y-auto flex items-start justify-center px-4 py-6">
+          <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-md shadow-xl my-auto">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-on-surface">
                 {modal.mode === 'create' ? 'Nueva suscripción' : 'Editar suscripción'}
@@ -744,7 +777,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 >
                   {teachers.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.username || t.email} — {t.email}
+                      {etiquetaDocente(t)}
                     </option>
                   ))}
                 </select>
@@ -762,6 +795,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   className={inputCls}
                 >
                   <option value="">— Sin plan (prueba) —</option>
+                  <option value={PLAN_CORTESIA}>Cortesía (sin cobro)</option>
                   {plans.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nombre}
@@ -769,9 +803,56 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   ))}
                 </select>
               </div>
+
+              {/* Cortesía: se otorga por días, no por una fecha suelta. El
+                  vencimiento se calcula solo, así que no hay forma de teclear
+                  una fecha que no corresponda con los días concedidos. */}
+              {modal.form.planId === PLAN_CORTESIA && (
+                <div className="rounded border border-accent bg-[var(--accent-tint)] p-3 space-y-2">
+                  <div>
+                    <label htmlFor="sub-cortesia-dias" className="block text-xs font-medium text-muted mb-1">
+                      Días de cortesía
+                    </label>
+                    <input
+                      id="sub-cortesia-dias"
+                      type="number"
+                      min="1"
+                      max="3650"
+                      value={modal.form.cortesiaDias}
+                      onChange={(e) =>
+                        setModal({ ...modal, form: { ...modal.form, cortesiaDias: e.target.value } })
+                      }
+                      required
+                      className={inputCls}
+                    />
+                  </div>
+                  {/* Solo tiene sentido al editar algo que ya tiene vencimiento:
+                      extender suma los días a la fecha que ya vencía, sin
+                      regalar de más ni recortar lo que le quedaba. */}
+                  {modal.mode === 'edit' && modal.vencimientoActual && (
+                    <label className="flex items-start gap-2 text-xs text-on-surface cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={modal.form.extender}
+                        onChange={(e) =>
+                          setModal({ ...modal, form: { ...modal.form, extender: e.target.checked } })
+                        }
+                        className="mt-0.5"
+                      />
+                      <span>
+                        Extender el plazo actual (vence el {formatDate(modal.vencimientoActual)})
+                        en lugar de contar desde el inicio
+                      </span>
+                    </label>
+                  )}
+                  <p className="text-xs text-accent font-semibold">
+                    Nuevo vencimiento: {vencimientoCortesia(modal) || '—'}
+                  </p>
+                </div>
+              )}
               <div>
                 <label htmlFor="sub-status" className="block text-xs font-medium text-muted mb-1">
-                  Estado <span className="font-normal">— cómo está hoy</span>
+                  Situación <span className="font-normal">— cómo está hoy</span>
                 </label>
                 <select
                   id="sub-status"
@@ -797,14 +878,19 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     onChange={v => setModal({ ...modal, form: { ...modal.form, fechaInicio: v } })}
                   />
                 </div>
-                <div>
-                  <span className="block text-xs font-medium text-muted mb-1">Vencimiento</span>
-                  <EFDateTimePicker
-                    mode="date"
-                    value={modal.form.fechaVencimiento}
-                    onChange={v => setModal({ ...modal, form: { ...modal.form, fechaVencimiento: v } })}
-                  />
-                </div>
+                {/* Con cortesía el vencimiento lo calcula el sistema a partir de
+                    los días concedidos, así que se oculta el campo manual: dejarlo
+                    invitaría a teclear una fecha que se iba a ignorar. */}
+                {modal.form.planId !== PLAN_CORTESIA && (
+                  <div>
+                    <span className="block text-xs font-medium text-muted mb-1">Vencimiento</span>
+                    <EFDateTimePicker
+                      mode="date"
+                      value={modal.form.fechaVencimiento}
+                      onChange={v => setModal({ ...modal, form: { ...modal.form, fechaVencimiento: v } })}
+                    />
+                  </div>
+                )}
               </div>
               <button
                 type="submit"
