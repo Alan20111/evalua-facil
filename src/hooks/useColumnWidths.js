@@ -1,67 +1,136 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { repartirAnchos, MIN_PX } from '../utils/columnWidths'
 
-// Anchos de columna ajustables y recordados. El usuario arrastra el borde
-// derecho de cualquier encabezado y el ancho queda guardado en localStorage,
-// así que la tabla se ve igual la próxima vez que entre.
+// Anchos de columna ajustables, recordados y que SIEMPRE llenan el área.
+//
+// La clave del diseño: el ancho total es fijo (= el ancho del contenedor), así
+// que ensanchar una columna angosta a su vecina de la derecha en vez de
+// empujar la tabla hacia afuera. Sin esto, arrastrar hacia la derecha hacía
+// crecer la tabla y las últimas columnas se salían del área visible.
+//
+// Los anchos se guardan como PROPORCIONES, no como píxeles: así la tabla se
+// ve bien al cambiar el tamaño de la ventana o al abrirla en otro monitor,
+// y sigue llenando el área en ambos casos.
 //
 // Requiere que la tabla use `table-fixed` + <colgroup>: sin eso el navegador
 // reparte el ancho a su criterio y el arrastre no se respeta.
-const MIN = 56
-const MAX = 640
+const clamp = (v, min, max) => Math.min(max, Math.max(min, v))
 
-const clamp = (px) => Math.min(MAX, Math.max(MIN, Math.round(px)))
+export function useColumnWidths(storageKey, cols) {
+  const keys = useMemo(() => cols.map((c) => c.key), [cols])
 
-export function useColumnWidths(storageKey, defaults) {
-  const [widths, setWidths] = useState(() => {
+  // Proporciones por defecto, derivadas de los anchos sugeridos en COLS.
+  const defaults = useMemo(() => {
+    const suma = cols.reduce((a, c) => a + c.w, 0)
+    return Object.fromEntries(cols.map((c) => [c.key, c.w / suma]))
+  }, [cols])
+
+  const anchoNatural = useMemo(() => cols.reduce((a, c) => a + c.w, 0), [cols])
+
+  const [fracs, setFracs] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) || '{}')
       // Se parte SIEMPRE de los valores por defecto y encima se aplican los
-      // guardados: si mañana se agrega una columna nueva, aparece con su
-      // ancho correcto en vez de quedarse sin definir.
+      // guardados: si mañana se agrega una columna, aparece con su proporción
+      // correcta en vez de quedarse sin definir.
       return { ...defaults, ...saved }
     } catch {
       return defaults
     }
   })
-  // La columna que se está arrastrando; null cuando no hay arrastre.
+  const [containerW, setContainerW] = useState(0)
   const [dragKey, setDragKey] = useState(null)
-  const startRef = useRef({ x: 0, w: 0 })
+  const startRef = useRef(null)
+
+  // Ref de callback + ResizeObserver. La medida se toma SOLO desde el
+  // callback del observer (que corre fuera del render) y no de forma
+  // síncrona dentro de un efecto, que dispara renders en cascada.
+  const roRef = useRef(null)
+  const containerRef = useCallback((el) => {
+    roRef.current?.disconnect()
+    roRef.current = null
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => setContainerW(entry.contentRect.width))
+    ro.observe(el)
+    roRef.current = ro
+  }, [])
+
+  useEffect(() => () => roRef.current?.disconnect(), [])
+
+  // Ancho de trabajo: el del área. Si el área es más angosta que el mínimo
+  // que necesitan todas las columnas juntas (móvil, ventana chica), se usa
+  // ese mínimo y entonces —solo entonces— aparece el scroll horizontal.
+  // Antes de la primera medición se usa el ancho natural, para no dibujar un
+  // primer cuadro con la tabla encogida.
+  const minTotal = keys.length * MIN_PX
+  const available = containerW ? Math.max(containerW, minTotal) : anchoNatural
+
+  // Proporciones → píxeles, garantizando que la suma dé exactamente el ancho
+  // disponible y que ninguna columna baje del mínimo (ver utils/columnWidths).
+  const widths = useMemo(
+    () => repartirAnchos(keys, fracs, defaults, available),
+    [keys, fracs, defaults, available]
+  )
 
   const persist = useCallback((next) => {
     try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch { /* almacenamiento lleno */ }
   }, [storageKey])
 
+  // La última columna no lleva tirador: es la que absorbe el sobrante para
+  // que el total cuadre exacto con el área.
+  const esRedimensionable = useCallback((key) => keys.indexOf(key) < keys.length - 1, [keys])
+
   const startResize = useCallback((e, key) => {
     if (e.button != null && e.button !== 0) return
-    e.preventDefault() // sin esto el arrastre selecciona el texto del encabezado
+    const i = keys.indexOf(key)
+    if (i < 0 || i >= keys.length - 1) return
+    e.preventDefault()  // sin esto el arrastre selecciona el texto del encabezado
     e.stopPropagation() // …y no debe además disparar el ordenamiento por columna
-    startRef.current = { x: e.clientX, w: widths[key] ?? MIN }
+    startRef.current = { x: e.clientX, i, a: widths[key], b: widths[keys[i + 1]] }
     setDragKey(key)
-  }, [widths])
+  }, [keys, widths])
 
   const resetWidths = useCallback(() => {
-    setWidths(defaults)
+    setFracs(defaults)
     persist(defaults)
   }, [defaults, persist])
 
-  // Doble clic en el separador: solo esa columna vuelve a su ancho original.
+  // Doble clic en el tirador: esa columna vuelve a su proporción original y la
+  // diferencia se le devuelve a su vecina, para no descuadrar el total.
   const resetColumn = useCallback((key) => {
-    setWidths((w) => {
-      const next = { ...w, [key]: defaults[key] }
+    const i = keys.indexOf(key)
+    if (i < 0 || i >= keys.length - 1) return
+    setFracs((f) => {
+      const vecina = keys[i + 1]
+      const par = (f[key] ?? defaults[key]) + (f[vecina] ?? defaults[vecina])
+      const minFrac = MIN_PX / available
+      const nueva = clamp(defaults[key], minFrac, par - minFrac)
+      const next = { ...f, [key]: nueva, [vecina]: par - nueva }
       persist(next)
       return next
     })
-  }, [defaults, persist])
+  }, [keys, defaults, available, persist])
 
   useEffect(() => {
     if (!dragKey) return
     function onMove(e) {
-      const { x, w } = startRef.current
-      setWidths((prev) => ({ ...prev, [dragKey]: clamp(w + (e.clientX - x)) }))
+      const s = startRef.current
+      if (!s) return
+      const par = s.a + s.b
+      // El par de columnas conserva su ancho conjunto: lo que gana una lo
+      // pierde la otra. Ese invariante es lo que mantiene el total pegado al
+      // ancho del área y evita que las columnas de la derecha se salgan.
+      const nuevaA = clamp(s.a + (e.clientX - s.x), MIN_PX, par - MIN_PX)
+      setFracs((f) => ({
+        ...f,
+        [keys[s.i]]: nuevaA / available,
+        [keys[s.i + 1]]: (par - nuevaA) / available,
+      }))
     }
     function onUp() {
       setDragKey(null)
-      setWidths((prev) => { persist(prev); return prev })
+      startRef.current = null
+      setFracs((f) => { persist(f); return f })
     }
     // Mientras se arrastra, el cursor de redimensionado manda en toda la
     // página y se bloquea la selección de texto, que si no se pinta de azul
@@ -78,9 +147,16 @@ export function useColumnWidths(storageKey, defaults) {
       document.body.style.cursor = prevCursor
       document.body.style.userSelect = prevSelect
     }
-  }, [dragKey, persist])
+  }, [dragKey, keys, available, persist])
 
-  const total = Object.values(widths).reduce((a, b) => a + b, 0)
-
-  return { widths, total, dragKey, startResize, resetWidths, resetColumn }
+  return {
+    containerRef,
+    widths,
+    total: available,
+    dragKey,
+    startResize,
+    resetWidths,
+    resetColumn,
+    esRedimensionable,
+  }
 }
