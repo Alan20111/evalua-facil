@@ -6,6 +6,7 @@ import {
   Clock,
   TrendingUp,
   Timer,
+  CalendarClock,
 } from 'lucide-react'
 import { formatCurrency } from '../../../utils/subscriptionHelpers'
 
@@ -14,6 +15,9 @@ const KPI_CONFIG = [
   { key: 'activeStudentCount', label: 'Estudiantes activos', icon: GraduationCap, format: (v) => v },
   { key: 'activeSubCount', label: 'Suscripciones activas', icon: CreditCard, format: (v) => v },
   { key: 'trialCount', label: 'En periodo trial', icon: Timer, format: (v) => v },
+  // Se calculaba desde siempre pero no se mostraba en ningún lado, así que las
+  // pruebas vencían sin que nadie se enterara. Es el aviso que faltaba.
+  { key: 'expiringSoonCount', label: 'Por vencer (7 días)', icon: CalendarClock, format: (v) => v },
   { key: 'totalRevenue', label: 'Ingresos totales', icon: DollarSign, format: formatCurrency },
   { key: 'monthRevenue', label: 'Ingresos del mes', icon: DollarSign, format: formatCurrency },
   { key: 'pendingPaymentCount', label: 'Pagos pendientes', icon: Clock, format: (v) => v },

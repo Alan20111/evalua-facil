@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
-import { calcDaysRemaining, toDate } from '../utils/subscriptionHelpers'
+import { calcDaysRemaining, effectiveVencimiento, toDate } from '../utils/subscriptionHelpers'
 
 function isThisMonth(date) {
   const d = toDate(date)
@@ -72,9 +72,18 @@ export function useAdminStats() {
         .filter((p) => isThisMonth(p.createdAt))
         .reduce((sum, p) => sum + (p.monto || 0), 0)
 
-      const expiringSoon = activeSubs.filter(
-        (s) => isWithinDays(s.fechaVencimiento, 7) && calcDaysRemaining(s.fechaVencimiento) >= 0
-      )
+      // Cuenta TODAS las suscripciones vivas, no solo las 'activa': mientras el
+      // padrón sea casi todo pruebas, mirar únicamente 'activa' dejaba este
+      // indicador clavado en cero justo cuando lo único que vence son pruebas.
+      // Y el vencimiento sale de effectiveVencimiento, no del campo guardado:
+      // en las pruebas anteriores al 28-jun-2026 ese campo trae la ventana
+      // vieja de 45/60 días (ver TRIAL_DURATION_DAYS en subscriptionHelpers),
+      // así que leerlo directo daba una fecha que la app no respeta.
+      const expiringSoon = subscriptions.filter((s) => {
+        if (s.status !== 'activa' && s.status !== 'trial') return false
+        const venc = effectiveVencimiento(s)
+        return isWithinDays(venc, 7) && calcDaysRemaining(venc) >= 0
+      })
 
       const conversionRate =
         teachers.length > 0 ? (activeSubs.length / teachers.length) * 100 : 0
