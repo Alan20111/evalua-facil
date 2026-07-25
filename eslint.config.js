@@ -7,7 +7,12 @@ import jsxA11y from 'eslint-plugin-jsx-a11y'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // `android` es el proyecto nativo de Capacitor: contiene código Java y, tras
+  // `npx cap sync`, una COPIA del bundle web minificado en
+  // android/app/src/main/assets/public. Lintarlo no aporta nada y ESLint se
+  // queda sin memoria (OOM) intentando parsear esos JS de varios MB en una
+  // sola línea. Igual que `dist`, se ignora por completo.
+  globalIgnores(['dist', 'android']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
