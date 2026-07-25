@@ -22,6 +22,7 @@ import { subjectDisplayName } from '../../../utils/subjectName'
 import {
   calcDaysRemaining,
   effectiveVencimiento,
+  formatCurrency,
   formatDate,
   getSubscriptionStatusColor,
   toDate,
@@ -38,7 +39,7 @@ const PAGE = 100
 // desplaza con los encabezados fijos arriba.
 const ALTO_TABLA = 'calc(100vh - 290px)'
 
-const WIDTHS_KEY = 'admin-suscripciones-cols-v2'
+const WIDTHS_KEY = 'admin-suscripciones-cols-v3'
 
 // Nombres que ve el administrador. `status` es el valor guardado en Firestore;
 // esto es solo su etiqueta ("pendiente_pago" se lee fatal en una tabla).
@@ -48,6 +49,9 @@ const ESTADO_LABEL = {
   pendiente_pago: 'Pendiente de pago',
   vencida: 'Vencida',
   cancelada: 'Cancelada',
+  // Docentes que no tienen ninguna suscripción. Antes solo se veían en la
+  // pestaña Usuarios; al retirarla, entran aquí como una situación más.
+  sin_suscripcion: 'Sin suscripción',
 }
 
 // Columnas. `filtro` = tipo de caja bajo el título:
@@ -59,6 +63,7 @@ const ESTADO_LABEL = {
 const COLS = [
   { key: 'num', label: 'Resultado del filtro', w: 145, align: 'right', wrap: true },
   { key: 'docente', label: 'Nombre del docente', w: 185 },
+  { key: 'usuario', label: 'Usuario', w: 130 },
   { key: 'correo', label: 'Correo electrónico', w: 200 },
   // Ubicación del DOCENTE (no de la escuela): se resuelve desde su código
   // postal al completar el perfil y se guarda ya desglosada en users/{uid}
@@ -124,6 +129,12 @@ const COLS = [
     ayuda: 'En las pruebas es siempre inicio + 30 días, se calcula al vuelo (no se lee de la fecha guardada, que en registros viejos trae ventanas de antes).',
   },
   { key: 'dias', label: 'Días', w: 95, align: 'right' },
+  {
+    key: 'ultimoPago',
+    label: 'Último pago',
+    w: 165,
+    ayuda: 'Monto y fecha del pago más reciente de ese docente. Venía de la pestaña Usuarios, que se retiró.',
+  },
   { key: 'acciones', label: 'Acciones', w: 120 },
 ]
 
@@ -163,8 +174,11 @@ function pasaFiltros(r, filtros, search, excepto) {
   if (excepto !== 'vencimiento' && filtros.vencimiento && r.vencimientoISO !== filtros.vencimiento) return false
   if (excepto !== 'plan' && filtros.plan && r.plan !== filtros.plan) return false
   if (excepto !== 'situacion' && filtros.situacion && r.situacionLabel !== filtros.situacion) return false
+  // La caja de arriba busca en TODO el renglón (docente, usuario, correo,
+  // ciudad, escuela, asignatura, plan, situación…), no solo en el nombre:
+  // quien escribe "guanajuato" o "vencida" ahí espera encontrarlo.
   const q = normalizeName(search)
-  if (q && ![r.buscarDocente, r.buscarCorreo].some((v) => v.includes(q))) return false
+  if (q && !r.buscarTodo.includes(q)) return false
   return true
 }
 
@@ -262,21 +276,39 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   // escuela y asignaturas en cada tecla.
   const rows = useMemo(() => {
     if (!stats) return []
-    const { subscriptions = [], schoolsMap = {} } = stats
-    return subscriptions.map((sub) => {
-      const teacher = teachersMap[sub.docenteId]
+    const { subscriptions = [], schoolsMap = {}, payments = [] } = stats
+
+    // Último pago por docente. Lo aportaba la pestaña Usuarios, que se retiró
+    // por redundante: 4 de sus 6 columnas ya estaban aquí.
+    const ultimoPagoPorDocente = {}
+    payments.forEach((p) => {
+      const prev = ultimoPagoPorDocente[p.docenteId]
+      if (!prev || (p.createdAt?.toMillis?.() || 0) > (prev.createdAt?.toMillis?.() || 0)) {
+        ultimoPagoPorDocente[p.docenteId] = p
+      }
+    })
+
+    // `sub` puede venir null: son los docentes que no tienen ninguna
+    // suscripción. Antes solo se veían en Usuarios y al quitar esa pestaña
+    // habrían desaparecido del panel, que es justo lo que no debe pasar.
+    const construir = (sub, teacher) => {
       const school = schoolsMap[teacher?.escuelaId]
-      const plan = plansMap[sub.planId]
+      const plan = sub ? plansMap[sub.planId] : null
       // El alta de la suscripción es su fecha de inicio; los documentos que no
       // la traen caen a cuándo se creó el registro.
-      const altaValor = sub.fechaInicio || sub.createdAt
+      const altaValor = sub ? (sub.fechaInicio || sub.createdAt) : null
       const alta = toDate(altaValor)
       // Vencimiento REAL: en las pruebas se recalcula desde el inicio (ver
       // effectiveVencimiento) en vez de confiar en el campo guardado.
-      const vencValor = effectiveVencimiento(sub)
+      const vencValor = sub ? effectiveVencimiento(sub) : null
       const venc = toDate(vencValor)
       const docente = teacherName(teacher) || '—'
+      const usuario = teacher?.username || '—'
       const correo = teacher?.email || '—'
+      const pago = ultimoPagoPorDocente[teacher?.id]
+      const ultimoPago = pago
+        ? `${formatCurrency(pago.monto)} — ${formatDate(pago.createdAt)}`
+        : '—'
       // Ubicación del docente. Primero la suya (desglosada desde su código
       // postal al completar el perfil); si no la ha capturado, se cae a la de
       // su escuela, que el catálogo de planteles sí trae. Sin ese respaldo la
@@ -285,14 +317,21 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       const codigoPostal = teacher?.codigoPostal || '—'
       const estadoUbicacion = teacher?.estado || school?.estado || '—'
       const ciudad = teacher?.ciudad || teacher?.municipio || school?.municipio || '—'
-      const escuela = school?.shortName || school?.nombre || school?.claveSEP || sub.schoolName || '—'
-      const asignaturasLista = subjectsByTeacher[sub.docenteId] || []
+      const escuela = school?.shortName || school?.nombre || school?.claveSEP || sub?.schoolName || '—'
+      const asignaturasLista = subjectsByTeacher[teacher?.id] || []
       const asignatura = asignaturasLista.join(' · ') || '—'
-      const planNombre = plan?.nombre || (sub.status === 'trial' ? 'Sin plan (prueba)' : '—')
+      const planNombre = sub
+        ? (plan?.nombre || (sub.status === 'trial' ? 'Sin plan (prueba)' : '—'))
+        : '—'
+      const situacion = sub ? sub.status : 'sin_suscripcion'
+      const situacionLabel = ESTADO_LABEL[situacion] || situacion || '—'
+      const altaTexto = sub ? formatDate(altaValor) : '—'
+      const vencTexto = sub ? formatDate(vencValor) : '—'
       return {
-        id: sub.id,
+        id: sub ? sub.id : `sin-suscripcion-${teacher?.id}`,
         sub,
         docente,
+        usuario,
         correo,
         codigoPostal,
         estado: estadoUbicacion,
@@ -300,25 +339,35 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         escuela,
         asignatura,
         asignaturasLista,
-        buscarDocente: normalizeName(docente),
-        buscarCorreo: normalizeName(correo),
+        ultimoPago,
         buscarCodigoPostal: normalizeName(codigoPostal),
         buscarEstado: normalizeName(estadoUbicacion),
         buscarCiudad: normalizeName(ciudad),
         buscarEscuela: normalizeName(escuela),
         buscarAsignatura: normalizeName(asignatura),
-        alta: formatDate(altaValor),
+        // Todo el renglón en una sola cadena para la caja de búsqueda de
+        // arriba, que busca por cualquier motivo (ciudad, escuela, nombre…).
+        buscarTodo: normalizeName(
+          [docente, usuario, correo, codigoPostal, estadoUbicacion, ciudad, escuela,
+            asignatura, altaTexto, planNombre, situacionLabel, vencTexto, ultimoPago].join(' ')
+        ),
+        alta: altaTexto,
         altaISO: alta ? isoLocal(alta) : '',
         altaMs: alta ? alta.getTime() : 0,
         plan: planNombre,
-        situacion: sub.status,
-        situacionLabel: ESTADO_LABEL[sub.status] || sub.status || '—',
-        vencimiento: formatDate(vencValor),
+        situacion,
+        situacionLabel,
+        vencimiento: vencTexto,
         vencimientoISO: venc ? isoLocal(venc) : '',
-        dias: calcDaysRemaining(vencValor),
+        dias: sub ? calcDaysRemaining(vencValor) : null,
       }
-    })
-  }, [stats, teachersMap, plansMap, subjectsByTeacher])
+    }
+
+    const conSuscripcion = subscriptions.map((sub) => construir(sub, teachersMap[sub.docenteId]))
+    const conSub = new Set(subscriptions.map((s) => s.docenteId))
+    const sinSuscripcion = teachers.filter((t) => !conSub.has(t.id)).map((t) => construir(null, t))
+    return [...conSuscripcion, ...sinSuscripcion]
+  }, [stats, teachers, teachersMap, plansMap, subjectsByTeacher])
 
   // Orden fijo: la suscripción más reciente hasta arriba; dentro del mismo día
   // desempata el nombre del docente.
@@ -479,7 +528,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
           <SearchInput
             value={search}
             onChange={(v) => { setSearch(v); setLimit(PAGE) }}
-            placeholder="Buscar por docente o correo…"
+            placeholder="Buscar por cualquier dato…"
           />
           <div className="flex items-center justify-end gap-2">
             <button
@@ -580,6 +629,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     {filtered.length - i}
                   </td>
                   <td className="px-3 py-2 font-medium text-on-surface truncate" title={r.docente}>{r.docente}</td>
+                  <td className="px-3 py-2 font-mono text-xs font-semibold text-on-surface truncate">{r.usuario}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.correo}>{r.correo}</td>
                   <td className="px-3 py-2 text-muted truncate tabular-nums">{r.codigoPostal}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.estado}>{r.estado}</td>
@@ -600,7 +650,13 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className={`px-3 py-2 text-right tabular-nums ${r.dias !== null && r.dias <= 0 ? 'text-red-600 font-semibold' : 'text-muted'}`}>
                     {r.dias !== null ? r.dias : '—'}
                   </td>
+                  <td className="px-3 py-2 text-muted truncate" title={r.ultimoPago}>{r.ultimoPago}</td>
+                  {/* Sin suscripción no hay nada que editar, cancelar ni
+                      eliminar: a ese docente se le crea una con "Nueva". */}
                   <td className="px-3 py-2">
+                    {!r.sub ? (
+                      <span className="text-xs text-slate-400">—</span>
+                    ) : (
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
@@ -632,6 +688,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                         <Trash2 size={16} />
                       </button>
                     </div>
+                    )}
                   </td>
                 </tr>
               ))

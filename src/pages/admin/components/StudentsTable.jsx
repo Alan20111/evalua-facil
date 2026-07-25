@@ -84,8 +84,11 @@ function pasaFiltros(r, filtros, search, excepto) {
   if (t('asignatura') && !r.buscarAsignatura.includes(t('asignatura'))) return false
   if (excepto !== 'alta' && filtros.alta && r.altaISO !== filtros.alta) return false
   if (excepto !== 'activado' && filtros.activado && r.activado !== (filtros.activado === 'si')) return false
+  // La caja de arriba busca en TODO el renglón (nombre, código, escuela,
+  // profesor, asignatura, fecha, hora y si está activado), no solo en el
+  // nombre: quien busca "guanajuato" o "cultura" ahí espera encontrarlo.
   const q = normalizeName(search)
-  if (q && ![r.buscarNombre, r.buscarCodigo].some((v) => v.includes(q))) return false
+  if (q && !r.buscarTodo.includes(q)) return false
   return true
 }
 
@@ -190,6 +193,8 @@ export default function StudentsTable({ stats }) {
       const escuela = school?.shortName || school?.nombre || school?.claveSEP || '—'
       const profesor = teacherName(teacher) || '—'
       const asignatura = subjectDisplayName(subject) || '—'
+      const alta = fechaYHora(s.createdAt)
+      const activadoEl = s.activado === true ? fechaYHora(s.activadoAt) : '—'
       return {
         id: s.id,
         nombre,
@@ -197,22 +202,27 @@ export default function StudentsTable({ stats }) {
         escuela,
         profesor,
         asignatura,
+        // Todo el renglón en una sola cadena para la caja de búsqueda de
+        // arriba, que busca por cualquier motivo (ciudad, escuela, nombre…).
+        // Incluye "sí"/"no" de activado para poder escribirlo tal cual.
+        buscarTodo: normalizeName(
+          [nombre, codigo, escuela, profesor, asignatura, alta, activadoEl,
+            s.activado === true ? 'si activado' : 'no activado'].join(' ')
+        ),
         // Copias normalizadas (sin acentos ni mayúsculas) calculadas UNA vez
         // por fila: si se normalizara dentro del filtro, se reharía el trabajo
         // sobre las 117+ filas en cada tecla que se escribe.
-        buscarNombre: normalizeName(nombre),
-        buscarCodigo: normalizeName(codigo),
         buscarEscuela: normalizeName(escuela),
         buscarProfesor: normalizeName(profesor),
         buscarAsignatura: normalizeName(asignatura),
-        alta: fechaYHora(s.createdAt),
+        alta,
         altaISO: fecha ? isoLocal(fecha) : '',
         altaMs: fecha ? fecha.getTime() : 0,
         activado: s.activado === true,
         // Solo tiene valor quien activó DESPUÉS de que se empezó a registrar
         // `activadoAt` (ver finishActivation en student/Activation.jsx). Para
         // los activados antes de eso el dato no existe y se muestra un guion.
-        activadoEl: s.activado === true ? fechaYHora(s.activadoAt) : '—',
+        activadoEl,
       }
     })
   }, [stats])
@@ -282,7 +292,7 @@ export default function StudentsTable({ stats }) {
           <SearchInput
             value={search}
             onChange={(v) => { setSearch(v); setLimit(PAGE) }}
-            placeholder="Buscar por nombre o código…"
+            placeholder="Buscar por cualquier dato…"
           />
           <button
             type="button"

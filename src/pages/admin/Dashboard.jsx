@@ -7,7 +7,6 @@ import StatsCards, { ResumenCharts } from './components/StatsCards'
 import SubscriptionsTable from './components/SubscriptionsTable'
 import PaymentsTable from './components/PaymentsTable'
 import PaymentConfig from './components/PaymentConfig'
-import UsersTable from './components/UsersTable'
 import StudentsTable from './components/StudentsTable'
 
 const TAB_TITLES = {
@@ -15,7 +14,6 @@ const TAB_TITLES = {
   suscripciones: 'Suscripciones',
   pagos: 'Pagos',
   cobros: 'Configuración de cobros',
-  usuarios: 'Usuarios',
   estudiantes: 'Estudiantes',
 }
 
@@ -67,7 +65,6 @@ export default function AdminDashboard() {
           )}
           {activeTab === 'pagos' && <PaymentsTable stats={stats} onRefresh={refresh} />}
           {activeTab === 'cobros' && <PaymentConfig />}
-          {activeTab === 'usuarios' && <UsersTable stats={stats} />}
           {activeTab === 'estudiantes' && <StudentsTable stats={stats} />}
         </>
       )}

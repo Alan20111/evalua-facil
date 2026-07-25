@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   CreditCard,
   Receipt,
-  Users,
   GraduationCap,
   Wallet,
   LogOut,
@@ -22,7 +21,6 @@ const TABS = [
   { id: 'suscripciones', label: 'Suscripciones', icon: CreditCard },
   { id: 'pagos', label: 'Pagos', icon: Receipt },
   { id: 'cobros', label: 'Cobros', icon: Wallet },
-  { id: 'usuarios', label: 'Usuarios', icon: Users },
   { id: 'estudiantes', label: 'Estudiantes', icon: GraduationCap },
 ]
 
