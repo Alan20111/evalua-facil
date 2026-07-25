@@ -15,10 +15,15 @@ const PAGE = 100
 // Columnas visibles. `alta` y `hora` salen del MISMO campo (createdAt) y por
 // eso comparten criterio de ordenamiento: ordenar por hora sin la fecha
 // mezclaría días distintos, que no es lo que nadie espera de un padrón.
+// `sort` ausente = el encabezado no ordena al hacer clic. N.º es la posición
+// en la tabla, no un dato del alumno; Nombre y Código no ordenan desde el
+// encabezado por pedido explícito (no aporta nada útil en un padrón que se
+// consulta por fecha o por grupo). Ambos siguen disponibles en las listas de
+// "Ordenar por" para quien sí los quiera.
 const COLS = [
-  { key: 'num', label: 'N.º', w: 56 },
-  { key: 'nombre', label: 'Nombre', sort: 'nombre', w: 200 },
-  { key: 'codigo', label: 'Código', sort: 'codigo', w: 110 },
+  { key: 'num', label: 'N.º', w: 56, align: 'right' },
+  { key: 'nombre', label: 'Nombre', w: 200 },
+  { key: 'codigo', label: 'Código', w: 110 },
   { key: 'escuela', label: 'Escuela', sort: 'escuela', w: 130 },
   { key: 'profesor', label: 'Profesor', sort: 'profesor', w: 160 },
   { key: 'asignatura', label: 'Asignatura', sort: 'asignatura', w: 170 },
@@ -80,14 +85,13 @@ const SORT_FIELDS = {
   },
 }
 
-// Orden por defecto: la clase dada de alta más recientemente arriba, con sus
-// estudiantes juntos y el más nuevo primero. El estado de activación NO
-// participa — un alumno recién dado de alta debe aparecer arriba aunque
-// todavía no active su cuenta.
-const DEFAULT_SORT = [
-  { key: 'clase', dir: 'desc' },
-  { key: 'alta', dir: 'desc' },
-]
+// Orden por defecto: hasta arriba el último estudiante dado de alta, activado
+// o no. Un solo criterio a propósito — antes el primer renglón decía "Clase
+// (asignatura y docente)", que aunque daba el mismo resultado no comunicaba
+// "el más nuevo primero". El estado de activación NO participa en el orden.
+// Los estudiantes cargados en lote comparten el mismo instante exacto; el
+// desempate final por nombre los deja en orden alfabético dentro del lote.
+const DEFAULT_SORT = [{ key: 'alta', dir: 'desc' }]
 
 const MAX_NIVELES = 3
 
@@ -174,6 +178,13 @@ export default function StudentsTable({ stats }) {
   // inflado; contar códigos distintos da las personas reales.
   const personas = useMemo(() => new Set(rows.map((r) => r.codigo)).size, [rows])
 
+  // Y lo mismo para el resultado de la búsqueda: lo que se quiere saber al
+  // buscar es a cuántos ESTUDIANTES se llegó, no a cuántos renglones.
+  const personasFiltradas = useMemo(
+    () => new Set(filtered.map((r) => r.codigo)).size,
+    [filtered]
+  )
+
   // Cambiar el criterio del nivel `i`. Elegir "Sin orden" corta ahí: los
   // niveles siguientes dejan de tener sentido, así que se descartan.
   function setNivelCampo(i, key) {
@@ -221,9 +232,17 @@ export default function StudentsTable({ stats }) {
         <h2 className="font-semibold text-on-surface">
           Estudiantes
           <span className="ml-2 text-sm font-normal text-muted">
-            {search
-              ? `${filtered.length} de ${rows.length} inscripciones`
-              : `${rows.length} inscripcion${rows.length !== 1 ? 'es' : ''} · ${personas} estudiante${personas !== 1 ? 's' : ''}`}
+            {search ? (
+              <>
+                Coinciden{' '}
+                <span className="font-semibold text-accent">
+                  {personasFiltradas} de {personas} estudiante{personas !== 1 ? 's' : ''}
+                </span>
+                {' · '}{filtered.length} inscripcion{filtered.length !== 1 ? 'es' : ''}
+              </>
+            ) : (
+              `${personas} estudiante${personas !== 1 ? 's' : ''} · ${rows.length} inscripcion${rows.length !== 1 ? 'es' : ''}`
+            )}
           </span>
         </h2>
         <div className="w-full sm:w-72">
@@ -312,7 +331,7 @@ export default function StudentsTable({ stats }) {
           </colgroup>
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
-              {COLS.map(({ key, label, sort }) => {
+              {COLS.map(({ key, label, sort, align }) => {
                 const activo = sortLevels[0]?.key === sort && sort
                 return (
                   <th key={key} className="relative px-4 py-2 select-none">
@@ -329,9 +348,9 @@ export default function StudentsTable({ stats }) {
                           : <ChevronDown size={13} className="flex-shrink-0" />)}
                       </button>
                     ) : (
-                      // El consecutivo es la posición en la tabla, no un dato
-                      // del alumno — por eso no ordena.
-                      <span className="block text-right">{label}</span>
+                      <span className={`block truncate ${align === 'right' ? 'text-right' : ''}`}>
+                        {label}
+                      </span>
                     )}
                     {/* Tirador de ancho: lo que gana esta columna lo cede la
                         de su derecha, así el total nunca se pasa del área.
