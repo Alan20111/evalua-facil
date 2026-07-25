@@ -4483,6 +4483,7 @@ export default function SubjectPage() {
                 onChange={setSearchAlumnos}
                 placeholder="Buscar por nombre o por número de lista…"
                 autoFocus
+                className={IS_NATIVE_APP ? '!border-2 !border-accent shadow-sm' : ''}
               />
             </div>
             <button type="button"
@@ -4510,9 +4511,11 @@ export default function SubjectPage() {
           ) : (
             <div className="bg-surface-card rounded-card overflow-y-auto max-h-[65vh] shadow-card">
               <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-1.5 bg-surface-container">
-                <span className="w-5 flex-shrink-0" />
-                <p className={`flex-1 min-w-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'text-[9px]' : 'text-xs'}`}>Nombre del estudiante</p>
-                <p className={`flex-shrink-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'w-20 text-[9px]' : 'w-44 text-xs'}`}>Código</p>
+                {!IS_NATIVE_APP && <span className="w-5 flex-shrink-0" />}
+                {!IS_NATIVE_APP && (
+                  <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del estudiante</p>
+                )}
+                <p className={`font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'flex-1 text-[9px]' : 'flex-shrink-0 w-44 text-xs'}`}>Código</p>
                 <p className={`flex-shrink-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'w-14 text-[9px]' : 'w-24 text-xs'}`}>Estado</p>
                 {!IS_NATIVE_APP && <span className="w-9 flex-shrink-0" />}
               </div>
@@ -4522,11 +4525,15 @@ export default function SubjectPage() {
                   onClick={IS_NATIVE_APP ? () => openEditStudent(s) : undefined}
                   className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''} ${IS_NATIVE_APP ? 'cursor-pointer' : ''}`}
                 >
-                  <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
-                  <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
-                    {studentFullName(s)}
-                  </p>
-                  <span className={`flex-shrink-0 font-mono text-accent font-semibold truncate ${IS_NATIVE_APP ? 'w-20 text-[10px]' : 'w-44 text-xs'}`}>{s.username}</span>
+                  {!IS_NATIVE_APP && (
+                    <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
+                  )}
+                  {!IS_NATIVE_APP && (
+                    <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
+                      {studentFullName(s)}
+                    </p>
+                  )}
+                  <span className={`font-mono text-accent font-semibold truncate ${IS_NATIVE_APP ? 'flex-1 text-[10px]' : 'flex-shrink-0 w-44 text-xs'}`}>{s.username}</span>
                   <span className={`flex-shrink-0 flex items-center ${IS_NATIVE_APP ? 'w-14' : 'w-24'}`}>
                     {s.activado ? (
                       <span className={`leading-none bg-emerald-100 text-emerald-700 rounded-full ${IS_NATIVE_APP ? 'text-[9px] px-1 py-0.5' : 'text-[11px] px-1.5 py-0.5'}`}>activo</span>
@@ -5023,6 +5030,9 @@ export default function SubjectPage() {
                   }
                 />
               ))}
+              {IS_NATIVE_APP && (
+                <p className="text-xs text-muted text-center">Para subir a todo el grupo usa la plantilla de excel en la web</p>
+              )}
               <button
                 type="submit"
                 disabled={savingStudent}
