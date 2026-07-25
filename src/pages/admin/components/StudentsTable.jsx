@@ -27,8 +27,10 @@ const COLS = [
   { key: 'activado', label: 'Activado', sort: 'activado', w: 95 },
 ]
 
-const DEFAULT_WIDTHS = Object.fromEntries(COLS.map((c) => [c.key, c.w]))
-const WIDTHS_KEY = 'admin-estudiantes-cols'
+// v2: la versión anterior guardaba píxeles; ahora se guardan proporciones
+// (ver useColumnWidths). Clave nueva para no leer los píxeles viejos como si
+// fueran fracciones.
+const WIDTHS_KEY = 'admin-estudiantes-cols-v2'
 
 // Cada criterio dice en español llano qué hace cada dirección, en vez de
 // "ascendente/descendente" — que obliga a traducir mentalmente qué significa
@@ -99,8 +101,8 @@ export default function StudentsTable({ stats }) {
   const [search, setSearch] = useState('')
   const [sortLevels, setSortLevels] = useState(DEFAULT_SORT)
   const [limit, setLimit] = useState(PAGE)
-  const { widths, total, dragKey, startResize, resetWidths, resetColumn } =
-    useColumnWidths(WIDTHS_KEY, DEFAULT_WIDTHS)
+  const { containerRef, widths, total, dragKey, startResize, resetWidths, resetColumn, esRedimensionable } =
+    useColumnWidths(WIDTHS_KEY, COLS)
 
   // Cada estudiante se "aplana" una sola vez a las columnas visibles: así el
   // filtro y el ordenamiento trabajan sobre texto ya resuelto en vez de
@@ -291,12 +293,15 @@ export default function StudentsTable({ stats }) {
             <RotateCcw size={13} /> Restablecer ancho de columnas
           </button>
           <span className="text-xs text-slate-400">
-            Arrastra el borde de un encabezado para cambiar su ancho (se recuerda).
+            Arrastra el borde de un encabezado para repartir el ancho entre esa columna y la siguiente (se recuerda).
           </span>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* El ancho de este contenedor es el que la tabla llena exactamente. Solo
+          aparece scroll cuando el área es más angosta que el mínimo de todas
+          las columnas juntas (ventana muy chica). */}
+      <div ref={containerRef} className="overflow-x-auto">
         {/* table-fixed + <colgroup> es lo que hace que los anchos arrastrados
             se respeten; sin ellos el navegador reparte el espacio a su gusto. */}
         <table className="text-sm table-fixed" style={{ width: total }}>
@@ -328,23 +333,26 @@ export default function StudentsTable({ stats }) {
                       // del alumno — por eso no ordena.
                       <span className="block text-right">{label}</span>
                     )}
-                    {/* Tirador de ancho: zona de agarre ancha con una línea
-                        fina dentro. Doble clic devuelve esta columna a su
-                        ancho original. */}
-                    <span
-                      onPointerDown={(e) => startResize(e, key)}
-                      onDoubleClick={() => resetColumn(key)}
-                      title="Arrastra para cambiar el ancho (doble clic para restablecer)"
-                      className="absolute top-0 right-0 h-full w-2 cursor-col-resize flex justify-center group"
-                    >
+                    {/* Tirador de ancho: lo que gana esta columna lo cede la
+                        de su derecha, así el total nunca se pasa del área.
+                        Por eso la última no lleva tirador — es la que absorbe
+                        el sobrante. Doble clic restablece esta columna. */}
+                    {esRedimensionable(key) && (
                       <span
-                        className={`h-full transition-colors ${
-                          dragKey === key
-                            ? 'w-[2px] bg-accent'
-                            : 'w-px bg-outline-variant group-hover:bg-accent'
-                        }`}
-                      />
-                    </span>
+                        onPointerDown={(e) => startResize(e, key)}
+                        onDoubleClick={() => resetColumn(key)}
+                        title="Arrastra para cambiar el ancho (doble clic para restablecer)"
+                        className="absolute top-0 right-0 h-full w-2 cursor-col-resize flex justify-center group"
+                      >
+                        <span
+                          className={`h-full transition-colors ${
+                            dragKey === key
+                              ? 'w-[2px] bg-accent'
+                              : 'w-px bg-outline-variant group-hover:bg-accent'
+                          }`}
+                        />
+                      </span>
+                    )}
                   </th>
                 )
               })}
