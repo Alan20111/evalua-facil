@@ -34,7 +34,9 @@ import {
   canRenew as canRenewSubscription,
 } from '../../utils/subscriptionHelpers'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
-import { errorCodigoPostal, estadoPorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
+import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
+import { useUbicacionCP } from '../../data/useCodigoPostal'
+import CodigoPostalField from '../../components/CodigoPostalField'
 
 async function uploadAvatar(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -87,6 +89,7 @@ export default function Profile() {
   const [apellidoPaterno, setApellidoPaterno] = useState(userProfile?.apellidoPaterno || '')
   const [apellidoMaterno, setApellidoMaterno] = useState(userProfile?.apellidoMaterno || '')
   const [codigoPostal, setCodigoPostal] = useState(userProfile?.codigoPostal || '')
+  const { ubicacion: ubicacionCP, buscando: buscandoCP } = useUbicacionCP(codigoPostal)
   const [savingDatosPersonales, setSavingDatosPersonales] = useState(false)
 
   // Photo
@@ -301,11 +304,20 @@ export default function Profile() {
     if (!realNombre.trim() || !apellidoPaterno.trim()) { toast('Escribe tu nombre y apellido paterno', 'error'); return }
     // El código postal se puede cambiar (mudanza), pero no se puede dejar
     // vacío ni inventado — mismo criterio que en el registro.
-    const errorCP = errorCodigoPostal(codigoPostal)
+    if (buscandoCP) { toast('Espera un momento, estamos buscando tu código postal', 'warning'); return }
+    const errorCP = errorCodigoPostal(codigoPostal, ubicacionCP)
     if (errorCP) { toast(errorCP, 'error'); return }
     setSavingDatosPersonales(true)
     try {
-      const updates = { nombre: realNombre.trim(), apellidoPaterno: apellidoPaterno.trim(), apellidoMaterno: apellidoMaterno.trim(), codigoPostal: soloDigitosCP(codigoPostal) }
+      const updates = {
+        nombre: realNombre.trim(),
+        apellidoPaterno: apellidoPaterno.trim(),
+        apellidoMaterno: apellidoMaterno.trim(),
+        codigoPostal: soloDigitosCP(codigoPostal),
+        estado: ubicacionCP.estado,
+        municipio: ubicacionCP.municipio,
+        ciudad: ubicacionCP.ciudad,
+      }
       await updateDoc(doc(db, 'users', currentUser.uid), updates)
       setUserProfile((p) => ({ ...p, ...updates }))
       toast('Datos personales actualizados')
@@ -582,15 +594,13 @@ export default function Profile() {
                   className={inputCls} placeholder="Ej. Pérez" />
               </div>
             </div>
-            <div>
-              <label htmlFor="prof-cp" className="block text-xs font-medium text-muted mb-1">Código postal</label>
-              <input id="prof-cp" type="text" inputMode="numeric" maxLength={5} value={codigoPostal}
-                onChange={(e) => setCodigoPostal(soloDigitosCP(e.target.value))}
-                className={inputCls} placeholder="Ej. 38000" />
-              {estadoPorCodigoPostal(codigoPostal) && (
-                <p className="text-sm text-muted mt-1">{estadoPorCodigoPostal(codigoPostal)}</p>
-              )}
-            </div>
+            <CodigoPostalField
+              id="prof-cp"
+              value={codigoPostal}
+              onChange={setCodigoPostal}
+              labelClassName="block text-xs font-medium text-muted mb-1"
+              inputClassName={inputCls}
+            />
             <button type="submit" disabled={savingDatosPersonales}
               className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {savingDatosPersonales ? <Spinner size="sm" /> : null}
