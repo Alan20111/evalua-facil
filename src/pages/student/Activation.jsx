@@ -7,6 +7,7 @@ import {
   getDocs,
   writeBatch,
   doc,
+  serverTimestamp,
 } from 'firebase/firestore'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
 import { auth, db } from '../../firebase'
@@ -143,14 +144,15 @@ export default function StudentActivation() {
       where('escuelaId', '==', student.escuelaId),
     ))
     const batch = writeBatch(db)
-    snap.forEach((d) => batch.update(doc(db, 'students', d.id), {
-      activado: true,
-      uid: authUser.uid,
-      resetPassword: null,
-    }))
+    // `activadoAt` deja constancia de CUÁNDO se activó. Antes no se guardaba en
+    // ningún lado y el panel de administración no tenía forma de mostrarlo:
+    // `createdAt` es el alta que hizo el docente, que puede ser días anterior.
+    // Se marca en todas las inscripciones del alumno, igual que `activado`.
+    const marcas = { activado: true, uid: authUser.uid, resetPassword: null, activadoAt: serverTimestamp() }
+    snap.forEach((d) => batch.update(doc(db, 'students', d.id), marcas))
     // Safety: ensure the matched doc is updated even if the query is momentarily stale.
     if (!snap.docs.some((d) => d.id === student.id)) {
-      batch.update(doc(db, 'students', student.id), { activado: true, uid: authUser.uid, resetPassword: null })
+      batch.update(doc(db, 'students', student.id), marcas)
     }
     await batch.commit()
     navigate('/alumno/dashboard')
