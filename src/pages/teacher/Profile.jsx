@@ -18,6 +18,7 @@ import SearchInput from '../../components/SearchInput'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import AvatarCropModal from '../../components/AvatarCropModal'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import {
   TRIAL_DURATION_DAYS,
@@ -88,6 +89,7 @@ export default function Profile() {
 
   // Photo
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [cropFile, setCropFile] = useState(null) // File recién elegido, pendiente de recortar
 
   // School
   const [showSchoolPicker, setShowSchoolPicker] = useState(false)
@@ -252,14 +254,23 @@ export default function Profile() {
   }
 
   // ── actions ──────────────────────────────────────────────────────────────
-  async function handlePhotoChange(e) {
+  // Pedido explícito: en vez de subir el archivo tal cual, se abre el
+  // recortador (acercar/alejar con la rueda, arrastrar) y solo se sube lo
+  // que quede dentro del círculo — ver AvatarCropModal.jsx.
+  function handlePhotoChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
+    setCropFile(file)
+    e.target.value = '' // permite volver a elegir el MISMO archivo después de cancelar
+  }
+
+  async function handleCropConfirm(croppedFile) {
     setPhotoUploading(true)
     try {
-      const url = await uploadAvatar(file)
+      const url = await uploadAvatar(croppedFile)
       await updateDoc(doc(db, 'users', currentUser.uid), { photoURL: url })
       setUserProfile((p) => ({ ...p, photoURL: url }))
+      setCropFile(null)
       toast('Foto actualizada')
     } catch (err) {
       toast('Error al subir foto: ' + err.message, 'error')
@@ -432,6 +443,15 @@ export default function Profile() {
           subscription={subscription}
           onSuccess={refreshSub}
         />
+
+        {cropFile && (
+          <AvatarCropModal
+            file={cropFile}
+            onCancel={() => setCropFile(null)}
+            onConfirm={handleCropConfirm}
+            saving={photoUploading}
+          />
+        )}
 
         {/* Photo + identity */}
         <div className="bg-surface-card rounded-card shadow-card p-4 flex flex-col items-center gap-2">

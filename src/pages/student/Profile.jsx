@@ -16,6 +16,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { ArrowLeft, Camera, Copy, Check, KeyRound, Mail, ShieldCheck } from 'lucide-react'
+import AvatarCropModal from '../../components/AvatarCropModal'
 
 // Perfil del estudiante — SOLO lo que no vive en otra pantalla (filosofía
 // Don't Make Me Think: cero redundancia): identidad + foto, usuario, cambio de
@@ -27,6 +28,7 @@ export default function StudentProfile() {
   const [schoolName, setSchoolName] = useState('')
   const [loading, setLoading] = useState(true)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [cropFile, setCropFile] = useState(null) // File recién elegido, pendiente de recortar
   const [copied, setCopied] = useState(false)
   // Cambio de contraseña
   const [passActual, setPassActual] = useState('')
@@ -79,21 +81,29 @@ export default function StudentProfile() {
     }
   }
 
-  async function handlePhotoChange(e) {
+  // Pedido explícito: en vez de subir el archivo tal cual, se abre el
+  // recortador (acercar/alejar con la rueda, arrastrar) y solo se sube lo
+  // que quede dentro del círculo — ver AvatarCropModal.jsx.
+  function handlePhotoChange(e) {
     const file = e.target.files?.[0]
     if (!file || !currentUser) return
+    setCropFile(file)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function handleCropConfirm(croppedFile) {
     setUploadingPhoto(true)
     try {
-      const url = await uploadToCloudinary(file, 'evalua-facil/profiles')
+      const url = await uploadToCloudinary(croppedFile, 'evalua-facil/profiles')
       await updateAllEnrollments(currentUser.uid, { photoURL: url })
       setUserProfile((prev) => ({ ...prev, photoURL: url }))
       setStudentInfo((prev) => (prev ? { ...prev, photoURL: url } : prev))
+      setCropFile(null)
       toast('Foto actualizada')
     } catch {
       toast('No se pudo subir la foto', 'error')
     } finally {
       setUploadingPhoto(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -202,6 +212,15 @@ export default function StudentProfile() {
         className="hidden"
         onChange={handlePhotoChange}
       />
+
+      {cropFile && (
+        <AvatarCropModal
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onConfirm={handleCropConfirm}
+          saving={uploadingPhoto}
+        />
+      )}
 
       <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
         {/* Flechita de regreso visible — respaldo para móviles donde el botón
