@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
-  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive, Camera,
+  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
@@ -232,22 +232,19 @@ export default function StudentDashboard() {
                 cambiarla al vuelo, sin entrar al perfil (en la web sigue
                 viviendo solo dentro del perfil). */}
             {IS_NATIVE_APP ? (
+              // Pedido explícito: sin ícono encima (ni siquiera en la esquina)
+              // y la foto 20% más grande que antes (44px → 53px).
               <button
                 type="button"
                 onClick={() => photoInputRef.current?.click()}
                 aria-label="Cambiar foto de perfil"
-                className="relative w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0"
+                className="w-[53px] h-[53px] rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0"
               >
                 {photoURL ? (
                   <img src={photoURL} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-base font-bold text-accent">{initials}</span>
                 )}
-                {/* Insignia en la esquina, NO tapa la foto — pedido explícito:
-                    se tiene que poder ver al estudiante sin el ícono encima. */}
-                <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-accent border-2 border-surface-card flex items-center justify-center">
-                  <Camera size={10} className="text-white" />
-                </span>
               </button>
             ) : (
               <div className="w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0">
