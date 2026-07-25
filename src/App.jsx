@@ -23,6 +23,7 @@ import Profile from './pages/teacher/Profile'
 import CalendarPage from './pages/teacher/CalendarPage'
 import VerifyEmail from './pages/teacher/VerifyEmail'
 import PagoResultado from './pages/teacher/PagoResultado'
+import Privacidad from './pages/Privacidad'
 import TeacherNotificationSettings from './pages/teacher/NotificationSettings'
 
 import StudentActivation from './pages/student/Activation'
@@ -175,6 +176,8 @@ export default function App() {
             <Route path="/activate/:accessCode" element={<StudentActivation />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/pago-resultado" element={<PagoResultado />} />
+            <Route path="/privacidad" element={<Privacidad />} />
+            <Route path="/privacy" element={<Privacidad />} />
 
             {/* Admin protected */}
             <Route path="/Admin" element={<ProtectedAdmin><AdminDashboard /></ProtectedAdmin>} />
