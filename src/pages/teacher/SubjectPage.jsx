@@ -328,7 +328,7 @@ const AttendanceTable = memo(function AttendanceTable({
             className="px-0.5 py-1 text-center border-l-2 border-outline">
             <CheckIcon size={13} className="inline text-green-600" />
           </th>,
-          <th key={`hi-${g.parcial}`} data-tooltip="Inasistencias del parcial"
+          <th key={`hi-${g.parcial}`} data-tooltip="Faltas del parcial"
             className="px-0.5 py-1 text-center">
             <X size={13} className="inline text-red-500" />
           </th>,
@@ -338,7 +338,7 @@ const AttendanceTable = memo(function AttendanceTable({
             <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
               <CheckIcon size={13} className="inline text-green-600" />
             </th>
-            <th data-tooltip="Total de inasistencias" className="px-0.5 py-1 text-center">
+            <th data-tooltip="Total de faltas" className="px-0.5 py-1 text-center">
               <X size={13} className="inline text-red-500" />
             </th>
           </>
@@ -3115,7 +3115,7 @@ export default function SubjectPage() {
     </div>
   )
 
-  // Motivos rápidos para justificar una inasistencia (botones de un toque).
+  // Motivos rápidos para justificar una falta (botones de un toque).
   const QUICK_MOTIVOS = [
     { emoji: '🤒', label: 'Salud' },
     { emoji: '👨‍👩‍👧', label: 'Familiar' },
@@ -4285,7 +4285,7 @@ export default function SubjectPage() {
               // nombres largos) y textos más grandes que en la app, donde el
               // modal comparte columna angosta con el teclado en horizontal.
               <div>
-                <h3 className="text-lg font-semibold text-on-surface">Justificar inasistencia</h3>
+                <h3 className="text-lg font-semibold text-on-surface">Justificar falta</h3>
                 <p className="text-sm text-muted mt-0.5">
                   {reasonModal.studentName} ·{' '}
                   {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
@@ -4301,7 +4301,7 @@ export default function SubjectPage() {
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0 space-y-1.5">
                   <div className="flex items-center gap-2 min-w-0">
-                    <h3 className="text-base font-semibold text-on-surface whitespace-nowrap">Justificar inasistencia</h3>
+                    <h3 className="text-base font-semibold text-on-surface whitespace-nowrap">Justificar falta</h3>
                     <p className="text-xs text-muted truncate">
                       {reasonModal.studentName} ·{' '}
                       {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}

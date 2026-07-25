@@ -600,7 +600,7 @@ export default function StudentSubjectPage() {
                       radio es para tarjetas grandes — en una celda tan chica
                       terminaba pareciendo un círculo). Un renglón con el mes
                       aparece arriba de cada semana en la que cambia. */}
-                  {/* Grid con 10 columnas: SEMANA + L-D + Asistencias + Inasistencias
+                  {/* Grid con 10 columnas: SEMANA + L-D + Asistencias + Faltas
                       (pedido explícito) — grid-template-columns fijo en vez de
                       grid-cols-N de Tailwind porque las columnas de conteo
                       necesitan más ancho que un día. Cada celda fija su columna
@@ -613,7 +613,7 @@ export default function StudentSubjectPage() {
                         <span key={i} className="text-[10px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: i + 2 }}>{d}</span>
                       ))}
                       <span className="text-[9px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: 9 }}>Asistencias</span>
-                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: 10 }}>Inasistencias</span>
+                      <span className="text-[9px] font-semibold text-slate-400 uppercase text-center" style={{ gridColumn: 10 }}>Faltas</span>
                     </div>
                     <div className="grid gap-1.5 mt-1.5 min-w-[420px]" style={{ gridTemplateColumns: '2.5rem repeat(7, 1fr) 4.5rem 4.5rem' }}>
                       {(() => {
@@ -677,7 +677,7 @@ export default function StudentSubjectPage() {
                         return celdas
                       })()}
                       {/* Total del parcial — bajo la columna de Domingo, con las
-                          sumas en Asistencias/Inasistencias (mismos números que
+                          sumas en Asistencias/Faltas (mismos números que
                           el resumen de arriba, stat.asist/stat.inasist). */}
                       <span className="text-xs font-semibold text-muted text-right pr-1 mt-1" style={{ gridColumn: 8 }}>Total</span>
                       <span className="h-8 flex items-center justify-center text-sm font-bold text-emerald-700 mt-1" style={{ gridColumn: 9 }}>

@@ -59,9 +59,9 @@ export async function createAttendanceDay({ subjectId, docenteId, fecha, duracio
   return refs.map((r) => r.id)
 }
 
-// Cuenta asistencias/inasistencias de un alumno sobre un conjunto de registros
+// Cuenta asistencias/faltas de un alumno sobre un conjunto de registros
 // (slots). Cada slot vale una asistencia; una FALTA JUSTIFICADA cuenta como
-// asistencia (no como inasistencia) — solo la falta injustificada suma a inasist.
+// asistencia (no como falta) — solo la falta injustificada suma a inasist.
 export function countPresence(records, studentId) {
   let asist = 0
   let inasist = 0
