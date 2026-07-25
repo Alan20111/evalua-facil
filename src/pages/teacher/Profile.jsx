@@ -455,6 +455,22 @@ export default function Profile() {
               <p className="text-sm text-slate-500 mt-1">{userProfile.schoolName}</p>
             )}
           </div>
+          {/* Ausente/true = visible (opt-out), igual criterio que el resto de
+              interruptores de la app — para que no aparezca "apagada" por
+              defecto en cuentas viejas que nunca tocaron este ajuste. */}
+          <label className="flex items-center gap-2 mt-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={userProfile?.mostrarFotoAlumnos !== false}
+              onChange={(e) => {
+                const checked = e.target.checked
+                setUserProfile((p) => ({ ...p, mostrarFotoAlumnos: checked }))
+                updateDoc(doc(db, 'users', currentUser.uid), { mostrarFotoAlumnos: checked })
+                  .catch(() => toast('No se pudo guardar: intenta de nuevo', 'error'))
+              }}
+            />
+            <span className="text-sm text-on-surface">Los estudiantes pueden ver mi foto de perfil</span>
+          </label>
         </div>
 
         {/* Acceso — correo y contraseña, cerca de arriba: es lo que más se

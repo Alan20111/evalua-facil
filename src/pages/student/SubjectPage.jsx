@@ -128,6 +128,7 @@ export default function StudentSubjectPage() {
   const [materials, setMaterials] = useState([])
   const [attendanceSummary, setAttendanceSummary] = useState(null)
   const [teacherName, setTeacherName] = useState('')
+  const [teacherPhoto, setTeacherPhoto] = useState(null)
   const [openParcial, setOpenParcial] = useState(1)
   const [activeTab, setActiveTab] = useState('Actividades')
   const [loading, setLoading] = useState(true)
@@ -180,6 +181,9 @@ export default function StudentSubjectPage() {
             if (snap.exists()) {
               const td = snap.data()
               setTeacherName(teacherDisplayName(td))
+              // Ausente/true = visible (opt-out) — mismo criterio que el
+              // resto de interruptores de la app, ver Profile.jsx (docente).
+              if (td.mostrarFotoAlumnos !== false) setTeacherPhoto(td.photoURL || null)
             }
           })
           .catch(() => {})
@@ -275,10 +279,15 @@ export default function StudentSubjectPage() {
         <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
           <SubjectIcon iconKey={subject?.icon} size={20} className="text-accent" />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex items-center gap-2 flex-wrap">
           <h1 className="text-lg font-bold text-on-surface truncate">{subjectDisplayName(subject)}</h1>
           {teacherName && (
-            <p className="text-slate-500 text-sm font-medium truncate">{teacherName}</p>
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className="text-slate-500 text-sm font-medium truncate">{teacherName}</span>
+              {teacherPhoto && (
+                <img src={teacherPhoto} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+              )}
+            </span>
           )}
         </div>
       </header>
