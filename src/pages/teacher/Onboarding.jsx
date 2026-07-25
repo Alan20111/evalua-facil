@@ -8,6 +8,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { GraduationCap } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { errorCodigoPostal, estadoPorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 
 // Ventana para el "presiona de nuevo" de abajo — la misma que usa
 // AndroidBackButton para salir de la app desde la pantalla raíz.
@@ -22,6 +23,7 @@ export default function Onboarding() {
   const [apellidoPaterno, setApellidoPaterno] = useState('')
   const [apellidoMaterno, setApellidoMaterno] = useState('')
   const [nombre, setNombre] = useState('')
+  const [codigoPostal, setCodigoPostal] = useState('')
   const [saving, setSaving] = useState(false)
   const ultimaSalidaRef = useRef(0)
 
@@ -53,6 +55,8 @@ export default function Onboarding() {
     e.preventDefault()
     if (!realNombre.trim() || !apellidoPaterno.trim()) { toast('Escribe tu nombre y apellido paterno', 'error'); return }
     if (!nombre.trim()) { toast('Escribe cómo quieres que te vean tus estudiantes', 'error'); return }
+    const errorCP = errorCodigoPostal(codigoPostal)
+    if (errorCP) { toast(errorCP, 'error'); return }
     setSaving(true)
     try {
       const updates = {
@@ -60,6 +64,7 @@ export default function Onboarding() {
         apellidoPaterno: apellidoPaterno.trim(),
         apellidoMaterno: apellidoMaterno.trim(),
         nombreMostrar: nombre.trim(),
+        codigoPostal: soloDigitosCP(codigoPostal),
         profileComplete: true,
       }
       await updateDoc(doc(db, 'users', currentUser.uid), updates)
@@ -126,6 +131,25 @@ export default function Onboarding() {
                 />
               </div>
             </div>
+            {/* Sin marca de "obligatorio": se pide igual que los demás datos y
+                simplemente no se avanza sin él (validado en finish()). */}
+            <div>
+              <label htmlFor="onboarding-cp" className="block text-sm font-medium text-muted mb-1">Código postal</label>
+              <input
+                id="onboarding-cp"
+                type="text"
+                inputMode="numeric"
+                value={codigoPostal}
+                onChange={(e) => setCodigoPostal(soloDigitosCP(e.target.value))}
+                maxLength={5}
+                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                placeholder="Ej. 38000"
+              />
+              {estadoPorCodigoPostal(codigoPostal) && (
+                <p className="text-sm text-muted mt-1">{estadoPorCodigoPostal(codigoPostal)}</p>
+              )}
+            </div>
+
             <div>
               <label htmlFor="onboarding-nombre" className="block text-sm font-medium text-muted mb-1">¿Cómo quieres que te vean tus estudiantes?</label>
               <input
