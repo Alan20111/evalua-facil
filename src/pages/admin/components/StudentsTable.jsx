@@ -32,7 +32,17 @@ const COLS = [
   { key: 'asignatura', label: 'Asignatura', filtro: 'texto', w: 175 },
   { key: 'alta', label: 'Fecha de alta', filtro: 'fecha', w: 165 },
   { key: 'activado', label: 'Activado', filtro: 'sino', w: 125 },
-  { key: 'activadoEl', label: 'Fecha activado', w: 165 },
+  // La activación es de la CUENTA del alumno, un solo momento compartido por
+  // todas sus inscripciones. Si el docente lo inscribió a otra asignatura
+  // después de que ya había activado, esa fila nace activada y su "Fecha
+  // activado" queda ANTERIOR a su "Fecha de alta". No es un error, y por eso
+  // el encabezado lo explica al pasar el puntero.
+  {
+    key: 'activadoEl',
+    label: 'Fecha activado',
+    w: 165,
+    ayuda: 'Cuándo activó su cuenta el estudiante. Es un solo momento para todas sus asignaturas: si lo inscribieron a esta después de que ya había activado, esta fecha será anterior a la de alta.',
+  },
 ]
 
 const CAMPOS_TEXTO = ['escuela', 'profesor', 'asignatura']
@@ -282,7 +292,7 @@ export default function StudentsTable({ stats }) {
           <thead>
             <tr className="text-left text-xs uppercase">
               {COLS.map((col) => {
-                const { key, label, filtro, align } = col
+                const { key, label, filtro, align, ayuda } = col
                 const filtrada = filtro && filtros[key] !== ''
                 return (
                   <th
@@ -291,7 +301,10 @@ export default function StudentsTable({ stats }) {
                       filtrada ? 'bg-accent-light text-accent' : 'bg-surface text-muted'
                     }`}
                   >
-                    <span className={`block truncate ${align === 'right' ? 'text-right' : ''}`}>
+                    <span
+                      title={ayuda}
+                      className={`block truncate ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
+                    >
                       {label}
                     </span>
 
