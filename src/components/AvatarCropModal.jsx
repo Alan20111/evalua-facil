@@ -17,6 +17,7 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
   const [zoom, setZoom] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const dragRef = useRef(null)
+  const viewportRef = useRef(null)
 
   useBackHandler(onCancel, true)
 
@@ -53,10 +54,19 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom, imgEl])
 
-  function handleWheel(e) {
-    e.preventDefault()
-    setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z - e.deltaY * 0.0015)))
-  }
+  // React adjunta onWheel como passive por default desde React 17, así que
+  // e.preventDefault() ahí no hace nada — el scroll se le sigue yendo a la
+  // página de atrás. Hay que engancharse nativamente con { passive: false }.
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return undefined
+    const onWheelNative = (e) => {
+      e.preventDefault()
+      setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z - e.deltaY * 0.0015)))
+    }
+    el.addEventListener('wheel', onWheelNative, { passive: false })
+    return () => el.removeEventListener('wheel', onWheelNative)
+  }, [])
   function handlePointerDown(e) {
     dragRef.current = { startX: e.clientX, startY: e.clientY, origin: offset }
     e.currentTarget.setPointerCapture(e.pointerId)
@@ -104,13 +114,13 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
         </div>
         <p className="text-xs text-muted mb-3 text-center">Rueda del mouse para acercar/alejar · arrastra para mover</p>
         <div
-          onWheel={handleWheel}
+          ref={viewportRef}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
           className="mx-auto rounded-full overflow-hidden bg-slate-100 relative cursor-move select-none"
-          style={{ width: VIEWPORT, height: VIEWPORT, touchAction: 'none' }}
+          style={{ width: VIEWPORT, height: VIEWPORT, minWidth: VIEWPORT, minHeight: VIEWPORT, maxWidth: VIEWPORT, maxHeight: VIEWPORT, touchAction: 'none' }}
         >
           {imgEl ? (
             <img

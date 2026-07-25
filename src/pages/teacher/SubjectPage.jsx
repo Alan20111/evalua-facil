@@ -1664,6 +1664,18 @@ export default function SubjectPage() {
     })
   }
 
+  async function handleDeleteStudentPhoto() {
+    if (!studentToEdit?.photoURL) return
+    try {
+      await updateDoc(doc(db, 'students', studentToEdit.id), { photoURL: deleteField() })
+      setGroupStudents((prev) => prev.map((s) => (s.id === studentToEdit.id ? { ...s, photoURL: null } : s)))
+      setStudentToEdit((s) => (s ? { ...s, photoURL: null } : s))
+      toast('Foto eliminada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
   async function saveEditStudent(e) {
     e.preventDefault()
     if (!studentToEdit) return
@@ -4589,6 +4601,7 @@ export default function SubjectPage() {
           ) : (
             <div className="bg-surface-card rounded-card overflow-y-auto max-h-[65vh] shadow-card">
               <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-1.5 bg-surface-container">
+                {!IS_NATIVE_APP && <span className="w-12 flex-shrink-0" />}
                 {!IS_NATIVE_APP && <span className="w-5 flex-shrink-0" />}
                 {!IS_NATIVE_APP && (
                   <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del estudiante</p>
@@ -4606,6 +4619,15 @@ export default function SubjectPage() {
                   onClick={IS_NATIVE_APP ? () => openEditStudent(s) : undefined}
                   className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''} ${IS_NATIVE_APP ? 'cursor-pointer' : ''}`}
                 >
+                  {!IS_NATIVE_APP && (
+                    <div className="w-12 h-12 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
+                      {s.photoURL ? (
+                        <img src={s.photoURL} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-sm font-bold text-accent">{(s.nombre || '?').charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                  )}
                   {!IS_NATIVE_APP && (
                     <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
                   )}
@@ -5139,7 +5161,8 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">Editar estudiante</h3>
               <button type="button" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            {/* Foto de perfil del estudiante — solo lectura; la sube el propio estudiante desde su cuenta */}
+            {/* Foto de perfil del estudiante — la sube el propio estudiante desde su cuenta;
+                el docente solo puede eliminarla (por si sube algo inapropiado), no reemplazarla */}
             <div className="flex items-center gap-3 mb-4">
               <div className="w-16 h-16 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
                 {studentToEdit.photoURL ? (
@@ -5148,11 +5171,17 @@ export default function SubjectPage() {
                   <span className="text-xl font-bold text-accent">{(studentToEdit.nombre || '?').charAt(0).toUpperCase()}</span>
                 )}
               </div>
-              <p className="text-xs text-muted">
-                {studentToEdit.photoURL
-                  ? 'Foto de perfil que subió el estudiante.'
-                  : 'El estudiante aún no ha subido una foto de perfil.'}
-              </p>
+              {studentToEdit.photoURL ? (
+                <div className="flex flex-col items-start gap-1">
+                  <p className="text-xs text-muted">Foto de perfil que subió el estudiante.</p>
+                  <button type="button" onClick={handleDeleteStudentPhoto}
+                    className="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline">
+                    Eliminar foto
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted">El estudiante aún no ha subido una foto de perfil.</p>
+              )}
             </div>
             <form onSubmit={saveEditStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
