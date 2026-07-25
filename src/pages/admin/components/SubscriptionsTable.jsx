@@ -512,7 +512,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             ))}
           </colgroup>
           <thead>
-            <tr className="text-left text-[10px] uppercase">
+            <tr className="text-left text-[11.5px] tracking-wide uppercase">
               {COLS.map((col) => {
                 const { key, label, filtro, align, ayuda, wrap } = col
                 const filtrada = filtro && filtros[key] !== ''
@@ -520,12 +520,12 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <th
                     key={key}
                     className={`sticky top-0 z-10 relative px-3 py-2 align-top select-none transition-colors ${
-                      filtrada ? 'bg-accent-light text-accent' : 'bg-surface text-muted'
+                      filtrada ? 'bg-accent-light text-accent' : 'bg-surface text-accent'
                     }`}
                   >
                     <span
                       title={ayuda}
-                      className={`block ${wrap ? 'whitespace-normal leading-tight' : 'truncate'} ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
+                      className={`block font-semibold ${wrap ? 'whitespace-normal leading-tight' : 'truncate'} ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
                     >
                       {label}
                     </span>
