@@ -1,11 +1,17 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { doc, updateDoc } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { signOut } from 'firebase/auth'
+import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { GraduationCap } from 'lucide-react'
+import { useBackHandler } from '../../hooks/useBackHandler'
+
+// Ventana para el "presiona de nuevo" de abajo — la misma que usa
+// AndroidBackButton para salir de la app desde la pantalla raíz.
+const SALIR_PRESS_WINDOW_MS = 2000
 
 export default function Onboarding() {
   const { currentUser, setUserProfile } = useAuth()
@@ -17,6 +23,31 @@ export default function Onboarding() {
   const [apellidoMaterno, setApellidoMaterno] = useState('')
   const [nombre, setNombre] = useState('')
   const [saving, setSaving] = useState(false)
+  const ultimaSalidaRef = useRef(0)
+
+  // Botón físico de Android. Esta pantalla no tiene "atrás" posible: la ruta
+  // protegida rebota aquí mientras el perfil esté incompleto, y cerrar la app
+  // tampoco ayuda porque al reabrirla la sesión sigue viva y vuelve a caer
+  // aquí — sin ninguna salida a la vista. Así que atrás cierra la sesión y
+  // regresa al inicio; la cuenta YA está creada, al entrar de nuevo se retoma
+  // justo en este paso. Se pide dos veces para que un toque distraído no
+  // saque a nadie de su cuenta.
+  async function salirDelRegistro() {
+    const ahora = Date.now()
+    if (ahora - ultimaSalidaRef.current >= SALIR_PRESS_WINDOW_MS) {
+      ultimaSalidaRef.current = ahora
+      toast('Presiona de nuevo para salir de tu cuenta', 'warning')
+      return
+    }
+    try {
+      await signOut(auth)
+      navigate('/', { replace: true })
+      toast('Tu cuenta ya está creada — entra de nuevo cuando quieras terminar este paso')
+    } catch (err) {
+      toast('No se pudo cerrar la sesión: ' + err.message, 'error')
+    }
+  }
+  useBackHandler(salirDelRegistro)
 
   async function finish(e) {
     e.preventDefault()

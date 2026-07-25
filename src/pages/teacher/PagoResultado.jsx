@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 const VARIANTS = {
   success: {
@@ -31,6 +32,10 @@ export default function PagoResultado() {
   const status = params.get('status') || 'pending'
   const v = VARIANTS[status] || VARIANTS.pending
   const Icon = v.icon
+
+  // Botón físico de Android: lo mismo que "Ir a mi perfil" — esta pantalla es
+  // solo un acuse del pago, no debe atrapar a nadie.
+  useBackHandler(() => navigate('/profile', { replace: true }))
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface px-4">

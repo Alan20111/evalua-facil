@@ -15,6 +15,7 @@ import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 // Action-handler for Firebase's password-reset email links. actionCodeSettings.url
 // (set in Login.jsx) is used by Firebase's OWN hosted reset page as its "continue"
@@ -42,6 +43,11 @@ export default function ResetPassword() {
   // — detected from the account's sign-in methods before the new password
   // is set. Drives the stricter validation and the dual-access copy below.
   const [isGoogleLinking, setIsGoogleLinking] = useState(false)
+
+  // Botón físico de Android: sale al inicio de sesión, igual que los botones
+  // que ya ofrece la pantalla al terminar. Cambiar la contraseña siempre es
+  // opcional — sin esto, atrás solo servía para cerrar la app.
+  useBackHandler(() => navigate('/docente'))
 
   useEffect(() => {
     if (!oobCode) {
