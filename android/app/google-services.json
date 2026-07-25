@@ -14,6 +14,43 @@
       },
       "oauth_client": [
         {
+          "client_id": "398556067679-grcpiq2eaf4gs8dq5msvpgra1euetb4a.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.app",
+            "certificate_hash": "5018b34c5c375158d471d7f084d453b6f1eb14cf"
+          }
+        },
+        {
+          "client_id": "398556067679-aij5tsgoc9v3btjei2geset782r9qeec.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXMhPH2h5QsfreDD9WQ9l0-Y70r8y7XkI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "398556067679-aij5tsgoc9v3btjei2geset782r9qeec.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:398556067679:android:6f2ab07ce73c03720e68ea",
+        "android_client_info": {
+          "package_name": "mx.evaluafacil.app"
+        }
+      },
+      "oauth_client": [
+        {
           "client_id": "398556067679-aij5tsgoc9v3btjei2geset782r9qeec.apps.googleusercontent.com",
           "client_type": 3
         }
