@@ -139,6 +139,8 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
               style={{
                 width: dispW,
                 height: dispH,
+                maxWidth: 'none',
+                maxHeight: 'none',
                 left: '50%',
                 top: '50%',
                 transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)`,
