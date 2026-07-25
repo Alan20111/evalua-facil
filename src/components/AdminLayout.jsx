@@ -6,6 +6,7 @@ import {
   CreditCard,
   Receipt,
   Users,
+  GraduationCap,
   Wallet,
   LogOut,
   Menu,
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'pagos', label: 'Pagos', icon: Receipt },
   { id: 'cobros', label: 'Cobros', icon: Wallet },
   { id: 'usuarios', label: 'Usuarios', icon: Users },
+  { id: 'estudiantes', label: 'Estudiantes', icon: GraduationCap },
 ]
 
 // Los tonos guinda viven en [data-role='admin'] (src/index.css), no aquí: la
@@ -120,7 +122,13 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
 
           {/* Separador arrastrable — zona de agarre ancha (w-2.5) con una línea
               fina visible dentro, para que sea fácil de tomar sin que se vea
-              una franja gruesa. Doble clic o Inicio = ancho original. */}
+              una franja gruesa. Doble clic o Inicio = ancho original.
+              Es el patrón ARIA "window splitter": un separador ENFOCABLE con
+              aria-valuenow, que es justo lo que la especificación define para
+              un divisor redimensionable. jsx-a11y no contempla esa excepción
+              (para la regla, `separator` es siempre no interactivo), así que
+              se desactiva a propósito en vez de romper la semántica correcta. */}
+          {/* eslint-disable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
           <div
             role="separator"
             aria-orientation="vertical"
@@ -141,6 +149,7 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
               }`}
             />
           </div>
+          {/* eslint-enable jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex */}
         </aside>
 
         {mobileOpen && (

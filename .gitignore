@@ -38,3 +38,13 @@ dist-ssr
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# voice-pipeline.js output
+/output/
+
+# Avatar pose generation output (keep the folder, ignore generated images)
+Avatar/Output/*
+!Avatar/Output/.gitkeep
+
+# Tokens temporales de pruebas locales — nunca deben commitearse ni servirse
+public/zz-*.txt
