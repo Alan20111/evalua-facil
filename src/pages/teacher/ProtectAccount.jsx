@@ -7,6 +7,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
 import { ShieldCheck } from 'lucide-react'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 // Shown once right after a teacher's first Google sign-in (see App.jsx's
 // ProtectedTeacher gate, driven by utils/authLinking.needsPasswordSetup).
@@ -47,6 +48,11 @@ export default function ProtectAccount() {
     sessionStorage.setItem('protectAccountSkipped', '1')
     navigate('/dashboard')
   }
+
+  // Botón físico de Android: hace lo mismo que "Lo haré después" — poner
+  // contraseña es opcional, así que atrás no puede dejar al docente atorado
+  // aquí (la única salida era cerrar la app).
+  useBackHandler(handleSkip)
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">

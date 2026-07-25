@@ -11,6 +11,7 @@ import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 export default function Register() {
   const [email, setEmail] = useState('')
@@ -20,6 +21,11 @@ export default function Register() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const navigate = useNavigate()
   const toast = useToast()
+
+  // Botón físico de Android: hace lo mismo que el enlace "Iniciar sesión" de
+  // abajo. Sin esto, atrás caía en "presiona de nuevo para salir" y la única
+  // salida de la pantalla de registro era cerrar la app.
+  useBackHandler(() => navigate('/docente'))
 
   async function handleGoogleSignUp() {
     setGoogleLoading(true)

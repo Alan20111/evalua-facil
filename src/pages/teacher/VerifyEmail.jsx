@@ -5,12 +5,18 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import Spinner from '../../components/Spinner'
 import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { useBackHandler } from '../../hooks/useBackHandler'
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { currentUser, loading: authLoading, setUserProfile } = useAuth()
   const [status, setStatus] = useState('loading')
+
+  // Botón físico de Android: se llega aquí desde el enlace del correo, y si el
+  // token viene mal la pantalla se queda en el error sin salida. Atrás lleva al
+  // panel (o al inicio de sesión si no hay sesión abierta).
+  useBackHandler(() => navigate(currentUser ? '/dashboard' : '/docente', { replace: true }))
 
   useEffect(() => {
     if (authLoading) return
