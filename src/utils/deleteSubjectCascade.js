@@ -1,6 +1,8 @@
 import {
-  collection, query, where, getDocs, deleteDoc, doc, writeBatch,
+  collection, query, where, getDocs, doc,
 } from 'firebase/firestore'
+// Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
+import { deleteDoc, writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
 
 async function fetchSubmissionsForActivities(actIds) {

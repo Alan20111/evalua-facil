@@ -1,6 +1,8 @@
 import {
-  collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where, writeBatch,
+  collection, doc, getDocs, query, serverTimestamp, where,
 } from 'firebase/firestore'
+// Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
+import { deleteDoc, updateDoc, writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
 
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']

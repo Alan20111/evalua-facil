@@ -1,7 +1,9 @@
 import {
-  collection, query, where, getDocs, addDoc, doc, setDoc, writeBatch,
+  collection, query, where, getDocs, doc,
   serverTimestamp,
 } from 'firebase/firestore'
+// Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
+import { addDoc, setDoc, writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
 
 function generateAccessCode() {

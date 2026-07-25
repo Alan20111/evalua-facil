@@ -1,4 +1,6 @@
-import { collection, getDocs, query, where, writeBatch, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, query, where, doc, serverTimestamp } from 'firebase/firestore'
+// Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
+import { writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
 import { toDateStr, diaSemanaLunes } from './horarioBloques'
 import { buildAsuetoMap, esAsuetoPara } from './asuetos'

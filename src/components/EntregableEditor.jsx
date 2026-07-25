@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, serverTimestamp } from 'firebase/firestore'
+// Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
+import { addDoc, updateDoc } from '../utils/firestoreGuard'
 import { db } from '../firebase'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
