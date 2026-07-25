@@ -285,7 +285,7 @@ export default function StudentSubjectPage() {
             <span className="flex items-center gap-1.5 min-w-0">
               <span className="text-slate-500 text-sm font-medium truncate">{teacherName}</span>
               {teacherPhoto && (
-                <img src={teacherPhoto} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                <img src={teacherPhoto} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
               )}
             </span>
           )}
