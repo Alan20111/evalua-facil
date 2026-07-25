@@ -4537,6 +4537,9 @@ export default function SubjectPage() {
                 {!IS_NATIVE_APP && (
                   <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del estudiante</p>
                 )}
+                {IS_NATIVE_APP && (
+                  <p className="w-7 flex-shrink-0 text-[9px] font-semibold text-muted uppercase tracking-wide">No.</p>
+                )}
                 <p className={`font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'flex-1 text-[9px]' : 'flex-shrink-0 w-44 text-xs'}`}>Código</p>
                 <p className={`flex-shrink-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'w-14 text-[9px]' : 'w-24 text-xs'}`}>Estado</p>
                 {!IS_NATIVE_APP && <span className="w-9 flex-shrink-0" />}
@@ -4554,6 +4557,9 @@ export default function SubjectPage() {
                     <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
                       {studentFullName(s)}
                     </p>
+                  )}
+                  {IS_NATIVE_APP && (
+                    <span className="w-7 flex-shrink-0 text-[11px] text-accent font-semibold">{s.orden}</span>
                   )}
                   <span className={`font-mono text-accent font-semibold truncate ${IS_NATIVE_APP ? 'flex-1 text-[10px]' : 'flex-shrink-0 w-44 text-xs'}`}>{s.username}</span>
                   <span className={`flex-shrink-0 flex items-center ${IS_NATIVE_APP ? 'w-14' : 'w-24'}`}>
