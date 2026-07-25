@@ -5,6 +5,7 @@ import { formatDate, toDate } from '../../../utils/subscriptionHelpers'
 import { formatHora12FromDate } from '../../../utils/formatHora'
 import { studentFullName } from '../../../utils/studentSearch'
 import { subjectDisplayName } from '../../../utils/subjectName'
+import { normalizeName } from '../../../utils/schoolSelection'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 
 // Cuántas filas se pintan de golpe. El padrón crece sin techo (un registro por
@@ -24,7 +25,7 @@ const ALTO_TABLA = 'calc(100vh - 290px)'
 // La tabla NO se puede reordenar: va siempre del alta más nueva a la más
 // antigua. Antes había un control de orden y se quitó por pedido explícito.
 const COLS = [
-  { key: 'num', label: 'Hallazgos', w: 100, align: 'right' },
+  { key: 'num', label: 'Resultado del filtro', w: 145, align: 'right', wrap: true },
   { key: 'nombre', label: 'Nombre', w: 200 },
   { key: 'codigo', label: 'Código', w: 110 },
   { key: 'escuela', label: 'Escuela', filtro: 'texto', w: 150 },
@@ -51,7 +52,7 @@ const SIN_FILTROS = Object.fromEntries(CAMPOS_FILTRO.map((k) => [k, '']))
 
 // v5: se fue la columna "Hora de alta" (ahora la hora va junto a la fecha) y
 // llegó "Fecha activado". Clave nueva para no arrastrar proporciones viejas.
-const WIDTHS_KEY = 'admin-estudiantes-cols-v5'
+const WIDTHS_KEY = 'admin-estudiantes-cols-v6'
 
 // "12 jul 2026, 6:53 pm" — fecha y hora en una sola celda.
 function fechaYHora(valor) {
@@ -73,16 +74,18 @@ const isoLocal = (d) =>
 // para calcular qué valores sugerir en ESA columna sin que su propio texto a
 // medio escribir recorte la lista.
 function pasaFiltros(r, filtros, search, excepto) {
-  const t = (k) => (k === excepto ? '' : filtros[k].trim().toLowerCase())
-  // Coincidencia por texto contenido y sin distinguir mayúsculas: escribir
-  // "cultura" alcanza a la vez "Cultura digital" y "Cultura Digital".
-  if (t('escuela') && !r.escuela.toLowerCase().includes(t('escuela'))) return false
-  if (t('profesor') && !r.profesor.toLowerCase().includes(t('profesor'))) return false
-  if (t('asignatura') && !r.asignatura.toLowerCase().includes(t('asignatura'))) return false
+  // Todo se compara normalizado (sin acentos, sin mayúsculas, sin espacios de
+  // más) con `normalizeName`, la misma regla que usa el buscador de escuelas.
+  // Así "muñoz" encuentra a MUÑOZ, "jimenez" a Jiménez y "MARTINEZ" a
+  // Martínez — el padrón mezcla nombres capturados con y sin acento.
+  const t = (k) => (k === excepto ? '' : normalizeName(filtros[k]))
+  if (t('escuela') && !r.buscarEscuela.includes(t('escuela'))) return false
+  if (t('profesor') && !r.buscarProfesor.includes(t('profesor'))) return false
+  if (t('asignatura') && !r.buscarAsignatura.includes(t('asignatura'))) return false
   if (excepto !== 'alta' && filtros.alta && r.altaISO !== filtros.alta) return false
   if (excepto !== 'activado' && filtros.activado && r.activado !== (filtros.activado === 'si')) return false
-  const q = search.trim().toLowerCase()
-  if (q && ![r.nombre, r.codigo].some((v) => v.toLowerCase().includes(q))) return false
+  const q = normalizeName(search)
+  if (q && ![r.buscarNombre, r.buscarCodigo].some((v) => v.includes(q))) return false
   return true
 }
 
@@ -182,13 +185,26 @@ export default function StudentsTable({ stats }) {
       const teacher = teachersMap[docenteId]
       const school = schoolsMap[s.escuelaId]
       const fecha = toDate(s.createdAt)
+      const nombre = studentFullName(s) || '—'
+      const codigo = s.username || '—'
+      const escuela = school?.shortName || school?.nombre || school?.claveSEP || '—'
+      const profesor = teacherName(teacher) || '—'
+      const asignatura = subjectDisplayName(subject) || '—'
       return {
         id: s.id,
-        nombre: studentFullName(s) || '—',
-        codigo: s.username || '—',
-        escuela: school?.shortName || school?.nombre || school?.claveSEP || '—',
-        profesor: teacherName(teacher) || '—',
-        asignatura: subjectDisplayName(subject) || '—',
+        nombre,
+        codigo,
+        escuela,
+        profesor,
+        asignatura,
+        // Copias normalizadas (sin acentos ni mayúsculas) calculadas UNA vez
+        // por fila: si se normalizara dentro del filtro, se reharía el trabajo
+        // sobre las 117+ filas en cada tecla que se escribe.
+        buscarNombre: normalizeName(nombre),
+        buscarCodigo: normalizeName(codigo),
+        buscarEscuela: normalizeName(escuela),
+        buscarProfesor: normalizeName(profesor),
+        buscarAsignatura: normalizeName(asignatura),
         alta: fechaYHora(s.createdAt),
         altaISO: fecha ? isoLocal(fecha) : '',
         altaMs: fecha ? fecha.getTime() : 0,
@@ -292,7 +308,7 @@ export default function StudentsTable({ stats }) {
           <thead>
             <tr className="text-left text-xs uppercase">
               {COLS.map((col) => {
-                const { key, label, filtro, align, ayuda } = col
+                const { key, label, filtro, align, ayuda, wrap } = col
                 const filtrada = filtro && filtros[key] !== ''
                 return (
                   <th
@@ -303,7 +319,7 @@ export default function StudentsTable({ stats }) {
                   >
                     <span
                       title={ayuda}
-                      className={`block truncate ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
+                      className={`block ${wrap ? 'whitespace-normal leading-tight' : 'truncate'} ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
                     >
                       {label}
                     </span>
