@@ -4450,8 +4450,9 @@ export default function SubjectPage() {
               <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante se active, según lo que tengas activado en Notificaciones</span>
             </label>
           </div>
+          </>}
 
-          {/* Ordenar alfabéticamente */}
+          {/* Ordenar alfabéticamente — visible en web y App */}
           <div className="flex justify-end pt-1">
             <button
               type="button"
@@ -4464,9 +4465,8 @@ export default function SubjectPage() {
               Ordenar alfabéticamente
             </button>
           </div>
-          </>}
 
-          {/* 3 — Buscar alumno + agregar manualmente (agregar oculto en la App) */}
+          {/* 3 — Buscar alumno + agregar manualmente */}
           {/* overflow-hidden en la fila: min-w-0 (abajo) ya corrige el ancho
               VISUAL, pero el navegador seguía reportando un scrollWidth
               "fantasma" mayor al contenido realmente visible (quirk conocido
@@ -4485,17 +4485,20 @@ export default function SubjectPage() {
                 autoFocus
               />
             </div>
-            {!IS_NATIVE_APP && (
-              <button type="button"
-                onClick={() => setShowAddStudent(true)}
-                aria-label="Agregar nuevo estudiante"
-                data-tooltip="Agregar nuevo estudiante"
-                className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
-              >
-                <UserPlus size={20} />
-              </button>
-            )}
+            <button type="button"
+              onClick={() => setShowAddStudent(true)}
+              aria-label="Agregar nuevo estudiante"
+              data-tooltip="Agregar nuevo estudiante"
+              className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
+            >
+              <UserPlus size={20} />
+            </button>
           </div>
+          {/* En la App no hay botón de editar por renglón — se toca el
+              renglón completo (ver más abajo), así que se avisa aquí. */}
+          {IS_NATIVE_APP && (
+            <p className="text-xs text-muted text-center">Presiona para editar</p>
+          )}
 
           {/* Student list */}
           {!groupStudentsLoaded ? (
@@ -4511,12 +4514,13 @@ export default function SubjectPage() {
                 <p className={`flex-1 min-w-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'text-[9px]' : 'text-xs'}`}>Nombre del estudiante</p>
                 <p className={`flex-shrink-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'w-20 text-[9px]' : 'w-44 text-xs'}`}>Código</p>
                 <p className={`flex-shrink-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'w-14 text-[9px]' : 'w-24 text-xs'}`}>Estado</p>
-                <span className="w-9 flex-shrink-0" />
+                {!IS_NATIVE_APP && <span className="w-9 flex-shrink-0" />}
               </div>
               {filteredAlumnos.map((s, i) => (
                 <div
                   key={s.id}
-                  className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                  onClick={IS_NATIVE_APP ? () => openEditStudent(s) : undefined}
+                  className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''} ${IS_NATIVE_APP ? 'cursor-pointer' : ''}`}
                 >
                   <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
                   <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
@@ -4530,14 +4534,16 @@ export default function SubjectPage() {
                       <span className={`leading-none bg-amber-100 text-amber-700 rounded-full ${IS_NATIVE_APP ? 'text-[9px] px-1 py-0.5' : 'text-[11px] px-1.5 py-0.5'}`}>sin activar</span>
                     )}
                   </span>
-                  <button type="button"
-                    onClick={() => openEditStudent(s)}
-                    className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
-                    aria-label="Editar estudiante"
-                    data-tooltip="Editar estudiante"
-                  >
-                    <Pencil size={16} />
-                  </button>
+                  {!IS_NATIVE_APP && (
+                    <button type="button"
+                      onClick={() => openEditStudent(s)}
+                      className="w-9 flex-shrink-0 p-1 flex items-center justify-center text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
+                      aria-label="Editar estudiante"
+                      data-tooltip="Editar estudiante"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
