@@ -306,7 +306,9 @@ export default function StudentsTable({ stats }) {
             ))}
           </colgroup>
           <thead>
-            <tr className="text-left text-xs uppercase">
+            {/* text-[10px] solo afecta al NOMBRE de la columna: las cajas de
+                filtro fijan su propio tamaño más abajo. */}
+            <tr className="text-left text-[10px] uppercase">
               {COLS.map((col) => {
                 const { key, label, filtro, align, ayuda, wrap } = col
                 const filtrada = filtro && filtros[key] !== ''
