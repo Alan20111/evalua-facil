@@ -3301,7 +3301,7 @@ export default function SubjectPage() {
               escritorio, donde sí caben cómodas. */}
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded overflow-x-auto">
             {(IS_NATIVE_APP
-              ? ['actividades', 'asistencia', 'recursos']
+              ? ['actividades', 'asistencia', 'alumnos', 'recursos']
               : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos']
             ).map((t) => (
               <button type="button" key={t} onClick={() => switchTab(t)}
@@ -3313,12 +3313,13 @@ export default function SubjectPage() {
             ))}
           </div>
           {/* Aviso simple y permanente (no solo cuando no hay estudiantes,
-              ver arriba) de por qué Calificaciones/Estudiantes no aparecen
-              en la App — pedido explícito: son áreas complejas para usar en
-              móvil, mejor decirlo claro que dejarlas sin explicación. */}
+              ver arriba) de por qué Calificaciones no aparece en la App —
+              pedido explícito: es un área compleja para usar en móvil,
+              mejor decirlo claro que dejarla sin explicación. Estudiantes sí
+              aparece en la App, pero en versión simplificada (ver abajo). */}
           {IS_NATIVE_APP && (
             <p className="text-[11px] text-muted mt-1.5 text-center">
-              Para ver Calificaciones o administrar Estudiantes, usa la web.
+              Para ver Calificaciones, usa la web.
             </p>
           )}
         </div>
@@ -4377,6 +4378,12 @@ export default function SubjectPage() {
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'alumnos' && (
         <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
+          {/* En la App esta pestaña se simplifica a propósito (pedido
+              explícito): solo buscar y ver/editar — sin plantilla de Excel,
+              sin PDF de códigos, sin el interruptor de notificación, y sin
+              poder agregar un estudiante nuevo. Todo eso sigue disponible en
+              la web. */}
+          {!IS_NATIVE_APP && <>
           {/* Agregar alumnos — compact 3-step strip: template → upload → activation codes.
               Each step shows just a number + icon + short label; the full instructions
               live in the title tooltip instead of wrapping across two lines like before. */}
@@ -4457,8 +4464,9 @@ export default function SubjectPage() {
               Ordenar alfabéticamente
             </button>
           </div>
+          </>}
 
-          {/* 3 — Buscar alumno + agregar manualmente */}
+          {/* 3 — Buscar alumno + agregar manualmente (agregar oculto en la App) */}
           {/* overflow-hidden en la fila: min-w-0 (abajo) ya corrige el ancho
               VISUAL, pero el navegador seguía reportando un scrollWidth
               "fantasma" mayor al contenido realmente visible (quirk conocido
@@ -4477,14 +4485,16 @@ export default function SubjectPage() {
                 autoFocus
               />
             </div>
-            <button type="button"
-              onClick={() => setShowAddStudent(true)}
-              aria-label="Agregar nuevo estudiante"
-              data-tooltip="Agregar nuevo estudiante"
-              className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
-            >
-              <UserPlus size={20} />
-            </button>
+            {!IS_NATIVE_APP && (
+              <button type="button"
+                onClick={() => setShowAddStudent(true)}
+                aria-label="Agregar nuevo estudiante"
+                data-tooltip="Agregar nuevo estudiante"
+                className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
+              >
+                <UserPlus size={20} />
+              </button>
+            )}
           </div>
 
           {/* Student list */}
