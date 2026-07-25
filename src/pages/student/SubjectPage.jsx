@@ -78,7 +78,7 @@ function formatResourceDate(ts) {
   return ts.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const TABS = ['Actividades', 'Calificaciones', 'Asistencias', 'Recursos']
+const TABS = ['Actividades y calificaciones', 'Asistencias', 'Recursos']
 
 const DIAS_SEMANA = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
@@ -130,7 +130,7 @@ export default function StudentSubjectPage() {
   const [teacherName, setTeacherName] = useState('')
   const [teacherPhoto, setTeacherPhoto] = useState(null)
   const [openParcial, setOpenParcial] = useState(1)
-  const [activeTab, setActiveTab] = useState('Actividades')
+  const [activeTab, setActiveTab] = useState('Actividades y calificaciones')
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
   const toast = useToast()
@@ -310,8 +310,8 @@ export default function StudentSubjectPage() {
         ))}
       </div>
 
-      {/* Tab: Actividades */}
-      {activeTab === 'Actividades' && (
+      {/* Tab: Actividades y calificaciones */}
+      {activeTab === 'Actividades y calificaciones' && (
         <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
           {PARCIALES.length === 0 && (
             <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
@@ -443,101 +443,6 @@ export default function StudentSubjectPage() {
                       </div>
                     ))}
                     </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Tab: Calificaciones */}
-      {activeTab === 'Calificaciones' && (
-        <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
-          {PARCIALES.length === 0 && (
-            <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
-              <p className="text-muted text-sm">El docente aún no ha publicado calificaciones.</p>
-            </div>
-          )}
-          {PARCIALES.map((p) => {
-            const acts = activities.filter((a) => a.parcial === p)
-            const avg = calcParcialAvg(p)
-            return (
-              <div key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
-                {/* Parcial header with average */}
-                <div className="px-4 py-3 flex items-center gap-3 border-b border-outline-variant">
-                  <div className="w-9 h-9 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-                    <span className="text-accent font-bold text-sm">{p}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-on-surface">Parcial {p}</p>
-                    <p className="text-xs text-slate-500">{acts.length} actividad{acts.length !== 1 ? 'es' : ''}</p>
-                  </div>
-                  {avg != null ? (
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-2xl font-bold text-accent leading-none">{avg}</p>
-                      <p className="text-xs text-slate-400">promedio</p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-400 flex-shrink-0">Sin calificar</p>
-                  )}
-                </div>
-
-                {/* Activity grades list — mismo lenguaje visual que Actividades
-                    (ícono por tipo, tarjeta con borde, insignia en píldora, Y
-                    la misma raya azul indentada a la izquierda): antes esta
-                    pestaña usaba íconos de estado genéricos y texto plano, y
-                    se veía como una pantalla distinta. */}
-                {acts.length === 0 ? (
-                  <p className="text-slate-400 text-sm text-center py-4">Sin actividades</p>
-                ) : (
-                  <div className="border-t border-outline-variant pr-4 py-2">
-                  <div className="ml-3 pl-3 border-l-2 border-accent space-y-1.5">
-                    {acts.map((a) => {
-                      const sub = submissions[a.id]
-                      const graded = sub?.calificacion != null
-                      const delivered = sub && !graded
-                      const overdue = !graded && !delivered && isOverdue(a)
-                      // Mismo ícono por tipo que Actividades y que la lista del docente.
-                      const ActIcon = a.categoria === 'examen' ? GraduationCap
-                        : a.categoria === 'cuestionario' ? ListChecks
-                        : a.categoria === 'observacion' ? ClipboardCheck
-                        : FileText
-                      return (
-                        <button
-                          type="button"
-                          key={a.id}
-                          onClick={() => navigate(`/alumno/actividad/${a.id}`)}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded border border-outline-variant bg-surface-card hover:border-accent hover:bg-[var(--accent-tint)] transition-colors duration-200 text-left"
-                        >
-                          <ActIcon size={20} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-slate-400'}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium leading-tight text-on-surface truncate">
-                              {activityLabels[a.id] && <span className="text-accent font-semibold">{activityLabels[a.id]} </span>}
-                              {a.nombre}
-                              <span className="text-xs font-normal text-slate-400"> ({CATEGORIA_LABELS[a.categoria] || 'Entregable'})</span>
-                            </p>
-                          </div>
-                          <div className="flex-shrink-0 text-right">
-                            {graded ? (
-                              <div>
-                                <p className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
-                                  <Star size={13} /> {sub.calificacion}
-                                </p>
-                                <p className="text-xs text-slate-500">/{a.maxCalif}</p>
-                              </div>
-                            ) : delivered ? (
-                              <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregada</span>
-                            ) : overdue ? (
-                              <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">Vencida</span>
-                            ) : (
-                              <span className="text-xs bg-surface-container text-muted px-2 py-1 rounded-full">Pendiente</span>
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
                   </div>
                 )}
               </div>
