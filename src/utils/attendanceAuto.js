@@ -18,16 +18,12 @@ export function parcialForDate(parcialesFechas, fecha) {
   return null
 }
 
-// Crea automáticamente los días de asistencia que falten para las fechas en
-// que la asignatura YA tiene clase programada (colección `horarioBloques`,
-// generada desde Calendario), asignando el parcial según `parcialesFechas`.
-// Todos los alumnos quedan presentes por defecto — el docente solo corrige
-// las faltas, igual que con un día agregado a mano. No toca fechas que
-// caigan fuera de todos los parciales (curso sin fechas configuradas aún, o
-// bloque fuera de rango).
-export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFechas, existingFechas, excludedFechas, studentIds }) {
-  if (!parcialesFechas?.length || !studentIds?.length) return { created: 0, diasSemana: new Set(), missing: [] }
-
+// Consulta horarioBloques UNA vez — separada de syncAutoAttendanceDays para
+// poder correrla en PARALELO con ensureGroupStudents/loadAttendanceRecords
+// en vez de en secuencia (antes: 5-6 lecturas de Firestore una tras otra en
+// cada apertura de la pestaña Asistencias, cada una pagando su propio
+// round-trip — la causa real de la lentitud, no el volumen de datos).
+export async function fetchClaseDiasSemana({ subjectId, docenteId }) {
   // Filtra también por docenteId (no solo asignaturaId) porque la regla de
   // Firestore de horarioBloques exige resource.data.docenteId == auth.uid —
   // mismo patrón que ya usa CalendarPage.jsx. Doble igualdad, sin índice
@@ -45,6 +41,23 @@ export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFe
     porFecha[b.fecha] = (porFecha[b.fecha] || 0) + 1
     if (typeof b.diaSemana === 'number') diasSemana.add(b.diaSemana)
   })
+  return { porFecha, diasSemana }
+}
+
+// Crea automáticamente los días de asistencia que falten para las fechas en
+// que la asignatura YA tiene clase programada (`porFecha`, de
+// fetchClaseDiasSemana), asignando el parcial según `parcialesFechas`. Todos
+// los alumnos quedan presentes por defecto — el docente solo corrige las
+// faltas, igual que con un día agregado a mano. No toca fechas que caigan
+// fuera de todos los parciales (curso sin fechas configuradas aún, o bloque
+// fuera de rango).
+//
+// Devuelve los registros recién creados (`nuevos`) para que el llamador los
+// agregue en memoria en vez de volver a descargar TODA la asistencia de la
+// asignatura — antes, cada vez que se creaba algo, se repetía la consulta
+// completa de attendance por segunda vez.
+export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFechas, existingFechas, excludedFechas, studentIds, porFecha }) {
+  if (!parcialesFechas?.length || !studentIds?.length || !porFecha) return { created: 0, missing: [], nuevos: [] }
 
   const existing = new Set(existingFechas)
   // Fechas que el docente borró a propósito — no se regeneran solas, pero se
@@ -61,22 +74,27 @@ export async function syncAutoAttendanceDays({ subjectId, docenteId, parcialesFe
     for (let slot = 1; slot <= porFecha[fecha]; slot++) writes.push({ fecha, slot, parcial })
   })
 
+  const nuevos = []
   for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
     const batch = writeBatch(db)
     writes.slice(i, i + BATCH_LIMIT).forEach(({ fecha, slot, parcial }) => {
       const ref = doc(collection(db, 'attendance'))
-      batch.set(ref, { asignaturaId: subjectId, docenteId, fecha, slot, parcial, presentes, createdAt: serverTimestamp() })
+      const data = { asignaturaId: subjectId, docenteId, fecha, slot, parcial, presentes, createdAt: serverTimestamp() }
+      batch.set(ref, data)
+      // createdAt local queda null (aún no resuelto por el servidor) — nada
+      // en la UI de asistencias depende de esa marca de tiempo para pintar.
+      nuevos.push({ id: ref.id, ...data, createdAt: null })
     })
     await batch.commit()
   }
 
   missing.sort((a, b) => a.fecha.localeCompare(b.fecha))
-  return { created: writes.length, diasSemana, missing }
+  return { created: writes.length, missing, nuevos }
 }
 
 // Días dentro de [fechaInicio, fechaFin] en los que, por caer en el mismo día
 // de la semana que las clases de esta asignatura (`diasSemana`, de
-// syncAutoAttendanceDays), NO hay bloque porque el docente marcó asueto o
+// fetchClaseDiasSemana), NO hay bloque porque el docente marcó asueto o
 // periodo vacacional — para mostrarlos en el área de asistencias en vez de
 // que simplemente "falten" sin explicación.
 export async function loadAsuetoVacacionDiasClase({ docenteId, fechaInicio, fechaFin, diasSemana }) {
