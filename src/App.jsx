@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'rea
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './components/Toast'
 import AndroidBackButton from './components/AndroidBackButton'
+import EscKeyHandler from './components/EscKeyHandler'
 import PwaInstallPrompt from './components/PwaInstallPrompt'
 import { needsPasswordSetup } from './utils/authLinking'
 import { installDraggableOverlays } from './utils/draggableOverlays'
@@ -158,6 +159,7 @@ export default function App() {
         <ToastProvider>
           <RoleWrapper>
           <AndroidBackButton />
+          <EscKeyHandler />
           <Routes>
             {/* Public */}
             <Route path="/" element={<RootRedirect guest={<Landing />} />} />
