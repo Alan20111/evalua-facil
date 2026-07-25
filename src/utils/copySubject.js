@@ -1,5 +1,5 @@
 import {
-  collection, query, where, getDocs, addDoc, doc, writeBatch,
+  collection, query, where, getDocs, addDoc, doc, setDoc, writeBatch,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -11,6 +11,8 @@ function generateAccessCode() {
 // Copies a subject with its activities to a new document.
 // If keepStudents=true, copies student list with new activation state.
 // Activities are copied as visible (oculta:false), without submissions/grades.
+// Evaluaciones (examen/cuestionario) carry their `evaluacion` config and their
+// `preguntas` subcollection too — sin eso la copia queda como examen vacío.
 // Returns the new subject's Firestore ID.
 export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaInicio = '', fechaFin = '', parciales, colorPalette = 'default', icon = 'book', keepStudents, docenteId, escuelaId }) {
   // 1. Create new subject doc
@@ -65,7 +67,8 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
   for (const a of sourceActs) {
     const ref = doc(collection(db, 'activities'))
     ordenPorParcial[a.parcial] = (ordenPorParcial[a.parcial] || 0) + 1
-    batch.set(ref, {
+    const esEvaluacion = a.tipo === 'evaluacion'
+    const data = {
       nombre: a.nombre,
       categoria: a.categoria || 'actividad',
       maxCalif: a.maxCalif,
@@ -75,6 +78,14 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       tiposArchivo: a.tiposArchivo || 'imagenes',
       extensionesCustom: a.extensionesCustom || '',
       tipo: a.tipo || 'archivo',
+      // Un examen/cuestionario SIN su config ni su banco de preguntas llega al
+      // grupo nuevo como una evaluación vacía (0 preguntas, sin tiempo límite ni
+      // reglas de intentos). `resultadosPublicados`/`respuestasPublicadas` son
+      // estado del ciclo anterior, no configuración: se reinician para que el
+      // grupo nuevo no vea calificaciones ni respuestas correctas de entrada.
+      ...(a.evaluacion ? {
+        evaluacion: { ...a.evaluacion, resultadosPublicados: false, respuestasPublicadas: false },
+      } : {}),
       parcial: a.parcial,
       orden: ordenPorParcial[a.parcial],
       asignaturaId: newSubjectId,
@@ -82,9 +93,28 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       oculta: false,
       publishAt: null,
       createdAt: serverTimestamp(),
-    })
-    ops++
-    if (ops >= LIMIT) await flush()
+    }
+
+    if (!esEvaluacion) {
+      batch.set(ref, data)
+      ops++
+      if (ops >= LIMIT) await flush()
+      continue
+    }
+
+    // Evaluaciones: la actividad padre se crea y se CONFIRMA antes de escribir
+    // sus `preguntas` — la regla de seguridad de la subcolección hace un get()
+    // del activity padre, y una escritura del mismo batch todavía no es visible
+    // para ese get(). Mismo orden que importActivitiesToSubject.
+    await setDoc(ref, data)
+    const preSnap = await getDocs(collection(db, 'activities', a.id, 'preguntas'))
+    if (!preSnap.empty) {
+      const preBatch = writeBatch(db)
+      preSnap.docs.forEach((pd) => {
+        preBatch.set(doc(collection(db, 'activities', ref.id, 'preguntas')), { ...pd.data() })
+      })
+      await preBatch.commit()
+    }
   }
 
   // 4. Optionally copy students. Duplicating a subject = the SAME people in a new subject,
