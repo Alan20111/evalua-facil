@@ -1,4 +1,4 @@
-package com.example.app;
+package mx.evaluafacil.app;
 
 import android.os.Bundle;
 import android.view.OrientationEventListener;
