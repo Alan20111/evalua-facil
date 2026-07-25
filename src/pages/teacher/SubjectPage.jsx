@@ -4508,9 +4508,9 @@ export default function SubjectPage() {
             <div className="bg-surface-card rounded-card overflow-y-auto max-h-[65vh] shadow-card">
               <div className="sticky top-0 z-10 flex items-center gap-2 px-3 py-1.5 bg-surface-container">
                 <span className="w-5 flex-shrink-0" />
-                <p className="flex-1 min-w-0 text-xs font-semibold text-muted uppercase tracking-wide">Nombre del estudiante</p>
-                <p className="w-44 flex-shrink-0 text-xs font-semibold text-muted uppercase tracking-wide">Código</p>
-                <p className="w-24 flex-shrink-0 text-xs font-semibold text-muted uppercase tracking-wide">Estado</p>
+                <p className={`flex-1 min-w-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'text-[9px]' : 'text-xs'}`}>Nombre del estudiante</p>
+                <p className={`flex-shrink-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'w-20 text-[9px]' : 'w-44 text-xs'}`}>Código</p>
+                <p className={`flex-shrink-0 font-semibold text-muted uppercase tracking-wide ${IS_NATIVE_APP ? 'w-14 text-[9px]' : 'w-24 text-xs'}`}>Estado</p>
                 <span className="w-9 flex-shrink-0" />
               </div>
               {filteredAlumnos.map((s, i) => (
@@ -4522,12 +4522,12 @@ export default function SubjectPage() {
                   <p className="flex-1 min-w-0 text-sm font-medium text-on-surface truncate">
                     {studentFullName(s)}
                   </p>
-                  <span className="w-44 flex-shrink-0 text-xs font-mono text-accent font-semibold truncate">{s.username}</span>
-                  <span className="w-24 flex-shrink-0 flex items-center">
+                  <span className={`flex-shrink-0 font-mono text-accent font-semibold truncate ${IS_NATIVE_APP ? 'w-20 text-[10px]' : 'w-44 text-xs'}`}>{s.username}</span>
+                  <span className={`flex-shrink-0 flex items-center ${IS_NATIVE_APP ? 'w-14' : 'w-24'}`}>
                     {s.activado ? (
-                      <span className="text-[11px] leading-none bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">activo</span>
+                      <span className={`leading-none bg-emerald-100 text-emerald-700 rounded-full ${IS_NATIVE_APP ? 'text-[9px] px-1 py-0.5' : 'text-[11px] px-1.5 py-0.5'}`}>activo</span>
                     ) : (
-                      <span className="text-[11px] leading-none bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">sin activar</span>
+                      <span className={`leading-none bg-amber-100 text-amber-700 rounded-full ${IS_NATIVE_APP ? 'text-[9px] px-1 py-0.5' : 'text-[11px] px-1.5 py-0.5'}`}>sin activar</span>
                     )}
                   </span>
                   <button type="button"
