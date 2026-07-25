@@ -161,7 +161,11 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
           />
         )}
 
-        <main className="flex-1 min-w-0 min-h-screen p-4 md:p-5 lg:p-8 max-w-7xl">{children}</main>
+        {/* Sin tope de ancho: el panel admin es un tablero de datos (tablas
+            largas y anchas), no texto de lectura. Con `max-w-7xl` el contenido
+            se cortaba en 1280 px y en un monitor ancho quedaba media pantalla
+            desaprovechada a la derecha. */}
+        <main className="flex-1 min-w-0 min-h-screen p-4 md:p-5 lg:p-8">{children}</main>
       </div>
     </div>
   )
