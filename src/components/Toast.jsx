@@ -1,4 +1,4 @@
-import { useState, useCallback, createContext, useContext } from 'react'
+import { useState, useCallback, useRef, createContext, useContext } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, X } from 'lucide-react'
 import { playAlertSound } from '../utils/notify'
 
@@ -12,9 +12,15 @@ const STYLES = {
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
+  // Contador propio en vez de Date.now(): dos avisos disparados en el mismo
+  // milisegundo (p. ej. "Cambios guardados" + "avisa a tus estudiantes" al
+  // guardar una evaluación ya publicada) compartían id — React se quejaba de
+  // la key repetida y el primer temporizador borraba los dos, así que el
+  // segundo aviso desaparecía antes de leerse.
+  const nextId = useRef(0)
 
   const show = useCallback((msg, type = 'success') => {
-    const id = Date.now()
+    const id = ++nextId.current
     setToasts((t) => [...t, { id, msg, type }])
     // Errors and warnings also SOUND — the visual alone is easy to miss
     if (type === 'error' || type === 'warning') playAlertSound()

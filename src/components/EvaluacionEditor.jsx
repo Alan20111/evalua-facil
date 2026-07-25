@@ -144,6 +144,8 @@ export default function EvaluacionEditor({
   const preguntaEditSnap = useRef(null)
   // Config baseline — the save button only lights up when something changed
   const configSnap = useRef(JSON.stringify(EVALUACION_DEFAULTS[categoria] || EVALUACION_DEFAULTS.cuestionario))
+  // Baseline de los reactivos, tomada al cargarlos (ver loadPreguntas)
+  const preguntasSnap = useRef(null)
   const [editingBancoId, setEditingBancoId] = useState(null)
   const [bancoEditForm, setBancoEditForm] = useState(null)
 
@@ -197,7 +199,12 @@ export default function EvaluacionEditor({
     setLoadingPreguntas(true)
     try {
       const snap = await getDocs(collection(db, 'activities', aId, 'preguntas'))
-      setPreguntas(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)))
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      setPreguntas(list)
+      // Punto de partida para saber si el docente tocó los reactivos (ver
+      // `preguntasTocadas` abajo). Se toma aquí, con la lista recién cargada,
+      // así que al abrir el editor siempre arranca "sin tocar".
+      preguntasSnap.current = JSON.stringify(list)
     } catch (err) {
       toast('Error al cargar preguntas: ' + err.message, 'error')
     } finally {
@@ -619,6 +626,16 @@ export default function EvaluacionEditor({
       attachExisting.length !== loadedAttachCount.current
     ))
 
+  // Cada reactivo es su propio documento y se guarda solo (agregar, editar,
+  // borrar, reordenar, traer del banco…), pero eso no se ve en pantalla: si
+  // después de trabajar en las preguntas el botón grande sigue apagado, la
+  // sensación es que nada se guardó. Con esto se enciende en cuanto la lista
+  // cambia — presionarlo confirma y regresa a la asignatura. Se compara
+  // contra la lista tal como se cargó, así que basta con deshacer un cambio
+  // para que vuelva a apagarse.
+  const preguntasTocadas = preguntasSnap.current !== null
+    && JSON.stringify(preguntas) !== preguntasSnap.current
+
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto">
       {/* ── Header ── */}
@@ -799,13 +816,13 @@ export default function EvaluacionEditor({
           {wasDraft && infoForm.visibilidadMode === 'hide' ? (
             // Draft with "Borrador" selected: save-and-keep-editing or save-and-exit
             <>
-              <button type="button" disabled={savingInfo || !isDirty}
+              <button type="button" disabled={savingInfo || (!isDirty && !preguntasTocadas)}
                 onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, false)}
                 className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
                 {savingInfo ? <Spinner size="sm" /> : null}
                 {savingInfo ? 'Guardando…' : 'Guardar borrador y seguir editando'}
               </button>
-              <button type="button" disabled={savingInfo || !isDirty}
+              <button type="button" disabled={savingInfo || (!isDirty && !preguntasTocadas)}
                 onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, true)}
                 className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                 Guardar borrador y salir
@@ -813,7 +830,7 @@ export default function EvaluacionEditor({
             </>
           ) : (
             <>
-              <button type="button" disabled={savingInfo || (!wasDraft && !isNew && !isDirty)}
+              <button type="button" disabled={savingInfo || (!wasDraft && !isNew && !isDirty && !preguntasTocadas)}
                 onClick={() => handleSaveInfo({ preventDefault: () => {} })}
                 className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
                 {savingInfo ? <Spinner size="sm" /> : null}
@@ -828,10 +845,18 @@ export default function EvaluacionEditor({
               )}
             </>
           )}
+          {/* Aclaración corta, solo cuando el botón se encendió por las
+              preguntas: lo que se trabajó ya está a salvo, el botón solo
+              cierra el ciclo. */}
+          {preguntasTocadas && !isDirty && !savingInfo && (
+            <p className="text-xs text-muted text-center px-2">
+              Tus preguntas ya quedaron guardadas — el botón te regresa a la asignatura.
+            </p>
+          )}
           {!isNew && (
             // With no changes, exiting is the natural action — it takes the primary style
             <button type="button" onClick={onClose} disabled={savingInfo}
-              className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && (!wasDraft || infoForm.visibilidadMode === 'hide'))
+              className={`w-full py-2.5 font-medium rounded-card transition-colors disabled:opacity-60 ${(!isDirty && !preguntasTocadas && (!wasDraft || infoForm.visibilidadMode === 'hide'))
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
               {isDirty ? 'Salir sin guardar cambios' : 'Salir'}
