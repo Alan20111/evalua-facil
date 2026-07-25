@@ -243,8 +243,10 @@ export default function StudentDashboard() {
                 ) : (
                   <span className="text-base font-bold text-accent">{initials}</span>
                 )}
-                <span className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                  <Camera size={16} className="text-white" />
+                {/* Insignia en la esquina, NO tapa la foto — pedido explícito:
+                    se tiene que poder ver al estudiante sin el ícono encima. */}
+                <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-accent border-2 border-surface-card flex items-center justify-center">
+                  <Camera size={10} className="text-white" />
                 </span>
               </button>
             ) : (
