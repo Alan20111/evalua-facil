@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronUp, X, RotateCcw } from 'lucide-react'
+import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
 import SearchInput from '../../../components/SearchInput'
 import { formatDate, toDate } from '../../../utils/subscriptionHelpers'
 import { formatHora12FromDate } from '../../../utils/formatHora'
 import { studentFullName } from '../../../utils/studentSearch'
 import { subjectDisplayName } from '../../../utils/subjectName'
+import { useColumnWidths } from '../../../hooks/useColumnWidths'
 
 // Cuántas filas se pintan de golpe. El padrón de estudiantes crece sin techo
 // (uno por alumno por asignatura), así que renderizarlo entero congelaría la
@@ -15,46 +16,78 @@ const PAGE = 100
 // eso comparten criterio de ordenamiento: ordenar por hora sin la fecha
 // mezclaría días distintos, que no es lo que nadie espera de un padrón.
 const COLS = [
-  { key: 'nombre', label: 'Nombre', sort: 'nombre' },
-  { key: 'codigo', label: 'Código', sort: 'codigo' },
-  { key: 'escuela', label: 'Escuela', sort: 'escuela' },
-  { key: 'profesor', label: 'Profesor', sort: 'profesor' },
-  { key: 'asignatura', label: 'Asignatura', sort: 'asignatura' },
-  { key: 'alta', label: 'Fecha de alta', sort: 'alta' },
-  { key: 'hora', label: 'Hora de alta', sort: 'alta' },
-  { key: 'activado', label: 'Activado', sort: 'activado' },
+  { key: 'num', label: 'N.º', w: 56 },
+  { key: 'nombre', label: 'Nombre', sort: 'nombre', w: 200 },
+  { key: 'codigo', label: 'Código', sort: 'codigo', w: 110 },
+  { key: 'escuela', label: 'Escuela', sort: 'escuela', w: 130 },
+  { key: 'profesor', label: 'Profesor', sort: 'profesor', w: 160 },
+  { key: 'asignatura', label: 'Asignatura', sort: 'asignatura', w: 170 },
+  { key: 'alta', label: 'Fecha de alta', sort: 'alta', w: 120 },
+  { key: 'hora', label: 'Hora de alta', sort: 'alta', w: 105 },
+  { key: 'activado', label: 'Activado', sort: 'activado', w: 95 },
 ]
 
-// Criterios disponibles en el constructor de orden. `cmp` compara SIEMPRE en
-// ascendente; la dirección se aplica afuera multiplicando por -1.
+const DEFAULT_WIDTHS = Object.fromEntries(COLS.map((c) => [c.key, c.w]))
+const WIDTHS_KEY = 'admin-estudiantes-cols'
+
+// Cada criterio dice en español llano qué hace cada dirección, en vez de
+// "ascendente/descendente" — que obliga a traducir mentalmente qué significa
+// "ascendente" para una fecha o para un Sí/No.
 const SORT_FIELDS = {
-  lote: {
-    label: 'Clase (misma asignatura y docente)',
-    // Mantiene juntas las inscripciones de una misma clase y coloca primero
-    // la clase dada de alta más recientemente. El desempate por docente y
-    // asignatura evita que dos clases con el mismo instante se entrelacen.
+  clase: {
+    label: 'Clase (asignatura y docente)',
+    asc: 'De la más antigua a la más reciente',
+    desc: 'De la más reciente a la más antigua',
+    // Mantiene juntas las inscripciones de una misma clase y ordena las
+    // clases por su alta más reciente. El desempate por docente y asignatura
+    // evita que dos clases del mismo instante se entrelacen.
     cmp: (a, b) =>
       a.loteMs - b.loteMs ||
       a.profesor.localeCompare(b.profesor, 'es') ||
       a.asignatura.localeCompare(b.asignatura, 'es'),
   },
-  alta: { label: 'Fecha y hora de alta', cmp: (a, b) => a.altaMs - b.altaMs },
-  profesor: { label: 'Profesor', cmp: (a, b) => a.profesor.localeCompare(b.profesor, 'es') },
-  escuela: { label: 'Escuela', cmp: (a, b) => a.escuela.localeCompare(b.escuela, 'es') },
-  asignatura: { label: 'Asignatura', cmp: (a, b) => a.asignatura.localeCompare(b.asignatura, 'es') },
-  activado: { label: 'Activado', cmp: (a, b) => Number(a.activado) - Number(b.activado) },
-  nombre: { label: 'Nombre', cmp: (a, b) => a.nombre.localeCompare(b.nombre, 'es') },
-  codigo: { label: 'Código', cmp: (a, b) => a.codigo.localeCompare(b.codigo, 'es') },
+  alta: {
+    label: 'Fecha y hora de alta',
+    asc: 'Del más antiguo al más nuevo',
+    desc: 'Del más nuevo al más antiguo',
+    cmp: (a, b) => a.altaMs - b.altaMs,
+  },
+  profesor: {
+    label: 'Profesor', asc: 'De la A a la Z', desc: 'De la Z a la A',
+    cmp: (a, b) => a.profesor.localeCompare(b.profesor, 'es'),
+  },
+  escuela: {
+    label: 'Escuela', asc: 'De la A a la Z', desc: 'De la Z a la A',
+    cmp: (a, b) => a.escuela.localeCompare(b.escuela, 'es'),
+  },
+  asignatura: {
+    label: 'Asignatura', asc: 'De la A a la Z', desc: 'De la Z a la A',
+    cmp: (a, b) => a.asignatura.localeCompare(b.asignatura, 'es'),
+  },
+  activado: {
+    label: 'Activado', asc: 'Primero los que NO han activado', desc: 'Primero los que SÍ activaron',
+    cmp: (a, b) => Number(a.activado) - Number(b.activado),
+  },
+  nombre: {
+    label: 'Nombre', asc: 'De la A a la Z', desc: 'De la Z a la A',
+    cmp: (a, b) => a.nombre.localeCompare(b.nombre, 'es'),
+  },
+  codigo: {
+    label: 'Código', asc: 'De la A a la Z', desc: 'De la Z a la A',
+    cmp: (a, b) => a.codigo.localeCompare(b.codigo, 'es'),
+  },
 }
 
 // Orden por defecto: la clase dada de alta más recientemente arriba, con sus
-// estudiantes juntos y el más nuevo primero dentro de cada una. El estado de
-// activación NO participa — un alumno recién dado de alta debe aparecer
-// arriba aunque todavía no active su cuenta.
+// estudiantes juntos y el más nuevo primero. El estado de activación NO
+// participa — un alumno recién dado de alta debe aparecer arriba aunque
+// todavía no active su cuenta.
 const DEFAULT_SORT = [
-  { key: 'lote', dir: 'desc' },
+  { key: 'clase', dir: 'desc' },
   { key: 'alta', dir: 'desc' },
 ]
+
+const MAX_NIVELES = 3
 
 // El profesor se muestra por su nombre real; `teacherDisplayName` no sirve
 // aquí porque antepone el prefijo pensado para los alumnos ("Profe X").
@@ -66,6 +99,8 @@ export default function StudentsTable({ stats }) {
   const [search, setSearch] = useState('')
   const [sortLevels, setSortLevels] = useState(DEFAULT_SORT)
   const [limit, setLimit] = useState(PAGE)
+  const { widths, total, dragKey, startResize, resetWidths, resetColumn } =
+    useColumnWidths(WIDTHS_KEY, DEFAULT_WIDTHS)
 
   // Cada estudiante se "aplana" una sola vez a las columnas visibles: así el
   // filtro y el ordenamiento trabajan sobre texto ya resuelto en vez de
@@ -137,45 +172,46 @@ export default function StudentsTable({ stats }) {
   // inflado; contar códigos distintos da las personas reales.
   const personas = useMemo(() => new Set(rows.map((r) => r.codigo)).size, [rows])
 
-  const sinUsar = Object.keys(SORT_FIELDS).filter(
-    (k) => !sortLevels.some((l) => l.key === k)
-  )
-
-  function addLevel(key) {
-    if (!key) return
-    setSortLevels((ls) => [...ls, { key, dir: key === 'alta' || key === 'lote' ? 'desc' : 'asc' }])
-    setLimit(PAGE)
-  }
-
-  function toggleDir(i) {
-    setSortLevels((ls) =>
-      ls.map((l, j) => (j === i ? { ...l, dir: l.dir === 'asc' ? 'desc' : 'asc' } : l))
-    )
-  }
-
-  function removeLevel(i) {
-    setSortLevels((ls) => (ls.length === 1 ? ls : ls.filter((_, j) => j !== i)))
-  }
-
-  // Clic en el encabezado: asciende esa columna al primer criterio SIN borrar
-  // los demás (si ya era el primero, solo invierte). Así una combinación que
-  // el usuario armó a mano no se pierde por tocar un encabezado.
-  function sortByColumn(key) {
+  // Cambiar el criterio del nivel `i`. Elegir "Sin orden" corta ahí: los
+  // niveles siguientes dejan de tener sentido, así que se descartan.
+  function setNivelCampo(i, key) {
     setSortLevels((ls) => {
-      if (ls[0]?.key === key) {
-        return ls.map((l, j) => (j === 0 ? { ...l, dir: l.dir === 'asc' ? 'desc' : 'asc' } : l))
-      }
-      const dir = key === 'alta' ? 'desc' : 'asc'
-      return [{ key, dir }, ...ls.filter((l) => l.key !== key)]
+      if (!key) return ls.slice(0, i)
+      const next = ls.slice(0, i + 1)
+      next[i] = { key, dir: ls[i]?.key === key ? ls[i].dir : (key === 'alta' || key === 'clase' ? 'desc' : 'asc') }
+      // Un mismo campo dos veces no ordena nada nuevo: se quita del resto.
+      return [...next, ...ls.slice(i + 1).filter((l) => l.key !== key)]
     })
     setLimit(PAGE)
   }
 
-  const esDefault =
+  function setNivelDir(i, dir) {
+    setSortLevels((ls) => ls.map((l, j) => (j === i ? { ...l, dir } : l)))
+    setLimit(PAGE)
+  }
+
+  // Clic en el encabezado: ordena por esa columna, y un segundo clic invierte.
+  // Es el atajo que todo el mundo espera de una tabla; deja el orden en un
+  // solo criterio, que es justo lo que alguien quiere al hacer clic ahí.
+  function sortByColumn(key) {
+    if (!key) return
+    setSortLevels((ls) =>
+      ls[0]?.key === key
+        ? [{ key, dir: ls[0].dir === 'asc' ? 'desc' : 'asc' }]
+        : [{ key, dir: key === 'alta' || key === 'clase' ? 'desc' : 'asc' }]
+    )
+    setLimit(PAGE)
+  }
+
+  const esOrdenDefault =
     sortLevels.length === DEFAULT_SORT.length &&
     sortLevels.every((l, i) => l.key === DEFAULT_SORT[i].key && l.dir === DEFAULT_SORT[i].dir)
 
   if (!stats) return null
+
+  // Se muestra una fila de orden por cada nivel elegido, más una vacía al
+  // final para agregar el siguiente (hasta MAX_NIVELES).
+  const nivelesVisibles = Math.min(sortLevels.length + 1, MAX_NIVELES)
 
   return (
     <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
@@ -197,91 +233,118 @@ export default function StudentsTable({ stats }) {
         </div>
       </div>
 
-      {/* Constructor de orden — los criterios se aplican en cadena: el primero
-          manda y los siguientes solo desempatan. El número de la pastilla
-          hace visible esa jerarquía, que si no es invisible. */}
-      <div className="px-5 py-2.5 border-b border-outline-variant bg-surface flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold uppercase text-muted">Ordenar por</span>
+      {/* Orden en dos listas por renglón, como el cuadro "Ordenar" de una hoja
+          de cálculo: qué columna y, en palabras, en qué sentido. La versión
+          anterior usaba pastillas numeradas encadenadas y resultó ilegible. */}
+      <div className="px-5 py-3 border-b border-outline-variant bg-surface space-y-2">
+        {Array.from({ length: nivelesVisibles }, (_, i) => {
+          const nivel = sortLevels[i]
+          const campo = nivel ? SORT_FIELDS[nivel.key] : null
+          // Un campo ya usado en otro renglón no se ofrece de nuevo.
+          const usados = sortLevels.filter((_, j) => j !== i).map((l) => l.key)
+          return (
+            <div key={i} className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted w-28 flex-shrink-0">
+                {i === 0 ? 'Ordenar por' : 'Y después por'}
+              </span>
+              <select
+                value={nivel?.key || ''}
+                onChange={(e) => setNivelCampo(i, e.target.value)}
+                className="text-sm rounded border border-outline-variant bg-surface-card px-2 py-1.5 text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <option value="">— Sin orden —</option>
+                {Object.entries(SORT_FIELDS)
+                  .filter(([k]) => !usados.includes(k))
+                  .map(([k, f]) => (
+                    <option key={k} value={k}>{f.label}</option>
+                  ))}
+              </select>
+              {campo && (
+                <select
+                  value={nivel.dir}
+                  onChange={(e) => setNivelDir(i, e.target.value)}
+                  className="text-sm rounded border border-outline-variant bg-surface-card px-2 py-1.5 text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <option value="asc">{campo.asc}</option>
+                  <option value="desc">{campo.desc}</option>
+                </select>
+              )}
+            </div>
+          )
+        })}
 
-        {sortLevels.map((lv, i) => (
-          <span
-            key={lv.key}
-            className="inline-flex items-center rounded-pill border border-accent bg-[var(--accent-tint)] text-accent text-xs font-semibold overflow-hidden"
-          >
-            <span className="px-1.5 py-1 bg-accent text-white">{i + 1}</span>
+        <div className="flex flex-wrap items-center gap-4 pt-1">
+          {!esOrdenDefault && (
             <button
               type="button"
-              onClick={() => toggleDir(i)}
-              title={lv.dir === 'asc' ? 'Ascendente — clic para invertir' : 'Descendente — clic para invertir'}
-              className="flex items-center gap-1 px-2 py-1 hover:bg-[var(--accent-tint-strong)] transition-colors"
+              onClick={() => { setSortLevels(DEFAULT_SORT); setLimit(PAGE) }}
+              className="inline-flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
             >
-              {SORT_FIELDS[lv.key].label}
-              {lv.dir === 'asc' ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+              <RotateCcw size={13} /> Restablecer orden
             </button>
-            {sortLevels.length > 1 && (
-              <button
-                type="button"
-                onClick={() => removeLevel(i)}
-                aria-label={`Quitar criterio ${SORT_FIELDS[lv.key].label}`}
-                className="px-1.5 py-1 hover:bg-[var(--accent-tint-strong)] transition-colors"
-              >
-                <X size={13} />
-              </button>
-            )}
-          </span>
-        ))}
-
-        {sinUsar.length > 0 && (
-          <select
-            value=""
-            onChange={(e) => addLevel(e.target.value)}
-            aria-label="Agregar criterio de orden"
-            className="text-xs rounded border border-outline-variant bg-surface-card px-2 py-1.5 text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <option value="">+ Agregar criterio…</option>
-            {sinUsar.map((k) => (
-              <option key={k} value={k}>{SORT_FIELDS[k].label}</option>
-            ))}
-          </select>
-        )}
-
-        {!esDefault && (
+          )}
           <button
             type="button"
-            onClick={() => { setSortLevels(DEFAULT_SORT); setLimit(PAGE) }}
+            onClick={resetWidths}
             className="inline-flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
           >
-            <RotateCcw size={13} /> Restablecer
+            <RotateCcw size={13} /> Restablecer ancho de columnas
           </button>
-        )}
+          <span className="text-xs text-slate-400">
+            Arrastra el borde de un encabezado para cambiar su ancho (se recuerda).
+          </span>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[1020px]">
+        {/* table-fixed + <colgroup> es lo que hace que los anchos arrastrados
+            se respeten; sin ellos el navegador reparte el espacio a su gusto. */}
+        <table className="text-sm table-fixed" style={{ width: total }}>
+          <colgroup>
+            {COLS.map((c) => (
+              <col key={c.key} style={{ width: widths[c.key] }} />
+            ))}
+          </colgroup>
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
-              {/* El consecutivo es la posición en la tabla, no un dato del
-                  alumno — por eso no ordena. */}
-              <th className="px-4 py-2 w-12 text-right">N.º</th>
               {COLS.map(({ key, label, sort }) => {
-                const nivel = sortLevels.findIndex((l) => l.key === sort)
+                const activo = sortLevels[0]?.key === sort && sort
                 return (
-                  <th key={key} className="px-4 py-2">
-                    <button
-                      type="button"
-                      onClick={() => sortByColumn(sort)}
-                      title="Ordenar por esta columna (pasa al primer criterio)"
-                      className="flex items-center gap-1 uppercase hover:text-accent transition-colors"
+                  <th key={key} className="relative px-4 py-2 select-none">
+                    {sort ? (
+                      <button
+                        type="button"
+                        onClick={() => sortByColumn(sort)}
+                        title="Ordenar por esta columna"
+                        className="flex items-center gap-1 uppercase hover:text-accent transition-colors max-w-full"
+                      >
+                        <span className="truncate">{label}</span>
+                        {activo && (sortLevels[0].dir === 'asc'
+                          ? <ChevronUp size={13} className="flex-shrink-0" />
+                          : <ChevronDown size={13} className="flex-shrink-0" />)}
+                      </button>
+                    ) : (
+                      // El consecutivo es la posición en la tabla, no un dato
+                      // del alumno — por eso no ordena.
+                      <span className="block text-right">{label}</span>
+                    )}
+                    {/* Tirador de ancho: zona de agarre ancha con una línea
+                        fina dentro. Doble clic devuelve esta columna a su
+                        ancho original. */}
+                    <span
+                      onPointerDown={(e) => startResize(e, key)}
+                      onDoubleClick={() => resetColumn(key)}
+                      title="Arrastra para cambiar el ancho (doble clic para restablecer)"
+                      className="absolute top-0 right-0 h-full w-2 cursor-col-resize flex justify-center group"
                     >
-                      {label}
-                      {nivel === 0 &&
-                        (sortLevels[0].dir === 'asc'
-                          ? <ChevronUp size={13} />
-                          : <ChevronDown size={13} />)}
-                      {nivel > 0 && (
-                        <span className="text-[10px] font-bold text-accent">{nivel + 1}</span>
-                      )}
-                    </button>
+                      <span
+                        className={`h-full transition-colors ${
+                          dragKey === key
+                            ? 'w-[2px] bg-accent'
+                            : 'w-px bg-outline-variant group-hover:bg-accent'
+                        }`}
+                      />
+                    </span>
                   </th>
                 )
               })}
@@ -290,7 +353,7 @@ export default function StudentsTable({ stats }) {
           <tbody className="divide-y divide-slate-100">
             {visible.length === 0 ? (
               <tr>
-                <td colSpan={COLS.length + 1} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={COLS.length} className="px-4 py-8 text-center text-slate-400">
                   {rows.length === 0 ? 'Sin estudiantes registrados' : 'Ningún estudiante coincide con la búsqueda'}
                 </td>
               </tr>
@@ -298,13 +361,13 @@ export default function StudentsTable({ stats }) {
               visible.map((r, i) => (
                 <tr key={r.id} className="hover:bg-[var(--accent-tint)]">
                   <td className="px-4 py-2 text-right text-slate-400 tabular-nums">{i + 1}</td>
-                  <td className="px-4 py-2 font-medium text-on-surface">{r.nombre}</td>
-                  <td className="px-4 py-2 font-mono text-xs font-semibold text-on-surface">{r.codigo}</td>
-                  <td className="px-4 py-2 text-muted truncate max-w-[140px]">{r.escuela}</td>
-                  <td className="px-4 py-2 text-muted truncate max-w-[160px]">{r.profesor}</td>
-                  <td className="px-4 py-2 text-muted truncate max-w-[180px]">{r.asignatura}</td>
-                  <td className="px-4 py-2 text-muted whitespace-nowrap">{r.alta}</td>
-                  <td className="px-4 py-2 text-muted whitespace-nowrap tabular-nums">{r.hora}</td>
+                  <td className="px-4 py-2 font-medium text-on-surface truncate" title={r.nombre}>{r.nombre}</td>
+                  <td className="px-4 py-2 font-mono text-xs font-semibold text-on-surface truncate">{r.codigo}</td>
+                  <td className="px-4 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
+                  <td className="px-4 py-2 text-muted truncate" title={r.profesor}>{r.profesor}</td>
+                  <td className="px-4 py-2 text-muted truncate" title={r.asignatura}>{r.asignatura}</td>
+                  <td className="px-4 py-2 text-muted truncate">{r.alta}</td>
+                  <td className="px-4 py-2 text-muted truncate tabular-nums">{r.hora}</td>
                   <td className="px-4 py-2">
                     <span
                       className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
