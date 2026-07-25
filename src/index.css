@@ -55,7 +55,11 @@
     --radius: 1rem;
     --radius-card: 2rem;
   }
-  [data-role='docente'] {
+  /* Admin comparte el chrome del docente (esquinas y escala tipográfica): es
+     igual una herramienta de escritorio de uso prolongado. Lo único que
+     cambia es el acento — guinda, más abajo. */
+  [data-role='docente'],
+  [data-role='admin'] {
     --radius: 0.5rem;
     --radius-card: 0.875rem;
   }
@@ -71,7 +75,8 @@
      are intentionally NOT overridden here, so "on blue" text stays
      exactly as-is while every white-card/table/form/list screen (all
      built on raw text-xs…text-6xl) gets this final, subtle reduction. */
-  [data-role='docente'] {
+  [data-role='docente'],
+  [data-role='admin'] {
     /* Octava pasada: --fs-xs quedó demasiado chica para texto de lectura
        (descripciones, no solo etiquetas de chrome) — "apenas legible" en la
        práctica. +30% sobre el valor de la séptima pasada (0.765625rem),
@@ -123,6 +128,24 @@
     --accent: #f97316;        /* orange-500 */
     --accent-hover: #ea580c;  /* orange-600 */
     --accent-light: #ffedd5;  /* orange-100 */
+  }
+  /* ── Administración: paleta guinda ───────────────────────────────
+     Al pasar por --accent, TODA la zona admin (tarjetas, tablas, botones,
+     gráficas, interruptores) se vuelve guinda sin tocar componente por
+     componente, y los lavados derivados (--accent-tint/-medium, calculados
+     arriba con color-mix) siguen solos.
+     El guinda del acento es el vivo (#9F2241, ~6.5:1 sobre blanco — AA para
+     texto normal), NO el oscuro del plano: sobre tarjeta blanca el oscuro se
+     lee casi negro y pierde identidad.
+     Los tonos --admin-plane* son el plano sólido de la barra lateral, donde
+     la relación se invierte (texto blanco sobre guinda oscuro). */
+  [data-role='admin'] {
+    --accent: #9f2241;        /* guinda vivo — acento sobre fondo claro */
+    --accent-hover: #7c1b33;
+    --accent-light: #fbe9ed;  /* guinda al 8% — chips y fondos suaves */
+    --admin-plane: #611232;         /* guinda institucional — barra lateral */
+    --admin-plane-dark: #4a0e26;    /* cabecera de la barra */
+    --admin-plane-active: #9f2241;  /* opción seleccionada */
   }
 
   /* Per-subject palette overrides (applied on a wrapper inside a subject) */
