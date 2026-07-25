@@ -4701,7 +4701,6 @@ export default function SubjectPage() {
                   simple={IS_NATIVE_APP}
                 />
               </div>
-              <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
               {form.categoria !== 'cuestionario' && form.categoria !== 'examen' && (
                 <div className="pt-1">
                   <FileTypeSelect

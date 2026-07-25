@@ -694,7 +694,6 @@ export default function EvaluacionEditor({
                   simple={IS_NATIVE_APP}
                 />
               </div>
-              <p className="text-sm text-muted">Calificación máxima: <span className="font-semibold text-on-surface">10</span></p>
               <div>
                 <p className="block text-sm font-medium text-muted mb-2">Visibilidad</p>
                 <VisibilitySelect
