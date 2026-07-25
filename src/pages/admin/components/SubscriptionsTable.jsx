@@ -38,7 +38,7 @@ const PAGE = 100
 // desplaza con los encabezados fijos arriba.
 const ALTO_TABLA = 'calc(100vh - 290px)'
 
-const WIDTHS_KEY = 'admin-suscripciones-cols-v1'
+const WIDTHS_KEY = 'admin-suscripciones-cols-v2'
 
 // Nombres que ve el administrador. `status` es el valor guardado en Firestore;
 // esto es solo su etiqueta ("pendiente_pago" se lee fatal en una tabla).
@@ -60,6 +60,30 @@ const COLS = [
   { key: 'num', label: 'Resultado del filtro', w: 145, align: 'right', wrap: true },
   { key: 'docente', label: 'Nombre del docente', w: 185 },
   { key: 'correo', label: 'Correo electrónico', w: 200 },
+  // Ubicación del DOCENTE (no de la escuela): se resuelve desde su código
+  // postal al completar el perfil y se guarda ya desglosada en users/{uid}
+  // — ver Onboarding.jsx, "para poder agrupar por zona".
+  {
+    key: 'codigoPostal',
+    label: 'Código postal',
+    filtro: 'texto',
+    w: 125,
+    ayuda: 'Se captura en el perfil del docente. Queda en guion mientras no lo complete: el catálogo de planteles no incluye código postal, así que no hay de dónde deducirlo.',
+  },
+  {
+    key: 'estado',
+    label: 'Estado',
+    filtro: 'texto',
+    w: 150,
+    ayuda: 'Entidad del docente (no la situación de la suscripción, que es la columna Situación). Si el docente no capturó su código postal, se toma la de su escuela.',
+  },
+  {
+    key: 'ciudad',
+    label: 'Ciudad',
+    filtro: 'texto',
+    w: 150,
+    ayuda: 'Ciudad del docente; si no capturó su código postal, se toma el municipio de su escuela.',
+  },
   { key: 'escuela', label: 'Escuela', filtro: 'texto', w: 150 },
   {
     key: 'asignatura',
@@ -83,8 +107,11 @@ const COLS = [
     ayuda: 'QUÉ contrató. Hoy solo existe la Suscripción mensual; quien está en prueba todavía no tiene plan.',
   },
   {
-    key: 'estado',
-    label: 'Estado',
+    // Antes se llamaba "Estado", que ahora es la entidad federativa del
+    // docente. Esta columna es el estatus de la suscripción, de ahí el
+    // cambio a "Situación": dos columnas "Estado" no se podían distinguir.
+    key: 'situacion',
+    label: 'Situación',
     filtro: 'lista',
     w: 155,
     ayuda: 'CÓMO está hoy esa suscripción: en prueba, activa, pendiente de pago, vencida o cancelada.',
@@ -100,8 +127,8 @@ const COLS = [
   { key: 'acciones', label: 'Acciones', w: 120 },
 ]
 
-const CAMPOS_TEXTO = ['escuela', 'asignatura']
-const CAMPOS_LISTA = ['plan', 'estado']
+const CAMPOS_TEXTO = ['codigoPostal', 'estado', 'ciudad', 'escuela', 'asignatura']
+const CAMPOS_LISTA = ['plan', 'situacion']
 const CAMPOS_FILTRO = COLS.filter((c) => c.filtro).map((c) => c.key)
 const SIN_FILTROS = Object.fromEntries(CAMPOS_FILTRO.map((k) => [k, '']))
 
@@ -127,12 +154,15 @@ function StatusBadge({ status }) {
 // recorte la lista.
 function pasaFiltros(r, filtros, search, excepto) {
   const t = (k) => (k === excepto ? '' : normalizeName(filtros[k]))
+  if (t('codigoPostal') && !r.buscarCodigoPostal.includes(t('codigoPostal'))) return false
+  if (t('estado') && !r.buscarEstado.includes(t('estado'))) return false
+  if (t('ciudad') && !r.buscarCiudad.includes(t('ciudad'))) return false
   if (t('escuela') && !r.buscarEscuela.includes(t('escuela'))) return false
   if (t('asignatura') && !r.buscarAsignatura.includes(t('asignatura'))) return false
   if (excepto !== 'alta' && filtros.alta && r.altaISO !== filtros.alta) return false
   if (excepto !== 'vencimiento' && filtros.vencimiento && r.vencimientoISO !== filtros.vencimiento) return false
   if (excepto !== 'plan' && filtros.plan && r.plan !== filtros.plan) return false
-  if (excepto !== 'estado' && filtros.estado && r.estadoLabel !== filtros.estado) return false
+  if (excepto !== 'situacion' && filtros.situacion && r.situacionLabel !== filtros.situacion) return false
   const q = normalizeName(search)
   if (q && ![r.buscarDocente, r.buscarCorreo].some((v) => v.includes(q))) return false
   return true
@@ -247,6 +277,14 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       const venc = toDate(vencValor)
       const docente = teacherName(teacher) || '—'
       const correo = teacher?.email || '—'
+      // Ubicación del docente. Primero la suya (desglosada desde su código
+      // postal al completar el perfil); si no la ha capturado, se cae a la de
+      // su escuela, que el catálogo de planteles sí trae. Sin ese respaldo la
+      // columna quedaría vacía para todo docente que no pasó por el perfil.
+      // El CP no tiene respaldo: el catálogo de planteles no lo incluye.
+      const codigoPostal = teacher?.codigoPostal || '—'
+      const estadoUbicacion = teacher?.estado || school?.estado || '—'
+      const ciudad = teacher?.ciudad || teacher?.municipio || school?.municipio || '—'
       const escuela = school?.shortName || school?.nombre || school?.claveSEP || sub.schoolName || '—'
       const asignaturasLista = subjectsByTeacher[sub.docenteId] || []
       const asignatura = asignaturasLista.join(' · ') || '—'
@@ -256,19 +294,25 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         sub,
         docente,
         correo,
+        codigoPostal,
+        estado: estadoUbicacion,
+        ciudad,
         escuela,
         asignatura,
         asignaturasLista,
         buscarDocente: normalizeName(docente),
         buscarCorreo: normalizeName(correo),
+        buscarCodigoPostal: normalizeName(codigoPostal),
+        buscarEstado: normalizeName(estadoUbicacion),
+        buscarCiudad: normalizeName(ciudad),
         buscarEscuela: normalizeName(escuela),
         buscarAsignatura: normalizeName(asignatura),
         alta: formatDate(altaValor),
         altaISO: alta ? isoLocal(alta) : '',
         altaMs: alta ? alta.getTime() : 0,
         plan: planNombre,
-        estado: sub.status,
-        estadoLabel: ESTADO_LABEL[sub.status] || sub.status || '—',
+        situacion: sub.status,
+        situacionLabel: ESTADO_LABEL[sub.status] || sub.status || '—',
         vencimiento: formatDate(vencValor),
         vencimientoISO: venc ? isoLocal(venc) : '',
         dias: calcDaysRemaining(vencValor),
@@ -294,7 +338,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       const set = new Set()
       rows.forEach((r) => {
         if (!pasaFiltros(r, filtros, search, campo)) return
-        set.add(campo === 'estado' ? r.estadoLabel : r[campo])
+        set.add(campo === 'situacion' ? r.situacionLabel : r[campo])
       })
       res[campo] = [...set].filter((v) => v && v !== '—').sort((a, b) => a.localeCompare(b, 'es'))
     })
@@ -468,7 +512,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             ))}
           </colgroup>
           <thead>
-            <tr className="text-left text-xs uppercase">
+            <tr className="text-left text-[10px] uppercase">
               {COLS.map((col) => {
                 const { key, label, filtro, align, ayuda, wrap } = col
                 const filtrada = filtro && filtros[key] !== ''
@@ -537,6 +581,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   </td>
                   <td className="px-3 py-2 font-medium text-on-surface truncate" title={r.docente}>{r.docente}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.correo}>{r.correo}</td>
+                  <td className="px-3 py-2 text-muted truncate tabular-nums">{r.codigoPostal}</td>
+                  <td className="px-3 py-2 text-muted truncate" title={r.estado}>{r.estado}</td>
+                  <td className="px-3 py-2 text-muted truncate" title={r.ciudad}>{r.ciudad}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
                   <td
                     className="px-3 py-2 text-muted truncate"
@@ -546,7 +593,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   </td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.plan}>{r.plan}</td>
-                  <td className="px-3 py-2"><StatusBadge status={r.estado} /></td>
+                  <td className="px-3 py-2"><StatusBadge status={r.situacion} /></td>
                   <td className="px-3 py-2 text-muted truncate">{r.vencimiento}</td>
                   {/* Los días ya vencidos van en rojo: es lo que se busca al
                       barrer la tabla con la vista. */}
@@ -564,7 +611,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       >
                         <Pencil size={16} />
                       </button>
-                      {r.estado !== 'cancelada' && (
+                      {r.situacion !== 'cancelada' && (
                         <button
                           type="button"
                           onClick={() => handleCancel(r.sub)}
