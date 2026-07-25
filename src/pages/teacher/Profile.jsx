@@ -34,6 +34,7 @@ import {
   canRenew as canRenewSubscription,
 } from '../../utils/subscriptionHelpers'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { errorCodigoPostal, estadoPorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 
 async function uploadAvatar(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -85,6 +86,7 @@ export default function Profile() {
   const [realNombre, setRealNombre] = useState(userProfile?.nombre || '')
   const [apellidoPaterno, setApellidoPaterno] = useState(userProfile?.apellidoPaterno || '')
   const [apellidoMaterno, setApellidoMaterno] = useState(userProfile?.apellidoMaterno || '')
+  const [codigoPostal, setCodigoPostal] = useState(userProfile?.codigoPostal || '')
   const [savingDatosPersonales, setSavingDatosPersonales] = useState(false)
 
   // Photo
@@ -297,9 +299,13 @@ export default function Profile() {
   async function handleSaveDatosPersonales(e) {
     e.preventDefault()
     if (!realNombre.trim() || !apellidoPaterno.trim()) { toast('Escribe tu nombre y apellido paterno', 'error'); return }
+    // El código postal se puede cambiar (mudanza), pero no se puede dejar
+    // vacío ni inventado — mismo criterio que en el registro.
+    const errorCP = errorCodigoPostal(codigoPostal)
+    if (errorCP) { toast(errorCP, 'error'); return }
     setSavingDatosPersonales(true)
     try {
-      const updates = { nombre: realNombre.trim(), apellidoPaterno: apellidoPaterno.trim(), apellidoMaterno: apellidoMaterno.trim() }
+      const updates = { nombre: realNombre.trim(), apellidoPaterno: apellidoPaterno.trim(), apellidoMaterno: apellidoMaterno.trim(), codigoPostal: soloDigitosCP(codigoPostal) }
       await updateDoc(doc(db, 'users', currentUser.uid), updates)
       setUserProfile((p) => ({ ...p, ...updates }))
       toast('Datos personales actualizados')
@@ -575,6 +581,15 @@ export default function Profile() {
                 <input id="prof-apellido-materno" type="text" value={apellidoMaterno} onChange={(e) => setApellidoMaterno(e.target.value)}
                   className={inputCls} placeholder="Ej. Pérez" />
               </div>
+            </div>
+            <div>
+              <label htmlFor="prof-cp" className="block text-xs font-medium text-muted mb-1">Código postal</label>
+              <input id="prof-cp" type="text" inputMode="numeric" maxLength={5} value={codigoPostal}
+                onChange={(e) => setCodigoPostal(soloDigitosCP(e.target.value))}
+                className={inputCls} placeholder="Ej. 38000" />
+              {estadoPorCodigoPostal(codigoPostal) && (
+                <p className="text-sm text-muted mt-1">{estadoPorCodigoPostal(codigoPostal)}</p>
+              )}
             </div>
             <button type="submit" disabled={savingDatosPersonales}
               className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
