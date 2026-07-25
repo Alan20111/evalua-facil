@@ -51,7 +51,7 @@ import {
   Link, Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
-  AlertTriangle,
+  AlertTriangle, ArrowUp, ArrowDown,
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
@@ -463,6 +463,10 @@ export default function SubjectPage() {
   const [publishDraftConfirm, setPublishDraftConfirm] = useState(null) // draft activity | null
   const [duplicateConfirm, setDuplicateConfirm] = useState(null) // activity | null
   const [duplicating, setDuplicating] = useState(false)
+  // Cambiar de lugar una actividad dentro de su parcial: null | { a, newList, changes }
+  // `changes` = actividades cuyo número (1.2., 1.3.…) cambia con el movimiento.
+  const [moveConfirm, setMoveConfirm] = useState(null)
+  const [moving, setMoving] = useState(false)
   // PONDERACIÓN: in-progress weight edits per activity id (committed on blur)
   const [pesoEdits, setPesoEdits] = useState({})
   // Anchored confirmation panel for reverting to simple average
@@ -672,6 +676,7 @@ export default function SubjectPage() {
   useBackHandler(() => setTopExportMenu(null), !!topExportMenu)
   useBackHandler(() => setShowModal(false), showModal)
   useBackHandler(() => setDuplicateConfirm(null), !!duplicateConfirm)
+  useBackHandler(() => !moving && setMoveConfirm(null), !!moveConfirm)
   useBackHandler(() => setPublishDraftConfirm(null), !!publishDraftConfirm)
   useBackHandler(() => setDeleteConfirm(null), !!deleteConfirm)
   useBackHandler(() => setShowMaterialModal(false), showMaterialModal)
@@ -709,6 +714,7 @@ export default function SubjectPage() {
   // controls its render below (one call per overlay, not a blanket lock).
   useScrollLock(showModal)
   useScrollLock(duplicateConfirm)
+  useScrollLock(moveConfirm)
   useScrollLock(publishDraftConfirm)
   useScrollLock(deleteConfirm)
   useScrollLock(showMaterialModal)
@@ -2320,6 +2326,56 @@ export default function SubjectPage() {
     finally { setDuplicating(false) }
   }
 
+  // ── Cambiar de lugar una actividad dentro de su parcial ─────────────
+  // El número visible (1.2., 1.3.…) SIEMPRE se deriva de la posición, nunca se
+  // guarda — así que mover una actividad renumera también a las que quedan en
+  // medio. Los estudiantes ya vieron esos números en lo que está publicado, por
+  // eso el docente confirma primero, viendo exactamente qué números cambian.
+  // Solo en la web: el ⋮ de la actividad no existe en la app nativa.
+  function activityLabelsFor(list, parcial) {
+    const map = {}
+    list.filter((x) => !isDraftActivity(x)).forEach((x, i) => { map[x.id] = `${parcial}.${i + 1}.` })
+    return map
+  }
+
+  function requestMoveActivity(a, direction) {
+    const list = activities
+      .filter((x) => x.parcial === a.parcial)
+      .sort((x, y) => (x.orden ?? 0) - (y.orden ?? 0))
+    const from = list.findIndex((x) => x.id === a.id)
+    const to = from + direction
+    if (from < 0 || to < 0 || to >= list.length) return
+    const newList = [...list]
+    ;[newList[from], newList[to]] = [newList[to], newList[from]]
+    const before = activityLabelsFor(list, a.parcial)
+    const after = activityLabelsFor(newList, a.parcial)
+    const changes = newList
+      .filter((x) => before[x.id] !== after[x.id])
+      .map((x) => ({ id: x.id, nombre: x.nombre, de: before[x.id], hacia: after[x.id], publicada: !!x.publishedAt }))
+    // Intercambiar con un borrador (que todavía no lleva número) no renumera
+    // nada y no hay nada que avisarle al grupo: se mueve directo.
+    if (changes.length === 0) { applyMoveActivities(a.parcial, newList); return }
+    setMoveConfirm({ a, newList, changes })
+  }
+
+  async function applyMoveActivities(parcial, newList) {
+    const prevActivities = activities
+    const renumbered = newList.map((x, i) => ({ ...x, orden: i + 1 }))
+    // Optimista: el orden nuevo se pinta de inmediato y se revierte si falla el commit.
+    setActivities((prev) => [...prev.filter((x) => x.parcial !== parcial), ...renumbered])
+    setMoving(true)
+    try {
+      const batch = writeBatch(db)
+      renumbered.forEach((x) => batch.update(doc(db, 'activities', x.id), { orden: x.orden }))
+      await batch.commit()
+      setMoveConfirm(null)
+      toast('Actividad movida')
+    } catch (err) {
+      setActivities(prevActivities)
+      toast('No se pudo mover: ' + err.message, 'error')
+    } finally { setMoving(false) }
+  }
+
   // First publication of a draft (no publishedAt yet): the eye asks for
   // confirmation and stamps the publication datetime.
   async function publishDraftNow() {
@@ -2740,6 +2796,11 @@ export default function SubjectPage() {
       activityLabelById[a.id] = `${p}.${i + 1}.`
     })
   })
+
+  // Posición de la actividad del ⋮ abierto dentro de su parcial — para
+  // deshabilitar "Subir"/"Bajar" cuando ya está en un extremo.
+  const activityMenuSiblings = activityMenu ? activities.filter((x) => x.parcial === activityMenu.a.parcial) : []
+  const activityMenuIdx = activityMenu ? activityMenuSiblings.findIndex((x) => x.id === activityMenu.a.id) : -1
 
   // Preview of the auto-assigned "Actividad" label shown (read-only) in the modal.
   const previewActividad = modalMode === 'create'
@@ -4944,6 +5005,48 @@ export default function SubjectPage() {
         </div>
       )}
 
+      {/* ── Move activity confirmation (renumbering + aviso al grupo) ── */}
+      {moveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !moving && setMoveConfirm(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-on-surface mb-1">¿Cambiar de lugar la actividad?</h3>
+            <p className="text-sm text-muted mb-3">
+              &quot;<strong>{moveConfirm.a.nombre}</strong>&quot; cambiará de lugar dentro del Parcial {moveConfirm.a.parcial}.
+              El número de una actividad depende de su lugar, así que estas quedarán con otro número:
+            </p>
+            <ul className="text-sm text-on-surface bg-surface-container rounded px-3 py-2 mb-3 space-y-1">
+              {moveConfirm.changes.map((c) => (
+                <li key={c.id} className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-muted tabular-nums flex-shrink-0">{c.de}</span>
+                  <ChevronRight size={14} className="text-slate-400 flex-shrink-0" />
+                  <span className="text-accent font-semibold tabular-nums flex-shrink-0">{c.hacia}</span>
+                  <span className="truncate">{c.nombre}</span>
+                </li>
+              ))}
+            </ul>
+            {moveConfirm.changes.some((c) => c.publicada) && (
+              <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5 mb-3 flex gap-1.5">
+                <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                <span>
+                  Ya están publicadas: tus estudiantes las conocen con el número que tienen hoy.
+                  Avísale al grupo del cambio para que no entreguen en la actividad equivocada.
+                </span>
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setMoveConfirm(null)} disabled={moving}
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+              <button type="button" onClick={() => applyMoveActivities(moveConfirm.a.parcial, moveConfirm.newList)} disabled={moving}
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
+                {moving ? <Spinner size="sm" /> : <ArrowUpDown size={16} />}
+                {moving ? 'Moviendo…' : 'Mover'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Publish draft confirmation ── */}
       {publishDraftConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -5359,7 +5462,7 @@ export default function SubjectPage() {
         </div>
       )}
 
-      {/* ── Per-activity ⋮ menu: Duplicar / Eliminar (fixed → never clipped) ── */}
+      {/* ── Per-activity ⋮ menu: Subir / Bajar / Duplicar / Eliminar (fixed → never clipped) ── */}
       {activityMenu && (
         <>
           <button type="button" className="fixed inset-0 z-40 border-none cursor-default bg-transparent" onClick={() => setActivityMenu(null)} aria-label="Cerrar menú" />
@@ -5367,6 +5470,20 @@ export default function SubjectPage() {
             className="fixed z-50 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden"
             style={{ top: activityMenu.y + 4, left: Math.max(8, activityMenu.x - 208) }}
           >
+            {/* Cambiar de lugar dentro del parcial. El número (1.2., 1.3.…) va
+                con la posición, así que mover renumera — de ahí la confirmación. */}
+            <button type="button"
+              disabled={activityMenuIdx <= 0}
+              onClick={() => { const a = activityMenu.a; setActivityMenu(null); requestMoveActivity(a, -1) }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
+              <ArrowUp size={16} className="text-slate-400 flex-shrink-0" /> Subir un lugar
+            </button>
+            <button type="button"
+              disabled={activityMenuIdx < 0 || activityMenuIdx >= activityMenuSiblings.length - 1}
+              onClick={() => { const a = activityMenu.a; setActivityMenu(null); requestMoveActivity(a, 1) }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-b border-outline-variant disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
+              <ArrowDown size={16} className="text-slate-400 flex-shrink-0" /> Bajar un lugar
+            </button>
             <button type="button"
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDuplicateConfirm(a) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left">

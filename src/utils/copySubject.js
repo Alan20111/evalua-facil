@@ -35,6 +35,21 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
     query(collection(db, 'activities'), where('asignaturaId', '==', sourceSubjectId))
   )
 
+  // El orden de las actividades ES parte de la asignatura: la copia tiene que
+  // quedar en la MISMA secuencia que el original (el número 1.2., 1.3.… se
+  // deriva de la posición). Firestore no garantiza ningún orden al leer, y
+  // todas las copias se escriben con el mismo serverTimestamp, así que sin
+  // copiar `orden` explícitamente la asignatura duplicada se reacomodaba sola.
+  const sourceActs = actsSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (
+      (a.parcial ?? 0) - (b.parcial ?? 0)
+      || (a.orden ?? 0) - (b.orden ?? 0)
+      || (a.createdAt?.seconds ?? 0) - (b.createdAt?.seconds ?? 0)
+      || a.id.localeCompare(b.id)
+    ))
+  const ordenPorParcial = {}
+
   const LIMIT = 490
   let batch = writeBatch(db)
   let ops = 0
@@ -47,9 +62,9 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
   }
 
   // 3. Copy activities (visible, no extensions, no submissions)
-  for (const d of actsSnap.docs) {
-    const a = d.data()
+  for (const a of sourceActs) {
     const ref = doc(collection(db, 'activities'))
+    ordenPorParcial[a.parcial] = (ordenPorParcial[a.parcial] || 0) + 1
     batch.set(ref, {
       nombre: a.nombre,
       categoria: a.categoria || 'actividad',
@@ -61,6 +76,7 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       extensionesCustom: a.extensionesCustom || '',
       tipo: a.tipo || 'archivo',
       parcial: a.parcial,
+      orden: ordenPorParcial[a.parcial],
       asignaturaId: newSubjectId,
       docenteId,
       oculta: false,
