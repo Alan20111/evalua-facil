@@ -279,14 +279,21 @@ export default function TeacherDashboard() {
     <>
       <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Greeting — dos renglones, cada uno truncate (nunca se parte en dos
-            líneas): "Bienvenido" y, debajo, "{prefijo} {nombre visible}" — el
-            mismo prefijo + Nombre visible de Perfil que ven los alumnos
-            (teacherDisplayName, misma fuente de verdad que en las pantallas
-            de alumno). */}
+        {/* Greeting — "Bienvenido {nombre}" en un solo renglón (con la foto a
+            la derecha del nombre si el docente dejó activado "Los
+            estudiantes pueden ver mi foto de perfil" en su Perfil) — pedido
+            explícito: así el docente ve tal cual lo que verían sus alumnos.
+            "{prefijo} {nombre visible}" es el mismo que ven los alumnos
+            (teacherDisplayName, misma fuente de verdad que en sus pantallas). */}
         <div className="mb-4">
-          <h1 className="text-lg font-bold text-on-surface truncate">Bienvenido</h1>
-          <p className="text-lg font-bold text-on-surface truncate">{teacherGreetingName}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <h1 className="text-lg font-bold text-on-surface truncate min-w-0">
+              Bienvenido {teacherGreetingName}
+            </h1>
+            {userProfile?.mostrarFotoAlumnos !== false && userProfile?.photoURL && (
+              <img src={userProfile.photoURL} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+            )}
+          </div>
           {userProfile?.schoolName && (
             <p className="text-slate-400 text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
           )}
