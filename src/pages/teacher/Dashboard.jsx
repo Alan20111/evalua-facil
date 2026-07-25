@@ -337,8 +337,10 @@ export default function TeacherDashboard() {
                 ) : (
                   <span className="text-xs font-bold text-accent">{teacherGreetingName.charAt(0).toUpperCase()}</span>
                 )}
-                <span className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                  <Camera size={12} className="text-white" />
+                {/* Insignia en la esquina, NO tapa la foto — pedido explícito:
+                    se tiene que poder ver al estudiante/docente sin el ícono encima. */}
+                <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-accent border-2 border-surface-card flex items-center justify-center">
+                  <Camera size={8} className="text-white" />
                 </span>
               </button>
             ) : (
