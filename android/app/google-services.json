@@ -51,6 +51,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "398556067679-pstbut6adanaaprlal5jls99mp8l7rtm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "mx.evaluafacil.app",
+            "certificate_hash": "5018b34c5c375158d471d7f084d453b6f1eb14cf"
+          }
+        },
+        {
           "client_id": "398556067679-aij5tsgoc9v3btjei2geset782r9qeec.apps.googleusercontent.com",
           "client_type": 3
         }
