@@ -9,12 +9,15 @@ import {
   doc,
   writeBatch,
   serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
+import AvatarCropModal from '../../components/AvatarCropModal'
+import { uploadToCloudinary } from '../../utils/cloudinary'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -36,10 +39,15 @@ function generateAccessCode() {
 }
 
 export default function TeacherDashboard() {
-  const { currentUser, userProfile } = useAuth()
+  const { currentUser, userProfile, setUserProfile } = useAuth()
   const location = useLocation()
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
+  // Pedido explícito: en la App (no en la web) se puede tocar la foto del
+  // saludo para cambiarla al vuelo, sin entrar al perfil.
+  const [cropFile, setCropFile] = useState(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef(null)
 
   // Whether the trial (or subscription) is expired — only gates NEW creation;
   // everything already in the account stays fully visible/exportable.
@@ -66,6 +74,28 @@ export default function TeacherDashboard() {
   // abierto, cae al comportamiento default (doble tap para salir).
   useBackHandler(() => setShowSubjectModal(false), showSubjectModal)
   useScrollLock(showSubjectModal)
+
+  function handlePhotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCropFile(file)
+    if (photoInputRef.current) photoInputRef.current.value = ''
+  }
+
+  async function handleCropConfirm(croppedFile) {
+    setUploadingPhoto(true)
+    try {
+      const url = await uploadToCloudinary(croppedFile, 'evalua-facil/avatars')
+      await updateDoc(doc(db, 'users', currentUser.uid), { photoURL: url })
+      setUserProfile((p) => ({ ...p, photoURL: url }))
+      setCropFile(null)
+      toast('Foto actualizada')
+    } catch (err) {
+      toast('Error al subir foto: ' + err.message, 'error')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
 
   // Datos en vivo — mismo mecanismo (onSnapshot) que usa el sidebar en
   // Layout.jsx, en vez de una carga única propia: antes ambos podían
@@ -290,14 +320,54 @@ export default function TeacherDashboard() {
             <h1 className="text-lg font-bold text-on-surface truncate min-w-0">
               Bienvenido {teacherGreetingName}
             </h1>
-            {userProfile?.mostrarFotoAlumnos !== false && userProfile?.photoURL && (
-              <img src={userProfile.photoURL} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+            {/* Pedido explícito: en la App se puede tocar la foto para
+                cambiarla al vuelo, sin entrar al perfil — por eso ahí se
+                muestra siempre (con iniciales si aún no hay foto), aunque en
+                la web solo aparezca cuando ya hay foto y está visible para
+                alumnos. */}
+            {IS_NATIVE_APP ? (
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                aria-label="Cambiar foto de perfil"
+                className="relative w-8 h-8 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0"
+              >
+                {userProfile?.photoURL ? (
+                  <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-xs font-bold text-accent">{teacherGreetingName.charAt(0).toUpperCase()}</span>
+                )}
+                <span className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                  <Camera size={12} className="text-white" />
+                </span>
+              </button>
+            ) : (
+              userProfile?.mostrarFotoAlumnos !== false && userProfile?.photoURL && (
+                <img src={userProfile.photoURL} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+              )
             )}
           </div>
           {userProfile?.schoolName && (
             <p className="text-slate-400 text-xs mt-0.5 truncate">{userProfile.schoolName}</p>
           )}
         </div>
+        {IS_NATIVE_APP && (
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handlePhotoChange}
+          />
+        )}
+        {cropFile && (
+          <AvatarCropModal
+            file={cropFile}
+            onCancel={() => setCropFile(null)}
+            onConfirm={handleCropConfirm}
+            saving={uploadingPhoto}
+          />
+        )}
 
         {loading ? (
           <div className="flex justify-center py-12"><Spinner size="lg" /></div>

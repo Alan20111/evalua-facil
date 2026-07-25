@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { X, Check } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
+import { IS_NATIVE_APP } from '../utils/platform'
 import Spinner from './Spinner'
 
 // Pedido explícito: al elegir una foto de perfil (docente o alumno), poder
@@ -18,6 +19,8 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const dragRef = useRef(null)
   const viewportRef = useRef(null)
+  const pointersRef = useRef(new Map()) // pointerId -> {x, y} — pinch necesita rastrear ambos dedos
+  const pinchRef = useRef(null) // {startDist, startZoom} mientras hay 2 dedos activos
 
   useBackHandler(onCancel, true)
 
@@ -68,6 +71,12 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
     el.addEventListener('wheel', onWheelNative, { passive: false })
     return () => el.removeEventListener('wheel', onWheelNative)
   }, [])
+  function pinchDistance() {
+    const pts = [...pointersRef.current.values()]
+    if (pts.length < 2) return null
+    return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+  }
+
   function handlePointerDown(e) {
     // El círculo de recorte necesita su propio arrastre — sin esto, el
     // listener global de "arrastrar cualquier ventana" (installDraggableOverlays,
@@ -75,12 +84,33 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
     // de solo la foto de adentro. La clase ef-nodrag ya lo excluye, pero
     // stopPropagation es un segundo seguro por si algo más escucha pointerdown.
     e.stopPropagation()
-    dragRef.current = { startX: e.clientX, startY: e.clientY, origin: offset }
-    e.currentTarget.setPointerCapture(e.pointerId)
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    // El pointerId sintético de un dedo que no llegó a un pointerdown "real"
+    // en el navegador puede no tener captura activa — no es crítico (el
+    // arrastre/pellizco siguen funcionando vía el Map de pointers), así que
+    // se ignora si falla.
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* noop */ }
+    if (pointersRef.current.size === 2) {
+      // Empieza el pellizco — el arrastre de un solo dedo se cancela mientras dure.
+      dragRef.current = null
+      pinchRef.current = { startDist: pinchDistance(), startZoom: zoom }
+    } else if (pointersRef.current.size === 1) {
+      dragRef.current = { startX: e.clientX, startY: e.clientY, origin: offset }
+    }
   }
   function handlePointerMove(e) {
-    if (!dragRef.current) return
+    if (!pointersRef.current.has(e.pointerId)) return
     e.stopPropagation()
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointersRef.current.size === 2 && pinchRef.current) {
+      const dist = pinchDistance()
+      if (dist && pinchRef.current.startDist) {
+        const ratio = dist / pinchRef.current.startDist
+        setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchRef.current.startZoom * ratio)))
+      }
+      return
+    }
+    if (!dragRef.current) return
     const dx = e.clientX - dragRef.current.startX
     const dy = e.clientY - dragRef.current.startY
     setOffset(clampOffset(
@@ -88,7 +118,17 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
       dispW, dispH,
     ))
   }
-  function handlePointerUp() { dragRef.current = null }
+  function handlePointerUp(e) {
+    pointersRef.current.delete(e.pointerId)
+    if (pointersRef.current.size < 2) pinchRef.current = null
+    if (pointersRef.current.size === 0) {
+      dragRef.current = null
+    } else if (pointersRef.current.size === 1) {
+      // Queda un dedo sobre la pantalla — retoma el arrastre desde ahí.
+      const [pt] = pointersRef.current.values()
+      dragRef.current = { startX: pt.x, startY: pt.y, origin: offset }
+    }
+  }
 
   function handleConfirm() {
     if (!imgEl) return
@@ -115,12 +155,14 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-4">
       <button type="button" className="absolute inset-0 border-none cursor-default bg-transparent" onClick={onCancel} aria-label="Cancelar" />
-      <div className="relative bg-surface-card rounded-card shadow-2xl p-4 w-full max-w-sm">
+      <div className="ef-nodrag relative bg-surface-card rounded-card shadow-2xl p-4 w-full max-w-sm">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold text-on-surface">Ajusta tu foto</h3>
           <button type="button" onClick={onCancel} aria-label="Cancelar" className="p-1 text-slate-400 hover:text-muted rounded"><X size={20} /></button>
         </div>
-        <p className="text-xs text-muted mb-3 text-center">Rueda del mouse para acercar/alejar · arrastra para mover</p>
+        <p className="text-xs text-muted mb-3 text-center">
+          {IS_NATIVE_APP ? 'Pellizca para alejar o acercar · arrastra para mover' : 'Rueda del mouse para acercar/alejar · arrastra para mover'}
+        </p>
         <div
           ref={viewportRef}
           onPointerDown={handlePointerDown}
