@@ -351,6 +351,13 @@ export default function TeacherNotificationSettings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const saveTimer = useRef(null)
+  // Guardado pendiente (debounce de 400ms) — bug real reportado: si el
+  // docente togglea un interruptor y sale de la pantalla ANTES de que se
+  // cumplan los 400ms, el useEffect de limpieza de abajo cancelaba el
+  // timeout sin nunca escribir el cambio, perdiéndolo en silencio. Ahora se
+  // guarda aquí el último `updated` pendiente para poder escribirlo de
+  // inmediato al desmontar, en vez de descartarlo.
+  const pendingSaveRef = useRef(null)
 
   // Bitácora de notificaciones — vive en su propia caja con scroll debajo de
   // los ajustes (pedido explícito), siempre visible y cargada sola al entrar
@@ -423,7 +430,18 @@ export default function TeacherNotificationSettings() {
       .finally(() => setLoading(false))
   }, [currentUser]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => () => clearTimeout(saveTimer.current), [])
+  useEffect(() => () => {
+    clearTimeout(saveTimer.current)
+    // Flush: si había un guardado pendiente sin cumplirse todavía, se
+    // dispara aquí mismo en vez de perderse.
+    const pending = pendingSaveRef.current
+    if (pending) {
+      pendingSaveRef.current = null
+      setDoc(doc(db, 'notificationSettings', pending.uid), { ...pending.data, updatedAt: serverTimestamp() }, { merge: true })
+        .then(() => refreshTeacherReminders(pending.uid))
+        .catch(() => {})
+    }
+  }, [])
 
   // Se dispara desde el handler de cambio (no desde un efecto reactivo sobre
   // `settings`) para no llamar setState de forma síncrona dentro de un efecto.
@@ -443,7 +461,9 @@ export default function TeacherNotificationSettings() {
     if (seActiva) requestExactAlarmAccess()
     clearTimeout(saveTimer.current)
     setSaving(true)
+    pendingSaveRef.current = { uid: currentUser.uid, data: updated }
     saveTimer.current = setTimeout(() => {
+      pendingSaveRef.current = null
       setDoc(doc(db, 'notificationSettings', currentUser.uid), { ...updated, updatedAt: serverTimestamp() }, { merge: true })
         .then(() => refreshTeacherReminders(currentUser.uid))
         .catch(() => toast('No se pudo guardar: intenta de nuevo', 'error'))
