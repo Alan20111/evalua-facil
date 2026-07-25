@@ -144,7 +144,19 @@ export default function StudentsTable({ stats }) {
     base.forEach((r) => {
       loteMs[r.loteKey] = Math.max(loteMs[r.loteKey] ?? 0, r.altaMs)
     })
-    return base.map((r) => ({ ...r, loteMs: loteMs[r.loteKey] }))
+
+    // N.º = número de alta: 1 el primero registrado, 117 el último. Va PEGADO
+    // al estudiante, no a la fila: no es la posición en la tabla (que cambia
+    // con el orden y la búsqueda) sino su lugar en la historia del padrón.
+    // Así, con el orden por defecto, arriba se ve el número más alto — que es
+    // justo la señal de "estos son los últimos".
+    const porAlta = [...base].sort(
+      (a, b) => a.altaMs - b.altaMs || a.nombre.localeCompare(b.nombre, 'es')
+    )
+    const consecutivo = {}
+    porAlta.forEach((r, i) => { consecutivo[r.id] = i + 1 })
+
+    return base.map((r) => ({ ...r, loteMs: loteMs[r.loteKey], consecutivo: consecutivo[r.id] }))
   }, [stats])
 
   const filtered = useMemo(() => {
@@ -232,25 +244,24 @@ export default function StudentsTable({ stats }) {
         <h2 className="font-semibold text-on-surface">
           Estudiantes
           <span className="ml-2 text-sm font-normal text-muted">
-            {search ? (
-              <>
-                Coinciden{' '}
-                <span className="font-semibold text-accent">
-                  {personasFiltradas} de {personas} estudiante{personas !== 1 ? 's' : ''}
-                </span>
-                {' · '}{filtered.length} inscripcion{filtered.length !== 1 ? 'es' : ''}
-              </>
-            ) : (
-              `${personas} estudiante${personas !== 1 ? 's' : ''} · ${rows.length} inscripcion${rows.length !== 1 ? 'es' : ''}`
-            )}
+            {personas} estudiante{personas !== 1 ? 's' : ''} · {rows.length} inscripcion{rows.length !== 1 ? 'es' : ''}
           </span>
         </h2>
-        <div className="w-full sm:w-72">
+        {/* El resultado de la búsqueda va PEGADO a la caja, que es donde está
+            la vista al escribir; en el título de la tarjeta pasaba inadvertido. */}
+        <div className="w-full sm:w-80">
           <SearchInput
             value={search}
             onChange={(v) => { setSearch(v); setLimit(PAGE) }}
             placeholder="Buscar nombre, código, escuela…"
           />
+          {search && (
+            <p className="mt-1.5 text-sm font-semibold text-accent">
+              {filtered.length === 0
+                ? 'Ningún estudiante coincide'
+                : `Coinciden ${personasFiltradas} estudiante${personasFiltradas !== 1 ? 's' : ''} · ${filtered.length} inscripcion${filtered.length !== 1 ? 'es' : ''}`}
+            </p>
+          )}
         </div>
       </div>
 
@@ -332,9 +343,24 @@ export default function StudentsTable({ stats }) {
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
               {COLS.map(({ key, label, sort, align }) => {
-                const activo = sortLevels[0]?.key === sort && sort
+                // Un encabezado se pinta cuando SU criterio está aplicado: en
+                // guinda sólido si es el orden principal y en tinte suave si
+                // solo desempata. Sin esto no había forma de saber, mirando la
+                // tabla, cuál orden estaba activo.
+                const nivel = sort ? sortLevels.findIndex((l) => l.key === sort) : -1
+                const esPrincipal = nivel === 0
                 return (
-                  <th key={key} className="relative px-4 py-2 select-none">
+                  <th
+                    key={key}
+                    aria-sort={esPrincipal ? (sortLevels[0].dir === 'asc' ? 'ascending' : 'descending') : undefined}
+                    className={`relative px-4 py-2 select-none transition-colors ${
+                      esPrincipal
+                        ? 'bg-accent-light text-accent'
+                        : nivel > 0
+                          ? 'bg-[var(--accent-tint)] text-accent'
+                          : ''
+                    }`}
+                  >
                     {sort ? (
                       <button
                         type="button"
@@ -343,9 +369,12 @@ export default function StudentsTable({ stats }) {
                         className="flex items-center gap-1 uppercase hover:text-accent transition-colors max-w-full"
                       >
                         <span className="truncate">{label}</span>
-                        {activo && (sortLevels[0].dir === 'asc'
+                        {nivel >= 0 && (sortLevels[nivel].dir === 'asc'
                           ? <ChevronUp size={13} className="flex-shrink-0" />
                           : <ChevronDown size={13} className="flex-shrink-0" />)}
+                        {nivel > 0 && (
+                          <span className="text-[10px] font-bold flex-shrink-0">{nivel + 1}</span>
+                        )}
                       </button>
                     ) : (
                       <span className={`block truncate ${align === 'right' ? 'text-right' : ''}`}>
@@ -385,9 +414,9 @@ export default function StudentsTable({ stats }) {
                 </td>
               </tr>
             ) : (
-              visible.map((r, i) => (
+              visible.map((r) => (
                 <tr key={r.id} className="hover:bg-[var(--accent-tint)]">
-                  <td className="px-4 py-2 text-right text-slate-400 tabular-nums">{i + 1}</td>
+                  <td className="px-4 py-2 text-right text-slate-400 tabular-nums">{r.consecutivo}</td>
                   <td className="px-4 py-2 font-medium text-on-surface truncate" title={r.nombre}>{r.nombre}</td>
                   <td className="px-4 py-2 font-mono text-xs font-semibold text-on-surface truncate">{r.codigo}</td>
                   <td className="px-4 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
