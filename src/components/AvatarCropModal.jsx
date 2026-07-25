@@ -62,17 +62,25 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
     if (!el) return undefined
     const onWheelNative = (e) => {
       e.preventDefault()
+      e.stopPropagation()
       setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z - e.deltaY * 0.0015)))
     }
     el.addEventListener('wheel', onWheelNative, { passive: false })
     return () => el.removeEventListener('wheel', onWheelNative)
   }, [])
   function handlePointerDown(e) {
+    // El círculo de recorte necesita su propio arrastre — sin esto, el
+    // listener global de "arrastrar cualquier ventana" (installDraggableOverlays,
+    // que también escucha en fase de captura) movía el modal completo en vez
+    // de solo la foto de adentro. La clase ef-nodrag ya lo excluye, pero
+    // stopPropagation es un segundo seguro por si algo más escucha pointerdown.
+    e.stopPropagation()
     dragRef.current = { startX: e.clientX, startY: e.clientY, origin: offset }
     e.currentTarget.setPointerCapture(e.pointerId)
   }
   function handlePointerMove(e) {
     if (!dragRef.current) return
+    e.stopPropagation()
     const dx = e.clientX - dragRef.current.startX
     const dy = e.clientY - dragRef.current.startY
     setOffset(clampOffset(
@@ -119,7 +127,7 @@ export default function AvatarCropModal({ file, onCancel, onConfirm, saving }) {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
-          className="mx-auto rounded-full overflow-hidden bg-slate-100 relative cursor-move select-none"
+          className="ef-nodrag mx-auto rounded-full overflow-hidden bg-slate-100 relative cursor-move select-none"
           style={{ width: VIEWPORT, height: VIEWPORT, minWidth: VIEWPORT, minHeight: VIEWPORT, maxWidth: VIEWPORT, maxHeight: VIEWPORT, touchAction: 'none' }}
         >
           {imgEl ? (
