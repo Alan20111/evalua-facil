@@ -4,6 +4,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { X, CheckCircle2 } from 'lucide-react'
 import Spinner from './Spinner'
+import Modal from './ui/Modal'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 
@@ -77,9 +78,7 @@ export default function LinkAccountModal({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={onClose} aria-label="Cerrar" />
-      <div className="relative bg-surface-card w-full max-w-sm rounded-card p-5 shadow-2xl">
+    <Modal open onClose={onClose} variant="centered" size="sm" padding="p-5">
         <button
           type="button"
           onClick={onClose}
@@ -139,7 +138,6 @@ export default function LinkAccountModal({ onClose }) {
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   )
 }
