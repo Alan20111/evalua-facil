@@ -480,14 +480,24 @@ export default function StudentSubjectPage() {
           })}
 
           {/* Llevarse su trabajo. Va al final de la lista, no arriba: primero
-              interesa ver sus calificaciones. Solo aparece si hay archivos. */}
-          {misArchivos.length > 0 && (
+              interesa ver sus calificaciones.
+              Dos condiciones, las dos a propósito:
+               · que haya archivos — un botón que baja un ZIP vacío nomás hace
+                 dudar de si funcionó;
+               · que el docente YA haya archivado la asignatura. Con el ciclo
+                 abierto el alumno sigue entregando y el ZIP sería una foto a
+                 medias que envejece sola. La descarga es el cierre: aparece
+                 cuando el maestro cierra el ciclo, que es también cuando el
+                 alumno puede quitarse la materia de sus archivadas — de ahí que
+                 sea justo el momento de llevarse el trabajo completo. */}
+          {subject?.archived && misArchivos.length > 0 && (
             <div className="bg-surface-card rounded-card shadow-card p-4">
               <p className="text-sm font-semibold text-on-surface mb-1">Guardar mi trabajo</p>
               <p className="text-xs text-muted mb-3 leading-relaxed">
+                Tu maestro archivó esta asignatura.{' '}
                 {misArchivos.length === 1
-                  ? 'Descarga el archivo que entregaste en esta asignatura.'
-                  : `Descarga en un ZIP los ${misArchivos.length} archivos que entregaste en esta asignatura, ordenados por parcial.`}
+                  ? 'Descarga el archivo que entregaste.'
+                  : `Descarga en un ZIP los ${misArchivos.length} archivos que entregaste, ordenados por parcial.`}
                 {' '}Es tu trabajo — guárdalo donde quieras.
               </p>
               <button

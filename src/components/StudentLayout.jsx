@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import Spinner from './Spinner'
 import SubjectIcon from './SubjectIcon'
 import { subjectDisplayName } from '../utils/subjectName'
-import { getEnrollments } from '../utils/studentLookup'
+import { getEnrollments, visibleEnrollments } from '../utils/studentLookup'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
 import { useBackHandler } from '../hooks/useBackHandler'
@@ -43,7 +43,9 @@ export default function StudentLayout({ children }) {
         // entrar con su correo. Eso se fue: el correo del estudiante NUNCA es
         // su cuenta. Su acceso es siempre el usuario que le dio su maestro, y
         // el correo es un dato aparte para recuperar la contraseña.
-        const subjectIds = [...new Set(enrollments.map((e) => e.asignaturaId).filter(Boolean))]
+        // visibleEnrollments: las que el alumno quitó de sus archivadas no
+        // vuelven por la barra lateral.
+        const subjectIds = [...new Set(visibleEnrollments(enrollments).map((e) => e.asignaturaId).filter(Boolean))]
         if (subjectIds.length === 0) { setSubjects([]); return }
         const snaps = await Promise.all(subjectIds.map((id) => getDoc(doc(db, 'subjects', id))))
         setSubjects(snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() })))
