@@ -445,16 +445,40 @@ export default function StudentDashboard() {
             onClick={() => setShowJoin(false)}
             aria-label="Cerrar"
           />
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <h3 className="text-lg font-semibold text-on-surface truncate">Unirme a otra asignatura</h3>
-              <button type="button" aria-label="Cerrar" onClick={() => setShowJoin(false)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+          {/* El código de acceso es lo único que se pide aquí, así que manda en
+              la ventana: campo grande, monoespaciado y centrado, con el botón a
+              todo lo ancho debajo. Antes iban input y botón apretados en una
+              sola fila, y ese "# Ir" diminuto no parecía la acción principal de
+              nada. Los 6 caracteres los genera el docente
+              (Math.random().toString(36).slice(2, 8)), de ahí la ayuda de abajo. */}
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card shadow-2xl overflow-hidden">
+            <div className="flex items-start gap-3 p-5 pb-4">
+              <div className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
+                <Hash size={22} className="text-accent" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-on-surface leading-tight">Unirme a otra asignatura</h3>
+                <p className="text-sm text-muted mt-1 leading-relaxed">
+                  Escribe el código que te dio tu maestro.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Cerrar"
+                onClick={() => setShowJoin(false)}
+                className="p-2 -mt-1 -mr-1 text-slate-400 hover:text-muted hover:bg-surface-container rounded transition-colors flex-shrink-0"
+              >
+                <X size={20} />
+              </button>
             </div>
-            <p className="text-sm text-muted mb-3">
-              Ingresa el <strong>código de acceso</strong> de tu nueva asignatura (o escanea su QR). Como ya tienes cuenta, solo confirmarás tu contraseña.
-            </p>
-            <form onSubmit={handleJoinSubject} className="flex gap-2">
+            <form onSubmit={handleJoinSubject} className="px-5 pb-5">
+              <label htmlFor="joinCode" className="block text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">
+                Código de acceso
+              </label>
+              {/* indent compensa el espacio que `tracking` agrega DESPUÉS de la
+                  última letra: sin él el texto se ve descentrado a la izquierda. */}
               <input
+                id="joinCode"
                 type="text"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
@@ -463,16 +487,23 @@ export default function StudentDashboard() {
                 autoCapitalize="characters"
                 spellCheck={false}
                 maxLength={8}
-                placeholder="Ej: A3B7K2"
-                className="flex-1 px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface font-mono tracking-widest text-center"
+                placeholder="A3B7K2"
+                className="w-full px-4 py-3.5 rounded-card border-2 border-outline-variant focus:border-accent focus:outline-none text-2xl font-mono font-bold tracking-[0.25em] indent-[0.25em] text-center bg-surface text-on-surface placeholder:text-slate-300 placeholder:font-normal transition-colors"
               />
+              <p className="text-xs text-slate-400 mt-2 text-center">
+                Son 6 caracteres, entre letras y números
+              </p>
               <button
                 type="submit"
                 disabled={!joinCode.trim()}
-                className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center gap-1.5 flex-shrink-0"
+                className="mt-4 w-full py-3 bg-accent hover:bg-accent-hover text-white font-semibold rounded-card transition-colors disabled:opacity-40 flex items-center justify-center gap-1.5"
               >
-                <Hash size={18} /> Ir
+                Continuar <ChevronRight size={18} />
               </button>
+              <p className="text-xs text-muted text-center mt-3 leading-relaxed">
+                También puedes escanear el QR de la asignatura. Como ya tienes cuenta,
+                solo confirmarás tu contraseña.
+              </p>
             </form>
           </div>
         </div>
