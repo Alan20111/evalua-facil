@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import { calcDaysRemaining, effectiveVencimiento, toDate } from '../utils/subscriptionHelpers'
+import { DIAS_POR_VENCER } from '../utils/situacionSuscripcion'
 
 function isThisMonth(date) {
   const d = toDate(date)
@@ -93,7 +94,11 @@ export function useAdminStats() {
         subscriptions.filter((s) => {
           if (s.status !== status) return false
           const venc = effectiveVencimiento(s)
-          return isWithinDays(venc, 7) && calcDaysRemaining(venc) >= 0
+          // La ventana es la MISMA que enciende la insignia naranja de "por
+          // vencer" en la tabla de Suscripciones. Antes eran 7 días aquí y 10
+          // allá, así que el resumen contaba menos renglones de los que la
+          // tabla marcaba en naranja.
+          return isWithinDays(venc, DIAS_POR_VENCER) && calcDaysRemaining(venc) >= 0
         })
 
       // El resumen las separa: una suscripción de paga por vencer se cobra, una

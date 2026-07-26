@@ -11,6 +11,7 @@ import {
 import { Plus, Pencil, Ban, Trash2, X, RotateCcw } from 'lucide-react'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import SearchInput from '../../../components/SearchInput'
+import StatusBadge from './StatusBadge'
 import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
@@ -195,21 +196,6 @@ function vencimientoCortesia(modal) {
   if (modal.form.cortesiaIndefinida) return 'sin fecha de fin'
   const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
   return fin ? formatDate(fin) : null
-}
-
-// Etiqueta de estado, no botón. Lo que la hacía competir con el contenido de
-// las celdas era la NEGRITA, no el tamaño: a 12 px de peso normal se lee bien
-// sin gritar. El relleno acompaña al tamaño para que la píldora no quede
-// apretada.
-function StatusBadge({ situacion }) {
-  return (
-    <span
-      style={situacion.estilo}
-      className="inline-block text-[12px] font-normal leading-tight px-2 py-[3px] rounded-full whitespace-nowrap"
-    >
-      {situacion.etiqueta}
-    </span>
-  )
 }
 
 // ¿Esta fila pasa los filtros? `excepto` deja fuera un campo a propósito, para
