@@ -1,10 +1,46 @@
 import { useState, useEffect, useCallback } from 'react'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
+import { calcTrialEnd } from '../utils/subscriptionHelpers'
+
+// Regla vigente: TODO docente tiene, como mínimo, una prueba de 30 días. La
+// única excepción es la Cortesía, que el administrador otorga a mano.
+//
+// Hacía falta repararlo porque el esquema viejo daba acceso ILIMITADO a quien
+// no tuviera ningún documento de suscripción: `isSubscriptionExpired(null)` es
+// false, así que ese docente trabajaba sin vencimiento posible. La
+// autorreparación que ya existía en AuthContext solo cubre el caso de que
+// falte el PERFIL (users/{uid}), no la suscripción.
+//
+// El id es determinista para que dos pestañas abiertas a la vez no creen dos
+// suscripciones para la misma persona.
+//
+// Consecuencia buscada: ELIMINAR una suscripción desde el panel la vuelve a
+// crear como prueba en el siguiente inicio de sesión. Para dejar sin servicio
+// a un docente hay que CANCELARLA, que sí persiste (una cancelada existe, así
+// que no dispara esta reparación).
+async function crearPruebaInicial(uid) {
+  const inicio = new Date()
+  const datos = {
+    docenteId: uid,
+    planId: '',
+    status: 'trial',
+    fechaInicio: Timestamp.fromDate(inicio),
+    fechaVencimiento: Timestamp.fromDate(calcTrialEnd(inicio)),
+    createdAt: Timestamp.fromDate(inicio),
+    updatedAt: Timestamp.fromDate(inicio),
+  }
+  const id = `trial-${uid}`
+  await setDoc(doc(db, 'subscriptions', id), datos)
+  return { id, ...datos }
+}
 
 export function useSubscription() {
-  const { currentUser } = useAuth()
+  const { currentUser, userProfile } = useAuth()
+  // Extraído a una constante: con `userProfile?.role` dentro del arreglo de
+  // dependencias, el compilador de React no puede conservar la memoización.
+  const rol = userProfile?.role
   const [subscription, setSubscription] = useState(null)
   const [recentPayments, setRecentPayments] = useState([])
   const [loading, setLoading] = useState(true)
@@ -31,7 +67,15 @@ export function useSubscription() {
           const tb = b.updatedAt?.toMillis?.() || 0
           return tb - ta
         })
-      setSubscription(subs[0] || null)
+      // Solo se repara cuando la lectura FUNCIONÓ y de verdad no hay ninguna.
+      // Si la consulta falla, el catch de abajo deja `null` a propósito y se
+      // conserva el fallo hacia el lado seguro: un error de red no debe dejar
+      // a un docente sin poder calificar ni pasar lista.
+      let actual = subs[0] || null
+      if (!actual && rol === 'docente') {
+        actual = await crearPruebaInicial(currentUser.uid).catch(() => null)
+      }
+      setSubscription(actual)
 
       const payments = paymentsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
@@ -50,7 +94,7 @@ export function useSubscription() {
     } finally {
       setLoading(false)
     }
-  }, [currentUser])
+  }, [currentUser, rol])
 
   useEffect(() => {
     load()
