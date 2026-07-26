@@ -2,9 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getDoc, doc } from 'firebase/firestore'
 import {
-  EmailAuthProvider, reauthenticateWithCredential, signOut, updatePassword,
+  EmailAuthProvider, reauthenticateWithCredential, updatePassword,
 } from 'firebase/auth'
-import { auth, db } from '../../firebase'
+import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -14,7 +14,7 @@ import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { ArrowLeft, Camera, Copy, Check, KeyRound, LogOut, Trash2, UserMinus } from 'lucide-react'
+import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus } from 'lucide-react'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
@@ -49,7 +49,6 @@ export default function StudentProfile() {
   // Mi cuenta
   const [enrollments, setEnrollments] = useState([])
   const [quitandoFoto, setQuitandoFoto] = useState(false)
-  const [cerrandoSesiones, setCerrandoSesiones] = useState(false)
   const [solicitandoBaja, setSolicitandoBaja] = useState(false)
   const [showEliminar, setShowEliminar] = useState(false)
   const [confirm, setConfirm] = useState(null) // { title, message, confirmLabel, danger, onConfirm }
@@ -184,24 +183,6 @@ export default function StudentProfile() {
       toast('Error: ' + err.message, 'error')
     } finally {
       setQuitandoFoto(false)
-    }
-  }
-
-  // ── Cerrar sesión en todos los dispositivos ─────────────────────────────
-  async function cerrarSesionesTodas() {
-    setCerrandoSesiones(true)
-    try {
-      const res = await fetch('/api/account/sign-out-everywhere', { method: 'POST', headers: await authHeader() })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'No se pudieron cerrar las sesiones')
-      // Este dispositivo también queda fuera: su token ya no se puede renovar,
-      // así que salir aquí mismo evita dejarlo en un limbo.
-      await signOut(auth).catch(() => {})
-      navigate('/alumno', { replace: true })
-      toast('Cerramos tu sesión en todos los dispositivos')
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-      setCerrandoSesiones(false)
     }
   }
 
@@ -434,29 +415,20 @@ export default function StudentProfile() {
         {/* ── Mi cuenta ── */}
         <div className="bg-surface-card rounded-card shadow-card p-5 mt-4">
           <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
-            <LogOut size={16} className="text-accent" /> Mi cuenta
+            <UserMinus size={16} className="text-accent" /> Mi cuenta
           </h2>
 
-          <button
-            type="button"
-            onClick={() => setConfirm({
-              title: 'Cerrar sesión en todos los dispositivos',
-              message: 'Si dejaste tu cuenta abierta en una computadora de la escuela o en otro celular, esto la cierra en todos lados. Aquí también vas a tener que entrar de nuevo.',
-              confirmLabel: 'Cerrar en todos',
-              onConfirm: cerrarSesionesTodas,
-            })}
-            disabled={cerrandoSesiones}
-            className="w-full py-2.5 rounded border border-outline-variant text-sm font-semibold text-muted hover:bg-surface transition-colors disabled:opacity-60"
-          >
-            {cerrandoSesiones ? 'Cerrando…' : 'Cerrar sesión en todos los dispositivos'}
-          </button>
+          {/* Aquí vivía "Cerrar sesión en todos los dispositivos". Se quitó
+              por confuso: el alumno ya tiene "Cerrar sesión" en su menú, y dos
+              botones parecidos en la misma pantalla obligan a adivinar la
+              diferencia (Don't Make Me Think).
 
-          {/* Eliminar la cuenta solo se ofrece cuando ya no queda ninguna
+              Eliminar la cuenta solo se ofrece cuando ya no queda ninguna
               asignatura. Mientras esté inscrito, sus calificaciones son el
               registro de su maestro y la baja la decide él — ver
               api/student/delete.js, que vuelve a comprobarlo del lado del
               servidor por si alguien llama al endpoint por su cuenta. */}
-          <div className="mt-4 pt-4 border-t border-outline-variant">
+          <div>
             {enrollments.length === 0 ? (
               <>
                 <p className="text-xs text-muted mb-2 leading-relaxed">
