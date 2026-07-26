@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getDoc, doc } from 'firebase/firestore'
 import {
-  EmailAuthProvider, reauthenticateWithCredential, updatePassword, verifyBeforeUpdateEmail,
+  EmailAuthProvider, reauthenticateWithCredential, signOut, updatePassword, verifyBeforeUpdateEmail,
 } from 'firebase/auth'
 import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -15,8 +15,11 @@ import { maskEmail } from '../../utils/generate'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { ArrowLeft, Camera, Copy, Check, KeyRound, Mail, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Camera, Copy, Check, KeyRound, Mail, ShieldCheck, LogOut, Trash2, UserMinus } from 'lucide-react'
 import AvatarCropModal from '../../components/AvatarCropModal'
+import ConfirmModal from '../../components/ConfirmModal'
+import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
+import { sendBajaSolicitadaEmail } from '../../utils/accountEmails'
 import { IS_NATIVE_APP } from '../../utils/platform'
 
 // El espacio para subir la foto mide distinto en la web y en la app — pedido
@@ -50,6 +53,14 @@ export default function StudentProfile() {
   const [savingCorreo, setSavingCorreo] = useState(false)
   const [correoEnviadoA, setCorreoEnviadoA] = useState('')
   const [showCorreoForm, setShowCorreoForm] = useState(false)
+  // Mi cuenta
+  const [enrollments, setEnrollments] = useState([])
+  const [quitandoFoto, setQuitandoFoto] = useState(false)
+  const [cerrandoSesiones, setCerrandoSesiones] = useState(false)
+  const [solicitandoBaja, setSolicitandoBaja] = useState(false)
+  const [showEliminar, setShowEliminar] = useState(false)
+  const [confirm, setConfirm] = useState(null) // { title, message, confirmLabel, danger, onConfirm }
+  const [confirming, setConfirming] = useState(false)
   const fileInputRef = useRef(null)
   const navigate = useNavigate()
   const toast = useToast()
@@ -68,6 +79,7 @@ export default function StudentProfile() {
       await currentUser.reload().catch(() => {})
       const enrollments = await getEnrollments(currentUser, userProfile)
       setStudentInfo(enrollments[0] || null)
+      setEnrollments(enrollments)
 
       // Nombre de la escuela: igual que StudentLayout, a través del docente de
       // la primera asignatura (refleja SU escuela actual); si no, el doc schools.
@@ -154,6 +166,104 @@ export default function StudentProfile() {
       }
     } finally {
       setSavingPass(false)
+    }
+  }
+
+  async function authHeader() {
+    const token = await currentUser.getIdToken()
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+  }
+
+  // ── Sin foto ────────────────────────────────────────────────────────────
+  // Se hace en el servidor y no aquí: limpiar el campo solo la quitaría de la
+  // vista, el archivo seguiría vivo en Cloudinary con su URL. Ver
+  // api/student/remove-photo.js.
+  async function quitarFoto() {
+    setQuitandoFoto(true)
+    try {
+      const res = await fetch('/api/student/remove-photo', { method: 'POST', headers: await authHeader() })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudo quitar la foto')
+      setStudentInfo((prev) => (prev ? { ...prev, photoURL: null } : prev))
+      setUserProfile((p) => (p ? { ...p, photoURL: null } : p))
+      toast('Listo, ya no tienes foto')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setQuitandoFoto(false)
+    }
+  }
+
+  // ── Cerrar sesión en todos los dispositivos ─────────────────────────────
+  async function cerrarSesionesTodas() {
+    setCerrandoSesiones(true)
+    try {
+      const res = await fetch('/api/account/sign-out-everywhere', { method: 'POST', headers: await authHeader() })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudieron cerrar las sesiones')
+      // Este dispositivo también queda fuera: su token ya no se puede renovar,
+      // así que salir aquí mismo evita dejarlo en un limbo.
+      await signOut(auth).catch(() => {})
+      navigate('/alumno', { replace: true })
+      toast('Cerramos tu sesión en todos los dispositivos')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+      setCerrandoSesiones(false)
+    }
+  }
+
+  // ── Pedirle la baja al maestro ──────────────────────────────────────────
+  // Mientras esté inscrito, la baja NO la decide el estudiante: sus
+  // calificaciones son el registro del docente. Esto deja constancia en sus
+  // inscripciones y le avisa por correo a cada maestro.
+  async function solicitarBaja() {
+    setSolicitandoBaja(true)
+    try {
+      const asignaturaIds = [...new Set(enrollments.map((e) => e.asignaturaId).filter(Boolean))]
+      const subjSnaps = await Promise.all(asignaturaIds.map((id) => getDoc(doc(db, 'subjects', id)).catch(() => null)))
+
+      const nombrePorDocente = {}
+      subjSnaps.forEach((s) => {
+        if (!s?.exists()) return
+        const d = s.data()
+        if (!d.docenteId) return
+        nombrePorDocente[d.docenteId] = [...(nombrePorDocente[d.docenteId] || []), d.nombre || 'Asignatura']
+      })
+
+      await updateAllEnrollments(currentUser.uid, {
+        bajaSolicitada: true,
+        bajaSolicitadaEn: new Date().toISOString(),
+      })
+
+      const docenteSnaps = await Promise.all(
+        Object.keys(nombrePorDocente).map((id) => getDoc(doc(db, 'users', id)).catch(() => null))
+      )
+      await Promise.all(docenteSnaps.map((s, i) => {
+        const email = s?.exists() ? s.data().email : null
+        if (!email) return null
+        const docenteId = Object.keys(nombrePorDocente)[i]
+        return sendBajaSolicitadaEmail({
+          email,
+          alumno: displayName || studentInfo?.username || 'Un estudiante',
+          asignaturas: nombrePorDocente[docenteId] || [],
+        }).catch(() => {})
+      }))
+
+      toast('Le avisamos a tu maestro. Él decide la baja.')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSolicitandoBaja(false)
+    }
+  }
+
+  async function handleConfirm() {
+    setConfirming(true)
+    try {
+      await confirm.onConfirm()
+    } finally {
+      setConfirming(false)
+      setConfirm(null)
     }
   }
 
@@ -273,6 +383,24 @@ export default function StudentProfile() {
             <p className="font-semibold text-on-surface leading-snug">{displayName}</p>
             {schoolName && <p className="text-sm text-muted truncate mt-0.5">{schoolName}</p>}
             <p className="text-xs text-slate-400 mt-1">Toca la foto para cambiarla</p>
+            {/* "Sin foto" solo aparece si hay foto que quitar — un botón para
+                borrar algo que no existe nomás hace dudar. */}
+            {photoURL && (
+              <button
+                type="button"
+                onClick={() => setConfirm({
+                  title: 'Quedarte sin foto',
+                  message: 'Se borra tu foto del sistema — no queda guardada en ningún lado. Vas a aparecer con tu inicial, y puedes subir otra cuando quieras. ¿La quitamos?',
+                  confirmLabel: 'Sí, quitar mi foto',
+                  danger: true,
+                  onConfirm: quitarFoto,
+                })}
+                disabled={quitandoFoto}
+                className="mt-1 text-xs font-semibold text-accent hover:underline disabled:opacity-60"
+              >
+                {quitandoFoto ? 'Quitando…' : 'Sin foto'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -429,7 +557,95 @@ export default function StudentProfile() {
             </form>
           )}
         </div>
+
+        {/* ── Mi cuenta ── */}
+        <div className="bg-surface-card rounded-card shadow-card p-5 mt-4">
+          <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
+            <LogOut size={16} className="text-accent" /> Mi cuenta
+          </h2>
+
+          <button
+            type="button"
+            onClick={() => setConfirm({
+              title: 'Cerrar sesión en todos los dispositivos',
+              message: 'Si dejaste tu cuenta abierta en una computadora de la escuela o en otro celular, esto la cierra en todos lados. Aquí también vas a tener que entrar de nuevo.',
+              confirmLabel: 'Cerrar en todos',
+              onConfirm: cerrarSesionesTodas,
+            })}
+            disabled={cerrandoSesiones}
+            className="w-full py-2.5 rounded border border-outline-variant text-sm font-semibold text-muted hover:bg-surface transition-colors disabled:opacity-60"
+          >
+            {cerrandoSesiones ? 'Cerrando…' : 'Cerrar sesión en todos los dispositivos'}
+          </button>
+
+          {/* Eliminar la cuenta solo se ofrece cuando ya no queda ninguna
+              asignatura. Mientras esté inscrito, sus calificaciones son el
+              registro de su maestro y la baja la decide él — ver
+              api/student/delete.js, que vuelve a comprobarlo del lado del
+              servidor por si alguien llama al endpoint por su cuenta. */}
+          <div className="mt-4 pt-4 border-t border-outline-variant">
+            {enrollments.length === 0 ? (
+              <>
+                <p className="text-xs text-muted mb-2 leading-relaxed">
+                  Ya no estás inscrito en ninguna asignatura, así que puedes eliminar tu cuenta.
+                  Se borra tu usuario, tu foto y tus notificaciones, y no se puede deshacer.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowEliminar(true)}
+                  className="w-full py-2.5 rounded border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={16} /> Eliminar mi cuenta
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-muted mb-2 leading-relaxed">
+                  Estás en <strong>{enrollments.length} {enrollments.length === 1 ? 'asignatura' : 'asignaturas'}</strong>.
+                  Mientras tengas clases no puedes eliminar tu cuenta: tus calificaciones son parte de la
+                  lista de tu maestro. Pídele que te dé de baja y, cuando ya no te quede ninguna, aquí
+                  vas a poder eliminarla.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setConfirm({
+                    title: 'Pedir mi baja',
+                    message: 'Le vamos a avisar por correo a tu maestro que quieres que te dé de baja. Él decide. Tu cuenta y tus calificaciones no se tocan.',
+                    confirmLabel: 'Avisarle a mi maestro',
+                    onConfirm: solicitarBaja,
+                  })}
+                  disabled={solicitandoBaja}
+                  className="w-full py-2.5 rounded border border-outline-variant text-sm font-semibold text-muted hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <UserMinus size={16} />
+                  {solicitandoBaja ? 'Avisando…' : 'Pedirle a mi maestro que me dé de baja'}
+                </button>
+                {studentInfo?.bajaSolicitada && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    Ya le avisaste a tu maestro. Puedes volver a hacerlo si no te ha contestado.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
+      {confirm && (
+        <ConfirmModal
+          title={confirm.title}
+          message={confirm.message}
+          confirmLabel={confirm.confirmLabel}
+          danger={confirm.danger}
+          busy={confirming}
+          onConfirm={handleConfirm}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
+
+      {showEliminar && (
+        <EliminarCuentaAlumnoModal photoURL={photoURL} onClose={() => setShowEliminar(false)} />
+      )}
     </StudentLayout>
   )
 }

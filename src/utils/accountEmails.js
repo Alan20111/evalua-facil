@@ -118,6 +118,28 @@ export function sendSubscriptionCancelledEmail({ email, accesoHasta, eraTrial })
   }))
 }
 
+// Un estudiante pidió que lo den de baja. Va al maestro, no al estudiante:
+// mientras el estudiante esté inscrito, sus calificaciones son el registro
+// del docente y la baja la decide él. Este correo es el aviso, no la baja.
+export function sendBajaSolicitadaEmail({ email, alumno, asignaturas }) {
+  const lista = asignaturas.length
+    ? `<ul style="margin:0 0 16px;padding-left:20px;color:#475569;font-size:15px;line-height:1.7;">${
+      asignaturas.map((a) => `<li>${a}</li>`).join('')}</ul>`
+    : ''
+  const cuerpo = [
+    parrafo(`<strong>${alumno}</strong> pidió que lo des de baja de Evalúa Fácil desde su perfil.`),
+    asignaturas.length ? parrafo('Está inscrito en:') + lista : '',
+    parrafo('Su cuenta <strong>no se ha borrado</strong> y sus calificaciones siguen completas — la decisión es tuya. Si procede, dalo de baja desde la lista de estudiantes de la asignatura, con «Eliminar estudiante».'),
+    parrafo('Si no era lo que esperabas, coméntalo con él antes de hacer nada: al eliminarlo se van también sus entregas y calificaciones de esa asignatura.'),
+  ].join('')
+
+  return enviar(email, armarCorreo({
+    titulo: 'Un estudiante pidió su baja',
+    cuerpo,
+    accion: boton('Abrir Evalúa Fácil →', SITIO),
+  }))
+}
+
 // Confirmación de eliminación. Se manda antes de borrar, así que se redacta
 // en pasado a propósito: para cuando llegue al buzón, ya no hay cuenta.
 export function sendAccountDeletedEmail({ email }) {
