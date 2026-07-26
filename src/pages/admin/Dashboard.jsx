@@ -55,10 +55,13 @@ export default function AdminDashboard() {
       ) : (
         <>
           {activeTab === 'resumen' && (
-            <>
+            /* Tabla de indicadores a la izquierda con su ancho justo, y a su
+               derecha la columna de gráficas (top 10 arriba, estado de las
+               suscripciones abajo). En móvil se apilan. */
+            <div className="flex flex-col lg:flex-row items-start gap-3">
               <StatsCards kpis={stats?.kpis} />
               <ResumenCharts stats={stats} />
-            </>
+            </div>
           )}
           {activeTab === 'suscripciones' && (
             <SubscriptionsTable stats={stats} onRefresh={refresh} />
