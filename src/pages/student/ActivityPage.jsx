@@ -619,7 +619,10 @@ export default function StudentActivityPage() {
                   href={downloadUrl(f.url, f.nombre)}
                   download={f.nombre}
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-3 py-2.5 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
+                  /* bg-surface-card (blanco), no bg-surface: desde que el lienzo
+                     es azul cielo, `bg-surface` pinta de azul y este botón se
+                     confundía con el fondo en vez de recortarse contra él. */
+                  className="flex items-center gap-3 px-3 py-2.5 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-accent-light hover:border-accent transition-colors"
                 >
                   <Download size={17} className="text-accent flex-shrink-0" />
                   <span className="truncate">{f.nombre}</span>

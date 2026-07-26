@@ -1,18 +1,10 @@
 import { useRef } from 'react'
 import { Check, Pipette } from 'lucide-react'
-import { isCustomPalette, customPaletteHex, ensureVisibleOnWhite } from '../utils/subjectPalette'
+import { isCustomPalette, customPaletteHex, ensureVisibleOnWhite, PALETTES } from '../utils/subjectPalette'
 
-// Preset accent palettes for a subject. Keys must match the
-// [data-subject-palette="..."] rules in src/index.css.
-export const PALETTES = [
-  { key: 'default', label: 'Azul', color: '#2563eb' },
-  { key: 'orange', label: 'Naranja', color: '#f97316' },
-  { key: 'purple', label: 'Morado', color: '#9333ea' },
-  { key: 'green', label: 'Verde', color: '#16a34a' },
-  { key: 'rose', label: 'Rosa', color: '#e11d48' },
-  { key: 'teal', label: 'Teal', color: '#14b8a6' },
-  { key: 'slate', label: 'Grafito', color: '#475569' },
-]
+// El catálogo vive en utils/subjectPalette (lo comparten estos cuadros y las
+// bolitas del banco de íconos); se re-exporta para no romper importaciones.
+export { PALETTES }
 
 // A row of color swatches; `value` is a palette key or "custom:#rrggbb",
 // `onChange(key)`. The last swatch opens a free color picker — the pick is
@@ -35,7 +27,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
             onClick={() => onChange(p.key)}
             data-tooltip={p.label}
             aria-label={p.label}
-            className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
+            className={`w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
             style={{ backgroundColor: p.color }}
           >
             {selected && <Check size={16} className="text-white" />}
@@ -52,7 +44,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
         data-tooltip="Elige tu propio color (se ajusta solo para notarse sobre blanco)"
         data-tooltip-pos="left"
         aria-label="Color personalizado"
-        className={`w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
+        className={`w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
         style={custom
           ? { backgroundColor: customColor }
           : { background: 'conic-gradient(#ef4444, #f97316, #eab308, #16a34a, #06b6d4, #2563eb, #9333ea, #ef4444)' }}
