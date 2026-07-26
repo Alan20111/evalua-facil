@@ -18,12 +18,12 @@ import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
+import { situacionDe, SITUACIONES } from '../../../utils/situacionSuscripcion'
 import {
   calcDaysRemaining,
   effectiveVencimiento,
   formatCurrency,
   formatDate,
-  getSubscriptionStatusColor,
   toDate,
 } from '../../../utils/subscriptionHelpers'
 
@@ -38,19 +38,6 @@ const PAGE = 100
 const ALTO_TABLA = 'calc(100vh - 290px)'
 
 const WIDTHS_KEY = 'admin-suscripciones-cols-v3'
-
-// Nombres que ve el administrador. `status` es el valor guardado en Firestore;
-// esto es solo su etiqueta ("pendiente_pago" se lee fatal en una tabla).
-const ESTADO_LABEL = {
-  trial: 'Prueba',
-  activa: 'Activa',
-  pendiente_pago: 'Pendiente de pago',
-  vencida: 'Vencida',
-  cancelada: 'Cancelada',
-  // Docentes que no tienen ninguna suscripción. Antes solo se veían en la
-  // pestaña Usuarios; al retirarla, entran aquí como una situación más.
-  sin_suscripcion: 'Sin suscripción',
-}
 
 // Columnas. `filtro` = tipo de caja bajo el título:
 //   'texto' → se escribe y filtra, con sugerencias de los valores que todavía
@@ -188,16 +175,35 @@ function situacionCalculada(form, statusPrevio) {
   return statusPrevio && statusPrevio !== 'cancelada' ? statusPrevio : 'trial'
 }
 
+// Cómo quedaría la suscripción con lo que hay escrito ahora en el formulario,
+// para pintar la insignia de vista previa con la misma regla que la tabla.
+function previsualizarSuscripcion(modal) {
+  const status = situacionCalculada(modal.form, modal.statusPrevio)
+  const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
+  return {
+    status,
+    planId: modal.form.planId,
+    cortesiaIndefinida: modal.form.cortesiaIndefinida === true,
+    fechaVencimiento: modal.form.planId === PLAN_CORTESIA
+      ? fin
+      : (modal.form.fechaVencimiento ? new Date(`${modal.form.fechaVencimiento}T12:00:00`) : null),
+    fechaInicio: modal.form.fechaInicio ? new Date(`${modal.form.fechaInicio}T12:00:00`) : null,
+  }
+}
+
 function vencimientoCortesia(modal) {
   if (modal.form.cortesiaIndefinida) return 'sin fecha de fin'
   const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
   return fin ? formatDate(fin) : null
 }
 
-function StatusBadge({ status }) {
+function StatusBadge({ situacion }) {
   return (
-    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getSubscriptionStatusColor(status)}`}>
-      {ESTADO_LABEL[status] || status?.replace('_', ' ')}
+    <span
+      style={situacion.estilo}
+      className="inline-block text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+    >
+      {situacion.etiqueta}
     </span>
   )
 }
@@ -352,8 +358,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         : sub.planId === PLAN_CORTESIA
           ? `Cortesía${sub.cortesiaIndefinida ? ' (sin vencimiento)' : sub.cortesiaDias ? ` (${sub.cortesiaDias} días)` : ''}`
           : (plan?.nombre || (sub.status === 'trial' ? 'Sin plan (prueba)' : '—'))
-      const situacion = sub ? sub.status : 'sin_suscripcion'
-      const situacionLabel = ESTADO_LABEL[situacion] || situacion || '—'
+      const situacion = situacionDe(sub)
+      const situacionLabel = situacion.etiqueta
       const altaTexto = sub ? formatDate(altaValor) : '—'
       const vencTexto = sub ? formatDate(vencValor) : '—'
       return {
@@ -392,7 +398,15 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     const conSuscripcion = subscriptions.map((sub) => construir(sub, teachersMap[sub.docenteId]))
     const conSub = new Set(subscriptions.map((s) => s.docenteId))
     const sinSuscripcion = teachers.filter((t) => !conSub.has(t.id)).map((t) => construir(null, t))
-    return [...conSuscripcion, ...sinSuscripcion]
+    // Cuentas dadas de baja: su docente ya no existe, así que se arma el
+    // renglón con la constancia. Van al final por su fecha de baja.
+    const bajas = (stats.bajas || []).map((b) =>
+      construir(
+        { cuentaEliminada: true, fechaInicio: b.fechaBaja, status: 'eliminada' },
+        { id: b.docenteId, nombre: b.nombre, email: b.email }
+      )
+    )
+    return [...conSuscripcion, ...sinSuscripcion, ...bajas]
   }, [stats, teachers, teachersMap, plansMap])
 
   // Orden fijo: la suscripción más reciente hasta arriba; dentro del mismo día
@@ -415,7 +429,11 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         if (!pasaFiltros(r, filtros, search, campo)) return
         set.add(campo === 'situacion' ? r.situacionLabel : r[campo])
       })
-      res[campo] = [...set].filter((v) => v && v !== '—').sort((a, b) => a.localeCompare(b, 'es'))
+      res[campo] = campo === 'situacion'
+        // Catálogo completo y en su orden natural (de prueba a baja), no solo
+        // las situaciones que hoy existen en los datos.
+        ? SITUACIONES.filter((v) => set.has(v))
+        : [...set].filter((v) => v && v !== '—').sort((a, b) => a.localeCompare(b, 'es'))
     })
     return res
   }, [rows, filtros, search])
@@ -696,7 +714,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.plan}>{r.plan}</td>
-                  <td className="px-3 py-2"><StatusBadge status={r.situacion} /></td>
+                  <td className="px-3 py-2"><StatusBadge situacion={r.situacion} /></td>
                   <td className="px-3 py-2 text-muted truncate">{r.vencimiento}</td>
                   {/* Los días ya vencidos van en rojo: es lo que se busca al
                       barrer la tabla con la vista. */}
@@ -720,7 +738,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       >
                         <Pencil size={16} />
                       </button>
-                      {r.situacion !== 'cancelada' && (
+                      {r.situacion.clave !== 'cancelada' && (
                         <button
                           type="button"
                           onClick={() => handleCancel(r.sub)}
@@ -790,23 +808,33 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             <form onSubmit={handleSave} className="space-y-4">
               {/* La ventana va en cuatro tramos, en el orden en que se piensa:
                   a quién, qué se le da, desde cuándo y cómo queda. */}
+              {/* Al EDITAR el docente se muestra, no se elige: ya se entró
+                  desde SU renglón, y poder cambiarlo aquí solo servía para
+                  reasignarle la suscripción a otra persona por error. Al crear
+                  sí hay que escogerlo. */}
               <div>
-                <label htmlFor="sub-docente" className="block text-xs font-medium text-muted mb-1">Docente</label>
-                <select
-                  id="sub-docente"
-                  value={modal.form.docenteId}
-                  onChange={(e) =>
-                    setModal({ ...modal, form: { ...modal.form, docenteId: e.target.value } })
-                  }
-                  required
-                  className={inputCls}
-                >
-                  {teachers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {etiquetaDocente(t)}
-                    </option>
-                  ))}
-                </select>
+                <span className="block text-xs font-medium text-muted mb-1">Docente</span>
+                {modal.mode === 'edit' ? (
+                  <p className="px-3 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface">
+                    {etiquetaDocente(teachersMap[modal.form.docenteId])}
+                  </p>
+                ) : (
+                  <select
+                    id="sub-docente"
+                    value={modal.form.docenteId}
+                    onChange={(e) =>
+                      setModal({ ...modal, form: { ...modal.form, docenteId: e.target.value } })
+                    }
+                    required
+                    className={inputCls}
+                  >
+                    {teachers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {etiquetaDocente(t)}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="border-t border-outline-variant pt-3 space-y-3">
@@ -924,7 +952,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               <div className="border-t border-outline-variant pt-3 space-y-2">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Situación</p>
                 <div className="flex items-center gap-2">
-                  <StatusBadge status={situacionCalculada(modal.form, modal.statusPrevio)} />
+                  <StatusBadge situacion={situacionDe(previsualizarSuscripcion(modal))} />
                   <span className="text-xs text-slate-400">se calcula sola</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-snug">

@@ -207,6 +207,21 @@ export default async function handler(req, res) {
       )
     }
 
+    // ── Constancia de baja ────────────────────────────────────────────
+    // Se guarda ANTES del punto final, y a propósito NO en `users` (que ya
+    // se borró): un documento aparte, mínimo, con lo justo para que el panel
+    // pueda mostrar "Cuenta eliminada" en vez de que el renglón desaparezca
+    // sin dejar rastro. Solo nombre, correo y fecha — nada de su contenido,
+    // que es lo que se acaba de eliminar.
+    const datosPerfil = perfil.exists ? perfil.data() : {}
+    await db.collection('bajas').doc(uid).set({
+      docenteId: uid,
+      nombre: datosPerfil.nombreMostrar || datosPerfil.nombre || datosPerfil.username || '',
+      email: datosPerfil.email || '',
+      fechaBaja: new Date(),
+      cuentaEliminada: true,
+    })
+
     // Hasta aquí no había vuelta atrás pero sí posibilidad de reintentar.
     // Este es el punto final.
     await auth.deleteUser(uid)
