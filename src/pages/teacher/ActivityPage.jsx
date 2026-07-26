@@ -1031,7 +1031,10 @@ export default function ActivityPage() {
                     {activityLabel && <span className="text-accent">{activityLabel} </span>}
                     {activity?.nombre}
                   </h3>
-                  <p className="text-sm font-medium text-muted truncate">
+                  {/* text-base, igual que en la página de la actividad: las
+                      cuatro variantes de este encabezado (EVALUAR y EVALUACIÓN,
+                      página y pantalla completa) llevan la misma escala. */}
+                  <p className="text-base font-medium text-muted truncate">
                     Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
                   </p>
                 </div>
