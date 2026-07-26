@@ -819,30 +819,36 @@ export default function ActivityPage() {
                   <Pencil size={18} />
                 </button>
               </div>
-              <p className="text-sm font-medium text-muted">
+              {/* text-base y no text-sm: es la línea que dice DE QUÉ va esto
+                  (parcial y tipo) y quedaba con el mismo tamaño que la letra
+                  chica de las fechas, cuando pesa bastante más. */}
+              <p className="text-base font-medium text-muted">
                 Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
               </p>
             </div>
           </div>
+          {/* Fechas — con aire: gap-3 y text-sm en vez de gap-2/text-xs. Iban
+              tan juntas y tan chicas que la fecha de cierre, que es el dato que
+              el docente busca de un vistazo, se leía como una nota al pie. */}
           {(activity?.publishedAt || activity?.publishAt || activity?.fechaLimite) && (
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <div className="flex items-center gap-3 mt-2.5 flex-wrap">
               {activity?.publishedAt && (
-                <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
-                  <Clock size={14} /> {formatPublishAt(activity.publishedAt)}
+                <span data-tooltip="Publicado" className="text-sm text-emerald-600 flex items-center gap-1">
+                  <Clock size={15} /> {formatPublishAt(activity.publishedAt)}
                 </span>
               )}
               {activity?.publishAt && (
-                <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
-                  <Clock size={14} /> {formatPublishAt(activity.publishAt)}
+                <span data-tooltip="Publicación programada" className="text-sm text-accent flex items-center gap-1">
+                  <Clock size={15} /> {formatPublishAt(activity.publishAt)}
                 </span>
               )}
               {activity?.fechaLimite && (
-                <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
-                  <Clock size={14} /> {formatDeadline(activity.fechaLimite)}
+                <span data-tooltip="Cierre" className="text-sm text-amber-600 flex items-center gap-1">
+                  <Clock size={15} /> {formatDeadline(activity.fechaLimite)}
                 </span>
               )}
               {activity?.recibirTarde && !activity?.cerradaManual && (
-                <span data-tooltip="Se aceptan entregas tarde" className="text-xs text-slate-500 flex items-center gap-0.5">
+                <span data-tooltip="Se aceptan entregas tarde" className="text-sm text-slate-500 flex items-center gap-1">
                   Recibe entregas tarde
                 </span>
               )}

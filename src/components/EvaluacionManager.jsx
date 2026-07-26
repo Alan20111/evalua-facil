@@ -805,11 +805,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   return (
     <div>
-      {/* El fondo de la barra ocupa todo el ancho, pero su contenido queda
-          acotado al mismo contenedor que el cuerpo de abajo (mismo ancho que
-          EVALUAR) — si no, el título queda pegado a la izquierda mientras el
-          cuerpo se ve centrado, dos alineaciones que no combinan. */}
-      <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
+      {/* Encabezado calcado al de EVALUAR (teacher/ActivityPage.jsx): sin barra
+          blanca ni línea inferior, directo sobre el lienzo. Antes era una franja
+          `bg-surface-card border-b` y, con el lienzo azul, el corte blanco/azul
+          partía en dos lo que es una sola cabecera — el tipo de actividad de un
+          lado y sus fechas del otro. Su contenido queda acotado al mismo
+          contenedor que el cuerpo de abajo: si no, el título se pega a la
+          izquierda mientras el cuerpo se ve centrado. */}
+      <div className="px-4 py-2">
         <div className={TEACHER_CONTAINER_NARROW}>
           <div className="flex items-center gap-2">
             <button type="button" aria-label="Volver" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded">
@@ -845,9 +848,31 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   <Pencil size={18} />
                 </button>
               </div>
-              <p className="text-sm font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
+              <p className="text-base font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
             </div>
           </div>
+          {/* Fechas — aquí, pegadas al título, y no allá abajo dentro de la
+              pestaña Resultados: son contexto de la actividad, no un resultado.
+              Mismo tamaño y separación que en EVALUAR. */}
+          {(activity.publishedAt || activity.publishAt || activity.fechaLimite) && (
+            <div className="flex items-center gap-3 mt-2.5 flex-wrap">
+              {activity.publishedAt && (
+                <span data-tooltip="Publicado" className="text-sm text-emerald-600 flex items-center gap-1">
+                  <Clock size={15} /> {formatPublishAt(activity.publishedAt)}
+                </span>
+              )}
+              {activity.publishAt && (
+                <span data-tooltip="Publicación programada" className="text-sm text-accent flex items-center gap-1">
+                  <Clock size={15} /> {formatPublishAt(activity.publishAt)}
+                </span>
+              )}
+              {activity.fechaLimite && (
+                <span data-tooltip="Cierre" className="text-sm text-amber-600 flex items-center gap-1">
+                  <Clock size={15} /> {formatDeadline(activity.fechaLimite)}
+                </span>
+              )}
+            </div>
+          )}
           {editingTabsVisible && (
             <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded">
               {TABS.map((t) => (
@@ -1313,27 +1338,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
         {tab === 'resultados' && (
           <div>
-            {/* Dates + instrucciones — the teacher needs the context of what is
-                being graded, same treatment as a regular activity */}
-            {(activity.publishedAt || activity.publishAt || activity.fechaLimite) && (
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                {activity.publishedAt && (
-                  <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
-                    <Clock size={14} /> {formatPublishAt(activity.publishedAt)}
-                  </span>
-                )}
-                {activity.publishAt && (
-                  <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
-                    <Clock size={14} /> {formatPublishAt(activity.publishAt)}
-                  </span>
-                )}
-                {activity.fechaLimite && (
-                  <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
-                    <Clock size={14} /> {formatDeadline(activity.fechaLimite)}
-                  </span>
-                )}
-              </div>
-            )}
+            {/* Las fechas ya NO van aquí: subieron al encabezado, junto al
+                título, como en EVALUAR. Abajo se queda solo lo que sí es de
+                esta pestaña. */}
             {activity.instrucciones && (
               <div className="mb-3 rounded-card overflow-hidden bg-surface-card" style={{ border: '1px solid var(--accent)' }}>
                 <div className="px-4 py-2" style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
