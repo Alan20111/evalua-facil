@@ -290,6 +290,15 @@ export default function StudentActivityPage() {
           estadoEvaluacion: 'en_progreso',
           intentoActual: (submission.intentos?.length || 0) + 1,
           tiempoInicio: serverTimestamp(),
+          // La semilla del barajado se BORRA en cada intento nuevo. Vive en el
+          // documento para que el orden no cambie si el estudiante recarga a
+          // media evaluación, pero como el documento se reutiliza en los
+          // reintentos, se quedaba pegada la del primer intento: el Runner
+          // hacía `seed = subData.ordenSeed || …`, encontraba la vieja y
+          // barajaba EXACTAMENTE igual las 5 veces. Con esto, el Runner
+          // calcula una nueva a partir de intentoActual y cada intento sale
+          // en distinto orden (ver EvaluacionRunner.jsx).
+          ordenSeed: null,
           // El mismo documento se reutiliza en cada reintento (ver intentos[]
           // más abajo) — sin esto, notificadoEntregaDocente se quedaba en true
           // desde el primer intento para siempre, y la Cloud Function
