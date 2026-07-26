@@ -543,19 +543,20 @@ export default function Profile() {
         {/* Photo + identity */}
         <div className="bg-surface-card rounded-card shadow-card p-4 flex flex-col items-center gap-2">
           <div className="relative">
-            {/* 160px — el doble que antes. La inicial y el botón de la cámara
-                crecen a la par: en un círculo del doble de grande, dejarlos
-                del tamaño anterior los hace ver perdidos. */}
-            <div className="w-40 h-40 rounded-full bg-accent-light overflow-hidden flex items-center justify-center">
+            {/* 128px — el MISMO tamaño que en el perfil del estudiante
+                (student/Profile.jsx). Si aquí se ve más grande que allá, el
+                docente da por hecho que así de grande lo ven sus alumnos, y
+                no es cierto: en la pantalla del alumno su foto mide 48px. */}
+            <div className="w-32 h-32 rounded-full bg-accent-light overflow-hidden flex items-center justify-center">
               {userProfile?.photoURL ? (
                 <img src={userProfile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-5xl font-bold text-accent">{initials}</span>
+                <span className="text-4xl font-bold text-accent">{initials}</span>
               )}
             </div>
             <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading} aria-label="Cambiar foto"
-              className="absolute bottom-1 right-1 w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
-              {photoUploading ? <Spinner size="sm" /> : <Camera size={20} />}
+              className="absolute bottom-0.5 right-0.5 w-9 h-9 bg-accent rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
+              {photoUploading ? <Spinner size="sm" /> : <Camera size={18} />}
             </button>
           </div>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
