@@ -39,6 +39,22 @@ export async function getEnrollments(currentUser, userProfile) {
   return []
 }
 
+// Las inscripciones que el estudiante SÍ quiere seguir viendo en sus listas.
+//
+// `ocultaPorAlumno` lo pone el propio estudiante desde "Asignaturas archivadas"
+// cuando ya guardó su trabajo y no quiere seguir viendo esa materia. Es un
+// ocultamiento suyo y nada más: NO borra la inscripción ni sus entregas, porque
+// esos datos siguen siendo del expediente del docente (archivar, del lado del
+// maestro, tampoco borra nada). Las reglas de Firestore ni siquiera dejan que un
+// estudiante borre su propio doc — solo el docente dueño de la asignatura.
+//
+// Se filtra aquí, en las LISTAS, y no dentro de getEnrollments: esa devuelve
+// también la identidad del alumno (nombre, foto) desde enrollments[0], y quien
+// oculte TODAS sus materias se quedaría sin perfil.
+export function visibleEnrollments(enrollments) {
+  return (enrollments || []).filter((e) => !e.ocultaPorAlumno)
+}
+
 // Returns the enrollment doc for a specific subject, or null if not enrolled.
 export async function getEnrollmentForSubject(currentUser, userProfile, asignaturaId) {
   const all = await getEnrollments(currentUser, userProfile)

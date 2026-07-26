@@ -7,19 +7,20 @@ import {
   query,
   where,
   getDocs,
+  updateDoc,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
-  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive,
+  BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive, Trash2, Download,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
-import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
+import { getEnrollments, updateAllEnrollments, visibleEnrollments } from '../../utils/studentLookup'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
 import AvatarCropModal from '../../components/AvatarCropModal'
@@ -66,6 +67,9 @@ export default function StudentDashboard() {
   const [showJoin, setShowJoin] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  // Quitar una materia archivada de SU lista (ver handleRemoveArchived).
+  const [subjectToRemove, setSubjectToRemove] = useState(null)
+  const [removing, setRemoving] = useState(false)
   // Pedido explícito: en la App (no en la web), poder cambiar la foto tocándola
   // aquí directamente, sin entrar al perfil.
   const [cropFile, setCropFile] = useState(null)
@@ -99,6 +103,32 @@ export default function StudentDashboard() {
 
   useBackHandler(() => setShowJoin(false), showJoin)
   useScrollLock(showJoin)
+  useBackHandler(() => !removing && setSubjectToRemove(null), !!subjectToRemove)
+  useScrollLock(!!subjectToRemove)
+
+  // Quitar de "Asignaturas archivadas" una materia que el docente ya cerró.
+  //
+  // Es un ocultamiento del ALUMNO, no un borrado: se marca `ocultaPorAlumno` en
+  // su doc de inscripción y las listas dejan de traerla (visibleEnrollments).
+  // A propósito no borra nada — sus entregas y calificaciones son parte del
+  // expediente del docente, que archivó justamente para conservarlo completo.
+  // Las reglas de Firestore tampoco lo permitirían: borrar un doc de `students`
+  // es solo del docente dueño de la asignatura; el alumno únicamente puede
+  // actualizar el suyo.
+  async function handleRemoveArchived() {
+    if (!subjectToRemove?.enrollmentId) return
+    setRemoving(true)
+    try {
+      await updateDoc(doc(db, 'students', subjectToRemove.enrollmentId), { ocultaPorAlumno: true })
+      setSubjects((prev) => prev.filter((s) => s.id !== subjectToRemove.id))
+      setSubjectToRemove(null)
+      toast('Se quitó de tus asignaturas archivadas')
+    } catch (err) {
+      toast('No se pudo quitar: ' + err.message, 'error')
+    } finally {
+      setRemoving(false)
+    }
+  }
 
   function handleJoinSubject(e) {
     e.preventDefault()
@@ -123,10 +153,13 @@ export default function StudentDashboard() {
         setSubjects([])
         return
       }
+      // studentInfo sale de TODAS las inscripciones (nombre y foto del alumno);
+      // las listas, solo de las visibles — las que quitó de sus archivadas ya no
+      // aparecen, pero su perfil sigue existiendo aunque las haya quitado todas.
       setStudentInfo(enrollments[0])
       // Map each subject → the enrollment doc id (used as alumnoId for submissions).
       const docIdBySubject = {}
-      enrollments.forEach((s) => { if (s.asignaturaId) docIdBySubject[s.asignaturaId] = s.id })
+      visibleEnrollments(enrollments).forEach((s) => { if (s.asignaturaId) docIdBySubject[s.asignaturaId] = s.id })
       const asignaturaIds = Object.keys(docIdBySubject)
       if (asignaturaIds.length === 0) { setSubjects([]); return }
 
@@ -184,7 +217,9 @@ export default function StudentDashboard() {
         const avg = parcAvgs.length
           ? (parcAvgs.reduce((x, y) => x + y, 0) / parcAvgs.length).toFixed(1)
           : null
-        return { ...s, teacherName: teachers[s.docenteId] || '—', avg }
+        // enrollmentId: el doc de `students` de ESTA materia — lo necesita
+        // "quitar de archivadas", que escribe en esa inscripción.
+        return { ...s, enrollmentId: docIdBySubject[s.id], teacherName: teachers[s.docenteId] || '—', avg }
       })
       setSubjects(enriched)
     } catch (err) {
@@ -349,16 +384,28 @@ export default function StudentDashboard() {
             </button>
             {showArchived && (
               <div className="px-2 pb-2 space-y-1">
+                {/* Dos botones hermanos, NO uno dentro de otro: un <button> anidado
+                    en otro <button> es HTML inválido y el clic de la papelera
+                    terminaría abriendo también la asignatura. */}
                 {archivedSubjects.map((s) => (
-                  <button
-                    type="button"
-                    key={s.id}
-                    onClick={() => navigate(`/alumno/materia/${s.id}`)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded text-sm text-muted hover:bg-accent-tint transition-colors text-left"
-                  >
-                    <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
-                    <span className="truncate">{subjectDisplayName(s)}</span>
-                  </button>
+                  <div key={s.id} className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/alumno/materia/${s.id}`)}
+                      className="flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2 rounded text-sm text-muted hover:bg-accent-tint transition-colors text-left"
+                    >
+                      <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
+                      <span className="truncate">{subjectDisplayName(s)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSubjectToRemove(s)}
+                      aria-label={`Quitar ${subjectDisplayName(s)} de mis asignaturas archivadas`}
+                      className="p-2 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -404,6 +451,64 @@ export default function StudentDashboard() {
                 <Hash size={18} /> Ir
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quitar una asignatura archivada de MI lista ──
+          El aviso de arriba es el punto entero de este modal: la descarga de sus
+          entregas vive DENTRO de la asignatura, así que si la quita de la lista
+          se queda sin camino para llegar a sus archivos. Por eso el paso de
+          guardar va primero y con su propio botón, y el de quitar hasta abajo. */}
+      {subjectToRemove && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40 border-none cursor-default"
+            onClick={() => !removing && setSubjectToRemove(null)}
+            aria-label="Cerrar"
+          />
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-lg font-semibold text-on-surface truncate">Quitar de mis archivadas</h3>
+              <button type="button" aria-label="Cerrar" onClick={() => !removing && setSubjectToRemove(null)} className="p-2 text-slate-400 rounded flex-shrink-0"><X size={20} /></button>
+            </div>
+            <p className="text-sm text-muted mb-3 leading-relaxed">
+              <strong className="text-on-surface">{subjectDisplayName(subjectToRemove)}</strong> desaparecerá
+              de tus asignaturas y ya no podrás volver a abrirla — <strong>ni para descargar tus archivos</strong>.
+            </p>
+            <div className="rounded border border-amber-200 bg-amber-50 p-3 mb-4">
+              <p className="text-sm font-semibold text-amber-800 mb-1">Primero guarda tu trabajo</p>
+              <p className="text-xs text-amber-700 leading-relaxed mb-2">
+                Abre la asignatura y usa <strong>Descargar mis entregas</strong> para bajar todos tus archivos.
+                Es tu trabajo y es tu única oportunidad de llevártelo.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate(`/alumno/materia/${subjectToRemove.id}`)}
+                className="w-full py-2 rounded border border-amber-400 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
+              >
+                <Download size={16} /> Abrir y descargar mis entregas
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSubjectToRemove(null)}
+                disabled={removing}
+                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-surface-container transition-colors disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoveArchived}
+                disabled={removing}
+                className="flex-1 py-2.5 rounded bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {removing ? <Spinner size="sm" /> : <Trash2 size={16} />} Quitar
+              </button>
+            </div>
           </div>
         </div>
       )}
