@@ -17,6 +17,15 @@ import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { ArrowLeft, Camera, Copy, Check, KeyRound, Mail, ShieldCheck } from 'lucide-react'
 import AvatarCropModal from '../../components/AvatarCropModal'
+import { IS_NATIVE_APP } from '../../utils/platform'
+
+// El espacio para subir la foto mide distinto en la web y en la app — pedido
+// explícito, y por eso esta pantalla (que es la misma en las dos) tiene que
+// preguntar por IS_NATIVE_APP igual que ya lo hace el dashboard. Mismos
+// números que en el perfil del docente (teacher/Profile.jsx).
+const FOTO = IS_NATIVE_APP ? 'w-24 h-24' : 'w-16 h-16'       // 96px en app, 64px en web
+const FOTO_INICIAL = IS_NATIVE_APP ? 'text-3xl' : 'text-2xl'
+const FOTO_CAMARA = IS_NATIVE_APP ? 24 : 18
 
 // Perfil del estudiante — SOLO lo que no vive en otra pantalla (filosofía
 // Don't Make Me Think: cero redundancia): identidad + foto, usuario, cambio de
@@ -243,23 +252,21 @@ export default function StudentProfile() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="relative w-32 h-32 rounded-full flex-shrink-0 group focus:outline-none"
+            className={`relative ${FOTO} rounded-full flex-shrink-0 group focus:outline-none`}
             data-tooltip="Cambiar foto"
             aria-label="Cambiar foto"
           >
-            {/* 128px — el doble que antes. La inicial y el ícono de la cámara
-                crecen a la par para no verse perdidos en el círculo grande. */}
-            <div className="w-32 h-32 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center">
+            <div className={`${FOTO} rounded-full bg-accent-tint overflow-hidden flex items-center justify-center`}>
               {uploadingPhoto ? (
                 <Spinner size="sm" />
               ) : photoURL ? (
                 <img src={photoURL} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-4xl font-bold text-accent">{initials}</span>
+                <span className={`${FOTO_INICIAL} font-bold text-accent`}>{initials}</span>
               )}
             </div>
             <span className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              <Camera size={32} className="text-white" />
+              <Camera size={FOTO_CAMARA} className="text-white" />
             </span>
           </button>
           <div className="min-w-0 flex-1">

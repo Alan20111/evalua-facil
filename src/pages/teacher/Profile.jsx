@@ -34,6 +34,7 @@ import {
   canRenew as canRenewSubscription,
 } from '../../utils/subscriptionHelpers'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { IS_NATIVE_APP } from '../../utils/platform'
 import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
@@ -57,6 +58,13 @@ async function uploadAvatar(file) {
 
 const inputCls =
   'w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
+
+// El espacio para subir la foto mide distinto en la web y en la app — pedido
+// explícito, y por eso el perfil (que es la misma pantalla en las dos) tiene
+// que preguntar por IS_NATIVE_APP igual que ya lo hacen los dashboards.
+// Mismos números que en el perfil del estudiante (student/Profile.jsx).
+const FOTO = IS_NATIVE_APP ? 'w-24 h-24' : 'w-16 h-16'       // 96px en app, 64px en web
+const FOTO_INICIAL = IS_NATIVE_APP ? 'text-3xl' : 'text-2xl'
 
 // Prefijos predefinidos para el nombre visible — "Otro…" permite escribir
 // cualquier otro que no esté en la lista.
@@ -543,20 +551,20 @@ export default function Profile() {
         {/* Photo + identity */}
         <div className="bg-surface-card rounded-card shadow-card p-4 flex flex-col items-center gap-2">
           <div className="relative">
-            {/* 128px — el MISMO tamaño que en el perfil del estudiante
-                (student/Profile.jsx). Si aquí se ve más grande que allá, el
-                docente da por hecho que así de grande lo ven sus alumnos, y
-                no es cierto: en la pantalla del alumno su foto mide 48px. */}
-            <div className="w-32 h-32 rounded-full bg-accent-light overflow-hidden flex items-center justify-center">
+            {/* Mismo tamaño que en el perfil del estudiante. Si aquí se viera
+                más grande que allá, el docente daría por hecho que así de
+                grande lo ven sus alumnos, y no es cierto: en la pantalla del
+                alumno su foto mide 48px. */}
+            <div className={`${FOTO} rounded-full bg-accent-light overflow-hidden flex items-center justify-center`}>
               {userProfile?.photoURL ? (
                 <img src={userProfile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-4xl font-bold text-accent">{initials}</span>
+                <span className={`${FOTO_INICIAL} font-bold text-accent`}>{initials}</span>
               )}
             </div>
             <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading} aria-label="Cambiar foto"
-              className="absolute bottom-0.5 right-0.5 w-9 h-9 bg-accent rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
-              {photoUploading ? <Spinner size="sm" /> : <Camera size={18} />}
+              className="absolute -bottom-1 -right-1 w-7 h-7 bg-accent rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
+              {photoUploading ? <Spinner size="sm" /> : <Camera size={15} />}
             </button>
           </div>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
