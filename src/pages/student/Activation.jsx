@@ -170,12 +170,10 @@ export default function StudentActivation() {
       setPasswordError('Las contraseñas no coinciden')
       return
     }
-    // Cuenta vinculada a un correo verificado: su correo de cuenta YA no es el
-    // @evalua.local — crear aquí con el correo falso bifurcaría la cuenta en dos.
-    if (student?.correoVerificado) {
-      setPasswordError(`Tu cuenta entra con tu correo${student.correoMask ? ` (${student.correoMask})` : ''}. Inicia sesión en la pantalla de estudiantes con ese correo; si olvidaste tu contraseña, recupérala ahí con tu correo.`)
-      return
-    }
+    // Aquí había una guarda para las cuentas cuyo correo de Auth había dejado
+    // de ser el @evalua.local (las que habían vinculado un correo de
+    // recuperación). Se fue junto con esa función: el correo de Auth de un
+    // estudiante ya nunca cambia, así que este camino sirve siempre.
     submitting.current = true
     setLoading(true)
     const email = studentEmail(student.username, student.escuelaId)
