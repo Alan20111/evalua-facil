@@ -337,6 +337,10 @@ export async function refreshTeacherReminders(uid) {
       const items = todosLosBloques
         .filter((b) => b.fecha >= hoy && b.fecha <= fin && b.horaInicio)
         .filter((b) => subjectsById[b.asignaturaId]?.notificarClase !== false)
+        // Asignatura archivada = ciclo cerrado: no se avisa de una clase que ya
+        // no se da. Faltaba, y por eso al docente le seguían sonando los avisos
+        // de las clases de una materia que había archivado meses antes.
+        .filter((b) => !subjectsById[b.asignaturaId]?.archived)
         .filter((b) => !esContinuacion(b))
         .map((b) => {
           // El nombre de la asignatura va en el CUERPO (subtitle), no solo

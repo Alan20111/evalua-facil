@@ -90,9 +90,15 @@ function actividadVisible(a, parcialOculto) {
   return false
 }
 
-async function parcialesOcultosDe(asignaturaId) {
+// Lee de la asignatura las dos cosas que deciden si vale la pena avisar de una
+// actividad: sus parciales ocultos y si está archivada. Antes solo devolvía los
+// parciales ocultos, y nada consultaba `archived` — por eso una asignatura
+// archivada seguía mandando notificaciones a sus estudiantes cada vez que el
+// docente tocaba una actividad, meses después de cerrar el ciclo.
+async function estadoAsignatura(asignaturaId) {
   const snap = await db.collection('subjects').doc(asignaturaId).get()
-  return snap.data()?.parcialesOcultos || []
+  const d = snap.data() || {}
+  return { parcialesOcultos: d.parcialesOcultos || [], archivada: !!d.archived }
 }
 
 // ─── Envío ───────────────────────────────────────────────────────────────
@@ -197,7 +203,8 @@ exports.onActividadEscrita = onDocumentWritten('activities/{activityId}', async 
   const a = after.data()
   if (a.notificadoNuevaActividad) return
 
-  const parcialesOcultos = await parcialesOcultosDe(a.asignaturaId)
+  const { parcialesOcultos, archivada } = await estadoAsignatura(a.asignaturaId)
+  if (archivada) return // ciclo cerrado: no se avisa de nada
   if (!actividadVisible(a, parcialesOcultos.includes(a.parcial))) return
 
   const estudiantes = await estudiantesDeAsignatura(a.asignaturaId)
@@ -638,7 +645,8 @@ exports.revisarProgramados = onSchedule(SCHEDULE_INTERVAL, async () => {
     const a = doc.data()
     if (a.notificadoNuevaActividad || !a.publishAt) continue
     if (new Date(a.publishAt).getTime() > now) continue
-    const parcialesOcultos = await parcialesOcultosDe(a.asignaturaId)
+    const { parcialesOcultos, archivada } = await estadoAsignatura(a.asignaturaId)
+    if (archivada) continue // ciclo cerrado: no se avisa de nada
     if (parcialesOcultos.includes(a.parcial)) continue
     const estudiantes = await estudiantesDeAsignatura(a.asignaturaId)
     await Promise.all(estudiantes.map((d) =>

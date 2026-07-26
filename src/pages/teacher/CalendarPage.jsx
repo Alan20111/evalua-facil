@@ -967,6 +967,11 @@ export default function CalendarPage() {
     activities.forEach(a => {
       if (!a.fechaLimite && !a.publishAt) return
       const subj = subjects[a.asignaturaId]
+      // Asignatura archivada = ciclo cerrado: sus fechas límite dejan de ser
+      // pendientes y salen del calendario, igual que de la agenda del alumno.
+      // (Los bloques del horario NO se tocan: el calendario sigue siendo el
+      // registro de lo que se programó; lo que se apagó son los avisos.)
+      if (subj?.archived) return
       const pal = subjectColors(subj)
       const subjName = subjectDisplayName(subj)
 

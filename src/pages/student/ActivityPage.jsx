@@ -339,9 +339,12 @@ export default function StudentActivityPage() {
     // progress can always be finished; only starting a NEW one is blocked once closed.
     const extendedDateEv = activity?.extensiones?.[student?.id]
     const deadlineEv = extendedDateEv || activity?.fechaLimite
-    const evaluacionCerrada = !!deadlineEv && new Date(
+    // Asignatura archivada = ciclo cerrado: no se empiezan evaluaciones nuevas.
+    // Un intento EN CURSO sí se puede terminar (`enProgreso`), igual que con la
+    // fecha límite: dejar a alguien a media evaluación sería peor.
+    const evaluacionCerrada = (!!subject?.archived && !enProgreso) || (!!deadlineEv && new Date(
       deadlineEv.includes('T') ? deadlineEv : `${deadlineEv}T23:59:59`
-    ).getTime() < Date.now() && !enProgreso
+    ).getTime() < Date.now() && !enProgreso)
     const ahoraISO = new Date().toISOString()
     // Grade and answers publish independently (see teacher config). Both gate on the
     // attempt being finished first.
@@ -510,9 +513,14 @@ export default function StudentActivityPage() {
   const withinExtension = !!extendedDate && !isPastDeadline
   // Activity is closed to new submissions when the teacher closed it manually,
   // or the deadline passed and late delivery is NOT enabled.
-  const cerrada = !withinExtension && (
+  // Asignatura archivada = ciclo cerrado. Va ANTES del `withinExtension`, no
+  // dentro: una prórroga individual no puede reabrir una materia que ya
+  // terminó. Antes nada de esto miraba el estado de la asignatura, así que el
+  // alumno podía seguir entregando en una materia archivada meses atrás.
+  const asignaturaArchivada = !!subject?.archived
+  const cerrada = asignaturaArchivada || (!withinExtension && (
     !!activity?.cerradaManual || (isPastDeadline && !activity?.recibirTarde)
-  )
+  ))
 
   return (
     <StudentLayout>
@@ -661,7 +669,9 @@ export default function StudentActivityPage() {
             vuelve a aparecer si el docente anula la entrega) */}
         {!isObservacion && !submission && cerrada && (
           <div className="bg-surface-card rounded-card p-4 shadow-card text-center text-sm text-slate-400">
-            {activity?.cerradaManual
+            {asignaturaArchivada
+              ? 'Tu maestro archivó esta asignatura. Ya no se reciben entregas — puedes seguir consultando lo que entregaste.'
+              : activity?.cerradaManual
               ? 'El docente cerró esta actividad. Ya no se reciben entregas.'
               : 'El plazo de entrega para esta actividad ya cerró.'}
           </div>
