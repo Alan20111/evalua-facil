@@ -1,5 +1,8 @@
 import { doc, getDoc } from 'firebase/firestore'
-import { GoogleAuthProvider, signInWithCredential, signInWithPopup } from 'firebase/auth'
+import {
+  GoogleAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup,
+  signInWithCredential, signInWithPopup,
+} from 'firebase/auth'
 import { auth, db } from '../firebase'
 import { createTeacherAccount } from './teacherAccount'
 import { IS_NATIVE_APP } from './platform'
@@ -21,6 +24,27 @@ export async function signInWithGoogle() {
   }
   const result = await signInWithPopup(auth, new GoogleAuthProvider())
   return result.user
+}
+
+// Vuelve a comprobar que quien está frente a la pantalla es el dueño de la
+// cuenta, antes de una acción que no tiene vuelta atrás. Es el equivalente a
+// pedir la contraseña, para quien entró con Google y no tiene una.
+//
+// Misma bifurcación que signInWithGoogle: en la app nativa el popup no
+// funciona dentro del WebView, así que se rehace el flujo nativo y se
+// reautentica con la credencial que devuelve.
+export async function reauthenticateWithGoogle(user) {
+  if (IS_NATIVE_APP) {
+    const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication')
+    const result = await FirebaseAuthentication.signInWithGoogle()
+    const credential = GoogleAuthProvider.credential(
+      result.credential?.idToken,
+      result.credential?.accessToken,
+    )
+    await reauthenticateWithCredential(user, credential)
+    return
+  }
+  await reauthenticateWithPopup(user, new GoogleAuthProvider())
 }
 
 // Traduce un error de "Continuar con Google" a lo que hay que mostrar. Devuelve

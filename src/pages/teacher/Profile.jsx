@@ -13,7 +13,7 @@ import ConfirmModal from '../../components/ConfirmModal'
 import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
 import { resolveSchoolSelection, normalizeName, findSimilarSchools } from '../../utils/schoolSelection'
-import { Camera, Lock, User, X, CreditCard, School, ChevronDown, Plus } from 'lucide-react'
+import { Camera, Lock, User, X, CreditCard, School, ChevronDown, Plus, Trash2 } from 'lucide-react'
 import SearchInput from '../../components/SearchInput'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
@@ -37,6 +37,8 @@ import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
+import EliminarCuentaModal from '../../components/EliminarCuentaModal'
+import { sendSubscriptionCancelledEmail } from '../../utils/accountEmails'
 
 async function uploadAvatar(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -245,6 +247,11 @@ export default function Profile() {
 
   const [showPaymentModal, setShowPaymentModal] = useState(false)
 
+  // Cancelar suscripción / eliminar cuenta
+  const [cancelandoSub, setCancelandoSub] = useState(false)
+  const [showEliminarCuenta, setShowEliminarCuenta] = useState(false)
+  useBackHandler(() => setShowEliminarCuenta(false), showEliminarCuenta)
+
   const { subscription, recentPayments, loading: subLoading, refresh: refreshSub } = useSubscription()
   const hasEmailProvider = currentUser?.providerData?.some((p) => p.providerId === 'password')
 
@@ -358,6 +365,48 @@ export default function Profile() {
     }
   }
 
+  // ── Cancelar suscripción ────────────────────────────────────────────────
+  // No borra nada: el acceso sigue hasta la fecha ya cubierta y solo deja de
+  // renovarse. El cambio de estado lo hace el servidor (ver
+  // api/account/cancel-subscription.js); aquí solo se pide confirmación,
+  // se refresca la tarjeta y se manda el correo.
+  function requestCancelSub() {
+    const hasta = formatDate(effectiveVencimiento(subscription))
+    setConfirm({
+      title: 'Cancelar mi suscripción',
+      message: `No se borra nada: tus grupos, estudiantes y calificaciones se quedan, y puedes seguir trabajando hasta el ${hasta}. Después de esa fecha ya no se renovará. ¿Confirmas?`,
+      onConfirm: executeCancelSub,
+    })
+  }
+
+  async function executeCancelSub() {
+    setCancelandoSub(true)
+    try {
+      const token = await currentUser.getIdToken()
+      const res = await fetch('/api/account/cancel-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudo cancelar la suscripción')
+
+      // El correo es lo último y no puede tumbar la cancelación, que ya está
+      // hecha en el servidor — si falla, el docente igual ve el estado nuevo.
+      sendSubscriptionCancelledEmail({
+        email: currentUser.email,
+        accesoHasta: formatDate(effectiveVencimiento(subscription)),
+        eraTrial: data.eraTrial,
+      }).catch(() => {})
+
+      await refreshSub()
+      toast('Suscripción cancelada. Te mandamos un correo de confirmación.')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setCancelandoSub(false)
+    }
+  }
+
   async function handleConfirm() {
     setConfirming(true)
     try {
@@ -372,6 +421,10 @@ export default function Profile() {
   const initials = displayName.charAt(0).toUpperCase()
   const daysRemaining = subscription ? calcDaysRemaining(effectiveVencimiento(subscription)) : null
   const canRenew = canRenewSubscription(subscription)
+  // Solo se ofrece cancelar cuando hay algo que cancelar. En período de
+  // prueba no aparece: no hay ningún cobro que detener, y un botón
+  // "cancelar" ahí solo haría dudar a quien apenas está probando.
+  const puedeCancelar = subscription?.status === 'activa' || subscription?.status === 'pendiente_pago'
 
   return (
     <>
@@ -434,6 +487,22 @@ export default function Profile() {
             >
               {subscription && subscription.status !== 'trial' ? 'Renovar suscripción mensual' : 'Activar suscripción mensual'}
             </button>
+          )}
+          {puedeCancelar && (
+            <button
+              type="button"
+              onClick={requestCancelSub}
+              disabled={cancelandoSub}
+              className="mt-2 w-full py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
+            >
+              {cancelandoSub ? 'Cancelando…' : 'Cancelar suscripción'}
+            </button>
+          )}
+          {subscription?.status === 'cancelada' && (
+            <p className="mt-2 text-sm text-muted">
+              Cancelaste tu suscripción. Puedes seguir usando tu cuenta hasta el{' '}
+              {formatDate(effectiveVencimiento(subscription))} — no se borró nada.
+            </p>
           )}
           {recentPayments.length > 0 && (
             <div className="mt-2 pt-4 border-t border-outline-variant">
@@ -663,7 +732,29 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Eliminar cuenta — hasta el fondo y en rojo, la única parte de la
+            app que no usa el azul del docente: es lo que la separa de todo lo
+            demás que se puede tocar sin miedo. */}
+        <div className="bg-surface-card rounded-card shadow-card p-3">
+          <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
+            <Trash2 size={19} className="text-slate-400" /> Eliminar mi cuenta
+          </h2>
+          <p className="text-sm text-muted mb-2">
+            Borra para siempre tu cuenta y todo tu trabajo: asignaturas, estudiantes, actividades,
+            calificaciones y asistencias. No se puede deshacer.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowEliminarCuenta(true)}
+            className="w-full py-2 rounded border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
+          >
+            Eliminar mi cuenta
+          </button>
+        </div>
+
       </div>
+
+      {showEliminarCuenta && <EliminarCuentaModal onClose={() => setShowEliminarCuenta(false)} />}
 
       {/* ── Confirmation modal ── */}
       {confirm && (
