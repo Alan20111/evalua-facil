@@ -232,18 +232,19 @@ export default function StudentDashboard() {
                 cambiarla al vuelo, sin entrar al perfil (en la web sigue
                 viviendo solo dentro del perfil). */}
             {IS_NATIVE_APP ? (
-              // Pedido explícito: sin ícono encima (ni siquiera en la esquina)
-              // y la foto al doble de lo que medía (53px → 106px).
+              // Pedido explícito: sin ícono encima (ni siquiera en la esquina).
+              // 80px = el 75% de los 106px que medía. Solo en la app — la web,
+              // abajo, se queda como estaba.
               <button
                 type="button"
                 onClick={() => photoInputRef.current?.click()}
                 aria-label="Cambiar foto de perfil"
-                className="w-[106px] h-[106px] rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0"
+                className="w-20 h-20 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0"
               >
                 {photoURL ? (
                   <img src={photoURL} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-3xl font-bold text-accent">{initials}</span>
+                  <span className="text-2xl font-bold text-accent">{initials}</span>
                 )}
               </button>
             ) : (

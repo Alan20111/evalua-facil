@@ -325,21 +325,23 @@ export default function TeacherDashboard() {
                 la web solo aparezca cuando ya hay foto y está visible para
                 alumnos. */}
             {IS_NATIVE_APP ? (
+              // 48px: el 75% de los 64px que medía. Solo en la app — en la
+              // web esta foto se queda como estaba (pedido explícito).
               <button
                 type="button"
                 onClick={() => photoInputRef.current?.click()}
                 aria-label="Cambiar foto de perfil"
-                className="relative w-16 h-16 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0"
+                className="relative w-12 h-12 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0"
               >
                 {userProfile?.photoURL ? (
                   <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-xl font-bold text-accent">{teacherGreetingName.charAt(0).toUpperCase()}</span>
+                  <span className="text-lg font-bold text-accent">{teacherGreetingName.charAt(0).toUpperCase()}</span>
                 )}
                 {/* Insignia en la esquina, NO tapa la foto — pedido explícito:
                     se tiene que poder ver al estudiante/docente sin el ícono encima. */}
-                <span className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-accent border-2 border-surface-card flex items-center justify-center">
-                  <Camera size={14} className="text-white" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-accent border-2 border-surface-card flex items-center justify-center">
+                  <Camera size={10} className="text-white" />
                 </span>
               </button>
             ) : (
