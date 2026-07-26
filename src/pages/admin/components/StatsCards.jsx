@@ -40,8 +40,10 @@ export default function StatsCards({ kpis }) {
   if (!kpis) return null
 
   return (
-    <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-      <table className="w-full text-sm">
+    /* w-fit: la tabla mide lo que miden sus datos y se queda a la izquierda,
+       en vez de estirarse de lado a lado con las cifras perdidas al fondo. */
+    <div className="bg-surface-card rounded-card shadow-card overflow-hidden w-fit max-w-full">
+      <table className="w-auto text-sm">
         <thead>
           <tr className="text-left text-[11.5px] tracking-wide uppercase text-accent bg-surface">
             <th className="px-4 py-2 font-normal">Indicador</th>

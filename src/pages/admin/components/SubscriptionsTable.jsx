@@ -655,7 +655,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   >
                     <span
                       title={ayuda}
-                      className={`block font-normal ${wrap ? 'whitespace-normal leading-tight' : 'truncate'} ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
+                      className={`block font-light ${wrap ? 'whitespace-normal leading-tight' : 'truncate'} ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
                     >
                       {label}
                     </span>
