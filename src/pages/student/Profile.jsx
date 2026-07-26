@@ -18,7 +18,6 @@ import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus } from 'luc
 import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
-import { sendBajaSolicitadaEmail } from '../../utils/accountEmails'
 import { IS_NATIVE_APP } from '../../utils/platform'
 
 // El espacio para subir la foto mide distinto en la web y en la app — pedido
@@ -49,7 +48,6 @@ export default function StudentProfile() {
   // Mi cuenta
   const [enrollments, setEnrollments] = useState([])
   const [quitandoFoto, setQuitandoFoto] = useState(false)
-  const [solicitandoBaja, setSolicitandoBaja] = useState(false)
   const [showEliminar, setShowEliminar] = useState(false)
   const [confirm, setConfirm] = useState(null) // { title, message, confirmLabel, danger, onConfirm }
   const [confirming, setConfirming] = useState(false)
@@ -183,51 +181,6 @@ export default function StudentProfile() {
       toast('Error: ' + err.message, 'error')
     } finally {
       setQuitandoFoto(false)
-    }
-  }
-
-  // ── Pedirle la baja al maestro ──────────────────────────────────────────
-  // Mientras esté inscrito, la baja NO la decide el estudiante: sus
-  // calificaciones son el registro del docente. Esto deja constancia en sus
-  // inscripciones y le avisa por correo a cada maestro.
-  async function solicitarBaja() {
-    setSolicitandoBaja(true)
-    try {
-      const asignaturaIds = [...new Set(enrollments.map((e) => e.asignaturaId).filter(Boolean))]
-      const subjSnaps = await Promise.all(asignaturaIds.map((id) => getDoc(doc(db, 'subjects', id)).catch(() => null)))
-
-      const nombrePorDocente = {}
-      subjSnaps.forEach((s) => {
-        if (!s?.exists()) return
-        const d = s.data()
-        if (!d.docenteId) return
-        nombrePorDocente[d.docenteId] = [...(nombrePorDocente[d.docenteId] || []), d.nombre || 'Asignatura']
-      })
-
-      await updateAllEnrollments(currentUser.uid, {
-        bajaSolicitada: true,
-        bajaSolicitadaEn: new Date().toISOString(),
-      })
-
-      const docenteSnaps = await Promise.all(
-        Object.keys(nombrePorDocente).map((id) => getDoc(doc(db, 'users', id)).catch(() => null))
-      )
-      await Promise.all(docenteSnaps.map((s, i) => {
-        const email = s?.exists() ? s.data().email : null
-        if (!email) return null
-        const docenteId = Object.keys(nombrePorDocente)[i]
-        return sendBajaSolicitadaEmail({
-          email,
-          alumno: displayName || studentInfo?.username || 'Un estudiante',
-          asignaturas: nombrePorDocente[docenteId] || [],
-        }).catch(() => {})
-      }))
-
-      toast('Le avisamos a tu maestro. Él decide la baja.')
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-    } finally {
-      setSolicitandoBaja(false)
     }
   }
 
@@ -444,33 +397,15 @@ export default function StudentProfile() {
                 </button>
               </>
             ) : (
-              <>
-                <p className="text-xs text-muted mb-2 leading-relaxed">
-                  Estás en <strong>{enrollments.length} {enrollments.length === 1 ? 'asignatura' : 'asignaturas'}</strong>.
-                  Mientras tengas clases no puedes eliminar tu cuenta: tus calificaciones son parte de la
-                  lista de tu maestro. Pídele que te dé de baja y, cuando ya no te quede ninguna, aquí
-                  vas a poder eliminarla.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setConfirm({
-                    title: 'Pedir mi baja',
-                    message: 'Le vamos a avisar por correo a tu maestro que quieres que te dé de baja. Él decide. Tu cuenta y tus calificaciones no se tocan.',
-                    confirmLabel: 'Avisarle a mi maestro',
-                    onConfirm: solicitarBaja,
-                  })}
-                  disabled={solicitandoBaja}
-                  className="w-full py-2.5 rounded border border-outline-variant text-sm font-semibold text-muted hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  <UserMinus size={16} />
-                  {solicitandoBaja ? 'Avisando…' : 'Pedirle a mi maestro que me dé de baja'}
-                </button>
-                {studentInfo?.bajaSolicitada && (
-                  <p className="text-xs text-amber-600 mt-2">
-                    Ya le avisaste a tu maestro. Puedes volver a hacerlo si no te ha contestado.
-                  </p>
-                )}
-              </>
+              // Sin botón para "pedir la baja": el estudiante no tiene que
+              // pedirle nada a nadie. Cuando ya no esté en ninguna asignatura,
+              // aquí aparece el botón de eliminar — y si solo quiere dejar de
+              // usarla, desinstala la app como cualquier otra.
+              <p className="text-xs text-muted leading-relaxed">
+                Estás en <strong>{enrollments.length} {enrollments.length === 1 ? 'asignatura' : 'asignaturas'}</strong>.
+                Mientras tengas clases no puedes eliminar tu cuenta: tus calificaciones son parte de la
+                lista de tu maestro. Cuando ya no estés en ninguna, aquí vas a poder eliminarla.
+              </p>
             )}
           </div>
         </div>
