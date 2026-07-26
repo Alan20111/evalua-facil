@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getDoc, doc } from 'firebase/firestore'
 import {
-  EmailAuthProvider, reauthenticateWithCredential, signOut, updatePassword, verifyBeforeUpdateEmail,
+  EmailAuthProvider, reauthenticateWithCredential, signOut, updatePassword,
 } from 'firebase/auth'
 import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -11,11 +11,10 @@ import Spinner from '../../components/Spinner'
 import PasswordInput from '../../components/PasswordInput'
 import StudentLayout from '../../components/StudentLayout'
 import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
-import { maskEmail } from '../../utils/generate'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { ArrowLeft, Camera, Copy, Check, KeyRound, Mail, ShieldCheck, LogOut, Trash2, UserMinus } from 'lucide-react'
+import { ArrowLeft, Camera, Copy, Check, KeyRound, Mail, LogOut, Trash2, UserMinus } from 'lucide-react'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
@@ -51,7 +50,6 @@ export default function StudentProfile() {
   const [correoNuevo, setCorreoNuevo] = useState('')
   const [correoPass, setCorreoPass] = useState('')
   const [savingCorreo, setSavingCorreo] = useState(false)
-  const [correoEnviadoA, setCorreoEnviadoA] = useState('')
   const [showCorreoForm, setShowCorreoForm] = useState(false)
   // Mi cuenta
   const [enrollments, setEnrollments] = useState([])
@@ -274,27 +272,29 @@ export default function StudentProfile() {
     if (email.endsWith('@evalua.local')) { toast('Ese correo no es válido', 'error'); return }
     setSavingCorreo(true)
     try {
-      // Reautenticación: confirmar el correo lo convierte en la llave de la
-      // cuenta, así que exigimos la contraseña actual antes de iniciarlo.
+      // Se pide la contraseña actual antes de guardar: quien encuentre una
+      // sesión abierta no debe poder apuntar la recuperación a su propio
+      // correo y quedarse con la cuenta.
       const cred = EmailAuthProvider.credential(currentUser.email, correoPass)
       await reauthenticateWithCredential(currentUser, cred)
-      auth.languageCode = 'es'
-      // Firebase manda el enlace de verificación al correo NUEVO; hasta que el
-      // estudiante lo abra, la cuenta no cambia. Al confirmarlo, ese correo se
-      // vuelve el de la cuenta → sirve para entrar y para restablecer contraseña.
-      await verifyBeforeUpdateEmail(currentUser, email)
-      // En `students` (lectura pública) solo la máscara — nunca el correo completo.
-      await updateAllEnrollments(currentUser.uid, { correoMask: maskEmail(email), correoVerificado: false })
-      setStudentInfo((prev) => (prev ? { ...prev, correoMask: maskEmail(email), correoVerificado: false } : prev))
-      setCorreoEnviadoA(email)
+
+      // El correo se guarda APARTE (ver api/student/recovery-email.js). Ya no
+      // toca la cuenta de Firebase: el acceso del estudiante sigue siendo su
+      // usuario, siempre.
+      const res = await fetch('/api/student/recovery-email', {
+        method: 'POST',
+        headers: await authHeader(),
+        body: JSON.stringify({ correo: email }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudo guardar tu correo')
+
+      setStudentInfo((prev) => (prev ? { ...prev, correoMask: data.correoMask, correoVerificado: false } : prev))
       setCorreoNuevo(''); setCorreoPass(''); setShowCorreoForm(false)
+      toast('Guardamos tu correo. Tu usuario sigue siendo el mismo.')
     } catch (err) {
       if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         toast('La contraseña no es correcta', 'error')
-      } else if (err.code === 'auth/email-already-in-use') {
-        toast('Ese correo ya está vinculado a otra cuenta', 'error')
-      } else if (err.code === 'auth/invalid-email') {
-        toast('Escribe un correo válido', 'error')
       } else if (err.code === 'auth/too-many-requests') {
         toast('Demasiados intentos. Espera unos minutos e intenta de nuevo.', 'error')
       } else {
@@ -305,6 +305,22 @@ export default function StudentProfile() {
     }
   }
 
+  async function quitarCorreo() {
+    try {
+      const res = await fetch('/api/student/recovery-email', {
+        method: 'POST',
+        headers: await authHeader(),
+        body: JSON.stringify({ accion: 'quitar' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudo quitar tu correo')
+      setStudentInfo((prev) => (prev ? { ...prev, correoMask: null, correoVerificado: false } : prev))
+      toast('Quitamos tu correo')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
   const displayName =
     [studentInfo?.nombre, studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].filter(Boolean).join(' ')
     || [userProfile?.nombre, userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
@@ -312,9 +328,6 @@ export default function StudentProfile() {
   const initials = displayName.charAt(0).toUpperCase()
   const photoURL = userProfile?.photoURL || studentInfo?.photoURL
   const username = studentInfo?.username || userProfile?.username || ''
-  // El correo de la CUENTA dejó de ser el @evalua.local falso → el estudiante ya
-  // confirmó su correo de recuperación desde el enlace.
-  const correoVerificado = !!currentUser?.email && !currentUser.email.endsWith('@evalua.local')
 
   if (loading) return (
     <StudentLayout>
@@ -407,7 +420,10 @@ export default function StudentProfile() {
         {/* ── Datos de acceso ── */}
         <div className="bg-surface-card rounded-card shadow-card p-5 mb-4">
           <h2 className="text-sm font-semibold text-on-surface mb-3">Datos de acceso</h2>
-          <p className="text-xs text-muted mb-1.5">Tu usuario para entrar a Evalúa Fácil:</p>
+          <p className="text-xs text-muted mb-1.5">
+            Entras a Evalúa Fácil con este usuario, y <strong>solo con este</strong>. Te lo dio tu
+            maestro y no cambia nunca:
+          </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 px-3 py-2 rounded bg-surface border border-outline-variant text-sm font-mono text-on-surface truncate">
               {username}
@@ -467,59 +483,66 @@ export default function StudentProfile() {
           </form>
         </div>
 
-        {/* ── Correo de recuperación ── */}
+        {/* ── Correo de recuperación ──
+            Es un dato aparte, NO una segunda forma de entrar. Todo el texto de
+            esta tarjeta lo repite, porque la versión anterior decía "entrarás a
+            Evalúa Fácil con tu correo" y eso era falso además de confuso: el
+            acceso del estudiante es su usuario, siempre. */}
         <div className="bg-surface-card rounded-card shadow-card p-5">
           <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
-            <Mail size={16} className="text-accent" /> Correo de recuperación
+            <Mail size={16} className="text-accent" /> Correo de recuperación <span className="font-normal text-muted">(opcional)</span>
           </h2>
-          {correoVerificado ? (
+          {studentInfo?.correoMask ? (
             <>
               <div className="flex items-center gap-2 mb-2">
                 <code className="flex-1 px-3 py-2 rounded bg-surface border border-outline-variant text-sm font-mono text-on-surface truncate">
-                  {currentUser.email}
+                  {studentInfo.correoMask}
                 </code>
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-green-50 text-green-700 text-xs font-semibold flex-shrink-0">
-                  <ShieldCheck size={13} /> Verificado
-                </span>
               </div>
-              <p className="text-xs text-muted leading-relaxed">
-                Con este correo <strong>inicias sesión</strong> y, si un día olvidas tu contraseña,
-                puedes restablecerla tú mismo desde «¿Olvidaste tu contraseña?» en la pantalla de entrada
-                — sin pedirle nada a tu maestro.
+              <p className="text-xs text-muted leading-relaxed mb-3">
+                Guardado. Sirve <strong>solo</strong> para ayudarte a recuperar tu contraseña si la olvidas.
+                Para entrar sigues usando <strong>tu usuario</strong>, el que te dio tu maestro.
               </p>
-            </>
-          ) : correoEnviadoA || (studentInfo?.correoMask && studentInfo?.correoVerificado === false) ? (
-            <>
-              <p className="text-sm text-muted leading-relaxed mb-3">
-                Te enviamos un enlace a <strong>{correoEnviadoA || studentInfo?.correoMask}</strong>.
-                Ábrelo para confirmar tu correo. Al confirmarlo, entrarás a Evalúa Fácil <strong>con ese
-                correo</strong> y tu misma contraseña (puede que te pida iniciar sesión de nuevo).
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowCorreoForm(true)}
-                className="text-sm text-accent font-medium hover:underline"
-              >
-                ¿No te llegó? Volver a intentar
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCorreoForm(true)}
+                  className="flex-1 py-2 rounded border border-outline-variant text-sm font-semibold text-muted hover:bg-surface transition-colors"
+                >
+                  Cambiarlo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirm({
+                    title: 'Quitar mi correo',
+                    message: 'Se borra el correo que guardaste. Tu usuario y tu contraseña no cambian — solo pierdes esa ayuda para recuperarla si la olvidas.',
+                    confirmLabel: 'Quitarlo',
+                    danger: true,
+                    onConfirm: quitarCorreo,
+                  })}
+                  className="flex-1 py-2 rounded border border-outline-variant text-sm font-semibold text-muted hover:bg-surface transition-colors"
+                >
+                  Quitarlo
+                </button>
+              </div>
             </>
           ) : !showCorreoForm ? (
             <>
               <p className="text-sm text-muted leading-relaxed mb-3">
-                Registra un correo tuyo (Gmail, Outlook…). Si un día olvidas tu contraseña, podrás
-                restablecerla tú mismo desde ese correo, sin pedirle nada a tu maestro. Después de
-                confirmarlo, entrarás a Evalúa Fácil con tu correo.
+                Puedes guardar un correo tuyo (Gmail, Outlook…) por si un día olvidas tu contraseña.
+                Es opcional. <strong>No cambia nada de tu cuenta</strong>: vas a seguir entrando con
+                tu usuario, igual que siempre.
               </p>
               <button
                 type="button"
                 onClick={() => setShowCorreoForm(true)}
                 className="w-full py-2.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
               >
-                Registrar mi correo
+                Guardar un correo
               </button>
             </>
           ) : null}
-          {showCorreoForm && !correoVerificado && (
+          {showCorreoForm && (
             <form onSubmit={handleRegistrarCorreo} className="space-y-3 mt-3">
               <input
                 type="email"
@@ -551,7 +574,7 @@ export default function StudentProfile() {
                   disabled={savingCorreo || !correoNuevo || !correoPass}
                   className="flex-1 py-2.5 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {savingCorreo ? <Spinner size="sm" /> : 'Enviarme el enlace'}
+                  {savingCorreo ? <Spinner size="sm" /> : 'Guardar mi correo'}
                 </button>
               </div>
             </form>
