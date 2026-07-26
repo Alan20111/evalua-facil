@@ -1,6 +1,11 @@
 import { getDb, getAuth, verifyRequest } from '../_lib/firebaseAdmin.js'
+import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
 
-// Elimina definitivamente la cuenta de un docente y todo lo suyo.
+// Elimina definitivamente la cuenta de un docente y todo lo suyo: documentos,
+// subcolecciones, archivos subidos, las cuentas de sus estudiantes que se
+// queden sin clase y su propia cuenta de Firebase Auth. Después de esto no
+// queda nada que ocupe espacio, y volver a registrarse con el mismo correo
+// crea una cuenta nueva desde cero (Firebase asigna un uid distinto).
 //
 // Va en el servidor por dos razones. Una, las reglas de Firestore no le
 // permiten al docente borrar su propio `users/{uid}` ni sus suscripciones y
@@ -17,6 +22,18 @@ import { getDb, getAuth, verifyRequest } from '../_lib/firebaseAdmin.js'
 const PALABRA_CONFIRMACION = 'ELIMINAR'
 const LIMITE_LOTE = 400 // el tope duro de Firestore es 500 operaciones
 
+// Colecciones que cuelgan del docente directamente.
+const POR_DOCENTE = ['subjects', 'activities', 'attendance', 'events', 'horarioBloques',
+  'asuetos', 'vacaciones', 'bancoReactivos', 'bancoRubricas', 'subscriptions', 'payments']
+
+// Colecciones cuyos documentos tienen subcolecciones. Borrar un documento en
+// Firestore NO borra lo que cuelga de él: los hijos quedan huérfanos,
+// invisibles en la consola y ocupando espacio para siempre. Por eso estos van
+// con recursiveDelete y no en el lote normal.
+//   activities/{id}/preguntas    → las preguntas de una evaluación
+//   submissions/{id}/respuestas  → las respuestas del estudiante
+const CON_SUBCOLECCIONES = { activities: 'preguntas', submissions: 'respuestas' }
+
 async function borrarRefs(db, refs) {
   for (let i = 0; i < refs.length; i += LIMITE_LOTE) {
     const batch = db.batch()
@@ -25,24 +42,50 @@ async function borrarRefs(db, refs) {
   }
 }
 
-// Devuelve las refs de todos los docs de `coll` donde `campo == valor`.
-async function refsPorCampo(db, coll, campo, valor) {
+async function docsPorCampo(db, coll, campo, valor) {
   const snap = await db.collection(coll).where(campo, '==', valor).get()
-  return snap.docs.map((d) => d.ref)
+  return snap.docs
 }
 
 // Igual pero para muchos valores: Firestore solo acepta 30 por consulta `in`,
 // así que se parte. Sin esto, un docente con más de 30 actividades dejaría
 // entregas huérfanas.
-async function refsPorCampoEnLista(db, coll, campo, valores) {
-  const refs = []
+async function docsPorCampoEnLista(db, coll, campo, valores) {
+  const docs = []
   for (let i = 0; i < valores.length; i += 30) {
     const trozo = valores.slice(i, i + 30)
     if (!trozo.length) continue
     const snap = await db.collection(coll).where(campo, 'in', trozo).get()
-    snap.docs.forEach((d) => refs.push(d.ref))
+    docs.push(...snap.docs)
   }
-  return refs
+  return docs
+}
+
+// Las cuentas de Firebase Auth de los estudiantes no son del docente: un mismo
+// estudiante puede estar inscrito con varios maestros de su escuela y esa
+// cuenta es la misma. Solo se borra la de quien se quedó sin ninguna
+// inscripción — si no, borrar una cuenta dejaría a estudiantes ajenos sin
+// poder entrar con otro maestro.
+async function borrarAlumnosHuerfanos(db, auth, uids) {
+  const huerfanos = []
+  for (const uid of uids) {
+    const quedan = await db.collection('students').where('uid', '==', uid).limit(1).get()
+    if (quedan.empty) huerfanos.push(uid)
+  }
+  if (!huerfanos.length) return { huerfanos: 0 }
+
+  const refs = []
+  for (const uid of huerfanos) {
+    refs.push(db.collection('notificationSettings').doc(uid))
+    const bitacora = await docsPorCampo(db, 'notificationLog', 'uid', uid)
+    bitacora.forEach((d) => refs.push(d.ref))
+  }
+  await borrarRefs(db, refs)
+  // deleteUsers borra hasta 1000 de un golpe y no truena si alguno ya no está.
+  for (let i = 0; i < huerfanos.length; i += 1000) {
+    await auth.deleteUsers(huerfanos.slice(i, i + 1000))
+  }
+  return { huerfanos: huerfanos.length }
 }
 
 export default async function handler(req, res) {
@@ -60,6 +103,7 @@ export default async function handler(req, res) {
     }
 
     const db = getDb()
+    const auth = getAuth()
 
     // Un admin no puede borrarse desde aquí: se quedaría el proyecto sin
     // quien administre y este endpoint es el del autoservicio del docente.
@@ -68,67 +112,112 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Las cuentas de administrador no se eliminan desde el perfil.' })
     }
 
-    // ── 1. Todo lo que cuelga del docente directamente ──────────────────
-    const porDocente = ['subjects', 'activities', 'attendance', 'events', 'horarioBloques',
-      'asuetos', 'vacaciones', 'bancoReactivos', 'bancoRubricas', 'subscriptions', 'payments']
-    const listas = await Promise.all(porDocente.map((c) => refsPorCampo(db, c, 'docenteId', uid)))
-    const porColeccion = Object.fromEntries(porDocente.map((c, i) => [c, listas[i]]))
+    // Los archivos subidos se van recolectando conforme se leen los
+    // documentos: es el único momento en que se sabe qué subió esta cuenta.
+    const assets = new Map()
+    extraerAssets(perfil.data(), assets) // la foto de perfil
 
-    const subjectIds = porColeccion.subjects.map((r) => r.id)
-    const activityIds = porColeccion.activities.map((r) => r.id)
+    // ── 1. Todo lo que cuelga del docente directamente ──────────────────
+    const listas = await Promise.all(POR_DOCENTE.map((c) => docsPorCampo(db, c, 'docenteId', uid)))
+    const porColeccion = Object.fromEntries(POR_DOCENTE.map((c, i) => [c, listas[i]]))
+
+    const subjectIds = porColeccion.subjects.map((d) => d.id)
+    const activityIds = porColeccion.activities.map((d) => d.id)
 
     // ── 2. Lo que cuelga de sus asignaturas ─────────────────────────────
     // `attendance` se consulta por las dos vías (docenteId arriba, y aquí por
     // asignatura) porque los registros viejos pueden no traer docenteId.
     const [alumnos, materiales, recursos, asistenciaPorAsignatura] = await Promise.all([
-      refsPorCampoEnLista(db, 'students', 'asignaturaId', subjectIds),
-      refsPorCampoEnLista(db, 'materials', 'asignaturaId', subjectIds),
-      refsPorCampoEnLista(db, 'resources', 'asignaturaId', subjectIds),
-      refsPorCampoEnLista(db, 'attendance', 'asignaturaId', subjectIds),
+      docsPorCampoEnLista(db, 'students', 'asignaturaId', subjectIds),
+      docsPorCampoEnLista(db, 'materials', 'asignaturaId', subjectIds),
+      docsPorCampoEnLista(db, 'resources', 'asignaturaId', subjectIds),
+      docsPorCampoEnLista(db, 'attendance', 'asignaturaId', subjectIds),
     ])
 
     // ── 3. Entregas: por actividad y por alumno ─────────────────────────
     // Las dos vías, porque una entrega puede quedar colgando si su actividad
     // ya no existe pero su inscripción sí (o al revés).
     const [entregasPorActividad, entregasPorAlumno] = await Promise.all([
-      refsPorCampoEnLista(db, 'submissions', 'actividadId', activityIds),
-      refsPorCampoEnLista(db, 'submissions', 'alumnoId', alumnos.map((r) => r.id)),
+      docsPorCampoEnLista(db, 'submissions', 'actividadId', activityIds),
+      docsPorCampoEnLista(db, 'submissions', 'alumnoId', alumnos.map((d) => d.id)),
     ])
 
     // ── 4. Lo que se identifica con el uid, no con docenteId ────────────
-    const bitacora = await refsPorCampo(db, 'notificationLog', 'uid', uid)
+    const bitacora = await docsPorCampo(db, 'notificationLog', 'uid', uid)
 
-    // Se borra de adentro hacia afuera —entregas antes que actividades,
-    // alumnos antes que asignaturas— para que un fallo a medio camino deje
-    // huérfanos de los inofensivos y no al revés.
-    const todas = [
-      ...entregasPorActividad, ...entregasPorAlumno,
+    // ── 5. Archivos de todo lo anterior, subcolecciones incluidas ───────
+    const todosLosDocs = [
+      ...Object.values(porColeccion).flat(),
       ...alumnos, ...materiales, ...recursos, ...asistenciaPorAsignatura,
-      ...porColeccion.activities, ...porColeccion.attendance,
-      ...porColeccion.events, ...porColeccion.horarioBloques,
+      ...entregasPorActividad, ...entregasPorAlumno, ...bitacora,
+    ]
+    todosLosDocs.forEach((d) => extraerAssets(d.data(), assets))
+
+    // Las preguntas traen imágenes y las respuestas, archivos entregados: hay
+    // que leerlas ANTES de borrarlas o sus archivos quedan en Cloudinary sin
+    // que nada apunte a ellos.
+    const padresConHijos = [
+      ...new Map([...porColeccion.activities.map((d) => [d.ref.path, { d, sub: CON_SUBCOLECCIONES.activities }]),
+        ...[...entregasPorActividad, ...entregasPorAlumno].map((d) => [d.ref.path, { d, sub: CON_SUBCOLECCIONES.submissions }])]).values(),
+    ]
+    const hijos = await Promise.all(padresConHijos.map(({ d, sub }) => d.ref.collection(sub).get()))
+    hijos.forEach((snap) => snap.docs.forEach((h) => extraerAssets(h.data(), assets)))
+
+    // ── 6. Borrado ──────────────────────────────────────────────────────
+    // Los padres con subcolecciones van por recursiveDelete, que arrastra
+    // todo lo que cuelgue de ellos (incluso subcolecciones que alguien agregue
+    // después y que este archivo todavía no conozca). El resto, en lotes.
+    const escritor = db.bulkWriter()
+    await Promise.all(padresConHijos.map(({ d }) => db.recursiveDelete(d.ref, escritor)))
+    await escritor.close()
+
+    const conSubcolecciones = new Set(padresConHijos.map(({ d }) => d.ref.path))
+    const planos = [
+      ...alumnos, ...materiales, ...recursos, ...asistenciaPorAsignatura,
+      ...porColeccion.attendance, ...porColeccion.events, ...porColeccion.horarioBloques,
       ...porColeccion.asuetos, ...porColeccion.vacaciones,
       ...porColeccion.bancoReactivos, ...porColeccion.bancoRubricas,
-      ...porColeccion.subjects,
-      ...porColeccion.subscriptions, ...porColeccion.payments,
+      ...porColeccion.subjects, ...porColeccion.subscriptions, ...porColeccion.payments,
       ...bitacora,
-      db.collection('notificationSettings').doc(uid),
-      db.collection('users').doc(uid),
-    ]
+    ].map((d) => d.ref).filter((r) => !conSubcolecciones.has(r.path))
 
     // Las dos vías de entregas y de asistencia pueden traer el mismo doc dos
     // veces; borrar dos veces el mismo ref en un batch es un error.
-    const unicas = [...new Map(todas.map((r) => [r.path, r])).values()]
+    const unicas = [...new Map([
+      ...planos.map((r) => [r.path, r]),
+      [`notificationSettings/${uid}`, db.collection('notificationSettings').doc(uid)],
+      [`users/${uid}`, db.collection('users').doc(uid)],
+    ]).values()]
     await borrarRefs(db, unicas)
+
+    // ── 7. Cuentas de sus estudiantes que se quedaron sin ninguna clase ──
+    const uidsAlumnos = [...new Set(alumnos.map((d) => d.data().uid).filter(Boolean))]
+    const { huerfanos } = await borrarAlumnosHuerfanos(db, auth, uidsAlumnos)
+
+    // ── 8. Archivos en Cloudinary ───────────────────────────────────────
+    const archivos = await borrarAssets(assets)
+    // Lo que no se pudo borrar se anota en el log de Vercel: es la única
+    // forma de enterarse de que quedaron archivos ocupando espacio, porque
+    // el docente ya se fue y nadie va a ver esta respuesta.
+    if (archivos.pendientes?.length) {
+      console.warn(
+        `[eliminar-cuenta ${uid}] ${archivos.pendientes.length} archivos NO borrados de Cloudinary` +
+        `${archivos.configurado === false ? ' (faltan CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET)' : ''}: ` +
+        archivos.pendientes.join(', ')
+      )
+    }
 
     // Hasta aquí no había vuelta atrás pero sí posibilidad de reintentar.
     // Este es el punto final.
-    await getAuth().deleteUser(uid)
+    await auth.deleteUser(uid)
 
     return res.status(200).json({
       ok: true,
-      documentosEliminados: unicas.length,
+      documentosEliminados: unicas.length + padresConHijos.length,
       asignaturas: subjectIds.length,
       estudiantes: alumnos.length,
+      cuentasDeAlumnosEliminadas: huerfanos,
+      archivos,
     })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'No se pudo eliminar la cuenta.' })
