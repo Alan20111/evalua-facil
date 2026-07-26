@@ -1412,7 +1412,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   placeholder="Buscar por nombre o por número de lista…"
                   autoFocus={!IS_NATIVE_APP}
                 />
-                <p className="text-xs text-red-600 text-center mt-1.5">Presiona un nombre para evaluar</p>
+                <p className="text-xs text-red-600 text-center mt-1.5">Presiona un nombre para ver resultado</p>
               </div>
               {/* Lista por estudiante — cada fila abre la revisión de pantalla
                   completa (openReview), donde se ve la entrega y, si hay
@@ -1436,8 +1436,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       <div className={`flex items-center ${IS_NATIVE_APP ? 'gap-1' : 'gap-2'}`}>
                         <span className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} text-accent flex-shrink-0 whitespace-nowrap`}>{s.orden}.&nbsp;</span>
                         {/* Sin tooltip en el nombre: el aviso "Presiona un nombre para
-                            evaluar", justo arriba de la lista, ya lo dice una vez para
-                            toda la lista — repetirlo en cada renglón solo estorbaba. */}
+                            ver resultado", justo arriba de la lista, ya lo dice una vez
+                            para toda la lista — repetirlo en cada renglón solo estorbaba.
+                            Aquí dice "ver resultado" y no "evaluar" (como en el aviso
+                            gemelo de ActivityPage) porque esta lista es de evaluaciones:
+                            el renglón abre la revisión de respuestas, no la calificación. */}
                         <div className="flex-1 min-w-0">
                           <p className={`${IS_NATIVE_APP ? 'text-[0.7rem]' : 'text-sm'} font-medium text-on-surface truncate`}>{studentFullName(s)}</p>
                         </div>
