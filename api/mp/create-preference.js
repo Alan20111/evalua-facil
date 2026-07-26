@@ -1,9 +1,11 @@
 import { verifyRequest } from '../_lib/firebaseAdmin.js'
 import { startPayment } from '../_lib/billing.js'
+import { aplicarCors } from '../_lib/cors.js'
 
 const APP_URL = process.env.APP_URL || 'https://evalua-facil.vercel.app'
 
 export default async function handler(req, res) {
+  if (aplicarCors(req, res)) return // preflight de la app
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' })
   }

@@ -9,6 +9,7 @@ import { usePaymentConfig } from '../hooks/usePaymentConfig'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { MONTHLY_PLAN_ID, MONTHLY_PRICE_MXN, SUBSCRIPTION_NAME, formatCurrency } from '../utils/subscriptionHelpers'
+import { apiUrl } from '../utils/apiBase'
 
 const inputCls =
   'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
@@ -67,7 +68,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   async function payWithMercadoPago() {
     setSubmitting(true)
     try {
-      const res = await fetch('/api/mp/create-preference', {
+      const res = await fetch(apiUrl('/api/mp/create-preference'), {
         method: 'POST',
         headers: await authHeader(),
         body: JSON.stringify(planPayload()),
@@ -96,7 +97,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
           .Buttons({
             style: { layout: 'vertical', color: 'blue', shape: 'pill', label: 'pay' },
             createOrder: async () => {
-              const res = await fetch('/api/paypal/create-order', {
+              const res = await fetch(apiUrl('/api/paypal/create-order'), {
                 method: 'POST',
                 headers: await authHeader(),
                 body: JSON.stringify(planPayload()),
@@ -106,7 +107,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
               return data.orderId
             },
             onApprove: async (data) => {
-              const res = await fetch('/api/paypal/capture-order', {
+              const res = await fetch(apiUrl('/api/paypal/capture-order'), {
                 method: 'POST',
                 headers: await authHeader(),
                 body: JSON.stringify({ orderId: data.orderID }),

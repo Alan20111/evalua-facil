@@ -1,5 +1,6 @@
 import { getDb, verifyRequest } from '../_lib/firebaseAdmin.js'
 import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
+import { aplicarCors } from '../_lib/cors.js'
 
 // "Sin foto" — el estudiante quita la foto que subió.
 //
@@ -11,6 +12,7 @@ import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
 // que ya no esté en ningún lado es justo lo que se pidió.
 
 export default async function handler(req, res) {
+  if (aplicarCors(req, res)) return // preflight de la app
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' })
   }

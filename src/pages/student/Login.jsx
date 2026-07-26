@@ -9,6 +9,7 @@ import { Hash, ChevronDown, ArrowLeft, KeyRound } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { apiUrl } from '../../utils/apiBase'
 
 export default function StudentLogin() {
   const [username, setUsername] = useState('')
@@ -162,7 +163,7 @@ export default function StudentLogin() {
     setLoading(true)
     try {
       const email = studentEmail(recoverStudent.username, recoverStudent.escuelaId)
-      const resp = await fetch('/api/student/recover-password', {
+      const resp = await fetch(apiUrl('/api/student/recover-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

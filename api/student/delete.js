@@ -1,5 +1,6 @@
 import { getDb, getAuth, verifyRequest } from '../_lib/firebaseAdmin.js'
 import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
+import { aplicarCors } from '../_lib/cors.js'
 
 // Eliminar la cuenta de un estudiante — solo si ya no está inscrito en
 // ninguna asignatura.
@@ -19,6 +20,7 @@ import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
 const PALABRA_CONFIRMACION = 'ELIMINAR'
 
 export default async function handler(req, res) {
+  if (aplicarCors(req, res)) return // preflight de la app
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' })
   }

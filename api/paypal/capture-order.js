@@ -1,8 +1,10 @@
 import { verifyRequest } from '../_lib/firebaseAdmin.js'
 import { completePayment } from '../_lib/billing.js'
 import { getPaypalToken, paypalBase } from '../_lib/paypal.js'
+import { aplicarCors } from '../_lib/cors.js'
 
 export default async function handler(req, res) {
+  if (aplicarCors(req, res)) return // preflight de la app
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' })
   }
