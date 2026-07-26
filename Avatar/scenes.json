@@ -1,0 +1,354 @@
+{
+  "scenes": [
+    {
+      "id": "welcome_students",
+      "title": "Welcome Students",
+      "action": "waving",
+      "camera": "Medium shot, centered.",
+      "description": "Character greets students at the start of the video."
+    },
+    {
+      "id": "explaining_topic",
+      "title": "Explaining Topic",
+      "action": "explaining",
+      "camera": "Medium shot, centered.",
+      "description": "Character introduces and explains the main topic of the lesson."
+    },
+    {
+      "id": "thinking_question",
+      "title": "Thinking About a Question",
+      "action": "thinking",
+      "camera": "Close-up, slight angle.",
+      "description": "Character pauses to think before answering a question."
+    },
+    {
+      "id": "using_laptop",
+      "title": "Using a Laptop",
+      "action": "holding_laptop",
+      "camera": "Medium shot, centered.",
+      "description": "Character demonstrates something on a laptop."
+    },
+    {
+      "id": "pointing_whiteboard",
+      "title": "Pointing at the Whiteboard",
+      "action": "pointing_right",
+      "camera": "Wide shot, character to one side.",
+      "description": "Character points toward a whiteboard to highlight content off-screen."
+    },
+    {
+      "id": "holding_phone",
+      "title": "Holding a Phone",
+      "action": "holding_phone",
+      "camera": "Medium shot, centered.",
+      "description": "Character shows an example using a mobile phone."
+    },
+    {
+      "id": "celebrating_success",
+      "title": "Celebrating Success",
+      "action": "celebrating",
+      "camera": "Medium shot, centered.",
+      "description": "Character celebrates after students complete an activity correctly."
+    },
+    {
+      "id": "asking_question",
+      "title": "Asking a Question",
+      "action": "questioning",
+      "camera": "Close-up, slight angle.",
+      "description": "Character asks the audience a question to encourage participation."
+    },
+    {
+      "id": "typing_computer",
+      "title": "Typing on a Computer",
+      "action": "typing",
+      "camera": "Medium shot, centered.",
+      "description": "Character types on a keyboard to demonstrate a digital task."
+    },
+    {
+      "id": "reading_book",
+      "title": "Reading a Book",
+      "action": "holding_book",
+      "camera": "Medium shot, centered.",
+      "description": "Character reads from a book to introduce a topic or quote."
+    },
+    {
+      "id": "pointing_left_reference",
+      "title": "Pointing to Left Reference",
+      "action": "pointing_left",
+      "camera": "Wide shot, character to one side.",
+      "description": "Character points left to reference content placed on that side of the screen."
+    },
+    {
+      "id": "confirming_correct_answer",
+      "title": "Confirming a Correct Answer",
+      "action": "thumbs_up",
+      "camera": "Medium shot, centered.",
+      "description": "Character approves a correct answer given by students."
+    },
+    {
+      "id": "flagging_incorrect_answer",
+      "title": "Flagging an Incorrect Answer",
+      "action": "thumbs_down",
+      "camera": "Medium shot, centered.",
+      "description": "Character signals that an answer is incorrect and needs review."
+    },
+    {
+      "id": "writing_notes",
+      "title": "Writing Notes",
+      "action": "writing",
+      "camera": "Medium shot, centered.",
+      "description": "Character writes down key notes or a summary."
+    },
+    {
+      "id": "walking_into_scene",
+      "title": "Walking Into Scene",
+      "action": "walking",
+      "camera": "Wide shot, full body.",
+      "description": "Character walks into frame to begin a new segment."
+    },
+    {
+      "id": "running_to_next_topic",
+      "title": "Running to the Next Topic",
+      "action": "running",
+      "camera": "Wide shot, full body.",
+      "description": "Character rushes energetically to transition to the next topic."
+    },
+    {
+      "id": "sitting_to_review",
+      "title": "Sitting to Review",
+      "action": "sitting",
+      "camera": "Medium shot, centered.",
+      "description": "Character sits down to review material calmly."
+    },
+    {
+      "id": "raising_hand_volunteer",
+      "title": "Raising Hand to Volunteer",
+      "action": "raising_hand",
+      "camera": "Medium shot, centered.",
+      "description": "Character raises a hand as if volunteering to answer."
+    },
+    {
+      "id": "shrugging_uncertain",
+      "title": "Shrugging, Uncertain",
+      "action": "shrugging",
+      "camera": "Medium shot, centered.",
+      "description": "Character shrugs to show uncertainty before revealing an answer."
+    },
+    {
+      "id": "greeting_new_lesson",
+      "title": "Greeting for a New Lesson",
+      "action": "greeting",
+      "camera": "Medium shot, centered.",
+      "description": "Character greets the audience at the start of a new lesson."
+    },
+    {
+      "id": "explaining_diagram",
+      "title": "Explaining a Diagram",
+      "action": "explaining",
+      "camera": "Wide shot, character to one side.",
+      "description": "Character explains a diagram or chart displayed beside them."
+    },
+    {
+      "id": "thinking_before_topic",
+      "title": "Thinking Before Introducing a Topic",
+      "action": "thinking",
+      "camera": "Close-up, slight angle.",
+      "description": "Character reflects briefly before introducing a new concept."
+    },
+    {
+      "id": "pointing_right_example",
+      "title": "Pointing to an Example",
+      "action": "pointing_right",
+      "camera": "Wide shot, character to one side.",
+      "description": "Character points right toward an example shown on screen."
+    },
+    {
+      "id": "waving_goodbye",
+      "title": "Waving Goodbye",
+      "action": "waving",
+      "camera": "Medium shot, centered.",
+      "description": "Character waves goodbye at the end of the lesson."
+    },
+    {
+      "id": "celebrating_milestone",
+      "title": "Celebrating a Milestone",
+      "action": "celebrating",
+      "camera": "Wide shot, full body.",
+      "description": "Character celebrates students reaching a learning milestone."
+    },
+    {
+      "id": "holding_laptop_demo",
+      "title": "Demonstrating on Laptop",
+      "action": "holding_laptop",
+      "camera": "Close-up, slight angle.",
+      "description": "Character shows a close-up demo using a laptop."
+    },
+    {
+      "id": "holding_phone_app",
+      "title": "Showing a Mobile App",
+      "action": "holding_phone",
+      "camera": "Close-up, slight angle.",
+      "description": "Character demonstrates an app or feature on a phone."
+    },
+    {
+      "id": "holding_book_quote",
+      "title": "Sharing a Quote from a Book",
+      "action": "holding_book",
+      "camera": "Close-up, slight angle.",
+      "description": "Character reads a short quote from a book."
+    },
+    {
+      "id": "writing_formula",
+      "title": "Writing a Formula",
+      "action": "writing",
+      "camera": "Close-up, slight angle.",
+      "description": "Character writes a formula or equation for students to follow."
+    },
+    {
+      "id": "typing_search",
+      "title": "Typing a Search",
+      "action": "typing",
+      "camera": "Close-up, slight angle.",
+      "description": "Character types a search query as part of a research example."
+    },
+    {
+      "id": "walking_transition",
+      "title": "Walking Transition",
+      "action": "walking",
+      "camera": "Wide shot, full body.",
+      "description": "Character walks across the scene to transition between sections."
+    },
+    {
+      "id": "running_excited",
+      "title": "Running with Excitement",
+      "action": "running",
+      "camera": "Wide shot, full body.",
+      "description": "Character runs excitedly to introduce a fun activity."
+    },
+    {
+      "id": "sitting_reading",
+      "title": "Sitting and Reading",
+      "action": "sitting",
+      "camera": "Medium shot, centered.",
+      "description": "Character sits while reading supporting material."
+    },
+    {
+      "id": "raising_hand_question",
+      "title": "Raising Hand to Ask a Question",
+      "action": "raising_hand",
+      "camera": "Medium shot, centered.",
+      "description": "Character raises a hand to pose a question to the audience."
+    },
+    {
+      "id": "shrugging_open_discussion",
+      "title": "Shrugging to Open Discussion",
+      "action": "shrugging",
+      "camera": "Medium shot, centered.",
+      "description": "Character shrugs to invite students to discuss possible answers."
+    },
+    {
+      "id": "questioning_recap",
+      "title": "Questioning During Recap",
+      "action": "questioning",
+      "camera": "Close-up, slight angle.",
+      "description": "Character asks a recap question to check understanding."
+    },
+    {
+      "id": "greeting_returning_students",
+      "title": "Greeting Returning Students",
+      "action": "greeting",
+      "camera": "Medium shot, centered.",
+      "description": "Character welcomes back students continuing a course."
+    },
+    {
+      "id": "pointing_left_comparison",
+      "title": "Pointing Left for Comparison",
+      "action": "pointing_left",
+      "camera": "Wide shot, character to one side.",
+      "description": "Character points left to compare two pieces of content."
+    },
+    {
+      "id": "pointing_right_comparison",
+      "title": "Pointing Right for Comparison",
+      "action": "pointing_right",
+      "camera": "Wide shot, character to one side.",
+      "description": "Character points right to compare two pieces of content."
+    },
+    {
+      "id": "explaining_step_by_step",
+      "title": "Explaining Step by Step",
+      "action": "explaining",
+      "camera": "Medium shot, centered.",
+      "description": "Character walks through a process step by step."
+    },
+    {
+      "id": "thumbs_up_encouragement",
+      "title": "Thumbs Up for Encouragement",
+      "action": "thumbs_up",
+      "camera": "Close-up, slight angle.",
+      "description": "Character gives an encouraging thumbs up to motivate students."
+    },
+    {
+      "id": "thumbs_down_common_mistake",
+      "title": "Thumbs Down for a Common Mistake",
+      "action": "thumbs_down",
+      "camera": "Close-up, slight angle.",
+      "description": "Character warns about a common mistake to avoid."
+    },
+    {
+      "id": "celebrating_course_completion",
+      "title": "Celebrating Course Completion",
+      "action": "celebrating",
+      "camera": "Wide shot, full body.",
+      "description": "Character celebrates students finishing the course."
+    },
+    {
+      "id": "sitting_summary",
+      "title": "Sitting for a Summary",
+      "action": "sitting",
+      "camera": "Medium shot, centered.",
+      "description": "Character sits calmly to summarize the lesson's key points."
+    },
+    {
+      "id": "typing_note_taking",
+      "title": "Typing While Note-Taking",
+      "action": "typing",
+      "camera": "Medium shot, centered.",
+      "description": "Character types notes while reviewing material."
+    },
+    {
+      "id": "writing_key_term",
+      "title": "Writing a Key Term",
+      "action": "writing",
+      "camera": "Close-up, slight angle.",
+      "description": "Character writes down a key term or definition."
+    },
+    {
+      "id": "walking_to_whiteboard",
+      "title": "Walking to the Whiteboard",
+      "action": "walking",
+      "camera": "Wide shot, full body.",
+      "description": "Character walks toward the whiteboard to begin an explanation."
+    },
+    {
+      "id": "raising_hand_answer_ready",
+      "title": "Raising Hand, Answer Ready",
+      "action": "raising_hand",
+      "camera": "Medium shot, centered.",
+      "description": "Character raises a hand confidently, ready to give an answer."
+    },
+    {
+      "id": "greeting_end_of_module",
+      "title": "Greeting at End of Module",
+      "action": "greeting",
+      "camera": "Medium shot, centered.",
+      "description": "Character wraps up a module with a friendly closing greeting."
+    },
+    {
+      "id": "questioning_before_quiz",
+      "title": "Questioning Before a Quiz",
+      "action": "questioning",
+      "camera": "Close-up, slight angle.",
+      "description": "Character poses a question to the audience just before a quiz segment."
+    }
+  ]
+}
