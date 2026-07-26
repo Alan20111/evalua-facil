@@ -34,10 +34,17 @@
   }
 
   /* ── Luminous neutral / surface tokens ─────────────────────────── */
+  /* El lienzo es azul cielo, no blanco. El --surface de antes (#faf9fa) era
+     casi blanco y las tarjetas —que SÍ son blancas— se perdían contra él: sin
+     borde visible, todo se leía como una sola mancha clara y costaba distinguir
+     dónde empieza cada cosa. El mismo truco que ya usaba el panel de admin con
+     su rosa (--admin-canvas), ahora para docente y estudiante, web y app.
+     --surface-card se queda en blanco puro a propósito: es el contraste contra
+     el azul lo que dibuja cada tarjeta sin gastar una sola línea de borde. */
   :root {
-    --surface: #faf9fa;
-    --surface-dim: #d9dadd;
-    --surface-container: #edeef0;
+    --surface: #e6f1fb;            /* azul cielo suave — lienzo de la página */
+    --surface-dim: #bed4e8;
+    --surface-container: #d5e5f4;  /* un paso más hondo que el lienzo */
     --surface-card: #ffffff;       /* surface-container-lowest */
     --on-surface: #131b2e;
     --on-surface-variant: #414753;
@@ -146,9 +153,10 @@
     --admin-plane: #611232;         /* guinda institucional — barra lateral */
     --admin-plane-dark: #4a0e26;    /* cabecera de la barra */
     --admin-plane-active: #9f2241;  /* opción seleccionada */
-    /* Lienzo del panel. El --surface general (#faf9fa) es casi blanco, así que
-       las tarjetas blancas de tablas y gráficas se perdían contra el fondo:
-       este rosa (guinda al ~12%) les dibuja el borde sin necesidad de líneas. */
+    /* Lienzo del panel — mismo principio que el --surface azul de arriba (que
+       nació de esta idea), pero en guinda: este rosa al ~12% le dibuja el borde
+       a las tarjetas blancas de tablas y gráficas sin gastar una sola línea.
+       Admin conserva SU color: el panel es de otra casa que docente/alumno. */
     --admin-canvas: #f9e0e6;
   }
 
