@@ -69,6 +69,10 @@ export function useAdminStats() {
 
       const teachers = users.filter((u) => u.role === 'docente')
       const activeStudents = students.filter((s) => s.activado === true)
+      // "No activados" incluye a quien nunca entró Y a quien el docente puso a
+      // reactivar con contraseña temporal (activado vuelve a false): en ambos
+      // casos hoy no puede usar la plataforma, que es lo que mide el indicador.
+      const inactiveStudents = students.filter((s) => s.activado !== true)
       const activeSubs = subscriptions.filter((s) => s.status === 'activa')
       const completedPayments = payments.filter((p) => p.status === 'completado')
       const pendingPayments = payments.filter((p) => p.status === 'pendiente')
@@ -85,11 +89,18 @@ export function useAdminStats() {
       // en las pruebas anteriores al 28-jun-2026 ese campo trae la ventana
       // vieja de 45/60 días (ver TRIAL_DURATION_DAYS en subscriptionHelpers),
       // así que leerlo directo daba una fecha que la app no respeta.
-      const expiringSoon = subscriptions.filter((s) => {
-        if (s.status !== 'activa' && s.status !== 'trial') return false
-        const venc = effectiveVencimiento(s)
-        return isWithinDays(venc, 7) && calcDaysRemaining(venc) >= 0
-      })
+      const porVencer = (status) =>
+        subscriptions.filter((s) => {
+          if (s.status !== status) return false
+          const venc = effectiveVencimiento(s)
+          return isWithinDays(venc, 7) && calcDaysRemaining(venc) >= 0
+        })
+
+      // El resumen las separa: una suscripción de paga por vencer se cobra, una
+      // prueba por vencer se convierte. Son dos acciones distintas.
+      const activeExpiringSoon = porVencer('activa')
+      const trialExpiringSoon = porVencer('trial')
+      const expiringSoon = [...activeExpiringSoon, ...trialExpiringSoon]
 
       const conversionRate =
         teachers.length > 0 ? (activeSubs.length / teachers.length) * 100 : 0
@@ -160,12 +171,15 @@ export function useAdminStats() {
         kpis: {
           teacherCount: teachers.length,
           activeStudentCount: activeStudents.length,
+          inactiveStudentCount: inactiveStudents.length,
           activeSubCount: activeSubs.length,
           trialCount,
           totalRevenue,
           monthRevenue,
           pendingPaymentCount: pendingPayments.length,
           expiringSoonCount: expiringSoon.length,
+          activeExpiringSoonCount: activeExpiringSoon.length,
+          trialExpiringSoonCount: trialExpiringSoon.length,
           conversionRate,
           expiredCount,
           cancelledCount,

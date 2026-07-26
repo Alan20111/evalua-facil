@@ -1,43 +1,71 @@
-import {
-  Users,
-  GraduationCap,
-  CreditCard,
-  DollarSign,
-  Clock,
-  TrendingUp,
-  Timer,
-  CalendarClock,
-} from 'lucide-react'
 import { formatCurrency } from '../../../utils/subscriptionHelpers'
 
+// Mes en curso, escrito ("julio de 2026"), para que el renglón de ingresos diga
+// de qué mes habla en vez de un "del mes" que hay que adivinar.
+function mesEnCurso() {
+  const texto = new Date().toLocaleDateString('es-MX', { month: 'long', year: 'numeric' })
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
+// Un renglón por indicador, en el orden en que se leen: cuánta gente hay, cómo
+// están sus suscripciones, cuántos estudiantes y cuánto se cobró.
 const KPI_CONFIG = [
-  { key: 'teacherCount', label: 'Docentes', icon: Users, format: (v) => v },
-  { key: 'activeStudentCount', label: 'Estudiantes activos', icon: GraduationCap, format: (v) => v },
-  { key: 'activeSubCount', label: 'Suscripciones activas', icon: CreditCard, format: (v) => v },
-  { key: 'trialCount', label: 'En periodo trial', icon: Timer, format: (v) => v },
-  // Se calculaba desde siempre pero no se mostraba en ningún lado, así que las
-  // pruebas vencían sin que nadie se enterara. Es el aviso que faltaba.
-  { key: 'expiringSoonCount', label: 'Por vencer (7 días)', icon: CalendarClock, format: (v) => v },
-  { key: 'totalRevenue', label: 'Ingresos totales', icon: DollarSign, format: formatCurrency },
-  { key: 'monthRevenue', label: 'Ingresos del mes', icon: DollarSign, format: formatCurrency },
-  { key: 'pendingPaymentCount', label: 'Pagos pendientes', icon: Clock, format: (v) => v },
-  { key: 'conversionRate', label: 'Tasa conversión', icon: TrendingUp, format: (v) => `${v.toFixed(1)}%` },
+  { key: 'teacherCount', label: 'Docentes registrados', format: (v) => v },
+  { key: 'activeSubCount', label: 'Suscripciones activas', format: (v) => v },
+  {
+    key: 'activeExpiringSoonCount',
+    label: 'Suscripciones por vencer',
+    ayuda: 'Suscripciones de paga que vencen dentro de los próximos 7 días.',
+    format: (v) => v,
+  },
+  { key: 'trialCount', label: 'En periodo de prueba', format: (v) => v },
+  {
+    key: 'trialExpiringSoonCount',
+    label: 'En periodo de prueba por vencer',
+    ayuda: 'Pruebas que terminan dentro de los próximos 7 días.',
+    format: (v) => v,
+  },
+  { key: 'activeStudentCount', label: 'Estudiantes activos', format: (v) => v },
+  {
+    key: 'inactiveStudentCount',
+    label: 'Estudiantes no activados',
+    ayuda: 'Estudiantes dados de alta que todavía no entran: nunca activaron su cuenta o su docente les puso contraseña temporal.',
+    format: (v) => v,
+  },
+  { key: 'monthRevenue', label: `Ingresos de ${mesEnCurso()}`, format: formatCurrency },
+  { key: 'totalRevenue', label: 'Ingresos totales', format: formatCurrency },
 ]
 
 export default function StatsCards({ kpis }) {
   if (!kpis) return null
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-3">
-      {KPI_CONFIG.map(({ key, label, icon: Icon, format }) => (
-        <div key={key} className="bg-surface-card rounded-card shadow-card p-4 md:p-4">
-          <div className="flex items-center gap-2 text-slate-400 mb-2 min-w-0">
-            <Icon size={18} className="flex-shrink-0" />
-            <span className="text-xs font-medium truncate">{label}</span>
-          </div>
-          <p className="text-xl md:text-2xl font-bold text-on-surface truncate">{format(kpis[key] ?? 0)}</p>
-        </div>
-      ))}
+    <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-[11.5px] tracking-wide uppercase text-accent bg-surface">
+            <th className="px-4 py-2 font-normal">Indicador</th>
+            <th className="px-4 py-2 font-normal text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {KPI_CONFIG.map(({ key, label, ayuda, format }) => (
+            <tr key={key} className="border-t border-outline-variant">
+              <td className="px-4 py-2.5 text-on-surface">
+                <span
+                  title={ayuda}
+                  className={ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}
+                >
+                  {label}
+                </span>
+              </td>
+              <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-on-surface whitespace-nowrap">
+                {format(kpis[key] ?? 0)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
