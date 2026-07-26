@@ -1,5 +1,6 @@
 import { getDb, getAuth, verifyRequest } from '../_lib/firebaseAdmin.js'
 import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
+import { aplicarCors } from '../_lib/cors.js'
 
 // Elimina definitivamente la cuenta de un docente y todo lo suyo: documentos,
 // subcolecciones, archivos subidos, las cuentas de sus estudiantes que se
@@ -89,6 +90,7 @@ async function borrarAlumnosHuerfanos(db, auth, uids) {
 }
 
 export default async function handler(req, res) {
+  if (aplicarCors(req, res)) return // preflight de la app
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' })
   }

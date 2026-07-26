@@ -10,6 +10,7 @@ import { useScrollLock } from '../hooks/useScrollLock'
 import Modal from './ui/Modal'
 import Spinner from './Spinner'
 import PasswordInput from './PasswordInput'
+import { apiUrl } from '../utils/apiBase'
 
 // Eliminar la cuenta de un estudiante que ya no está inscrito en ninguna
 // asignatura. La pantalla ni siquiera ofrece este modal mientras le quede
@@ -52,7 +53,7 @@ export default function EliminarCuentaAlumnoModal({ photoURL, onClose }) {
       }
 
       const token = await currentUser.getIdToken()
-      const res = await fetch('/api/student/delete', {
+      const res = await fetch(apiUrl('/api/student/delete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         // Sin inscripciones, el servidor ya no tiene de dónde leer la foto

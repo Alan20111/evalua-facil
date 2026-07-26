@@ -19,6 +19,7 @@ import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { apiUrl } from '../../utils/apiBase'
 
 // El espacio para subir la foto mide distinto en la web y en la app — pedido
 // explícito, y por eso esta pantalla (que es la misma en las dos) tiene que
@@ -171,7 +172,7 @@ export default function StudentProfile() {
   async function quitarFoto() {
     setQuitandoFoto(true)
     try {
-      const res = await fetch('/api/student/remove-photo', { method: 'POST', headers: await authHeader() })
+      const res = await fetch(apiUrl('/api/student/remove-photo'), { method: 'POST', headers: await authHeader() })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'No se pudo quitar la foto')
       setStudentInfo((prev) => (prev ? { ...prev, photoURL: null } : prev))

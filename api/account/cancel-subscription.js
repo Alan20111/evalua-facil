@@ -1,4 +1,5 @@
 import { getDb, admin, verifyRequest } from '../_lib/firebaseAdmin.js'
+import { aplicarCors } from '../_lib/cors.js'
 
 // Cancelar la suscripción del propio docente.
 //
@@ -14,6 +15,7 @@ import { getDb, admin, verifyRequest } from '../_lib/firebaseAdmin.js'
 const CANCELABLES = ['activa', 'trial', 'pendiente_pago']
 
 export default async function handler(req, res) {
+  if (aplicarCors(req, res)) return // preflight de la app
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' })
   }

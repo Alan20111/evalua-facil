@@ -13,6 +13,7 @@ import PasswordInput from './PasswordInput'
 import GoogleIcon from './GoogleIcon'
 import { reauthenticateWithGoogle, googleErrorInfo } from '../utils/googleAuth'
 import { sendAccountDeletedEmail } from '../utils/accountEmails'
+import { apiUrl } from '../utils/apiBase'
 
 // Eliminar la cuenta de forma definitiva.
 //
@@ -84,7 +85,7 @@ export default function EliminarCuentaModal({ onClose }) {
 
       // 3. El borrado real.
       const token = await currentUser.getIdToken()
-      const res = await fetch('/api/account/delete', {
+      const res = await fetch(apiUrl('/api/account/delete'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ confirmacion: PALABRA }),

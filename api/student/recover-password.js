@@ -1,4 +1,5 @@
 import { getDb, getAuth } from '../_lib/firebaseAdmin.js'
+import { aplicarCors } from '../_lib/cors.js'
 
 // Password recovery for a student who FORGOT their password. This cannot be done from the
 // browser: student accounts use fake @evalua.local emails (no reset email possible) and a
@@ -33,6 +34,7 @@ async function setAuthPassword(email, newPassword) {
 }
 
 export default async function handler(req, res) {
+  if (aplicarCors(req, res)) return // preflight de la app
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' })
   }

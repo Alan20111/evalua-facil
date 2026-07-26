@@ -40,6 +40,7 @@ import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
 import EliminarCuentaModal from '../../components/EliminarCuentaModal'
 import { sendSubscriptionCancelledEmail } from '../../utils/accountEmails'
+import { apiUrl } from '../../utils/apiBase'
 
 async function uploadAvatar(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -391,7 +392,7 @@ export default function Profile() {
     setCancelandoSub(true)
     try {
       const token = await currentUser.getIdToken()
-      const res = await fetch('/api/account/cancel-subscription', {
+      const res = await fetch(apiUrl('/api/account/cancel-subscription'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       })
