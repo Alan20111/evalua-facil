@@ -14,7 +14,7 @@ import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus } from 'lucide-react'
+import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus, AlertTriangle } from 'lucide-react'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
@@ -357,58 +357,45 @@ export default function StudentProfile() {
           {/* Aquí vivía "Correo de recuperación". Se quitó: guardar el correo
               de un menor solo se justifica si de verdad le sirve para
               recuperar su cuenta, y esa recuperación por correo no existe. El
-              camino es su maestro, que sí funciona — así que se le dice. */}
-          <p className="text-xs text-slate-400 mt-3 leading-relaxed">
-            ¿Se te olvidó tu contraseña y no puedes entrar? Pídele a tu maestro que
-            te habilite la recuperación desde su panel; luego eliges una nueva desde
-            «¿Olvidaste tu contraseña?» en la pantalla de entrada.
-          </p>
-        </div>
-
-        {/* ── Mi cuenta ── */}
-        <div className="bg-surface-card rounded-card shadow-card p-5 mt-4">
-          <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
-            <UserMinus size={16} className="text-accent" /> Mi cuenta
-          </h2>
-
-          {/* Aquí vivía "Cerrar sesión en todos los dispositivos". Se quitó
-              por confuso: el alumno ya tiene "Cerrar sesión" en su menú, y dos
-              botones parecidos en la misma pantalla obligan a adivinar la
-              diferencia (Don't Make Me Think).
-
-              Eliminar la cuenta solo se ofrece cuando ya no queda ninguna
-              asignatura. Mientras esté inscrito, sus calificaciones son el
-              registro de su maestro y la baja la decide él — ver
-              api/student/delete.js, que vuelve a comprobarlo del lado del
-              servidor por si alguien llama al endpoint por su cuenta. */}
-          <div>
-            {enrollments.length === 0 ? (
-              <>
-                <p className="text-xs text-muted mb-2 leading-relaxed">
-                  Ya no estás inscrito en ninguna asignatura, así que puedes eliminar tu cuenta.
-                  Se borra tu usuario, tu foto y tus notificaciones, y no se puede deshacer.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowEliminar(true)}
-                  className="w-full py-2.5 rounded border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Trash2 size={16} /> Eliminar mi cuenta
-                </button>
-              </>
-            ) : (
-              // Sin botón para "pedir la baja": el estudiante no tiene que
-              // pedirle nada a nadie. Cuando ya no esté en ninguna asignatura,
-              // aquí aparece el botón de eliminar — y si solo quiere dejar de
-              // usarla, desinstala la app como cualquier otra.
-              <p className="text-xs text-muted leading-relaxed">
-                Estás en <strong>{enrollments.length} {enrollments.length === 1 ? 'asignatura' : 'asignaturas'}</strong>.
-                Mientras tengas clases no puedes eliminar tu cuenta: tus calificaciones son parte de la
-                lista de tu maestro. Cuando ya no estés en ninguna, aquí vas a poder eliminarla.
-              </p>
-            )}
+              único camino es su maestro — y como la contraseña es lo único que
+              lo deja entrar, el aviso va con peso visual, no como nota al pie. */}
+          <div className="mt-3 rounded border border-red-300 bg-red-50 p-3 flex items-start gap-2">
+            <AlertTriangle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-on-surface leading-relaxed">
+              <strong className="text-red-700">SUGERENCIA MUY IMPORTANTE:</strong>{' '}
+              Anota tu contraseña en un lugar seguro, es tu responsabilidad cuidarla.
+              En caso extremo de que la pierdas, puedes pedirle a tu Maestra o Maestro
+              que te la restaure para que puedas elegir una nueva, y puedas volver a
+              entrar a Evalúa Fácil.
+            </p>
           </div>
         </div>
+
+        {/* ── Mi cuenta ──
+            Toda la sección aparece SOLO si ya no está inscrito en ninguna
+            asignatura. Mientras tenga clases no hay nada que ofrecerle aquí ni
+            nada que explicarle: no tiene que pedirle la baja a nadie, y si
+            solo quiere dejar de usar Evalúa Fácil, desinstala la app como
+            cualquier otra. Contarle por qué "todavía no puede" era hacerlo
+            pensar en un problema que no tiene. */}
+        {enrollments.length === 0 && (
+          <div className="bg-surface-card rounded-card shadow-card p-5 mt-4">
+            <h2 className="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
+              <UserMinus size={16} className="text-accent" /> Mi cuenta
+            </h2>
+            <p className="text-xs text-muted mb-2 leading-relaxed">
+              Ya no estás inscrito en ninguna asignatura, así que puedes eliminar tu cuenta.
+              Se borra tu usuario, tu foto y tus notificaciones, y no se puede deshacer.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowEliminar(true)}
+              className="w-full py-2.5 rounded border border-red-300 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <Trash2 size={16} /> Eliminar mi cuenta
+            </button>
+          </div>
+        )}
       </div>
 
       {confirm && (
