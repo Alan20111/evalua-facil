@@ -719,7 +719,11 @@ export default function StudentActivityPage() {
               </ul>
             </div>
             <div className="space-y-3">
-              <label className={`flex flex-col items-center justify-center w-full h-28 sm:h-32 px-3 border-2 border-dashed rounded cursor-pointer transition-colors ${
+              {/* min-h en vez de h: con altura FIJA el texto se salía de la caja
+                  punteada y se recortaba a media letra en pantallas angostas o
+                  con la fuente del sistema en grande. Así conserva el mismo alto
+                  cuando el contenido cabe, y crece cuando no. */}
+              <label className={`flex flex-col items-center justify-center w-full min-h-[7rem] sm:min-h-[8rem] px-3 py-3 border-2 border-dashed rounded cursor-pointer transition-colors ${
                 files.length ? 'border-accent bg-accent-light' : 'border-outline-variant hover:border-accent hover:bg-surface'
               }`}>
                 <input
