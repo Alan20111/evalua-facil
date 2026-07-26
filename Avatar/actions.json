@@ -1,0 +1,124 @@
+{
+  "actions": [
+    {
+      "name": "pointing_left",
+      "pose": "Standing.\nLeft arm extended.\nIndex finger pointing left.",
+      "expression": "Confident look.",
+      "props": "None."
+    },
+    {
+      "name": "pointing_right",
+      "pose": "Standing.\nRight arm extended.\nIndex finger pointing right.",
+      "expression": "Confident look.",
+      "props": "None."
+    },
+    {
+      "name": "waving",
+      "pose": "Standing.\nRight arm raised.\nOpen hand waving.",
+      "expression": "Warm smile.",
+      "props": "None."
+    },
+    {
+      "name": "thinking",
+      "pose": "Standing.\nHand resting on chin.\nHead slightly tilted.",
+      "expression": "Thoughtful look.",
+      "props": "None."
+    },
+    {
+      "name": "explaining",
+      "pose": "Standing.\nBoth hands open at chest height, palms up.",
+      "expression": "Friendly, attentive look.",
+      "props": "None."
+    },
+    {
+      "name": "celebrating",
+      "pose": "Standing.\nBoth arms raised overhead.",
+      "expression": "Big joyful smile.",
+      "props": "None."
+    },
+    {
+      "name": "thumbs_up",
+      "pose": "Standing.\nRight arm bent forward.\nFist with thumb pointing up.",
+      "expression": "Confident smile.",
+      "props": "None."
+    },
+    {
+      "name": "thumbs_down",
+      "pose": "Standing.\nRight arm bent forward.\nFist with thumb pointing down.",
+      "expression": "Disappointed look.",
+      "props": "None."
+    },
+    {
+      "name": "holding_laptop",
+      "pose": "Standing.\nBoth arms bent forward, holding an open laptop at chest height.",
+      "expression": "Focused look.",
+      "props": "Laptop."
+    },
+    {
+      "name": "holding_phone",
+      "pose": "Standing.\nRight arm bent, holding a phone up near chest height.",
+      "expression": "Attentive look.",
+      "props": "Smartphone."
+    },
+    {
+      "name": "holding_book",
+      "pose": "Standing.\nBoth arms bent forward, holding an open book at chest height.",
+      "expression": "Curious look.",
+      "props": "Book."
+    },
+    {
+      "name": "writing",
+      "pose": "Standing.\nRight arm bent forward, holding a pen to a notepad.",
+      "expression": "Focused look.",
+      "props": "Notepad and pen."
+    },
+    {
+      "name": "typing",
+      "pose": "Standing.\nBoth arms bent forward, hands positioned as if typing on a keyboard.",
+      "expression": "Focused look.",
+      "props": "Keyboard."
+    },
+    {
+      "name": "walking",
+      "pose": "Mid-stride walking pose.\nOne leg forward, arms swinging naturally.",
+      "expression": "Neutral, pleasant look.",
+      "props": "None."
+    },
+    {
+      "name": "running",
+      "pose": "Mid-stride running pose.\nArms bent and pumping, one leg extended back.",
+      "expression": "Energetic look.",
+      "props": "None."
+    },
+    {
+      "name": "sitting",
+      "pose": "Sitting.\nBoth hands resting on lap.",
+      "expression": "Relaxed smile.",
+      "props": "None."
+    },
+    {
+      "name": "raising_hand",
+      "pose": "Standing.\nRight arm fully raised straight up.\nOpen hand.",
+      "expression": "Eager look.",
+      "props": "None."
+    },
+    {
+      "name": "shrugging",
+      "pose": "Standing.\nBoth arms bent outward, palms up.\nShoulders raised.",
+      "expression": "Unsure look.",
+      "props": "None."
+    },
+    {
+      "name": "questioning",
+      "pose": "Standing.\nOne hand raised near head, palm up.",
+      "expression": "Puzzled look.",
+      "props": "None."
+    },
+    {
+      "name": "greeting",
+      "pose": "Standing.\nSlight forward bow.\nRight hand extended for a handshake.",
+      "expression": "Warm, welcoming smile.",
+      "props": "None."
+    }
+  ]
+}
