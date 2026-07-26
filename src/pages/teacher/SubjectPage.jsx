@@ -445,7 +445,9 @@ export default function SubjectPage() {
   const [subject, setSubject] = useState(null)
   const [activities, setActivities] = useState([])
   const [submissionCounts, setSubmissionCounts] = useState({})
-  const [totalStudents, setTotalStudents] = useState(0)
+  // Conteo de estudiantes que trajo loadAll(). No se usa directo: ver
+  // `totalStudents` más abajo, que es el que manda una vez cargada la lista.
+  const [studentCountAtLoad, setStudentCountAtLoad] = useState(0)
   const [openParcial, setOpenParcial] = useState(1)
 
   // Activity modal
@@ -571,6 +573,14 @@ export default function SubjectPage() {
   // Shared students (used by calificaciones + alumnos tab)
   const [groupStudents, setGroupStudents] = useState([])
   const [groupStudentsLoaded, setGroupStudentsLoaded] = useState(false)
+
+  // Cuántos estudiantes tiene la asignatura AHORA MISMO. Derivado, no estado:
+  // mientras no se haya abierto la pestaña Estudiantes vale el conteo que trajo
+  // loadAll(); en cuanto esa lista existe en memoria, manda ella. Antes esto era
+  // un useState que solo se llenaba en loadAll(), así que agregar estudiantes
+  // (a mano o por Excel) actualizaba la lista pero NO el conteo: el aviso de
+  // "aún no tienes estudiantes" seguía ahí hasta recargar la página.
+  const totalStudents = groupStudentsLoaded ? groupStudents.length : studentCountAtLoad
 
   // Copy feedback
   const [copiedLink, setCopiedLink] = useState(false)
@@ -924,7 +934,7 @@ export default function SubjectPage() {
         fetchSubmissionsForActivities(acts.map((a) => a.id)),
         getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
       ])
-      setTotalStudents(studSnap.size)
+      setStudentCountAtLoad(studSnap.size)
 
       const counts = {}
       acts.forEach((a) => { counts[a.id] = { delivered: 0, graded: 0 } })
@@ -1491,6 +1501,9 @@ export default function SubjectPage() {
   async function refreshGroupStudents() {
     const snap = await getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId)))
     setGroupStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)))
+    // La lista recién traída es la buena: marcarla como cargada es lo que hace
+    // que `totalStudents` deje de usar el conteo viejo de loadAll().
+    setGroupStudentsLoaded(true)
   }
 
   // Creates one enrollment doc. If `identity` is given (re-enrolling an existing person),
