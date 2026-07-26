@@ -337,7 +337,9 @@ export default function StudentActivityPage() {
     // Deadline gating for evaluaciones — honors this student's per-student extension
     // (set by the teacher via "Modificar fecha de entrega"). An attempt already in
     // progress can always be finished; only starting a NEW one is blocked once closed.
-    const extendedDateEv = activity?.extensiones?.[student?.id]
+    // Mismo criterio que abajo para las entregas con archivo: la prórroga solo
+    // cuenta si hay fecha límite que ampliar. Si no, no hay plazo que vencer.
+    const extendedDateEv = activity?.fechaLimite ? activity?.extensiones?.[student?.id] : null
     const deadlineEv = extendedDateEv || activity?.fechaLimite
     // Asignatura archivada = ciclo cerrado: no se empiezan evaluaciones nuevas.
     // Un intento EN CURSO sí se puede terminar (`enProgreso`), igual que con la
@@ -501,8 +503,18 @@ export default function StudentActivityPage() {
   // Observación: no delivery from the student — the teacher grades directly
   const isObservacion = activity?.tipo === 'observacion' || activity?.categoria === 'observacion'
 
-  // Extended deadline for this student (set by teacher)
-  const extendedDate = activity?.extensiones?.[student?.id]
+  // Prórroga individual de este estudiante (la pone el docente).
+  //
+  // Solo cuenta si la actividad TIENE fecha límite. Una prórroga amplía un
+  // plazo; no puede inventar uno donde no había. Antes se tomaba la prórroga
+  // como `displayDate` aunque `fechaLimite` fuera null, así que en una
+  // actividad sin plazo la prórroga se volvía la única fecha y, al pasar,
+  // CERRABA una actividad que nunca tuvo vencimiento. Encontrado en
+  // producción: "Apunte de la actividad del dia de hoy" (fechaLimite: null,
+  // extensiones al 16–20 de julio) le decía a sus estudiantes que el plazo ya
+  // había cerrado. Solo se notaba después de anular la entrega, porque hasta
+  // entonces la pantalla mostraba la entrega en vez del aviso.
+  const extendedDate = activity?.fechaLimite ? activity?.extensiones?.[student?.id] : null
   const displayDate = extendedDate || activity?.fechaLimite
   // Legacy deadlines stored as a plain date (no time) close at end of day
   const isPastDeadline = !!displayDate && new Date(
