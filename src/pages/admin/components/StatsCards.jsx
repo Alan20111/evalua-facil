@@ -119,7 +119,9 @@ export function ResumenCharts({ stats }) {
   }))
 
   return (
-    <div className="grid md:grid-cols-2 gap-3 mt-6">
+    /* Una encima de otra y del mismo ancho, ocupando lo que la tabla de
+       indicadores deja libre a su derecha. */
+    <div className="flex-1 min-w-0 w-full space-y-3">
       <div className="bg-surface-card rounded-card shadow-card p-4">
         <h3 className="font-semibold text-on-surface mb-3">Docentes por escuela (top 10)</h3>
         <BarChart items={teachersBySchool} labelKey="school" valueKey="count" />
