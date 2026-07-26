@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { ImagePlus, Loader2 } from 'lucide-react'
-import { SUBJECT_ICON_KEYS, getSubjectIcon, SUBJECT_DOT_KEYS, SUBJECT_DOT_LABELS } from '../utils/subjectIcons'
+import { SUBJECT_ICON_KEYS, getSubjectIcon, SUBJECT_DOTS } from '../utils/subjectIcons'
 import SubjectIcon from './SubjectIcon'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { useToast } from './Toast'
@@ -41,27 +41,28 @@ export default function IconSelect({ value = 'book', onChange }) {
 
   return (
     <div className="space-y-1.5">
-      {/* Fila de bolitas — va PRIMERO y en su propia cuadrícula de 7 columnas,
-          no dentro de la de abajo: así siempre cae en un renglón limpio (en la
-          rejilla de 6/8 se partiría) y empuja los demás íconos hacia abajo.
-          Es la opción más fácil de reconocer, y por eso encabeza el banco. */}
-      <div className="grid grid-cols-7 gap-1.5">
-        {SUBJECT_DOT_KEYS.map((key) => {
-          const selected = !isCustom && value === key
+      {/* Fila de bolitas — va PRIMERO, y en una cuadrícula aparte pero con las
+          MISMAS columnas que la de abajo: así las ocho caen en un solo renglón
+          en escritorio (8 columnas, sin hueco al final) y en móvil quedan
+          igualmente alineadas con los íconos, columna por columna. Es la opción
+          más fácil de reconocer, y por eso encabeza el banco. */}
+      <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
+        {SUBJECT_DOTS.map((d) => {
+          const selected = !isCustom && value === d.key
           return (
             <button
-              key={key}
+              key={d.key}
               type="button"
-              onClick={() => onChange(key)}
-              data-tooltip={SUBJECT_DOT_LABELS[key]}
-              aria-label={SUBJECT_DOT_LABELS[key]}
+              onClick={() => onChange(d.key)}
+              data-tooltip={d.label}
+              aria-label={`Bolita ${d.label.toLowerCase()}`}
               className={`aspect-square rounded flex items-center justify-center transition-colors ${
                 selected
                   ? 'bg-[var(--accent-light)] ring-2 ring-[var(--accent)]'
                   : 'bg-surface-container hover:bg-[var(--accent-tint)]'
               }`}
             >
-              <SubjectIcon iconKey={key} size={19} />
+              <SubjectIcon iconKey={d.key} size={19} />
             </button>
           )
         })}

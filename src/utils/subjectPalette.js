@@ -1,7 +1,8 @@
 // Los 7 colores de asignatura, en el orden en que se muestran al elegir.
-// Vivía dentro de PaletteSelect.jsx; se mudó aquí porque ahora lo leen DOS
-// consumidores —los cuadros del selector y las bolitas del banco de íconos
-// (utils/subjectIcons)— y un componente no es lugar para que un util importe.
+// Estos son colores de ACENTO: pintan botones, texto y bordes de toda la
+// asignatura, así que son tonos sobrios a propósito. Las bolitas del banco de
+// íconos (utils/subjectIcons) llevan su propia lista, más eléctrica, porque
+// solo tienen que distinguirse de un vistazo sobre el lienzo azul.
 // Los hex deben coincidir con los --accent de [data-subject-palette] en
 // index.css y con SUBJECT_PALETTE de abajo.
 export const PALETTES = [
@@ -56,6 +57,12 @@ function mixToward(hex, target, weight) {
 
 const mixWithWhite = (hex, w) => mixToward(hex, [255, 255, 255], w)
 const mixWithBlack = (hex, w) => mixToward(hex, [0, 0, 0], w)
+
+// Oscurece un hex hacia el negro. Lo usa el aro de las bolitas de color
+// (components/SubjectIcon) para darles borde propio sin inventar un segundo hex.
+export function darkenHex(hex, weight = 0.2) {
+  return hex ? mixWithBlack(hex, weight) : hex
+}
 
 // WCAG relative luminance (0 = black, 1 = white).
 function luminance(hex) {
