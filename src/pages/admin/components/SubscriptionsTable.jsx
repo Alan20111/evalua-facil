@@ -165,6 +165,7 @@ const PLAN_CORTESIA = 'cortesia'
 // regala de más ni recorta lo que al docente le quedaba.
 // El mediodía evita que "2026-07-25" se corra un día por zona horaria.
 function calcFinCortesia(form, vencimientoActual) {
+  if (form.cortesiaIndefinida) return null   // sin fecha de fin
   const dias = parseInt(form.cortesiaDias, 10)
   if (!Number.isFinite(dias) || dias <= 0) return null
   const base = form.extender && vencimientoActual
@@ -188,6 +189,7 @@ function situacionCalculada(form, statusPrevio) {
 }
 
 function vencimientoCortesia(modal) {
+  if (modal.form.cortesiaIndefinida) return 'sin fecha de fin'
   const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
   return fin ? formatDate(fin) : null
 }
@@ -348,7 +350,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       const planNombre = !sub
         ? '—'
         : sub.planId === PLAN_CORTESIA
-          ? `Cortesía${sub.cortesiaDias ? ` (${sub.cortesiaDias} días)` : ''}`
+          ? `Cortesía${sub.cortesiaIndefinida ? ' (sin vencimiento)' : sub.cortesiaDias ? ` (${sub.cortesiaDias} días)` : ''}`
           : (plan?.nombre || (sub.status === 'trial' ? 'Sin plan (prueba)' : '—'))
       const situacion = sub ? sub.status : 'sin_suscripcion'
       const situacionLabel = ESTADO_LABEL[situacion] || situacion || '—'
@@ -443,6 +445,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         fechaInicio: new Date().toISOString().slice(0, 10),
         fechaVencimiento: '',
         cortesiaDias: '30',
+        cortesiaIndefinida: false,
         extender: false,
       },
     })
@@ -466,6 +469,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         fechaInicio: fi ? fi.toISOString().slice(0, 10) : '',
         fechaVencimiento: fv ? fv.toISOString().slice(0, 10) : '',
         cortesiaDias: sub.cortesiaDias ? String(sub.cortesiaDias) : '30',
+        cortesiaIndefinida: sub.cortesiaIndefinida === true,
         extender: false,
       },
     })
@@ -496,13 +500,21 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       if (modal.form.planId === PLAN_CORTESIA) {
         // En cortesía el vencimiento SIEMPRE sale de los días concedidos: no
         // se toma la fecha tecleada, que podría no cuadrar con esos días.
-        const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
-        if (!fin) {
-          toast('Indica cuántos días de cortesía', 'error')
-          return
+        data.cortesiaIndefinida = modal.form.cortesiaIndefinida === true
+        if (data.cortesiaIndefinida) {
+          // Sin fecha de fin: se borra el vencimiento para que nada lo
+          // interprete como vencida (ver effectiveVencimiento).
+          data.fechaVencimiento = null
+          data.cortesiaDias = null
+        } else {
+          const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
+          if (!fin) {
+            toast('Indica cuántos días de cortesía', 'error')
+            return
+          }
+          data.fechaVencimiento = Timestamp.fromDate(fin)
+          data.cortesiaDias = parseInt(modal.form.cortesiaDias, 10)
         }
-        data.fechaVencimiento = Timestamp.fromDate(fin)
-        data.cortesiaDias = parseInt(modal.form.cortesiaDias, 10)
       } else {
         const tsVencimiento = toTimestamp(modal.form.fechaVencimiento)
         if (tsVencimiento) data.fechaVencimiento = tsVencimiento
@@ -823,7 +835,23 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   una fecha que no corresponda con los días concedidos. */}
               {modal.form.planId === PLAN_CORTESIA && (
                 <div className="rounded border border-accent bg-[var(--accent-tint)] p-3 space-y-2">
-                  <div>
+                  <label className="flex items-start gap-2 text-sm text-on-surface cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={modal.form.cortesiaIndefinida}
+                      onChange={(e) =>
+                        setModal({ ...modal, form: { ...modal.form, cortesiaIndefinida: e.target.checked } })
+                      }
+                      className="mt-1"
+                    />
+                    <span>
+                      Sin fecha de finalización
+                      <span className="block text-xs text-slate-500">
+                        No vence nunca. Para cuentas propias de prueba.
+                      </span>
+                    </span>
+                  </label>
+                  <div className={modal.form.cortesiaIndefinida ? 'hidden' : ''}>
                     <label htmlFor="sub-cortesia-dias" className="block text-xs font-medium text-muted mb-1">
                       Días de cortesía
                     </label>
@@ -836,14 +864,14 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       onChange={(e) =>
                         setModal({ ...modal, form: { ...modal.form, cortesiaDias: e.target.value } })
                       }
-                      required
+                      required={!modal.form.cortesiaIndefinida}
                       className={inputCls}
                     />
                   </div>
                   {/* Solo tiene sentido al editar algo que ya tiene vencimiento:
                       extender suma los días a la fecha que ya vencía, sin
                       regalar de más ni recortar lo que le quedaba. */}
-                  {modal.mode === 'edit' && modal.vencimientoActual && (
+                  {!modal.form.cortesiaIndefinida && modal.mode === 'edit' && modal.vencimientoActual && (
                     <label className="flex items-start gap-2 text-xs text-on-surface cursor-pointer">
                       <input
                         type="checkbox"
