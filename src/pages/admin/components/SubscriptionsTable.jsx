@@ -197,11 +197,13 @@ function vencimientoCortesia(modal) {
   return fin ? formatDate(fin) : null
 }
 
+// Etiqueta de estado, no botón: letra chica y de peso normal. En negrita y a
+// 12 px competía visualmente con el contenido de las celdas.
 function StatusBadge({ situacion }) {
   return (
     <span
       style={situacion.estilo}
-      className="inline-block text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap"
+      className="inline-block text-[10px] font-normal leading-tight px-1.5 py-[2px] rounded-full whitespace-nowrap"
     >
       {situacion.etiqueta}
     </span>
@@ -597,7 +599,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             )}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            Una suscripción por docente. <strong>Plan</strong> es qué contrató; <strong>Estado</strong>, cómo está hoy.
+            Una suscripción por docente. <strong>Plan</strong> es qué contrató; <strong>Situación</strong>, cómo está hoy.
           </p>
         </div>
 
