@@ -19,6 +19,7 @@ import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
 import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana } from '../../utils/attendanceAuto'
+import { diaSemanaLunes, DIAS_SEMANA } from '../../utils/horarioBloques'
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity } from '../../utils/activityVisibility'
@@ -658,6 +659,9 @@ export default function SubjectPage() {
   // Días dentro del periodo del curso sin clase por asueto/vacaciones (solo
   // informativo, no genera filas de asistencia) — ver utils/attendanceAuto.js
   const [attendanceNoClaseDias, setAttendanceNoClaseDias] = useState([])
+  // Horario de ESTA asignatura: { porFecha, diasSemana }. Lo llena
+  // loadAttendance y sirve para no dejar agregar un día sin clase.
+  const [claseDias, setClaseDias] = useState(null)
   // Días de clase automáticos que el docente borró a propósito (quedan en
   // subject.attendanceExcluded para que la sincronización no los regenere
   // solos) y siguen siendo válidos — se pueden restaurar uno por uno.
@@ -1170,13 +1174,17 @@ export default function SubjectPage() {
       // vacaciones), cada una pagando su propio round-trip — la causa real de
       // la lentitud al abrir la pestaña, no el volumen de datos. Las tres
       // primeras no dependen entre sí, así que corren en paralelo.
+      // El horario se consulta SIEMPRE, no solo cuando el curso tiene fechas
+      // de parciales: además de generar los días automáticos, es con lo que se
+      // valida que no se agregue un día en el que esta asignatura no tiene
+      // clase (ver motivoSinClase más abajo). Antes venía null justo en el
+      // caso del alta manual, que es donde hace falta.
       const [students, records, bloquesInfo] = await Promise.all([
         ensureGroupStudents(force),
         loadAttendanceRecords(subjectId),
-        subj?.parcialesFechas?.length
-          ? fetchClaseDiasSemana({ subjectId, docenteId: subj.docenteId })
-          : Promise.resolve(null),
+        fetchClaseDiasSemana({ subjectId, docenteId: subj.docenteId }).catch(() => null),
       ])
+      setClaseDias(bloquesInfo)
       let finalRecords = records
       if (subj?.parcialesFechas?.length && bloquesInfo) {
         // Crear los días faltantes y buscar asuetos/vacaciones tampoco
@@ -1217,9 +1225,33 @@ export default function SubjectPage() {
     }
   }
 
+  // ¿Por qué NO se puede pasar lista ese día? null = sí se puede.
+  //
+  // Deliberadamente conservadora: solo bloquea cuando hay certeza de que ese
+  // día de la semana no lleva clase de esta asignatura. Si no hay horario
+  // capturado no hay con qué comparar, y si la fecha exacta sí tiene bloque
+  // (aunque sea de reposición) se permite. Bloquear de más sería peor que el
+  // problema: dejaría al docente sin poder registrar una clase que sí dio.
+  function motivoSinClase(fecha) {
+    if (!fecha) return null
+    const diasConClase = claseDias?.diasSemana
+    if (!diasConClase || diasConClase.size === 0) return null
+    if (claseDias.porFecha?.[fecha]) return null
+    const [anio, mes, dia] = fecha.split('-').map(Number)
+    const diaSemana = diaSemanaLunes(new Date(anio, mes - 1, dia))
+    if (diasConClase.has(diaSemana)) return null
+    const conClase = [...diasConClase].sort().map((d) => DIAS_SEMANA[d]).join(', ')
+    return `Los ${DIAS_SEMANA[diaSemana].toLowerCase()} no tienes clase de ${subjectDisplayName(subject)} — la das ${conClase}. Si de verdad hubo clase ese día, agrégala primero a tu horario.`
+  }
+  const avisoSinClase = motivoSinClase(newAttendanceForm.fecha)
+
   async function handleCreateAttendanceDay(e) {
     e.preventDefault()
     if (!newAttendanceForm.fecha) return
+    // Se revisa otra vez aquí y no solo en el botón: el formulario también se
+    // envía con Enter.
+    const aviso = motivoSinClase(newAttendanceForm.fecha)
+    if (aviso) { toast(aviso, 'error'); return }
     setSavingAttendance(true)
     try {
       await createAttendanceDay({
@@ -4361,12 +4393,20 @@ export default function SubjectPage() {
                 </select>
               </div>
             </div>
+            {/* Se avisa al elegir el día, no al intentar guardar: enterarse
+                después de darle a "Agregar" obliga a volver a empezar. */}
+            {avisoSinClase && (
+              <div className="rounded border border-amber-200 bg-amber-50 p-2.5 flex items-start gap-2">
+                <AlertTriangle size={17} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800 leading-relaxed">{avisoSinClase}</p>
+              </div>
+            )}
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setShowAddAttendance(false)}
                 className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                 Cancelar
               </button>
-              <button type="submit" disabled={savingAttendance || !newAttendanceForm.fecha}
+              <button type="submit" disabled={savingAttendance || !newAttendanceForm.fecha || !!avisoSinClase}
                 className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
                 {savingAttendance ? <Spinner size="sm" /> : <CalendarPlus size={16} />} Agregar
               </button>
