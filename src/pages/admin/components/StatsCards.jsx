@@ -1,4 +1,6 @@
 import { formatCurrency } from '../../../utils/subscriptionHelpers'
+import { DIAS_POR_VENCER, INSIGNIAS } from '../../../utils/situacionSuscripcion'
+import StatusBadge from './StatusBadge'
 
 // Mes en curso, escrito ("julio de 2026"), para que el renglón de ingresos diga
 // de qué mes habla en vez de un "del mes" que hay que adivinar.
@@ -9,20 +11,27 @@ function mesEnCurso() {
 
 // Un renglón por indicador, en el orden en que se leen: cuánta gente hay, cómo
 // están sus suscripciones, cuántos estudiantes y cuánto se cobró.
+//
+// `insignia` es la clave de la MISMA etiqueta de color que la tabla de
+// Suscripciones le pone a esos renglones, para poder saltar de un conteo a las
+// filas que lo forman sin traducir nada mentalmente. Los indicadores que no
+// hablan de una situación de suscripción no llevan ninguna.
 const KPI_CONFIG = [
   { key: 'teacherCount', label: 'Docentes registrados', format: (v) => v },
-  { key: 'activeSubCount', label: 'Suscripciones activas', format: (v) => v },
+  { key: 'activeSubCount', label: 'Suscripciones activas', insignia: 'pagada', format: (v) => v },
   {
     key: 'activeExpiringSoonCount',
     label: 'Suscripciones por vencer',
-    ayuda: 'Suscripciones de paga que vencen dentro de los próximos 7 días.',
+    insignia: 'por_cobrar',
+    ayuda: `Suscripciones de paga que vencen dentro de los próximos ${DIAS_POR_VENCER} días.`,
     format: (v) => v,
   },
-  { key: 'trialCount', label: 'En periodo de prueba', format: (v) => v },
+  { key: 'trialCount', label: 'En periodo de prueba', insignia: 'prueba', format: (v) => v },
   {
     key: 'trialExpiringSoonCount',
     label: 'En periodo de prueba por vencer',
-    ayuda: 'Pruebas que terminan dentro de los próximos 7 días.',
+    insignia: 'prueba_por_vencer',
+    ayuda: `Pruebas que terminan dentro de los próximos ${DIAS_POR_VENCER} días.`,
     format: (v) => v,
   },
   { key: 'activeStudentCount', label: 'Estudiantes activos', format: (v) => v },
@@ -46,14 +55,23 @@ export default function StatsCards({ kpis }) {
       <table className="w-auto text-sm">
         <thead>
           <tr className="text-left text-[11.5px] tracking-wide uppercase text-accent bg-surface">
-            <th className="px-4 py-2 font-normal">Indicador</th>
+            {/* Columna de las insignias: sin título, porque solo la mitad de
+                los renglones tiene una y ponerle nombre prometía de más. */}
+            <th className="px-4 py-2 font-normal" />
+            <th className="pr-4 py-2 font-normal">Indicador</th>
             <th className="px-4 py-2 font-normal text-right">Total</th>
           </tr>
         </thead>
         <tbody>
-          {KPI_CONFIG.map(({ key, label, ayuda, format }) => (
+          {KPI_CONFIG.map(({ key, label, ayuda, insignia, format }) => (
             <tr key={key} className="border-t border-outline-variant">
-              <td className="px-4 py-2.5 text-on-surface">
+              {/* Celda propia (aunque vaya vacía) para que las insignias
+                  arranquen todas en la misma vertical y los nombres de los
+                  indicadores también. */}
+              <td className="px-4 py-2.5 whitespace-nowrap">
+                {insignia && <StatusBadge situacion={INSIGNIAS[insignia]} />}
+              </td>
+              <td className="pr-4 py-2.5 text-on-surface">
                 <span
                   title={ayuda}
                   className={ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}
