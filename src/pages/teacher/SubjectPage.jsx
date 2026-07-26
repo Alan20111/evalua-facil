@@ -6174,6 +6174,20 @@ export default function SubjectPage() {
             <p className="text-sm text-muted mb-2">
               Al archivar se conservan las actividades y la lista de estudiantes, pero <strong>se eliminan las entregas</strong>. ¿Qué hacemos con ellas?
             </p>
+            {/* Lo que pasa del lado del ESTUDIANTE. Antes el modal solo hablaba
+                de lo que veía el docente ("se eliminan las entregas") y no
+                decía a quién más le pega. Es literal lo que hace el código: el
+                dashboard del alumno filtra por `archived` y la manda a la
+                sección "Asignaturas archivadas" (no desaparece, la puede
+                abrir), y deleteSubjectSubmissions borra sus entregas. */}
+            <div className="rounded border border-amber-200 bg-amber-50 p-3 mb-3">
+              <p className="text-sm font-semibold text-amber-800 mb-1">Qué van a ver tus estudiantes</p>
+              <ul className="text-sm text-amber-800 space-y-0.5">
+                <li>• <strong>{subject?.nombre}</strong> sale de sus asignaturas y se va a «Asignaturas archivadas».</li>
+                <li>• Ahí la pueden seguir abriendo, pero <strong>ya sin sus entregas ni sus calificaciones</strong>.</li>
+                <li>• Si te equivocaste, puedes desarchivarla — las entregas ya no vuelven.</li>
+              </ul>
+            </div>
             <div className="space-y-2 mb-4">
               {[
                 { val: 'save', label: 'Guardar entregas como ZIP', desc: 'Se descargan antes de eliminarlas' },
