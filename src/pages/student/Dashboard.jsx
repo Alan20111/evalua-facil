@@ -330,21 +330,24 @@ export default function StudentDashboard() {
           <Plus size={18} /> Unirme a otra asignatura
         </button>
 
-        {/* Asignaturas archivadas — solo móvil */}
-        <div className="md:hidden mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowArchived((v) => !v)}
-            className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-muted hover:bg-accent-tint transition-colors"
-          >
-            <Archive size={16} className="flex-shrink-0" />
-            <span className="flex-1 text-left">Asignaturas archivadas{archivedSubjects.length > 0 ? ` (${archivedSubjects.length})` : ''}</span>
-            <ChevronDown size={15} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-180' : ''}`} />
-          </button>
-          {showArchived && (
-            archivedSubjects.length === 0 ? (
-              <p className="text-xs text-muted px-4 pb-3">No tienes asignaturas archivadas.</p>
-            ) : (
+        {/* Asignaturas archivadas — solo móvil, y SOLO si el docente ya archivó
+            alguna. Archivar es decisión del maestro: el estudiante no archiva
+            nada, así que antes del primer archivado esta sección no le dice
+            nada útil — solo era una gaveta vacía con un "No tienes asignaturas
+            archivadas" adentro. Aparece sola en cuanto llega la primera, y
+            vuelve a desaparecer si el maestro las restaura todas. */}
+        {archivedSubjects.length > 0 && (
+          <div className="md:hidden mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowArchived((v) => !v)}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-muted hover:bg-accent-tint transition-colors"
+            >
+              <Archive size={16} className="flex-shrink-0" />
+              <span className="flex-1 text-left">Asignaturas archivadas ({archivedSubjects.length})</span>
+              <ChevronDown size={15} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-180' : ''}`} />
+            </button>
+            {showArchived && (
               <div className="px-2 pb-2 space-y-1">
                 {archivedSubjects.map((s) => (
                   <button
@@ -358,9 +361,9 @@ export default function StudentDashboard() {
                   </button>
                 ))}
               </div>
-            )
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Join-subject modal ── */}
