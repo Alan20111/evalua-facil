@@ -3429,8 +3429,12 @@ export default function SubjectPage() {
       <div {...subjectPaletteProps(subject?.colorPalette)}>
       <div className={TEACHER_CONTAINER}>
 
-        {/* ── Header ── */}
-        <div className="bg-surface-card border-b border-outline-variant px-4 py-2">
+        {/* ── Header ──
+            Esquinas de ABAJO redondeadas (arriba no: ahí topa con la barra
+            superior). Con el lienzo azul, este bloque blanco pasó a leerse como
+            una tarjeta, y una tarjeta que termina en canto recto se ve cortada,
+            no terminada. */}
+        <div className="bg-surface-card border-b border-outline-variant rounded-b-card px-4 py-2">
           <div className="flex items-center gap-2">
             <button type="button" onClick={goBack} className="p-2 -ml-2 text-slate-400 hover:text-muted rounded flex-shrink-0">
               <ArrowLeft size={22} />
