@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LogOut, ChevronRight, CalendarDays } from 'lucide-react'
+import { LogOut, ChevronRight, CalendarDays, Plus, Archive } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { getDoc, doc } from 'firebase/firestore'
 import { auth, db } from '../firebase'
@@ -24,6 +24,7 @@ export default function StudentLayout({ children }) {
   const [studentInfo, setStudentInfo] = useState(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showFullLogo, setShowFullLogo] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
 
   useBackHandler(() => setShowLogoutConfirm(false), showLogoutConfirm)
   useScrollLock(showLogoutConfirm)
@@ -91,6 +92,10 @@ export default function StudentLayout({ children }) {
     || 'Estudiante'
   const initials = displayName.charAt(0).toUpperCase()
   const photoURL = userProfile?.photoURL || studentInfo?.photoURL
+  // Las archivadas ya no se mezclan con las activas en la lista de arriba:
+  // tienen su propia sección al fondo, como en el sidebar del docente.
+  const activeSubjects = subjects.filter((s) => !s.archived)
+  const archivedSubjects = subjects.filter((s) => s.archived)
 
   return (
     <div className="min-h-screen bg-surface">
@@ -198,10 +203,10 @@ export default function StudentLayout({ children }) {
               <div className="flex justify-center py-3">
                 <Spinner size="sm" />
               </div>
-            ) : subjects.length === 0 ? (
+            ) : activeSubjects.length === 0 ? (
               <p className="text-body-sm text-white/70 px-3 py-2">Sin asignaturas aún</p>
             ) : (
-              subjects.map((s) => (
+              activeSubjects.map((s) => (
                 <NavLink
                   key={s.id}
                   to={`/alumno/materia/${s.id}`}
@@ -216,7 +221,53 @@ export default function StudentLayout({ children }) {
                 </NavLink>
               ))
             )}
+
+            {/* Unirme a otra asignatura — gemelo del "Nueva asignatura…" del
+                docente, y por lo mismo NO abre el modal aquí: navega al
+                dashboard con `openJoin` para que el modal viva en un solo
+                lugar. En la app este botón ya estaba en el dashboard; a la web
+                le faltaba porque el sidebar es su casa natural en escritorio. */}
+            <button
+              type="button"
+              onClick={() => navigate('/alumno/dashboard', { state: { openJoin: true } })}
+              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white hover:bg-white/10 transition-colors mt-1"
+            >
+              <Plus size={17} />
+              Unirme a otra asignatura…
+            </button>
           </div>
+
+          {/* Archivadas — al fondo, arriba de "Cerrar sesión", igual que en el
+              sidebar del docente. Solo si el maestro ya archivó alguna; el
+              alumno nunca archiva por su cuenta. Aquí solo se navega: quitarlas
+              de su lista se hace en el dashboard, que es donde vive esa acción. */}
+          {archivedSubjects.length > 0 && (
+            <div className="px-2 pt-2 max-h-48 overflow-y-auto">
+              <button
+                type="button"
+                onClick={() => setShowArchived((a) => !a)}
+                className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors"
+              >
+                <Archive size={15} />
+                Archivadas ({archivedSubjects.length})
+              </button>
+              {showArchived &&
+                archivedSubjects.map((s) => (
+                  <NavLink
+                    key={s.id}
+                    to={`/alumno/materia/${s.id}`}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2 rounded text-body-sm transition-colors ${
+                        isActive ? 'bg-white text-accent font-semibold' : 'text-white/70 hover:bg-white/15'
+                      }`
+                    }
+                  >
+                    <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
+                    <span className="truncate">{subjectDisplayName(s)}</span>
+                  </NavLink>
+                ))}
+            </div>
+          )}
 
           {/* Logout */}
           <div className="px-2 py-2 border-t border-white/15">
