@@ -24,13 +24,18 @@ export default function SubjectIcon({ iconKey, size = 20, className = '' }) {
             el amarillo, queda en 3.63), que es el mínimo que pide la WCAG para
             un elemento gráfico. Al ser el mismo tono, se lee como sombra del
             borde y no como un contorno postizo. */}
+        {/* r 11.3 + medio trazo (0.7) = 12: el círculo llena EXACTO el viewBox
+            de 24, sin margen muerto. Antes iba a 8.4 —tres cuartos de la caja—
+            imitando el aire interno que traen los íconos de lucide, y al lado
+            de ellos se veía chico. Una bolita es una mancha de color: si no
+            ocupa su caja completa, desperdicia justo lo que la hace útil. */}
         <circle
           cx="12"
           cy="12"
-          r="8.4"
+          r="11.3"
           fill={dotIconColor(iconKey)}
           stroke={darkenHex(dotIconColor(iconKey), 0.45)}
-          strokeWidth="1.2"
+          strokeWidth="1.4"
         />
       </svg>
     )

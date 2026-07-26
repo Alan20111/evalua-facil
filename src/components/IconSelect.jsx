@@ -62,7 +62,10 @@ export default function IconSelect({ value = 'book', onChange }) {
                   : 'bg-surface-container hover:bg-[var(--accent-tint)]'
               }`}
             >
-              <SubjectIcon iconKey={d.key} size={19} />
+              {/* w-full h-full manda sobre el width/height del SVG (CSS gana a
+                  los atributos de presentación): la bolita llena la celda de
+                  borde a borde, no los 19 px que usan los íconos de abajo. */}
+              <SubjectIcon iconKey={d.key} size={19} className="w-full h-full" />
             </button>
           )
         })}

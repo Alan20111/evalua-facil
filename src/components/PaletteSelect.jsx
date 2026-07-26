@@ -15,9 +15,17 @@ export default function PaletteSelect({ value = 'default', onChange }) {
   const customColor = custom ? customPaletteHex(value) : null
 
   return (
-    // Sized so the 7 presets + free pick always fit on ONE row, even on a
-    // mobile-width modal (8×32px + 7×8px gap = 312px).
-    <div className="flex flex-nowrap gap-2">
+    // MISMA rejilla que el banco de íconos de abajo (IconSelect), no un flex
+    // con anchos fijos: así los 8 cuadros caen exactamente sobre las mismas
+    // columnas que los íconos y las dos zonas se leen como una sola, en vez de
+    // dos filas que empiezan y terminan en sitios distintos. Son 8 justos
+    // —7 colores + el libre—, así que en escritorio cierran la fila sin hueco.
+    //
+    // El elegido se marca SOLO con el aro, sin `scale-105`: agrandarlo un 5%
+    // lo sacaba de su columna (medido: 1.2 px por lado) y era justo el cuadro
+    // que se veía desalineado con el ícono de abajo. El hover sí escala,
+    // porque es pasajero y no deja nada torcido.
+    <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
       {PALETTES.map((p) => {
         const selected = !custom && (value || 'default') === p.key
         return (
@@ -27,7 +35,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
             onClick={() => onChange(p.key)}
             data-tooltip={p.label}
             aria-label={p.label}
-            className={`w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
+            className={`aspect-square w-full rounded-lg flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
             style={{ backgroundColor: p.color }}
           >
             {selected && <Check size={16} className="text-white" />}
@@ -44,7 +52,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
         data-tooltip="Elige tu propio color (se ajusta solo para notarse sobre blanco)"
         data-tooltip-pos="left"
         aria-label="Color personalizado"
-        className={`w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400 scale-105' : 'hover:scale-105'}`}
+        className={`aspect-square w-full rounded-lg flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
         style={custom
           ? { backgroundColor: customColor }
           : { background: 'conic-gradient(#ef4444, #f97316, #eab308, #16a34a, #06b6d4, #2563eb, #9333ea, #ef4444)' }}
