@@ -365,8 +365,8 @@ export default function StudentProfile() {
               <strong className="text-red-700">SUGERENCIA MUY IMPORTANTE:</strong>{' '}
               Anota tu contraseña en un lugar seguro, es tu responsabilidad cuidarla.
               En caso extremo de que la pierdas, puedes pedirle a tu Maestra o Maestro
-              que te la restaure para que puedas elegir una nueva, y puedas volver a
-              entrar a Evalúa Fácil.
+              que te habilite la recuperación, para que tú dando clic en «Recuperar
+              contraseña» puedas crear una nueva, y puedas volver a entrar a Evalúa Fácil.
             </p>
           </div>
         </div>
