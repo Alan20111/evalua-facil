@@ -734,10 +734,16 @@ export default function StudentActivityPage() {
                   }}
                 />
                 <Upload size={26} className={`flex-shrink-0 ${files.length ? 'text-accent' : 'text-slate-400'}`} />
+                {/* Solo la ACCIÓN, sin repetir el límite: cuántas fotos caben ya
+                    lo dice el recuadro "Archivos que puedes enviar…" de arriba
+                    ("De 1 a 5 fotos o imágenes"). Antes el mismo dato salía tres
+                    veces seguidas en la misma pantalla — en el recuadro, en esta
+                    línea y en un tercer renglón debajo — y a fuerza de repetirlo
+                    dejaba de leerse. */}
                 <p className="text-sm mt-2 font-medium text-muted text-center break-words line-clamp-2 max-w-full">
                   {files.length === 0
                     ? (allowsMultipleFiles(activity?.tiposArchivo || 'todos')
-                        ? `Toca para seleccionar hasta ${MAX_IMAGES_PER_SUBMISSION} fotos o un archivo`
+                        ? 'Toca para seleccionar tus fotos o un archivo'
                         : 'Toca para seleccionar archivo')
                     : files.length === 1
                       ? files[0].name
@@ -746,11 +752,6 @@ export default function StudentActivityPage() {
                 <p className="text-sm text-slate-500 mt-1 text-center break-words max-w-full">
                   Máx 5 MB cada uno
                 </p>
-                {allowsMultipleFiles(activity?.tiposArchivo || 'todos') && files.length === 0 && (
-                  <p className="text-xs text-accent mt-0.5 text-center max-w-full">
-                    Puedes subir hasta {MAX_IMAGES_PER_SUBMISSION} imágenes a la vez
-                  </p>
-                )}
               </label>
               {files.length > 0 && (
                 <div className="space-y-1">
