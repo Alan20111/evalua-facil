@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   getDoc,
   doc,
@@ -61,10 +61,12 @@ async function fetchSubmissionsForStudents(studentDocIds) {
 
 export default function StudentDashboard() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
+  // Arriba de los useState: el de showJoin lee location.state en su inicializador.
+  const location = useLocation()
   const [subjects, setSubjects] = useState([])
   const [studentInfo, setStudentInfo] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [showJoin, setShowJoin] = useState(false)
+  const [showJoin, setShowJoin] = useState(location.state?.openJoin === true)
   const [joinCode, setJoinCode] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   // Quitar una materia archivada de SU lista (ver handleRemoveArchived).
@@ -141,6 +143,24 @@ export default function StudentDashboard() {
     if (currentUser) loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [currentUser])
+
+  // Abre "Unirme a otra asignatura" cuando se llega con openJoin desde el botón
+  // del sidebar — incluye el caso de YA estar en el dashboard, donde el
+  // inicializador del useState no se vuelve a ejecutar. location.key cambia en
+  // cada navegación, así que esto dispara siempre. Mismo patrón que el
+  // openCreate del docente.
+  useEffect(() => {
+    if (location.state?.openJoin) {
+      openJoinModal()
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.key])
+
+  function openJoinModal() {
+    setJoinCode('')
+    setShowJoin(true)
+  }
 
   async function loadData() {
     setLoading(true)
@@ -359,20 +379,23 @@ export default function StudentDashboard() {
         {/* Join another subject */}
         <button
           type="button"
-          onClick={() => { setJoinCode(''); setShowJoin(true) }}
+          onClick={openJoinModal}
           className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-card border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
         >
           <Plus size={18} /> Unirme a otra asignatura
         </button>
 
-        {/* Asignaturas archivadas — solo móvil, y SOLO si el docente ya archivó
-            alguna. Archivar es decisión del maestro: el estudiante no archiva
-            nada, así que antes del primer archivado esta sección no le dice
-            nada útil — solo era una gaveta vacía con un "No tienes asignaturas
-            archivadas" adentro. Aparece sola en cuanto llega la primera, y
-            vuelve a desaparecer si el maestro las restaura todas. */}
+        {/* Asignaturas archivadas — SOLO si el docente ya archivó alguna.
+            Archivar es decisión del maestro: el estudiante no archiva nada, así
+            que antes del primer archivado esta sección no le dice nada útil —
+            solo era una gaveta vacía con un "No tienes asignaturas archivadas"
+            adentro. Aparece sola en cuanto llega la primera, y vuelve a
+            desaparecer si el maestro las restaura todas.
+            Ya no es `md:hidden`: en la web también le toca. El sidebar solo
+            lleva a ellas (como el del docente); quitarlas de su lista se hace
+            aquí, que es donde vive esa acción, en móvil y en escritorio. */}
         {archivedSubjects.length > 0 && (
-          <div className="md:hidden mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
+          <div className="mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
             <button
               type="button"
               onClick={() => setShowArchived((v) => !v)}
