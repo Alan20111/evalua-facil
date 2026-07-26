@@ -89,6 +89,36 @@ export function buildJobsForSubject({ subject, activities, submissions, students
   return jobs
 }
 
+// ZIP de UN estudiante: sus propias entregas de una asignatura, para que se
+// quede con su trabajo. A diferencia de los dos de arriba, aquí los archivos
+// NO se nombran por alumno —siempre es el mismo— sino por ACTIVIDAD, que es
+// lo único que le sirve para reconocer su trabajo meses después.
+// submissions: mapa { [actividadId]: submission }, tal como lo arma la
+// pantalla de asignatura del estudiante.
+export function buildJobsForStudent({ subject, activities, submissions }) {
+  const folderBase = sanitize(subjectDisplayName(subject))
+  const porParcial = {}
+  activities.forEach((a) => {
+    if (!porParcial[a.parcial]) porParcial[a.parcial] = []
+    porParcial[a.parcial].push(a)
+  })
+
+  const jobs = []
+  for (const [parcial, acts] of Object.entries(porParcial).sort(([a], [b]) => a - b)) {
+    for (const act of acts) {
+      const sub = submissions[act.id]
+      if (!sub || sub.completadoSinArchivo) continue
+      const files = filesOf(sub)
+      const base = sanitize(act.nombre) || act.id
+      files.forEach((f, i) => {
+        const fileBaseName = files.length > 1 ? `${base} ${String(i + 1).padStart(2, '0')}` : base
+        jobs.push({ path: [folderBase, `Parcial ${parcial}`], fileBaseName, url: f.url, nombreArchivo: f.nombre })
+      })
+    }
+  }
+  return jobs
+}
+
 // ── Core ZIP download ────────────────────────────────────────────────────
 
 export async function downloadSubmissionsZip({ zipName, jobs, onProgress }) {
