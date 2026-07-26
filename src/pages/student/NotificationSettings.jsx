@@ -79,7 +79,10 @@ function Toggle({ checked, onChange, label, description, children }) {
           />
         </span>
       </button>
-      {checked && children && <div className="mt-3 pt-3 border-t border-outline-variant">{children}</div>}
+      {/* Sin línea divisoria: "Avisar" es parte del mismo ajuste que acaba de
+          encenderse, no otra sección. La raya lo hacía ver como si fuera un
+          bloque aparte (la tarjeta ya separa las categorías con divide-y). */}
+      {checked && children && <div className="mt-3">{children}</div>}
     </div>
   )
 }
