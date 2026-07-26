@@ -43,6 +43,7 @@ export function useAdminStats() {
         plansSnap,
         schoolsSnap,
         subjectsSnap,
+        bajasSnap,
       ] = await Promise.all([
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'students')),
@@ -51,6 +52,7 @@ export function useAdminStats() {
         getDocs(collection(db, 'plans')),
         getDocs(collection(db, 'schools')),
         getDocs(collection(db, 'subjects')),
+        getDocs(collection(db, 'bajas')).catch(() => ({ docs: [] })),
       ])
 
       const users = usersSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -60,6 +62,10 @@ export function useAdminStats() {
       const plans = plansSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       const schools = schoolsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
       const subjects = subjectsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      // Constancias de cuentas eliminadas: solo nombre, correo y fecha de baja
+      // (ver api/account/delete.js). Sirven para que el panel muestre la baja
+      // en vez de que el renglón desaparezca sin dejar rastro.
+      const bajas = bajasSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
 
       const teachers = users.filter((u) => u.role === 'docente')
       const activeStudents = students.filter((s) => s.activado === true)
@@ -142,6 +148,7 @@ export function useAdminStats() {
       setStats({
         teachers,
         teachersMap,
+        bajas,
         students,
         subjects,
         subjectsMap,
