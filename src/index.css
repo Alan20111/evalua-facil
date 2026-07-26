@@ -146,6 +146,10 @@
     --admin-plane: #611232;         /* guinda institucional — barra lateral */
     --admin-plane-dark: #4a0e26;    /* cabecera de la barra */
     --admin-plane-active: #9f2241;  /* opción seleccionada */
+    /* Lienzo del panel. El --surface general (#faf9fa) es casi blanco, así que
+       las tarjetas blancas de tablas y gráficas se perdían contra el fondo:
+       este rosa (guinda al ~12%) les dibuja el borde sin necesidad de líneas. */
+    --admin-canvas: #f9e0e6;
   }
 
   /* Per-subject palette overrides (applied on a wrapper inside a subject) */
