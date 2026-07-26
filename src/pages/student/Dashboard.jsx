@@ -233,25 +233,26 @@ export default function StudentDashboard() {
                 viviendo solo dentro del perfil). */}
             {IS_NATIVE_APP ? (
               // Pedido explícito: sin ícono encima (ni siquiera en la esquina)
-              // y la foto 20% más grande que antes (44px → 53px).
+              // y la foto al doble de lo que medía (53px → 106px).
               <button
                 type="button"
                 onClick={() => photoInputRef.current?.click()}
                 aria-label="Cambiar foto de perfil"
-                className="w-[53px] h-[53px] rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0"
+                className="w-[106px] h-[106px] rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0"
               >
                 {photoURL ? (
                   <img src={photoURL} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-base font-bold text-accent">{initials}</span>
+                  <span className="text-3xl font-bold text-accent">{initials}</span>
                 )}
               </button>
             ) : (
-              <div className="w-11 h-11 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0">
+              // En la web también al doble: 44px → 88px.
+              <div className="w-[5.5rem] h-[5.5rem] rounded-full bg-accent-tint overflow-hidden flex items-center justify-center flex-shrink-0">
                 {photoURL ? (
                   <img src={photoURL} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-base font-bold text-accent">{initials}</span>
+                  <span className="text-3xl font-bold text-accent">{initials}</span>
                 )}
               </div>
             )}

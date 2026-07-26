@@ -151,11 +151,13 @@ export default function StudentLayout({ children }) {
             className="flex items-center gap-3 px-3 py-2 mx-2 mt-1 rounded text-left hover:bg-white/10 transition-colors focus:outline-none"
             data-tooltip="Mi perfil"
           >
-            <div className="w-9 h-9 rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
+            {/* 72px — el doble que antes. Es una fila del menú lateral, así
+                que crecer solo hace más alta esa fila; no toca la barra. */}
+            <div className="w-[4.5rem] h-[4.5rem] rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
               {photoURL ? (
                 <img src={photoURL} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-sm font-bold text-accent">{initials}</span>
+                <span className="text-2xl font-bold text-accent">{initials}</span>
               )}
             </div>
             <div className="min-w-0 flex-1">

@@ -543,16 +543,19 @@ export default function Profile() {
         {/* Photo + identity */}
         <div className="bg-surface-card rounded-card shadow-card p-4 flex flex-col items-center gap-2">
           <div className="relative">
-            <div className="w-20 h-20 rounded-full bg-accent-light overflow-hidden flex items-center justify-center">
+            {/* 160px — el doble que antes. La inicial y el botón de la cámara
+                crecen a la par: en un círculo del doble de grande, dejarlos
+                del tamaño anterior los hace ver perdidos. */}
+            <div className="w-40 h-40 rounded-full bg-accent-light overflow-hidden flex items-center justify-center">
               {userProfile?.photoURL ? (
                 <img src={userProfile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-2xl font-bold text-accent">{initials}</span>
+                <span className="text-5xl font-bold text-accent">{initials}</span>
               )}
             </div>
             <button type="button" onClick={() => fileRef.current?.click()} disabled={photoUploading} aria-label="Cambiar foto"
-              className="absolute -bottom-1 -right-1 w-7 h-7 bg-accent rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
-              {photoUploading ? <Spinner size="sm" /> : <Camera size={15} />}
+              className="absolute bottom-1 right-1 w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white shadow-md disabled:opacity-60">
+              {photoUploading ? <Spinner size="sm" /> : <Camera size={20} />}
             </button>
           </div>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />

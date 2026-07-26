@@ -243,21 +243,23 @@ export default function StudentProfile() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="relative w-16 h-16 rounded-full flex-shrink-0 group focus:outline-none"
+            className="relative w-32 h-32 rounded-full flex-shrink-0 group focus:outline-none"
             data-tooltip="Cambiar foto"
             aria-label="Cambiar foto"
           >
-            <div className="w-16 h-16 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center">
+            {/* 128px — el doble que antes. La inicial y el ícono de la cámara
+                crecen a la par para no verse perdidos en el círculo grande. */}
+            <div className="w-32 h-32 rounded-full bg-accent-tint overflow-hidden flex items-center justify-center">
               {uploadingPhoto ? (
                 <Spinner size="sm" />
               ) : photoURL ? (
                 <img src={photoURL} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-xl font-bold text-accent">{initials}</span>
+                <span className="text-4xl font-bold text-accent">{initials}</span>
               )}
             </div>
             <span className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              <Camera size={18} className="text-white" />
+              <Camera size={32} className="text-white" />
             </span>
           </button>
           <div className="min-w-0 flex-1">

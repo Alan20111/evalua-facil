@@ -329,22 +329,22 @@ export default function TeacherDashboard() {
                 type="button"
                 onClick={() => photoInputRef.current?.click()}
                 aria-label="Cambiar foto de perfil"
-                className="relative w-8 h-8 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0"
+                className="relative w-16 h-16 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0"
               >
                 {userProfile?.photoURL ? (
                   <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-xs font-bold text-accent">{teacherGreetingName.charAt(0).toUpperCase()}</span>
+                  <span className="text-xl font-bold text-accent">{teacherGreetingName.charAt(0).toUpperCase()}</span>
                 )}
                 {/* Insignia en la esquina, NO tapa la foto — pedido explícito:
                     se tiene que poder ver al estudiante/docente sin el ícono encima. */}
-                <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-accent border-2 border-surface-card flex items-center justify-center">
-                  <Camera size={8} className="text-white" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-accent border-2 border-surface-card flex items-center justify-center">
+                  <Camera size={14} className="text-white" />
                 </span>
               </button>
             ) : (
               userProfile?.mostrarFotoAlumnos !== false && userProfile?.photoURL && (
-                <img src={userProfile.photoURL} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                <img src={userProfile.photoURL} alt="" className="w-16 h-16 rounded-full object-cover flex-shrink-0" />
               )
             )}
           </div>
