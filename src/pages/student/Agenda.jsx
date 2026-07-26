@@ -92,6 +92,13 @@ export default function Agenda() {
         .filter((a) => {
           const subj = subjectById[a.asignaturaId]
           if (!subj) return false
+          // Asignatura archivada = ciclo cerrado. Sus fechas límite no son
+          // pendientes de nadie, así que no tienen nada que hacer en la agenda
+          // ni en el calendario. Este renglón faltaba: el filtro ya tenía la
+          // asignatura en la mano y solo revisaba los parciales ocultos, así
+          // que una materia terminada seguía apareciendo con sus entregas
+          // vencidas para siempre.
+          if (subj.archived) return false
           const parcialesOcultos = subj.parcialesOcultos || []
           return isActivityPublished(a, parcialesOcultos.includes(a.parcial)) && !!a.fechaLimite
         })
