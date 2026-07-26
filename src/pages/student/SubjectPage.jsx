@@ -22,13 +22,14 @@ import { toDateStr } from '../../utils/horarioBloques'
 import { getResourceIcon, getLinkResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import { teacherDisplayName } from '../../utils/studentSearch'
+import { buildJobsForStudent, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import SubjectIcon from '../../components/SubjectIcon'
 import AttachmentList from '../../components/AttachmentList'
 import {
   ArrowLeft, ChevronDown, ChevronUp,
   Clock, Star, FolderOpen, BookOpen, Paperclip,
-  GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink,
+  GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
@@ -131,6 +132,10 @@ export default function StudentSubjectPage() {
   const [teacherPhoto, setTeacherPhoto] = useState(null)
   const [openParcial, setOpenParcial] = useState(1)
   const [activeTab, setActiveTab] = useState('Actividades y calificaciones')
+  // Descarga de sus propias entregas — su trabajo es suyo y debe poder
+  // llevárselo sin depender de que su maestro se lo pase.
+  const [zipping, setZipping] = useState(false)
+  const [zipProgress, setZipProgress] = useState({ done: 0, total: 0 })
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
   const toast = useToast()
@@ -253,6 +258,31 @@ export default function StudentSubjectPage() {
   // not even as an empty card (their activities are already filtered out above).
   const PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
     .filter((p) => !(subject?.parcialesOcultos || []).includes(p))
+
+  // Sus entregas con archivo. Se calcula aquí para poder ocultar el botón
+  // cuando no hay nada que descargar: un botón que baja un ZIP vacío nomás
+  // hace dudar de si funcionó.
+  const misArchivos = buildJobsForStudent({ subject, activities, submissions })
+
+  async function descargarMisEntregas() {
+    setZipping(true)
+    setZipProgress({ done: 0, total: misArchivos.length })
+    try {
+      const { escritos, errores } = await downloadSubmissionsZip({
+        zipName: `Mis entregas - ${subjectDisplayName(subject)}`,
+        jobs: misArchivos,
+        onProgress: (done, total) => setZipProgress({ done, total }),
+      })
+      toast(errores
+        ? `Se descargaron ${escritos} de ${escritos + errores} archivos`
+        : `Listo, ${escritos} ${escritos === 1 ? 'archivo' : 'archivos'} en tu ZIP`)
+    } catch (err) {
+      toast('No se pudo descargar: ' + err.message, 'error')
+    } finally {
+      setZipping(false)
+      setZipProgress({ done: 0, total: 0 })
+    }
+  }
 
   if (loading) return (
     <StudentLayout>
@@ -448,6 +478,31 @@ export default function StudentSubjectPage() {
               </div>
             )
           })}
+
+          {/* Llevarse su trabajo. Va al final de la lista, no arriba: primero
+              interesa ver sus calificaciones. Solo aparece si hay archivos. */}
+          {misArchivos.length > 0 && (
+            <div className="bg-surface-card rounded-card shadow-card p-4">
+              <p className="text-sm font-semibold text-on-surface mb-1">Guardar mi trabajo</p>
+              <p className="text-xs text-muted mb-3 leading-relaxed">
+                {misArchivos.length === 1
+                  ? 'Descarga el archivo que entregaste en esta asignatura.'
+                  : `Descarga en un ZIP los ${misArchivos.length} archivos que entregaste en esta asignatura, ordenados por parcial.`}
+                {' '}Es tu trabajo — guárdalo donde quieras.
+              </p>
+              <button
+                type="button"
+                onClick={descargarMisEntregas}
+                disabled={zipping}
+                className="w-full py-2.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {zipping ? <Spinner size="sm" /> : <Download size={16} />}
+                {zipping
+                  ? `Descargando ${zipProgress.done}/${zipProgress.total}…`
+                  : 'Descargar mis entregas'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

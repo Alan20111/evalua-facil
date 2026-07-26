@@ -55,16 +55,11 @@ export async function deleteSubjectCascade(subjectId) {
   await deleteDoc(doc(db, 'subjects', subjectId))
 }
 
-// Deletes ONLY the submissions of a subject, keeping activities + students.
-// Used when archiving: the archived subject keeps the course "skeleton" but not
-// the entregas (which are optionally exported as a ZIP first).
-export async function deleteSubjectSubmissions(subjectId) {
-  const actsSnap = await getDocs(
-    query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))
-  )
-  const subsDocs = await fetchSubmissionsForActivities(actsSnap.docs.map((d) => d.id))
-  await batchDeleteDocs(subsDocs.map((d) => doc(db, 'submissions', d.id)))
-}
+// Aquí vivía deleteSubjectSubmissions, que borraba las entregas de toda la
+// asignatura al archivarla. Se quitó junto con ese comportamiento: archivar ya
+// no borra nada. Borraba el trabajo del estudiante y ni siquiera liberaba el
+// espacio que pretendía —los archivos seguían en Cloudinary, solo se destruía
+// el documento que apuntaba a ellos— así que no había nada que salvar de ella.
 
 // Deletes the submissions of a single student enrollment (submissions are keyed by the
 // per-subject `students` doc id). Call before deleting the student doc to avoid orphans.

@@ -15,7 +15,7 @@ import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, exportSub
 import { importActivitiesToSubject } from '../../utils/importActivities'
 import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF, exportQRPDF } from '../../utils/pdf'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
-import { deleteSubjectCascade, deleteSubjectStudents, deleteSubjectSubmissions, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
+import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
 import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana } from '../../utils/attendanceAuto'
@@ -557,7 +557,10 @@ export default function SubjectPage() {
   const [unarchivedSaving, setUnarchivedSaving] = useState(false)
   // Archive flow
   const [showArchiveModal, setShowArchiveModal] = useState(false)
-  const [archiveExportChoice, setArchiveExportChoice] = useState('save') // 'save' | 'skip'
+  // Respaldo ZIP al archivar: opcional y apagado por omisión. Antes era una
+  // disyuntiva obligada ("guardar" o "sin guardar") porque las entregas se
+  // borraban; ya no se borran, así que dejarla sería preguntar por nada.
+  const [archiveConZip, setArchiveConZip] = useState(false)
 
   // Tab — navigation state can request a specific tab (e.g. coming back from a
   // grading view opened from a Calificaciones cell)
@@ -2168,19 +2171,28 @@ export default function SubjectPage() {
       })
       setShowUnarchiveModal(true)
     } else {
-      // Archiving → ask whether to export the entregas as a ZIP first
-      setArchiveExportChoice('save')
+      // Archivar ya no borra nada, así que el respaldo ZIP viene apagado:
+      // es una comodidad, no un rescate.
+      setArchiveConZip(false)
       setShowArchiveModal(true)
     }
   }
 
-  // Archives the subject. Archived subjects keep only the course "skeleton"
-  // (subject + activities + students), NOT the entregas, which are optionally
-  // exported as a ZIP first.
+  // Archiva la asignatura SIN borrar nada.
+  //
+  // Antes, archivar borraba las entregas de todos los estudiantes (por espacio)
+  // y solo dejaba el esqueleto. Se quitó: borraba el trabajo del alumno —lo
+  // único de aquí que de verdad es suyo— y ni siquiera ahorraba el espacio que
+  // pretendía, porque los archivos seguían en Cloudinary con su URL viva; solo
+  // se destruía el documento que apuntaba a ellos. Lo peor de los dos mundos.
+  //
+  // Ahora archivar es un cambio de estado y nada más: la asignatura sale de las
+  // activas del docente y se va a "Asignaturas archivadas" del estudiante, con
+  // todo completo. El ZIP sigue disponible como respaldo opcional.
   async function handleArchiveConfirm() {
     setArchiving(true)
     try {
-      if (archiveExportChoice === 'save') {
+      if (archiveConZip) {
         setZipDownloading(true)
         setZipProgress({ done: 0, total: 0 })
         try {
@@ -2200,14 +2212,10 @@ export default function SubjectPage() {
           setZipProgress({ done: 0, total: 0 })
         }
       }
-      // Delete the entregas (keep the skeleton), then archive.
-      await deleteSubjectSubmissions(subjectId)
       await updateDoc(doc(db, 'subjects', subjectId), { archived: true })
       setSubject((s) => ({ ...s, archived: true }))
-      setGradeSubMap({})
-      setGradesLoaded(false)
       setShowArchiveModal(false)
-      toast(archiveExportChoice === 'save' ? 'Asignatura archivada (entregas descargadas)' : 'Asignatura archivada')
+      toast(archiveConZip ? 'Asignatura archivada (respaldo descargado)' : 'Asignatura archivada')
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setArchiving(false) }
   }
@@ -3351,8 +3359,8 @@ export default function SubjectPage() {
         <Copy size={21} />
       </button>
       <button type="button" onClick={handleToggleArchive} disabled={archiving}
-        aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
-        data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (guarda el esqueleto; elimina las entregas)'}
+        aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
+        data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
         {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
       </button>
@@ -6171,36 +6179,30 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
               <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <p className="text-sm text-muted mb-2">
-              Al archivar se conservan las actividades y la lista de estudiantes, pero <strong>se eliminan las entregas</strong>. ¿Qué hacemos con ellas?
+            <p className="text-sm text-muted mb-3">
+              Archivar solo la saca de tus asignaturas activas. <strong>No se borra nada</strong>:
+              actividades, estudiantes, entregas y calificaciones se quedan completas, y puedes
+              desarchivarla cuando quieras.
             </p>
-            {/* Lo que pasa del lado del ESTUDIANTE. Antes el modal solo hablaba
-                de lo que veía el docente ("se eliminan las entregas") y no
-                decía a quién más le pega. Es literal lo que hace el código: el
-                dashboard del alumno filtra por `archived` y la manda a la
-                sección "Asignaturas archivadas" (no desaparece, la puede
-                abrir), y deleteSubjectSubmissions borra sus entregas. */}
-            <div className="rounded border border-amber-200 bg-amber-50 p-3 mb-3">
-              <p className="text-sm font-semibold text-amber-800 mb-1">Qué van a ver tus estudiantes</p>
-              <ul className="text-sm text-amber-800 space-y-0.5">
+            {/* Lo que pasa del lado del ESTUDIANTE — el modal antes solo hablaba
+                de lo que veía el docente. Es literal lo que hace el código: su
+                dashboard filtra por `archived` y la manda a la sección
+                "Asignaturas archivadas", desde donde la puede seguir abriendo. */}
+            <div className="rounded border border-outline-variant bg-surface p-3 mb-3">
+              <p className="text-sm font-semibold text-on-surface mb-1">Qué van a ver tus estudiantes</p>
+              <ul className="text-sm text-muted space-y-0.5">
                 <li>• <strong>{subject?.nombre}</strong> sale de sus asignaturas y se va a «Asignaturas archivadas».</li>
-                <li>• Ahí la pueden seguir abriendo, pero <strong>ya sin sus entregas ni sus calificaciones</strong>.</li>
-                <li>• Si te equivocaste, puedes desarchivarla — las entregas ya no vuelven.</li>
+                <li>• Ahí la pueden seguir abriendo, con sus entregas y calificaciones completas.</li>
               </ul>
             </div>
             <div className="space-y-2 mb-4">
-              {[
-                { val: 'save', label: 'Guardar entregas como ZIP', desc: 'Se descargan antes de eliminarlas' },
-                { val: 'skip', label: 'Archivar sin guardar', desc: 'Las entregas se eliminan sin descargar' },
-              ].map(({ val, label, desc }) => (
-                <label key={val} aria-label={label} className={`flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors ${archiveExportChoice === val ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'}`}>
-                  <input type="radio" name="archiveExport" value={val} checked={archiveExportChoice === val} onChange={() => setArchiveExportChoice(val)} className="accent-[var(--accent)]" />
-                  <div>
-                    <p className="text-sm font-medium text-on-surface">{label}</p>
-                    <p className="text-sm text-slate-500">{desc}</p>
-                  </div>
-                </label>
-              ))}
+              <label className="flex items-start gap-2 p-3 rounded border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
+                <input type="checkbox" checked={archiveConZip} onChange={(e) => setArchiveConZip(e.target.checked)} className="mt-0.5 accent-[var(--accent)]" />
+                <div>
+                  <p className="text-sm font-medium text-on-surface">Descargar también un respaldo ZIP</p>
+                  <p className="text-sm text-slate-500">Opcional — las entregas no se van a borrar</p>
+                </div>
+              </label>
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowArchiveModal(false)} disabled={archiving}
