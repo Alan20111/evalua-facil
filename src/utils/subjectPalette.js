@@ -1,3 +1,19 @@
+// Los 7 colores de asignatura, en el orden en que se muestran al elegir.
+// Vivía dentro de PaletteSelect.jsx; se mudó aquí porque ahora lo leen DOS
+// consumidores —los cuadros del selector y las bolitas del banco de íconos
+// (utils/subjectIcons)— y un componente no es lugar para que un util importe.
+// Los hex deben coincidir con los --accent de [data-subject-palette] en
+// index.css y con SUBJECT_PALETTE de abajo.
+export const PALETTES = [
+  { key: 'default', label: 'Azul', color: '#2563eb' },
+  { key: 'orange', label: 'Naranja', color: '#f97316' },
+  { key: 'purple', label: 'Morado', color: '#9333ea' },
+  { key: 'green', label: 'Verde', color: '#16a34a' },
+  { key: 'rose', label: 'Rosa', color: '#e11d48' },
+  { key: 'teal', label: 'Teal', color: '#14b8a6' },
+  { key: 'slate', label: 'Grafito', color: '#475569' },
+]
+
 // Maps subject palette key → {bg, text} CSS color pair.
 // Mirrors the CSS variables in index.css — keep in sync if palette changes.
 export const SUBJECT_PALETTE = {

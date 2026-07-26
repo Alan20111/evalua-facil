@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { ImagePlus, Loader2 } from 'lucide-react'
-import { SUBJECT_ICON_KEYS, getSubjectIcon } from '../utils/subjectIcons'
+import { SUBJECT_ICON_KEYS, getSubjectIcon, SUBJECT_DOT_KEYS, SUBJECT_DOT_LABELS } from '../utils/subjectIcons'
+import SubjectIcon from './SubjectIcon'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { useToast } from './Toast'
 
@@ -39,41 +40,68 @@ export default function IconSelect({ value = 'book', onChange }) {
   }
 
   return (
-    <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
-      {SUBJECT_ICON_KEYS.map((key) => {
-        const Icon = getSubjectIcon(key)
-        const selected = !isCustom && (value || 'book') === key
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onChange(key)}
-            aria-label={key}
-            className={`aspect-square rounded flex items-center justify-center transition-colors ${selected ? 'bg-accent text-white' : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'}`}
-          >
-            <Icon size={19} />
-          </button>
-        )
-      })}
-      {/* Custom icon upload — always the last cell. Colored differently from
-          the bank icons so it reads as an action, not one more icon. Tooltip
-          goes to the LEFT: this cell sits at the grid's bottom-right corner
-          inside an overflow-hidden modal, so the default centered tooltip
-          would be clipped (and widen the scroll area). */}
-      <button
-        type="button"
-        onClick={() => !uploading && fileRef.current?.click()}
-        data-tooltip="Ícono propio · sube una imagen cuadrada de 64×64 px (PNG, JPG, WebP o SVG, máx. 1 MB)"
-        data-tooltip-pos="left"
-        aria-label="Subir ícono propio"
-        className={`aspect-square rounded flex items-center justify-center transition-colors border-2 border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
-      >
-        {uploading
-          ? <Loader2 size={19} className="animate-spin" />
-          : isCustom
-            ? <img src={value} alt="Ícono propio" className="w-[21px] h-[21px] object-contain" />
-            : <ImagePlus size={19} />}
-      </button>
+    <div className="space-y-1.5">
+      {/* Fila de bolitas — va PRIMERO y en su propia cuadrícula de 7 columnas,
+          no dentro de la de abajo: así siempre cae en un renglón limpio (en la
+          rejilla de 6/8 se partiría) y empuja los demás íconos hacia abajo.
+          Es la opción más fácil de reconocer, y por eso encabeza el banco. */}
+      <div className="grid grid-cols-7 gap-1.5">
+        {SUBJECT_DOT_KEYS.map((key) => {
+          const selected = !isCustom && value === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onChange(key)}
+              data-tooltip={SUBJECT_DOT_LABELS[key]}
+              aria-label={SUBJECT_DOT_LABELS[key]}
+              className={`aspect-square rounded flex items-center justify-center transition-colors ${
+                selected
+                  ? 'bg-[var(--accent-light)] ring-2 ring-[var(--accent)]'
+                  : 'bg-surface-container hover:bg-[var(--accent-tint)]'
+              }`}
+            >
+              <SubjectIcon iconKey={key} size={19} />
+            </button>
+          )
+        })}
+      </div>
+      <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
+        {SUBJECT_ICON_KEYS.map((key) => {
+          const Icon = getSubjectIcon(key)
+          const selected = !isCustom && (value || 'book') === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => onChange(key)}
+              aria-label={key}
+              className={`aspect-square rounded flex items-center justify-center transition-colors ${selected ? 'bg-accent text-white' : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'}`}
+            >
+              <Icon size={19} />
+            </button>
+          )
+        })}
+        {/* Custom icon upload — always the last cell. Colored differently from
+            the bank icons so it reads as an action, not one more icon. Tooltip
+            goes to the LEFT: this cell sits at the grid's bottom-right corner
+            inside an overflow-hidden modal, so the default centered tooltip
+            would be clipped (and widen the scroll area). */}
+        <button
+          type="button"
+          onClick={() => !uploading && fileRef.current?.click()}
+          data-tooltip="Ícono propio · sube una imagen cuadrada de 64×64 px (PNG, JPG, WebP o SVG, máx. 1 MB)"
+          data-tooltip-pos="left"
+          aria-label="Subir ícono propio"
+          className={`aspect-square rounded flex items-center justify-center transition-colors border-2 border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
+        >
+          {uploading
+            ? <Loader2 size={19} className="animate-spin" />
+            : isCustom
+              ? <img src={value} alt="Ícono propio" className="w-[21px] h-[21px] object-contain" />
+              : <ImagePlus size={19} />}
+        </button>
+      </div>
       <input
         ref={fileRef}
         type="file"

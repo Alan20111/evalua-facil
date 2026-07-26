@@ -1285,7 +1285,10 @@ export default function ActivityPage() {
                           href={downloadUrl(selFiles[0].url, selFiles[0].nombre)}
                           download={selFiles[0].nombre}
                           rel="noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors min-w-0"
+                          /* bg-surface-card (blanco) como los otros botones de
+                             descarga de esta pantalla: con el lienzo azul,
+                             `bg-surface` se pintaba de azul y este se perdía. */
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors min-w-0"
                         >
                           <Download size={18} className="text-accent flex-shrink-0" />
                           <span className="truncate">Descargar entrega</span>

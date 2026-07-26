@@ -1,9 +1,25 @@
-import { getSubjectIcon } from '../utils/subjectIcons'
+import { getSubjectIcon, isDotIcon, dotIconColor } from '../utils/subjectIcons'
 
 // Renders a subject's chosen icon. `iconKey` is a bank key from
-// utils/subjectIcons OR the https URL of a teacher-uploaded custom icon
-// (falls back to a book for unknown keys).
+// utils/subjectIcons, one of the `dot-*` color circles, OR the https URL of a
+// teacher-uploaded custom icon (falls back to a book for unknown keys).
 export default function SubjectIcon({ iconKey, size = 20, className = '' }) {
+  // Bolita de color: círculo liso sobre fondo transparente. El color lo fija la
+  // clave, así que NO se pinta con `currentColor` — a diferencia del resto del
+  // banco, esta no sigue el acento de quien la muestra.
+  if (isDotIcon(iconKey)) {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        className={`flex-shrink-0 ${className}`}
+      >
+        <circle cx="12" cy="12" r="9" fill={dotIconColor(iconKey)} />
+      </svg>
+    )
+  }
   if (/^https?:\/\//.test(iconKey || '')) {
     return (
       <img
