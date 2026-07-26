@@ -25,7 +25,6 @@ import {
   formatDate,
   getSubscriptionStatusColor,
   toDate,
-  SUBSCRIPTION_STATUSES,
 } from '../../../utils/subscriptionHelpers'
 
 const inputCls =
@@ -175,6 +174,17 @@ function calcFinCortesia(form, vencimientoActual) {
   const fin = new Date(base)
   fin.setDate(fin.getDate() + dias)
   return fin
+}
+
+// La situación NO la elige el administrador: es consecuencia. Prueba la
+// determina el registro del docente, Activa el tener plan o cortesía, y
+// Vencida el calendario. Lo único que sí es decisión suya es CANCELAR.
+function situacionCalculada(form, statusPrevio) {
+  if (form.cancelada) return 'cancelada'
+  if (form.planId) return 'activa'
+  // Sin plan conserva lo que ya traía (prueba / pendiente de pago / vencida);
+  // si venía cancelada y se descancela, vuelve a ser una prueba.
+  return statusPrevio && statusPrevio !== 'cancelada' ? statusPrevio : 'trial'
 }
 
 function vencimientoCortesia(modal) {
@@ -425,10 +435,11 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   function openCreate() {
     setModal({
       mode: 'create',
+      statusPrevio: null,
       form: {
         docenteId: teachers[0]?.id || '',
         planId: plans[0]?.id || '',
-        status: 'activa',
+        cancelada: false,
         fechaInicio: new Date().toISOString().slice(0, 10),
         fechaVencimiento: '',
         cortesiaDias: '30',
@@ -447,10 +458,11 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       // sobre la que se extiende una cortesía, y no debe cambiar mientras el
       // administrador teclea.
       vencimientoActual: effectiveVencimiento(sub) ? toDate(effectiveVencimiento(sub)) : null,
+      statusPrevio: sub.status,
       form: {
         docenteId: sub.docenteId,
         planId: sub.planId || '',
-        status: sub.status,
+        cancelada: sub.status === 'cancelada',
         fechaInicio: fi ? fi.toISOString().slice(0, 10) : '',
         fechaVencimiento: fv ? fv.toISOString().slice(0, 10) : '',
         cortesiaDias: sub.cortesiaDias ? String(sub.cortesiaDias) : '30',
@@ -470,7 +482,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         planId: modal.form.planId,
         escuelaId: teacher?.escuelaId || '',
         schoolName: school?.nombre || teacher?.schoolName || '',
-        status: modal.form.status,
+        status: situacionCalculada(modal.form, modal.statusPrevio),
         updatedAt: serverTimestamp(),
       }
       const toTimestamp = (val) => {
@@ -763,7 +775,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 <X size={20} className="text-slate-400" />
               </button>
             </div>
-            <form onSubmit={handleSave} className="space-y-3">
+            <form onSubmit={handleSave} className="space-y-4">
+              {/* La ventana va en cuatro tramos, en el orden en que se piensa:
+                  a quién, qué se le da, desde cuándo y cómo queda. */}
               <div>
                 <label htmlFor="sub-docente" className="block text-xs font-medium text-muted mb-1">Docente</label>
                 <select
@@ -782,28 +796,28 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   ))}
                 </select>
               </div>
-              <div>
-                <label htmlFor="sub-plan" className="block text-xs font-medium text-muted mb-1">
-                  Plan <span className="font-normal">— qué contrató</span>
-                </label>
-                <select
-                  id="sub-plan"
-                  value={modal.form.planId}
-                  onChange={(e) =>
-                    setModal({ ...modal, form: { ...modal.form, planId: e.target.value } })
-                  }
-                  className={inputCls}
-                >
-                  <option value="">— Sin plan (prueba) —</option>
-                  <option value={PLAN_CORTESIA}>Cortesía (sin cobro)</option>
-                  {plans.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
 
+              <div className="border-t border-outline-variant pt-3 space-y-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Qué se le otorga</p>
+                <div>
+                  <label htmlFor="sub-plan" className="block text-xs font-medium text-muted mb-1">Plan</label>
+                  <select
+                    id="sub-plan"
+                    value={modal.form.planId}
+                    onChange={(e) =>
+                      setModal({ ...modal, form: { ...modal.form, planId: e.target.value } })
+                    }
+                    className={inputCls}
+                  >
+                    <option value="">&mdash; Sin plan (prueba) &mdash;</option>
+                    <option value={PLAN_CORTESIA}>Cortesía (sin cobro)</option>
+                    {plans.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               {/* Cortesía: se otorga por días, no por una fecha suelta. El
                   vencimiento se calcula solo, así que no hay forma de teclear
                   una fecha que no corresponda con los días concedidos. */}
@@ -850,48 +864,63 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   </p>
                 </div>
               )}
-              <div>
-                <label htmlFor="sub-status" className="block text-xs font-medium text-muted mb-1">
-                  Situación <span className="font-normal">— cómo está hoy</span>
-                </label>
-                <select
-                  id="sub-status"
-                  value={modal.form.status}
-                  onChange={(e) =>
-                    setModal({ ...modal, form: { ...modal.form, status: e.target.value } })
-                  }
-                  className={inputCls}
-                >
-                  {SUBSCRIPTION_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {ESTADO_LABEL[s] || s}
-                    </option>
-                  ))}
-                </select>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <span className="block text-xs font-medium text-muted mb-1">Inicio</span>
-                  <EFDateTimePicker
-                    mode="date"
-                    value={modal.form.fechaInicio}
-                    onChange={v => setModal({ ...modal, form: { ...modal.form, fechaInicio: v } })}
-                  />
-                </div>
-                {/* Con cortesía el vencimiento lo calcula el sistema a partir de
-                    los días concedidos, así que se oculta el campo manual: dejarlo
-                    invitaría a teclear una fecha que se iba a ignorar. */}
-                {modal.form.planId !== PLAN_CORTESIA && (
+
+              <div className="border-t border-outline-variant pt-3 space-y-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Vigencia</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <span className="block text-xs font-medium text-muted mb-1">Vencimiento</span>
+                    <span className="block text-xs font-medium text-muted mb-1">Fecha de inicio</span>
                     <EFDateTimePicker
                       mode="date"
-                      value={modal.form.fechaVencimiento}
-                      onChange={v => setModal({ ...modal, form: { ...modal.form, fechaVencimiento: v } })}
+                      value={modal.form.fechaInicio}
+                      onChange={v => setModal({ ...modal, form: { ...modal.form, fechaInicio: v } })}
                     />
                   </div>
-                )}
+                  {modal.form.planId !== PLAN_CORTESIA && (
+                    <div>
+                      <span className="block text-xs font-medium text-muted mb-1">Vencimiento</span>
+                      <EFDateTimePicker
+                        mode="date"
+                        value={modal.form.fechaVencimiento}
+                        onChange={v => setModal({ ...modal, form: { ...modal.form, fechaVencimiento: v } })}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Situación: se MUESTRA, no se elige. Antes era una lista libre y
+                  permitía dejar contradicciones (marcar "Activa" algo ya vencido,
+                  o "Prueba" a quien tiene plan). */}
+              <div className="border-t border-outline-variant pt-3 space-y-2">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Situación</p>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={situacionCalculada(modal.form, modal.statusPrevio)} />
+                  <span className="text-xs text-slate-400">se calcula sola</span>
+                </div>
+                <p className="text-xs text-slate-400 leading-snug">
+                  Depende del docente y del calendario: Prueba al registrarse, Activa
+                  cuando tiene plan o cortesía, Vencida al pasar la fecha.
+                </p>
+                <label className="flex items-start gap-2 text-sm text-on-surface cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={modal.form.cancelada}
+                    onChange={(e) =>
+                      setModal({ ...modal, form: { ...modal.form, cancelada: e.target.checked } })
+                    }
+                    className="mt-1"
+                  />
+                  <span>
+                    Cancelar esta suscripción
+                    <span className="block text-xs text-slate-400">
+                      Por ejemplo, si diste una cortesía y no la están usando.
+                    </span>
+                  </span>
+                </label>
+              </div>
+
               <button
                 type="submit"
                 disabled={saving}
