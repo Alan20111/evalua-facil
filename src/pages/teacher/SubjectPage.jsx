@@ -3378,10 +3378,16 @@ export default function SubjectPage() {
   // app nativa esas acciones se manejan desde ahí.
   const subjectHeaderRightIcons = !IS_NATIVE_APP && (
     <>
+      {/* ml-auto en el PRIMER botón de este grupo: empuja editar/duplicar/
+          archivar/eliminar hasta la orilla derecha del renglón, comiéndose
+          todo el espacio libre. Va en un botón suelto (hijo plano del
+          flex-wrap), no en un div contenedor — así se conserva la fila plana
+          que evita el desbordamiento descrito arriba. Si la fila envuelve,
+          el grupo simplemente queda alineado a la derecha del renglón nuevo. */}
       <button type="button" onClick={openEditSubject}
         aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
         data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        className="p-2 ml-auto text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
         <Pencil size={21} />
       </button>
       <button type="button" onClick={openCopyModal}
