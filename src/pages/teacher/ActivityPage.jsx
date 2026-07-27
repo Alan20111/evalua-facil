@@ -191,7 +191,10 @@ export default function ActivityPage() {
   // the grading panel allows a manual override but no prefill/annul/extension.
   const isEvaluacion = activity?.tipo === 'evaluacion'
   // Rúbrica: solo entregables (nunca observación ni evaluación)
-  const hasRubrica = !!activity?.rubrica?.criterios?.length && !isObservacion && !isEvaluacion
+  // La observación también puede llevar rúbrica: no tiene entrega, pero sí
+  // criterios que calificar (actitud, exposición, participación). El resto del
+  // flujo ya sabe calificar sin entrega, así que basta con no excluirla aquí.
+  const hasRubrica = !!activity?.rubrica?.criterios?.length && !isEvaluacion
   // Etiqueta según el instrumento (rúbrica o lista de cotejo) para los botones.
   const instrumentoLabel = esCotejo(activity?.rubrica) ? 'lista de cotejo' : 'rúbrica'
   // Edit activity modal
@@ -300,15 +303,19 @@ export default function ActivityPage() {
     // Con rúbrica: cargar la evaluación guardada; si aún no hay calificación,
     // prellenar todo en el nivel máximo (equivale al prellenado de 10 de arriba
     // — el docente solo ajusta las excepciones).
-    if (activity?.rubrica?.criterios?.length && !isObservacion && !isEvaluacion) {
+    if (activity?.rubrica?.criterios?.length && !isEvaluacion) {
       const n = activity.rubrica.criterios.length
       const previa = Array.isArray(sub?.rubricaEval) && sub.rubricaEval.length === n ? [...sub.rubricaEval] : null
-      const prefill = previa || (sub && sub.calificacion == null ? Array(n).fill(0) : Array(n).fill(null))
+      // En observación nunca hay entrega, así que `sub` falta hasta la primera
+      // calificación: sin contarla aquí, la rúbrica arrancaría vacía y no
+      // prellenada al máximo como en un entregable ya entregado.
+      const sinCalificar = (sub || isObservacion) && sub?.calificacion == null
+      const prefill = previa || (sinCalificar ? Array(n).fill(0) : Array(n).fill(null))
       setRubricEval(prefill)
       // Sincroniza la calificación prellenada con el total real: una lista de
       // cotejo puede sumar menos de 10, así que el prellenado genérico de 10 de
       // arriba no siempre aplica.
-      if (!IS_NATIVE_APP && sub && sub.calificacion == null) {
+      if (!IS_NATIVE_APP && sinCalificar) {
         const t = totalRubrica(activity.rubrica, prefill)
         if (t != null) setGradeForm((f) => ({ ...f, calificacion: String(t) }))
       }

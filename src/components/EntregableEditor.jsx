@@ -192,8 +192,8 @@ export default function EntregableEditor({
         recibirTarde: isObservacion ? null : !(form.cerrarEntregasEnFecha ?? true),
         // La rúbrica se guarda como COPIA dentro de la actividad — editar o
         // borrar la del banco después no afecta esta actividad ni sus calificaciones.
-        rubrica: isObservacion ? null : (form.rubrica || null),
-        rubricaId: isObservacion ? null : (form.rubricaId || null),
+        rubrica: form.rubrica || null,
+        rubricaId: form.rubricaId || null,
         notificarDocente: !!form.notificarDocente,
       }
       const tipo = isObservacion ? 'observacion' : 'archivo'
@@ -309,10 +309,11 @@ export default function EntregableEditor({
             )}
           </div>
 
-          {/* Rúbrica de evaluación (solo entregables): reutilizable desde el banco
-              del docente. La actividad guarda su propia copia. */}
-          {!isObservacion && (
-            <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
+          {/* Rúbrica de evaluación: reutilizable desde el banco del docente. La
+              actividad guarda su propia copia. También en observación —
+              actitud, exposición o participación son justo lo que más se presta
+              a evaluarse por criterios, no con un número al aire. */}
+          <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
               <div>
                 <h2 className="text-sm font-semibold text-on-surface flex items-center gap-1.5">
                   <ClipboardList size={16} className="text-accent" /> Rúbrica de evaluación
@@ -376,8 +377,7 @@ export default function EntregableEditor({
                   </button>
                 </div>
               )}
-            </div>
-          )}
+          </div>
 
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
             <div>
