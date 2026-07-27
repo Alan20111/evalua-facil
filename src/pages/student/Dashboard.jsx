@@ -611,7 +611,7 @@ export default function StudentDashboard() {
               sola fila, y ese "# Ir" diminuto no parecía la acción principal de
               nada. Los 6 caracteres los genera el docente
               (Math.random().toString(36).slice(2, 8)), de ahí la ayuda de abajo. */}
-          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card shadow-2xl overflow-hidden">
+          <div className="relative bg-surface-card w-full max-w-sm rounded-t-card sm:rounded-card drop-shadow-2xl overflow-hidden">
             <div className="flex items-start gap-3 p-5 pb-4">
               <div className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                 <Hash size={22} className="text-accent" />

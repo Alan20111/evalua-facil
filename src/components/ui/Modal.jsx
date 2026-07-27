@@ -66,7 +66,7 @@ export default function Modal({
     sheet ? 'items-end sm:items-center' : 'items-center px-4'
   )
   const panel = cn(
-    'relative bg-surface-card w-full shadow-2xl max-h-[92vh] overflow-y-auto',
+    'relative bg-surface-card w-full drop-shadow-2xl max-h-[92vh] overflow-y-auto',
     sheet ? 'sm:w-[calc(100%-2rem)] rounded-t-card sm:rounded-card' : 'rounded-card',
     SIZES[size] || SIZES.sm,
     padding,
