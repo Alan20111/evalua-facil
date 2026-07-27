@@ -360,7 +360,7 @@ export default function EntregableEditor({
                       Cambiar rúbrica
                     </button>
                   </div>
-                  {rubricaPreview && <RubricaTable rubrica={form.rubrica} />}
+                  {rubricaPreview && <RubricaTable rubrica={form.rubrica} compact={!IS_NATIVE_APP} />}
                 </>
               ) : (
                 <div className="space-y-2">
@@ -507,7 +507,7 @@ export default function EntregableEditor({
                   </ul>
                 </div>
               )}
-              {form.rubrica && <RubricaTable rubrica={form.rubrica} />}
+              {form.rubrica && <RubricaTable rubrica={form.rubrica} compact={!IS_NATIVE_APP} />}
             </div>
           )}
 

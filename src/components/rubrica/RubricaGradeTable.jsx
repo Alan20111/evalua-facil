@@ -4,12 +4,15 @@ import { valorNivel, totalRubrica, esCotejo, RUBRICA_TOTAL } from '../../utils/r
 // Calificar una LISTA DE COTEJO: cada criterio es una casilla. Marcada (cumple)
 // suma sus puntos; vacía (no cumple) suma 0. onSelect(ci, 0) marca, onSelect(ci,
 // null) desmarca — mismo canal que la rúbrica (índice de nivel / null).
-function CotejoGradeTable({ rubrica, seleccion, onSelect, disabled }) {
+function CotejoGradeTable({ rubrica, seleccion, onSelect, disabled, compact = false }) {
   const { criterios } = rubrica
   const total = totalRubrica(rubrica, seleccion) ?? 0
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm" style={{ minWidth: '360px' }}>
+      {/* Ver la nota de `compact` en RubricaTable: Num/¿Cumple?/PUNTOS son de
+          ancho fijo, así que topar la tabla es lo que angosta Criterio. */}
+      <table className="w-full border-collapse text-sm"
+        style={{ minWidth: '360px', ...(compact ? { maxWidth: '580px' } : null) }}>
         <thead>
           <tr>
             <th className="w-9 px-1 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted align-bottom">Num</th>
@@ -61,9 +64,9 @@ function CotejoGradeTable({ rubrica, seleccion, onSelect, disabled }) {
 // formato que el editor — columna Num, criterio, un botón por nivel en cada
 // renglón y la columna PUNTOS a la derecha con los puntos que suma ese
 // renglón; debajo de la columna, la calificación obtenida.
-export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect, disabled = false }) {
+export default function RubricaGradeTable({ rubrica, seleccion = null, onSelect, disabled = false, compact = false }) {
   if (!rubrica?.criterios?.length) return null
-  if (esCotejo(rubrica)) return <CotejoGradeTable rubrica={rubrica} seleccion={seleccion} onSelect={onSelect} disabled={disabled} />
+  if (esCotejo(rubrica)) return <CotejoGradeTable rubrica={rubrica} seleccion={seleccion} onSelect={onSelect} disabled={disabled} compact={compact} />
   const { niveles, criterios } = rubrica
   const total = totalRubrica(rubrica, seleccion)
   const faltan = criterios.filter((_, i) => seleccion?.[i] == null).length

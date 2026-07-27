@@ -212,7 +212,7 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
               </div>
               {previewId === r.id && (
                 <div className="border-t border-outline-variant p-3 bg-surface">
-                  <RubricaTable rubrica={r} />
+                  <RubricaTable rubrica={r} compact={!IS_NATIVE_APP} />
                 </div>
               )}
             </div>
