@@ -23,7 +23,7 @@ import {
 } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays, Star,
-  Scale, CheckSquare, Square,
+  Scale, CheckSquare, Square, X,
 } from 'lucide-react'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
@@ -40,11 +40,27 @@ const TIPOS_PREGUNTA = [
   { value: 'respuesta_corta', label: 'Respuesta corta' },
   { value: 'subir_archivo', label: 'Subir documento' },
 ]
-const OPCION_IDS = ['a', 'b', 'c', 'd']
-
-const EMPTY_PREGUNTA = {
-  tipo: 'opcion_multiple', enunciado: '', opciones: { a: '', b: '', c: '', d: '' }, respuestaCorrecta: 'a',
-  vfRespuesta: 'v', ponderacion: 1, retroalimentacion: '', imagenFile: null, guardarEnBanco: false, tema: '',
+// Ver el comentario homónimo en EvaluacionEditor.jsx — mismo patrón, este
+// archivo tiene su propia copia del formulario de preguntas (pestaña
+// "Preguntas" de Administrar, alcanzable aparte del editor de pantalla
+// completa), así que necesita el mismo cambio por separado.
+function makeOption(texto = '', esOtra = false) {
+  return { id: `o${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, texto, esOtra }
+}
+function emptyOpciones() {
+  return [makeOption(), makeOption(), makeOption(), makeOption()]
+}
+function emptyPregunta() {
+  const opciones = emptyOpciones()
+  return {
+    tipo: 'opcion_multiple', enunciado: '', opciones,
+    respuestaCorrecta: opciones[0].id, vfRespuesta: 'v', ponderacion: 1, retroalimentacion: '',
+    imagenFile: null, guardarEnBanco: false, tema: '',
+  }
+}
+function opcionesFromExisting(p) {
+  if (p.tipo !== 'opcion_multiple' || !p.opciones?.length) return emptyOpciones()
+  return p.opciones.map((o) => ({ id: o.id, texto: o.texto || '', esOtra: !!o.esOtra }))
 }
 
 const TABS = [
@@ -73,6 +89,59 @@ function fmtDuracion(inicio, fin) {
 // when the teacher arrived from a grades-table cell, so going back lands there.
 // `openStudentId` (optional): scroll to and highlight that student's result row
 // (set when the teacher clicked that student's cell in the grades table).
+
+// Ver el comentario homónimo en EvaluacionEditor.jsx.
+function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrecta, radioName, compact }) {
+  const inputPad = compact ? 'px-2 py-1' : 'px-3 py-1.5'
+  return (
+    <div className="space-y-1.5">
+      {opciones.map((o, idx) => (
+        <div key={o.id} className="flex items-center gap-2">
+          {o.esOtra ? (
+            <>
+              <span className="w-3.5 flex-shrink-0" />
+              <span className={`flex-1 ${inputPad} rounded border border-dashed border-outline-variant text-sm text-muted italic`}>
+                Otra: el alumno escribe su propia respuesta
+              </span>
+            </>
+          ) : (
+            <>
+              <input type="radio" name={radioName} checked={respuestaCorrecta === o.id}
+                onChange={() => onChangeCorrecta(o.id)} className="accent-[var(--accent)] flex-shrink-0" />
+              <input type="text" value={o.texto}
+                onChange={(e) => onChange(opciones.map((x) => x.id === o.id ? { ...x, texto: e.target.value } : x))}
+                placeholder={`Opción ${String.fromCharCode(65 + idx)}`} required={idx < 2}
+                className={`flex-1 ${inputPad} rounded border border-outline-variant text-sm bg-surface`} />
+            </>
+          )}
+          {idx >= 2 && (
+            <button type="button" aria-label={`Quitar opción ${String.fromCharCode(65 + idx)}`}
+              onClick={() => {
+                const next = opciones.filter((x) => x.id !== o.id)
+                onChange(next)
+                if (respuestaCorrecta === o.id) onChangeCorrecta(next.find((x) => !x.esOtra)?.id ?? null)
+              }}
+              className="p-1 text-slate-400 hover:text-error rounded flex-shrink-0">
+              <X size={16} />
+            </button>
+          )}
+        </div>
+      ))}
+      <div className="flex gap-3 pt-0.5">
+        <button type="button" onClick={() => onChange([...opciones, makeOption()])}
+          className="text-xs font-medium text-accent hover:underline flex items-center gap-1">
+          <Plus size={13} /> Agregar opción
+        </button>
+        {!opciones.some((o) => o.esOtra) && (
+          <button type="button" onClick={() => onChange([...opciones, makeOption('Otra', true)])}
+            className="text-xs font-medium text-accent hover:underline flex items-center gap-1">
+            <Plus size={13} /> Agregar opción Otra
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
 export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, onSubmissionUpdated = null, resultadosOnly = false, backState = null, openStudentId = null }) {
   const navigate = useNavigate()
   const toast = useToast()
@@ -92,7 +161,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   const [preguntas, setPreguntas] = useState([])
   const [loadingPreguntas, setLoadingPreguntas] = useState(true)
   const [showPreguntaForm, setShowPreguntaForm] = useState(false)
-  const [preguntaForm, setPreguntaForm] = useState(EMPTY_PREGUNTA)
+  const [preguntaForm, setPreguntaForm] = useState(emptyPregunta)
   const [saving, setSaving] = useState(false)
   const [banco, setBanco] = useState([])
   const [bancoLoaded, setBancoLoaded] = useState(false)
@@ -214,7 +283,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       retroalimentacion: form.retroalimentacion.trim() || null,
     }
     if (form.tipo === 'opcion_multiple') {
-      return { ...base, opciones: OPCION_IDS.map((id) => ({ id, texto: form.opciones[id].trim() })), respuestaCorrecta: form.respuestaCorrecta }
+      return {
+        ...base,
+        opciones: form.opciones.map((o) => o.esOtra ? { id: o.id, texto: 'Otra', esOtra: true } : { id: o.id, texto: o.texto.trim() }),
+        respuestaCorrecta: form.respuestaCorrecta,
+      }
     }
     if (form.tipo === 'verdadero_falso') {
       return {
@@ -228,8 +301,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   function validatePreguntaForm(form) {
     if (!form.enunciado.trim()) { toast('Escribe el enunciado de la pregunta', 'error'); return false }
-    if (form.tipo === 'opcion_multiple' && OPCION_IDS.some((id) => !form.opciones[id].trim())) {
-      toast('Completa las 4 opciones', 'error'); return false
+    if (form.tipo === 'opcion_multiple') {
+      const reales = form.opciones.filter((o) => !o.esOtra)
+      if (reales.length < 2 || reales.some((o) => !o.texto.trim())) {
+        toast('Completa al menos 2 opciones de respuesta', 'error'); return false
+      }
     }
     // Tema is required whenever the reactivo is saved to the bank — the bank is
     // organized by tema, so an untagged entry is unusable. Global rule, not per subject.
@@ -264,7 +340,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           createdAt: serverTimestamp(),
         })
       }
-      setPreguntaForm(EMPTY_PREGUNTA)
+      setPreguntaForm(emptyPregunta())
       setShowPreguntaForm(false)
       toast('Pregunta agregada')
     } catch (err) {
@@ -362,33 +438,22 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // ── Editar pregunta dentro de la evaluación ──
   function openEditPregunta(p) {
     setEditingPreguntaId(p.id)
-    setPreguntaEditForm({
+    const opciones = opcionesFromExisting(p)
+    const base = {
       tipo: p.tipo,
       enunciado: p.enunciado,
-      opciones: p.tipo === 'opcion_multiple'
-        ? { a: p.opciones?.[0]?.texto || '', b: p.opciones?.[1]?.texto || '', c: p.opciones?.[2]?.texto || '', d: p.opciones?.[3]?.texto || '' }
-        : { a: '', b: '', c: '', d: '' },
-      respuestaCorrecta: p.tipo === 'opcion_multiple' ? (p.respuestaCorrecta || 'a') : 'a',
+      opciones,
+      respuestaCorrecta: p.tipo === 'opcion_multiple' ? (p.respuestaCorrecta || opciones[0]?.id || null) : 'a',
       vfRespuesta: p.tipo === 'verdadero_falso' ? (p.respuestaCorrecta || 'v') : 'v',
       ponderacion: p.ponderacion ?? 1,
       retroalimentacion: p.retroalimentacion || '',
       imagenFile: null,
-    })
+    }
+    setPreguntaEditForm(base)
     setGlowId(null)
     // Bring the chosen reactivo to the top so the edit form is fully visible
     setTimeout(() => document.getElementById(`preg-item-${p.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
-    preguntaEditSnap.current = JSON.stringify({
-      tipo: p.tipo,
-      enunciado: p.enunciado,
-      opciones: p.tipo === 'opcion_multiple'
-        ? { a: p.opciones?.[0]?.texto || '', b: p.opciones?.[1]?.texto || '', c: p.opciones?.[2]?.texto || '', d: p.opciones?.[3]?.texto || '' }
-        : { a: '', b: '', c: '', d: '' },
-      respuestaCorrecta: p.tipo === 'opcion_multiple' ? (p.respuestaCorrecta || 'a') : 'a',
-      vfRespuesta: p.tipo === 'verdadero_falso' ? (p.respuestaCorrecta || 'v') : 'v',
-      ponderacion: p.ponderacion ?? 1,
-      retroalimentacion: p.retroalimentacion || '',
-      imagenFile: null,
-    })
+    preguntaEditSnap.current = JSON.stringify(base)
   }
 
   async function handleSavePreguntaEdit(e, id) {
@@ -467,27 +532,19 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   function openEditBanco(item) {
     setEditingBancoId(item.id)
-    setBancoEditForm({
+    const opciones = opcionesFromExisting(item)
+    const base = {
       tipo: item.tipo, enunciado: item.enunciado,
-      opciones: item.tipo === 'opcion_multiple'
-        ? { a: item.opciones?.[0]?.texto || '', b: item.opciones?.[1]?.texto || '', c: item.opciones?.[2]?.texto || '', d: item.opciones?.[3]?.texto || '' }
-        : { a: '', b: '', c: '', d: '' },
-      respuestaCorrecta: item.tipo === 'opcion_multiple' ? (item.respuestaCorrecta || 'a') : 'a',
+      opciones,
+      respuestaCorrecta: item.tipo === 'opcion_multiple' ? (item.respuestaCorrecta || opciones[0]?.id || null) : 'a',
       vfRespuesta: item.tipo === 'verdadero_falso' ? (item.respuestaCorrecta || 'v') : 'v',
       tema: item.tema || '',
-    })
+    }
+    setBancoEditForm(base)
     setGlowId(null)
     // Bring the chosen reactivo to the top so the edit form is fully visible
     setTimeout(() => document.getElementById(`banco-item-${item.id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 60)
-    bancoEditSnap.current = JSON.stringify({
-      tipo: item.tipo, enunciado: item.enunciado,
-      opciones: item.tipo === 'opcion_multiple'
-        ? { a: item.opciones?.[0]?.texto || '', b: item.opciones?.[1]?.texto || '', c: item.opciones?.[2]?.texto || '', d: item.opciones?.[3]?.texto || '' }
-        : { a: '', b: '', c: '', d: '' },
-      respuestaCorrecta: item.tipo === 'opcion_multiple' ? (item.respuestaCorrecta || 'a') : 'a',
-      vfRespuesta: item.tipo === 'verdadero_falso' ? (item.respuestaCorrecta || 'v') : 'v',
-      tema: item.tema || '',
-    })
+    bancoEditSnap.current = JSON.stringify(base)
   }
 
   async function handleSaveBancoEdit(id) {
@@ -943,16 +1000,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         </div>
                         <textarea value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
                           rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
-                        {preguntaEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
-                          <div key={id} className="flex items-center gap-2">
-                            <input type="radio" name={`edit-p-${p.id}`} checked={preguntaEditForm.respuestaCorrecta === id}
-                              onChange={() => setPreguntaEditForm((f) => ({ ...f, respuestaCorrecta: id }))} className="accent-[var(--accent)] flex-shrink-0" />
-                            <input type="text" value={preguntaEditForm.opciones[id]}
-                              onChange={(e) => setPreguntaEditForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
-                              placeholder={`Opción ${id.toUpperCase()}`} required
-                              className="flex-1 px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
-                          </div>
-                        ))}
+                        {preguntaEditForm.tipo === 'opcion_multiple' && (
+                          <OpcionesEditor
+                            opciones={preguntaEditForm.opciones}
+                            respuestaCorrecta={preguntaEditForm.respuestaCorrecta}
+                            onChange={(next) => setPreguntaEditForm((f) => ({ ...f, opciones: next }))}
+                            onChangeCorrecta={(id) => setPreguntaEditForm((f) => ({ ...f, respuestaCorrecta: id }))}
+                            radioName={`edit-p-${p.id}`}
+                          />
+                        )}
+                        {preguntaEditForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
                         {preguntaEditForm.tipo === 'verdadero_falso' && (
                           <div className="flex gap-3">
                             {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (
@@ -1062,17 +1119,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   </label>
                 </div>
 
-                {preguntaForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
-                  <div key={id} className="flex items-center gap-2">
-                    <input type="radio" name="respuestaCorrecta" checked={preguntaForm.respuestaCorrecta === id}
-                      onChange={() => setPreguntaForm((f) => ({ ...f, respuestaCorrecta: id }))} className="accent-[var(--accent)] flex-shrink-0" />
-                    <input type="text" value={preguntaForm.opciones[id]}
-                      onChange={(e) => setPreguntaForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
-                      placeholder={`Opción ${id.toUpperCase()}`} required
-                      className="flex-1 px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
-                  </div>
-                ))}
-                {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Selecciona el radio de la opción correcta.</p>}
+                {preguntaForm.tipo === 'opcion_multiple' && (
+                  <OpcionesEditor
+                    opciones={preguntaForm.opciones}
+                    respuestaCorrecta={preguntaForm.respuestaCorrecta}
+                    onChange={(next) => setPreguntaForm((f) => ({ ...f, opciones: next }))}
+                    onChangeCorrecta={(id) => setPreguntaForm((f) => ({ ...f, respuestaCorrecta: id }))}
+                    radioName="respuestaCorrecta"
+                  />
+                )}
+                {preguntaForm.tipo === 'opcion_multiple' && <p className="text-xs text-slate-400">Deja seleccionada la correcta</p>}
 
                 {preguntaForm.tipo === 'verdadero_falso' && (
                   <div className="flex gap-3">
@@ -1116,7 +1172,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     className="w-full px-3 py-1.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                 )}
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(EMPTY_PREGUNTA) }}
+                  <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(emptyPregunta()) }}
                     className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                   <button type="submit" disabled={saving} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                     {saving ? 'Guardando…' : 'Agregar'}
@@ -1192,19 +1248,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               {bancoEditForm.tipo === 'opcion_multiple' && (
                                 <p className="text-xs text-muted">Marca el círculo de la respuesta correcta:</p>
                               )}
-                              {bancoEditForm.tipo === 'opcion_multiple' && OPCION_IDS.map((id) => (
-                                <div key={id} className="flex items-center gap-2">
-                                  <input type="radio" name={`edit-correcta-${item.id}`} checked={bancoEditForm.respuestaCorrecta === id}
-                                    onChange={() => setBancoEditForm((f) => ({ ...f, respuestaCorrecta: id }))} className="accent-[var(--accent)]" />
-                                  <input type="text" value={bancoEditForm.opciones[id]}
-                                    onChange={(e) => setBancoEditForm((f) => ({ ...f, opciones: { ...f.opciones, [id]: e.target.value } }))}
-                                    placeholder={`Opción ${id.toUpperCase()}`}
-                                    className="flex-1 px-2 py-1 rounded border border-outline-variant text-sm bg-surface" />
-                                  {bancoEditForm.respuestaCorrecta === id && (
-                                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex-shrink-0">Correcta</span>
-                                  )}
-                                </div>
-                              ))}
+                              {bancoEditForm.tipo === 'opcion_multiple' && (
+                                <OpcionesEditor
+                                  opciones={bancoEditForm.opciones}
+                                  respuestaCorrecta={bancoEditForm.respuestaCorrecta}
+                                  onChange={(next) => setBancoEditForm((f) => ({ ...f, opciones: next }))}
+                                  onChangeCorrecta={(id) => setBancoEditForm((f) => ({ ...f, respuestaCorrecta: id }))}
+                                  radioName={`edit-correcta-${item.id}`}
+                                  compact
+                                />
+                              )}
                               {bancoEditForm.tipo === 'verdadero_falso' && (
                                 <div className="flex gap-3">
                                   {[['v', 'Verdadero'], ['f', 'Falso']].map(([id, label]) => (

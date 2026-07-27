@@ -58,6 +58,9 @@ export default function EvaluacionRunner() {
   const [submission, setSubmission] = useState(null)
   const [preguntas, setPreguntas] = useState([])
   const [respuestas, setRespuestas] = useState({})
+  // Texto libre cuando la opción elegida es "Otra" — aparte de `respuestas`
+  // (que ahí sigue guardando el id de la opción, para el radio marcado).
+  const [otraTextos, setOtraTextos] = useState({})
   const [idx, setIdx] = useState(0)
   const [loading, setLoading] = useState(true)
   const [finishing, setFinishing] = useState(false)
@@ -129,13 +132,16 @@ export default function EvaluacionRunner() {
 
       const respSnap = await getDocs(collection(db, 'submissions', subData.id, 'respuestas'))
       const respMap = {}
+      const otraMap = {}
       respSnap.docs.forEach((d) => {
         const data = d.data()
         respMap[d.id] = data.opcionSeleccionada
           ?? data.textoRespuesta
           ?? (data.archivoURL ? { archivoURL: data.archivoURL, nombreArchivo: data.nombreArchivo || 'Documento' } : null)
+        if (data.otraTexto) otraMap[d.id] = data.otraTexto
       })
       setRespuestas(respMap)
+      setOtraTextos(otraMap)
 
       // Resume the countdown from the original start time, not from now.
       if (actData.evaluacion?.tiempoLimiteMin && subData.tiempoInicio?.seconds) {
@@ -153,12 +159,34 @@ export default function EvaluacionRunner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   useEffect(() => { if (currentUser) load() }, [activityId, currentUser])
 
-  async function handleSelectOpcion(preguntaId, opcionId) {
+  async function handleSelectOpcion(preguntaId, opcionId, esOtra) {
     setRespuestas((prev) => ({ ...prev, [preguntaId]: opcionId }))
+    // Cambiar a una opción normal borra el texto de "Otra" que hubiera quedado
+    // de una elección anterior — si no, se quedaba guardado sin usarse.
+    if (!esOtra) setOtraTextos((prev) => ({ ...prev, [preguntaId]: '' }))
     try {
       await setDoc(
         doc(db, 'submissions', submission.id, 'respuestas', preguntaId),
-        { opcionSeleccionada: opcionId, textoRespuesta: null, respondidaEn: serverTimestamp() },
+        {
+          opcionSeleccionada: opcionId, textoRespuesta: null,
+          otraTexto: esOtra ? (otraTextos[preguntaId] || '') : null,
+          respondidaEn: serverTimestamp(),
+        },
+        { merge: true }
+      )
+    } catch (err) {
+      toast('No se pudo guardar tu respuesta: ' + err.message, 'error')
+    }
+  }
+
+  // Texto libre de la opción "Otra" — mismo patrón que handleTextoChange
+  // (respuesta corta): se guarda en cada cambio, sin debounce.
+  async function handleOtraTextoChange(preguntaId, texto) {
+    setOtraTextos((prev) => ({ ...prev, [preguntaId]: texto }))
+    try {
+      await setDoc(
+        doc(db, 'submissions', submission.id, 'respuestas', preguntaId),
+        { otraTexto: texto, respondidaEn: serverTimestamp() },
         { merge: true }
       )
     } catch (err) {
@@ -279,7 +307,13 @@ export default function EvaluacionRunner() {
     const r = respuestas[p.id]
     if (p.tipo === 'respuesta_corta') return typeof r === 'string' && r.trim() !== ''
     if (p.tipo === 'subir_archivo') return !!r?.archivoURL
-    return !!r // opción múltiple / falso-verdadero: guarda el id de la opción
+    if (!r) return false
+    // Con "Otra" elegida, no basta con el radio marcado — también necesita
+    // el texto que el alumno escribió, si no, se podría "responder" sin
+    // decir realmente nada.
+    const opcionElegida = p.opciones?.find((o) => o.id === r)
+    if (opcionElegida?.esOtra) return !!(otraTextos[p.id] || '').trim()
+    return true // opción múltiple / falso-verdadero: guarda el id de la opción
   }
   // Para el botón de finalizar se miran TODAS, no solo la de pantalla: un
   // intento empezado antes de esta regla puede traer huecos de más atrás.
@@ -430,16 +464,24 @@ export default function EvaluacionRunner() {
             ) : (
               <div className="space-y-2">
                 {pregunta.opciones.map((o) => (
-                  <label key={o.id}
-                    className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
-                    style={{
-                      borderColor: respuestas[pregunta.id] === o.id ? 'var(--accent)' : '#e2e8f0',
-                      background: respuestas[pregunta.id] === o.id ? 'var(--accent-light)' : '',
-                    }}>
-                    <input type="radio" name={`pregunta-${pregunta.id}`} checked={respuestas[pregunta.id] === o.id}
-                      onChange={() => handleSelectOpcion(pregunta.id, o.id)} className="accent-[var(--accent)] flex-shrink-0" />
-                    <span className="text-sm text-on-surface break-words">{o.texto}</span>
-                  </label>
+                  <div key={o.id}>
+                    <label
+                      className="flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+                      style={{
+                        borderColor: respuestas[pregunta.id] === o.id ? 'var(--accent)' : '#e2e8f0',
+                        background: respuestas[pregunta.id] === o.id ? 'var(--accent-light)' : '',
+                      }}>
+                      <input type="radio" name={`pregunta-${pregunta.id}`} checked={respuestas[pregunta.id] === o.id}
+                        onChange={() => handleSelectOpcion(pregunta.id, o.id, o.esOtra)} className="accent-[var(--accent)] flex-shrink-0" />
+                      <span className="text-sm text-on-surface break-words">{o.esOtra ? 'Otra:' : o.texto}</span>
+                    </label>
+                    {o.esOtra && respuestas[pregunta.id] === o.id && (
+                      <input type="text" value={otraTextos[pregunta.id] || ''}
+                        onChange={(e) => handleOtraTextoChange(pregunta.id, e.target.value)}
+                        placeholder="Escribe tu respuesta…"
+                        className="mt-1.5 ml-9 w-[calc(100%-2.25rem)] px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
+                    )}
+                  </div>
                 ))}
               </div>
             )}

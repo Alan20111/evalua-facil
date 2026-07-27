@@ -45,7 +45,9 @@ export default function EvaluacionAnswerList({
                       {esSeleccion && (acierto
                         ? <CheckCircle2 size={15} className="text-emerald-600 flex-shrink-0" />
                         : <XCircle size={15} className="text-error flex-shrink-0" />)}
-                      <span>{o.texto}</span>
+                      {/* "Otra": el texto fijo de la opción no dice nada — lo
+                          que importa es lo que el alumno escribió. */}
+                      <span>{o.esOtra && esSeleccion ? (respuesta.otraTexto || '(sin texto)') : o.texto}</span>
                       {esCorrecta && !esSeleccion && <span className="ml-auto text-xs font-medium">Correcta</span>}
                     </div>
                   )
