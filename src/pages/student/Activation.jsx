@@ -9,8 +9,9 @@ import {
   doc,
   serverTimestamp,
 } from 'firebase/firestore'
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth'
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { auth, db } from '../../firebase'
+import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { studentEmail, usernameCandidates } from '../../utils/generate'
@@ -24,9 +25,11 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 export default function StudentActivation() {
   const { accessCode } = useParams()
   const location = useLocation()
+  const { currentUser, userProfile } = useAuth()
   const [subject, setSubject] = useState(null)
   const [student, setStudent] = useState(null)
-  const [step, setStep] = useState('username') // 'username' | 'password' | 'link_existing'
+  // 'username' | 'password' | 'link_existing' | 'checking_session' | 'session_blocked'
+  const [step, setStep] = useState('username')
   const [username, setUsername] = useState(location.state?.prefillUsername ?? '')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -50,6 +53,7 @@ export default function StudentActivation() {
   function goBackStep() {
     if (step === 'link_existing') { setStep(linkFromPassword ? 'password' : 'username'); return }
     if (step === 'password') { setStep('username'); return }
+    if (step === 'session_blocked') { navigate(userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'); return }
     navigate('/alumno')
   }
   useBackHandler(goBackStep)
@@ -59,10 +63,12 @@ export default function StudentActivation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [accessCode])
 
-  // Auto-advance to password step when prefillUsername is set (teacher reset flow)
+  // Auto-advance to password step when prefillUsername is set (teacher reset flow).
+  // Nunca corre con sesión ya iniciada — ver el efecto de sesión activa abajo,
+  // este flujo es exclusivamente para un dispositivo sin sesión.
   useEffect(() => {
     const pre = location.state?.prefillUsername
-    if (!pre || !subject) return
+    if (!pre || !subject || currentUser) return
     async function autoFind() {
       try {
         const q = query(
@@ -82,6 +88,72 @@ export default function StudentActivation() {
     autoFind()
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [subject])
+
+  // Bug de seguridad real, reportado en producción: con una sesión YA
+  // iniciada (alumno o docente), este flujo seguía pidiendo username y
+  // dejaba llegar a "Elige tu contraseña" — createUserWithEmailAndPassword
+  // ahí adentro REEMPLAZA la sesión activa por la que se acaba de crear. Con
+  // solo escribir el username de otro alumno (nunca activado) y una
+  // contraseña cualquiera, quien tenía la sesión abierta terminaba adentro
+  // de la cuenta de ese otro alumno, sin haber tocado ninguna contraseña
+  // suya. Con sesión activa, este flujo YA NO pasa por username/contraseña
+  // en absoluto: se resuelve solo con la cuenta ya autenticada (si es alumno
+  // y la asignatura es de su escuela, se vincula directo, sin pedir nada) o
+  // se bloquea (ver session_blocked más abajo) — nunca se llama a
+  // createUserWithEmailAndPassword ni signInWithEmailAndPassword para una
+  // cuenta que no sea la ya autenticada.
+  useEffect(() => {
+    // Sin sesión, este efecto no hace nada — se queda en 'username', el
+    // flujo normal de siempre. El botón "Cerrar sesión" de session_blocked
+    // (handleSignOutToSwitchAccount) ya regresa el step a 'username' él
+    // mismo al salir, así que no hace falta un caso aquí para ese regreso.
+    if (!subject || !currentUser) return
+    setStep('checking_session')
+    autoLinkOrBlock()
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- corre solo al cambiar subject/currentUser
+  }, [subject, currentUser])
+
+  async function autoLinkOrBlock() {
+    if (userProfile?.role !== 'alumno' || !userProfile?.username) {
+      setStep('session_blocked')
+      return
+    }
+    try {
+      const snaps = await Promise.all(usernameCandidates(userProfile.username).map((u) =>
+        getDocs(query(
+          collection(db, 'students'),
+          where('asignaturaId', '==', subject.id),
+          where('username', '==', u)
+        ))
+      ))
+      const found = snaps.flatMap((s) => s.docs)
+      if (found.length === 0) { setStep('session_blocked'); return }
+      const data = { id: found[0].id, ...found[0].data() }
+      // Mismo username mismo NÚMERO no basta — students de escuelas distintas
+      // podrían coincidir en username. La cuenta ya autenticada es de UNA
+      // escuela (userProfile.escuelaId); si no coincide, no es su asignatura.
+      if (data.escuelaId !== userProfile.escuelaId) { setStep('session_blocked'); return }
+      if (data.activado) {
+        toast('Esta asignatura ya está en tu cuenta.')
+        navigate('/alumno/dashboard')
+        return
+      }
+      await finishActivation(currentUser, data)
+      toast('¡Asignatura agregada a tu cuenta!')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+      setStep('session_blocked')
+    }
+  }
+
+  async function handleSignOutToSwitchAccount() {
+    try {
+      await signOut(auth)
+      setStep('username')
+    } catch (err) {
+      toast('Error al cerrar sesión: ' + err.message, 'error')
+    }
+  }
 
   async function loadSubject() {
     try {
@@ -171,13 +243,18 @@ export default function StudentActivation() {
   // role 'docente', and AuthContext already resolves the student profile from the
   // `students` collection via the @evalua.local email. Writing users/{uid} here used to
   // throw AFTER the auth account was created, showing a spurious error on first activation.
-  async function finishActivation(authUser) {
+  // `studentData` es opcional — por defecto usa el `student` del estado (los
+  // caminos de siempre, que ya lo dejaron puesto con setStudent antes de
+  // llegar aquí). El camino de sesión activa (autoLinkOrBlock) lo pasa
+  // explícito para no depender de un setStudent que todavía no se reflejó
+  // (closure viejo en el mismo tick).
+  async function finishActivation(authUser, studentData = student) {
     // Propagate the uid + activated flag to ALL of this student's enrollments (same username
     // + school) so every subject they belong to shows up, not just the one activated here.
     const snap = await getDocs(query(
       collection(db, 'students'),
-      where('username', '==', student.username),
-      where('escuelaId', '==', student.escuelaId),
+      where('username', '==', studentData.username),
+      where('escuelaId', '==', studentData.escuelaId),
     ))
     const batch = writeBatch(db)
     // `activadoAt` deja constancia de CUÁNDO se activó. Antes no se guardaba en
@@ -187,8 +264,8 @@ export default function StudentActivation() {
     const marcas = { activado: true, uid: authUser.uid, resetPassword: null, activadoAt: serverTimestamp() }
     snap.forEach((d) => batch.update(doc(db, 'students', d.id), marcas))
     // Safety: ensure the matched doc is updated even if the query is momentarily stale.
-    if (!snap.docs.some((d) => d.id === student.id)) {
-      batch.update(doc(db, 'students', student.id), marcas)
+    if (!snap.docs.some((d) => d.id === studentData.id)) {
+      batch.update(doc(db, 'students', studentData.id), marcas)
     }
     await batch.commit()
     navigate('/alumno/dashboard')
@@ -303,6 +380,54 @@ export default function StudentActivation() {
       </div>
     </div>
   )
+
+  if (step === 'checking_session') return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Spinner size="lg" />
+    </div>
+  )
+
+  if (step === 'session_blocked') {
+    const who = userProfile?.role === 'docente'
+      ? (userProfile.nombreMostrar || userProfile.nombre || 'docente')
+      : ([userProfile?.nombre, userProfile?.apellidoPaterno].filter(Boolean).join(' ') || userProfile?.username || 'otra cuenta')
+    const panelPath = userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
+        <div className="w-full max-w-sm text-center">
+          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <div className="w-16 h-16 rounded-card bg-amber-100 flex items-center justify-center mx-auto mb-3">
+            <GraduationCap size={32} className="text-amber-600" />
+          </div>
+          <h1 className="text-xl font-bold text-on-surface mb-2">Ya iniciaste sesión</h1>
+          <p className="text-muted text-sm mb-1">
+            Estás conectado como <strong>{who}</strong> y esta asignatura no corresponde a esa cuenta
+            {subject && <> (<strong>{subjectDisplayName(subject)}</strong>)</>} — puede ser de otra escuela,
+            o tu maestro aún no te agregó ahí con este mismo usuario.
+          </p>
+          <p className="text-muted text-sm mb-6">
+            Si quieres activar o unir otra cuenta, cierra sesión primero.
+          </p>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={handleSignOutToSwitchAccount}
+              className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+            >
+              Cerrar sesión
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(panelPath)}
+              className="w-full px-5 py-2.5 border border-outline-variant text-muted font-semibold rounded transition-colors hover:bg-surface-container"
+            >
+              Volver a mi panel
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface py-8">
