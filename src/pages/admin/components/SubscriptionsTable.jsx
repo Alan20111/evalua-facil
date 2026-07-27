@@ -222,9 +222,15 @@ function pasaFiltros(r, filtros, search, excepto) {
 // Caja de filtro de una columna, con su "x" para quitarlo al instante.
 function CeldaFiltro({ col, valor, onChange, sugerencias }) {
   const activo = valor !== ''
-  const base = `w-full text-xs normal-case rounded border px-1.5 py-1 pr-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+  // font-normal explícito: Tailwind le pone `font-weight: inherit` a los
+  // controles de formulario, y aquí el contenedor es un <th>, que el navegador
+  // pinta en negritas. Sin esto el "Todos" de los desplegables y el
+  // "dd/mm/aaaa" de las fechas salían en 700 — más gruesos incluso que el
+  // título de su columna. Que un filtro esté puesto ya se ve por el borde y el
+  // color guinda; no hacía falta engrosarlo además.
+  const base = `w-full text-xs normal-case font-normal rounded border px-1.5 py-1 pr-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
     activo
-      ? 'border-accent bg-surface-card text-accent font-semibold'
+      ? 'border-accent bg-surface-card text-accent'
       : 'border-outline-variant bg-surface-card text-muted'
   }`
   const listId = `sug-sub-${col.key}`
@@ -641,7 +647,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   >
                     <span
                       title={ayuda}
-                      className={`block font-light ${wrap ? 'whitespace-normal leading-tight' : 'truncate'} ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
+                      className={`block font-semibold ${wrap ? 'whitespace-normal leading-tight' : 'truncate'} ${align === 'right' ? 'text-right' : ''} ${ayuda ? 'cursor-help underline decoration-dotted underline-offset-2' : ''}`}
                     >
                       {label}
                     </span>
