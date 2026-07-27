@@ -300,6 +300,21 @@ export default function Profile() {
     }
   }
 
+  // Ambos botones de guardar se apagan cuando no hay nada distinto a lo ya
+  // guardado — comparar contra `userProfile` en vivo (no una copia tomada al
+  // montar) hace que, justo después de guardar, el botón vuelva a apagarse
+  // solo: userProfile ya trae el valor nuevo, así que "sin cambios" vuelve a
+  // ser cierto hasta que el docente edite algo de nuevo.
+  const prefijoActual = prefijoOption === '__otro__' ? prefijoCustom.trim() : prefijoOption
+  const nombreChanged =
+    nombre.trim() !== (userProfile?.nombreMostrar || '') ||
+    prefijoActual !== (userProfile?.prefijo || '')
+  const datosPersonalesChanged =
+    realNombre.trim() !== (userProfile?.nombre || '') ||
+    apellidoPaterno.trim() !== (userProfile?.apellidoPaterno || '') ||
+    apellidoMaterno.trim() !== (userProfile?.apellidoMaterno || '') ||
+    codigoPostal !== (userProfile?.codigoPostal || '')
+
   async function handleSaveNombre(e) {
     e.preventDefault()
     setSavingNombre(true)
@@ -683,7 +698,7 @@ export default function Profile() {
               labelClassName="block text-xs font-medium text-muted mb-1"
               inputClassName={inputCls}
             />
-            <button type="submit" disabled={savingDatosPersonales}
+            <button type="submit" disabled={savingDatosPersonales || !datosPersonalesChanged}
               className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {savingDatosPersonales ? <Spinner size="sm" /> : null}
               {savingDatosPersonales ? 'Guardando…' : 'Guardar datos personales'}
@@ -722,7 +737,7 @@ export default function Profile() {
                   className={inputCls} placeholder="Ej. Profa. García Pérez" />
               </div>
             </div>
-            <button type="submit" disabled={savingNombre}
+            <button type="submit" disabled={savingNombre || !nombreChanged}
               className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
               {savingNombre ? <Spinner size="sm" /> : null}
               {savingNombre ? 'Guardando…' : 'Guardar nombre'}
