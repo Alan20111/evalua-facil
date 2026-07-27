@@ -6449,6 +6449,9 @@ export default function SubjectPage() {
                 {editingSubject ? <Spinner size="sm" /> : <Pencil size={18} />}
                 {editingSubject ? 'Guardando…' : 'Guardar cambios'}
               </button>
+              {/* Aire bajo el botón: como hoja inferior en móvil quedaba pegado
+                  al borde de la pantalla (y bajo el gesto de inicio). */}
+              <div className="h-6 safe-bottom" />
             </form>
           </div>
         </div>
@@ -6518,6 +6521,7 @@ export default function SubjectPage() {
                 {copyingSubject ? <Spinner size="sm" /> : <Copy size={18} />}
                 {copyingSubject ? 'Duplicando…' : 'Duplicar asignatura'}
               </button>
+              <div className="h-6 safe-bottom" />
             </form>
           </div>
         </div>
