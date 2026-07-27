@@ -5548,21 +5548,32 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">Agregar estudiante</h3>
               <button type="button" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded"><X size={20} /></button>
             </div>
-            <form onSubmit={addStudent} className="space-y-2">
-              {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
-                <input
-                  key={field}
-                  type="text"
-                  value={newStudent[field]}
-                  onChange={(e) => setNewStudent((f) => ({ ...f, [field]: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  placeholder={
-                    field === 'apellidoPaterno' ? 'Apellido paterno'
-                      : field === 'apellidoMaterno' ? 'Apellido materno'
-                      : 'Nombre(s)'
-                  }
-                />
+            <form onSubmit={addStudent} className="space-y-3">
+              {/* Antes solo tenían placeholder ("Prueba", "No tengo", "Pepito"
+                  en los ejemplos que se ven en pantalla) — en cuanto se
+                  escribía algo, no quedaba ninguna pista de a cuál apellido o
+                  nombre correspondía cada campo. Con label fijo arriba, el
+                  campo se sigue identificando aunque ya tenga texto. */}
+              {[
+                { field: 'apellidoPaterno', label: 'Apellido paterno', placeholder: 'Ej: García' },
+                { field: 'apellidoMaterno', label: 'Apellido materno', placeholder: 'Ej: López' },
+                { field: 'nombre', label: 'Nombre(s)', placeholder: 'Ej: Juan Carlos' },
+              ].map(({ field, label, placeholder }) => (
+                <div key={field}>
+                  <label htmlFor={`add-student-${field}`} className="block text-sm font-medium text-muted mb-1">{label}</label>
+                  <input
+                    id={`add-student-${field}`}
+                    type="text"
+                    value={newStudent[field]}
+                    onChange={(e) => setNewStudent((f) => ({ ...f, [field]: e.target.value }))}
+                    required
+                    // autoFocus intencional: primer campo del modal, se abre
+                    // una sola vez por apertura — no hay nada más que esperar.
+                    autoFocus={field === 'apellidoPaterno'}
+                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    placeholder={placeholder}
+                  />
+                </div>
               ))}
               {IS_NATIVE_APP && (
                 <p className="text-xs text-muted text-center">Para subir a todo el grupo usa la plantilla de excel en la web</p>
