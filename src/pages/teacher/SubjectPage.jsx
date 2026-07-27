@@ -4089,13 +4089,16 @@ export default function SubjectPage() {
                  ofrece una descarga por parcial (progreso, sin cerrar). */}
             <div>
               <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Calificaciones</p>
-              {/* min-w-0 en cada split-button + overflow-hidden en la fila:
-                  mismo par de correcciones que la fila de buscar/agregar
-                  estudiante — dos flex-1 competiendo por espacio sin
-                  min-w-0 se negaban a encoger, y el navegador seguía
-                  reportando scrollWidth de más aunque el contenido ya
-                  cupiera, forzando scroll horizontal en toda la página. */}
-              <div className="flex gap-2 overflow-hidden">
+              {/* min-w-0 en cada split-button, SIN overflow-hidden en la fila
+                  (bug real reportado en producción: "los tres puntitos no
+                  hacen nada" — el menú SÍ se abría, pero este overflow-hidden
+                  lo recortaba por completo porque se despliega hacia abajo,
+                  fuera de la caja de la fila; solo se notaba mirando la
+                  pantalla, no leyendo el HTML, que seguía mostrando el menú
+                  "presente" aunque invisible). min-w-0 por sí solo ya evita
+                  que los dos flex-1 fuercen scroll horizontal, sin necesidad
+                  de recortar overflow. */}
+              <div className="flex gap-2">
                 {/* Excel y PDF: relleno de tinte de acento + borde, no borde
                     solo (se perdían sobre la tarjeta blanca) ni acento sólido
                     (probado y descartado: quedaba demasiado gritón para un
