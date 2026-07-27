@@ -28,7 +28,7 @@ export default function StudentActivation() {
   const { currentUser, userProfile } = useAuth()
   const [subject, setSubject] = useState(null)
   const [student, setStudent] = useState(null)
-  // 'username' | 'password' | 'link_existing' | 'checking_session' | 'session_blocked'
+  // 'username' | 'password' | 'link_existing' | 'checking_session' | 'not_enrolled' | 'session_blocked'
   const [step, setStep] = useState('username')
   const [username, setUsername] = useState(location.state?.prefillUsername ?? '')
   const [password, setPassword] = useState('')
@@ -53,7 +53,7 @@ export default function StudentActivation() {
   function goBackStep() {
     if (step === 'link_existing') { setStep(linkFromPassword ? 'password' : 'username'); return }
     if (step === 'password') { setStep('username'); return }
-    if (step === 'session_blocked') { navigate(userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'); return }
+    if (step === 'session_blocked' || step === 'not_enrolled') { navigate(userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'); return }
     navigate('/alumno')
   }
   useBackHandler(goBackStep)
@@ -127,7 +127,13 @@ export default function StudentActivation() {
         ))
       ))
       const found = snaps.flatMap((s) => s.docs)
-      if (found.length === 0) { setStep('session_blocked'); return }
+      // No encontrado ≠ cuenta equivocada — el caso normal es que el
+      // maestro simplemente no ha agregado a este alumno ahí todavía. Antes
+      // se mostraba el mismo aviso de "cierra sesión" que el de cuenta
+      // equivocada, un mensaje largo e innecesario para algo tan simple:
+      // aquí no hace falta cerrar nada, solo esperar a que el maestro lo
+      // agregue.
+      if (found.length === 0) { setStep('not_enrolled'); return }
       const data = { id: found[0].id, ...found[0].data() }
       // Mismo username mismo NÚMERO no basta — students de escuelas distintas
       // podrían coincidir en username. La cuenta ya autenticada es de UNA
@@ -387,6 +393,37 @@ export default function StudentActivation() {
     </div>
   )
 
+  // Caso simple y frecuente: el maestro todavía no agregó a este alumno a
+  // esta asignatura. No es un problema de cuenta — no hace falta cerrar
+  // sesión ni nada parecido, solo esperar a que lo agregue. Antes caía en el
+  // mismo aviso largo de "cuenta equivocada" (session_blocked), pedido
+  // explícito: separarlo en un mensaje corto y directo.
+  if (step === 'not_enrolled') {
+    const panelPath = userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
+        <div className="w-full max-w-sm text-center">
+          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <div className="w-16 h-16 rounded-card bg-accent-light flex items-center justify-center mx-auto mb-3">
+            <GraduationCap size={32} className="text-accent" />
+          </div>
+          <h1 className="text-xl font-bold text-on-surface mb-2">Aún no estás inscrito ahí</h1>
+          <p className="text-muted text-sm mb-6">
+            Tu maestro todavía no te agregó a {subject ? <strong>{subjectDisplayName(subject)}</strong> : 'esta asignatura'} con
+            tu usuario (<strong>{userProfile?.username}</strong>). Pídele que te agregue y vuelve a intentarlo.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate(panelPath)}
+            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+          >
+            Volver a mi panel
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (step === 'session_blocked') {
     const who = userProfile?.role === 'docente'
       ? (userProfile.nombreMostrar || userProfile.nombre || 'docente')
@@ -402,8 +439,7 @@ export default function StudentActivation() {
           <h1 className="text-xl font-bold text-on-surface mb-2">Ya iniciaste sesión</h1>
           <p className="text-muted text-sm mb-1">
             Estás conectado como <strong>{who}</strong> y esta asignatura no corresponde a esa cuenta
-            {subject && <> (<strong>{subjectDisplayName(subject)}</strong>)</>} — puede ser de otra escuela,
-            o tu maestro aún no te agregó ahí con este mismo usuario.
+            {subject && <> (<strong>{subjectDisplayName(subject)}</strong>)</>} — parece ser de otra escuela.
           </p>
           <p className="text-muted text-sm mb-6">
             Si quieres activar o unir otra cuenta, cierra sesión primero.
