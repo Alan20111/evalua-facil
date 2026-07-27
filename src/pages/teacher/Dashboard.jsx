@@ -489,7 +489,7 @@ export default function TeacherDashboard() {
       {showSubjectModal && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-full sm:w-[calc(100%-2rem)] max-w-lg rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[92vh] overflow-y-auto overflow-x-hidden">
+          <div className="relative bg-surface-card w-full max-w-md rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
               <button type="button" onClick={() => setShowSubjectModal(false)} aria-label="Cerrar" className="p-2 text-slate-400 hover:text-muted rounded">
@@ -530,12 +530,12 @@ export default function TeacherDashboard() {
                   Fechas <span className="text-accent font-normal text-xs">(recomendado)</span>
                 </p>
                 <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, la asistencia se genera sola y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y ponerlas después.</p>
-                <div className="flex gap-2">
-                  <div className="flex-1">
+                <div className="space-y-2">
+                  <div>
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
                     <EFDateTimePicker mode="date" value={newSubjectFechaInicio} onChange={setNewSubjectFechaInicio} />
                   </div>
-                  <div className="flex-1">
+                  <div>
                     <span className="block text-sm text-slate-500 mb-1">Fin</span>
                     <EFDateTimePicker mode="date" value={newSubjectFechaFin} onChange={setNewSubjectFechaFin}
                       minDateTime={newSubjectFechaInicio ? addOneDay(newSubjectFechaInicio) : undefined}
@@ -544,27 +544,18 @@ export default function TeacherDashboard() {
                 </div>
               </div>
 
-              {/* Parciales */}
+              {/* Parciales — mismo control que "Editar asignatura", para que
+                  crear y editar se vean y se usen igual. */}
               <div>
-                <p className="block text-sm font-medium text-muted mb-1">
-                  Calificaciones parciales <span className="text-slate-400 font-normal text-xs">(por defecto 3)</span>
-                </p>
-                <div className="grid grid-cols-6 gap-1.5">
-                  {[1, 2, 3, 4, 5, 6].map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setNewSubjectParciales(n)}
-                      className={`py-2 rounded text-sm font-bold transition-colors ${
-                        newSubjectParciales === n
-                          ? 'bg-accent text-white'
-                          : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
+                <label htmlFor="dash-parciales" className="block text-sm font-medium text-muted mb-1">Número de parciales</label>
+                <select
+                  id="dash-parciales"
+                  value={newSubjectParciales}
+                  onChange={(e) => setNewSubjectParciales(Number(e.target.value))}
+                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                >
+                  {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} {n === 1 ? 'parcial' : 'parciales'}</option>)}
+                </select>
               </div>
 
               {/* Fechas por parcial (solo si ya hay fechas del curso) */}
@@ -602,6 +593,8 @@ export default function TeacherDashboard() {
                 {creatingSubject ? <Spinner size="sm" /> : <Plus size={18} />}
                 {creatingSubject ? 'Creando…' : 'Crear asignatura'}
               </button>
+              {/* Mismo aire bajo el botón que en "Editar asignatura". */}
+              <div className="h-6 safe-bottom" />
             </form>
           </div>
         </div>
