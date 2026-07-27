@@ -268,6 +268,28 @@ export default function EvaluacionRunner() {
   const navegacionLibre = activity.evaluacion?.navegacion !== 'secuencial'
   const pregunta = preguntas[idx]
   const isLast = idx === preguntas.length - 1
+
+  // Toda pregunta se responde. NO es un ajuste que el docente prenda o apague
+  // en la Configuración de la evaluación: es cómo funciona una evaluación aquí,
+  // y por eso vive en el runner y no en el documento de la actividad.
+  // Mientras la pregunta en pantalla esté en blanco no se avanza, no se
+  // retrocede y no se entrega.
+  function estaRespondida(p) {
+    if (!p) return false
+    const r = respuestas[p.id]
+    if (p.tipo === 'respuesta_corta') return typeof r === 'string' && r.trim() !== ''
+    if (p.tipo === 'subir_archivo') return !!r?.archivoURL
+    return !!r // opción múltiple / falso-verdadero: guarda el id de la opción
+  }
+  const actualRespondida = estaRespondida(pregunta)
+  // Para el botón de finalizar se miran TODAS, no solo la de pantalla: un
+  // intento empezado antes de esta regla puede traer huecos de más atrás.
+  const sinResponder = preguntas.filter((p) => !estaRespondida(p)).length
+  // El cronómetro NO pasa por aquí: al llegar a cero llama a handleFinalizar()
+  // directo (ver el efecto de la cuenta regresiva). Si se acaba el tiempo con
+  // preguntas en blanco, la evaluación se entrega igual — esta regla es para
+  // que nadie las salte a propósito, no para dejar a nadie encerrado.
+  const bloqueoEntrega = sinResponder > 0
   const mm = secondsLeft != null ? Math.floor(secondsLeft / 60) : null
   const ss = secondsLeft != null ? secondsLeft % 60 : null
 
@@ -404,23 +426,37 @@ export default function EvaluacionRunner() {
             )}
           </div>
 
+          {/* El aviso va ARRIBA de los botones y solo cuando hace falta: dice por
+              qué están apagados, en el momento en que el estudiante los mira. */}
+          {!actualRespondida && (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+              Responde esta pregunta para {isLast ? 'poder entregar' : 'continuar'}.
+            </p>
+          )}
+          {actualRespondida && isLast && bloqueoEntrega && (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+              Te {sinResponder === 1 ? 'falta 1 pregunta' : `faltan ${sinResponder} preguntas`} por
+              responder. Regresa con <strong>Anterior</strong> para completarla{sinResponder === 1 ? '' : 's'}.
+            </p>
+          )}
+
           <div className="flex items-center justify-between gap-2 safe-bottom">
             {navegacionLibre ? (
-              <button type="button" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}
+              <button type="button" disabled={idx === 0 || !actualRespondida} onClick={() => setIdx((i) => i - 1)}
                 className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-60 rounded">
                 <ChevronLeft size={18} /> Anterior
               </button>
             ) : <span />}
 
             {isLast ? (
-              <button type="button" onClick={handleFinalizar} disabled={finishing}
+              <button type="button" onClick={handleFinalizar} disabled={finishing || bloqueoEntrega}
                 className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60">
                 {finishing ? <Spinner size="sm" /> : <CheckCircle2 size={18} />}
                 {finishing ? 'Finalizando…' : 'Finalizar evaluación'}
               </button>
             ) : (
-              <button type="button" onClick={() => setIdx((i) => i + 1)}
-                className="flex items-center gap-1 px-5 py-2.5 bg-accent text-white font-semibold rounded">
+              <button type="button" onClick={() => setIdx((i) => i + 1)} disabled={!actualRespondida}
+                className="flex items-center gap-1 px-5 py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60">
                 Siguiente <ChevronRight size={18} />
               </button>
             )}
