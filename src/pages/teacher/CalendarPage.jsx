@@ -465,7 +465,7 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
     <div>
       <div className="grid grid-cols-7 border-b border-outline-variant bg-surface">
         {DIAS_CORTO.map(d => (
-          <div key={d} className="py-2 text-center text-xs font-semibold text-muted uppercase tracking-wide">{d}</div>
+          <div key={d} className="py-2 text-center text-xs font-semibold text-muted uppercase tracking-wide">{d.charAt(0)}</div>
         ))}
       </div>
       <div className="grid grid-cols-7">
@@ -654,7 +654,9 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                 className="py-2 text-center text-xs border-l border-outline-variant"
                 style={(asueto || vacacion) ? { background: '#fffbeb' } : dStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
               >
-                <span className="block uppercase text-muted">{DIAS_CORTO[(d.getDay() + 6) % 7]}</span>
+                <span className="block uppercase text-muted">
+                  {numDays === 3 ? DIAS_CORTO[(d.getDay() + 6) % 7] : DIAS_CORTO[(d.getDay() + 6) % 7].charAt(0)}
+                </span>
                 <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold mt-0.5 ${
                   dStr === todayStr ? 'bg-accent text-white'
                     : dStr === selStr ? 'ring-2 ring-accent text-accent'
