@@ -178,7 +178,11 @@ export default function StudentDashboard() {
     if (targetIndex < 0 || targetIndex >= active.length) return
     ;[active[index], active[targetIndex]] = [active[targetIndex], active[index]]
     const reordered = active.map((s, i) => ({ ...s, alumnoOrden: i + 1 }))
-    setSubjects((prev) => prev.map((s) => reordered.find((r) => r.id === s.id) || s))
+    // El orden visual sale de recorrer `subjects` filtrando — no basta con
+    // actualizar el campo `alumnoOrden` de cada elemento, hay que reacomodar
+    // el array mismo, o la lista se quedaba viéndose igual aunque el campo
+    // sí cambiara.
+    setSubjects((prev) => [...reordered, ...prev.filter((s) => s.archived)])
     try {
       const batch = writeBatch(db)
       reordered.forEach((s) => batch.update(doc(db, 'students', s.enrollmentId), { alumnoOrden: s.alumnoOrden }))
@@ -230,7 +234,11 @@ export default function StudentDashboard() {
     const [item] = active.splice(from, 1)
     active.splice(to, 0, item)
     const reordered = active.map((s, i) => ({ ...s, alumnoOrden: i + 1 }))
-    setSubjects((prev) => prev.map((s) => reordered.find((r) => r.id === s.id) || s))
+    // El orden visual sale de recorrer `subjects` filtrando — no basta con
+    // actualizar el campo `alumnoOrden` de cada elemento, hay que reacomodar
+    // el array mismo, o la lista se quedaba viéndose igual aunque el campo
+    // sí cambiara.
+    setSubjects((prev) => [...reordered, ...prev.filter((s) => s.archived)])
     try {
       const batch = writeBatch(db)
       reordered.forEach((s) => batch.update(doc(db, 'students', s.enrollmentId), { alumnoOrden: s.alumnoOrden }))
