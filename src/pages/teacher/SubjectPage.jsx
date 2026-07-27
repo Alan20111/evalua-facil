@@ -59,7 +59,7 @@ import {
 } from 'lucide-react'
 import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
-import { findStudentIdentity } from '../../utils/studentIdentity'
+import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
 import { useSubscription } from '../../hooks/useSubscription'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -1634,6 +1634,16 @@ export default function SubjectPage() {
         if (identity) return { row, status: 'link', decision: 'link', identity }
         return { row, status: 'new', decision: 'new' }
       })
+      // Dos filas del MISMO archivo con el mismo nombre (captura repetida,
+      // copiar-pegar de más) antes generaban dos cuentas nuevas para la misma
+      // persona. Solo la primera aparición se procesa normal; las siguientes
+      // se marcan aparte y se omiten al confirmar.
+      const seenKeys = new Set()
+      rows.forEach((item) => {
+        const key = studentNameKey(item.row)
+        if (seenKeys.has(key)) { item.status = 'duplicate' }
+        else seenKeys.add(key)
+      })
       setExcelPreview({ rows, invalid, schoolDocs, taken })
     } catch (err) {
       toast('Error leyendo el Excel: ' + err.message, 'error')
@@ -1670,8 +1680,10 @@ export default function SubjectPage() {
       let created = 0
       let linked = 0
       let skipped = 0
+      let duplicated = 0
       for (const item of rows) {
         if (item.status === 'skip') { skipped++; continue }
+        if (item.status === 'duplicate') { duplicated++; continue }
         const row = item.row
         let username, uid = null, activado = false
         if (item.status === 'link' && item.decision === 'link') {
@@ -1701,6 +1713,7 @@ export default function SubjectPage() {
       const parts = [`${created} estudiantes importados`]
       if (linked) parts.push(`${linked} vinculados a cuentas existentes`)
       if (skipped) parts.push(`${skipped} ya estaban en la asignatura`)
+      if (duplicated) parts.push(`${duplicated} repetidos en el archivo — se omitieron`)
       toast(parts.join(' · '))
       setExcelPreview(null)
       await refreshGroupStudents()
@@ -6078,7 +6091,7 @@ export default function SubjectPage() {
               {excelPreview.rows.length > 0 ? (
                 <div>
                   <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">
-                    {excelPreview.rows.filter((r) => r.status !== 'skip').length} estudiante{excelPreview.rows.filter((r) => r.status !== 'skip').length !== 1 ? 's' : ''} se van a agregar
+                    {excelPreview.rows.filter((r) => r.status !== 'skip' && r.status !== 'duplicate').length} estudiante{excelPreview.rows.filter((r) => r.status !== 'skip' && r.status !== 'duplicate').length !== 1 ? 's' : ''} se van a agregar
                   </p>
                   {/* Aviso UNA sola vez, no por fila: antes una coincidencia de
                       nombre se vinculaba a la cuenta existente sin preguntar —
@@ -6092,6 +6105,16 @@ export default function SubjectPage() {
                       Los marcados <strong>Cuenta existente</strong> coinciden con un nombre que ya está en la
                       escuela y se van a unir a esa cuenta. Si alguno es <strong>otra persona</strong> que solo
                       comparte el nombre, tócalo para darle una cuenta nueva.
+                    </p>
+                  )}
+                  {/* 'duplicate': mismo nombre repetido dos veces en ESTE
+                      archivo (fila copiada de más) — solo la primera se
+                      procesa, las demás se omiten para no crear dos cuentas
+                      de la misma persona. */}
+                  {excelPreview.rows.some((r) => r.status === 'duplicate') && (
+                    <p className="text-xs text-muted bg-surface-container rounded px-2.5 py-1.5 mb-1.5">
+                      Los marcados <strong>Repetido</strong> tienen el mismo nombre que otra fila de este mismo
+                      archivo — solo se agrega la primera, el resto se omite.
                     </p>
                   )}
                   <ul className="space-y-1">
@@ -6116,6 +6139,7 @@ export default function SubjectPage() {
                           </button>
                         )}
                         {item.status === 'skip' && <span className="text-[10px] font-semibold text-muted bg-surface-container px-1.5 py-0.5 rounded flex-shrink-0">Ya inscrito — se omite</span>}
+                        {item.status === 'duplicate' && <span className="text-[10px] font-semibold text-muted bg-surface-container px-1.5 py-0.5 rounded flex-shrink-0">Repetido — se omite</span>}
                       </li>
                     ))}
                   </ul>
@@ -6130,7 +6154,7 @@ export default function SubjectPage() {
                 Cancelar
               </button>
               <button type="button" onClick={confirmExcelImport}
-                disabled={importingExcel || excelPreview.rows.every((r) => r.status === 'skip')}
+                disabled={importingExcel || excelPreview.rows.every((r) => r.status === 'skip' || r.status === 'duplicate')}
                 className="flex-1 py-2 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {importingExcel ? <Spinner size="sm" /> : <CheckIcon size={16} />}
                 {importingExcel ? 'Importando…' : 'Confirmar e importar'}

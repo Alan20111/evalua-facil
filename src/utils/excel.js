@@ -89,7 +89,12 @@ export function parseStudentExcel(file) {
             const full = c1 || (Number.isNaN(Number(c0)) ? c0 : '')
             student = splitFullName(full)
           }
-          if (student && (student.apellidoPaterno || student.nombre)) {
+          // Se exigen AMBOS apellido paterno y nombre — una fila con una sola
+          // palabra (ej. solo "García") pasaba antes como válida porque el
+          // apellido solo ya era suficiente, y terminaba generando una cuenta
+          // con username roto (generateUsername cae a "x" cuando el nombre
+          // viene vacío: "garcia.x").
+          if (student && student.apellidoPaterno && student.nombre) {
             valid.push(student)
           } else if (c0 || c1 || c2) {
             invalid.push({ fila: i + 2, texto: [c0, c1, c2].filter(Boolean).join(' — ') })
