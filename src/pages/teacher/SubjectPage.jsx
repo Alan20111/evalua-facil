@@ -3041,19 +3041,6 @@ export default function SubjectPage() {
     finally { setExportingAttendance(false) }
   }
 
-  // Per-parcial EXPORTAR from the parcial's ⋮ menu — the FORMAL export, only
-  // available once the parcial is CLOSED (all grades finalized).
-  async function handleExportParcial(p) {
-    if (!subject) return
-    if (!subject?.parcialesCerrados?.[p]) {
-      const msg = `Cierra el Parcial ${p} para poder exportarlo a Excel`
-      const btn = document.getElementById(`parcial-menu-${p}`)
-      if (btn) showNear(btn, msg); else toast(msg, 'warning')
-      return
-    }
-    await doExportParcialExcel(p)
-  }
-
   async function handleExportQRPDF() {
     if (!subject) return
     setExportingPdf(true)
@@ -5973,7 +5960,7 @@ export default function SubjectPage() {
             {subject?.parcialesCerrados?.[parcialMenu.p] ? (
               <button type="button"
                 onClick={() => { const p = parcialMenu.p; setParcialMenu(null); setRevertParcialConfirm(p) }}
-                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-t-card">
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-card">
                 <RotateCcw size={16} className="text-amber-600 flex-shrink-0" /> Revertir cierre del Parcial {parcialMenu.p}
               </button>
             ) : (() => {
@@ -5985,22 +5972,13 @@ export default function SubjectPage() {
                 <button type="button"
                   onClick={() => { setParcialMenu(null); requestCloseParcial(p) }}
                   data-tooltip={!sumOk ? `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para poder cerrar` : undefined}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-t-card">
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-card">
                   <Lock size={16} className="text-slate-400 flex-shrink-0" />
                   <span className="flex-1">Cerrar Parcial {p}</span>
                   {!sumOk && <span className="text-[10px] font-semibold text-amber-600">{total}/10</span>}
                 </button>
               )
             })()}
-            {/* 2 — Exportar a Excel (solo si el parcial está cerrado) */}
-            <button type="button"
-              disabled={!subject?.parcialesCerrados?.[parcialMenu.p]}
-              onClick={() => { const p = parcialMenu.p; setParcialMenu(null); handleExportParcial(p) }}
-              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-t border-outline-variant rounded-b-card disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent">
-              <FileSpreadsheet size={16} className="text-accent flex-shrink-0" />
-              <span className="flex-1">Exportar a Excel</span>
-              {!subject?.parcialesCerrados?.[parcialMenu.p] && <span className="text-[10px] text-slate-400">cierra primero</span>}
-            </button>
           </div>
         </>
       )}
@@ -6074,10 +6052,21 @@ export default function SubjectPage() {
               </>
             ) : closeParcialConfirm.ungraded > 0 ? (
               <>
-                {/* Blocker: real deliveries need a manual grade, can't be auto-zeroed */}
+                {/* Blocker: real deliveries need a manual grade, can't be auto-zeroed.
+                    Se menciona también el total sin entrega (aunque esas SÍ se
+                    autocalifican en 0 al cerrar, y no son las que bloquean) — pedido
+                    explícito: antes, con ungraded>0, esta pantalla ocultaba por
+                    completo el conteo de "sin entrega" (solo aparecía en la
+                    siguiente, una vez resuelto lo de arriba), y "solo 3 sin
+                    calificar" confundía a quien veía muchas más celdas en blanco
+                    en la tabla — la mayoría de esas son "sin entrega", no entregas
+                    reales pendientes de nota. */}
                 <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mt-3 leading-relaxed">
                   Hay <strong>{closeParcialConfirm.ungraded} entrega{closeParcialConfirm.ungraded !== 1 ? 's' : ''} sin calificar</strong>.
                   Como son entregas reales, califícalas tú antes de cerrar. Cancela, ponles calificación y vuelve a cerrar.
+                  {closeParcialConfirm.missing.length > 0 && (
+                    <> (Las {closeParcialConfirm.missing.length} celdas sin entrega no cuentan aquí — esas se ponen en 0 solas al cerrar.)</>
+                  )}
                 </p>
                 <button type="button" onClick={() => setCloseParcialConfirm(null)}
                   className="w-full py-2 mt-4 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors">
