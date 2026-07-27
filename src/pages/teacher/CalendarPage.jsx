@@ -741,8 +741,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                       }}
                       data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)} · arrastra para mover`}
                     >
-                      <span className="block text-xs font-semibold leading-tight truncate">{subjectDisplayName(subj)}</span>
-                      <span className="block text-[10px] opacity-80 leading-tight">{formatHora12(b.horaInicio)}–{formatHora12(b.horaFin)}</span>
+                      <span className="block text-xs font-normal leading-tight truncate">{subjectDisplayName(subj)}</span>
                       {b.lugar && <span className="block text-[10px] opacity-70 leading-tight truncate">{b.lugar}</span>}
                     </div>
                   )
@@ -766,8 +765,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                       style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
                       data-tooltip={ev.editable ? `${ev.titulo} · ${fmtHour(ev.timeStr)} · arrastra para mover` : `${ev.titulo} · ${fmtHour(ev.timeStr)}`}
                     >
-                      <span className="block text-[10px] font-bold leading-tight">{fmtHour(ev.timeStr)}</span>
-                      <span className="block text-[10px] font-medium leading-tight truncate">{ev.titulo}</span>
+                      <span className="block text-[10px] font-normal leading-tight truncate">{ev.titulo}</span>
                     </button>
                   )
                 })}
