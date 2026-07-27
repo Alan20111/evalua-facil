@@ -405,6 +405,15 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   })
   const todoOk = subtotales.every((s) => s.ok)
 
+  // El botón de guardar nunca revisaba esto — se podía enviar con los
+  // subtotales en rojo (y con cualquier otro hueco: nombre vacío, un nivel
+  // sin nombre, puntos que no bajan de nivel a nivel…) y solo se enteraba al
+  // hacer clic, cuando handleSave llama a validarRubrica y el toast avisa.
+  // Correr la MISMA validación aquí, en cada tecla, deja "Guardar" apagado
+  // mientras algo no cuadre — nunca deja nada útil que enviar. Barato:
+  // niveles/criterios son arreglos chicos.
+  const validationError = validarRubrica(normalizada())
+
   const inputCell = EDITOR_INPUT_CELL
   const anchoMinTabla = 44 + colW.crit + colW.niveles.reduce((s, w) => s + w, 0) + 48 + 130
 
@@ -649,7 +658,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
             </div>
           )}
 
-          <button type="submit" disabled={saving || (!isNew && JSON.stringify(r) === editSnapshot.current)}
+          <button type="submit" disabled={saving || !!validationError || (!isNew && JSON.stringify(r) === editSnapshot.current)}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : <Check size={18} />}
             {saving ? 'Guardando…' : isNew ? 'Guardar rúbrica en mi banco' : 'Guardar cambios'}
