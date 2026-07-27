@@ -43,6 +43,46 @@ function anticipacionLabel(min) {
   return min > 0 ? `Empieza en ${min} min` : 'Empieza ahora'
 }
 
+// Caché local de los `extra` con los que se programó cada aviso, indexado por
+// id — necesario porque, en Android, LocalNotifications.getDeliveredNotifications()
+// (el "barrido" de abajo) NUNCA trae de vuelta nuestro `extra` personalizado:
+// su implementación nativa solo copia notification.extras, el Bundle propio
+// de Android (título/texto del sistema), y nuestro payload (categoria, hora,
+// asignatura, disparadoEn…) jamás se escribe ahí — solo queda en el storage
+// interno del plugin, que expone vía los eventos en vivo (received/
+// actionPerformed), NO vía getDeliveredNotifications(). Sin esta caché, todo
+// aviso recuperado por el barrido (el caso típico: el docente no tenía la
+// app abierta cuando sonó) perdía categoria/hora/disparadoEn — la Bitácora
+// caía al texto plano sin Detalles, y usaba la hora en que se REABRIÓ la app
+// (createdAt) en vez de la hora real del aviso, amontonando varios avisos de
+// horas distintas bajo un solo momento.
+const META_KEY = 'ef_recordatorios_meta'
+function loadMeta() {
+  try { return JSON.parse(localStorage.getItem(META_KEY) || '{}') } catch { return {} }
+}
+function rememberMeta(entries) {
+  try {
+    const map = loadMeta()
+    entries.forEach(({ id, extra }) => { map[id] = extra })
+    // Poda por antigüedad de disparadoEn, no por conteo — así un aviso lejano
+    // en la ventana de 7 días no se cae de la caché antes de sonar.
+    const cutoff = Date.now() - 3 * 86_400_000
+    for (const id of Object.keys(map)) {
+      const t = map[id]?.disparadoEn ? new Date(map[id].disparadoEn).getTime() : null
+      if (t != null && t < cutoff) delete map[id]
+    }
+    localStorage.setItem(META_KEY, JSON.stringify(map))
+  } catch { /* almacenamiento lleno */ }
+}
+// El id llega como número (n.id) desde el plugin; las llaves de localStorage
+// siempre son string, de ahí el String(id) — sin esto, map[123] (guardado)
+// nunca calzaba con map["123"] (leído).
+function resolveExtra(n) {
+  const meta = loadMeta()[String(n.id)]
+  if (meta) return meta
+  return n.data || n.extra || {}
+}
+
 // category interno ('clase'/'evento', usado para el id reservado) → categoria
 // que la Bitácora de notificaciones usa para saber cómo mostrar la entrada
 // (ver describeEntry en NotificationSettings.jsx). Mismos nombres que useAlarmas.js.
@@ -107,7 +147,10 @@ async function scheduleUpcoming(category, items, anticipacionMinutos) {
       }))
     )
     .filter((n) => n.schedule.at.getTime() > now)
-  if (notifications.length) await LocalNotifications.schedule({ notifications })
+  if (notifications.length) {
+    await LocalNotifications.schedule({ notifications })
+    rememberMeta(notifications.map((n) => ({ id: n.id, extra: n.extra })))
+  }
   return notifications.length
 }
 
@@ -207,12 +250,11 @@ export function installReminderDeliveryListener(uid, navigate) {
   deliveryListenerInstalled = true
   LocalNotifications.addListener('localNotificationReceived', (n) => {
     if (n.id < 1_200_000_000) return // no es nuestro (ver rango reservado arriba)
-    // Mismo bug que en registerDeliveredReminders: en Android este evento
-    // trae los datos en `data`, no en `extra` (ese campo del tipo declarado
-    // es solo iOS) — confirmado con una entrada real en producción que
-    // quedó guardada con categoria/asignatura/evento vacíos porque solo se
-    // leía `n.extra`.
-    const extra = n.data || n.extra || {}
+    // resolveExtra usa nuestra caché (ver arriba) — n.extra SÍ suele traer el
+    // payload completo en este evento (a diferencia de getDeliveredNotifications,
+    // que nunca lo trae en Android), pero se prefiere la caché por consistencia
+    // y como respaldo si el bridge llegara a no propagarlo.
+    const extra = resolveExtra(n)
     logIfNew(uid, n.id, n.title, n.body, extra)
       .catch((err) => console.error('[localReminders] logIfNew (listener) falló:', err))
   })
@@ -234,15 +276,16 @@ export async function registerDeliveredReminders(uid) {
     // La clave es id+fecha+hora (ver logIfNew) — un id reprogramado tras
     // mover la clase/evento a otra fecha/hora NO cuenta como ya visto aquí.
     const nuevas = nuestras.filter((n) => {
-      const extra = n.data || n.extra || {}
+      const extra = resolveExtra(n)
       return !logged.has(`${n.id}:${extra.fecha || ''}:${extra.hora || ''}`)
     })
     if (!nuevas.length) return
     for (const n of nuevas) {
-      // El plugin devuelve los "extra" al programar como `data` en Android
-      // (DeliveredNotificationSchema) — `extra` en esa lectura es solo iOS,
-      // que esta app no tiene. Cae a `n.extra` por si acaso, sin costo.
-      const extra = n.data || n.extra || {}
+      // getDeliveredNotifications() en Android NUNCA trae nuestro `extra`
+      // (solo copia el Bundle propio del sistema — título/texto, nada de lo
+      // que programamos) — resolveExtra usa la caché guardada al programar
+      // (ver rememberMeta en scheduleUpcoming) en vez de depender de eso.
+      const extra = resolveExtra(n)
       await logIfNew(uid, n.id, n.title, n.body, extra)
     }
     console.log(`[localReminders] recordatorios entregados registrados: ${nuevas.length}`)

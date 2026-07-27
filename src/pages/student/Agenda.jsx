@@ -75,11 +75,17 @@ export default function Agenda() {
       const subjectById = {}
       subjectSnaps.forEach((s) => { if (s.exists()) subjectById[s.id] = { id: s.id, ...s.data() } })
 
-      const teacherIds = [...new Set(Object.values(subjectById).map((s) => s.docenteId).filter(Boolean))]
+      // Una materia archivada nunca aparece en la Agenda (ver el filtro `built`
+      // de abajo: `if (subj.archived) return false`), así que sus actividades
+      // y entregas no hacen falta aquí — pedirlas de todos modos era lectura
+      // desperdiciada en cada carga para cualquier alumno con ciclos cerrados.
+      const activeSubjectIds = subjectIds.filter((id) => subjectById[id] && !subjectById[id].archived)
+      const activeDocIds = activeSubjectIds.map((id) => docIdBySubject[id])
+      const teacherIds = [...new Set(activeSubjectIds.map((id) => subjectById[id].docenteId).filter(Boolean))]
       const [teacherSnaps, actDocs, subDocs] = await Promise.all([
         Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'users', tid)))),
-        fetchActivitiesForSubjects(subjectIds),
-        fetchSubmissionsForStudents(Object.values(docIdBySubject)),
+        fetchActivitiesForSubjects(activeSubjectIds),
+        fetchSubmissionsForStudents(activeDocIds),
       ])
       const teacherName = {}
       teacherSnaps.forEach((t) => { if (t.exists()) { const d = t.data(); teacherName[t.id] = teacherDisplayName(d) } })

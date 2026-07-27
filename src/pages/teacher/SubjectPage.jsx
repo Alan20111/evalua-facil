@@ -162,8 +162,9 @@ const AttendanceTable = memo(function AttendanceTable({
   const attLastHoverRef = useRef({ col: null, day: null })
   const attActiveCellRef = useRef(null)
 
-  const dayColW = IS_NATIVE_APP ? 'w-[50px]' : 'w-9'   // columnas de asistencia más anchas en la app — pedido explícito, seguía habiendo error de dedo con 42px
-  const cellPadY = IS_NATIVE_APP ? 'py-[7px]' : 'py-1' // renglones más altos en la app (menos error de dedo)
+  const dayColW = IS_NATIVE_APP ? 'w-[74px]' : 'w-9'   // columnas de asistencia más anchas en la app — pedido explícito, +15% sobre los 64px anteriores
+  const cellPadY = IS_NATIVE_APP ? 'py-[4.8px]' : 'py-1' // renglones 20% menos altos que antes (52px→41.6px) sin achicar el ícono de 32px — pedido explícito
+  const cellIconSize = IS_NATIVE_APP ? 'w-8 h-8' : 'w-6 h-6' // símbolo más grande en la app, a juego con la celda más ancha
   const now = new Date()
   const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
@@ -415,7 +416,7 @@ const AttendanceTable = memo(function AttendanceTable({
                       ref={addAttColEl(attColIndexById[r.id])}
                       data-tooltip="Aún no estaba inscrito"
                       className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none opacity-40 cursor-not-allowed`}>
-                      <span className="relative inline-flex items-center justify-center w-6 h-6 rounded text-slate-300">—</span>
+                      <span className={`relative inline-flex items-center justify-center ${cellIconSize} rounded text-slate-300`}>—</span>
                     </td>
                   )
                 }
@@ -425,7 +426,7 @@ const AttendanceTable = memo(function AttendanceTable({
                     ref={addAttColEl(attColIndexById[r.id])}
                     onClick={() => onCellClick(r, s)}
                     className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none ${esFuturo ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${lastEditedCell === `${r.id}:${s.id}` ? 'ring-2 ring-inset ring-accent bg-[var(--accent-medium)]' : fecha === todayISO ? 'bg-accent-light' : ''}`}>
-                    <span className={`relative inline-flex items-center justify-center w-6 h-6 rounded ${ui.cls}`}>
+                    <span className={`relative inline-flex items-center justify-center ${cellIconSize} rounded ${ui.cls}`}>
                       {ui.icon}
                       {motivo && <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-500" />}
                     </span>
@@ -1175,32 +1176,21 @@ export default function SubjectPage() {
   }
 
   // En la app nativa, la pestaña Asistencias se ve en HORIZONTAL (para caber más
-  // columnas); el resto de la app queda en vertical. Al salir vuelve a vertical.
+  // columnas); el resto de la app queda en vertical.
+  //
+  // Antes, mover el teléfono de vuelta a vertical (sin que el docente lo
+  // pidiera) sacaba solo de esta vista — la pantalla está BLOQUEADA en
+  // horizontal (lockLandscape), pero un listener nativo aparte
+  // (MainActivity.java, OrientationEventListener → CustomEvent
+  // "fisicaorientacion") detectaba la orientación FÍSICA del teléfono e
+  // igual navegaba fuera. Pedido explícito: tomar asistencia con el
+  // teléfono en la mano implica moverlo — eso no debe regresar a vertical.
+  // Única salida ahora: el botón "Regresar" (ver onBack/stableAttBack) o el
+  // botón físico atrás de Android.
   useEffect(() => {
     if (!IS_NATIVE_APP || activeTab !== 'asistencia') return undefined
     lockLandscape()
-    // Salida por rotación física: la pantalla está BLOQUEADA en horizontal,
-    // así que girar el teléfono no dispara eventos de orientación de
-    // pantalla, y los sensores web (deviceorientation/devicemotion) no
-    // llegan en este WebView. La orientación física la manda el lado NATIVO
-    // (MainActivity.java, OrientationEventListener) con el CustomEvent
-    // "fisicaorientacion" (detail: portrait | portrait-reverse | landscape).
-    // Regla: solo se regresa si el docente YA tuvo el teléfono en horizontal
-    // dentro de esta vista (si no, al entrar —aún en vertical físico— se
-    // saldría solo de inmediato) y luego lo vuelve a vertical.
-    let vioHorizontal = false
-    const onFisicaOrientacion = (e) => {
-      const d = e.detail
-      if (d === 'landscape') { vioHorizontal = true; return }
-      if (vioHorizontal && (d === 'portrait' || d === 'portrait-reverse')) {
-        setActiveTab('actividades')
-      }
-    }
-    window.addEventListener('fisicaorientacion', onFisicaOrientacion)
-    return () => {
-      window.removeEventListener('fisicaorientacion', onFisicaOrientacion)
-      lockPortrait()
-    }
+    return () => { lockPortrait() }
   }, [activeTab])
 
   // Oculta los íconos del sistema (barra de estado) mientras se agrega un día,
@@ -1460,6 +1450,11 @@ export default function SubjectPage() {
   // llevar deps vacías sin riesgo de obsolescencia.
   const stableDeleteDay = useCallback((fecha) => setDeleteAttendanceConfirm({ fecha }), [])
   const stableAttBack = useCallback(() => setActiveTab('actividades'), [])
+  // Botón físico "atrás" de Android: única forma de salir de Asistencias en
+  // la app nativa (además del botón "Regresar" en pantalla) — pedido
+  // explícito, ya no se sale solo por mover el teléfono a vertical (ver el
+  // efecto de lockLandscape/lockPortrait más arriba).
+  useBackHandler(stableAttBack, IS_NATIVE_APP && activeTab === 'asistencia')
   // Con fechas de curso configuradas, todo es automático: "Agregar día" pasa
   // a ser "Restaurar día" (solo fechas que el docente borró y siguen siendo
   // válidas) — sin fechas de curso, sigue siendo el alta manual de siempre.
@@ -2805,7 +2800,7 @@ export default function SubjectPage() {
         subDocs.forEach((d) => { const data = { id: d.id, ...d.data() }; subMap[`${data.alumnoId}-${data.actividadId}`] = data })
         setGradeSubMap(subMap); setGradesLoaded(true)
       }
-      exportSubjectGrades({
+      await exportSubjectGrades({
         subject, activities, students,
         submissions: Object.values(subMap),
       })
@@ -2949,7 +2944,7 @@ export default function SubjectPage() {
     setExporting(true)
     try {
       const { students, submissions } = await ensureGradesData()
-      exportParcialGrades({ subject, activities, students, submissions, parcial: p })
+      await exportParcialGrades({ subject, activities, students, submissions, parcial: p })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExporting(false) }
   }
@@ -2967,7 +2962,7 @@ export default function SubjectPage() {
   // PDF: en una hoja de asistencia (muchas columnas angostas por día) no
   // tiene caso, Excel es el formato natural. groupStudents/attendanceParciales
   // ya están cargados porque el botón solo se ve con la pestaña abierta.
-  function handleExportAttendance() {
+  async function handleExportAttendance() {
     if (!subject) return
     setExportingAttendance(true)
     try {
@@ -2975,15 +2970,15 @@ export default function SubjectPage() {
       // "Parcial actual / Todo el curso" (ese es solo para lo que se pinta
       // en pantalla) — por eso usa attendanceParcialesAll, no la variable
       // filtrada attendanceParciales.
-      exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll })
+      await exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
-  function doExportParcialAttendance(p) {
+  async function doExportParcialAttendance(p) {
     if (!subject) return
     setExportingAttendance(true)
     try {
-      exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p })
+      await exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
@@ -3470,12 +3465,14 @@ export default function SubjectPage() {
     })
     return list.map((r, i) => ({ lugar: i + 1, ...r }))
   }
-  function doExportRanking(kind, parcial) {
+  async function doExportRanking(kind, parcial) {
     const rows = rankingRowsFor(parcial)
     const label = parcial == null ? 'Promedio final' : `Parcial ${parcial}`
-    if (kind === 'excel') exportRankingExcel({ subject, rows, label })
-    else exportRankingPDF({ subject, rows, label })
     setRankingExportMenu(null)
+    try {
+      if (kind === 'excel') await exportRankingExcel({ subject, rows, label })
+      else await exportRankingPDF({ subject, rows, label })
+    } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
   }
 
   const activationUrl = `${window.location.origin}/activate/${subject?.accessCode}`
