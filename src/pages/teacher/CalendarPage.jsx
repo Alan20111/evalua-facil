@@ -1617,7 +1617,7 @@ export default function CalendarPage() {
       type="button"
       onClick={goToday}
       className={IS_NATIVE_APP
-        ? 'text-xs font-semibold px-3 py-1.5 rounded border border-accent/30 bg-accent-tint text-accent transition-colors'
+        ? 'text-xs px-3 py-1.5 rounded border-2 border-accent/40 bg-surface-card shadow-card text-muted transition-colors'
         : 'text-xs px-3 py-1.5 rounded border border-outline-variant text-muted hover:bg-accent-tint transition-colors'}
     >
       Hoy
@@ -1629,7 +1629,7 @@ export default function CalendarPage() {
       type="button"
       onClick={() => openNewEvent(null)}
       className={IS_NATIVE_APP
-        ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-accent/30 bg-accent-tint text-sm font-semibold text-accent transition-colors'
+        ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border-2 border-accent/40 bg-surface-card shadow-card text-sm text-muted transition-colors'
         : 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors'}
     >
       <Plus size={15} /> Evento
@@ -1657,7 +1657,7 @@ export default function CalendarPage() {
         type="button"
         onClick={() => setShowHoras(v => !v)}
         className={IS_NATIVE_APP
-          ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-accent/30 bg-accent-tint text-sm font-semibold text-accent transition-colors'
+          ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border-2 border-accent/40 bg-surface-card shadow-card text-sm text-muted transition-colors'
           : 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors'}
         data-tooltip="Horas visibles de tu día (Agenda y Semana)"
         data-tooltip-pos="bottom"
