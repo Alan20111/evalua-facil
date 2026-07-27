@@ -8,6 +8,7 @@ import {
   where,
   getDocs,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -15,6 +16,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
   BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive, Trash2, Download,
+  ArrowUp, ArrowDown, GripVertical,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
@@ -162,6 +164,82 @@ export default function StudentDashboard() {
     setShowJoin(true)
   }
 
+  // Reordenar sus asignaturas — mismo patrón que el docente en su propio
+  // Dashboard.jsx (flechas subir/bajar en la web, arrastrar en la App).
+  // Pedido explícito: el alumno también puede tener varias asignaturas y
+  // hasta ahora no había forma de acomodarlas a su gusto. Solo opera sobre
+  // las activas — las archivadas no se reordenan, viven aparte.
+  // `alumnoOrden` vive en SU inscripción (students/{enrollmentId}); no es lo
+  // mismo que `orden` en ese mismo doc, que es la posición del docente en su
+  // lista de grupo.
+  async function moveSubject(index, direction) {
+    const active = subjects.filter((s) => !s.archived)
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= active.length) return
+    ;[active[index], active[targetIndex]] = [active[targetIndex], active[index]]
+    const reordered = active.map((s, i) => ({ ...s, alumnoOrden: i + 1 }))
+    setSubjects((prev) => prev.map((s) => reordered.find((r) => r.id === s.id) || s))
+    try {
+      const batch = writeBatch(db)
+      reordered.forEach((s) => batch.update(doc(db, 'students', s.enrollmentId), { alumnoOrden: s.alumnoOrden }))
+      await batch.commit()
+    } catch (err) {
+      toast('No se pudo reordenar: ' + err.message, 'error')
+    }
+  }
+
+  // Arrastrar — solo en la App, mismo motivo que el docente: en la web ya
+  // están las flechas, que funcionan bien con mouse; en la App no hay forma
+  // de arrastrar con el dedo sin esto.
+  const [dragIndex, setDragIndex] = useState(null)
+  const [overIndex, setOverIndex] = useState(null)
+  const dragCardRefs = useRef([])
+  const dragStateRef = useRef({ dragIndex: null, overIndex: null })
+
+  function dragPointerDown(e, index) {
+    e.preventDefault()
+    setDragIndex(index)
+    setOverIndex(index)
+    dragStateRef.current = { dragIndex: index, overIndex: index }
+    window.addEventListener('pointermove', dragPointerMove)
+    window.addEventListener('pointerup', dragPointerUp)
+    window.addEventListener('pointercancel', dragPointerUp)
+  }
+  function dragPointerMove(e) {
+    const y = e.clientY
+    let newOver = dragStateRef.current.overIndex
+    dragCardRefs.current.forEach((el, i) => {
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      if (y >= rect.top && y <= rect.bottom) newOver = i
+    })
+    if (newOver !== dragStateRef.current.overIndex) {
+      dragStateRef.current.overIndex = newOver
+      setOverIndex(newOver)
+    }
+  }
+  async function dragPointerUp() {
+    window.removeEventListener('pointermove', dragPointerMove)
+    window.removeEventListener('pointerup', dragPointerUp)
+    window.removeEventListener('pointercancel', dragPointerUp)
+    const { dragIndex: from, overIndex: to } = dragStateRef.current
+    setDragIndex(null)
+    setOverIndex(null)
+    if (from == null || to == null || from === to) return
+    const active = subjects.filter((s) => !s.archived)
+    const [item] = active.splice(from, 1)
+    active.splice(to, 0, item)
+    const reordered = active.map((s, i) => ({ ...s, alumnoOrden: i + 1 }))
+    setSubjects((prev) => prev.map((s) => reordered.find((r) => r.id === s.id) || s))
+    try {
+      const batch = writeBatch(db)
+      reordered.forEach((s) => batch.update(doc(db, 'students', s.enrollmentId), { alumnoOrden: s.alumnoOrden }))
+      await batch.commit()
+    } catch (err) {
+      toast('No se pudo reordenar: ' + err.message, 'error')
+    }
+  }
+
   async function loadData() {
     setLoading(true)
     try {
@@ -238,10 +316,30 @@ export default function StudentDashboard() {
           ? (parcAvgs.reduce((x, y) => x + y, 0) / parcAvgs.length).toFixed(1)
           : null
         // enrollmentId: el doc de `students` de ESTA materia — lo necesita
-        // "quitar de archivadas", que escribe en esa inscripción.
-        return { ...s, enrollmentId: docIdBySubject[s.id], teacherName: teachers[s.docenteId] || '—', avg }
+        // "quitar de archivadas" y también reordenar (alumnoOrden vive ahí,
+        // en SU inscripción — el `orden` de ese mismo doc ya es del docente,
+        // la posición en SU lista de grupo, un campo distinto).
+        const enrollment = enrollments.find((e) => e.asignaturaId === s.id)
+        return { ...s, enrollmentId: docIdBySubject[s.id], teacherName: teachers[s.docenteId] || '—', avg, alumnoOrden: enrollment?.alumnoOrden }
       })
-      setSubjects(enriched)
+      // Mismo patrón de auto-sanado que el Dashboard del docente (Dashboard.jsx):
+      // la primera vez que se ve una inscripción sin alumnoOrden, se asigna uno
+      // por posición alfabética actual y se persiste, para que desde ahí el
+      // alumno ya tenga un orden estable que reacomodar a mano.
+      let ordered = enriched
+      if (ordered.some((s) => s.alumnoOrden == null)) {
+        ordered = [...ordered].sort((a, b) => subjectDisplayName(a).localeCompare(subjectDisplayName(b), 'es'))
+        const batch = writeBatch(db)
+        ordered = ordered.map((s, i) => {
+          const alumnoOrden = i + 1
+          if (s.alumnoOrden !== alumnoOrden) batch.update(doc(db, 'students', s.enrollmentId), { alumnoOrden })
+          return { ...s, alumnoOrden }
+        })
+        batch.commit().catch(() => {}) // best-effort; el orden en memoria ya es correcto
+      } else {
+        ordered = [...ordered].sort((a, b) => (a.alumnoOrden ?? 0) - (b.alumnoOrden ?? 0))
+      }
+      setSubjects(ordered)
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -273,6 +371,16 @@ export default function StudentDashboard() {
 
   const activeSubjects = subjects.filter((s) => !s.archived)
   const archivedSubjects = subjects.filter((s) => s.archived)
+
+  // Lista mostrada mientras se arrastra: el elemento arrastrado ya aparece
+  // en su posición "de prueba" (overIndex), aunque todavía no se guardó
+  // nada — el commit real solo pasa al soltar. Mismo patrón que el docente.
+  const displayActiveSubjects = dragIndex == null ? activeSubjects : (() => {
+    const arr = [...activeSubjects]
+    const [item] = arr.splice(dragIndex, 1)
+    arr.splice(overIndex ?? dragIndex, 0, item)
+    return arr
+  })()
 
   return (
     <StudentLayout>
@@ -347,31 +455,75 @@ export default function StudentDashboard() {
           </div>
         ) : (
           <div className="space-y-2">
-            {activeSubjects.map((s) => (
-              <button
-                type="button"
+            {displayActiveSubjects.map((s, i) => (
+              <div
                 key={s.id}
+                ref={(el) => { dragCardRefs.current[i] = el }}
                 {...subjectPaletteProps(s.colorPalette)}
-                onClick={() => navigate(`/alumno/materia/${s.id}`)}
-                className="w-full bg-surface-card rounded-card p-3 text-left shadow-card hover:shadow-md transition-shadow flex items-center gap-3"
+                className={`w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md transition-all duration-200 flex items-center gap-1 ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}
               >
-                <div className="w-12 h-12 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-                  <SubjectIcon iconKey={s.icon} size={22} className="text-accent" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
-                  <p className="text-slate-500 text-sm font-medium mt-0.5 truncate">{s.teacherName}</p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {s.avg != null && (
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-accent">{s.avg}</p>
-                      <p className="text-sm text-slate-500">promedio</p>
+                {/* Reordenar: flechas en la web, arrastrar en la App — solo si
+                    hay más de una asignatura (con una sola no hay nada que
+                    reordenar). Mismo patrón que el docente en su Dashboard. */}
+                {activeSubjects.length > 1 && (
+                  IS_NATIVE_APP ? (
+                    <button
+                      type="button"
+                      onPointerDown={(e) => dragPointerDown(e, i)}
+                      aria-label="Arrastrar para reordenar"
+                      data-tooltip="Mantén y arrastra para reordenar"
+                      className="p-2 -m-1 text-slate-400 hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                    >
+                      <GripVertical size={18} />
+                    </button>
+                  ) : (
+                    <div className="flex flex-col flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => moveSubject(i, -1)}
+                        disabled={i === 0}
+                        data-tooltip="Subir"
+                        aria-label="Subir"
+                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                      >
+                        <ArrowUp size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveSubject(i, 1)}
+                        disabled={i === activeSubjects.length - 1}
+                        data-tooltip="Bajar"
+                        aria-label="Bajar"
+                        className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-tint)] disabled:opacity-40 rounded"
+                      >
+                        <ArrowDown size={16} />
+                      </button>
                     </div>
-                  )}
-                  <ChevronRight size={18} className="text-slate-300" />
-                </div>
-              </button>
+                  )
+                )}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/alumno/materia/${s.id}`)}
+                  className="flex-1 min-w-0 text-left flex items-center gap-3 p-1.5"
+                >
+                  <div className="w-12 h-12 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                    <SubjectIcon iconKey={s.icon} size={22} className="text-accent" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
+                    <p className="text-slate-500 text-sm font-medium mt-0.5 truncate">{s.teacherName}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {s.avg != null && (
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-accent">{s.avg}</p>
+                        <p className="text-sm text-slate-500">promedio</p>
+                      </div>
+                    )}
+                    <ChevronRight size={18} className="text-slate-300" />
+                  </div>
+                </button>
+              </div>
             ))}
           </div>
         )}
