@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
 import { subjectPeriodLabel } from './dateRange'
 import { promedioParcial, pesoDe, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
-import { attendanceState, countPresence, fmtAttDateParts } from './attendance'
+import { attendanceState, countPresence, fmtAttDateParts, enrolledFromDate } from './attendance'
 import { studentFullName } from './studentSearch'
 import { isDraftActivity } from './activityVisibility'
 
@@ -327,10 +327,13 @@ function attendanceColumnHeaders(days) {
   return headers
 }
 
-function attendanceRowCells(days, studentId) {
+// `enrolledFrom` ('YYYY-MM-DD', opcional): días anteriores al alta del
+// alumno se dejan en blanco en vez de 0/1 — no aplica, no es una falta.
+function attendanceRowCells(days, studentId, enrolledFrom) {
   const cells = []
-  days.forEach(({ records }) => {
+  days.forEach(({ fecha, records }) => {
     records.forEach((r) => {
+      if (enrolledFrom && fecha < enrolledFrom) { cells.push(''); return }
       cells.push(attendanceState(r, studentId) === 'falta' ? 0 : 1)
     })
   })
@@ -352,9 +355,10 @@ export function exportParcialAttendance({ subject, students, attendanceParciales
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const dataRows = sorted.map((s) => {
+    const enrolledFrom = enrolledFromDate(s)
     const row = [s.orden, studentFullName(s)]
-    row.push(...attendanceRowCells(days, s.id))
-    const { asist, inasist } = countPresence(g?.records || [], s.id)
+    row.push(...attendanceRowCells(days, s.id, enrolledFrom))
+    const { asist, inasist } = countPresence(g?.records || [], s.id, enrolledFrom)
     row.push(asist, inasist)
     return row
   })
@@ -400,12 +404,13 @@ export function exportSubjectAttendance({ subject, students, attendanceParciales
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const dataRows = sorted.map((s) => {
+    const enrolledFrom = enrolledFromDate(s)
     const row = [s.orden, studentFullName(s)]
     let totalAsist = 0
     let totalInasist = 0
     parcialMeta.forEach((m) => {
-      row.push(...attendanceRowCells(m.days, s.id))
-      const { asist, inasist } = countPresence(m.records, s.id)
+      row.push(...attendanceRowCells(m.days, s.id, enrolledFrom))
+      const { asist, inasist } = countPresence(m.records, s.id, enrolledFrom)
       row.push(asist, inasist)
       totalAsist += asist
       totalInasist += inasist

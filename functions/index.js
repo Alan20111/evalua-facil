@@ -560,6 +560,18 @@ function idsAfectados(before, after) {
 // volumen de columnas por asignatura (decenas, no miles) hace que un
 // recálculo completo sea barato.
 async function recalcularResumenAsistencia(asignaturaId, studentId) {
+  // Alta tardía: días anteriores a que el alumno se inscribiera se excluyen
+  // del resumen — sin esto, `presente ?? true` (abajo) contaba como
+  // asistencia cada columna de antes de que existiera su inscripción, igual
+  // que hacía countPresence() del docente antes de corregirse (ver
+  // src/utils/attendance.js).
+  const studentSnap = await db.doc(`students/${studentId}`).get()
+  const createdAt = studentSnap.exists ? studentSnap.data().createdAt : null
+  const enrolledFrom = createdAt?.toDate ? (() => {
+    const d = createdAt.toDate()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })() : null
+
   const snap = await db.collection('attendance').where('asignaturaId', '==', asignaturaId).get()
   const records = snap.docs.map((d) => d.data())
     // Columnas viejas de antes de que existiera el campo `parcial` (confirmado
@@ -570,6 +582,7 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
     // de Firestore entero y NINGÚN alumno de esa asignatura recibía su
     // resumen actualizado — el bug real reportado ("no se refleja").
     .filter((r) => r.parcial != null)
+    .filter((r) => !enrolledFrom || r.fecha >= enrolledFrom)
     .sort((a, b) => (a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha)))
 
   const porParcial = {}
