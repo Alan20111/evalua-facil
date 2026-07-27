@@ -424,24 +424,25 @@ export default function EntregableEditor({
                       )}
                     />
                   )}
+                  {/* Sub-opción de la fecha límite: va pegada al selector para que
+                      se lea como parte de esa misma opción, no como una aparte. */}
+                  {form.fechaLimite && (
+                    <div className="flex items-start gap-3 px-3 py-2.5 ml-4 border-l-2 border-outline-variant">
+                      <input
+                        type="checkbox"
+                        id="cerrarEntregasEnFecha"
+                        checked={form.cerrarEntregasEnFecha ?? true}
+                        onChange={(e) => setForm(f => ({ ...f, cerrarEntregasEnFecha: e.target.checked }))}
+                        className="mt-0.5"
+                        data-tooltip="Desactivar para recibir tarde"
+                      />
+                      <label htmlFor="cerrarEntregasEnFecha" className="text-sm text-on-surface cursor-pointer flex-1">
+                        Cerrar entregas en la fecha y hora programada
+                        <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
+                      </label>
+                    </div>
+                  )}
                 </div>
-
-                {form.fechaLimite && (
-                  <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
-                    <input
-                      type="checkbox"
-                      id="cerrarEntregasEnFecha"
-                      checked={form.cerrarEntregasEnFecha ?? true}
-                      onChange={(e) => setForm(f => ({ ...f, cerrarEntregasEnFecha: e.target.checked }))}
-                      className="mt-1"
-                      data-tooltip="Desactivar para recibir tarde"
-                    />
-                    <label htmlFor="cerrarEntregasEnFecha" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
-                      Cerrar entregas en la fecha y hora programada
-                      <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
-                    </label>
-                  </div>
-                )}
 
                 {/* Read-only: who currently has a per-student extension, to when, and
                     why — grouped from `extensiones`/`extensionesMotivo` since a single

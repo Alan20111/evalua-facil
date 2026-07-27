@@ -827,6 +827,24 @@ export default function EvaluacionEditor({
                       )}
                     />
                   )}
+                  {/* Sub-opción de la fecha límite: va pegada al selector para que
+                      se lea como parte de esa misma opción, no como una aparte. */}
+                  {infoForm.fechaLimite && (
+                    <div className="flex items-start gap-3 px-3 py-2.5 ml-4 border-l-2 border-outline-variant">
+                      <input
+                        type="checkbox"
+                        id="cerrarEntregasEnFechaEval"
+                        checked={infoForm.cerrarEntregasEnFecha ?? true}
+                        onChange={(e) => setInfoForm(f => ({ ...f, cerrarEntregasEnFecha: e.target.checked }))}
+                        className="mt-0.5"
+                        data-tooltip="Desactivar para recibir tarde"
+                      />
+                      <label htmlFor="cerrarEntregasEnFechaEval" className="text-sm text-on-surface cursor-pointer flex-1">
+                        Cerrar entregas en la fecha y hora programada
+                        <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
+                      </label>
+                    </div>
+                  )}
                   {/* Evaluación publicada: prorrogar la fecha para todo el grupo o
                       para estudiantes específicos — mismo modal que un entregable. */}
                   {!isNew && infoForm.publishedAt && (
@@ -837,22 +855,6 @@ export default function EvaluacionEditor({
                     >
                       <CalendarDays size={16} /> Nueva fecha límite de entrega
                     </button>
-                  )}
-                  {infoForm.fechaLimite && (
-                    <div className="flex items-start gap-3 p-3 mt-2 bg-slate-50 rounded border border-outline-variant">
-                      <input
-                        type="checkbox"
-                        id="cerrarEntregasEnFechaEval"
-                        checked={infoForm.cerrarEntregasEnFecha ?? true}
-                        onChange={(e) => setInfoForm(f => ({ ...f, cerrarEntregasEnFecha: e.target.checked }))}
-                        className="mt-1"
-                        data-tooltip="Desactivar para recibir tarde"
-                      />
-                      <label htmlFor="cerrarEntregasEnFechaEval" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
-                        Cerrar entregas en la fecha y hora programada
-                        <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
-                      </label>
-                    </div>
                   )}
                 </div>
               )}
