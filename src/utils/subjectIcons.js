@@ -54,7 +54,7 @@ export const SUBJECT_DOTS = [
   { key: 'dot-rose', label: 'Rosa', color: '#e11d48' },
   { key: 'dot-violet', label: 'Violeta flúor', color: '#8b00ff' },
   { key: 'dot-yellow', label: 'Amarillo flúor', color: '#ffe400' },
-  { key: 'dot-slate', label: 'Grafito', color: '#475569' },
+  { key: 'dot-slate', label: 'Blanco', color: '#ffffff' },
 ]
 
 // Claves de la primera versión de las bolitas (nombradas por la paleta de la
@@ -79,4 +79,22 @@ export function isDotIcon(key) {
 
 export function dotIconColor(key) {
   return SUBJECT_DOT_COLORS[key] || null
+}
+
+// Contornos propios, por COLOR y no por clave, para que las claves legadas
+// (dot-purple, dot-teal…) hereden el mismo aro que la bolita a la que apuntan.
+// Las tres oscuras llevan aro blanco para recortarse sobre cualquier fondo; la
+// blanca lo lleva gris porque un aro blanco sobre blanco no existe.
+const DOT_OUTLINES = {
+  '#0066ff': '#ffffff', // azul
+  '#e11d48': '#ffffff', // rojo
+  '#8b00ff': '#ffffff', // violeta
+  '#ffffff': '#94a3b8', // blanca
+}
+
+// null = sin contorno propio; quien dibuje usa el aro por defecto (mismo tono
+// oscurecido), que es lo que siguen usando las bolitas flúor.
+export function dotOutlineColor(key) {
+  const color = dotIconColor(key)
+  return color ? DOT_OUTLINES[color.toLowerCase()] || null : null
 }
