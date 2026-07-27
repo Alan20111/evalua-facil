@@ -32,6 +32,10 @@ export default function StudentActivation() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [linkPassword, setLinkPassword] = useState('')
+  // ¿Se llegó a 'link_existing' pasando por 'password' (la cuenta se descubrió
+  // al enviar) o directo desde 'username' (ya se sabía)? Solo lo usa el botón
+  // atrás de Android, para no devolver a un paso que nunca se mostró.
+  const [linkFromPassword, setLinkFromPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [initLoading, setInitLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -44,7 +48,7 @@ export default function StudentActivation() {
   // adelante paso a paso; desde el primer paso ('username') no hay a dónde
   // regresar dentro de la pantalla, así que sale al login.
   function goBackStep() {
-    if (step === 'link_existing') { setStep('password'); return }
+    if (step === 'link_existing') { setStep(linkFromPassword ? 'password' : 'username'); return }
     if (step === 'password') { setStep('username'); return }
     navigate('/alumno')
   }
@@ -95,6 +99,29 @@ export default function StudentActivation() {
     }
   }
 
+  // ¿Este alumno ya tiene cuenta de Firebase Auth? Se responde mirando sus OTRAS
+  // inscripciones: la cuenta es una sola por `username` + `escuelaId` (el correo
+  // falso @evalua.local se arma con esos dos datos), así que basta con que
+  // cualquiera de ellas esté activada. Dos filtros de igualdad, sin rangos ni
+  // orderBy — el mismo patrón que ya usa finishActivation.
+  // Ante cualquier fallo devuelve false: el camino de "elige contraseña" ya
+  // sabe recuperarse solo si la cuenta resulta existir (auth/email-already-in-use).
+  async function studentAlreadyHasAccount(data) {
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'students'),
+        where('username', '==', data.username),
+        where('escuelaId', '==', data.escuelaId),
+      ))
+      return snap.docs.some((d) => {
+        const s = d.data()
+        return s.activado === true || !!s.uid
+      })
+    } catch {
+      return false
+    }
+  }
+
   async function handleFindStudent(e) {
     e.preventDefault()
     if (!subject) return
@@ -121,7 +148,16 @@ export default function StudentActivation() {
       }
       setStudent(data)
       setPasswordError('')
-      setStep('password')
+      // ¿Ya tiene cuenta? `activado` de ESTA inscripción no lo dice: es false en
+      // toda asignatura a la que aún no se une, aunque la cuenta exista desde
+      // hace meses. La contraseña no es de la asignatura, es del alumno (una por
+      // username + escuela), así que hay que preguntarle a TODAS sus
+      // inscripciones. Sin esto, a un alumno con cuenta se le pedía "Elige tu
+      // contraseña" —con su confirmación y todo, como si fuera a crear una— y
+      // solo al enviarla el código descubría que ya existía.
+      const yaTieneCuenta = await studentAlreadyHasAccount(data)
+      setLinkFromPassword(false)
+      setStep(yaTieneCuenta ? 'link_existing' : 'password')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -206,6 +242,7 @@ export default function StudentActivation() {
         return
       }
       // 3) The account exists with a different password → returning student. Ask for it.
+      setLinkFromPassword(true)
       setStep('link_existing')
       setPassword('')
       setConfirmPassword('')
