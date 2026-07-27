@@ -1015,6 +1015,22 @@ export default function SubjectPage() {
     setShowResourceModal(true)
   }
 
+  // "Guardar recurso" se apaga sin cambios, solo en modo edit. El enlace se
+  // compara ya normalizado (con https:// al frente) porque el guardado se lo
+  // agrega solo si falta — sin esto, escribir la misma URL sin "https://"
+  // se veía como un cambio aunque el recurso guardado fuera a quedar igual.
+  const editingResource = resourceModalMode === 'edit' ? resources.find((r) => r.id === resourceForm.id) : null
+  const resourceEnlaceNormalizado = resourceForm.enlace.trim() && !/^https?:\/\//i.test(resourceForm.enlace.trim())
+    ? `https://${resourceForm.enlace.trim()}`
+    : resourceForm.enlace.trim()
+  const resourceChanged = resourceModalMode === 'create' || (
+    resourceForm.nombre.trim() !== (editingResource?.nombre || '') ||
+    resourceForm.descripcion.trim() !== (editingResource?.descripcion || '') ||
+    resourceForm.tipo !== resourceForm.origTipo ||
+    !!resourceFile ||
+    (resourceForm.tipo === 'link' && resourceEnlaceNormalizado !== (editingResource?.url || ''))
+  )
+
   async function handleSaveResource(e) {
     e.preventDefault()
     if (!resourceForm.nombre.trim()) { toast('Escribe un nombre', 'error'); return }
@@ -1722,6 +1738,15 @@ export default function SubjectPage() {
     })
   }
 
+  // "Guardar cambios" de Editar estudiante se apaga sin cambios — compara
+  // contra studentToEdit, el mismo registro con el que openEditStudent llenó
+  // el formulario.
+  const editStudentChanged =
+    editStudentForm.apellidoPaterno.trim() !== (studentToEdit?.apellidoPaterno || '') ||
+    editStudentForm.apellidoMaterno.trim() !== (studentToEdit?.apellidoMaterno || '') ||
+    editStudentForm.nombre.trim() !== (studentToEdit?.nombre || '') ||
+    editStudentForm.comentarios.trim() !== (studentToEdit?.comentarios || '')
+
   async function handleDeleteStudentPhoto() {
     if (!studentToEdit?.photoURL) return
     try {
@@ -2124,6 +2149,22 @@ export default function SubjectPage() {
     setShowMaterialModal(true)
   }
 
+  // "Guardar cambios" de Editar material se apaga sin cambios. Solo aplica en
+  // modo edit — crear siempre debe poder enviarse (no hay original con qué
+  // comparar). visibilidadMode se compara aparte de oculta/publishAt: pasar
+  // de "Oculto" a "Programado" sin elegir fecha todavía deja oculta=true y
+  // publishAt='' en AMBOS casos — sin este campo aparte, ese cambio de modo
+  // pasaría desapercibido.
+  const editingMaterial = materialModalMode === 'edit' ? materials.find((m) => m.id === editMaterialId) : null
+  const materialChanged = materialModalMode === 'create' || (
+    materialForm.nombre.trim() !== (editingMaterial?.nombre || '') ||
+    materialForm.descripcion !== (editingMaterial?.descripcion || '') ||
+    materialForm.visibilidadMode !== (!editingMaterial?.oculta ? 'show' : editingMaterial?.publishAt ? 'schedule' : 'hide') ||
+    materialForm.publishAt !== (editingMaterial?.publishAt || '') ||
+    materialNewFiles.length > 0 ||
+    JSON.stringify(materialExistingFiles) !== JSON.stringify(editingMaterial?.archivos || [])
+  )
+
   function addMaterialFiles(files) {
     const tooBig = files.find((f) => f.size > MAX_ATTACHMENT_FILE_SIZE)
     if (tooBig) { toast(`"${tooBig.name}" supera el máximo de 15 MB`, 'error'); return }
@@ -2448,6 +2489,21 @@ export default function SubjectPage() {
   }
 
   // ── Subject CRUD ───────────────────────────────────────────────────
+  // "Guardar cambios" de Editar asignatura se apaga sin cambios — compara
+  // contra `subject` en vivo, que es exactamente de donde openEditSubject()
+  // rellena el formulario cada vez que se abre, así que no hace falta guardar
+  // una copia aparte. parciales es string en el form y number en el doc;
+  // parcialesFechas es un arreglo de objetos, se compara por JSON.
+  const editSubjectChanged =
+    editSubjectForm.nombre.trim() !== (subject?.nombre || '') ||
+    editSubjectForm.grupo.trim() !== (subject?.grupo || '') ||
+    editSubjectForm.fechaInicio !== (subject?.fechaInicio || '') ||
+    editSubjectForm.fechaFin !== (subject?.fechaFin || '') ||
+    editSubjectForm.parciales !== String(subject?.parciales || 3) ||
+    editSubjectForm.colorPalette !== (subject?.colorPalette || 'default') ||
+    editSubjectForm.icon !== (subject?.icon || 'book') ||
+    JSON.stringify(editSubjectForm.parcialesFechas || []) !== JSON.stringify(subject?.parcialesFechas || [])
+
   function openEditSubject() {
     setEditSubjectForm({
       nombre: subject?.nombre || '',
@@ -5271,7 +5327,7 @@ export default function SubjectPage() {
                 />
               </div>
 
-              <button type="submit" disabled={savingMaterial}
+              <button type="submit" disabled={savingMaterial || !materialChanged}
                 className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {savingMaterial ? <Spinner size="sm" /> : materialModalMode === 'create' ? <Plus size={18} /> : <Pencil size={18} />}
                 {savingMaterial ? 'Guardando…' : materialModalMode === 'create' ? 'Crear material' : 'Guardar cambios'}
@@ -5404,7 +5460,7 @@ export default function SubjectPage() {
               </div>
               <button
                 type="submit"
-                disabled={savingStudent}
+                disabled={savingStudent || !editStudentChanged}
                 className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {savingStudent ? <Spinner size="sm" /> : <Pencil size={18} />}
@@ -6134,7 +6190,7 @@ export default function SubjectPage() {
                 <p className="block text-sm font-medium text-muted mb-2">Icono de la asignatura</p>
                 <IconSelect value={editSubjectForm.icon} onChange={(ic) => setEditSubjectForm((f) => ({ ...f, icon: ic }))} />
               </div>
-              <button type="submit" disabled={editingSubject}
+              <button type="submit" disabled={editingSubject || !editSubjectChanged}
                 className="w-full py-2 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
                 {editingSubject ? <Spinner size="sm" /> : <Pencil size={18} />}
                 {editingSubject ? 'Guardando…' : 'Guardar cambios'}
@@ -6481,7 +6537,7 @@ export default function SubjectPage() {
               )}
               <button
                 type="submit"
-                disabled={savingResource}
+                disabled={savingResource || !resourceChanged}
                 className="w-full py-2 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {savingResource ? <Spinner size="sm" /> : <Upload size={18} />}

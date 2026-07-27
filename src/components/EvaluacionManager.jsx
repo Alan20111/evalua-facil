@@ -741,6 +741,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   // "Modificar fecha de entrega para este estudiante" — per-student deadline
   // extension (activity.extensiones), same shape entregables use.
+  //
+  // El botón "Guardar" se apaga si lo tecleado es igual a la prórroga que ya
+  // tenía este alumno: openReview() precarga extendDate/extendMotivo con la
+  // prórroga existente, así que reabrir el panel de un alumno YA extendido
+  // mostraba el botón activo sin que se hubiera tocado nada.
+  const reviewExtensionUnchanged = !!reviewing &&
+    extendDate === (activity?.extensiones?.[reviewing.student.id] || '') &&
+    extendMotivo.trim() === (activity?.extensionesMotivo?.[reviewing.student.id] || '')
+
   async function saveReviewExtension() {
     if (!reviewing || !extendDate) return
     setSavingExtension(true)
@@ -1765,7 +1774,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none" />
                       <div className="flex gap-2">
                         <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">Cancelar</button>
-                        <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension}
+                        <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension || reviewExtensionUnchanged}
                           className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 transition-colors">
                           {savingExtension ? 'Guardando…' : 'Guardar'}
                         </button>
@@ -1805,7 +1814,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <button type="button" onClick={() => setExtendMode(false)} className="flex-1 py-2 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
-              <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension}
+              <button type="button" onClick={saveReviewExtension} disabled={!extendDate || savingExtension || reviewExtensionUnchanged}
                 className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors">
                 {savingExtension ? 'Guardando…' : 'Guardar'}
               </button>

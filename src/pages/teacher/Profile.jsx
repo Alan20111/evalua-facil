@@ -656,7 +656,12 @@ export default function Profile() {
                     <PasswordInput id="prof-pwd-confirmar" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)}
                       required autoComplete="new-password" className={inputCls} placeholder="Repite la contraseña" />
                   </div>
-                  <button type="submit" disabled={savingPwd}
+                  {/* No hay "original" con qué comparar una contraseña (vive
+                      hasheada) — aquí "nada que guardar" es que los campos
+                      todavía no formen una combinación válida para enviar,
+                      las mismas reglas que ya revisa requestPwdChange al
+                      hacer clic. */}
+                  <button type="submit" disabled={savingPwd || !currentPwd || newPwd.length < 6 || newPwd !== confirmPwd}
                     className="w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                     {savingPwd ? <Spinner size="sm" /> : <Lock size={17} />}
                     {savingPwd ? 'Actualizando…' : 'Cambiar contraseña'}

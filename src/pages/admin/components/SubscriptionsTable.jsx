@@ -468,6 +468,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   function openEdit(sub) {
     const fi = sub.fechaInicio?.toDate?.()
     const fv = sub.fechaVencimiento?.toDate?.()
+    const form = {
+      docenteId: sub.docenteId,
+      planId: sub.planId || '',
+      cancelada: sub.status === 'cancelada',
+      fechaInicio: fi ? fi.toISOString().slice(0, 10) : '',
+      fechaVencimiento: fv ? fv.toISOString().slice(0, 10) : '',
+      cortesiaDias: sub.cortesiaDias ? String(sub.cortesiaDias) : '30',
+      cortesiaIndefinida: sub.cortesiaIndefinida === true,
+      extender: false,
+    }
     setModal({
       mode: 'edit',
       id: sub.id,
@@ -476,18 +486,30 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       // administrador teclea.
       vencimientoActual: effectiveVencimiento(sub) ? toDate(effectiveVencimiento(sub)) : null,
       statusPrevio: sub.status,
-      form: {
-        docenteId: sub.docenteId,
-        planId: sub.planId || '',
-        cancelada: sub.status === 'cancelada',
-        fechaInicio: fi ? fi.toISOString().slice(0, 10) : '',
-        fechaVencimiento: fv ? fv.toISOString().slice(0, 10) : '',
-        cortesiaDias: sub.cortesiaDias ? String(sub.cortesiaDias) : '30',
-        cortesiaIndefinida: sub.cortesiaIndefinida === true,
-        extender: false,
-      },
+      form,
+      // Copia congelada de `form` tal como se abrió — el botón Guardar se
+      // apaga mientras `form` siga siendo idéntico a esto. `extender` entra
+      // en la comparación como cualquier otro campo: al abrir siempre vale
+      // false y nunca sale de un doc guardado, así que marcarlo YA cuenta
+      // como cambio aunque ningún otro campo se haya tocado (mueve el
+      // vencimiento calculado igual que si se hubiera editado una fecha).
+      originalForm: form,
     })
   }
+
+  // "Guardar" se apaga sin cambios, solo en modo edit (crear siempre debe
+  // poder enviarse). Compara campo por campo contra `modal.originalForm`, la
+  // copia que openEdit() congeló al abrir.
+  const subscriptionChanged = modal?.mode === 'create' || (!!modal && (
+    modal.form.docenteId !== modal.originalForm.docenteId ||
+    modal.form.planId !== modal.originalForm.planId ||
+    modal.form.cancelada !== modal.originalForm.cancelada ||
+    modal.form.fechaInicio !== modal.originalForm.fechaInicio ||
+    modal.form.fechaVencimiento !== modal.originalForm.fechaVencimiento ||
+    modal.form.cortesiaDias !== modal.originalForm.cortesiaDias ||
+    modal.form.cortesiaIndefinida !== modal.originalForm.cortesiaIndefinida ||
+    modal.form.extender !== modal.originalForm.extender
+  ))
 
   async function handleSave(e) {
     e.preventDefault()
@@ -975,7 +997,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
 
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || !subscriptionChanged}
                 className="w-full py-2 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {saving ? <Spinner size="sm" /> : null}

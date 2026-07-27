@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
@@ -36,6 +36,9 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
   const toast = useToast()
   const isNew = !initial?.id
   const [r, setR] = useState(() => estadoInicial(initial))
+  // Foto de cómo entró `r` — mismo patrón que RubricaEditor.jsx/EvaluacionEditor.jsx.
+  // Solo importa al editar: crear siempre debe poder guardarse.
+  const editSnapshot = useRef(JSON.stringify(estadoInicial(initial)))
   const [saving, setSaving] = useState(false)
   const { criterios } = r
 
@@ -247,7 +250,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             </div>
           </div>
 
-          <button type="submit" disabled={saving}
+          <button type="submit" disabled={saving || (!isNew && JSON.stringify(r) === editSnapshot.current)}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : <Check size={18} />}
             {saving ? 'Guardando…' : isNew ? 'Guardar lista de cotejo en mi banco' : 'Guardar cambios'}

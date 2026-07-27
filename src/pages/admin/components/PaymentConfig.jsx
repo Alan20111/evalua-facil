@@ -57,6 +57,25 @@ export default function PaymentConfig() {
     setForm((f) => ({ ...f, [section]: { ...f[section], [key]: val } }))
   }
 
+  // "Guardar configuración" se apaga sin cambios — compara cada campo contra
+  // `config` (siempre existe una vez que loading termina: usePaymentConfig
+  // cae a DEFAULT_PAYMENT_CONFIG si el doc no existe). Los strings se
+  // comparan recortados: handleSave los guarda con .trim(), pero el `form`
+  // en vivo no se recorta mientras se escribe.
+  const configChanged = !config || (
+    (form.moneda || 'MXN') !== (config.moneda || 'MXN') ||
+    !!form.mercadoPago.enabled !== !!config.mercadoPago.enabled ||
+    (form.mercadoPago.publicKey || '').trim() !== (config.mercadoPago.publicKey || '') ||
+    !!form.paypal.enabled !== !!config.paypal.enabled ||
+    (form.paypal.clientId || '').trim() !== (config.paypal.clientId || '') ||
+    !!form.transferencia.enabled !== !!config.transferencia.enabled ||
+    (form.transferencia.banco || '').trim() !== (config.transferencia.banco || '') ||
+    (form.transferencia.titular || '').trim() !== (config.transferencia.titular || '') ||
+    (form.transferencia.cuenta || '').trim() !== (config.transferencia.cuenta || '') ||
+    (form.transferencia.clabe || '').trim() !== (config.transferencia.clabe || '') ||
+    (form.transferencia.nota || '').trim() !== (config.transferencia.nota || '')
+  )
+
   async function handleSave() {
     setSaving(true)
     try {
@@ -237,7 +256,7 @@ export default function PaymentConfig() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !configChanged}
           className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover disabled:opacity-60"
         >
           {saving ? <Spinner size="sm" /> : <Save size={17} />}

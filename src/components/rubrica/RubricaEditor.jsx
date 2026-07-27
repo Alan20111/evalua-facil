@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
@@ -116,6 +116,11 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   const toast = useToast()
   const isNew = !initial?.id
   const [r, setR] = useState(() => estadoInicial(initial))
+  // Foto de cómo entró `r` — mismo patrón que EvaluacionEditor.jsx (configSnap/
+  // preguntaEditSnap): JSON.stringify de ambos lados, tomado UNA vez al montar
+  // (`initial` no cambia en la vida del editor). Solo aplica al editar: crear
+  // siempre debe poder guardarse, no hay original con qué comparar.
+  const editSnapshot = useRef(JSON.stringify(estadoInicial(initial)))
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState(false)
   // Anchos por columna (px), redimensionables arrastrando el borde derecho
@@ -644,7 +649,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
             </div>
           )}
 
-          <button type="submit" disabled={saving}
+          <button type="submit" disabled={saving || (!isNew && JSON.stringify(r) === editSnapshot.current)}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : <Check size={18} />}
             {saving ? 'Guardando…' : isNew ? 'Guardar rúbrica en mi banco' : 'Guardar cambios'}
