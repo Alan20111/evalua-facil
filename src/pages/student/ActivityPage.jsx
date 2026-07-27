@@ -11,6 +11,7 @@ import {
   doc,
   onSnapshot,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -286,6 +287,25 @@ export default function StudentActivityPage() {
         return
       }
       if (submission) {
+        // Nuevo intento: el mismo documento de submission se reutiliza (ver
+        // intentos[] más abajo), pero las respuestas de la subcolección son
+        // del intento ANTERIOR — sin limpiarlas, el Runner las encontraba y
+        // arrancaba el intento nuevo con todo pre-llenado, como si el alumno
+        // ya hubiera contestado sin haber tocado nada.
+        // Se limpian (no se borran): las reglas de Firestore permiten
+        // ESCRIBIR esta subcolección (el alumno autoguarda su respuesta),
+        // pero no están pensadas para DELETE — y esas reglas no las puedo
+        // desplegar desde aquí. Dejar los campos en null logra lo mismo:
+        // el Runner ya trata un valor null como "sin responder".
+        const respAnterioresSnap = await getDocs(collection(db, 'submissions', submission.id, 'respuestas'))
+        if (!respAnterioresSnap.empty) {
+          const batch = writeBatch(db)
+          respAnterioresSnap.docs.forEach((d) => batch.set(d.ref, {
+            opcionSeleccionada: null, textoRespuesta: null, otraTexto: null,
+            archivoURL: null, nombreArchivo: null, tamanoArchivo: null,
+          }, { merge: true }))
+          await batch.commit()
+        }
         await updateDoc(doc(db, 'submissions', submission.id), {
           estadoEvaluacion: 'en_progreso',
           intentoActual: (submission.intentos?.length || 0) + 1,
