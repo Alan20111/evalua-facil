@@ -76,7 +76,14 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       maxCalif: a.maxCalif,
       instrucciones: a.instrucciones || '',
       archivosAdjuntos: a.archivosAdjuntos || [],
-      fechaLimite: a.fechaLimite || null,
+      // null, NUNCA a.fechaLimite: la asignatura nueva tiene su propio
+      // fechaInicio/fechaFin (el docente los captura arriba, en el modal de
+      // "Duplicar asignatura") — la fecha límite del ciclo anterior es casi
+      // siempre pasado ya, así que la actividad nacía "vencida" en el grupo
+      // nuevo. Mismo criterio que ya usa importActivitiesToSubject.js (traer
+      // actividades sueltas de otra asignatura) y handleDuplicateActivity
+      // (duplicar una actividad dentro de la misma asignatura).
+      fechaLimite: null,
       tiposArchivo: a.tiposArchivo || 'imagenes',
       extensionesCustom: a.extensionesCustom || '',
       tipo: a.tipo || 'archivo',

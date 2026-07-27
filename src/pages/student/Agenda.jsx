@@ -105,9 +105,17 @@ export default function Agenda() {
         .map((a) => {
           const subj = subjectById[a.asignaturaId]
           const submission = submissionByActivity[a.id] || null
-          const estado = estadoAgenda(a, submission)
-          const fecha = new Date(a.fechaLimite.includes('T') ? a.fechaLimite : `${a.fechaLimite}T23:59:59`)
-          return { id: a.id, activity: a, submission, subject: subj, teacherName: teacherName[subj.docenteId] || '', estado, fecha }
+          // Prórroga individual de este alumno para esta actividad — sin esto,
+          // una actividad con prórroga vigente aparecía "vencida" (roja) en la
+          // Agenda aunque su propia página de detalle, correctamente, siguiera
+          // aceptando la entrega. docIdBySubject[a.asignaturaId] es el id de
+          // SU inscripción en esa materia, la misma llave con la que
+          // `extensiones` guarda las prórrogas.
+          const extendedDate = a.extensiones?.[docIdBySubject[a.asignaturaId]] || null
+          const displayDeadline = extendedDate || a.fechaLimite
+          const estado = estadoAgenda({ ...a, fechaLimite: displayDeadline }, submission)
+          const fecha = new Date(displayDeadline.includes('T') ? displayDeadline : `${displayDeadline}T23:59:59`)
+          return { id: a.id, activity: a, submission, subject: subj, teacherName: teacherName[subj.docenteId] || '', estado, fecha, extendedDate }
         })
         .filter((it) => it.estado)
         .sort((a, b) => a.fecha - b.fecha)
