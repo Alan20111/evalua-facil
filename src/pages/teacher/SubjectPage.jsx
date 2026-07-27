@@ -459,6 +459,67 @@ const AttendanceTable = memo(function AttendanceTable({
   )
 })
 
+// Botón partido "Excel/PDF" + ⋮ para exportar por parcial — rehecho desde
+// cero. La versión anterior cerraba el menú con un botón invisible
+// `fixed inset-0` puesto encima de TODA la pantalla al abrirse, compitiendo
+// por el mismo gesto de clic que lo abría; reportado en producción como "no
+// hace nada" sin ningún error en consola, y no se pudo reproducir de forma
+// consistente para aislar la causa exacta. Ahora cada botón maneja su propio
+// estado y usa el patrón estándar de "clic afuera cierra": un listener de
+// `mousedown` en `document` que solo se instala mientras el menú está
+// abierto y revisa si el clic cayó fuera de su propia caja — sin ningún
+// elemento de pantalla completa de por medio.
+function ExportSplitButton({ label, Icon, onMain, mainDisabled, mainTooltip, menuTooltip, menuLabel, parciales, onPickParcial }) {
+  const [open, setOpen] = useState(false)
+  const boxRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return undefined
+    function onDocMouseDown(e) {
+      if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false)
+    }
+    // capture:true — se entera del clic ANTES de que otro handler en el
+    // camino (p. ej. otro menú cerrándose) pueda detener su propagación.
+    document.addEventListener('mousedown', onDocMouseDown, true)
+    return () => document.removeEventListener('mousedown', onDocMouseDown, true)
+  }, [open])
+
+  useBackHandler(() => setOpen(false), open)
+
+  return (
+    <div ref={boxRef} className="flex-1 min-w-0 relative flex">
+      <button type="button"
+        onClick={onMain}
+        disabled={mainDisabled}
+        data-tooltip={mainTooltip}
+        className="flex-1 flex items-center justify-center gap-2 py-2 bg-[var(--accent-light)] border border-accent rounded-l text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+      >
+        {mainDisabled ? <Spinner size="sm" /> : <Icon size={17} />} {label}
+      </button>
+      <button type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={`${label} por parcial`}
+        aria-expanded={open}
+        data-tooltip={menuTooltip}
+        className="px-2 bg-[var(--accent-light)] border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
+        <MoreVertical size={16} />
+      </button>
+      {open && (
+        <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden">
+          <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">{menuLabel}</div>
+          {parciales.map((p) => (
+            <button key={p} type="button"
+              onClick={() => { setOpen(false); onPickParcial(p) }}
+              className="w-full text-left px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors">
+              Parcial {p}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
@@ -509,8 +570,6 @@ export default function SubjectPage() {
   const [revertingParcial, setRevertingParcial] = useState(false)
   // Kebab menu per parcial header: null | { p, x, y } (fixed coords from the ⋮ button)
   const [parcialMenu, setParcialMenu] = useState(null)
-  // Top export split-buttons ⋮ dropdown: null | 'excel' | 'pdf'
-  const [topExportMenu, setTopExportMenu] = useState(null)
   // Asistencia — Excel split-button ⋮ dropdown (por parcial): boolean
   const [attExportMenu, setAttExportMenu] = useState(false)
   const [exportingAttendance, setExportingAttendance] = useState(false)
@@ -720,7 +779,6 @@ export default function SubjectPage() {
   // reciente, o si no hay ninguno, la flecha "Volver" de la pantalla (goBack).
   // Cada línea replica exactamente el cierre que ya usa el botón Cancelar/X/backdrop
   // de ese modal (mismos guards de "saving en progreso" donde aplica).
-  useBackHandler(() => setTopExportMenu(null), !!topExportMenu)
   useBackHandler(() => setShowModal(false), showModal)
   useBackHandler(() => setDuplicateConfirm(null), !!duplicateConfirm)
   useBackHandler(() => !moving && setMoveConfirm(null), !!moveConfirm)
@@ -4045,72 +4103,20 @@ export default function SubjectPage() {
                     tratamiento que usan los chips seleccionados en el resto de
                     la app. Los tres botones de descarga de la pantalla (Excel y
                     PDF aquí, Excel en Asistencias) lo comparten. */}
-                {/* Excel split-button */}
-                <div className="flex-1 min-w-0 relative flex">
-                  <button type="button"
-                    onClick={handleExport}
-                    disabled={exporting}
-                    data-tooltip="Descarga TODAS las calificaciones en una hoja de Excel"
-                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-[var(--accent-light)] border border-accent rounded-l text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
-                  >
-                    {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
-                  </button>
-                  <button type="button"
-                    onClick={() => setTopExportMenu((m) => m === 'excel' ? null : 'excel')}
-                    aria-label="Excel por parcial"
-                    data-tooltip="Excel por parcial"
-                    className="px-2 bg-[var(--accent-light)] border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
-                    <MoreVertical size={16} />
-                  </button>
-                  {topExportMenu === 'excel' && (
-                    <>
-                      <button type="button" className="fixed inset-0 z-30 border-none cursor-default bg-transparent" onClick={() => setTopExportMenu(null)} aria-label="Cerrar menú" />
-                      <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden">
-                        <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Excel de un parcial</div>
-                        {parcialesConActividades.map((p) => (
-                          <button key={p} type="button"
-                            onClick={() => { setTopExportMenu(null); doExportParcialExcel(p) }}
-                            className="w-full text-left px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors">
-                            Parcial {p}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-                {/* PDF split-button */}
-                <div className="flex-1 min-w-0 relative flex">
-                  <button type="button"
-                    onClick={handleExportGradesPDF}
-                    disabled={exportingGradesPdf}
-                    data-tooltip="Descarga TODAS las calificaciones en un PDF imprimible"
-                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-[var(--accent-light)] border border-accent rounded-l text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
-                  >
-                    {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
-                  </button>
-                  <button type="button"
-                    onClick={() => setTopExportMenu((m) => m === 'pdf' ? null : 'pdf')}
-                    aria-label="PDF por parcial"
-                    data-tooltip="PDF por parcial"
-                    className="px-2 bg-[var(--accent-light)] border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
-                    <MoreVertical size={16} />
-                  </button>
-                  {topExportMenu === 'pdf' && (
-                    <>
-                      <button type="button" className="fixed inset-0 z-30 border-none cursor-default bg-transparent" onClick={() => setTopExportMenu(null)} aria-label="Cerrar menú" />
-                      <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden">
-                        <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">PDF de un parcial</div>
-                        {parcialesConActividades.map((p) => (
-                          <button key={p} type="button"
-                            onClick={() => { setTopExportMenu(null); doExportParcialPDF(p) }}
-                            className="w-full text-left px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors">
-                            Parcial {p}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
+                <ExportSplitButton
+                  label="Excel" Icon={FileSpreadsheet}
+                  onMain={handleExport} mainDisabled={exporting}
+                  mainTooltip="Descarga TODAS las calificaciones en una hoja de Excel"
+                  menuTooltip="Excel por parcial" menuLabel="Excel de un parcial"
+                  parciales={parcialesConActividades} onPickParcial={doExportParcialExcel}
+                />
+                <ExportSplitButton
+                  label="PDF" Icon={FileText}
+                  onMain={handleExportGradesPDF} mainDisabled={exportingGradesPdf}
+                  mainTooltip="Descarga TODAS las calificaciones en un PDF imprimible"
+                  menuTooltip="PDF por parcial" menuLabel="PDF de un parcial"
+                  parciales={parcialesConActividades} onPickParcial={doExportParcialPDF}
+                />
               </div>
             </div>
 
