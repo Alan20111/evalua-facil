@@ -36,6 +36,18 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
+  // "Guardar cambios" se apaga sin cambios — compara contra `event`, que no
+  // cambia mientras el modal sigue montado (lo abre/cierra el padre). Crear
+  // siempre debe poder enviarse.
+  const eventChanged = isNew || (
+    form.titulo.trim() !== (event?.titulo || '') ||
+    form.descripcion.trim() !== (event?.descripcion || '') ||
+    form.notas.trim() !== (event?.notas || '') ||
+    form.inicio !== (event?.inicio || '') ||
+    form.fin !== (event?.fin || '') ||
+    form.color !== (event?.color || 'blue')
+  )
+
   // Botón atrás físico (Android): si está pidiendo confirmación de borrado,
   // solo la cancela (no cierra todo el editor).
   useBackHandler(() => setConfirmDelete(false), confirmDelete)
@@ -233,7 +245,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
                 <Copy size={18} />
               </button>
             )}
-            <button type="submit" disabled={saving}
+            <button type="submit" disabled={saving || !eventChanged}
               className="flex-1 py-2 bg-accent text-white font-semibold rounded text-sm disabled:opacity-60 flex items-center justify-center gap-2">
               {saving ? <Spinner size="sm" /> : isNew ? 'Crear evento' : 'Guardar cambios'}
             </button>

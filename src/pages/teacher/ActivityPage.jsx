@@ -553,6 +553,14 @@ export default function ActivityPage() {
     }
   }
 
+  // El botón "Guardar" de la prórroga se apaga si lo tecleado es igual a la
+  // que ya tenía este alumno: openGrade() precarga extendDate/extendMotivo
+  // con la prórroga existente, así que reabrir el panel de un alumno YA
+  // extendido mostraba el botón activo sin que se hubiera tocado nada.
+  const extensionUnchanged = !!selected &&
+    extendDate === (activity?.extensiones?.[selected.student.id] || '') &&
+    extendMotivo.trim() === (activity?.extensionesMotivo?.[selected.student.id] || '')
+
   async function saveExtension() {
     if (!selected || !extendDate) return
     setSavingExtension(true)
@@ -1573,7 +1581,7 @@ export default function ActivityPage() {
                         <button
                           type="button"
                           onClick={saveExtension}
-                          disabled={!extendDate || savingExtension}
+                          disabled={!extendDate || savingExtension || extensionUnchanged}
                           className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
                         >
                           {savingExtension ? 'Guardando…' : 'Guardar'}
@@ -2081,7 +2089,7 @@ export default function ActivityPage() {
               <button
                 type="button"
                 onClick={saveExtension}
-                disabled={!extendDate || savingExtension}
+                disabled={!extendDate || savingExtension || extensionUnchanged}
                 className="flex-1 py-2 bg-accent text-white text-sm font-semibold rounded disabled:opacity-60 transition-colors"
               >
                 {savingExtension ? 'Guardando…' : 'Guardar'}
