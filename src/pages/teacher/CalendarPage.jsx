@@ -263,12 +263,12 @@ function AgendaView({
             de la hora (pedido explícito) — así la columna puede ser angosta
             en vez de tener que caber "12:00 pm" completo en una sola línea,
             como sigue siendo en la web. */}
-        <div className={`relative flex-shrink-0 ${IS_NATIVE_APP ? 'w-9' : 'w-20'}`} style={{ height: gridH }}>
+        <div className={`relative flex-shrink-0 ${IS_NATIVE_APP ? 'w-11' : 'w-20'}`} style={{ height: gridH }}>
           {hours.map((h, i) => {
             const [hNum, periodo] = formatHora12(`${String(h).padStart(2, '0')}:00`).split(' ')
             return (
               <div key={h}
-                className={`absolute text-[11px] text-muted leading-none whitespace-nowrap ${IS_NATIVE_APP ? 'right-0 left-0 text-center' : 'right-2 text-right'}`}
+                className={`absolute text-[11px] text-muted leading-none whitespace-nowrap ${IS_NATIVE_APP ? 'right-1.5 left-0 text-center' : 'right-2 text-right'}`}
                 style={{ top: i * AGENDA_ROW_H + AGENDA_ROW_H / 2, transform: 'translateY(-50%)' }}>
                 {IS_NATIVE_APP ? (
                   <>
