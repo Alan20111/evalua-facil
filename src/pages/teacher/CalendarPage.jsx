@@ -901,6 +901,8 @@ export default function CalendarPage() {
   const [showModificarPicker, setShowModificarPicker] = useState(false)
   // asignaturaId pendiente de confirmar en "quitar bloques fuera de rango" (picker de Modificar bloques)
   const [confirmLimpiarRango, setConfirmLimpiarRango] = useState(null)
+  // asignaturaId pendiente de confirmar en "quitar bloques en asueto/vacaciones" (mismo picker)
+  const [confirmLimpiarAsueto, setConfirmLimpiarAsueto] = useState(null)
   const [showAsuetos, setShowAsuetos] = useState(false)
   const [showVacaciones, setShowVacaciones] = useState(false)
 
@@ -1323,6 +1325,32 @@ export default function CalendarPage() {
     }
   }
 
+  // Bloques que caen en un día que se marcó como asueto/vacaciones DESPUÉS de
+  // materializarse — se generan excluyendo los asuetos que existían en ese
+  // momento (utils/horarioBloques.js), pero un asueto agregado después no
+  // borra retroactivamente los bloques que ya habían quedado ahí, así que el
+  // calendario termina mostrando una clase el mismo día que dice "sin clases".
+  function bloquesEnAsueto(asignaturaId) {
+    return bloques.filter(b => b.asignaturaId === asignaturaId
+      && (esAsuetoPara(asuetoMap, b.fecha, 'clases') || esAsuetoPara(vacacionMap, b.fecha, 'clases')))
+  }
+
+  async function limpiarBloquesEnAsueto(asignaturaId) {
+    const ids = bloquesEnAsueto(asignaturaId).map(b => b.id)
+    setConfirmLimpiarAsueto(null)
+    if (ids.length === 0) return
+    try {
+      for (let i = 0; i < ids.length; i += 450) {
+        const batch = writeBatch(db)
+        ids.slice(i, i + 450).forEach(id => batch.delete(doc(db, 'horarioBloques', id)))
+        await batch.commit()
+      }
+      toast(`Se quitaron ${ids.length} bloque(s) que caían en día de asueto o vacaciones`)
+    } catch (err) {
+      toast('Error al quitar bloques: ' + err.message, 'error')
+    }
+  }
+
   // Asignaturas que YA tienen programación (solo se pueden modificar, no volver
   // a programar hasta que se borre su programación completa).
   const programmedIds = useMemo(() => new Set(bloques.map(b => b.asignaturaId)), [bloques])
@@ -1339,6 +1367,9 @@ export default function CalendarPage() {
   const totalBloquesFueraDeRango = useMemo(() =>
     [...programmedIds].reduce((sum, id) => sum + bloquesFueraDeRango(id).length, 0),
   [bloques, subjects, programmedIds]) // eslint-disable-line react-hooks/exhaustive-deps
+  const totalBloquesEnAsueto = useMemo(() =>
+    [...programmedIds].reduce((sum, id) => sum + bloquesEnAsueto(id).length, 0),
+  [bloques, asuetoMap, vacacionMap, programmedIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Borra TODA la programación de una asignatura → vuelve a estar disponible
   // para programarse desde cero.
@@ -1737,15 +1768,15 @@ export default function CalendarPage() {
                 type="button"
                 onClick={() => setShowModificarPicker(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
-                data-tooltip={totalBloquesFueraDeRango > 0
-                  ? `${totalBloquesFueraDeRango} bloque(s) quedaron fuera del rango actual de su asignatura`
+                data-tooltip={(totalBloquesFueraDeRango + totalBloquesEnAsueto) > 0
+                  ? `${totalBloquesFueraDeRango + totalBloquesEnAsueto} bloque(s) necesitan revisión (rango o asueto/vacaciones)`
                   : 'Modificar bloques de clase por asignatura'}
                 data-tooltip-pos="bottom"
               >
                 <CalendarClock size={15} /> Modificar bloques
-                {totalBloquesFueraDeRango > 0 && (
+                {(totalBloquesFueraDeRango + totalBloquesEnAsueto) > 0 && (
                   <span className="ml-0.5 flex items-center gap-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">
-                    <AlertTriangle size={10} /> {totalBloquesFueraDeRango}
+                    <AlertTriangle size={10} /> {totalBloquesFueraDeRango + totalBloquesEnAsueto}
                   </span>
                 )}
               </button>
@@ -1933,6 +1964,7 @@ export default function CalendarPage() {
                 {subjectsConBloques.map(s => {
                   const n = bloques.filter(b => b.asignaturaId === s.id).length
                   const fuera = bloquesFueraDeRango(s.id)
+                  const enAsueto = bloquesEnAsueto(s.id)
                   return (
                     <div key={s.id} className="rounded-card border border-outline-variant overflow-hidden">
                       <button
@@ -1958,6 +1990,24 @@ export default function CalendarPage() {
                           >
                             <AlertTriangle size={12} className="flex-shrink-0" />
                             {fuera.length} bloque(s) quedaron fuera del rango actual — tócalo para quitarlos
+                          </button>
+                        )
+                      )}
+                      {enAsueto.length > 0 && (
+                        confirmLimpiarAsueto === s.id ? (
+                          <div className="flex items-center gap-2 px-3 py-2 bg-error/10 border-t border-error/30">
+                            <span className="text-xs text-error flex-1">¿Quitar los {enAsueto.length} bloque(s) en día de asueto/vacaciones?</span>
+                            <button type="button" onClick={() => setConfirmLimpiarAsueto(null)} className="text-xs text-muted px-2 py-1">Cancelar</button>
+                            <button type="button" onClick={() => limpiarBloquesEnAsueto(s.id)} className="text-xs bg-error text-white rounded px-2.5 py-1 font-medium">Quitar</button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmLimpiarAsueto(s.id)}
+                            className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border-t border-amber-200 text-xs text-amber-800 hover:bg-amber-100 transition-colors text-left"
+                          >
+                            <AlertTriangle size={12} className="flex-shrink-0" />
+                            {enAsueto.length} bloque(s) caen en día de asueto o vacaciones — tócalo para quitarlos
                           </button>
                         )
                       )}
