@@ -149,7 +149,12 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
         username: s.username, // keep the same identity (same Auth account / email)
         resetPassword: null,
         uid: s.uid || null, // inherit the account if the student already activated
-        escuelaId,
+        // Su MISMA escuela, no la del parámetro (la escuela ACTUAL del
+        // docente) — un alumno dado de alta antes de que el docente
+        // eligiera su escuela puede tener un escuelaId distinto al de hoy;
+        // copiarlo con el de hoy fracturaba el campo entre inscripciones
+        // del mismo alumno (mismo uid, escuelaId inconsistente).
+        escuelaId: s.escuelaId || escuelaId,
         asignaturaId: newSubjectId,
         activado: !!s.activado,
         orden: i + 1,
