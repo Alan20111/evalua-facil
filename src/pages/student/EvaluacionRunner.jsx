@@ -121,9 +121,17 @@ export default function EvaluacionRunner() {
       }
       if (actData.evaluacion?.barajarRespuestas) {
         const baseSeed = seed || (subData.intentoActual || 1) * 7919 + lista.length
-        lista = lista.map((p) => p.opciones
-          ? { ...p, opciones: shuffleWithSeed(p.opciones, baseSeed + hashSeed(p.id)) }
-          : p)
+        // "Otra" no se baraja con las demás — se queda SIEMPRE hasta abajo,
+        // pedido explícito (si entrara en la mezcla, a veces aparecería en
+        // medio de las opciones reales, lo cual no tiene sentido: es la
+        // salida de "ninguna de las anteriores", no una opción más).
+        lista = lista.map((p) => {
+          if (!p.opciones) return p
+          const otra = p.opciones.find((o) => o.esOtra)
+          const reales = p.opciones.filter((o) => !o.esOtra)
+          const barajadas = shuffleWithSeed(reales, baseSeed + hashSeed(p.id))
+          return { ...p, opciones: otra ? [...barajadas, otra] : barajadas }
+        })
       }
       if (!subData.ordenSeed && (actData.evaluacion?.ordenPreguntas === 'aleatorio' || actData.evaluacion?.barajarRespuestas)) {
         await updateDoc(doc(db, 'submissions', subData.id), { ordenSeed: seed })
