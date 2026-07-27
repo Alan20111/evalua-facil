@@ -99,7 +99,7 @@ function EventPill({ ev, compact, onClick }) {
     <button
       type="button"
       onClick={e => { e.stopPropagation(); onClick?.(ev) }}
-      className={`flex items-center gap-1 rounded text-left w-full truncate transition-opacity hover:opacity-80 ${compact ? 'px-1 py-0.5 text-xs' : 'px-2 py-1 text-xs'}`}
+      className={`flex items-center gap-1 rounded text-left w-full truncate transition-opacity hover:opacity-80 ${compact ? 'px-1 py-0.5 text-[10px]' : 'px-2 py-1 text-xs'}`}
       style={{ background: ev.bg, color: ev.text }}
     >
       <Icon size={10} className="flex-shrink-0" />
@@ -419,12 +419,11 @@ function BloquePill({ b, subj, onClick }) {
     <button
       type="button"
       onClick={e => { e.stopPropagation(); onClick?.(b) }}
-      className="flex items-center gap-1 rounded-md w-full truncate px-1 py-0.5 text-xs ring-1 ring-black/5 hover:opacity-80 transition-opacity"
+      className="flex items-center gap-1 rounded-md w-full truncate px-1 py-0.5 text-[10px] ring-1 ring-black/5 hover:opacity-80 transition-opacity"
       style={{ background: pal.bg, color: pal.text }}
       data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}${b.lugar ? ' · ' + b.lugar : ''}`}
     >
       <span className="truncate">{subjectDisplayName(subj)}</span>
-      <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{formatHora12(b.horaInicio)}</span>
     </button>
   )
 }
@@ -741,7 +740,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                       }}
                       data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)} · arrastra para mover`}
                     >
-                      <span className="block text-xs font-normal leading-tight truncate">{subjectDisplayName(subj)}</span>
+                      <span className="block text-[10px] font-normal leading-tight truncate">{subjectDisplayName(subj)}</span>
                       {b.lugar && <span className="block text-[10px] opacity-70 leading-tight truncate">{b.lugar}</span>}
                     </div>
                   )
