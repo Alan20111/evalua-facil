@@ -172,7 +172,7 @@ export default function EvaluacionEditor({
   // ── Basic info state ──────────────────────────────────────────────
   const [infoForm, setInfoForm] = useState({
     nombre: '', instrucciones: '', fechaLimite: '', oculta: false, publishAt: '', publishedAt: '', visibilidadMode: 'show',
-    notificarDocente: false,
+    notificarDocente: false, cerrarEntregasEnFecha: true,
   })
   const [savingInfo, setSavingInfo] = useState(false)
   const [currentActivityId, setCurrentActivityId] = useState(activityId)
@@ -253,6 +253,7 @@ export default function EvaluacionEditor({
           publishedAt: d.publishedAt || '',
           visibilidadMode: !d.oculta ? 'published' : d.publishAt ? 'schedule' : 'hide',
           notificarDocente: d.notificarDocente || false,
+          cerrarEntregasEnFecha: !(d.recibirTarde ?? false),
         }
         setInfoForm(loaded)
         loadedSnapshot.current = JSON.stringify(loaded)
@@ -332,6 +333,7 @@ export default function EvaluacionEditor({
         instrucciones: sanitizeHtml(infoForm.instrucciones),
         archivosAdjuntos: [...attachExisting, ...uploaded],
         fechaLimite: infoForm.fechaLimite || null,
+        recibirTarde: infoForm.fechaLimite ? !(infoForm.cerrarEntregasEnFecha ?? true) : false,
         oculta,
         publishAt: resolvedPublishAt,
         publishedAt: newPublishedAt,
@@ -835,6 +837,22 @@ export default function EvaluacionEditor({
                     >
                       <CalendarDays size={16} /> Nueva fecha límite de entrega
                     </button>
+                  )}
+                  {infoForm.fechaLimite && (
+                    <div className="flex items-start gap-3 p-3 mt-2 bg-slate-50 rounded border border-outline-variant">
+                      <input
+                        type="checkbox"
+                        id="cerrarEntregasEnFechaEval"
+                        checked={infoForm.cerrarEntregasEnFecha ?? true}
+                        onChange={(e) => setInfoForm(f => ({ ...f, cerrarEntregasEnFecha: e.target.checked }))}
+                        className="mt-1"
+                        data-tooltip="Desactivar para recibir tarde"
+                      />
+                      <label htmlFor="cerrarEntregasEnFechaEval" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
+                        Cerrar entregas en la fecha y hora programada
+                        <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
+                      </label>
+                    </div>
                   )}
                 </div>
               )}
