@@ -3813,19 +3813,20 @@ export default function SubjectPage() {
                   reportando scrollWidth de más aunque el contenido ya
                   cupiera, forzando scroll horizontal en toda la página. */}
               <div className="flex gap-2 overflow-hidden">
-                {/* Excel y PDF van RELLENOS de color, no con borde y letra de
-                    acento: sobre la tarjeta blanca ese contorno se perdía y el
-                    docente no los encontraba. Los tres botones de descarga de
-                    la pantalla (Excel y PDF aquí, Excel en Asistencias) llevan
-                    el mismo tratamiento; la flechita del menú por parcial se
-                    separa con una línea blanca en vez de un borde propio. */}
+                {/* Excel y PDF: relleno de tinte de acento + borde, no borde
+                    solo (se perdían sobre la tarjeta blanca) ni acento sólido
+                    (probado y descartado: quedaba demasiado gritón para un
+                    botón secundario de una pantalla de trabajo). Es el mismo
+                    tratamiento que usan los chips seleccionados en el resto de
+                    la app. Los tres botones de descarga de la pantalla (Excel y
+                    PDF aquí, Excel en Asistencias) lo comparten. */}
                 {/* Excel split-button */}
                 <div className="flex-1 min-w-0 relative flex">
                   <button type="button"
                     onClick={handleExport}
                     disabled={exporting}
                     data-tooltip="Descarga TODAS las calificaciones en una hoja de Excel"
-                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-accent text-white rounded-l text-sm font-semibold shadow-card hover:bg-accent-hover transition-colors disabled:opacity-60"
+                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-[var(--accent-light)] border border-accent rounded-l text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
                   >
                     {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
                   </button>
@@ -3833,7 +3834,7 @@ export default function SubjectPage() {
                     onClick={() => setTopExportMenu((m) => m === 'excel' ? null : 'excel')}
                     aria-label="Excel por parcial"
                     data-tooltip="Excel por parcial"
-                    className="px-2 bg-accent text-white rounded-r border-l border-white/30 shadow-card hover:bg-accent-hover transition-colors">
+                    className="px-2 bg-[var(--accent-light)] border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
                     <MoreVertical size={16} />
                   </button>
                   {topExportMenu === 'excel' && (
@@ -3858,7 +3859,7 @@ export default function SubjectPage() {
                     onClick={handleExportGradesPDF}
                     disabled={exportingGradesPdf}
                     data-tooltip="Descarga TODAS las calificaciones en un PDF imprimible"
-                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-accent text-white rounded-l text-sm font-semibold shadow-card hover:bg-accent-hover transition-colors disabled:opacity-60"
+                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-[var(--accent-light)] border border-accent rounded-l text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
                   >
                     {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
                   </button>
@@ -3866,7 +3867,7 @@ export default function SubjectPage() {
                     onClick={() => setTopExportMenu((m) => m === 'pdf' ? null : 'pdf')}
                     aria-label="PDF por parcial"
                     data-tooltip="PDF por parcial"
-                    className="px-2 bg-accent text-white rounded-r border-l border-white/30 shadow-card hover:bg-accent-hover transition-colors">
+                    className="px-2 bg-[var(--accent-light)] border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
                     <MoreVertical size={16} />
                   </button>
                   {topExportMenu === 'pdf' && (
@@ -4331,7 +4332,7 @@ export default function SubjectPage() {
                 onClick={handleExportAttendance}
                 disabled={exportingAttendance}
                 data-tooltip="Descarga TODA la asistencia en una hoja de Excel"
-                className="flex-1 flex items-center justify-center gap-2 py-2 bg-accent text-white rounded-l text-sm font-semibold shadow-card hover:bg-accent-hover transition-colors disabled:opacity-60"
+                className="flex-1 flex items-center justify-center gap-2 py-2 bg-[var(--accent-light)] border border-accent rounded-l text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
               >
                 {exportingAttendance ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
               </button>
@@ -4339,7 +4340,7 @@ export default function SubjectPage() {
                 onClick={() => setAttExportMenu((m) => !m)}
                 aria-label="Excel por parcial"
                 data-tooltip="Excel por parcial"
-                className="px-2 bg-accent text-white rounded-r border-l border-white/30 shadow-card hover:bg-accent-hover transition-colors">
+                className="px-2 bg-[var(--accent-light)] border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
                 <MoreVertical size={16} />
               </button>
               {attExportMenu && (
@@ -4720,10 +4721,15 @@ export default function SubjectPage() {
                 autoFocus
               />
             </div>
+            {/* data-tooltip-follow, no data-tooltip: esta fila lleva overflow-hidden
+                (arriba) para tapar un ancho fantasma del input, y ese overflow
+                recortaba el tooltip normal — se dibuja ARRIBA del botón, fuera de
+                la caja de la fila. El que sigue al cursor se pinta en el body,
+                fuera de cualquier contenedor, así que nunca lo recorta nada. */}
             <button type="button"
               onClick={() => setShowAddStudent(true)}
               aria-label="Agregar manualmente"
-              data-tooltip="Agregar manualmente"
+              data-tooltip-follow="Agregar manualmente"
               className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
             >
               <UserPlus size={20} />
