@@ -1675,7 +1675,7 @@ export default function CalendarPage() {
               <select
                 value={dayStart}
                 onChange={e => changeDayStart(Number(e.target.value))}
-                className="w-28 flex-shrink-0 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                className="w-28 flex-shrink-0 ml-auto px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
               >
                 {Array.from({ length: 23 }, (_, h) => h).map(h => (
                   <option key={h} value={h}>{formatHora12(`${String(h).padStart(2, '0')}:00`)}</option>
@@ -1687,7 +1687,7 @@ export default function CalendarPage() {
               <select
                 value={dayEnd}
                 onChange={e => changeDayEnd(Number(e.target.value))}
-                className="w-28 flex-shrink-0 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                className="w-28 flex-shrink-0 ml-auto px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
               >
                 {Array.from({ length: 24 }, (_, h) => h + 1).filter(h => h > dayStart).map(h => (
                   <option key={h} value={h}>{formatHora12(`${String(h % 24).padStart(2, '0')}:00`)}</option>
