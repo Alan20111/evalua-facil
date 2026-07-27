@@ -13,6 +13,13 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
 import { IS_NATIVE_APP } from '../../utils/platform'
 
+// Mismo criterio que la rejilla de 3 días/Semana en CalendarPage: en la web del
+// docente el texto de las clases va al doble, porque a 10 px se leía diminuto en
+// un monitor. En la app se queda como estaba (la columna de un día mide unos
+// centímetros y no cabe).
+const ZONA_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[20px]'
+const ZONA_TITLE = IS_NATIVE_APP ? 'text-xs' : 'text-[24px]'
+
 const ROW_H = 52 // px por hora — igual que la vista Semana
 const SNAP_MIN = 10 // los bloques se colocan/arrastran alineados a 10 min
 const DIAS_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
@@ -388,10 +395,10 @@ export default function ProgramarZonaSemanal({
                             border: '1px dashed ' + pal.text + '55',
                           }}
                         >
-                          <span className="block text-[10px] font-medium leading-tight truncate">
+                          <span className={`block ${ZONA_TEXT} font-medium leading-tight truncate`}>
                             {subjectDisplayName(osubj) || 'Otra clase'}
                           </span>
-                          <span className="block text-[10px] opacity-80 leading-tight">{formatHora12(minsToTime(o.start))}</span>
+                          <span className={`block ${ZONA_TEXT} opacity-80 leading-tight`}>{formatHora12(minsToTime(o.start))}</span>
                         </div>
                       )
                     })}
@@ -425,11 +432,11 @@ export default function ProgramarZonaSemanal({
                           {esReciente && (
                             <span className="absolute top-0.5 right-0.5 text-[9px] font-bold px-1 rounded bg-amber-500 text-white">nuevo</span>
                           )}
-                          <span className="block text-xs font-semibold leading-tight truncate">
+                          <span className={`block ${ZONA_TITLE} font-semibold leading-tight truncate`}>
                             {subjectDisplayName(subj)}
                           </span>
-                          <span className="block text-[10px] opacity-80 leading-tight">{formatHora12(p.horaInicio)}–{formatHora12(horaFin)}</span>
-                          {p.lugar && <span className="block text-[10px] opacity-70 leading-tight truncate">{p.lugar}</span>}
+                          <span className={`block ${ZONA_TEXT} opacity-80 leading-tight`}>{formatHora12(p.horaInicio)}–{formatHora12(horaFin)}</span>
+                          {p.lugar && <span className={`block ${ZONA_TEXT} opacity-70 leading-tight truncate`}>{p.lugar}</span>}
                         </div>
                       )
                     })}
@@ -488,8 +495,8 @@ export default function ProgramarZonaSemanal({
               width: drag.w, height: drag.h, background: pal.bg, color: pal.text,
             }}
           >
-            <span className="block text-xs font-semibold leading-tight truncate">{subjectDisplayName(subj)}</span>
-            <span className="block text-[10px] opacity-80 leading-tight">{formatHora12(p.horaInicio)}–{formatHora12(addMinutesToTime(p.horaInicio, p.duracionMin))}</span>
+            <span className={`block ${ZONA_TITLE} font-semibold leading-tight truncate`}>{subjectDisplayName(subj)}</span>
+            <span className={`block ${ZONA_TEXT} opacity-80 leading-tight`}>{formatHora12(p.horaInicio)}–{formatHora12(addMinutesToTime(p.horaInicio, p.duracionMin))}</span>
           </div>
         )
       })()}

@@ -72,6 +72,16 @@ function fmtHour(timeStr) {
 
 const ROW_H = 52        // px por hora en la vista semana
 const AGENDA_ROW_H = 64 // px por hora en la agenda del día
+
+// Tamaños de texto de la rejilla (3 días y Semana), SOLO en la web del docente.
+// Ahí las clases y eventos iban a 10 px —la mitad que en la vista Día— y en un
+// monitor se leían diminutos: se van al doble. La columna de horas toma el
+// mismo 11 px que ya usa Día, para que las tres vistas se lean igual.
+// En la app se dejan como estaban: la columna de un día mide unos centímetros
+// y ese tamaño simplemente no cabe.
+const GRID_ITEM_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[20px]'
+const GRID_ITEM_TITLE = IS_NATIVE_APP ? 'text-xs' : 'text-[24px]'
+const GRID_HOUR_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[11px]'
 const DEFAULT_DAY_START = 7
 const DEFAULT_DAY_END = 21
 const DIAS_LARGO = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
@@ -677,7 +687,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
           {/* Time gutter */}
           <div className="relative" style={{ height: gridH }}>
             {hoursRange.map((hour, i) => (
-              <div key={hour} className="absolute left-0 right-0 px-1.5 text-[10px] text-muted leading-none"
+              <div key={hour} className={`absolute left-0 right-0 px-1.5 ${GRID_HOUR_TEXT} text-muted leading-none whitespace-nowrap`}
                 style={{ top: i * ROW_H + ROW_H / 2, transform: 'translateY(-50%)' }}>
                 {formatHora12(`${String(hour).padStart(2, '0')}:00`)}
               </div>
@@ -742,8 +752,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                       }}
                       data-tooltip={editable ? `${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)} · arrastra para mover` : `${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}`}
                     >
-                      <span className="block text-[10px] font-normal leading-tight truncate">{subjectDisplayName(subj)}</span>
-                      {b.lugar && <span className="block text-[10px] opacity-70 leading-tight truncate">{b.lugar}</span>}
+                      <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>{subjectDisplayName(subj)}</span>
+                      {b.lugar && <span className={`block ${GRID_ITEM_TEXT} opacity-70 leading-tight truncate`}>{b.lugar}</span>}
                     </div>
                   )
                 })}
@@ -766,7 +776,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                       style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
                       data-tooltip={editable ? (ev.editable ? `${ev.titulo} · ${fmtHour(ev.timeStr)} · arrastra para mover` : `${ev.titulo} · ${fmtHour(ev.timeStr)}`) : `${ev.titulo} · ${fmtHour(ev.timeStr)}`}
                     >
-                      <span className="block text-[10px] font-normal leading-tight truncate">{ev.titulo}</span>
+                      <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>{ev.titulo}</span>
                     </button>
                   )
                 })}
@@ -791,8 +801,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
               background: pal.bg, color: pal.text,
             }}
           >
-            <span className="block text-xs font-semibold leading-tight truncate">{titulo}</span>
-            <span className="block text-[10px] opacity-80 leading-tight">{horas}</span>
+            <span className={`block ${GRID_ITEM_TITLE} font-semibold leading-tight truncate`}>{titulo}</span>
+            <span className={`block ${GRID_ITEM_TEXT} opacity-80 leading-tight`}>{horas}</span>
           </div>
         )
       })()}
