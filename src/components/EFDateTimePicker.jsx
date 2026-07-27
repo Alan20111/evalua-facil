@@ -676,18 +676,25 @@ export default function EFDateTimePicker({
     const src = parsed
     // When no existing value, use defaultDate as the initial calendar selection
     const defD = !src && defaultDate ? parseValue(defaultDate, 'date') : null
-    const anchorDate = src
+    let anchorDate = src
       ? new Date(src.getFullYear(), src.getMonth(), src.getDate())
       : defD
         ? new Date(defD.getFullYear(), defD.getMonth(), defD.getDate())
         : null
+    // El valor guardado (o el defaultDate) puede haber quedado en el pasado —
+    // p. ej. una actividad vieja que se reabre para editar. Sin este clamp el
+    // draft entra por debajo del mínimo sin pasar por selectDay, y como los
+    // wheels de hora solo se corrigen cuando el día es el mismo que minFull,
+    // "Aceptar" terminaba guardando una fecha anterior a hoy.
+    const anchorPastMin = anchorDate && minDateOnly && anchorDate < minDateOnly
+    if (anchorPastMin) anchorDate = new Date(minDateOnly)
     setDraft(anchorDate)
     setViewDate(anchorDate
       ? new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1)
       : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
     )
     if (mode === 'datetime') {
-      const hhmm = src
+      const hhmm = src && !anchorPastMin
         ? `${String(src.getHours()).padStart(2, '0')}:${String(src.getMinutes()).padStart(2, '0')}`
         : defaultTime
       const { hourIdx: hi, minIdx: mi, ampmIdx: ai } = h24ToWheels(hhmm)
@@ -765,15 +772,23 @@ export default function EFDateTimePicker({
   }
 
   // ── Confirm / Clear ────────────────────────────────────────────────────────
+  // Último candado: pase lo que pase con el draft y los wheels, nunca se
+  // confirma un momento anterior al mínimo. Se sube al mínimo en vez de
+  // rechazar en silencio, para que el docente vea qué quedó guardado.
   function confirm() {
     if (!draft) { onChange(''); setOpen(false); return }
     if (mode === 'date') {
-      onChange(toIsoDate(draft))
+      const d = minDateOnly && draft < minDateOnly ? new Date(minDateOnly) : draft
+      onChange(toIsoDate(d))
     } else {
       const h24 = HOURS[hourIdx] % 12 + ampmIdx * 12
       const mm  = MINUTES[minIdx]
-      const d   = new Date(draft)
+      let d = new Date(draft)
       d.setHours(h24, mm, 0, 0)
+      if (minFull && d <= minFull) {
+        d = new Date(minFull)
+        d.setMinutes(d.getMinutes() + 1, 0, 0)
+      }
       onChange(toIsoDatetime(d))
     }
     setOpen(false)
