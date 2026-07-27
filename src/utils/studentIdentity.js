@@ -32,6 +32,12 @@ export function findStudentIdentity(schoolDocs, person) {
     username: canonical.username,
     uid: canonical.uid || null,
     activado: !!canonical.activado,
+    // La MISMA escuela que sus inscripciones hermanas — no la escuela actual
+    // del docente (que puede haber cambiado desde que se creó `canonical`;
+    // ver el comentario en fetchSchoolStudents). Sin esto, una reinscripción
+    // volvía a fracturar la identidad: mismo uid, pero escuelaId distinto
+    // entre inscripciones del mismo alumno.
+    escuelaId: canonical.escuelaId,
     matches,
   }
 }
