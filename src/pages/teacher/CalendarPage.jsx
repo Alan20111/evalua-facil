@@ -98,8 +98,8 @@ function EventPill({ ev, compact, onClick }) {
   return (
     <button
       type="button"
-      onClick={e => { e.stopPropagation(); onClick?.(ev) }}
-      className={`flex items-center gap-1 rounded text-left w-full truncate transition-opacity hover:opacity-80 ${compact ? 'px-1 py-0.5 text-[10px]' : 'px-2 py-1 text-xs'}`}
+      onClick={onClick ? e => { e.stopPropagation(); onClick(ev) } : undefined}
+      className={`flex items-center gap-1 rounded text-left w-full truncate transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${compact ? 'px-1 py-0.5 text-[10px]' : 'px-2 py-1 text-xs'}`}
       style={{ background: ev.bg, color: ev.text }}
     >
       <Icon size={10} className="flex-shrink-0" />
@@ -418,8 +418,8 @@ function BloquePill({ b, subj, onClick }) {
   return (
     <button
       type="button"
-      onClick={e => { e.stopPropagation(); onClick?.(b) }}
-      className="flex items-center gap-1 rounded-md w-full truncate px-1 py-0.5 text-[10px] ring-1 ring-black/5 hover:opacity-80 transition-opacity"
+      onClick={onClick ? e => { e.stopPropagation(); onClick(b) } : undefined}
+      className={`flex items-center gap-1 rounded-md w-full truncate px-1 py-0.5 text-[10px] ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
       style={{ background: pal.bg, color: pal.text }}
       data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}${b.lugar ? ' · ' + b.lugar : ''}`}
     >
@@ -428,7 +428,7 @@ function BloquePill({ b, subj, onClick }) {
   )
 }
 
-function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick, onMoveEvent, asuetoMap = {}, vacacionMap = {} }) {
+function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick, onMoveEvent, asuetoMap = {}, vacacionMap = {}, editable = true }) {
   const cells = getMonthGrid(year, month)
   const selStr = selectedDate ? toDateStr(selectedDate) : null
 
@@ -518,11 +518,11 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
                   // pueden cambiar de día aquí; para eso está "Modificar
                   // bloques"). Solo los eventos personales se arrastran a otro
                   // día. Al tocar un bloque se abre el diálogo para borrarlo.
-                  const movable = it.kind === 'event' && it.ev?.editable
+                  const movable = editable && it.kind === 'event' && it.ev?.editable
                   const isDraggingThis = drag?.moved && it.kind === 'event' && drag.kind === 'event' && drag.ev?.id === it.ev.id
                   const pill = it.kind === 'bloque'
-                    ? <BloquePill b={it.b} subj={subjects[it.b.asignaturaId]} onClick={onBlockClick} />
-                    : <EventPill ev={it.ev} compact onClick={movable ? undefined : onEventClick} />
+                    ? <BloquePill b={it.b} subj={subjects[it.b.asignaturaId]} onClick={editable ? onBlockClick : undefined} />
+                    : <EventPill ev={it.ev} compact onClick={movable ? undefined : (editable ? onEventClick : undefined)} />
                   return (
                     <div
                       key={it.kind === 'bloque' ? it.b.id : it.ev.id}
@@ -566,7 +566,7 @@ function minutesToTimeStr(mins) {
 }
 const SNAP_MIN = 15 // los bloques se sueltan alineados a 15 min
 
-function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, anchorToday = false, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque, onMoveEvent, asuetoMap = {}, vacacionMap = {} }) {
+function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, anchorToday = false, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque, onMoveEvent, asuetoMap = {}, vacacionMap = {}, editable = true }) {
   // Vista "3 días": ventana móvil de numDays días consecutivos arrancando en
   // weekStart (no anclada a lunes, a diferencia de la vista Semana normal).
   const days = anchorToday
@@ -730,8 +730,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                   return (
                     <div
                       key={b.id}
-                      onPointerDown={e => { e.stopPropagation(); startDrag(e, { kind: 'bloque', bloque: b }) }}
-                      className="absolute rounded-lg px-1.5 py-1 text-left overflow-hidden shadow-sm ring-1 ring-black/5 hover:brightness-95 transition-[filter] select-none cursor-grab active:cursor-grabbing"
+                      onPointerDown={editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'bloque', bloque: b }) } : undefined}
+                      className={`absolute rounded-lg px-1.5 py-1 text-left overflow-hidden shadow-sm ring-1 ring-black/5 hover:brightness-95 transition-[filter] select-none ${editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{
                         top, height,
                         left: `calc(${lane * w}% + 2px)`,
@@ -740,7 +740,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                         opacity: isDragging ? 0.3 : 1,
                         touchAction: 'none',
                       }}
-                      data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)} · arrastra para mover`}
+                      data-tooltip={editable ? `${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)} · arrastra para mover` : `${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}`}
                     >
                       <span className="block text-[10px] font-normal leading-tight truncate">{subjectDisplayName(subj)}</span>
                       {b.lugar && <span className="block text-[10px] opacity-70 leading-tight truncate">{b.lugar}</span>}
@@ -760,11 +760,11 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                     <button
                       key={ev.id}
                       type="button"
-                      onPointerDown={ev.editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev }) } : undefined}
-                      onClick={!ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
-                      className={`absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      onPointerDown={editable && ev.editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev }) } : undefined}
+                      onClick={editable && !ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
+                      className={`absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${editable && ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
-                      data-tooltip={ev.editable ? `${ev.titulo} · ${fmtHour(ev.timeStr)} · arrastra para mover` : `${ev.titulo} · ${fmtHour(ev.timeStr)}`}
+                      data-tooltip={editable ? (ev.editable ? `${ev.titulo} · ${fmtHour(ev.timeStr)} · arrastra para mover` : `${ev.titulo} · ${fmtHour(ev.timeStr)}`) : `${ev.titulo} · ${fmtHour(ev.timeStr)}`}
                     >
                       <span className="block text-[10px] font-normal leading-tight truncate">{ev.titulo}</span>
                     </button>
@@ -1857,6 +1857,7 @@ export default function CalendarPage() {
               onMoveBloque={requestMoveBloque}
               asuetoMap={asuetoMap}
               vacacionMap={vacacionMap}
+              editable={false}
             />
           ) : view === '3dias' ? (
             <WeekView
@@ -1894,6 +1895,7 @@ export default function CalendarPage() {
               onMoveEvent={moveEvent}
               asuetoMap={asuetoMap}
               vacacionMap={vacacionMap}
+              editable={false}
             />
           )}
         </div>
