@@ -164,11 +164,11 @@ export function exportParcialGrades({ subject, activities, students, submissions
     const row = [s.orden, studentFullName(s)]
     const grades = acts.map((a) => {
       const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
-      return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 2 })
+      return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
     })
     grades.forEach((g) => row.push(g !== null ? g : ''))
     const rawAvg = promedioParcial(acts, grades, pondOn)
-    row.push(rawAvg !== null ? parseFloat(rawAvg.toFixed(2)) : '')
+    row.push(rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : '')
     return row
   })
 
@@ -264,18 +264,18 @@ export function exportSubjectGrades({
         const sub = submissions.find(
           (sub) => sub.alumnoId === s.id && sub.actividadId === a.id
         )
-        const norm = normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 2 })
+        const norm = normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
         row.push(norm !== null ? norm : '')
         parGrades.push(norm)
       })
       const rawAvg = promedioParcial(acts, parGrades, ponderacionActivaEnParcial(subject, p))
-      const parAvg = rawAvg !== null ? parseFloat(rawAvg.toFixed(2)) : ''
+      const parAvg = rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : ''
       row.push(parAvg)
       if (parAvg !== '') finalGrades.push(parAvg)
     })
 
     const final = finalGrades.length
-      ? parseFloat((finalGrades.reduce((a, b) => a + b, 0) / finalGrades.length).toFixed(2))
+      ? parseFloat((finalGrades.reduce((a, b) => a + b, 0) / finalGrades.length).toFixed(1))
       : ''
     row.push(final)
 
