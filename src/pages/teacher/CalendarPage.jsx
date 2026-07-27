@@ -899,6 +899,8 @@ export default function CalendarPage() {
   // Zona semanal de colocación de bloques: { config, mode, initialPatrones, asignaturaId }
   const [zona, setZona] = useState(null)
   const [showModificarPicker, setShowModificarPicker] = useState(false)
+  // asignaturaId pendiente de confirmar en "quitar bloques fuera de rango" (picker de Modificar bloques)
+  const [confirmLimpiarRango, setConfirmLimpiarRango] = useState(null)
   const [showAsuetos, setShowAsuetos] = useState(false)
   const [showVacaciones, setShowVacaciones] = useState(false)
 
@@ -1293,6 +1295,34 @@ export default function CalendarPage() {
     }
   }
 
+  // Bloques materializados que ya quedaron fuera del rango vigente de la
+  // asignatura — pasa cuando se edita fechaInicio/fechaFin desde "Editar
+  // asignatura" DESPUÉS de haber programado el horario: nada resincroniza los
+  // bloques automáticamente, así que se acumulan clases fantasma fuera del
+  // periodo real del curso hasta que alguien las nota aquí.
+  function bloquesFueraDeRango(asignaturaId) {
+    const subj = subjects[asignaturaId]
+    if (!subj?.fechaInicio || !subj?.fechaFin) return []
+    return bloques.filter(b => b.asignaturaId === asignaturaId
+      && (b.fecha < subj.fechaInicio || b.fecha > subj.fechaFin))
+  }
+
+  async function limpiarBloquesFueraDeRango(asignaturaId) {
+    const ids = bloquesFueraDeRango(asignaturaId).map(b => b.id)
+    setConfirmLimpiarRango(null)
+    if (ids.length === 0) return
+    try {
+      for (let i = 0; i < ids.length; i += 450) {
+        const batch = writeBatch(db)
+        ids.slice(i, i + 450).forEach(id => batch.delete(doc(db, 'horarioBloques', id)))
+        await batch.commit()
+      }
+      toast(`Se quitaron ${ids.length} bloque(s) que estaban fuera del rango actual de la asignatura`)
+    } catch (err) {
+      toast('Error al quitar bloques: ' + err.message, 'error')
+    }
+  }
+
   // Asignaturas que YA tienen programación (solo se pueden modificar, no volver
   // a programar hasta que se borre su programación completa).
   const programmedIds = useMemo(() => new Set(bloques.map(b => b.asignaturaId)), [bloques])
@@ -1304,6 +1334,11 @@ export default function CalendarPage() {
     Object.values(subjects).filter(s => !programmedIds.has(s.id))
       .sort((a, b) => subjectDisplayName(a).localeCompare(subjectDisplayName(b))),
   [subjects, programmedIds])
+  // Total para el badge del botón "Modificar bloques" — así se nota desde el
+  // calendario mismo, sin tener que abrir el selector para descubrirlo.
+  const totalBloquesFueraDeRango = useMemo(() =>
+    [...programmedIds].reduce((sum, id) => sum + bloquesFueraDeRango(id).length, 0),
+  [bloques, subjects, programmedIds]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Borra TODA la programación de una asignatura → vuelve a estar disponible
   // para programarse desde cero.
@@ -1702,10 +1737,17 @@ export default function CalendarPage() {
                 type="button"
                 onClick={() => setShowModificarPicker(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
-                data-tooltip="Modificar bloques de clase por asignatura"
+                data-tooltip={totalBloquesFueraDeRango > 0
+                  ? `${totalBloquesFueraDeRango} bloque(s) quedaron fuera del rango actual de su asignatura`
+                  : 'Modificar bloques de clase por asignatura'}
                 data-tooltip-pos="bottom"
               >
                 <CalendarClock size={15} /> Modificar bloques
+                {totalBloquesFueraDeRango > 0 && (
+                  <span className="ml-0.5 flex items-center gap-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">
+                    <AlertTriangle size={10} /> {totalBloquesFueraDeRango}
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -1890,16 +1932,36 @@ export default function CalendarPage() {
                 <p className="text-xs text-muted">Elige la asignatura cuyos bloques quieres reacomodar:</p>
                 {subjectsConBloques.map(s => {
                   const n = bloques.filter(b => b.asignaturaId === s.id).length
+                  const fuera = bloquesFueraDeRango(s.id)
                   return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      onClick={() => openModificar(s.id)}
-                      className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-card border border-outline-variant hover:bg-accent-tint hover:border-accent transition-colors text-left"
-                    >
-                      <span className="text-sm font-medium text-on-surface truncate">{subjectDisplayName(s)}</span>
-                      <span className="text-xs text-muted flex-shrink-0">{n} bloque(s)</span>
-                    </button>
+                    <div key={s.id} className="rounded-card border border-outline-variant overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => openModificar(s.id)}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-accent-tint transition-colors text-left"
+                      >
+                        <span className="text-sm font-medium text-on-surface truncate">{subjectDisplayName(s)}</span>
+                        <span className="text-xs text-muted flex-shrink-0">{n} bloque(s)</span>
+                      </button>
+                      {fuera.length > 0 && (
+                        confirmLimpiarRango === s.id ? (
+                          <div className="flex items-center gap-2 px-3 py-2 bg-error/10 border-t border-error/30">
+                            <span className="text-xs text-error flex-1">¿Quitar los {fuera.length} bloque(s) fuera de rango?</span>
+                            <button type="button" onClick={() => setConfirmLimpiarRango(null)} className="text-xs text-muted px-2 py-1">Cancelar</button>
+                            <button type="button" onClick={() => limpiarBloquesFueraDeRango(s.id)} className="text-xs bg-error text-white rounded px-2.5 py-1 font-medium">Quitar</button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmLimpiarRango(s.id)}
+                            className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border-t border-amber-200 text-xs text-amber-800 hover:bg-amber-100 transition-colors text-left"
+                          >
+                            <AlertTriangle size={12} className="flex-shrink-0" />
+                            {fuera.length} bloque(s) quedaron fuera del rango actual — tócalo para quitarlos
+                          </button>
+                        )
+                      )}
+                    </div>
                   )
                 })}
               </div>
