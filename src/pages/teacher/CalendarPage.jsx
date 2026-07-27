@@ -1671,11 +1671,11 @@ export default function CalendarPage() {
           <div className="absolute right-0 top-10 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted w-10">Desde</span>
+              <span className="text-xs text-muted w-12 flex-shrink-0">Desde</span>
               <select
                 value={dayStart}
                 onChange={e => changeDayStart(Number(e.target.value))}
-                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                className="flex-1 min-w-0 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
               >
                 {Array.from({ length: 23 }, (_, h) => h).map(h => (
                   <option key={h} value={h}>{formatHora12(`${String(h).padStart(2, '0')}:00`)}</option>
@@ -1683,11 +1683,11 @@ export default function CalendarPage() {
               </select>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted w-10">Hasta</span>
+              <span className="text-xs text-muted w-12 flex-shrink-0">Hasta</span>
               <select
                 value={dayEnd}
                 onChange={e => changeDayEnd(Number(e.target.value))}
-                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                className="flex-1 min-w-0 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
               >
                 {Array.from({ length: 24 }, (_, h) => h + 1).filter(h => h > dayStart).map(h => (
                   <option key={h} value={h}>{formatHora12(`${String(h % 24).padStart(2, '0')}:00`)}</option>
@@ -1696,11 +1696,11 @@ export default function CalendarPage() {
             </div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-1">Días de tu semana</p>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted w-10">Días</span>
+              <span className="text-xs text-muted w-12 flex-shrink-0">Días</span>
               <select
                 value={numDays}
                 onChange={e => changeNumDays(Number(e.target.value))}
-                className="flex-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
+                className="flex-1 min-w-0 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
               >
                 <option value={5}>Lunes a Viernes</option>
                 <option value={6}>Lunes a Sábado</option>
