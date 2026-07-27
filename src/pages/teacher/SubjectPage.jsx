@@ -2206,6 +2206,18 @@ export default function SubjectPage() {
     if (materialExistingFiles.length === 0 && materialNewFiles.length === 0) {
       toast('Agrega al menos un archivo', 'error'); return
     }
+    // Misma regla que las actividades (handleSaveActivity más arriba): sin
+    // esto, "Programar publicación" sin elegir fecha se guardaba con
+    // oculta=true y publishAt=null — un material oculto para siempre sin
+    // ningún aviso.
+    if (materialForm.visibilidadMode === 'schedule') {
+      if (!materialForm.publishAt) { toast('Elige la fecha y hora de publicación', 'error'); return }
+      const now = new Date()
+      const nowIso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+      if (materialForm.publishAt <= nowIso) {
+        toast('La fecha de publicación programada debe ser posterior a este momento', 'error'); return
+      }
+    }
     setSavingMaterial(true)
     try {
       const uploaded = await Promise.all(
@@ -5341,7 +5353,14 @@ export default function SubjectPage() {
               <div>
                 <p className="block text-sm font-medium text-muted mb-2">Visibilidad</p>
                 <VisibilitySelect
-                  mode={materialForm.visibilidadMode}
+                  // Si el material YA es visible para los estudiantes, se
+                  // bloquea a la vista "Publicada" (igual que las
+                  // actividades) — sin esto, reabrir "Editar" y tocar de más
+                  // en "Programar publicación"/"Ocultar" apagaba en
+                  // silencio un material que ya estaban viendo. Mostrar/
+                  // ocultar sigue siendo trabajo del ojito en la tarjeta,
+                  // nunca de este formulario.
+                  mode={(editingMaterial && !editingMaterial.oculta) ? 'published' : materialForm.visibilidadMode}
                   publishAt={materialForm.publishAt}
                   onModeChange={(mode) => setMaterialForm((f) => ({
                     ...f, visibilidadMode: mode,
