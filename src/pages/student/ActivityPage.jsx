@@ -363,6 +363,21 @@ export default function StudentActivityPage() {
       publicacionVisible(ev.publicarResultados, ev.publicarResultadosFecha, ev.resultadosPublicados, ahoraISO)
     const respuestasVisibles = finalizado &&
       publicacionVisible(ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas, ahoraISO)
+    // `submission.calificacion` es la que MANDA (la que fija la política
+    // "Calificación a conservar" — mejor/primero/promedio/último) y no se
+    // toca: es la que cuenta para la materia. Pero con más de un intento eso
+    // puede esconder lo que el alumno sacó realmente la última vez — pedido
+    // explícito: siempre se le dice el resultado de su última oportunidad, y
+    // si su calificación registrada vino de otro intento (porque la política
+    // guarda "la más alta" y no fue la última), se le dice en cuál la sacó.
+    const intentos = submission?.intentos || []
+    const ultimoIntento = intentos[intentos.length - 1] || null
+    // Con empate se reporta el PRIMERO en que llegó a esa marca (reduce en vez
+    // de Math.max: necesita conservar a qué intento pertenece, no solo el
+    // valor). Si el mejor y el último son el mismo puntaje, no hay nada extra
+    // que decir — ya se ve en la línea de "última oportunidad".
+    const mejorIntento = intentos.reduce((mejor, i) =>
+      (!mejor || i.calificacion > mejor.calificacion) ? i : mejor, null)
     return (
       <StudentLayout>
         <Fireworks active={showFireworks} onDone={() => setShowFireworks(false)} />
@@ -416,6 +431,25 @@ export default function StudentActivityPage() {
                         <span className="text-sm text-muted mb-1.5">({Math.round(normalizeGrade(submission.calificacion, activity?.maxCalif, { base: 100 }))}%)</span>
                       )}
                     </div>
+                    {/* Con más de un intento: siempre se dice qué sacó en el
+                        ÚLTIMO, sin importar que la calificación de arriba —
+                        gobernada por "Calificación a conservar" — venga de otro
+                        intento distinto (típicamente el mejor). Y si de verdad
+                        viene de otro, se dice de cuál. */}
+                    {intentos.length > 1 && ultimoIntento && (
+                      <div className="mt-3 pt-3 border-t border-outline-variant space-y-1 text-sm text-muted">
+                        <p>
+                          Resultado de tu última oportunidad (intento {ultimoIntento.numero} de {intentos.length}):{' '}
+                          <strong className="text-on-surface">{ultimoIntento.calificacion}/{activity?.maxCalif}</strong>
+                        </p>
+                        {mejorIntento && mejorIntento.calificacion !== ultimoIntento.calificacion && (
+                          <p>
+                            Tu calificación más alta fue <strong className="text-on-surface">{mejorIntento.calificacion}/{activity?.maxCalif}</strong>,
+                            {' '}obtenida en el intento {mejorIntento.numero}.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <p className="text-sm text-muted flex items-center gap-2"><Clock size={17} /> Calificación pendiente de publicación</p>

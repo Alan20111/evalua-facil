@@ -281,7 +281,6 @@ export default function EvaluacionRunner() {
     if (p.tipo === 'subir_archivo') return !!r?.archivoURL
     return !!r // opción múltiple / falso-verdadero: guarda el id de la opción
   }
-  const actualRespondida = estaRespondida(pregunta)
   // Para el botón de finalizar se miran TODAS, no solo la de pantalla: un
   // intento empezado antes de esta regla puede traer huecos de más atrás.
   const sinResponder = preguntas.filter((p) => !estaRespondida(p)).length
@@ -289,7 +288,27 @@ export default function EvaluacionRunner() {
   // directo (ver el efecto de la cuenta regresiva). Si se acaba el tiempo con
   // preguntas en blanco, la evaluación se entrega igual — esta regla es para
   // que nadie las salte a propósito, no para dejar a nadie encerrado.
-  const bloqueoEntrega = sinResponder > 0
+  //
+  // Los tres botones de abajo (Anterior/Siguiente/Finalizar) se quedan
+  // habilitados siempre — pedido explícito: nada de aviso permanente ni de
+  // botón apagado con la pregunta en blanco. La regla se hace valer recién
+  // AL INTENTAR avanzar/retroceder/entregar: ahí, y solo ahí, aparece el
+  // aviso (ver goAnterior/goSiguiente/handleFinalizarClick más abajo).
+  function goAnterior() {
+    if (!estaRespondida(pregunta)) { toast('Responde esta pregunta para continuar.', 'warning'); return }
+    setIdx((i) => i - 1)
+  }
+  function goSiguiente() {
+    if (!estaRespondida(pregunta)) { toast('Responde esta pregunta para continuar.', 'warning'); return }
+    setIdx((i) => i + 1)
+  }
+  function handleFinalizarClick() {
+    if (sinResponder > 0) {
+      toast(sinResponder === 1 ? 'Te falta 1 pregunta por responder.' : `Te faltan ${sinResponder} preguntas por responder.`, 'warning')
+      return
+    }
+    handleFinalizar()
+  }
   const mm = secondsLeft != null ? Math.floor(secondsLeft / 60) : null
   const ss = secondsLeft != null ? secondsLeft % 60 : null
 
@@ -426,37 +445,27 @@ export default function EvaluacionRunner() {
             )}
           </div>
 
-          {/* El aviso va ARRIBA de los botones y solo cuando hace falta: dice por
-              qué están apagados, en el momento en que el estudiante los mira. */}
-          {!actualRespondida && (
-            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
-              Responde esta pregunta para {isLast ? 'poder entregar' : 'continuar'}.
-            </p>
-          )}
-          {actualRespondida && isLast && bloqueoEntrega && (
-            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
-              Te {sinResponder === 1 ? 'falta 1 pregunta' : `faltan ${sinResponder} preguntas`} por
-              responder. Regresa con <strong>Anterior</strong> para completarla{sinResponder === 1 ? '' : 's'}.
-            </p>
-          )}
-
+          {/* Sin aviso permanente aquí: los tres botones se ven siempre activos.
+              El mensaje de "responde esta pregunta" solo aparece (como toast) si
+              de verdad se intenta avanzar/retroceder/entregar en blanco — ver
+              goAnterior/goSiguiente/handleFinalizarClick. */}
           <div className="flex items-center justify-between gap-2 safe-bottom">
             {navegacionLibre ? (
-              <button type="button" disabled={idx === 0 || !actualRespondida} onClick={() => setIdx((i) => i - 1)}
+              <button type="button" disabled={idx === 0} onClick={goAnterior}
                 className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-60 rounded">
                 <ChevronLeft size={18} /> Anterior
               </button>
             ) : <span />}
 
             {isLast ? (
-              <button type="button" onClick={handleFinalizar} disabled={finishing || bloqueoEntrega}
+              <button type="button" onClick={handleFinalizarClick} disabled={finishing}
                 className="flex items-center gap-2 px-5 py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60">
                 {finishing ? <Spinner size="sm" /> : <CheckCircle2 size={18} />}
                 {finishing ? 'Finalizando…' : 'Finalizar evaluación'}
               </button>
             ) : (
-              <button type="button" onClick={() => setIdx((i) => i + 1)} disabled={!actualRespondida}
-                className="flex items-center gap-1 px-5 py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60">
+              <button type="button" onClick={goSiguiente}
+                className="flex items-center gap-1 px-5 py-2.5 bg-accent text-white font-semibold rounded">
                 Siguiente <ChevronRight size={18} />
               </button>
             )}
