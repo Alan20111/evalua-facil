@@ -17,9 +17,11 @@ import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, expor
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
-import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay } from '../../utils/attendance'
+import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay, enrolledFromDate } from '../../utils/attendance'
 import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana } from '../../utils/attendanceAuto'
 import { diaSemanaLunes, DIAS_SEMANA } from '../../utils/horarioBloques'
+import { buildAsuetoMap, esAsuetoPara } from '../../utils/asuetos'
+import { buildVacacionMap } from '../../utils/vacaciones'
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity } from '../../utils/activityVisibility'
@@ -372,7 +374,8 @@ const AttendanceTable = memo(function AttendanceTable({
     </thead>
     <tbody>
       {filteredAttendanceStudents.map((s, i) => {
-        const total = countPresence(attendanceAllRecords, s.id)
+        const enrolledFrom = enrolledFromDate(s)
+        const total = countPresence(attendanceAllRecords, s.id, enrolledFrom)
         return (
         <tr key={s.id} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
           <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-slate-400 border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
@@ -382,10 +385,16 @@ const AttendanceTable = memo(function AttendanceTable({
             {studentFullName(s)}
           </td>
           {attendanceParciales.flatMap((g) => {
-            const { asist, inasist } = countPresence(g.records, s.id)
+            const { asist, inasist } = countPresence(g.records, s.id, enrolledFrom)
             return [
               ...g.days.flatMap(({ fecha, records }) => records.map((r) => {
-                const estado = attendanceState(r, s.id)
+                // Día anterior a que el alumno se inscribiera: ni presente ni
+                // falta, no aplica — sin esto, isPresente() lo contaba como
+                // asistencia (trata como presente cualquier alumno sin llave
+                // en `presentes`) para clases a las que nunca pudo faltar
+                // porque todavía no era parte de la asignatura.
+                const esAntesDeInscribirse = enrolledFrom && fecha < enrolledFrom
+                const estado = esAntesDeInscribirse ? null : attendanceState(r, s.id)
                 const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
                 const ui = {
                   presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
@@ -399,6 +408,17 @@ const AttendanceTable = memo(function AttendanceTable({
                 // aparecer justo encima de lo que se quería leer. Los días que
                 // aún no llegan se distinguen solos: van atenuados y no se
                 // pueden tocar.
+                if (esAntesDeInscribirse) {
+                  return (
+                    <td key={r.id}
+                      data-col={attColIndexById[r.id]}
+                      ref={addAttColEl(attColIndexById[r.id])}
+                      data-tooltip="Aún no estaba inscrito"
+                      className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none opacity-40 cursor-not-allowed`}>
+                      <span className="relative inline-flex items-center justify-center w-6 h-6 rounded text-slate-300">—</span>
+                    </td>
+                  )
+                }
                 return (
                   <td key={r.id}
                     data-col={attColIndexById[r.id]}
@@ -658,6 +678,11 @@ export default function SubjectPage() {
   const [searchAttendance, setSearchAttendance] = useState('')
   const [showAddAttendance, setShowAddAttendance] = useState(false)
   const [newAttendanceForm, setNewAttendanceForm] = useState({ fecha: '', duracion: 1, parcial: 1 })
+  // Asuetos/vacaciones del docente — se cargan solo al abrir "Agregar día"
+  // (alta manual; con fechas de curso configuradas este modal ni se usa, ver
+  // autoAttendanceReady) para avisar sin bloquear si el día elegido coincide
+  // con uno marcado, en vez de importar en silencio a un día "sin clases".
+  const [attAsuetoMaps, setAttAsuetoMaps] = useState(null)
   const [savingAttendance, setSavingAttendance] = useState(false)
   const [deleteAttendanceConfirm, setDeleteAttendanceConfirm] = useState(null) // { fecha }
   const [deletingAttendance, setDeletingAttendance] = useState(false)
@@ -1186,6 +1211,20 @@ export default function SubjectPage() {
     return () => { showStatusBar() }
   }, [showAddAttendance])
 
+  useEffect(() => {
+    if (!showAddAttendance || attAsuetoMaps) return
+    (async () => {
+      const [asuetosSnap, vacacionesSnap] = await Promise.all([
+        getDocs(query(collection(db, 'asuetos'), where('docenteId', '==', currentUser.uid))),
+        getDocs(query(collection(db, 'vacaciones'), where('docenteId', '==', currentUser.uid))),
+      ])
+      setAttAsuetoMaps({
+        asuetoMap: buildAsuetoMap(asuetosSnap.docs.map((d) => d.data())),
+        vacacionMap: buildVacacionMap(vacacionesSnap.docs.map((d) => d.data())),
+      })
+    })()
+  }, [showAddAttendance, attAsuetoMaps, currentUser.uid])
+
   // ── Asistencias ────────────────────────────────────────────────────
   // `subjectOverride`: cuando el llamador acaba de escribir un cambio en
   // `subjects/{id}` (p. ej. attendanceExcluded) y llama a loadAttendance en
@@ -1271,6 +1310,20 @@ export default function SubjectPage() {
     return `Los ${DIAS_SEMANA[diaSemana].toLowerCase()} no tienes clase de ${subjectDisplayName(subject)} — la das ${conClase}. Si de verdad hubo clase ese día, agrégala primero a tu horario.`
   }
   const avisoSinClase = motivoSinClase(newAttendanceForm.fecha)
+  // Aviso aparte (no bloquea, a diferencia de avisoSinClase): el docente
+  // marcó ese día como asueto/vacaciones, pero a diferencia de crear un
+  // evento (que sí se bloquea del todo, ver bloqueadoPorAsueto en
+  // CalendarPage.jsx), pasar lista es documentar algo que YA pasó — una
+  // reposición de clase en un día de asueto es legítima y debe poder
+  // registrarse, solo con el aviso de que es inusual. Chequeo directo por
+  // fecha (no depende de diasSemana/fechas de curso, a diferencia de
+  // loadAsuetoVacacionDiasClase) — este modal solo existe precisamente
+  // cuando la asignatura NO tiene fechas de curso configuradas.
+  const avisoAsueto = newAttendanceForm.fecha && attAsuetoMaps && (
+    esAsuetoPara(attAsuetoMaps.asuetoMap, newAttendanceForm.fecha, 'clases') ? 'asueto'
+      : esAsuetoPara(attAsuetoMaps.vacacionMap, newAttendanceForm.fecha, 'clases') ? 'vacaciones'
+        : null
+  )
 
   async function handleCreateAttendanceDay(e) {
     e.preventDefault()
@@ -1798,6 +1851,28 @@ export default function SubjectPage() {
     try {
       // Remove this enrollment's submissions first so none are orphaned.
       await deleteSubmissionsByStudent(studentToDelete.id)
+      // Igual para sus prórrogas por actividad — sin esto, activities.extensiones
+      // se quedaba con la llave del estudiante borrado para siempre (dato
+      // muerto, nunca vuelve a leerse porque ningún id nuevo la reutiliza,
+      // pero se acumula sin necesidad).
+      const conExtension = activities.filter((a) =>
+        a.extensiones?.[studentToDelete.id] !== undefined || a.extensionesMotivo?.[studentToDelete.id] !== undefined)
+      if (conExtension.length > 0) {
+        const extBatch = writeBatch(db)
+        conExtension.forEach((a) => {
+          extBatch.update(doc(db, 'activities', a.id), {
+            [`extensiones.${studentToDelete.id}`]: deleteField(),
+            [`extensionesMotivo.${studentToDelete.id}`]: deleteField(),
+          })
+        })
+        await extBatch.commit()
+        setActivities((prev) => prev.map((a) => {
+          if (!conExtension.some((c) => c.id === a.id)) return a
+          const extensiones = { ...a.extensiones }; delete extensiones[studentToDelete.id]
+          const extensionesMotivo = { ...a.extensionesMotivo }; delete extensionesMotivo[studentToDelete.id]
+          return { ...a, extensiones, extensionesMotivo }
+        }))
+      }
       await deleteDoc(doc(db, 'students', studentToDelete.id))
       const remaining = groupStudents.filter((s) => s.id !== studentToDelete.id)
       const batch = writeBatch(db)
@@ -4583,6 +4658,14 @@ export default function SubjectPage() {
               <div className="rounded border border-amber-200 bg-amber-50 p-2.5 flex items-start gap-2">
                 <AlertTriangle size={17} className="text-amber-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-800 leading-relaxed">{avisoSinClase}</p>
+              </div>
+            )}
+            {!avisoSinClase && avisoAsueto && (
+              <div className="rounded border border-amber-200 bg-amber-50 p-2.5 flex items-start gap-2">
+                <AlertTriangle size={17} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Ese día lo marcaste como {avisoAsueto === 'asueto' ? 'día de asueto' : 'periodo vacacional'} — si hubo clase de reposición, puedes seguir y agregarlo de todas formas.
+                </p>
               </div>
             )}
             <div className="flex gap-2 pt-1">

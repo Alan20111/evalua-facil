@@ -61,14 +61,28 @@ export async function createAttendanceDay({ subjectId, docenteId, fecha, duracio
   return refs.map((r) => r.id)
 }
 
+// 'YYYY-MM-DD' del alta del alumno — para excluir del conteo de asistencia
+// los días anteriores a que se inscribiera (ver countPresence abajo). null si
+// el doc es viejo y no tiene createdAt (no se filtra nada en ese caso).
+export function enrolledFromDate(student) {
+  const d = student?.createdAt?.toDate ? student.createdAt.toDate() : null
+  if (!d) return null
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 // Cuenta asistencias/faltas de un alumno sobre un conjunto de registros
 // (slots). Cada slot vale una asistencia; una FALTA JUSTIFICADA cuenta como
 // asistencia (no como falta) — solo la falta injustificada suma a inasist.
-export function countPresence(records, studentId) {
+// `enrolledFrom` ('YYYY-MM-DD', opcional): días anteriores a esa fecha se
+// excluyen del conteo — sin esto, un alumno que se inscribe semanas después
+// de iniciado el curso "aprovechaba" isPresente() tratando como asistencia
+// cada día en el que ni siquiera estaba inscrito, inflando su porcentaje.
+export function countPresence(records, studentId, enrolledFrom) {
   let asist = 0
   let inasist = 0
   let justif = 0
   for (const r of records) {
+    if (enrolledFrom && r.fecha < enrolledFrom) continue
     if (isPresente(r, studentId)) asist++
     else if (r.justificadas?.[studentId]) { asist++; justif++ }
     else inasist++
