@@ -1542,6 +1542,29 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       cuatro variantes de este encabezado (EVALUAR y EVALUACIÓN,
                       página y pantalla completa) llevan la misma escala. */}
                   <p className="text-base font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
+                  {/* Fechas, iguales que en la página. Van DENTRO de la columna
+                      del título (no sueltas abajo) para que arranquen a la misma
+                      altura que el nombre, en vez de meterse bajo el botón
+                      Regresar. */}
+                  {(activity.publishedAt || activity.publishAt || activity.fechaLimite) && (
+                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                      {activity.publishedAt && (
+                        <span data-tooltip="Publicado" className="text-sm text-emerald-600 flex items-center gap-1">
+                          <Clock size={15} /> {formatPublishAt(activity.publishedAt)}
+                        </span>
+                      )}
+                      {activity.publishAt && (
+                        <span data-tooltip="Publicación programada" className="text-sm text-accent flex items-center gap-1">
+                          <Clock size={15} /> {formatPublishAt(activity.publishAt)}
+                        </span>
+                      )}
+                      {activity.fechaLimite && (
+                        <span data-tooltip="Cierre" className="text-sm text-amber-600 flex items-center gap-1">
+                          <Clock size={15} /> {formatDeadline(activity.fechaLimite)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
