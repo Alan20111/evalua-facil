@@ -5,6 +5,7 @@ import { promedioParcial, pesoDe, ponderacionActivaEnParcial, normalizeGrade } f
 import { attendanceState, countPresence, fmtAttDateParts, enrolledFromDate } from './attendance'
 import { studentFullName } from './studentSearch'
 import { isDraftActivity } from './activityVisibility'
+import { saveWorkbook, saveBlob } from './nativeSave'
 
 // Loaded dynamically (only when actually downloading the template) because
 // it's needed for one feature `xlsx` can't do: writing real sheet protection
@@ -38,14 +39,7 @@ export async function downloadStudentTemplate() {
   const blob = new Blob([buffer], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'plantilla-estudiantes.xlsx'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  await saveBlob(blob, 'plantilla-estudiantes.xlsx')
 }
 
 // Splits a natural full-name string by spaces: 1st word = apellido paterno,
@@ -117,7 +111,7 @@ export function parseStudentExcel(file) {
 // Ranking export: estudiantes ordenados por promedio (mayor a menor).
 // Columnas: LUGAR, No., NOMBRE, PROMEDIO. `rows` = [{ lugar, orden, nombre,
 // promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
-export function exportRankingExcel({ subject, rows, label }) {
+export async function exportRankingExcel({ subject, rows, label }) {
   const periodo = subjectPeriodLabel(subject)
   const titleRow = ['', '', '']
   titleRow[0] = `${subjectDisplayName(subject)} — Ranking · ${label}${periodo ? `   (${periodo})` : ''}`
@@ -132,10 +126,10 @@ export function exportRankingExcel({ subject, rows, label }) {
   XLSX.utils.book_append_sheet(wb, ws, 'Ranking')
   const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
   const safeLabel = label.toLowerCase().replace(/\s+/g, '')
-  XLSX.writeFile(wb, `ranking_${safeLabel}_${safeName}.xlsx`)
+  await saveWorkbook(wb, `ranking_${safeLabel}_${safeName}.xlsx`)
 }
 
-export function exportParcialGrades({ subject, activities, students, submissions, parcial }) {
+export async function exportParcialGrades({ subject, activities, students, submissions, parcial }) {
   const acts = activities
     .filter((a) => a.parcial === parcial && !isDraftActivity(a))
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
@@ -183,10 +177,10 @@ export function exportParcialGrades({ subject, activities, students, submissions
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, `Parcial ${parcial}`)
   const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
-  XLSX.writeFile(wb, `calificaciones_parcial${parcial}_${safeName}.xlsx`)
+  await saveWorkbook(wb, `calificaciones_parcial${parcial}_${safeName}.xlsx`)
 }
 
-export function exportSubjectGrades({
+export async function exportSubjectGrades({
   subject,
   activities,
   students,
@@ -307,7 +301,7 @@ export function exportSubjectGrades({
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Calificaciones')
   const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
-  XLSX.writeFile(wb, `calificaciones_${safeName}.xlsx`)
+  await saveWorkbook(wb, `calificaciones_${safeName}.xlsx`)
 }
 
 // ── Asistencia — un botón por número (1 = asistió o justificó, 0 = faltó,
@@ -340,7 +334,7 @@ function attendanceRowCells(days, studentId, enrolledFrom) {
   return cells
 }
 
-export function exportParcialAttendance({ subject, students, attendanceParciales, parcial }) {
+export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial }) {
   const g = attendanceParciales.find((x) => x.parcial === parcial)
   const days = g?.days || []
   const dayHeaders = attendanceColumnHeaders(days)
@@ -372,10 +366,10 @@ export function exportParcialAttendance({ subject, students, attendanceParciales
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, `Parcial ${parcial}`)
   const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
-  XLSX.writeFile(wb, `asistencia_parcial${parcial}_${safeName}.xlsx`)
+  await saveWorkbook(wb, `asistencia_parcial${parcial}_${safeName}.xlsx`)
 }
 
-export function exportSubjectAttendance({ subject, students, attendanceParciales }) {
+export async function exportSubjectAttendance({ subject, students, attendanceParciales }) {
   const FIXED = 2
   const parcialMeta = attendanceParciales.map((g) => {
     const dayHeaders = attendanceColumnHeaders(g.days)
@@ -436,5 +430,5 @@ export function exportSubjectAttendance({ subject, students, attendanceParciales
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Asistencia')
   const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
-  XLSX.writeFile(wb, `asistencia_${safeName}.xlsx`)
+  await saveWorkbook(wb, `asistencia_${safeName}.xlsx`)
 }

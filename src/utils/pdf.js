@@ -5,6 +5,7 @@ import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from './p
 import { isDraftActivity } from './activityVisibility'
 import { subjectPeriodLabel } from './dateRange'
 import { studentFullName as fullName } from './studentSearch'
+import { savePdfDoc } from './nativeSave'
 
 function safeFile(subject) {
   return (subjectDisplayName(subject) || 'asignatura')
@@ -46,7 +47,7 @@ export async function exportRankingPDF({ subject, rows, label }) {
     },
   })
   const safeLabel = label.toLowerCase().replace(/\s+/g, '')
-  doc.save(`ranking_${safeLabel}_${safeFile(subject)}.pdf`)
+  await savePdfDoc(doc, `ranking_${safeLabel}_${safeFile(subject)}.pdf`)
 }
 
 // Grades report: one row per student with per-parcial average + final.
@@ -104,7 +105,7 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
     },
   })
 
-  doc.save(`calificaciones_${safeFile(subject)}.pdf`)
+  await savePdfDoc(doc, `calificaciones_${safeFile(subject)}.pdf`)
 }
 
 // Detailed grades report for a SINGLE parcial: one column per activity
@@ -158,7 +159,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
     },
   })
 
-  doc.save(`calificaciones_parcial${parcial}_${safeFile(subject)}.pdf`)
+  await savePdfDoc(doc, `calificaciones_parcial${parcial}_${safeFile(subject)}.pdf`)
 }
 
 // Just the activation QR, large, with the subject name and group — nothing
@@ -197,7 +198,7 @@ export async function exportQRPDF({ subject, activationUrl }) {
     doc.text(subject.accessCode, centerX, 215, { align: 'center' })
   }
 
-  doc.save(`qr_${safeFile(subject)}.pdf`)
+  await savePdfDoc(doc, `qr_${safeFile(subject)}.pdf`)
 }
 
 // Cuestionario/examen results: one enunciado + options table per reactivo de
@@ -255,7 +256,7 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
     y = doc.lastAutoTable.finalY + 10
   })
 
-  doc.save(`resultados_${safeFile(subject)}.pdf`)
+  await savePdfDoc(doc, `resultados_${safeFile(subject)}.pdf`)
 }
 
 // Credentials list: one row per student with username + temp password (1st login).
@@ -316,5 +317,5 @@ export async function exportCredentialsPDF({ subject, students, activationUrl, d
   doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(130)
   doc.text('Cada estudiante entra con su usuario y el código de la clase, y elige su propia contraseña la primera vez.', 14, y)
 
-  doc.save(`lista_acceso_${safeFile(subject)}.pdf`)
+  await savePdfDoc(doc, `lista_acceso_${safeFile(subject)}.pdf`)
 }
