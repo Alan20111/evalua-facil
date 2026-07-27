@@ -12,8 +12,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { isActivityPublished, formatPublishAt, isOverdue, isDraftActivity } from '../../utils/activityVisibility'
-import { formatHora12FromDate } from '../../utils/formatHora'
+import { isActivityPublished, formatPublishAt, formatDeadline, isOverdue, isDraftActivity } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
@@ -111,17 +110,14 @@ function buildAttendanceWeeks(fechas) {
 // activities keep showing a correct label without needing a data migration.
 const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', cuestionario: 'Cuestionario', examen: 'Examen', observacion: 'Observación' }
 
-function formatFechaLimite(value) {
-  if (!value) return ''
-  const d = new Date(value)
-  if (isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }) + ' ' + formatHora12FromDate(d)
-}
-
 export default function StudentSubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
   const [subject, setSubject] = useState(null)
+  // El id de ESTA inscripción — es la llave con la que `activity.extensiones`
+  // guarda las prórrogas individuales. Sin guardarlo, la lista de abajo no
+  // tenía forma de saber si ESTE alumno tiene una prórroga vigente.
+  const [studentId, setStudentId] = useState(null)
   const [activities, setActivities] = useState([])
   const [activityLabels, setActivityLabels] = useState({})
   const [submissions, setSubmissions] = useState({})
@@ -178,6 +174,7 @@ export default function StudentSubjectPage() {
 
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
+      setStudentId(studData.id)
 
       // Fetch teacher name separately — best-effort
       if (subData.docenteId) {
@@ -385,8 +382,17 @@ export default function StudentSubjectPage() {
                       const sub = submissions[a.id]
                       const graded = sub?.calificacion != null
                       const delivered = sub && !graded
-                      const overdue = !graded && !delivered && isOverdue(a)
-                      const fechaLimiteLabel = formatFechaLimite(a.fechaLimite)
+                      // Prórroga individual de ESTE alumno: solo cuenta si la
+                      // actividad tiene fecha límite propia (misma regla que
+                      // ActivityPage.jsx — una prórroga no inventa un plazo
+                      // donde no había). Sin esto, un alumno con prórroga
+                      // vigente veía su actividad marcada "vencida" en rojo
+                      // aquí aunque su página de detalle, correctamente, la
+                      // mostrara abierta.
+                      const extendedDate = a.fechaLimite ? a.extensiones?.[studentId] : null
+                      const displayDeadline = extendedDate || a.fechaLimite
+                      const overdue = !graded && !delivered && isOverdue({ ...a, fechaLimite: displayDeadline })
+                      const fechaLimiteLabel = formatDeadline(displayDeadline)
                       const showPeso = ponderacionActivaEnParcial(subject, a.parcial) && subject?.ponderacionVisibleAlumnos && a.pesoCalificacion != null
                       // Scheduled activities may only carry `publishAt` (already in the
                       // past — this list is filtered to visible ones), so that IS their
@@ -419,8 +425,8 @@ export default function StudentSubjectPage() {
                                   </span>
                                 )}
                                 {!IS_NATIVE_APP && fechaLimiteLabel && (
-                                  <span data-tooltip="Cierre" className={`text-xs flex items-center gap-0.5 ${overdue ? 'text-red-500' : 'text-amber-600'}`}>
-                                    <Clock size={14} /> {fechaLimiteLabel}
+                                  <span data-tooltip={extendedDate ? 'Cierre (con prórroga)' : 'Cierre'} className={`text-xs flex items-center gap-0.5 ${overdue ? 'text-red-500' : 'text-amber-600'}`}>
+                                    <Clock size={14} /> {fechaLimiteLabel}{extendedDate && ' (extendida)'}
                                   </span>
                                 )}
                                 {showPeso && (

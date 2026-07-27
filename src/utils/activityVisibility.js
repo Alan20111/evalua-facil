@@ -52,11 +52,15 @@ export function withDefaultTime(fecha, defaultTime = '00:00:00') {
 }
 
 // Human-readable label for the submission deadline. `fechaLimite` used to be
-// a plain date (YYYY-MM-DD); default legacy values without a time component
-// to midnight so the hour always renders.
+// a plain date (YYYY-MM-DD); default legacy values without a time component to
+// 23:59:59 (end of day) — same default as `parseFechaLimite` below. Antes
+// caía en '00:00:00': para una fecha límite legada sin hora, el badge de
+// "Cierra" mostraba "12:00 am" mientras isOverdue/isDueToday (que sí usan
+// parseFechaLimite) seguían aceptando entregas hasta las 11:59 pm de ESE
+// MISMO día — la etiqueta contradecía la fecha en la que en verdad cerraba.
 export function formatDeadline(fechaLimite) {
   if (!fechaLimite) return ''
-  const d = new Date(withDefaultTime(fechaLimite, '00:00:00'))
+  const d = new Date(withDefaultTime(fechaLimite, '23:59:59'))
   return `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`
 }
 
