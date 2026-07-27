@@ -1037,6 +1037,36 @@ export default function ActivityPage() {
                   <p className="text-base font-medium text-muted truncate">
                     Parcial {activity?.parcial} · {activity?.categoria === 'examen' ? 'Examen' : activity?.categoria === 'cuestionario' ? 'Cuestionario' : activity?.categoria === 'observacion' ? 'Observación' : 'Entregable'}
                   </p>
+                  {/* Fechas, iguales que en la página. Van DENTRO de la columna
+                      del título (no sueltas abajo) para que arranquen a la misma
+                      altura que el nombre, en vez de meterse bajo el botón
+                      Regresar. Aquí sirven de recordatorio mientras se califica:
+                      si una entrega llegó tarde, la fecha de cierre es el dato
+                      que lo explica y estaba a dos pantallas de distancia. */}
+                  {(activity?.publishedAt || activity?.publishAt || activity?.fechaLimite) && (
+                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                      {activity?.publishedAt && (
+                        <span data-tooltip="Publicado" className="text-sm text-emerald-600 flex items-center gap-1">
+                          <Clock size={15} /> {formatPublishAt(activity.publishedAt)}
+                        </span>
+                      )}
+                      {activity?.publishAt && (
+                        <span data-tooltip="Publicación programada" className="text-sm text-accent flex items-center gap-1">
+                          <Clock size={15} /> {formatPublishAt(activity.publishAt)}
+                        </span>
+                      )}
+                      {activity?.fechaLimite && (
+                        <span data-tooltip="Cierre" className="text-sm text-amber-600 flex items-center gap-1">
+                          <Clock size={15} /> {formatDeadline(activity.fechaLimite)}
+                        </span>
+                      )}
+                      {activity?.recibirTarde && !activity?.cerradaManual && (
+                        <span data-tooltip="Se aceptan entregas tarde" className="text-sm text-slate-500 flex items-center gap-1">
+                          Recibe entregas tarde
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
