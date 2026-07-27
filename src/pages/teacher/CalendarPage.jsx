@@ -259,16 +259,26 @@ function AgendaView({
 
       {/* Rejilla del día */}
       <div className="flex">
-        {/* Gutter de horas — ancho suficiente para que "12:00 pm" (el más
-            largo, 2 dígitos + am/pm) quepa completo sin que el primer
-            carácter se salga por la izquierda y la tarjeta lo recorte. */}
-        <div className="relative w-20 flex-shrink-0" style={{ height: gridH }}>
-          {hours.map((h, i) => (
-            <div key={h} className="absolute right-2 text-[11px] text-muted leading-none whitespace-nowrap"
-              style={{ top: i * AGENDA_ROW_H + AGENDA_ROW_H / 2, transform: 'translateY(-50%)' }}>
-              {formatHora12(`${String(h).padStart(2, '0')}:00`)}
-            </div>
-          ))}
+        {/* Gutter de horas. En la App, el am/pm va en su propio renglón debajo
+            de la hora (pedido explícito) — así la columna puede ser angosta
+            en vez de tener que caber "12:00 pm" completo en una sola línea,
+            como sigue siendo en la web. */}
+        <div className={`relative flex-shrink-0 ${IS_NATIVE_APP ? 'w-9' : 'w-20'}`} style={{ height: gridH }}>
+          {hours.map((h, i) => {
+            const [hNum, periodo] = formatHora12(`${String(h).padStart(2, '0')}:00`).split(' ')
+            return (
+              <div key={h}
+                className={`absolute text-[11px] text-muted leading-none whitespace-nowrap ${IS_NATIVE_APP ? 'right-0 left-0 text-center' : 'right-2 text-right'}`}
+                style={{ top: i * AGENDA_ROW_H + AGENDA_ROW_H / 2, transform: 'translateY(-50%)' }}>
+                {IS_NATIVE_APP ? (
+                  <>
+                    <span className="block">{hNum}</span>
+                    <span className="block text-[9px] opacity-70 -mt-0.5">{periodo}</span>
+                  </>
+                ) : `${hNum} ${periodo}`}
+              </div>
+            )
+          })}
         </div>
 
         <div ref={gridRef} className="relative flex-1 border-l border-outline-variant" style={{ height: gridH }}>
