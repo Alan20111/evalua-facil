@@ -268,7 +268,7 @@ function AgendaView({
             const [hNum, periodo] = formatHora12(`${String(h).padStart(2, '0')}:00`).split(' ')
             return (
               <div key={h}
-                className={`absolute text-[11px] text-muted leading-none whitespace-nowrap ${IS_NATIVE_APP ? 'right-1.5 left-0 text-center' : 'right-2 text-right'}`}
+                className={`absolute text-[11px] text-muted leading-none whitespace-nowrap ${IS_NATIVE_APP ? 'inset-x-0 text-center' : 'right-2 text-right'}`}
                 style={{ top: i * AGENDA_ROW_H + AGENDA_ROW_H / 2, transform: 'translateY(-50%)' }}>
                 {IS_NATIVE_APP ? (
                   <>
