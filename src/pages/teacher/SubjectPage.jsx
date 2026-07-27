@@ -2579,7 +2579,7 @@ export default function SubjectPage() {
     }
     setDeletingSubject(true)
     try {
-      await deleteSubjectCascade(subjectId)
+      await deleteSubjectCascade(subjectId, subject?.docenteId)
       toast('Asignatura eliminada')
       navigate('/dashboard')
     } catch (err) { toast('Error: ' + err.message, 'error') }

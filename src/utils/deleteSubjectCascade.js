@@ -26,18 +26,22 @@ async function batchDeleteDocs(refs) {
 }
 
 // Fully deletes a subject and all related data in cascade:
-// activities → submissions → materials → students → attendance → subject doc.
+// activities → submissions → materials → students → attendance → horarioBloques → subject doc.
 // NOTE: Firebase Auth accounts of students are NOT deleted (same as per-student delete today).
-export async function deleteSubjectCascade(subjectId) {
+// `docenteId` is required to list `horarioBloques`: its Firestore rule is owner-only
+// (unlike activities/students/attendance/materials, which any authenticated user can
+// read), so the query must filter by docenteId too or the list itself is denied.
+export async function deleteSubjectCascade(subjectId, docenteId) {
   // `materials` is fetched separately, with its rejection swallowed: if its
   // Firestore rules aren't deployed yet, getDocs() rejects with
   // permission-denied — that must never block deleting the subject itself
   // (it would have, via this same Promise.all). Worst case, a few orphaned
   // `materials` docs are left behind instead of a stuck "Eliminar" button.
-  const [actsSnap, studsSnap, attSnap] = await Promise.all([
+  const [actsSnap, studsSnap, attSnap, bloquesSnap] = await Promise.all([
     getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
     getDocs(query(collection(db, 'attendance'), where('asignaturaId', '==', subjectId))),
+    getDocs(query(collection(db, 'horarioBloques'), where('docenteId', '==', docenteId), where('asignaturaId', '==', subjectId))),
   ])
   const matsSnap = await getDocs(query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))).catch(() => ({ docs: [] }))
 
@@ -50,6 +54,7 @@ export async function deleteSubjectCascade(subjectId) {
     ...matsSnap.docs.map((d) => doc(db, 'materials', d.id)),
     ...studsSnap.docs.map((d) => doc(db, 'students', d.id)),
     ...attSnap.docs.map((d) => doc(db, 'attendance', d.id)),
+    ...bloquesSnap.docs.map((d) => doc(db, 'horarioBloques', d.id)),
   ]
   await batchDeleteDocs(refs)
   await deleteDoc(doc(db, 'subjects', subjectId))
