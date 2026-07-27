@@ -392,15 +392,16 @@ const AttendanceTable = memo(function AttendanceTable({
                   falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} /> },
                   justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
                 }[estado]
-                const cellTooltip = estado === 'presente' ? 'Asistencia'
-                  : estado === 'falta' ? 'Falta'
-                  : motivo ? 'Justificada con motivo'
-                  : 'Justificada sin motivo (cuenta como asistencia)'
                 const esFuturo = fecha > todayISO
+                // Sin tooltip por celda: la leyenda de abajo ya dice qué es cada
+                // símbolo, y aquí se repetía en CADA cuadrito de la cuadrícula —
+                // con el ratón cruzando la tabla, el globito no paraba de
+                // aparecer justo encima de lo que se quería leer. Los días que
+                // aún no llegan se distinguen solos: van atenuados y no se
+                // pueden tocar.
                 return (
                   <td key={r.id}
                     data-col={attColIndexById[r.id]}
-                    data-tooltip={esFuturo ? 'Este día aún no llega — se generó automáticamente' : cellTooltip}
                     ref={addAttColEl(attColIndexById[r.id])}
                     onClick={() => onCellClick(r, s)}
                     className={`att-cell ${dayColW} px-0.5 ${cellPadY} text-center border-l border-outline-variant select-none ${esFuturo ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'} ${lastEditedCell === `${r.id}:${s.id}` ? 'ring-2 ring-inset ring-accent bg-[var(--accent-medium)]' : fecha === todayISO ? 'bg-accent-light' : ''}`}>
@@ -3812,13 +3813,19 @@ export default function SubjectPage() {
                   reportando scrollWidth de más aunque el contenido ya
                   cupiera, forzando scroll horizontal en toda la página. */}
               <div className="flex gap-2 overflow-hidden">
+                {/* Excel y PDF van RELLENOS de color, no con borde y letra de
+                    acento: sobre la tarjeta blanca ese contorno se perdía y el
+                    docente no los encontraba. Los tres botones de descarga de
+                    la pantalla (Excel y PDF aquí, Excel en Asistencias) llevan
+                    el mismo tratamiento; la flechita del menú por parcial se
+                    separa con una línea blanca en vez de un borde propio. */}
                 {/* Excel split-button */}
                 <div className="flex-1 min-w-0 relative flex">
                   <button type="button"
                     onClick={handleExport}
                     disabled={exporting}
                     data-tooltip="Descarga TODAS las calificaciones en una hoja de Excel"
-                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-accent rounded-l text-sm font-medium text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-accent text-white rounded-l text-sm font-semibold shadow-card hover:bg-accent-hover transition-colors disabled:opacity-60"
                   >
                     {exporting ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
                   </button>
@@ -3826,7 +3833,7 @@ export default function SubjectPage() {
                     onClick={() => setTopExportMenu((m) => m === 'excel' ? null : 'excel')}
                     aria-label="Excel por parcial"
                     data-tooltip="Excel por parcial"
-                    className="px-1.5 border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
+                    className="px-2 bg-accent text-white rounded-r border-l border-white/30 shadow-card hover:bg-accent-hover transition-colors">
                     <MoreVertical size={16} />
                   </button>
                   {topExportMenu === 'excel' && (
@@ -3851,7 +3858,7 @@ export default function SubjectPage() {
                     onClick={handleExportGradesPDF}
                     disabled={exportingGradesPdf}
                     data-tooltip="Descarga TODAS las calificaciones en un PDF imprimible"
-                    className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-accent rounded-l text-sm font-medium text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                    className="flex-1 flex items-center justify-center gap-2 py-2 bg-accent text-white rounded-l text-sm font-semibold shadow-card hover:bg-accent-hover transition-colors disabled:opacity-60"
                   >
                     {exportingGradesPdf ? <Spinner size="sm" /> : <FileText size={17} />} PDF
                   </button>
@@ -3859,7 +3866,7 @@ export default function SubjectPage() {
                     onClick={() => setTopExportMenu((m) => m === 'pdf' ? null : 'pdf')}
                     aria-label="PDF por parcial"
                     data-tooltip="PDF por parcial"
-                    className="px-1.5 border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
+                    className="px-2 bg-accent text-white rounded-r border-l border-white/30 shadow-card hover:bg-accent-hover transition-colors">
                     <MoreVertical size={16} />
                   </button>
                   {topExportMenu === 'pdf' && (
@@ -4324,7 +4331,7 @@ export default function SubjectPage() {
                 onClick={handleExportAttendance}
                 disabled={exportingAttendance}
                 data-tooltip="Descarga TODA la asistencia en una hoja de Excel"
-                className="flex-1 flex items-center justify-center gap-2 py-1.5 border border-accent rounded-l text-sm font-medium text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                className="flex-1 flex items-center justify-center gap-2 py-2 bg-accent text-white rounded-l text-sm font-semibold shadow-card hover:bg-accent-hover transition-colors disabled:opacity-60"
               >
                 {exportingAttendance ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
               </button>
@@ -4332,7 +4339,7 @@ export default function SubjectPage() {
                 onClick={() => setAttExportMenu((m) => !m)}
                 aria-label="Excel por parcial"
                 data-tooltip="Excel por parcial"
-                className="px-1.5 border border-l-0 border-accent rounded-r text-accent hover:bg-[var(--accent-medium)] transition-colors">
+                className="px-2 bg-accent text-white rounded-r border-l border-white/30 shadow-card hover:bg-accent-hover transition-colors">
                 <MoreVertical size={16} />
               </button>
               {attExportMenu && (
@@ -4677,16 +4684,19 @@ export default function SubjectPage() {
           </div>
           </>}
 
-          {/* Ordenar alfabéticamente — visible en web y App */}
+          {/* Ordenar alfabéticamente — visible en web y App.
+              Botón con borde y color de acento, no el texto gris de 12 px de
+              antes: era una acción real escondida detrás de la apariencia de
+              una nota al pie, y nadie la encontraba. */}
           <div className="flex justify-end pt-1">
             <button
               type="button"
               onClick={sortStudentsAlphabetically}
               disabled={groupStudents.length < 2}
               data-tooltip="Ordena la lista por apellido y nombre"
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-accent transition-colors px-2 py-1 rounded hover:bg-[var(--accent-medium)] disabled:opacity-60"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-accent text-sm font-medium text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
             >
-              <ArrowUpDown size={15} />
+              <ArrowUpDown size={16} />
               Ordenar alfabéticamente
             </button>
           </div>
@@ -4712,8 +4722,8 @@ export default function SubjectPage() {
             </div>
             <button type="button"
               onClick={() => setShowAddStudent(true)}
-              aria-label="Agregar nuevo estudiante"
-              data-tooltip="Agregar nuevo estudiante"
+              aria-label="Agregar manualmente"
+              data-tooltip="Agregar manualmente"
               className="p-2.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors"
             >
               <UserPlus size={20} />
