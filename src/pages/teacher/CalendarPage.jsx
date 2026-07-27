@@ -1616,7 +1616,9 @@ export default function CalendarPage() {
       ref={hoyBtnRef}
       type="button"
       onClick={goToday}
-      className="text-xs px-3 py-1.5 rounded border border-outline-variant text-muted hover:bg-accent-tint transition-colors"
+      className={IS_NATIVE_APP
+        ? 'text-xs font-semibold px-3 py-1.5 rounded border border-accent/30 bg-accent-tint text-accent transition-colors'
+        : 'text-xs px-3 py-1.5 rounded border border-outline-variant text-muted hover:bg-accent-tint transition-colors'}
     >
       Hoy
     </button>
@@ -1626,7 +1628,9 @@ export default function CalendarPage() {
     <button
       type="button"
       onClick={() => openNewEvent(null)}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+      className={IS_NATIVE_APP
+        ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-accent/30 bg-accent-tint text-sm font-semibold text-accent transition-colors'
+        : 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors'}
     >
       <Plus size={15} /> Evento
     </button>
@@ -1652,7 +1656,9 @@ export default function CalendarPage() {
       <button
         type="button"
         onClick={() => setShowHoras(v => !v)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors"
+        className={IS_NATIVE_APP
+          ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-accent/30 bg-accent-tint text-sm font-semibold text-accent transition-colors'
+          : 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors'}
         data-tooltip="Horas visibles de tu día (Agenda y Semana)"
         data-tooltip-pos="bottom"
       >
@@ -1900,13 +1906,15 @@ export default function CalendarPage() {
           )}
         </div>
 
-        {/* Legend */}
+        {/* Legend — solo web (pedido explícito: en la App no hace falta). */}
+        {!IS_NATIVE_APP && (
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted px-1">
           <span className="flex items-center gap-1"><CalendarPlus size={12} /> Bloques de clase (Semana/Mes)</span>
           <span className="flex items-center gap-1"><Clock size={12} /> Fecha límite (de actividades)</span>
           <span className="flex items-center gap-1"><Eye size={12} /> Publicación programada</span>
           <span className="flex items-center gap-1"><CalendarDays size={12} /> Evento personal</span>
         </div>
+        )}
       </div>
 
       {/* Modals */}
