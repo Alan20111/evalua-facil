@@ -9,6 +9,7 @@ import {
   pesosEquitativos, validarRubrica, round1,
 } from '../../utils/rubrica'
 import RubricaTable from './RubricaTable'
+import { IS_NATIVE_APP } from '../../utils/platform'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 
@@ -654,7 +655,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
           </button>
           {preview && (
             <div className="bg-surface-card rounded-card shadow-card p-3">
-              <RubricaTable rubrica={normalizada()} />
+              <RubricaTable rubrica={normalizada()} compact={!IS_NATIVE_APP} />
             </div>
           )}
 

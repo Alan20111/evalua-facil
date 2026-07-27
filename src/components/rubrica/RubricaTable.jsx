@@ -4,11 +4,17 @@ import { valorNivel, esCotejo, COTEJO_NIVEL, RUBRICA_TOTAL } from '../../utils/r
 // Tabla presentacional de una LISTA DE COTEJO — 3 columnas (Num, Criterio,
 // Nivel de desempeño con sus puntos). Si viene `seleccion` (ya calificado),
 // marca cada criterio como cumplido (✓, suma sus puntos) o no (✗, 0).
-function CotejoTable({ rubrica, seleccion }) {
+function CotejoTable({ rubrica, seleccion, compact = false }) {
   const graded = Array.isArray(seleccion)
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm" style={{ minWidth: '340px' }}>
+      {/* `compact` (web del docente): las otras columnas son de ancho fijo, así
+          que Criterio se queda con TODO el sobrante — en un panel ancho acaba
+          desproporcionada. Topar la tabla es lo que la encoge, porque el
+          sobrante es justo lo que se reparte. El alumno y la app no lo pasan:
+          ahí la pantalla es angosta y estirarse es lo correcto. */}
+      <table className="w-full border-collapse text-sm"
+        style={{ minWidth: '340px', ...(compact ? { maxWidth: '540px' } : null) }}>
         <thead>
           <tr>
             <th className="w-9 px-1 py-2 border border-outline-variant bg-surface-container text-xs font-semibold text-muted align-bottom">Num</th>
@@ -51,9 +57,9 @@ function CotejoTable({ rubrica, seleccion }) {
 // vista del alumno (antes de entregar y, ya calificado, con su resultado
 // resaltado vía `seleccion`). Si recibe `onSelect`, las celdas son botones
 // (modo calificación en pantallas anchas).
-export default function RubricaTable({ rubrica, seleccion = null, onSelect = null, disabled = false }) {
+export default function RubricaTable({ rubrica, seleccion = null, onSelect = null, disabled = false, compact = false }) {
   if (!rubrica?.criterios?.length) return null
-  if (esCotejo(rubrica)) return <CotejoTable rubrica={rubrica} seleccion={seleccion} />
+  if (esCotejo(rubrica)) return <CotejoTable rubrica={rubrica} seleccion={seleccion} compact={compact} />
   const { niveles, criterios } = rubrica
 
   return (

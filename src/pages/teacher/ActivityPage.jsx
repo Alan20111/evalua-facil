@@ -2148,6 +2148,7 @@ export default function ActivityPage() {
                 seleccion={rubricEval}
                 onSelect={selectRubricaNivel}
                 disabled={parcialCerrado}
+                compact={!IS_NATIVE_APP}
               />
             </div>
             {/* Con el autoguardado activo, Siguiente/Anterior ya aplican la
