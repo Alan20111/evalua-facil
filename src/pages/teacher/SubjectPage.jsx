@@ -1624,8 +1624,15 @@ export default function SubjectPage() {
         if (identity && identity.matches.some((m) => m.asignaturaId === subjectId)) {
           return { row, status: 'skip', identity }
         }
-        if (identity) return { row, status: 'link', identity }
-        return { row, status: 'new' }
+        // decision: la propuesta del clasificador, pero el docente la puede
+        // voltear en la vista previa (ver toggleImportLinkDecision) — antes
+        // una coincidencia de nombre se vinculaba de una vez, sin preguntar,
+        // a diferencia del alta manual (arriba), que SIEMPRE pregunta "¿es
+        // el mismo estudiante?" antes de reutilizar una cuenta. Con nombres
+        // comunes (dos "Juan Pérez García" distintos en la misma escuela) eso
+        // fusionaba en silencio a dos personas reales en una sola cuenta.
+        if (identity) return { row, status: 'link', decision: 'link', identity }
+        return { row, status: 'new', decision: 'new' }
       })
       setExcelPreview({ rows, invalid, schoolDocs, taken })
     } catch (err) {
@@ -1633,6 +1640,22 @@ export default function SubjectPage() {
     } finally {
       setParsingExcel(false)
     }
+  }
+
+  // El docente voltea la decisión de una fila "coincide con alguien más" en
+  // la vista previa: de vincularla a esa cuenta, a crearle una cuenta nueva
+  // (es una persona distinta que solo comparte el nombre). Solo aplica a
+  // filas 'link' — 'skip' (ya inscrito en ESTA asignatura) y 'new' (nadie
+  // coincide) no tienen nada que decidir.
+  function toggleImportLinkDecision(i) {
+    setExcelPreview((prev) => {
+      if (!prev) return prev
+      const rows = prev.rows.map((item, idx) => {
+        if (idx !== i || item.status !== 'link') return item
+        return { ...item, decision: item.decision === 'link' ? 'new' : 'link' }
+      })
+      return { ...prev, rows }
+    })
   }
 
   // Paso 2: el docente ya revisó la vista previa y confirma — aquí sí se
@@ -1651,8 +1674,10 @@ export default function SubjectPage() {
         if (item.status === 'skip') { skipped++; continue }
         const row = item.row
         let username, uid = null, activado = false
-        if (item.status === 'link') {
-          // Same person elsewhere → bulk import links automatically to their account.
+        if (item.status === 'link' && item.decision === 'link') {
+          // Same person elsewhere, y el docente lo confirmó en la vista previa
+          // (o lo dejó tal cual, que es la propuesta por default) → se vincula
+          // a su cuenta existente.
           username = item.identity.username; uid = item.identity.uid || null; activado = item.identity.activado; linked++
         } else {
           username = uniqueUsername(generateUsername(row.apellidoPaterno, row.apellidoMaterno, row.nombre), taken)
@@ -6036,12 +6061,41 @@ export default function SubjectPage() {
                   <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">
                     {excelPreview.rows.filter((r) => r.status !== 'skip').length} estudiante{excelPreview.rows.filter((r) => r.status !== 'skip').length !== 1 ? 's' : ''} se van a agregar
                   </p>
+                  {/* Aviso UNA sola vez, no por fila: antes una coincidencia de
+                      nombre se vinculaba a la cuenta existente sin preguntar —
+                      distinto al alta manual, que siempre pregunta "¿es el
+                      mismo estudiante?". Con nombres comunes eso fusionaba en
+                      silencio a dos personas reales en una sola cuenta. Ahora
+                      "Cuenta existente" es el badge por default (la propuesta
+                      más probable), pero se puede voltear por fila. */}
+                  {excelPreview.rows.some((r) => r.status === 'link') && (
+                    <p className="text-xs text-muted bg-surface-container rounded px-2.5 py-1.5 mb-1.5">
+                      Los marcados <strong>Cuenta existente</strong> coinciden con un nombre que ya está en la
+                      escuela y se van a unir a esa cuenta. Si alguno es <strong>otra persona</strong> que solo
+                      comparte el nombre, tócalo para darle una cuenta nueva.
+                    </p>
+                  )}
                   <ul className="space-y-1">
                     {excelPreview.rows.map((item, i) => (
                       <li key={i} className="flex items-center justify-between gap-2 text-sm px-2.5 py-1.5 rounded bg-surface border border-outline-variant">
                         <span className="text-on-surface truncate">{studentFullName(item.row)}</span>
                         {item.status === 'new' && <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded flex-shrink-0">Nuevo</span>}
-                        {item.status === 'link' && <span className="text-[10px] font-semibold text-accent bg-accent-light px-1.5 py-0.5 rounded flex-shrink-0">Cuenta existente</span>}
+                        {item.status === 'link' && (
+                          <button
+                            type="button"
+                            onClick={() => toggleImportLinkDecision(i)}
+                            data-tooltip={item.decision === 'link'
+                              ? 'Toca si es otra persona que solo comparte el nombre'
+                              : 'Toca si en realidad es la misma persona'}
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 transition-colors ${
+                              item.decision === 'link'
+                                ? 'text-accent bg-accent-light hover:bg-[var(--accent-tint)]'
+                                : 'text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                            }`}
+                          >
+                            {item.decision === 'link' ? 'Cuenta existente ✎' : 'Cuenta nueva ✎'}
+                          </button>
+                        )}
                         {item.status === 'skip' && <span className="text-[10px] font-semibold text-muted bg-surface-container px-1.5 py-0.5 rounded flex-shrink-0">Ya inscrito — se omite</span>}
                       </li>
                     ))}
