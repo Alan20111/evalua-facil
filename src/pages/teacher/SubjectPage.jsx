@@ -1523,12 +1523,55 @@ export default function SubjectPage() {
     setGroupStudentsLoaded(true)
   }
 
+  // Al agregar estudiantes a una asignatura con parciales YA cerrados
+  // (confirmCloseParcial más abajo), sus actividades de esos parciales
+  // quedan bloqueadas para calificar (mismo candado que usa parcialCerrado)
+  // y promedioParcial las excluye en silencio en vez de tratarlas como "sin
+  // entrega" igual que a sus compañeros — un alta tardía nunca recibía esa
+  // misma cobertura. Esto la replica para los estudiantes recién agregados,
+  // con la MISMA calificación que ya se usó para el resto del grupo en ese
+  // cierre (0 si ese parcial se cerró sin ninguna falta que rellenar).
+  async function backfillClosedParcialesFor(studentIds) {
+    const parcialesCerrados = subject?.parcialesCerrados || {}
+    const closedParciales = Object.keys(parcialesCerrados).map(Number)
+    if (closedParciales.length === 0 || studentIds.length === 0) return
+    const entries = []
+    for (const p of closedParciales) {
+      const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+      if (acts.length === 0) continue
+      const subDocs = await fetchSubmissionsForActivities(acts.map((a) => a.id))
+      const cierreDoc = subDocs.find((d) => d.data().cierreParcial === true)
+      const grade = cierreDoc ? cierreDoc.data().calificacion : 0
+      acts.forEach((a) => entries.push({ a, grade }))
+    }
+    if (entries.length === 0) return
+    const pairs = []
+    studentIds.forEach((sid) => entries.forEach(({ a, grade }) => pairs.push({ sid, a, grade })))
+    for (let i = 0; i < pairs.length; i += 400) {
+      const batch = writeBatch(db)
+      pairs.slice(i, i + 400).forEach(({ sid, a, grade }) => {
+        const ref = doc(collection(db, 'submissions'))
+        batch.set(ref, {
+          alumnoId: sid,
+          actividadId: a.id,
+          calificacion: grade,
+          comentario: '',
+          estado: 'calificado',
+          sinEntrega: true,
+          cierreParcial: true,
+          fechaEntrega: serverTimestamp(),
+        })
+      })
+      await batch.commit()
+    }
+  }
+
   // Creates one enrollment doc. If `identity` is given (re-enrolling an existing person),
   // the new doc inherits that person's username/uid/activado so all their subjects share a
   // single account — and an already-activated student gets the new subject instantly.
   async function createEnrollment(person, identity, schoolDocs) {
     const username = identity ? identity.username : uniqueFrom(person, schoolDocs)
-    await addDoc(collection(db, 'students'), {
+    const ref = await addDoc(collection(db, 'students'), {
       apellidoPaterno: person.apellidoPaterno.trim(),
       apellidoMaterno: person.apellidoMaterno.trim(),
       nombre: person.nombre.trim(),
@@ -1541,6 +1584,7 @@ export default function SubjectPage() {
       orden: groupStudents.length + 1,
       createdAt: serverTimestamp(),
     })
+    await backfillClosedParcialesFor([ref.id])
   }
 
   // Duplicate names get a zero-padded suffix: garcia.juan, garcia.juan01,
@@ -1681,6 +1725,7 @@ export default function SubjectPage() {
       let linked = 0
       let skipped = 0
       let duplicated = 0
+      const newIds = []
       for (const item of rows) {
         if (item.status === 'skip') { skipped++; continue }
         if (item.status === 'duplicate') { duplicated++; continue }
@@ -1697,6 +1742,7 @@ export default function SubjectPage() {
           created++
         }
         const ref = doc(collection(db, 'students'))
+        newIds.push(ref.id)
         batch.set(ref, {
           ...row,
           username,
@@ -1710,6 +1756,7 @@ export default function SubjectPage() {
         })
       }
       await batch.commit()
+      await backfillClosedParcialesFor(newIds)
       const parts = [`${created} estudiantes importados`]
       if (linked) parts.push(`${linked} vinculados a cuentas existentes`)
       if (skipped) parts.push(`${skipped} ya estaban en la asignatura`)
