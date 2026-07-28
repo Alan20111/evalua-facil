@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { Check, Pipette } from 'lucide-react'
 import { isCustomPalette, customPaletteHex, ensureVisibleOnWhite, PALETTES } from '../utils/subjectPalette'
+import { IS_NATIVE_APP } from '../utils/platform'
 
 // El catálogo vive en utils/subjectPalette (lo comparten estos cuadros y las
 // bolitas del banco de íconos); se re-exporta para no romper importaciones.
@@ -25,7 +26,7 @@ export default function PaletteSelect({ value = 'default', onChange }) {
     // lo sacaba de su columna (medido: 1.2 px por lado) y era justo el cuadro
     // que se veía desalineado con el ícono de abajo. El hover sí escala,
     // porque es pasajero y no deja nada torcido.
-    <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
+    <div className={`grid gap-1.5 ${IS_NATIVE_APP ? 'grid-cols-8' : 'grid-cols-6 sm:grid-cols-8'}`}>
       {PALETTES.map((p) => {
         const selected = !custom && (value || 'default') === p.key
         return (
@@ -35,10 +36,10 @@ export default function PaletteSelect({ value = 'default', onChange }) {
             onClick={() => onChange(p.key)}
             data-tooltip={p.label}
             aria-label={p.label}
-            className={`aspect-square w-full rounded-lg flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
+            className={`aspect-square w-full ${IS_NATIVE_APP ? 'rounded' : 'rounded-lg'} flex items-center justify-center transition-transform ${selected ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
             style={{ backgroundColor: p.color }}
           >
-            {selected && <Check size={16} className="text-white" />}
+            {selected && <Check size={IS_NATIVE_APP ? 12 : 16} className="text-white" />}
           </button>
         )
       })}
@@ -52,12 +53,12 @@ export default function PaletteSelect({ value = 'default', onChange }) {
         data-tooltip="Elige tu propio color (se ajusta solo para notarse sobre blanco)"
         data-tooltip-pos="left"
         aria-label="Color personalizado"
-        className={`aspect-square w-full rounded-lg flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
+        className={`aspect-square w-full ${IS_NATIVE_APP ? 'rounded' : 'rounded-lg'} flex items-center justify-center transition-transform ${custom ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
         style={custom
           ? { backgroundColor: customColor }
           : { background: 'conic-gradient(#ef4444, #f97316, #eab308, #16a34a, #06b6d4, #2563eb, #9333ea, #ef4444)' }}
       >
-        {custom ? <Check size={16} className="text-white" /> : <Pipette size={14} className="text-white drop-shadow" />}
+        {custom ? <Check size={IS_NATIVE_APP ? 12 : 16} className="text-white" /> : <Pipette size={IS_NATIVE_APP ? 11 : 14} className="text-white drop-shadow" />}
       </button>
       <input
         ref={colorInputRef}

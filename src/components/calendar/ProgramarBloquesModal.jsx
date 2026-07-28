@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
-import EFDateTimePicker from '../EFDateTimePicker'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { ArrowRight, CalendarPlus, Pencil, Trash2 } from 'lucide-react'
 import { BLOQUE_COLORS } from '../../utils/horarioBloques'
@@ -23,7 +22,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 
 export default function ProgramarBloquesModal({
   subjects, subjectsDisponibles = null, mode = 'crear', initial = null, subjectName = '',
-  onClose, onContinue, onDeleteAll,
+  onClose, onContinue, onDeleteAll, onIrAsignatura,
 }) {
   const toast = useToast()
   const esModificar = mode === 'modificar'
@@ -36,6 +35,11 @@ export default function ProgramarBloquesModal({
   // ya alimentan las asistencias automáticas (ver utils/attendanceAuto.js).
   const targetSubject = esModificar ? subjects[initial?.asignaturaId] : subjects[asignaturaId]
   const fechasDelCurso = !!(targetSubject?.fechaInicio && targetSubject?.fechaFin)
+  // Sin fechas en la asignatura NO se programa: antes se pedían aquí, y eso
+  // dejaba el horario con un rango propio mientras la asignatura seguía sin
+  // fechas — y sin fechas no hay parciales por periodo ni asistencia
+  // automática. Se manda a definirlas donde de verdad viven.
+  const faltanFechasCurso = !!targetSubject && !fechasDelCurso
 
   const [fechaInicio, setFechaInicio] = useState(initial?.fechaInicio || targetSubject?.fechaInicio || '')
   const [fechaFin, setFechaFin] = useState(initial?.fechaFin || targetSubject?.fechaFin || '')
@@ -47,7 +51,7 @@ export default function ProgramarBloquesModal({
       setFechaInicio(targetSubject.fechaInicio)
       setFechaFin(targetSubject.fechaFin)
     }
-  }, [targetSubject?.fechaInicio, targetSubject?.fechaFin]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [targetSubject?.fechaInicio, targetSubject?.fechaFin])
   const [duracionMin, setDuracionMin] = useState(initial?.duracionMin || 60)
   const [bloquesPorSemana, setBloquesPorSemana] = useState(initial?.bloquesPorSemana || 1)
   const [color, setColor] = useState(initial?.color || 'blue')
@@ -101,6 +105,9 @@ export default function ProgramarBloquesModal({
 
   function handleContinue() {
     if (!esModificar && !asignaturaId) { toast('Selecciona una asignatura', 'error'); return }
+    if (faltanFechasCurso) {
+      toast('Primero define las fechas de inicio y fin en la asignatura', 'error'); return
+    }
     if (!fechaInicio || !fechaFin) { toast('Indica la fecha de inicio y de finalización', 'error'); return }
     if (fechaFin < fechaInicio) { toast('La fecha de finalización debe ser posterior a la de inicio', 'error'); return }
     if (!duracionMin || duracionMin < 5) { toast('La duración debe ser de al menos 5 minutos', 'error'); return }
@@ -150,7 +157,7 @@ export default function ProgramarBloquesModal({
               <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">
                 {subjectName}
               </div>
-              <p className="text-xs text-muted">Estás modificando toda esta asignatura. Al guardar se reemplazan sus bloques — clases que hayas movido de horario o cancelado sueltas se pierden y vuelven al patrón general.</p>
+              <p className="text-xs text-muted">Estás modificando toda esta asignatura. Al guardar se reemplazan sus bloques de clases que muevas, para todo el rango de fechas.</p>
             </div>
           ) : sinDisponibles ? (
             <div className="rounded-card border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
@@ -179,7 +186,9 @@ export default function ProgramarBloquesModal({
           {/* Rango de fechas — fijo (tomado del curso) si la asignatura ya
               tiene fechaInicio/fechaFin configuradas; si no, se piden aquí. */}
           <div className="space-y-1.5">
-            {label('Rango de fechas')}
+            {/* El helper `label` aplica `uppercase` a todo; el paréntesis lleva
+                `normal-case` para que se lea tal cual, no gritado. */}
+            {label(<>Rango de fechas <span className="normal-case font-normal">(Duración de la asignatura)</span></>)}
             {fechasDelCurso ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -188,33 +197,31 @@ export default function ProgramarBloquesModal({
                 </div>
                 <p className="text-xs text-muted">Son las fechas de inicio y fin del curso — se cambian editando la asignatura, no aquí.</p>
               </>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <EFDateTimePicker
-                  mode="date"
-                  value={fechaInicio}
-                  onChange={v => { setFechaInicio(v); if (fechaFin && fechaFin < v) setFechaFin('') }}
-                  placeholder="Desde…"
-                  clearable={false}
-                  showShortcuts={false}
-                />
-                <EFDateTimePicker
-                  mode="date"
-                  value={fechaFin}
-                  onChange={setFechaFin}
-                  minDateTime={fechaInicio ? `${fechaInicio}T00:00` : undefined}
-                  placeholder="Hasta…"
-                  clearable={false}
-                  showShortcuts={false}
-                />
+            ) : faltanFechasCurso ? (
+              <div className="rounded-card border border-amber-300 bg-amber-50 p-3 space-y-2">
+                <p className="text-sm text-amber-900">
+                  Edita la asignatura para definir fechas y regresa aquí para poder continuar.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onIrAsignatura?.(esModificar ? initial?.asignaturaId : asignaturaId)}
+                  className="w-full py-2 rounded bg-amber-600 text-white text-sm font-semibold hover:bg-amber-700 transition-colors"
+                >
+                  Editar asignatura
+                </button>
               </div>
+            ) : (
+              <p className="text-xs text-muted">Elige primero una asignatura.</p>
             )}
           </div>
 
-          {/* Duración + bloques por semana */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Duración + bloques por semana.
+              `items-end` alinea las dos cajas por abajo: la etiqueta de la
+              izquierda es más larga y, si se parte en dos renglones, sin esto
+              su campo bajaba y quedaban desparejos. */}
+          <div className="grid grid-cols-2 gap-3 items-end">
             <div className="space-y-1.5">
-              {label('Duración por hora/bloque (min)')}
+              {label('Duración del bloque (min)')}
               <input
                 type="number" min={5} step={5}
                 value={duracionMin}
@@ -232,10 +239,13 @@ export default function ProgramarBloquesModal({
               />
             </div>
           </div>
-          <p className="text-xs text-muted -mt-3">
+          {/* En rojo (pedido explícito): es lo que más se malentiende — que un
+              bloque colocado no es una clase suelta, sino el patrón que se
+              repite cada semana hasta la fecha de fin de la asignatura. */}
+          <p className={`text-xs -mt-3 ${esModificar ? 'text-muted' : 'text-error'}`}>
             {esModificar
               ? 'En el siguiente paso reacomodas los bloques en la semana.'
-              : `En el siguiente paso colocarás estos ${bloquesPorSemana} bloque(s) en los días y horas de la semana.`}
+              : `En el siguiente paso colocarás estos ${bloquesPorSemana} bloque(s) en los días y horas de la semana que tú elijas; y se repetirán de forma automática semana a semana, hasta la fecha de finalización que has establecido para la asignatura arriba en Rango de fechas.`}
           </p>
 
           {/* Color */}
@@ -319,7 +329,8 @@ export default function ProgramarBloquesModal({
             <button
               type="button"
               onClick={handleContinue}
-              className={`px-4 py-2 text-white rounded text-sm font-semibold flex items-center gap-2 ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
+              disabled={faltanFechasCurso}
+              className={`px-4 py-2 text-white rounded text-sm font-semibold flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
             >
               Continuar <ArrowRight size={15} />
             </button>

@@ -4,6 +4,7 @@ import { SUBJECT_ICON_KEYS, getSubjectIcon, SUBJECT_DOTS } from '../utils/subjec
 import SubjectIcon from './SubjectIcon'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { useToast } from './Toast'
+import { IS_NATIVE_APP } from '../utils/platform'
 
 const MAX_ICON_BYTES = 1024 * 1024 // 1 MB
 
@@ -46,7 +47,7 @@ export default function IconSelect({ value = 'book', onChange }) {
           en escritorio (8 columnas, sin hueco al final) y en móvil quedan
           igualmente alineadas con los íconos, columna por columna. Es la opción
           más fácil de reconocer, y por eso encabeza el banco. */}
-      <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
+      <div className={`grid gap-1.5 ${IS_NATIVE_APP ? 'grid-cols-8' : 'grid-cols-6 sm:grid-cols-8'}`}>
         {SUBJECT_DOTS.map((d) => {
           const selected = !isCustom && value === d.key
           return (
@@ -65,12 +66,12 @@ export default function IconSelect({ value = 'book', onChange }) {
               {/* w-full h-full manda sobre el width/height del SVG (CSS gana a
                   los atributos de presentación): la bolita llena la celda de
                   borde a borde, no los 19 px que usan los íconos de abajo. */}
-              <SubjectIcon iconKey={d.key} size={19} className="w-full h-full" />
+              <SubjectIcon iconKey={d.key} size={IS_NATIVE_APP ? 15 : 19} className="w-full h-full" />
             </button>
           )
         })}
       </div>
-      <div className="grid grid-cols-6 sm:grid-cols-8 gap-1.5">
+      <div className={`grid gap-1.5 ${IS_NATIVE_APP ? 'grid-cols-8' : 'grid-cols-6 sm:grid-cols-8'}`}>
         {SUBJECT_ICON_KEYS.map((key) => {
           const Icon = getSubjectIcon(key)
           const selected = !isCustom && (value || 'book') === key
@@ -82,7 +83,7 @@ export default function IconSelect({ value = 'book', onChange }) {
               aria-label={key}
               className={`aspect-square rounded flex items-center justify-center transition-colors ${selected ? 'bg-accent text-white' : 'bg-surface-container text-muted hover:bg-[var(--accent-tint)]'}`}
             >
-              <Icon size={19} />
+              <Icon size={IS_NATIVE_APP ? 15 : 19} />
             </button>
           )
         })}
@@ -100,10 +101,10 @@ export default function IconSelect({ value = 'book', onChange }) {
           className={`aspect-square rounded flex items-center justify-center transition-colors border-2 border-dashed ${isCustom ? 'border-[var(--accent)] bg-[var(--accent-tint)]' : 'border-[var(--accent)] bg-[var(--accent-light)] text-accent hover:bg-[var(--accent-tint)]'}`}
         >
           {uploading
-            ? <Loader2 size={19} className="animate-spin" />
+            ? <Loader2 size={IS_NATIVE_APP ? 15 : 19} className="animate-spin" />
             : isCustom
-              ? <img src={value} alt="Ícono propio" className="w-[21px] h-[21px] object-contain" />
-              : <ImagePlus size={19} />}
+              ? <img src={value} alt="Ícono propio" className={IS_NATIVE_APP ? 'w-[17px] h-[17px] object-contain' : 'w-[21px] h-[21px] object-contain'} />
+              : <ImagePlus size={IS_NATIVE_APP ? 15 : 19} />}
         </button>
       </div>
       <input

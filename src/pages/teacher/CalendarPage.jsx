@@ -14,7 +14,10 @@ import useAlarmas from '../../components/calendar/useAlarmas'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
 import { bloqueColor, timeToMinutes, addMinutesToTime, generarBloques } from '../../utils/horarioBloques'
-import { buildAsuetoMap, esAsuetoPara, esAsuetoAlguno, alcanceAsuetoTexto, TIPOS_ASUETO } from '../../utils/asuetos'
+import { formatLongDate } from '../../utils/dateRange'
+import SubjectIcon from '../../components/SubjectIcon'
+import { useNavigate } from 'react-router-dom'
+import { buildAsuetoMap, esAsuetoPara, esAsuetoAlguno, alcanceAsuetoTexto, alcanceCompleto, TIPOS_ASUETO } from '../../utils/asuetos'
 import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacaciones'
 import { TEACHER_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -73,15 +76,31 @@ function fmtHour(timeStr) {
 const ROW_H = 52        // px por hora en la vista semana
 const AGENDA_ROW_H = 64 // px por hora en la agenda del día
 
-// Tamaños de texto de la rejilla (3 días y Semana), SOLO en la web del docente.
-// Ahí las clases y eventos iban a 10 px —la mitad que en la vista Día— y en un
-// monitor se leían diminutos: se van al doble. La columna de horas toma el
-// mismo 11 px que ya usa Día, para que las tres vistas se lean igual.
-// En la app se dejan como estaban: la columna de un día mide unos centímetros
-// y ese tamaño simplemente no cabe.
-const GRID_ITEM_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[20px]'
-const GRID_ITEM_TITLE = IS_NATIVE_APP ? 'text-xs' : 'text-[24px]'
-const GRID_HOUR_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[11px]'
+// Tamaños de texto de la rejilla (3 días y Semana).
+//
+// El texto de clases y eventos se probó al doble (20 px) en la web y quedó
+// demasiado grande: las columnas de Semana son angostas y se comía el nombre
+// de cada clase a puros puntos suspensivos. Quedó en 14 px, elegido a ojo
+// sobre la pantalla real entre los 10 px originales y esos 20. En la app se
+// queda en 10: ahí la columna de un día mide unos centímetros y no cabe.
+//
+// Medidas pedidas para la web (la app se queda como estaba en todas):
+//   Día      → clases y eventos 13, horas 12
+//   3 días   → clases y eventos 14, horas 12
+//   Semana   → clases y eventos 14, horas 12
+//   Mes      → clases y eventos 11
+// Mes va más chico a propósito: en cada día solo caben tres antes del "+N más".
+const GRID_ITEM_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[14px]'
+const GRID_ITEM_TITLE = IS_NATIVE_APP ? 'text-xs' : 'text-[14px]'
+const GRID_HOUR_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[12px]'
+const DIA_ITEM_TEXT = IS_NATIVE_APP ? 'text-sm' : 'text-[13px]'
+const DIA_HOUR_TEXT = IS_NATIVE_APP ? 'text-[11px]' : 'text-[12px]'
+// El am/pm cuelga debajo de la hora, más chico: es la etiqueta, no el dato.
+const DIA_HOUR_AMPM = IS_NATIVE_APP ? 'text-[9px]' : 'text-[10px]'
+const GRID_HOUR_AMPM = IS_NATIVE_APP ? 'text-[9px]' : 'text-[10px]'
+const DIA_HOUR_FIN_TEXT = IS_NATIVE_APP ? 'text-[9px]' : 'text-[12px]'
+const DIA_HOUR_INI_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[12px]'
+const MES_ITEM_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[12px]'
 const DEFAULT_DAY_START = 7
 const DEFAULT_DAY_END = 21
 const DIAS_LARGO = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
@@ -109,7 +128,7 @@ function EventPill({ ev, compact, onClick }) {
     <button
       type="button"
       onClick={onClick ? e => { e.stopPropagation(); onClick(ev) } : undefined}
-      className={`flex items-center gap-1 rounded text-left w-full truncate transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${compact ? 'px-1 py-0.5 text-[10px]' : 'px-2 py-1 text-xs'}`}
+      className={`flex items-center gap-1 rounded text-left w-full truncate transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${compact ? `px-1 py-0.5 ${MES_ITEM_TEXT}` : 'px-2 py-1 text-xs'}`}
       style={{ background: ev.bg, color: ev.text }}
     >
       <Icon size={10} className="flex-shrink-0" />
@@ -269,23 +288,18 @@ function AgendaView({
 
       {/* Rejilla del día */}
       <div className="flex">
-        {/* Gutter de horas. En la App, el am/pm va en su propio renglón debajo
-            de la hora (pedido explícito) — así la columna puede ser angosta
-            en vez de tener que caber "12:00 pm" completo en una sola línea,
-            como sigue siendo en la web. */}
+        {/* Gutter de horas. El am/pm va en su propio renglón debajo de la hora
+            (pedido explícito, primero en la App y después también en la web),
+            así la columna no tiene que caber "12:00 pm" en una sola línea. */}
         <div className={`relative flex-shrink-0 ${IS_NATIVE_APP ? 'w-11' : 'w-20'}`} style={{ height: gridH }}>
           {hours.map((h, i) => {
             const [hNum, periodo] = formatHora12(`${String(h).padStart(2, '0')}:00`).split(' ')
             return (
               <div key={h}
-                className={`absolute text-[11px] text-muted leading-none whitespace-nowrap ${IS_NATIVE_APP ? 'inset-x-0 text-center' : 'right-2 text-right'}`}
+                className={`absolute ${DIA_HOUR_TEXT} text-muted leading-none whitespace-nowrap ${IS_NATIVE_APP ? 'inset-x-0 text-center' : 'right-2 text-right'}`}
                 style={{ top: i * AGENDA_ROW_H + AGENDA_ROW_H / 2, transform: 'translateY(-50%)' }}>
-                {IS_NATIVE_APP ? (
-                  <>
-                    <span className="block">{hNum}</span>
-                    <span className="block text-[9px] opacity-70 -mt-0.5">{periodo}</span>
-                  </>
-                ) : `${hNum} ${periodo}`}
+                <span className="block">{hNum}</span>
+                <span className={`block ${DIA_HOUR_AMPM} opacity-70 -mt-0.5`}>{periodo}</span>
               </div>
             )
           })}
@@ -377,12 +391,12 @@ function AgendaView({
                       un punto más grande ahí (con su columna un poco más
                       ancha para que siga cabiendo completo). */}
                   <div className={`flex-shrink-0 text-right pl-1 pr-1.5 py-1.5 border-r ${IS_NATIVE_APP ? 'w-16' : 'w-[72px]'}`} style={{ borderColor: `${fg}22` }}>
-                    <span className={`block font-bold leading-tight whitespace-nowrap ${IS_NATIVE_APP ? 'text-[10px]' : 'text-[11px]'}`}>{fmtHour(horaIni)}</span>
-                    {horaFin && <span className={`block opacity-70 leading-tight whitespace-nowrap ${IS_NATIVE_APP ? 'text-[9px]' : 'text-[10px]'}`}>{fmtHour(horaFin)}</span>}
+                    <span className={`block font-bold leading-tight whitespace-nowrap ${DIA_HOUR_INI_TEXT}`}>{fmtHour(horaIni)}</span>
+                    {horaFin && <span className={`block opacity-70 leading-tight whitespace-nowrap ${DIA_HOUR_FIN_TEXT}`}>{fmtHour(horaFin)}</span>}
                   </div>
                   {/* Evento y descripción a la derecha */}
                   <div className="flex-1 min-w-0 pl-2.5 py-1.5">
-                    <span className="block text-sm font-semibold leading-tight truncate">{titulo}</span>
+                    <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight truncate`}>{titulo}</span>
                     {sub && <span className="block text-xs opacity-75 leading-tight truncate">{sub}</span>}
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
                       <span className="inline-flex items-center gap-1 text-[10px] opacity-70 leading-tight">
@@ -413,7 +427,7 @@ function AgendaView({
               background: pal.bg, color: pal.text,
             }}
           >
-            <span className="block text-sm font-semibold leading-tight truncate">{titulo}</span>
+            <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight truncate`}>{titulo}</span>
           </div>
         )
       })()}
@@ -429,7 +443,7 @@ function BloquePill({ b, subj, onClick }) {
     <button
       type="button"
       onClick={onClick ? e => { e.stopPropagation(); onClick(b) } : undefined}
-      className={`flex items-center gap-1 rounded-md w-full truncate px-1 py-0.5 text-[10px] ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
+      className={`flex items-center gap-1 rounded-md w-full truncate px-1 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
       style={{ background: pal.bg, color: pal.text }}
       data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}${b.lugar ? ' · ' + b.lugar : ''}`}
     >
@@ -512,10 +526,15 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
               className={`min-h-[92px] border-b border-r border-outline-variant p-1 cursor-pointer hover:bg-accent-tint transition-colors ${!isThisMonth ? 'opacity-35' : ''}`}
               style={(asueto || vacacion) ? { background: '#fffbeb' } : dateStr === selStr ? { background: 'color-mix(in srgb, var(--accent) 7%, transparent)' } : undefined}
             >
-              <div className={`w-6 h-6 flex items-center justify-center text-xs font-semibold mb-1 rounded-full mx-auto ${
-                isToday(cell) ? 'bg-accent text-white'
-                  : dateStr === selStr ? 'ring-2 ring-accent text-accent'
-                  : 'text-on-surface'
+              {/* HOY: misma banda azul de ancho completo que en 3 días/Semana.
+                  El -mx-1 cancela el p-1 de la celda para que llegue de borde
+                  a borde de la columna; el alto es el del círculo (h-6). */}
+              <div className={`text-xs font-semibold mb-1 ${
+                isToday(cell)
+                  ? 'flex items-center justify-center h-6 -mx-1 bg-accent text-white'
+                  : `w-6 h-6 flex items-center justify-center rounded-full mx-auto ${
+                      dateStr === selStr ? 'ring-2 ring-accent text-accent' : 'text-on-surface'
+                    }`
               }`}>
                 {cell.getDate()}
               </div>
@@ -586,7 +605,12 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
   const selStr = selectedDate ? toDateStr(selectedDate) : null
   const hoursRange = Array.from({ length: dayEnd - dayStart }, (_, i) => i + dayStart)
   const gridH = hoursRange.length * ROW_H
-  const gridCols = `3.5rem repeat(${numDays}, 1fr)`
+  // En la web, 3 días y Semana usan la MISMA canaleta de horas que la vista
+  // Día: 5rem de ancho y la hora pegada a la derecha (Día es `w-20` + `right-2
+  // text-right`), para que las tres vistas se lean igual. La app va aparte:
+  // ahí la canaleta es angosta a propósito, porque la pantalla no da para más.
+  const gutterComoDia = !IS_NATIVE_APP
+  const gridCols = `${gutterComoDia ? '5rem' : '3.5rem'} repeat(${numDays}, 1fr)`
 
   const colRefs = useRef([])
 
@@ -667,10 +691,16 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                 <span className="block uppercase text-muted">
                   {numDays === 3 ? DIAS_CORTO[(d.getDay() + 6) % 7] : DIAS_CORTO[(d.getDay() + 6) % 7].charAt(0)}
                 </span>
-                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-semibold mt-0.5 ${
-                  dStr === todayStr ? 'bg-accent text-white'
-                    : dStr === selStr ? 'ring-2 ring-accent text-accent'
-                    : 'text-on-surface'
+                {/* HOY: barra azul de ancho completo, no la bolita. Con la
+                    bolita había que buscar cuál de los círculos estaba pintado;
+                    una banda que ocupa toda la columna se ve de un vistazo.
+                    Conserva el alto que tenía el círculo (h-7). */}
+                <span className={`text-sm font-semibold mt-0.5 ${
+                  dStr === todayStr
+                    ? 'flex items-center justify-center h-7 bg-accent text-white'
+                    : `inline-flex items-center justify-center w-7 h-7 rounded-full ${
+                        dStr === selStr ? 'ring-2 ring-accent text-accent' : 'text-on-surface'
+                      }`
                 }`}>
                   {d.getDate()}
                 </span>
@@ -684,14 +714,19 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
 
         {/* Body: time gutter + day columns */}
         <div className="grid" style={{ gridTemplateColumns: gridCols }}>
-          {/* Time gutter */}
+          {/* Time gutter — el am/pm cuelga debajo de la hora, igual que en la
+              vista Día, para que las tres se lean igual. */}
           <div className="relative" style={{ height: gridH }}>
-            {hoursRange.map((hour, i) => (
-              <div key={hour} className={`absolute left-0 right-0 px-1.5 ${GRID_HOUR_TEXT} text-muted leading-none whitespace-nowrap`}
-                style={{ top: i * ROW_H + ROW_H / 2, transform: 'translateY(-50%)' }}>
-                {formatHora12(`${String(hour).padStart(2, '0')}:00`)}
-              </div>
-            ))}
+            {hoursRange.map((hour, i) => {
+              const [hNum, periodo] = formatHora12(`${String(hour).padStart(2, '0')}:00`).split(' ')
+              return (
+                <div key={hour} className={`absolute left-0 right-0 ${GRID_HOUR_TEXT} text-muted leading-none whitespace-nowrap ${gutterComoDia ? 'pr-2 text-right' : 'px-1.5'}`}
+                  style={{ top: i * ROW_H + ROW_H / 2, transform: 'translateY(-50%)' }}>
+                  <span className="block">{hNum}</span>
+                  <span className={`block ${GRID_HOUR_AMPM} opacity-70 -mt-0.5`}>{periodo}</span>
+                </div>
+              )
+            })}
           </div>
 
           {/* Day columns */}
@@ -837,6 +872,7 @@ const VIEWS = [
 export default function CalendarPage() {
   const { currentUser } = useAuth()
   const toast = useToast()
+  const navigate = useNavigate()
 
   // Entra donde el docente lo dejó la última vez (vista y fecha) — pedido
   // explícito: no siempre debe aterrizar en Hoy/Día. "Hoy" sigue disponible
@@ -922,6 +958,7 @@ export default function CalendarPage() {
   const [confirmLimpiarRango, setConfirmLimpiarRango] = useState(null)
   // asignaturaId pendiente de confirmar en "quitar bloques en asueto/vacaciones" (mismo picker)
   const [confirmLimpiarAsueto, setConfirmLimpiarAsueto] = useState(null)
+  const [confirmGenerarFaltantes, setConfirmGenerarFaltantes] = useState(null)
   const [showAsuetos, setShowAsuetos] = useState(false)
   const [showVacaciones, setShowVacaciones] = useState(false)
 
@@ -1341,6 +1378,72 @@ export default function CalendarPage() {
       toast(`Se quitaron ${ids.length} bloque(s) que estaban fuera del rango actual de la asignatura`)
     } catch (err) {
       toast('Error al quitar bloques: ' + err.message, 'error')
+    }
+  }
+
+  // El espejo de bloquesFueraDeRango: tramos del curso que se quedaron SIN
+  // bloques. Pasa al ALARGAR la asignatura desde "Editar asignatura" — nada
+  // resincroniza, así que las clases terminan en la fecha vieja y, como la
+  // asistencia se arma a partir de los bloques reales, ese tramo también se
+  // queda sin días de asistencia, en silencio. Cubre los dos lados por si se
+  // adelanta la fecha de inicio.
+  function tramosFaltantes(asignaturaId) {
+    const subj = subjects[asignaturaId]
+    if (!subj?.fechaInicio || !subj?.fechaFin) return []
+    const fechas = bloques.filter(b => b.asignaturaId === asignaturaId).map(b => b.fecha).sort()
+    if (fechas.length === 0) return []   // sin bloques no hay patrón que extender
+    const correr = (f, dias) => toDateStr(addDays(new Date(f + 'T12:00:00'), dias))
+    const primero = fechas[0]
+    const ultimo = fechas[fechas.length - 1]
+    const tramos = []
+    if (subj.fechaInicio < primero) tramos.push({ desde: subj.fechaInicio, hasta: correr(primero, -1) })
+    if (subj.fechaFin > ultimo) tramos.push({ desde: correr(ultimo, 1), hasta: subj.fechaFin })
+    return tramos
+  }
+
+  // Extiende el patrón semanal vigente a los tramos que faltan. NO borra ni
+  // reescribe lo existente (a diferencia de "Modificar bloques", que reemplaza
+  // todo): solo rellena el hueco, así que las clases que el docente haya movido
+  // a mano dentro del tramo ya programado se quedan como están.
+  async function generarBloquesFaltantes(asignaturaId) {
+    const tramos = tramosFaltantes(asignaturaId)
+    setConfirmGenerarFaltantes(null)
+    if (tramos.length === 0) return
+    const patrones = derivarPatrones(asignaturaId)
+    if (patrones.length === 0) { toast('No se pudo deducir el horario semanal de esa asignatura', 'error'); return }
+    const diasAsueto = [
+      ...asuetos.filter(a => a.clases).map(a => a.fecha),
+      ...fechasVacacionParaClases(vacaciones),
+    ]
+    const nuevos = tramos.flatMap(t => generarBloques({
+      fechaInicio: t.desde,
+      fechaFin: t.hasta,
+      diasAsueto,
+      duracionMin: patrones[0].duracionMin || 60,
+      patrones,
+      color: patrones[0].color,
+      alarma: patrones[0].alarma,
+    }))
+    if (nuevos.length === 0) {
+      toast('En el tramo que falta no cae ningún día de clase (o son todos asueto)', 'error')
+      return
+    }
+    try {
+      const meta = {
+        docenteId: currentUser.uid,
+        programacionId: crypto.randomUUID(),
+        asignaturaId,
+        createdAt: serverTimestamp(),
+      }
+      for (let i = 0; i < nuevos.length; i += 450) {
+        const batch = writeBatch(db)
+        nuevos.slice(i, i + 450).forEach(b => batch.set(doc(collection(db, 'horarioBloques')), { ...b, ...meta }))
+        await batch.commit()
+      }
+      toast(`Se generaron ${nuevos.length} bloque(s) para el tramo que faltaba`)
+      refreshTeacherReminders(currentUser.uid)
+    } catch (err) {
+      toast('Error al generar los bloques faltantes: ' + err.message, 'error')
     }
   }
 
@@ -1947,6 +2050,13 @@ export default function CalendarPage() {
           onClose={() => setProgramar(null)}
           onContinue={continuarAZona}
           onDeleteAll={borrarProgramacion}
+          onIrAsignatura={(id) => {
+            if (!id) return
+            setProgramar(null)
+            // `openEditSubject` abre allá el modal de "Editar asignatura" — que
+            // es donde viven las fechas y, con ellas, los parciales.
+            navigate(`/subject/${id}`, { state: { openEditSubject: true } })
+          }}
         />
       )}
 
@@ -1975,7 +2085,10 @@ export default function CalendarPage() {
             onClick={() => setShowModificarPicker(false)}
             aria-label="Cerrar"
           />
-          <div className="relative bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3">
+          {/* pb mayor en la web: la lista terminaba pegada al borde inferior de
+              la tarjeta. `pb-*` se emite después de `p-*`, así que gana sin
+              depender del orden en que se escriban las clases. */}
+          <div className={`relative bg-surface-card rounded-t-card md:rounded-card shadow-2xl w-full max-w-sm p-4 space-y-3 ${IS_NATIVE_APP ? '' : 'pb-6'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CalendarClock size={18} className="text-accent" />
@@ -1991,18 +2104,32 @@ export default function CalendarPage() {
               <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
                 <p className="text-xs text-muted">Elige la asignatura cuyos bloques quieres reacomodar:</p>
                 {subjectsConBloques.map(s => {
-                  const n = bloques.filter(b => b.asignaturaId === s.id).length
+                  const delSubj = bloques.filter(b => b.asignaturaId === s.id)
+                  const n = delSubj.length
+                  // El color de sus bloques, no el de la paleta de la
+                  // asignatura: así cada renglón se reconoce contra la rejilla,
+                  // donde el docente ya vio esa clase de ese color.
+                  const pal = bloqueColor(delSubj[0]?.color)
                   const fuera = bloquesFueraDeRango(s.id)
                   const enAsueto = bloquesEnAsueto(s.id)
+                  const faltan = tramosFaltantes(s.id)
                   return (
-                    <div key={s.id} className="rounded-card border border-outline-variant overflow-hidden">
+                    <div className="rounded-card border overflow-hidden" key={s.id} style={{ borderColor: pal.text + '55' }}>
+                      {/* El renglón entero va del color de la asignatura, sin
+                          muestra aparte. El hover se hace con brillo y no con
+                          una clase de fondo: el color va en `style` y una
+                          utilidad de Tailwind no le ganaría. */}
                       <button
                         type="button"
                         onClick={() => openModificar(s.id)}
-                        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 hover:bg-accent-tint transition-colors text-left"
+                        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:brightness-95 transition-[filter]"
+                        style={{ background: pal.bg, color: pal.text }}
                       >
-                        <span className="text-sm font-medium text-on-surface truncate">{subjectDisplayName(s)}</span>
-                        <span className="text-xs text-muted flex-shrink-0">{n} bloque(s)</span>
+                        {/* Los íconos del banco se pintan con currentColor, así
+                            que toman el tono de la asignatura sin más. */}
+                        <SubjectIcon iconKey={s.icon} size={18} className="flex-shrink-0" />
+                        <span className="text-sm font-medium truncate flex-1">{subjectDisplayName(s)}</span>
+                        <span className="text-xs opacity-75 flex-shrink-0">{n} bloque(s)</span>
                       </button>
                       {fuera.length > 0 && (
                         confirmLimpiarRango === s.id ? (
@@ -2019,6 +2146,26 @@ export default function CalendarPage() {
                           >
                             <AlertTriangle size={12} className="flex-shrink-0" />
                             {fuera.length} bloque(s) quedaron fuera del rango actual — tócalo para quitarlos
+                          </button>
+                        )
+                      )}
+                      {faltan.length > 0 && (
+                        confirmGenerarFaltantes === s.id ? (
+                          <div className="flex items-center gap-2 px-3 py-2 bg-accent-tint border-t border-accent/30">
+                            <span className="text-xs text-accent flex-1">
+                              ¿Generar las clases que faltan {faltan.map(t => `del ${formatLongDate(t.desde)} al ${formatLongDate(t.hasta)}`).join(' y ')}?
+                            </span>
+                            <button type="button" onClick={() => setConfirmGenerarFaltantes(null)} className="text-xs text-muted px-2 py-1">Cancelar</button>
+                            <button type="button" onClick={() => generarBloquesFaltantes(s.id)} className="text-xs bg-accent text-white rounded px-2.5 py-1 font-medium">Generar</button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmGenerarFaltantes(s.id)}
+                            className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-accent-tint border-t border-accent/30 text-xs text-accent hover:brightness-95 transition-[filter] text-left"
+                          >
+                            <CalendarClock size={12} className="flex-shrink-0" />
+                            Faltan clases desde el {formatLongDate(faltan[faltan.length - 1].desde)} — tócalo para generarlas
                           </button>
                         )
                       )}
@@ -2182,19 +2329,21 @@ export default function CalendarPage() {
 function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
   useScrollLock(true)
   const [fecha, setFecha] = useState('')
-  const [alcance, setAlcance] = useState({ clases: true, eventos: true, actividades: true })
+  const [alcance, setAlcance] = useState(alcanceCompleto)
 
   const lista = [...asuetos].sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''))
-  const algo = alcance.clases || alcance.eventos || alcance.actividades
-  const todo = alcance.clases && alcance.eventos && alcance.actividades
+  // Derivados de TIPOS_ASUETO y no escritos a mano: al agregar "Asistencias"
+  // como cuarto tipo, "Todo" tenía que contarlo sin tocar tres condiciones.
+  const algo = TIPOS_ASUETO.some(t => alcance[t.id])
+  const todo = TIPOS_ASUETO.every(t => alcance[t.id])
 
   function toggle(id) { setAlcance(a => ({ ...a, [id]: !a[id] })) }
-  function setTodo() { const v = !todo; setAlcance({ clases: v, eventos: v, actividades: v }) }
+  function setTodo() { setAlcance(alcanceCompleto(!todo)) }
   function add() {
     if (!fecha || !algo) return
     onAdd(fecha, alcance)
     setFecha('')
-    setAlcance({ clases: true, eventos: true, actividades: true })
+    setAlcance(alcanceCompleto())
   }
 
   const fmt = s => { const d = new Date(s + 'T12:00:00'); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}` }
@@ -2219,7 +2368,8 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
         <div className="overflow-y-auto flex-1 p-4 space-y-4">
           <p className="text-sm text-muted">
             Marca un día como asueto y elige a qué afecta. Lo marcado <strong>no se permitirá</strong> ese día:
-            los bloques de clase se omiten al programar, y no se podrán crear eventos (ni actividades) en él.
+            los bloques de clase se omiten al programar, no se podrán crear eventos ni actividades,
+            y no se pasará lista. Puedes combinarlos: por ejemplo, suspender clases pero seguir pasando lista.
           </p>
 
           {/* Alta de asueto */}
@@ -2295,26 +2445,26 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
 // ─── Administrador de vacaciones ────────────────────────────────────────────
 // Igual que AsuetoManager, pero para un PERIODO (fechaInicio–fechaFin) en vez
 // de un solo día. El docente elige el rango y a qué afecta (clases, eventos,
-// actividades) — el mismo alcance seleccionable que en Días de asueto.
+// actividades, asistencias) — el mismo alcance que en Días de asueto.
 function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
   useScrollLock(true)
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaFin, setFechaFin] = useState('')
-  const [alcance, setAlcance] = useState({ clases: true, eventos: true, actividades: true })
+  const [alcance, setAlcance] = useState(alcanceCompleto)
 
   const lista = [...vacaciones].sort((a, b) => (a.fechaInicio || '').localeCompare(b.fechaInicio || ''))
-  const algo = alcance.clases || alcance.eventos || alcance.actividades
-  const todo = alcance.clases && alcance.eventos && alcance.actividades
+  const algo = TIPOS_ASUETO.some(t => alcance[t.id])
+  const todo = TIPOS_ASUETO.every(t => alcance[t.id])
   const rangoValido = !!(fechaInicio && fechaFin && fechaFin >= fechaInicio)
 
   function toggle(id) { setAlcance(a => ({ ...a, [id]: !a[id] })) }
-  function setTodo() { const v = !todo; setAlcance({ clases: v, eventos: v, actividades: v }) }
+  function setTodo() { setAlcance(alcanceCompleto(!todo)) }
   function add() {
     if (!rangoValido || !algo) return
     onAdd(fechaInicio, fechaFin, alcance)
     setFechaInicio('')
     setFechaFin('')
-    setAlcance({ clases: true, eventos: true, actividades: true })
+    setAlcance(alcanceCompleto())
   }
 
   const fmt = s => { const d = new Date(s + 'T12:00:00'); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}` }

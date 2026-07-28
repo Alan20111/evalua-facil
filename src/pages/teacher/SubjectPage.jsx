@@ -621,8 +621,18 @@ export default function SubjectPage() {
 
   // Activity visibility
 
+  // Navigation state: puede pedir una pestaña concreta (al volver de calificar)
+  // o abrir el modal de editar asignatura (al venir de "Programar bloques").
+  const routerLocation = useLocation()
+
   // Subject CRUD
-  const [showEditSubjectModal, setShowEditSubjectModal] = useState(false)
+  // Arranca abierto si se llegó con `openEditSubject`: "Programar bloques" de
+  // una asignatura SIN fechas ya no las pide allá, manda aquí, que es donde
+  // viven (y de donde salen los periodos de cada parcial). Se inicializa aquí
+  // y no en un efecto para no encadenar un render de más.
+  const [showEditSubjectModal, setShowEditSubjectModal] = useState(
+    () => !!routerLocation.state?.openEditSubject,
+  )
   const [editSubjectForm, setEditSubjectForm] = useState({ nombre: '', grupo: '', fechaInicio: '', fechaFin: '', parciales: '3', colorPalette: 'default', icon: 'book' })
   const [editingSubject, setEditingSubject] = useState(false)
   const [showDeleteSubjectConfirm, setShowDeleteSubjectConfirm] = useState(false)
@@ -646,9 +656,6 @@ export default function SubjectPage() {
   // borraban; ya no se borran, así que dejarla sería preguntar por nada.
   const [archiveConZip, setArchiveConZip] = useState(false)
 
-  // Tab — navigation state can request a specific tab (e.g. coming back from a
-  // grading view opened from a Calificaciones cell)
-  const routerLocation = useLocation()
   const [activeTab, setActiveTab] = useState(routerLocation.state?.tab || 'actividades')
 
   // Shared students (used by calificaciones + alumnos tab)
@@ -1368,8 +1375,10 @@ export default function SubjectPage() {
   // loadAsuetoVacacionDiasClase) — este modal solo existe precisamente
   // cuando la asignatura NO tiene fechas de curso configuradas.
   const avisoAsueto = newAttendanceForm.fecha && attAsuetoMaps && (
-    esAsuetoPara(attAsuetoMaps.asuetoMap, newAttendanceForm.fecha, 'clases') ? 'asueto'
-      : esAsuetoPara(attAsuetoMaps.vacacionMap, newAttendanceForm.fecha, 'clases') ? 'vacaciones'
+    // Por 'asistencias' y no por 'clases': el docente puede marcar un día sin
+    // clases pero en el que sí se pasa lista, y ahí el aviso sobra.
+    esAsuetoPara(attAsuetoMaps.asuetoMap, newAttendanceForm.fecha, 'asistencias') ? 'asueto'
+      : esAsuetoPara(attAsuetoMaps.vacacionMap, newAttendanceForm.fecha, 'asistencias') ? 'vacaciones'
         : null
   )
 
@@ -3679,9 +3688,9 @@ export default function SubjectPage() {
       </button>
     </>
   )
-  // Editar/duplicar/archivar/eliminar la asignatura: solo en la web — en la
-  // app nativa esas acciones se manejan desde ahí.
-  const subjectHeaderRightIcons = !IS_NATIVE_APP && (
+  // Editar sí está disponible en la app nativa. Duplicar/archivar/eliminar
+  // siguen solo en la web — en la app nativa esas acciones se manejan desde ahí.
+  const subjectHeaderRightIcons = (
     <>
       {/* ml-auto en el PRIMER botón de este grupo: empuja editar/duplicar/
           archivar/eliminar hasta la orilla derecha del renglón, comiéndose
@@ -3695,24 +3704,28 @@ export default function SubjectPage() {
         className="p-2 ml-auto text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
         <Pencil size={21} />
       </button>
-      <button type="button" onClick={openCopyModal}
-        aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
-        data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
-        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-        <Copy size={21} />
-      </button>
-      <button type="button" onClick={handleToggleArchive} disabled={archiving}
-        aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
-        data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
-        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
-        {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
-      </button>
-      <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
-        aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
-        data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
-        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
-        <Trash2 size={21} />
-      </button>
+      {!IS_NATIVE_APP && (
+        <>
+          <button type="button" onClick={openCopyModal}
+            aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
+            data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
+            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+            <Copy size={21} />
+          </button>
+          <button type="button" onClick={handleToggleArchive} disabled={archiving}
+            aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
+            data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
+            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
+            {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
+          </button>
+          <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
+            aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
+            data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
+            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+            <Trash2 size={21} />
+          </button>
+        </>
+      )}
     </>
   )
 
@@ -6406,7 +6419,7 @@ export default function SubjectPage() {
                 <p className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-accent font-normal text-xs">(recomendado)</span>
                 </p>
-                <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, la asistencia se genera sola y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y ponerlas después.</p>
+                <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, los días para marcar asistencia se generan de forma automática y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y elegirlas después.</p>
                 <div className="space-y-2">
                   <div>
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>
@@ -6485,7 +6498,7 @@ export default function SubjectPage() {
                 <p className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-accent font-normal text-xs">(recomendado)</span>
                 </p>
-                <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, la asistencia se genera sola y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y ponerlas después.</p>
+                <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, los días para marcar asistencia se generan de forma automática y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y elegirlas después.</p>
                 <div className="space-y-2">
                   <div>
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>

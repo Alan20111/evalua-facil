@@ -19,31 +19,12 @@ import { snapshotRubrica, esCotejo } from '../utils/rubrica'
 import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline, isActivityPublished, resolveVisibilidad, isDraftActivity } from '../utils/activityVisibility'
 import { minDeadline, isoLocalFromDate } from '../utils/nowIso'
+import { groupExtensions } from '../utils/extensiones'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../utils/platform'
 
 const MAX_ATTACH = 15 * 1024 * 1024
-
-// Per-student extensions (`activity.extensiones`) are a flat studentId→date map with
-// no grouping metadata. A single "Nueva fecha límite" action writes the same date+motivo
-// to every selected student at once, so grouping by (date, motivo) reconstructs "who got
-// this override" without needing a separate history log.
-function groupExtensions(extensiones, extensionesMotivo, students) {
-  const byKey = new Map()
-  Object.entries(extensiones || {}).forEach(([studentId, date]) => {
-    if (!date) return
-    const motivo = (extensionesMotivo || {})[studentId] || ''
-    const key = `${date}|${motivo}`
-    const student = (students || []).find((s) => s.id === studentId)
-    const name = student
-      ? `${student.apellidoPaterno} ${student.apellidoMaterno || ''} ${student.nombre}`.replace(/\s+/g, ' ').trim()
-      : 'Estudiante'
-    if (!byKey.has(key)) byKey.set(key, { date, motivo, names: [] })
-    byKey.get(key).names.push(name)
-  })
-  return [...byKey.values()].sort((a, b) => a.date.localeCompare(b.date))
-}
 
 // Returns ISO datetime string for "now + 2 hours", used as smart default for scheduled publication
 function computeScheduleDefault() {

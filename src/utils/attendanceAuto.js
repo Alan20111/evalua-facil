@@ -119,8 +119,12 @@ export async function loadAsuetoVacacionDiasClase({ docenteId, fechaInicio, fech
     guard++
     if (diasSemana.has(diaSemanaLunes(cur))) {
       const fecha = toDateStr(cur)
-      if (esAsuetoPara(asuetoMap, fecha, 'clases')) dias.push({ fecha, tipo: 'asueto' })
-      else if (esAsuetoPara(vacacionMap, fecha, 'clases')) dias.push({ fecha, tipo: 'vacaciones' })
+      // Se pregunta por 'asistencias', no por 'clases': ahora el docente puede
+      // suspender las clases pero seguir pasando lista (o al revés). En los
+      // asuetos guardados antes de que existiera esa opción, 'asistencias'
+      // hereda el valor de 'clases', así que estos días no cambian.
+      if (esAsuetoPara(asuetoMap, fecha, 'asistencias')) dias.push({ fecha, tipo: 'asueto' })
+      else if (esAsuetoPara(vacacionMap, fecha, 'asistencias')) dias.push({ fecha, tipo: 'vacaciones' })
     }
     cur.setDate(cur.getDate() + 1)
   }

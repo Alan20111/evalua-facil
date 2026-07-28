@@ -67,7 +67,7 @@ function Pie({ slices, size = 140 }) {
 
 // Full-screen results view: one pie chart per reactivo de opción múltiple,
 // with each opción's votes and percentage as its legend. Leaves the sidebar
-// visible on web (md:left-[280px], same pattern as ProgramarZonaSemanal.jsx);
+// visible on web (md:left-[300px], same pattern as ProgramarZonaSemanal.jsx);
 // takes the entire screen on mobile, where the sidebar doesn't exist anyway.
 export default function EvaluacionGraficas({ activity, activityLabel, subject, preguntas, submissions, onClose }) {
   useBackHandler(onClose, true)
@@ -115,7 +115,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
   }, [])
 
   return (
-    <div className="fixed inset-0 z-50 md:left-[280px] bg-surface flex flex-col">
+    <div className="fixed inset-0 z-50 md:left-[300px] bg-surface flex flex-col">
       <div className="flex items-center px-4 py-2.5 bg-surface-card border-b border-outline-variant flex-shrink-0 safe-top">
         <div className="max-w-3xl mx-auto flex items-start gap-3 w-full">
           <button

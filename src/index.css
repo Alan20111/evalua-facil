@@ -186,10 +186,18 @@
    su botón de acción principal quedaba tapado por la barra de navegación del
    sistema en Android. rounded-t-card se usa en todo el repo exclusivamente
    para este patrón, así que un solo selector arregla los ~24 modales sin
-   tocar cada archivo. En web/desktop env(safe-area-inset-bottom) es 0, así
-   que no afecta nada ahí. */
-.rounded-t-card {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+   tocar cada archivo.
+
+   Va dentro de un @media de móvil, y NO suelta como estaba antes. La versión
+   anterior decía "en escritorio el inset vale 0, así que no afecta nada", y
+   eso era falso: la regla no suma, SUSTITUYE. Al ganarle a las utilidades de
+   Tailwind (p-4, pb-6…) dejaba el relleno inferior en 0 px en TODOS estos
+   modales en la web, que es justo por lo que se veían pegados abajo. En móvil
+   el comportamiento es idéntico al de antes. */
+@media (max-width: 767.98px) {
+  .rounded-t-card {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
 
 /* Efecto "cruz" (fila + columna) de la tabla de Asistencias — clases

@@ -21,7 +21,8 @@ import PublicacionScheduler from './PublicacionScheduler'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import SearchInput from './SearchInput'
 import { minDeadline, nowIsoLocal, isoLocalFromDate } from '../utils/nowIso'
-import { isActivityPublished, resolveVisibilidad, isDraftActivity } from '../utils/activityVisibility'
+import { isActivityPublished, resolveVisibilidad, isDraftActivity, formatDeadline } from '../utils/activityVisibility'
+import { groupExtensions } from '../utils/extensiones'
 import { IS_NATIVE_APP } from '../utils/platform'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -175,6 +176,11 @@ export default function EvaluacionEditor({
     notificarDocente: false, cerrarEntregasEnFecha: true,
   })
   const [savingInfo, setSavingInfo] = useState(false)
+  // Prórrogas por estudiante — se muestran igual que en un entregable. Sin
+  // esto, "Nueva fecha límite → Para algunos" escribía en Firestore y en
+  // pantalla no cambiaba nada, así que parecía que no se guardaba.
+  const [extensiones, setExtensiones] = useState({})
+  const [extensionesMotivo, setExtensionesMotivo] = useState({})
   const [currentActivityId, setCurrentActivityId] = useState(activityId)
   // True when the loaded activity was scheduled but not yet published —
   // the schedule option then reads "Reprogramar publicación"
@@ -256,6 +262,8 @@ export default function EvaluacionEditor({
           cerrarEntregasEnFecha: !(d.recibirTarde ?? false),
         }
         setInfoForm(loaded)
+        setExtensiones(d.extensiones || {})
+        setExtensionesMotivo(d.extensionesMotivo || {})
         loadedSnapshot.current = JSON.stringify(loaded)
         loadedAttachCount.current = (d.archivosAdjuntos || []).length
         setWasScheduled(!!d.publishAt && !d.publishedAt)
@@ -827,6 +835,19 @@ export default function EvaluacionEditor({
                       )}
                     />
                   )}
+                  {/* Prórrogas por estudiante ya otorgadas — mismo resumen que en
+                      un entregable. Es la confirmación en pantalla de que
+                      "Nueva fecha límite → Para algunos" quedó guardada. */}
+                  {groupExtensions(extensiones, extensionesMotivo, students).map((g, i) => (
+                    <div key={i} className="p-3 mt-2 bg-amber-50 rounded border border-amber-200 text-sm">
+                      <p className="font-medium text-on-surface flex items-center gap-1.5">
+                        <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
+                        Prórroga hasta {formatDeadline(g.date)}
+                      </p>
+                      <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
+                      {g.motivo && <p className="text-xs text-muted mt-0.5">Motivo: {g.motivo}</p>}
+                    </div>
+                  ))}
                   {/* Sub-opción de la fecha límite: va pegada al selector para que
                       se lea como parte de esa misma opción, no como una aparte. */}
                   {infoForm.fechaLimite && (
@@ -1455,6 +1476,18 @@ export default function EvaluacionEditor({
                 return next
               })
               onActivityUpdated?.({ id: currentActivityId, fechaLimite: result.date })
+            } else if (result.mode === 'algunos') {
+              // Antes esta rama no existía: el modal escribía las prórrogas en
+              // Firestore, se cerraba, y el editor seguía mostrando lo mismo.
+              const nextExt = { ...extensiones }
+              const nextMot = { ...extensionesMotivo }
+              result.ids.forEach((id) => {
+                nextExt[id] = result.date
+                nextMot[id] = result.motivo || ''
+              })
+              setExtensiones(nextExt)
+              setExtensionesMotivo(nextMot)
+              onActivityUpdated?.({ id: currentActivityId, extensiones: nextExt, extensionesMotivo: nextMot })
             }
           }}
         />

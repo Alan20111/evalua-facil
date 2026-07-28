@@ -1,4 +1,5 @@
 import { toDateStr } from './horarioBloques'
+import { alcanceCompleto } from './asuetos'
 
 // ─── Vacaciones ──────────────────────────────────────────────────────────────
 //
@@ -38,11 +39,14 @@ export function buildVacacionMap(vacaciones = []) {
   vacaciones.forEach(v => {
     if (!v?.fechaInicio || !v?.fechaFin) return
     expandirPeriodo(v.fechaInicio, v.fechaFin).forEach(fecha => {
-      const prev = m[fecha] || { clases: false, eventos: false, actividades: false }
+      const prev = m[fecha] || alcanceCompleto(false)
       m[fecha] = {
         clases: prev.clases || !!v.clases,
         eventos: prev.eventos || !!v.eventos,
         actividades: prev.actividades || !!v.actividades,
+        // Mismo arrastre que en asuetos: si el periodo se guardó antes de que
+        // existiera `asistencias`, la hereda de `clases`.
+        asistencias: prev.asistencias || (v.asistencias ?? !!v.clases),
       }
     })
   })

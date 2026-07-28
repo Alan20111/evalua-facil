@@ -16,7 +16,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
-import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -64,6 +64,11 @@ export default function TeacherDashboard() {
   const [newSubjectFechaFin, setNewSubjectFechaFin] = useState('')
   const [newSubjectParcialesFechas, setNewSubjectParcialesFechas] = useState([])
   const [creatingSubject, setCreatingSubject] = useState(false)
+
+  // Archivadas — en la App (sin sidebar) se agrupan aparte, colapsadas y con
+  // sangrado, igual que en la web (pedido explícito); en la web se quedan
+  // mezcladas en la lista con su etiqueta "archivada", que ya cumple ese rol.
+  const [showArchived, setShowArchived] = useState(false)
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -190,11 +195,17 @@ export default function TeacherDashboard() {
   const dragCardRefs = useRef([])
   const dragStateRef = useRef({ dragIndex: null, overIndex: null })
 
+  // mainList es lo que se ve y se arrastra; en la App las archivadas salen de
+  // ahí y bajan a su propio bloque colapsable (ver más abajo) — en la web se
+  // quedan mezcladas como siempre, así que ahí mainList === subjects.
+  const mainList = IS_NATIVE_APP ? subjects.filter((s) => !s.archived) : subjects
+  const archivedList = IS_NATIVE_APP ? subjects.filter((s) => s.archived) : []
+
   // Lista mostrada mientras se arrastra: el elemento arrastrado ya aparece
   // en su posición "de prueba" (overIndex), aunque todavía no se guardó
   // nada — el commit real solo pasa al soltar.
-  const displaySubjects = dragIndex == null ? subjects : (() => {
-    const arr = [...subjects]
+  const displaySubjects = dragIndex == null ? mainList : (() => {
+    const arr = [...mainList]
     const [item] = arr.splice(dragIndex, 1)
     arr.splice(overIndex ?? dragIndex, 0, item)
     return arr
@@ -230,10 +241,13 @@ export default function TeacherDashboard() {
     setDragIndex(null)
     setOverIndex(null)
     if (from == null || to == null || from === to) return
-    const newList = [...subjects]
+    const newList = [...mainList]
     const [item] = newList.splice(from, 1)
     newList.splice(to, 0, item)
-    setSubjects(newList.map((s, i) => ({ ...s, orden: i + 1 })))
+    // Reordena solo las activas — las archivadas conservan su orden previo,
+    // ya no compiten por posición en la lista visible.
+    const newOrden = new Map(newList.map((s, i) => [s.id, i + 1]))
+    setSubjects((prev) => prev.map((s) => (newOrden.has(s.id) ? { ...s, orden: newOrden.get(s.id) } : s)))
     try {
       const batch = writeBatch(db)
       newList.forEach((s, i) => batch.update(doc(db, 'subjects', s.id), { orden: i + 1 }))
@@ -379,10 +393,10 @@ export default function TeacherDashboard() {
             {/* ── Mis asignaturas ── */}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
               <h2 className="text-lg font-semibold text-on-surface">Mis asignaturas</h2>
-              <span className="text-sm text-slate-500">{subjects.length} asignatura{subjects.length !== 1 ? 's' : ''}</span>
+              <span className="text-sm text-slate-500">{mainList.length} asignatura{mainList.length !== 1 ? 's' : ''}</span>
             </div>
 
-            {subjects.length === 0 ? (
+            {mainList.length === 0 ? (
               <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center mb-4">
                 <div className="w-14 h-14 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
                   <BookOpen size={28} className="text-accent" />
@@ -471,6 +485,40 @@ export default function TeacherDashboard() {
               </div>
             )}
 
+            {/* Archivadas — solo en la App (en la web ya viven en el sidebar,
+                colapsadas igual que aquí). Mismo lenguaje: ícono Archive,
+                contador, flecha que gira, e items con sangrado (pl-9, tras
+                el ícono) para leerse "dentro" del grupo. */}
+            {IS_NATIVE_APP && archivedList.length > 0 && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={() => setShowArchived((a) => !a)}
+                  aria-expanded={showArchived}
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded text-slate-500 hover:bg-surface-container transition-colors"
+                >
+                  <Archive size={16} className="flex-shrink-0" />
+                  <span className="flex-1 text-left text-sm font-semibold">Archivadas ({archivedList.length})</span>
+                  <ChevronRight size={16} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
+                </button>
+                {showArchived && (
+                  <div className="space-y-1 mt-1">
+                    {archivedList.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => navigate(`/subject/${s.id}`)}
+                        className="w-full flex items-center gap-2 pl-9 pr-3 py-2 rounded text-left text-slate-500 hover:bg-surface-container transition-colors"
+                      >
+                        <SubjectIcon iconKey={s.icon} size={17} className="flex-shrink-0" />
+                        <span className="truncate text-sm">{subjectDisplayName(s)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
           </>
         )}
       </div>
@@ -529,7 +577,7 @@ export default function TeacherDashboard() {
                 <p className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-accent font-normal text-xs">(recomendado)</span>
                 </p>
-                <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, la asistencia se genera sola y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y ponerlas después.</p>
+                <p className="text-xs text-muted mb-1.5">Con fechas de inicio y fin, los días para marcar asistencia se generan de forma automática y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y elegirlas después.</p>
                 <div className="space-y-2">
                   <div>
                     <span className="block text-sm text-slate-500 mb-1">Inicio</span>

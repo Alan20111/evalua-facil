@@ -15,7 +15,13 @@ import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import StudentBottomNav from './StudentBottomNav'
 
-export default function StudentLayout({ children }) {
+// `refreshKey`: el Dashboard del alumno reordena sus asignaturas (flechas
+// subir/bajar o arrastrar) SIN desmontar este layout — a diferencia del
+// docente, que recarga su barra vía un listener onSnapshot en tiempo real, la
+// del alumno usa una consulta puntual, así que el reacomodo no se reflejaba
+// hasta navegar a otra pantalla y volver. El Dashboard incrementa este número
+// después de cada reorden confirmado; solo necesita cambiar, su valor no se usa.
+export default function StudentLayout({ children, refreshKey = 0 }) {
   const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
   const [subjects, setSubjects] = useState([])
@@ -46,10 +52,20 @@ export default function StudentLayout({ children }) {
         // el correo es un dato aparte para recuperar la contraseña.
         // visibleEnrollments: las que el alumno quitó de sus archivadas no
         // vuelven por la barra lateral.
-        const subjectIds = [...new Set(visibleEnrollments(enrollments).map((e) => e.asignaturaId).filter(Boolean))]
+        const visible = visibleEnrollments(enrollments)
+        const subjectIds = [...new Set(visible.map((e) => e.asignaturaId).filter(Boolean))]
         if (subjectIds.length === 0) { setSubjects([]); return }
+        // `alumnoOrden` vive en la inscripción (students/{id}), no en la
+        // asignatura — es donde el alumno la reordena desde el Dashboard con
+        // las flechas subir/bajar. Sin este orden, la barra lateral mostraba
+        // las asignaturas en el orden en que llegó la consulta, que no
+        // cambiaba al reordenar: se veía "como si no hiciera nada".
+        const ordenPorAsignatura = {}
+        visible.forEach((e) => { if (e.asignaturaId) ordenPorAsignatura[e.asignaturaId] = e.alumnoOrden })
         const snaps = await Promise.all(subjectIds.map((id) => getDoc(doc(db, 'subjects', id))))
-        setSubjects(snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() })))
+        const loaded = snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() }))
+        loaded.sort((a, b) => (ordenPorAsignatura[a.id] ?? 0) - (ordenPorAsignatura[b.id] ?? 0))
+        setSubjects(loaded)
       } catch {
         setSubjects([])
       } finally {
@@ -57,7 +73,7 @@ export default function StudentLayout({ children }) {
       }
     }
     run()
-  }, [currentUser, userProfile])
+  }, [currentUser, userProfile, refreshKey])
 
   useEffect(() => {
     // The student's own `escuelaId` is copied onto their `students` doc at creation
@@ -127,7 +143,7 @@ export default function StudentLayout({ children }) {
             blue regardless of the parent's data-role="alumno" accent override. */}
         <aside
           data-role="docente"
-          className="hidden md:flex flex-col w-[280px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20"
+          className="hidden md:flex flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20"
         >
           {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
           <div className="px-3 pt-3 pb-2">
@@ -161,9 +177,11 @@ export default function StudentLayout({ children }) {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-body-sm font-semibold text-white truncate">{displayName}</p>
+              {/* Mismos tamaños que el nombre del docente y de la escuela en
+                  el panel del docente (Layout.jsx) — pedido explícito. */}
+              <p className="text-[18px] font-semibold text-white truncate">{displayName}</p>
               {schoolName && (
-                <p className="text-metadata text-white/70 truncate">{schoolName}</p>
+                <p className="text-[16px] text-white/70 truncate">{schoolName}</p>
               )}
             </div>
             <ChevronRight size={14} className="text-white/50 flex-shrink-0" />
@@ -189,12 +207,16 @@ export default function StudentLayout({ children }) {
           {/* Subjects heading — links to dashboard */}
           <NavLink
             to="/alumno/dashboard"
-            className="mx-2 px-2 pt-4 pb-1 flex items-center justify-between rounded group"
+            className="mx-2 px-2 pt-4 pb-1 flex items-center justify-between rounded hover:bg-white/10 transition-colors group"
           >
-            <span className="text-label-caps text-white/70 group-hover:text-white uppercase transition-colors">
+            {/* Mismo tamaño y tratamiento que "Asignaturas" en el panel del
+                docente (Layout.jsx): 22px, sin `uppercase` — "Asignaturas"
+                con A mayúscula y el resto en minúsculas, no en mayúsculas
+                sostenidas. */}
+            <span className="text-[22px] font-bold text-white/70 group-hover:text-white transition-colors">
               Asignaturas
             </span>
-            <ChevronRight size={15} className="text-white/50 group-hover:text-white transition-colors" />
+            <ChevronRight size={18} className="text-white/50 group-hover:text-white transition-colors flex-shrink-0" />
           </NavLink>
 
           {/* Subject list */}
@@ -243,21 +265,28 @@ export default function StudentLayout({ children }) {
               de su lista se hace en el dashboard, que es donde vive esa acción. */}
           {archivedSubjects.length > 0 && (
             <div className="px-2 pt-2 max-h-48 overflow-y-auto">
+              {/* Mismo tratamiento que en el panel del docente (Layout.jsx):
+                  flecha a la DERECHA de la palabra, que gira al desplegar. */}
               <button
                 type="button"
                 onClick={() => setShowArchived((a) => !a)}
+                aria-expanded={showArchived}
                 className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors"
               >
-                <Archive size={15} />
-                Archivadas ({archivedSubjects.length})
+                <Archive size={15} className="flex-shrink-0" />
+                <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
+                <ChevronRight size={14} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
               </button>
               {showArchived &&
                 archivedSubjects.map((s) => (
+                  // pl-10: mismo sangrado que en el docente — el nombre debe
+                  // empezar más a la derecha de donde arranca la palabra
+                  // "Archivadas" en el botón de arriba, para leerse "dentro".
                   <NavLink
                     key={s.id}
                     to={`/alumno/materia/${s.id}`}
                     className={({ isActive }) =>
-                      `flex items-center gap-2 px-3 py-2 rounded text-body-sm transition-colors ${
+                      `flex items-center gap-2 pl-10 pr-3 py-2 rounded text-body-sm transition-colors ${
                         isActive ? 'bg-white text-accent font-semibold' : 'text-white/70 hover:bg-white/15'
                       }`
                     }

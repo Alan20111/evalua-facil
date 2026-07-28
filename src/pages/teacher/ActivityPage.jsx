@@ -2115,7 +2115,23 @@ export default function ActivityPage() {
         const faltan = activity.rubrica.criterios.filter((_, i) => rubricEval?.[i] == null).length
         return (
           <div
-            className="fixed left-2 right-2 md:left-1/2 z-50 bg-surface-card border border-outline-variant rounded-card shadow-2xl flex flex-col overflow-hidden"
+            // Una lista de cotejo es angosta (Num + Criterio + ¿Cumple? +
+            // PUNTOS): estirada de la mitad al borde dejaba una franja blanca
+            // enorme a la derecha y tapaba de más el área de trabajos. Se ciñe
+            // al ancho de la tabla y se pega al borde DERECHO, dejando libre
+            // toda la izquierda, que es donde está la lista por revisar.
+            // La rúbrica completa NO: tiene una columna por nivel y sí
+            // aprovecha el ancho, así que conserva el anclaje a la mitad.
+            //
+            // El `md:left-*` va en una sola rama y no repetido en la base: dos
+            // utilidades del mismo grupo (left-1/2 y left-auto) tienen la misma
+            // especificidad y ganaría la que Tailwind emita después, no la que
+            // se escriba al final de la cadena.
+            className={`fixed left-2 right-2 z-50 bg-surface-card border border-outline-variant rounded-card shadow-2xl flex flex-col overflow-hidden ${
+              esCotejo(activity.rubrica)
+                ? 'md:left-auto md:w-[610px] md:max-w-[calc(100vw_-_1rem)]'
+                : 'md:left-1/2'
+            }`}
             // En Android se ancla por `bottom` y crece hacia arriba (pedido
             // explícitamente); en web sigue anclada por `top`, hacia abajo.
             style={IS_NATIVE_APP

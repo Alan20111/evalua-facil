@@ -27,6 +27,7 @@ import { getTrialBannerMessage, isSubscriptionExpired } from '../utils/subscript
 import { configurarBloqueoEscritura } from '../utils/firestoreGuard'
 import SuscripcionVencidaModal from './SuscripcionVencidaModal'
 import { subjectDisplayName } from '../utils/subjectName'
+import { teacherDisplayName } from '../utils/studentSearch'
 import { IS_NATIVE_APP } from '../utils/platform'
 import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
@@ -113,9 +114,14 @@ export default function TeacherLayout({ children }) {
     return () => configurarBloqueoEscritura({ vencida: () => false, onIntento: null })
   }, [])
 
-  const displayName =
-    userProfile?.nombreMostrar || userProfile?.nombre || 'Docente'
-  const initials = displayName.charAt(0).toUpperCase()
+  // Mismo nombre que ven sus estudiantes — prefijo (Mtro./Profe/…) + el
+  // nombre público que eligió, no su nombre real. teacherDisplayName es la
+  // única fuente de esto en el proyecto (ver utils/studentSearch.js), así que
+  // se reutiliza en vez de rearmar la combinación aquí.
+  const displayName = teacherDisplayName(userProfile) || 'Docente'
+  // El avatar toma la inicial del nombre SIN el prefijo — con prefijo, "Mtro.
+  // Juan" mostraría "M" en el círculo, que no identifica a nadie.
+  const initials = (userProfile?.nombreMostrar || userProfile?.nombre || displayName).charAt(0).toUpperCase()
 
   return (
     <div className="min-h-screen bg-surface">
@@ -139,7 +145,7 @@ export default function TeacherLayout({ children }) {
       {/* Desktop: sidebar + content */}
       <div className="flex">
         {/* Sidebar — desktop only (solid accent plane) */}
-        <aside className="hidden md:flex flex-col w-[280px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
+        <aside className="hidden md:flex flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
           {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
           <div className="px-3 pt-3 pb-2">
             <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
@@ -166,8 +172,9 @@ export default function TeacherLayout({ children }) {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-body-sm font-semibold text-white truncate">{displayName}</p>
-              <p className="text-metadata text-white/70 truncate">
+              {/* 18 / 16 px pedidos explícito. */}
+              <p className="text-[18px] font-semibold text-white truncate">{displayName}</p>
+              <p className="text-[16px] text-white/70 truncate">
                 {userProfile?.schoolName || 'Mi perfil'}
               </p>
             </div>
@@ -213,11 +220,16 @@ export default function TeacherLayout({ children }) {
           </NavLink>
 
           {/* Subjects header → goes to the full subjects list */}
-          <NavLink to="/dashboard" className="mx-2 px-2 pt-3 pb-1 flex items-center justify-between rounded group">
-            <span className="text-label-caps text-white/70 group-hover:text-white uppercase transition-colors">
+          <NavLink to="/dashboard" className="mx-2 px-2 pt-3 pb-1 flex items-center justify-between rounded hover:bg-white/10 transition-colors group">
+            {/* De ~14 a 22 px (pedido explícito): pasaba desapercibida pese a
+                ser un link a la lista completa. Se quita `uppercase` — en
+                mayúsculas a este tamaño se lee como un GRITO, no como
+                énfasis; el peso ya viene de font-bold heredado de
+                text-label-caps. */}
+            <span className="text-[22px] font-bold text-white/70 group-hover:text-white transition-colors">
               Asignaturas
             </span>
-            <ChevronRight size={15} className="text-white/50 group-hover:text-white transition-colors" />
+            <ChevronRight size={18} className="text-white/50 group-hover:text-white transition-colors flex-shrink-0" />
           </NavLink>
 
           {/* Subject list */}
@@ -234,13 +246,16 @@ export default function TeacherLayout({ children }) {
                   key={s.id}
                   to={`/subject/${s.id}`}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-3 py-2.5 rounded text-body-sm transition-colors ${
+                    `flex items-center gap-2 px-3 py-2.5 rounded transition-colors ${
                       isActive ? 'bg-white text-accent font-bold shadow-md' : 'text-white/90 hover:bg-white/15'
                     }`
                   }
                 >
                   <SubjectIcon iconKey={s.icon} size={20} className="flex-shrink-0" />
-                  <span className="truncate">{subjectDisplayName(s)}</span>
+                  {/* 14 px pedido explícito — antes text-body-sm (13.5 px, por
+                      la raíz de 14.4 del proyecto). Solo el nombre de la
+                      asignatura, no el resto del panel. */}
+                  <span className="truncate text-[14px]">{subjectDisplayName(s)}</span>
                 </NavLink>
               ))
             )}
@@ -283,18 +298,29 @@ export default function TeacherLayout({ children }) {
               <button
                 type="button"
                 onClick={() => setShowArchived((a) => !a)}
+                aria-expanded={showArchived}
                 className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm text-white/60 hover:bg-white/10 transition-colors"
               >
-                <Archive size={15} />
-                Archivadas ({archivedSubjects.length})
+                <Archive size={15} className="flex-shrink-0" />
+                <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
+                {/* La flecha va a la DERECHA de la palabra (pedido explícito)
+                    y gira al desplegar — mismo lenguaje que un <details>, sin
+                    serlo, para no perder el estilo propio del botón. */}
+                <ChevronRight size={14} className={`flex-shrink-0 transition-transform ${showArchived ? 'rotate-90' : ''}`} />
               </button>
               {showArchived &&
                 archivedSubjects.map((s) => (
+                  // pl-10: el nombre (tras el ícono) debe empezar más a la
+                  // derecha de donde arranca la palabra "Archivadas" en el
+                  // botón de arriba — pl-6 ya no alcanzaba una vez que la
+                  // flecha se movió al final; el texto del botón quedó más a
+                  // la izquierda (justo después del ícono Archive) y el
+                  // sangrado tuvo que crecer para seguir leyéndose "dentro".
                   <NavLink
                     key={s.id}
                     to={`/subject/${s.id}`}
                     className={({ isActive }) =>
-                      `flex items-center gap-2 px-3 py-2 rounded text-body-sm transition-colors ${
+                      `flex items-center gap-2 pl-10 pr-3 py-2 rounded text-body-sm transition-colors ${
                         isActive ? 'bg-white text-accent font-bold shadow-md' : 'text-white/70 hover:bg-white/15'
                       }`
                     }

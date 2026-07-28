@@ -13,12 +13,10 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
 import { IS_NATIVE_APP } from '../../utils/platform'
 
-// Mismo criterio que la rejilla de 3 días/Semana en CalendarPage: en la web del
-// docente el texto de las clases va al doble, porque a 10 px se leía diminuto en
-// un monitor. En la app se queda como estaba (la columna de un día mide unos
-// centímetros y no cabe).
-const ZONA_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[20px]'
-const ZONA_TITLE = IS_NATIVE_APP ? 'text-xs' : 'text-[24px]'
+// Mismo criterio y misma medida que la rejilla de 3 días/Semana en
+// CalendarPage: 14 px en la web, 10 en la app.
+const ZONA_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[14px]'
+const ZONA_TITLE = IS_NATIVE_APP ? 'text-xs' : 'text-[14px]'
 
 const ROW_H = 52 // px por hora — igual que la vista Semana
 const SNAP_MIN = 10 // los bloques se colocan/arrastran alineados a 10 min
@@ -275,6 +273,10 @@ export default function ProgramarZonaSemanal({
   // ── Salir / guardar ──────────────────────────────────────────────────────
   function intentarSalir() {
     if (patrones.length === 0) { onCancel?.(); return }
+    // Si no se tocó nada, no hay nada que perder: en la web se regresa directo
+    // en vez de preguntar "¿Salir sin guardar?" — abrir para mirar y volver era
+    // el caso más común y siempre acababa en un diálogo de más.
+    if (!IS_NATIVE_APP && !hayCambios) { onCancel?.(); return }
     setConfirmSalir(true)
   }
   function guardar() {
@@ -295,18 +297,35 @@ export default function ProgramarZonaSemanal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 md:left-[280px] bg-surface-card flex flex-col ${esModificar ? 'ring-4 ring-amber-400 ring-inset' : ''}`}
+      className={`fixed inset-0 z-50 md:left-[300px] bg-surface-card flex flex-col ${esModificar ? 'ring-4 ring-amber-400 ring-inset' : ''}`}
     >
         {/* Banner de modo */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant flex-shrink-0 safe-top" style={{ background: bannerBg }}>
+        {/* En la web el banner lleva más aire arriba: la etiqueta MODIFICANDO
+            quedaba pegada al borde superior de la pantalla.
+            El relleno va en `style` y NO como clase: `.safe-top` fija
+            `padding-top: env(safe-area-inset-top)` y le ganaba a un `pt-6`,
+            dejándolo en 0 en escritorio. Aquí se suman los dos, así que el
+            aire existe y el notch del celular se sigue respetando. */}
+        <div
+          className="flex items-center gap-3 px-4 pb-3 border-b border-outline-variant flex-shrink-0"
+          style={{
+            background: bannerBg,
+            paddingTop: `calc(env(safe-area-inset-top, 0px) + ${IS_NATIVE_APP ? '0.75rem' : '1.5rem'})`,
+          }}
+        >
           <button type="button" onClick={intentarSalir} className="p-1 text-muted hover:text-error rounded transition-colors" aria-label="Volver">
             <ArrowLeft size={18} />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-on-surface truncate flex items-center gap-1.5">
+            {/* 20 px en la web (pedido explícito); en la app se queda en text-sm,
+                que ahí ya llena el ancho disponible. La etiqueta MODIFICANDO
+                lleva su propio tamaño, así que no la arrastra. */}
+            <p className={`font-semibold text-on-surface truncate flex items-center gap-1.5 ${IS_NATIVE_APP ? 'text-sm' : 'text-[20px]'}`}>
               {esModificar && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wide flex-shrink-0">
-                  <Pencil size={10} /> Modificando
+                <span className={`inline-flex items-center gap-1 rounded bg-amber-500 text-white font-bold uppercase tracking-wide flex-shrink-0 ${
+                  IS_NATIVE_APP ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[18px]'
+                }`}>
+                  <Pencil size={IS_NATIVE_APP ? 10 : 16} /> Modificando
                 </span>
               )}
               <span className="truncate">

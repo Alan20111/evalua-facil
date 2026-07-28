@@ -71,6 +71,11 @@ export default function StudentDashboard() {
   const [showJoin, setShowJoin] = useState(location.state?.openJoin === true)
   const [joinCode, setJoinCode] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  // Incrementa después de cada reorden confirmado — se lo pasa a StudentLayout
+  // como `refreshKey` para que la barra lateral recargue su propia lista, que
+  // vive en un componente aparte y de otro modo no se enteraría del cambio
+  // mientras el alumno se queda en esta misma pantalla.
+  const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0)
   // Quitar una materia archivada de SU lista (ver handleRemoveArchived).
   const [subjectToRemove, setSubjectToRemove] = useState(null)
   const [removing, setRemoving] = useState(false)
@@ -187,6 +192,7 @@ export default function StudentDashboard() {
       const batch = writeBatch(db)
       reordered.forEach((s) => batch.update(doc(db, 'students', s.enrollmentId), { alumnoOrden: s.alumnoOrden }))
       await batch.commit()
+      setSidebarRefreshKey((k) => k + 1)
     } catch (err) {
       toast('No se pudo reordenar: ' + err.message, 'error')
     }
@@ -243,6 +249,7 @@ export default function StudentDashboard() {
       const batch = writeBatch(db)
       reordered.forEach((s) => batch.update(doc(db, 'students', s.enrollmentId), { alumnoOrden: s.alumnoOrden }))
       await batch.commit()
+      setSidebarRefreshKey((k) => k + 1)
     } catch (err) {
       toast('No se pudo reordenar: ' + err.message, 'error')
     }
@@ -356,7 +363,7 @@ export default function StudentDashboard() {
   }
 
   if (loading) return (
-    <StudentLayout>
+    <StudentLayout refreshKey={sidebarRefreshKey}>
       <div className="flex items-center justify-center py-20">
         <Spinner size="lg" />
       </div>
@@ -391,7 +398,7 @@ export default function StudentDashboard() {
   })()
 
   return (
-    <StudentLayout>
+    <StudentLayout refreshKey={sidebarRefreshKey}>
       <div className={`px-4 py-6 ${STUDENT_CONTAINER}`}>
         {/* Foto/nombre — solo móvil, informativo (el logo tocable ya vive en la
             barra superior). Ya NO navega al perfil: la barra inferior tiene su
