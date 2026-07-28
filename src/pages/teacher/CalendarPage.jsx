@@ -29,7 +29,7 @@ import { formatHora12 } from '../../utils/formatHora'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
-  CalendarOff, Trash2, X, Minus, Columns3,
+  CalendarOff, Trash2, X, Minus, Columns3, Lock, LockOpen,
 } from 'lucide-react'
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
@@ -71,6 +71,16 @@ function getWeekDays(date) {
 }
 function fmtHour(timeStr) {
   return formatHora12(timeStr)
+}
+const CATEGORIA_LABEL = { examen: 'Examen', cuestionario: 'Cuestionario', observacion: 'Observación', entregable: 'Entregable' }
+// Estado de una fecha límite respecto a ahora, para dar contexto sin abrir la actividad.
+function deadlineEstado(fechaLimiteISO) {
+  const ms = new Date(fechaLimiteISO) - new Date()
+  const dias = Math.ceil(ms / 86400000)
+  if (ms < 0) return { label: 'Vencida', tono: 'vencida' }
+  if (dias <= 0) return { label: 'Vence hoy', tono: 'hoy' }
+  if (dias === 1) return { label: 'Vence mañana', tono: 'proxima' }
+  return { label: `Vence en ${dias} días`, tono: 'proxima' }
 }
 
 const ROW_H = 52        // px por hora en la vista semana
@@ -124,14 +134,20 @@ function assignLanes(items) {
 
 function EventPill({ ev, compact, onClick }) {
   const Icon = ev.tipo === 'deadline' ? Clock : ev.tipo === 'publicacion' ? Eye : CalendarDays
+  const dot = ev.tipo === 'deadline' && (ev.estado?.tono === 'vencida' || ev.estado?.tono === 'hoy')
+  const tooltip = ev.tipo === 'deadline'
+    ? [ev.titulo, ev.subtitulo, ev.estado?.label, ev.cierraEnFecha ? 'Cierra en esa fecha' : 'Sigue recibiendo tarde'].filter(Boolean).join(' · ')
+    : undefined
   return (
     <button
       type="button"
       onClick={onClick ? e => { e.stopPropagation(); onClick(ev) } : undefined}
+      data-tooltip={tooltip}
       className={`flex items-center gap-1 rounded text-left w-full truncate transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${compact ? `px-1 py-0.5 ${MES_ITEM_TEXT}` : 'px-2 py-1 text-xs'}`}
       style={{ background: ev.bg, color: ev.text }}
     >
       <Icon size={10} className="flex-shrink-0" />
+      {dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ev.estado.tono === 'vencida' ? 'bg-red-500' : 'bg-amber-400'}`} />}
       <span className="truncate">{ev.titulo}</span>
       {!compact && ev.timeStr && (
         <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{fmtHour(ev.timeStr)}</span>
@@ -401,6 +417,12 @@ function AgendaView({
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
                       <span className="inline-flex items-center gap-1 text-[10px] opacity-70 leading-tight">
                         <Bell size={10} /> {it.b.alarma.minutosAntes} min antes
+                      </span>
+                    )}
+                    {it.ev?.tipo === 'deadline' && (
+                      <span className="inline-flex items-center gap-1 text-[10px] opacity-80 leading-tight">
+                        {it.ev.cierraEnFecha ? <Lock size={10} /> : <LockOpen size={10} />}
+                        {it.ev.estado?.label}
                       </span>
                     )}
                   </div>
@@ -809,9 +831,16 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                       onClick={editable && !ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
                       className={`absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${editable && ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
-                      data-tooltip={editable ? (ev.editable ? `${ev.titulo} · ${fmtHour(ev.timeStr)} · arrastra para mover` : `${ev.titulo} · ${fmtHour(ev.timeStr)}`) : `${ev.titulo} · ${fmtHour(ev.timeStr)}`}
+                      data-tooltip={[
+                        ev.titulo, fmtHour(ev.timeStr), ev.subtitulo, ev.estado?.label,
+                        ev.tipo === 'deadline' && (ev.cierraEnFecha ? 'Cierra en esa fecha' : 'Sigue recibiendo tarde'),
+                        editable && ev.editable && 'arrastra para mover',
+                      ].filter(Boolean).join(' · ')}
                     >
                       <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>{ev.titulo}</span>
+                      {ev.tipo === 'deadline' && ev.estado?.tono !== 'proxima' && (
+                        <span className={`block ${GRID_ITEM_TEXT} opacity-90 leading-tight truncate font-medium`}>{ev.estado.label}</span>
+                      )}
                     </button>
                   )
                 })}
@@ -1036,15 +1065,19 @@ export default function CalendarPage() {
       const subjName = subjectDisplayName(subj)
 
       if (a.fechaLimite) {
+        const categoriaLabel = CATEGORIA_LABEL[a.categoria] || CATEGORIA_LABEL.entregable
         evs.push({
           id: `dl-${a.id}`,
           titulo: a.nombre || 'Actividad',
-          subtitulo: subjName,
+          subtitulo: `${subjName} · Parcial ${a.parcial ?? '–'} · ${categoriaLabel}`,
           tipo: 'deadline',
           dateStr: a.fechaLimite.substring(0, 10),
           timeStr: a.fechaLimite.substring(11, 16),
           bg: pal.bg, text: pal.text,
           editable: false,
+          // true = deja de recibir entregas justo en la fecha; false = la fecha es informativa.
+          cierraEnFecha: !a.recibirTarde,
+          estado: deadlineEstado(a.fechaLimite),
         })
       }
       if (a.publishAt) {
