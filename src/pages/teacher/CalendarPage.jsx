@@ -26,6 +26,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { usePointerDrag } from '../../hooks/usePointerDrag'
 import { refreshTeacherReminders } from '../../utils/localReminders'
 import { formatHora12 } from '../../utils/formatHora'
+import { isDraftActivity } from '../../utils/activityVisibility'
 import {
   Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
@@ -1058,6 +1059,24 @@ export default function CalendarPage() {
   }, [currentUser])
 
   // ── Aggregate events ───────────────────────────────────────────────────
+  // Numeración "1.3." = misma regla que ActivityPage: posición entre las
+  // hermanas del mismo parcial+asignatura, excluyendo borradores, ordenadas
+  // por `orden`. Nunca se confía en un campo guardado, siempre se deriva.
+  const activityLabels = useMemo(() => {
+    const labels = {}
+    const groups = {}
+    activities.forEach(a => {
+      if (isDraftActivity(a)) return
+      const key = `${a.asignaturaId}|${a.parcial}`
+      ;(groups[key] ||= []).push(a)
+    })
+    Object.values(groups).forEach(group => {
+      group.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      group.forEach((a, idx) => { labels[a.id] = `${a.parcial}.${idx + 1}.` })
+    })
+    return labels
+  }, [activities])
+
   const events = useMemo(() => {
     const evs = []
 
@@ -1071,12 +1090,14 @@ export default function CalendarPage() {
       if (subj?.archived) return
       const pal = subjectColors(subj)
       const subjName = subjectDisplayName(subj)
+      const numero = activityLabels[a.id]
+      const nombreConNumero = numero ? `${numero} ${a.nombre || 'Actividad'}` : (a.nombre || 'Actividad')
 
       if (a.fechaLimite) {
         const categoriaLabel = CATEGORIA_LABEL[a.categoria] || CATEGORIA_LABEL.entregable
         evs.push({
           id: `dl-${a.id}`,
-          titulo: a.nombre || 'Actividad',
+          titulo: nombreConNumero,
           subtitulo: `${subjName} · Parcial ${a.parcial ?? '–'} · ${categoriaLabel}`,
           tipo: 'deadline',
           dateStr: a.fechaLimite.substring(0, 10),
@@ -1091,7 +1112,7 @@ export default function CalendarPage() {
       if (a.publishAt) {
         evs.push({
           id: `pub-${a.id}`,
-          titulo: `↑ ${a.nombre || 'Actividad'}`,
+          titulo: `↑ ${nombreConNumero}`,
           subtitulo: subjName,
           tipo: 'publicacion',
           dateStr: a.publishAt.substring(0, 10),
@@ -1120,7 +1141,7 @@ export default function CalendarPage() {
     })
 
     return evs.filter(ev => ev.dateStr)
-  }, [activities, personalEvents, subjects])
+  }, [activities, personalEvents, subjects, activityLabels])
 
   const conflicts = useConflicts(events)
 
