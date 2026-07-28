@@ -574,7 +574,7 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
                   const isDraggingThis = drag?.moved && it.kind === 'event' && drag.kind === 'event' && drag.ev?.id === it.ev.id
                   const pill = it.kind === 'bloque'
                     ? <BloquePill b={it.b} subj={subjects[it.b.asignaturaId]} onClick={editable ? onBlockClick : undefined} />
-                    : <EventPill ev={it.ev} compact onClick={movable ? undefined : (editable ? onEventClick : undefined)} />
+                    : <EventPill ev={it.ev} compact onClick={movable ? undefined : onEventClick} />
                   return (
                     <div
                       key={it.kind === 'bloque' ? it.b.id : it.ev.id}
@@ -829,7 +829,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                       key={ev.id}
                       type="button"
                       onPointerDown={editable && ev.editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev }) } : undefined}
-                      onClick={editable && !ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
+                      onClick={!(editable && ev.editable) ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
                       className={`absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${editable && ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
                       data-tooltip={[
