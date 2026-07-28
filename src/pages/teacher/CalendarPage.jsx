@@ -136,8 +136,9 @@ function assignLanes(items) {
 function EventPill({ ev, compact, onClick }) {
   const Icon = ev.tipo === 'deadline' ? Clock : ev.tipo === 'publicacion' ? Eye : CalendarDays
   const dot = ev.tipo === 'deadline' && (ev.estado?.tono === 'vencida' || ev.estado?.tono === 'hoy')
-  const tooltip = ev.tipo === 'deadline'
-    ? [ev.titulo, ev.subtitulo, ev.estado?.label, ev.cierraEnFecha ? 'Cierra en esa fecha' : 'Sigue recibiendo tarde'].filter(Boolean).join(' · ')
+  const esActividad = ev.tipo === 'deadline' || ev.tipo === 'publicacion'
+  const tooltip = esActividad
+    ? [ev.titulo, ev.subtitulo, ev.estado?.label, ev.tipo === 'deadline' && (ev.cierraEnFecha ? 'Cierra en esa fecha' : 'Sigue recibiendo tarde')].filter(Boolean).join(' · ')
     : undefined
   return (
     <button
@@ -173,7 +174,6 @@ function AgendaView({
   const gridH = hours.length * AGENDA_ROW_H
 
   const gridRef = useRef(null)
-  const chipRefs = useRef([])
 
   // Línea de la hora actual (solo cuando el día mostrado es hoy) — se actualiza
   // cada minuto para que vaya bajando por la rejilla.
@@ -209,9 +209,6 @@ function AgendaView({
   ]
   const placed = assignLanes(items)
 
-  // Días destino (posteriores) para soltar mientras se arrastra.
-  const dayTargets = Array.from({ length: 7 }, (_, i) => addDays(date, i + 1))
-
   const isMovable = it => it.kind === 'bloque' || it.ev?.editable
 
   const { drag, startDrag: startDragRaw } = usePointerDrag((d, e) => {
@@ -222,25 +219,8 @@ function AgendaView({
       else onEventClick?.(item.ev)
       return
     }
-    // 1) ¿Soltó sobre un chip de día posterior? Los bloques de clase NUNCA
-    // cambian de día arrastrando aquí (pedido explícito: solo la misma
-    // hora, mismo día — un cambio suelto nunca debe afectar la
-    // programación general de la asignatura ni las clases del día
-    // siguiente). Los chips solo aplican a eventos personales, que sí
-    // pueden moverse de día.
-    if (item.kind !== 'bloque') {
-      let chip = null
-      chipRefs.current.forEach(c => {
-        if (!c?.el) return
-        const r = c.el.getBoundingClientRect()
-        if (e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom) chip = c
-      })
-      if (chip) {
-        onMoveEvent?.(item.ev.rawEvent, chip.dateStr, item.ev.timeStr)
-        return
-      }
-    }
-    // 2) ¿Soltó sobre la rejilla? → nueva hora, mismo día.
+    // ¿Soltó sobre la rejilla? → nueva hora, mismo día. Cambiar de día se
+    // hace desde Semana o Mes, donde sí se puede soltar sobre otra columna/celda.
     const g = gridRef.current?.getBoundingClientRect()
     if (g && e.clientX >= g.left && e.clientX < g.right) {
       const blockTop = e.clientY - d.grabDY
@@ -269,34 +249,11 @@ function AgendaView({
         </div>
       )}
 
-      {/* Chips de días posteriores, visibles mientras se arrastra un EVENTO —
-          nunca para un bloque de clase, que solo puede cambiar de hora el
-          mismo día (pedido explícito). Mostrarlos también para un bloque
-          invitaría a soltar donde no pasa nada. */}
-      {drag?.moved && drag.item.kind !== 'bloque' && (
-        <div className="sticky top-0 z-20 flex items-center gap-1.5 flex-wrap px-3 py-2 bg-surface-card border-b border-outline-variant">
-          <span className="text-xs text-muted mr-1">Soltar en:</span>
-          {dayTargets.map((d, i) => {
-            const dStr = toDateStr(d)
-            const esManana = isToday(date) && i === 0
-            return (
-              <span
-                key={dStr}
-                ref={el => { chipRefs.current[i] = el ? { el, dateStr: dStr } : null }}
-                className="px-2.5 py-1.5 rounded-full border border-accent/40 bg-accent-tint text-accent text-xs font-medium"
-              >
-                {esManana ? 'Mañana' : `${DIAS_CORTO[(d.getDay() + 6) % 7]} ${d.getDate()}`}
-              </span>
-            )
-          })}
-        </div>
-      )}
-
       {/* Eventos sin hora */}
       {allDayEvs.length > 0 && (
         <div className="px-3 py-2 border-b border-outline-variant space-y-1">
           {allDayEvs.map(ev => (
-            <div key={ev.id} data-tooltip={ev.editable ? 'Editar' : 'Se edita desde la actividad'}>
+            <div key={ev.id} data-tooltip={ev.editable ? 'Editar' : undefined}>
               <EventPill ev={ev} onClick={onEventClick} />
             </div>
           ))}
@@ -399,7 +356,7 @@ function AgendaView({
                   opacity: isDragging ? 0.3 : 1,
                   touchAction: 'none',
                 }}
-                data-tooltip={movable ? 'Editar' : 'Se edita desde la actividad'}
+                data-tooltip={movable ? 'Editar' : [titulo, sub, it.ev?.estado?.label].filter(Boolean).join(' · ')}
               >
                 <div className="flex h-full">
                   {/* Horas a la izquierda — texto sin salto de línea (evita que
@@ -570,7 +527,7 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
                   // pueden cambiar de día aquí; para eso está "Modificar
                   // bloques"). Solo los eventos personales se arrastran a otro
                   // día. Al tocar un bloque se abre el diálogo para borrarlo.
-                  const movable = editable && it.kind === 'event' && it.ev?.editable
+                  const movable = it.kind === 'event' && it.ev?.editable
                   const isDraggingThis = drag?.moved && it.kind === 'event' && drag.kind === 'event' && drag.ev?.id === it.ev.id
                   const pill = it.kind === 'bloque'
                     ? <BloquePill b={it.b} subj={subjects[it.b.asignaturaId]} onClick={editable ? onBlockClick : undefined} />
@@ -828,14 +785,14 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                     <button
                       key={ev.id}
                       type="button"
-                      onPointerDown={editable && ev.editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev }) } : undefined}
-                      onClick={!(editable && ev.editable) ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
-                      className={`absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${editable && ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      onPointerDown={ev.editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev }) } : undefined}
+                      onClick={!ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
+                      className={`absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
                       data-tooltip={[
                         ev.titulo, fmtHour(ev.timeStr), ev.subtitulo, ev.estado?.label,
                         ev.tipo === 'deadline' && (ev.cierraEnFecha ? 'Cierra en esa fecha' : 'Sigue recibiendo tarde'),
-                        editable && ev.editable && 'arrastra para mover',
+                        ev.editable && 'arrastra para mover',
                       ].filter(Boolean).join(' · ')}
                     >
                       <span className={`flex items-center gap-1 ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>
