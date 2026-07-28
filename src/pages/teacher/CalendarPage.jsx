@@ -1425,7 +1425,7 @@ export default function CalendarPage() {
       alarma: patrones[0].alarma,
     }))
     if (nuevos.length === 0) {
-      toast('En el tramo que falta no cae ningún día de clase (o son todos asueto)', 'error')
+      toast('No había clases pendientes por generar en ese tramo (cae en asueto o no coincide con el horario semanal)', 'warning')
       return
     }
     try {
