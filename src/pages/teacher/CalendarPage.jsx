@@ -837,9 +837,17 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                         editable && ev.editable && 'arrastra para mover',
                       ].filter(Boolean).join(' · ')}
                     >
-                      <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>{ev.titulo}</span>
-                      {ev.tipo === 'deadline' && ev.estado?.tono !== 'proxima' && (
-                        <span className={`block ${GRID_ITEM_TEXT} opacity-90 leading-tight truncate font-medium`}>{ev.estado.label}</span>
+                      <span className={`flex items-center gap-1 ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>
+                        {ev.tipo === 'deadline' && (ev.cierraEnFecha
+                          ? <Lock size={9} className="flex-shrink-0 opacity-80" />
+                          : <LockOpen size={9} className="flex-shrink-0 opacity-80" />)}
+                        <span className="truncate">{ev.titulo}</span>
+                      </span>
+                      {ev.tipo === 'deadline' && (
+                        <span className={`block text-[10px] opacity-90 leading-tight truncate font-medium ${ev.estado?.tono === 'vencida' ? 'text-red-100' : ''}`}>{ev.estado.label}</span>
+                      )}
+                      {ev.subtitulo && (
+                        <span className="block text-[10px] opacity-75 leading-tight truncate">{ev.subtitulo}</span>
                       )}
                     </button>
                   )
