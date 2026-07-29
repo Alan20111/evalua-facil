@@ -11,7 +11,7 @@ import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText, toRichHtml, richTextContentClass } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts, fileTypesInstructions } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen } from 'lucide-react'
 import RubricaPicker from './rubrica/RubricaPicker'
 import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
@@ -421,6 +421,9 @@ export default function EntregableEditor({
                         Cerrar entregas en la fecha y hora programada
                         <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
                       </label>
+                      {(form.cerrarEntregasEnFecha ?? true)
+                        ? <Lock size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />
+                        : <LockOpen size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />}
                     </div>
                   )}
                 </div>
