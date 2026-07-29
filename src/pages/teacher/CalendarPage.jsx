@@ -147,6 +147,7 @@ function EventPill({ ev, compact, onClick }) {
     <button
       type="button"
       onClick={onClick ? e => { e.stopPropagation(); onClick(ev) } : undefined}
+      data-tooltip={esActividad ? 'Clic para editar esta actividad' : undefined}
       className={`block rounded text-left w-full transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${compact ? `px-1 py-0.5 ${MES_ITEM_TEXT}` : 'px-2 py-1 text-xs'}`}
       style={{ background: ev.bg, color: ev.text }}
     >
@@ -367,7 +368,11 @@ function AgendaView({
                   opacity: isDragging ? 0.3 : 1,
                   touchAction: 'none',
                 }}
-                data-tooltip={movable ? 'Editar' : [titulo, sub, it.ev?.estado?.label].filter(Boolean).join(' · ')}
+                data-tooltip={
+                  it.kind === 'bloque' ? 'Usa modificar bloques para editar'
+                  : movable ? 'Editar'
+                  : 'Clic para editar esta actividad'
+                }
               >
                 <div className="flex h-full">
                   {/* Horas a la izquierda — texto sin salto de línea (evita que
@@ -436,7 +441,7 @@ function BloquePill({ b, subj, onClick }) {
       onClick={onClick ? e => { e.stopPropagation(); onClick(b) } : undefined}
       className={`flex items-center gap-1 rounded-md w-full truncate px-1 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
       style={{ background: pal.bg, color: pal.text }}
-      data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}${b.lugar ? ' · ' + b.lugar : ''}`}
+      data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}${b.lugar ? ' · ' + b.lugar : ''} · Usa modificar bloques para editar`}
     >
       <span className="truncate">{subjectDisplayName(subj)}</span>
     </button>
@@ -776,7 +781,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                         opacity: isDragging ? 0.3 : 1,
                         touchAction: 'none',
                       }}
-                      data-tooltip={editable ? `${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)} · arrastra para mover` : `${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}`}
+                      data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)} · Usa modificar bloques para editar`}
                     >
                       <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>{subjectDisplayName(subj)}</span>
                       {b.lugar && <span className={`block ${GRID_ITEM_TEXT} opacity-70 leading-tight truncate`}>{b.lugar}</span>}
@@ -800,11 +805,10 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                       onClick={!ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
                       className={`absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
-                      data-tooltip={[
-                        ev.titulo, fmtHour(ev.timeStr), ev.subtitulo, ev.estado?.label,
-                        ev.tipo === 'deadline' && (ev.cierraEnFecha ? 'Cierra en esa fecha' : 'Sigue recibiendo tarde'),
-                        ev.editable && 'arrastra para mover',
-                      ].filter(Boolean).join(' · ')}
+                      data-tooltip={
+                        ev.activityId ? 'Clic para editar esta actividad'
+                        : [ev.titulo, fmtHour(ev.timeStr), ev.editable && 'arrastra para mover'].filter(Boolean).join(' · ')
+                      }
                     >
                       <span className={`flex items-start gap-1 ${GRID_ITEM_TEXT} font-normal leading-tight`}>
                         {ev.tipo === 'deadline' && (ev.cierraEnFecha
@@ -1066,6 +1070,7 @@ export default function CalendarPage() {
         const cierraEnFecha = !a.recibirTarde
         evs.push({
           id: `dl-${a.id}`,
+          activityId: a.id,
           titulo: cierraEnFecha ? `${nombreConNumero} (Cierre)` : nombreConNumero,
           subtitulo: `${subjName} · Parcial ${a.parcial ?? '–'} · ${categoriaLabel}`,
           tipo: 'deadline',
@@ -1087,6 +1092,7 @@ export default function CalendarPage() {
       if (fechaPublicacion) {
         evs.push({
           id: `pub-${a.id}`,
+          activityId: a.id,
           titulo: `↑ ${nombreConNumero} (Publicada)`,
           subtitulo: subjName,
           tipo: 'publicacion',
@@ -1186,6 +1192,8 @@ export default function CalendarPage() {
     setShowEventEditor(true)
   }
   function openEditEvent(ev) {
+    // Fecha límite / publicación: se editan desde la actividad, no aquí.
+    if (ev.activityId) { navigate(`/activity/${ev.activityId}`, { state: { openEditActivity: true } }); return }
     if (!ev.editable) return
     setEditingEvent(ev.rawEvent)
     setSelectedDate(null)

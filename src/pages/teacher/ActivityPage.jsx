@@ -197,8 +197,9 @@ export default function ActivityPage() {
   const hasRubrica = !!activity?.rubrica?.criterios?.length && !isEvaluacion
   // Etiqueta según el instrumento (rúbrica o lista de cotejo) para los botones.
   const instrumentoLabel = esCotejo(activity?.rubrica) ? 'lista de cotejo' : 'rúbrica'
-  // Edit activity modal
-  const [editingActivity, setEditingActivity] = useState(false)
+  // Edit activity modal — el calendario navega aquí con openEditActivity para
+  // abrir el editor de una vez (clic en el evento de fecha límite/publicación).
+  const [editingActivity, setEditingActivity] = useState(!!location.state?.openEditActivity)
   // Parcial cerrado: no grade can be changed until the teacher reverts the close.
   const parcialCerrado = !!(subject?.parcialesCerrados && activity?.parcial != null && subject.parcialesCerrados[activity.parcial])
 
