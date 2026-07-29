@@ -27,7 +27,7 @@ import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { IS_NATIVE_APP } from '../../utils/platform'
-import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
+import { descargaSoloWeb, LEYENDA_REVISAR_EN_WEB } from '../../utils/descargaSoloWeb'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
@@ -1107,6 +1107,11 @@ export default function ActivityPage() {
                       <a key={`${f.url}-${i}`} href={f.url} target="_blank" rel="noopener noreferrer" className="block" data-tooltip="Abrir en tamaño completo">
                         <img src={f.url} alt={f.nombre} className="max-w-full rounded mx-auto" />
                       </a>
+                    ) : IS_NATIVE_APP ? (
+                      <div key={`${f.url}-${i}`} className="px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted">
+                        <p className="truncate font-medium">{f.nombre}</p>
+                        <p className="text-xs mt-0.5">{LEYENDA_REVISAR_EN_WEB}</p>
+                      </div>
                     ) : (
                       <a key={`${f.url}-${i}`} href={downloadUrl(f.url, f.nombre)} download={f.nombre} rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors">
@@ -1137,15 +1142,19 @@ export default function ActivityPage() {
                   ) : (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
                       <p>Sin vista previa disponible para este archivo.</p>
-                      <a
-                        href={downloadUrl(f.url, f.nombre)}
-                        download={f.nombre}
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
-                      >
-                        <Download size={18} className="text-accent" />
-                        Descargar archivo
-                      </a>
+                      {IS_NATIVE_APP ? (
+                        <p className="text-sm text-muted max-w-xs">{LEYENDA_REVISAR_EN_WEB}</p>
+                      ) : (
+                        <a
+                          href={downloadUrl(f.url, f.nombre)}
+                          download={f.nombre}
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
+                        >
+                          <Download size={18} className="text-accent" />
+                          Descargar archivo
+                        </a>
+                      )}
                     </div>
                   )
                 })()
@@ -1171,15 +1180,19 @@ export default function ActivityPage() {
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
                     <p>Sin vista previa disponible para este tipo de archivo.</p>
-                    <a
-                      href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
-                      download={selected.sub.nombreArchivo}
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
-                    >
-                      <Download size={18} className="text-accent" />
-                      Descargar entrega
-                    </a>
+                    {IS_NATIVE_APP ? (
+                      <p className="text-sm text-muted max-w-xs">{LEYENDA_REVISAR_EN_WEB}</p>
+                    ) : (
+                      <a
+                        href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
+                        download={selected.sub.nombreArchivo}
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
+                      >
+                        <Download size={18} className="text-accent" />
+                        Descargar entrega
+                      </a>
+                    )}
                   </div>
                 )
               ) : (
@@ -1342,7 +1355,10 @@ export default function ActivityPage() {
                         (invisible) cuando no hay archivo, para que la calificación
                         oficial NUNCA cambie de lugar al navegar entre alumnos. */}
                     <div ref={califRowRef} className="flex gap-2 items-end">
-                      {selFiles.length === 1 ? (
+                      {/* En la app no hay botón de descarga; cae al hueco
+                          invisible de abajo cuando hay rúbrica, para que la
+                          calificación no cambie de lugar. */}
+                      {selFiles.length === 1 && !IS_NATIVE_APP ? (
                         <a
                           href={downloadUrl(selFiles[0].url, selFiles[0].nombre)}
                           download={selFiles[0].nombre}
@@ -1395,16 +1411,19 @@ export default function ActivityPage() {
                               : 'border-outline-variant bg-surface text-muted hover:border-accent'
                           }`}
                         >
-                          <button
-                            type="button"
-                            onClick={downloadStudentZip}
-                            disabled={studentZipDownloading}
-                            data-tooltip="Descargar todas en ZIP"
-                            aria-label="Descargar todas en ZIP"
-                            className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0 disabled:opacity-40"
-                          >
-                            {studentZipDownloading ? <Spinner size="sm" /> : <Download size={15} />}
-                          </button>
+                          {/* Sin descargas en la app: solo se ven, no se bajan. */}
+                          {!IS_NATIVE_APP && (
+                            <button
+                              type="button"
+                              onClick={downloadStudentZip}
+                              disabled={studentZipDownloading}
+                              data-tooltip="Descargar todas en ZIP"
+                              aria-label="Descargar todas en ZIP"
+                              className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0 disabled:opacity-40"
+                            >
+                              {studentZipDownloading ? <Spinner size="sm" /> : <Download size={15} />}
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setPreviewIdx(-1)}
@@ -1423,16 +1442,18 @@ export default function ActivityPage() {
                                 : 'border-outline-variant bg-surface text-muted hover:border-accent'
                             }`}
                           >
-                            <a
-                              href={downloadUrl(f.url, f.nombre)}
-                              download={f.nombre}
-                              rel="noopener noreferrer"
-                              data-tooltip="Descargar esta imagen"
-                              aria-label="Descargar esta imagen"
-                              className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0"
-                            >
-                              <Download size={15} />
-                            </a>
+                            {!IS_NATIVE_APP && (
+                              <a
+                                href={downloadUrl(f.url, f.nombre)}
+                                download={f.nombre}
+                                rel="noopener noreferrer"
+                                data-tooltip="Descargar esta imagen"
+                                aria-label="Descargar esta imagen"
+                                className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0"
+                              >
+                                <Download size={15} />
+                              </a>
+                            )}
                             <button
                               type="button"
                               onClick={() => setPreviewIdx(i)}
@@ -1503,7 +1524,9 @@ export default function ActivityPage() {
                           {v.completadoSinArchivo
                             ? <span className="text-slate-400 italic">sin archivo</span>
                             : v.archivoURL
-                              ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
+                              ? IS_NATIVE_APP
+                                ? <span className="text-muted truncate flex items-center gap-1">{v.nombreArchivo}</span>
+                                : <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
                                   <Download size={14} /> {v.nombreArchivo}
                                 </a>
                               : <span className="text-slate-300 italic">sin archivo</span>
@@ -1727,6 +1750,11 @@ export default function ActivityPage() {
                       ) : canPreviewFile(f.nombre) ? (
                         <div className="rounded overflow-hidden bg-surface-card" style={{ height: '55vh' }}>
                           <FilePreview url={f.url} nombre={f.nombre} fill />
+                        </div>
+                      ) : IS_NATIVE_APP ? (
+                        <div className="px-4 py-3 bg-surface-card rounded border border-outline-variant text-sm text-muted">
+                          <p className="truncate font-medium">{f.nombre}</p>
+                          <p className="text-xs mt-0.5">{LEYENDA_REVISAR_EN_WEB}</p>
                         </div>
                       ) : (
                         <a
@@ -2021,7 +2049,9 @@ export default function ActivityPage() {
                       {v.completadoSinArchivo
                         ? <span className="text-slate-400 italic">sin archivo</span>
                         : v.archivoURL
-                          ? <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
+                          ? IS_NATIVE_APP
+                            ? <span className="text-muted truncate flex items-center gap-1">{v.nombreArchivo}</span>
+                            : <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
                               <Download size={14} /> {v.nombreArchivo}
                             </a>
                           : <span className="text-slate-300 italic">sin archivo</span>
