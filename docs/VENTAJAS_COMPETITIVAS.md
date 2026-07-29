@@ -115,8 +115,6 @@ Menos espectaculares, pero son los que quitan la objeción "¿y luego cómo entr
 
 Este punto es real pero necesita decirse mejor. La lista respeta el número que tú diste de alta, y ordena por apellido paterno cuando lo pides — el orden mexicano, no el alfabético por nombre de pila. Dicho como "orden correcto" el espectador no entiende qué le estás resolviendo; dicho como "tu lista, en el orden de tu lista" sí.
 
-## Lo que conviene NO prometer todavía
+## Lo único que conviene no mencionar todavía
 
-- **La IA.** Es de 2027 y va como complemento aparte. Mencionarla ahora hace que el docente espere en vez de comprar.
-- **Que funciona sin internet.** No está verificado. No lo digas.
-- **Las alarmas de clase como si fueran notificaciones push.** Suenan con la app o la pestaña abierta. Los recordatorios que llegan con la app cerrada son otra cosa (Notificaciones) — mézclalos y la primera reseña mala será por eso.
+**La IA.** Es de 2027 y va como complemento aparte, no como parte del plan de $116. Mencionarla en el material de hoy hace que el docente espere en vez de comprar lo que ya existe.
