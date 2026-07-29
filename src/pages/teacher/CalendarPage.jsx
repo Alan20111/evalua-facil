@@ -804,7 +804,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                       onPointerDown={ev.editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev }) } : undefined}
                       onClick={!ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
                       className={`absolute right-0.5 rounded px-1 py-0.5 text-left shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                      style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
+                      style={{ top, width: '78%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
                       data-tooltip={
                         ev.activityId ? 'Clic para editar esta actividad'
                         : [ev.titulo, fmtHour(ev.timeStr), ev.editable && 'arrastra para mover'].filter(Boolean).join(' · ')
