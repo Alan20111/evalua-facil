@@ -676,7 +676,7 @@ export default function TeacherNotificationSettings() {
       {entryToDelete && (
         <ConfirmModal
           title="¿Borrar esta notificación?"
-          message={<>"<strong>{describeEntry(entryToDelete, navigate).notificacion}</strong>" se borrará de tu bitácora permanentemente.</>}
+          message={<>&ldquo;<strong>{describeEntry(entryToDelete, navigate).notificacion}</strong>&rdquo; se borrará de tu bitácora permanentemente.</>}
           confirmLabel="Borrar"
           confirmingLabel="Borrando…"
           confirmIcon={<Trash2 size={16} />}

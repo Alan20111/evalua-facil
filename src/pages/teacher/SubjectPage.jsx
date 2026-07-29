@@ -103,12 +103,6 @@ const EVALUACION_DEFAULTS = {
   },
 }
 
-const CATEGORIAS_ACTIVIDAD = [
-  { value: 'entregable', label: 'Entregable' },
-  { value: 'cuestionario', label: 'Cuestionario' },
-  { value: 'examen', label: 'Examen' },
-]
-
 function formatResourceDate(ts) {
   if (!ts?.toDate) return ''
   return ts.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -1851,7 +1845,7 @@ export default function SubjectPage() {
     if (!excelPreview) return
     setImportingExcel(true)
     try {
-      const { rows, schoolDocs, taken } = excelPreview
+      const { rows, taken } = excelPreview
       const batch = writeBatch(db)
       let nextOrden = groupStudents.length + 1
       let created = 0
@@ -4562,7 +4556,7 @@ export default function SubjectPage() {
                 </div>
 
                 {filteredGradeStudents.length === 0 && searchGrade && (
-                  <p className="text-center text-sm text-slate-400">Sin resultados para "{searchGrade}"</p>
+                  <p className="text-center text-sm text-slate-400">Sin resultados para &ldquo;{searchGrade}&rdquo;</p>
                 )}
               </>
             )}
@@ -5402,7 +5396,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">Duplicar actividad</h3>
             <p className="text-sm text-muted mb-4">
-              Se creará una copia de "<strong>{duplicateConfirm.nombre}</strong>" como <strong>borrador</strong>, con el nombre "{duplicateConfirm.nombre} (copia)".
+              Se creará una copia de &ldquo;<strong>{duplicateConfirm.nombre}</strong>&rdquo; como <strong>borrador</strong>, con el nombre &ldquo;{duplicateConfirm.nombre} (copia)&rdquo;.
               Quedará oculta para estudiantes y sin número hasta que la publiques. Edítala para cambiarle el nombre.
             </p>
             <div className="flex gap-2">
@@ -5467,7 +5461,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Publicar actividad?</h3>
             <p className="text-sm text-muted mb-2">
-              "<strong>{publishDraftConfirm.nombre}</strong>" es un borrador. Al publicarla, los estudiantes podrán verla y se registrará la fecha y hora de publicación.
+              &ldquo;<strong>{publishDraftConfirm.nombre}</strong>&rdquo; es un borrador. Al publicarla, los estudiantes podrán verla y se registrará la fecha y hora de publicación.
             </p>
             {/(\(copia\))\s*$/i.test(publishDraftConfirm.nombre || '') && (
               <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5 mb-3">
@@ -5500,7 +5494,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
             <p className="text-sm text-muted mb-4">
-              "<strong>{deleteConfirm.nombre}</strong>" se eliminará permanentemente.
+              &ldquo;<strong>{deleteConfirm.nombre}</strong>&rdquo; se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteConfirm(null)}
@@ -5619,7 +5613,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar material de apoyo?</h3>
             <p className="text-sm text-muted mb-4">
-              "<strong>{deleteMaterialConfirm.nombre}</strong>" se eliminará permanentemente.
+              &ldquo;<strong>{deleteMaterialConfirm.nombre}</strong>&rdquo; se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteMaterialConfirm(null)}
@@ -6887,7 +6881,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar recurso?</h3>
             <p className="text-sm text-muted mb-4">
-              "<strong>{deleteResourceConfirm.nombre}</strong>" se eliminará permanentemente.
+              &ldquo;<strong>{deleteResourceConfirm.nombre}</strong>&rdquo; se eliminará permanentemente.
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteResourceConfirm(null)}

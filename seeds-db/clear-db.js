@@ -10,7 +10,6 @@
 
 const admin = require('firebase-admin');
 const readline = require('readline');
-const path = require('path');
 
 // Initialize Firebase Admin SDK
 // Expects GOOGLE_APPLICATION_CREDENTIALS env var or automatic authentication via firebase-cli
@@ -18,7 +17,7 @@ try {
   admin.initializeApp({
     projectId: 'evalua-facil-app',
   });
-} catch (err) {
+} catch {
   // Already initialized
 }
 

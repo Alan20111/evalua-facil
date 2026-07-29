@@ -560,23 +560,6 @@ export default function EvaluacionEditor({
     toast('Pregunta duplicada')
   }
 
-  async function handleMovePregunta(id, direction) {
-    const idx = preguntas.findIndex((p) => p.id === id)
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-    if (swapIdx < 0 || swapIdx >= preguntas.length) return
-    const a = preguntas[idx], b = preguntas[swapIdx]
-    await Promise.all([
-      updateDoc(doc(db, 'activities', currentActivityId, 'preguntas', a.id), { orden: b.orden ?? swapIdx }),
-      updateDoc(doc(db, 'activities', currentActivityId, 'preguntas', b.id), { orden: a.orden ?? idx }),
-    ])
-    setPreguntas((prev) => {
-      const next = [...prev]
-      next[idx] = { ...a, orden: b.orden ?? swapIdx }
-      next[swapIdx] = { ...b, orden: a.orden ?? idx }
-      return next.sort((x, y) => (x.orden ?? 0) - (y.orden ?? 0))
-    })
-  }
-
   async function handleAddFromBanco(item) {
     if (!currentActivityId) { toast('Guarda la información antes de agregar preguntas', 'error'); return }
     const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
