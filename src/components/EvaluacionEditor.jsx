@@ -14,7 +14,7 @@ import { sanitizeHtml, toRichHtml, htmlToPlainText, richTextContentClass } from 
 import { repartirPonderacionParejo } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy, Scale, CheckSquare, Square,
-  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X,
+  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
@@ -851,6 +851,9 @@ export default function EvaluacionEditor({
                         Cerrar entregas en la fecha y hora programada
                         <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
                       </label>
+                      {(infoForm.cerrarEntregasEnFecha ?? true)
+                        ? <Lock size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />
+                        : <LockOpen size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />}
                     </div>
                   )}
                   {/* Prórrogas por estudiante ya otorgadas — mismo resumen que en
