@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, GraduationCap, Users, ClipboardList, ClipboardCheck, Database, Percent, UserCheck, CalendarDays, FileDown, UserCog, Check, AlertTriangle, Sparkles } from 'lucide-react'
+import { BookOpen, GraduationCap, Users, ClipboardList, ClipboardCheck, Database, Percent, UserCheck, CalendarDays, FileDown, UserCog, Check, AlertTriangle, Compass } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
 // Manual del docente. Todo el contenido está verificado contra el código real
@@ -14,7 +14,10 @@ const SECTIONS = [
   {
     id: 'que-puedes-hacer',
     title: 'Lo que puedes hacer aquí',
-    icon: Sparkles,
+    // Compass y no Sparkles: las chispitas ya se leen como "IA" en todos lados,
+    // y aquí no hay IA. La brújula dice "ubícate", que es justo lo que hace
+    // esta sección.
+    icon: Compass,
     content: [
       {
         subtitle: 'Lo que más te va a ahorrar tiempo',
