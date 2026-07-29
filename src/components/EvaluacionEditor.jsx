@@ -835,19 +835,6 @@ export default function EvaluacionEditor({
                       )}
                     />
                   )}
-                  {/* Prórrogas por estudiante ya otorgadas — mismo resumen que en
-                      un entregable. Es la confirmación en pantalla de que
-                      "Nueva fecha límite → Para algunos" quedó guardada. */}
-                  {groupExtensions(extensiones, extensionesMotivo, students).map((g, i) => (
-                    <div key={i} className="p-3 mt-2 bg-amber-50 rounded border border-amber-200 text-sm">
-                      <p className="font-medium text-on-surface flex items-center gap-1.5">
-                        <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
-                        Prórroga hasta {formatDeadline(g.date)}
-                      </p>
-                      <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
-                      {g.motivo && <p className="text-xs text-muted mt-0.5">Motivo: {g.motivo}</p>}
-                    </div>
-                  ))}
                   {/* Sub-opción de la fecha límite: va pegada al selector para que
                       se lea como parte de esa misma opción, no como una aparte. */}
                   {infoForm.fechaLimite && (
@@ -866,6 +853,19 @@ export default function EvaluacionEditor({
                       </label>
                     </div>
                   )}
+                  {/* Prórrogas por estudiante ya otorgadas — mismo resumen que en
+                      un entregable. Es la confirmación en pantalla de que
+                      "Nueva fecha límite → Para algunos" quedó guardada. */}
+                  {groupExtensions(extensiones, extensionesMotivo, students).map((g, i) => (
+                    <div key={i} className="p-3 mt-2 bg-amber-50 rounded border border-amber-200 text-sm">
+                      <p className="font-medium text-on-surface flex items-center gap-1.5">
+                        <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
+                        Prórroga hasta {formatDeadline(g.date)}
+                      </p>
+                      <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
+                      {g.motivo && <p className="text-xs text-muted mt-0.5">Motivo: {g.motivo}</p>}
+                    </div>
+                  ))}
                   {/* Evaluación publicada: prorrogar la fecha para todo el grupo o
                       para estudiantes específicos — mismo modal que un entregable. */}
                   {!isNew && infoForm.publishedAt && (
