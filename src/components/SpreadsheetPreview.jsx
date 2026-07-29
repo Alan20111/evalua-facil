@@ -96,14 +96,36 @@ export default function SpreadsheetPreview({ url, nombre, fill = false }) {
       }
     }
 
-    const colCount = ws.columnCount
+    // `ws.columnCount`/`ws.rowCount` cuentan CUALQUIER celda que el archivo
+    // haya tocado alguna vez, aunque nunca se le haya puesto texto — por
+    // ejemplo, la plantilla de "subir estudiantes" (utils/excel.js) protege
+    // 500 filas de antemano para que se vean listas para llenar, y eso solo
+    // les da BORDE, no contenido. Sin este recorte, esas 500 filas vacías se
+    // dibujaban igual que las que sí tienen datos: el "papel rayado sin fin"
+    // reportado. Por eso el rango real a mostrar es hasta la ÚLTIMA fila/
+    // columna con texto de verdad, no hasta donde el archivo dice que llega.
+    let lastRowWithContent = 0
+    let lastColWithContent = 0
+    ws.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+      row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        if (cellText(cell).trim() !== '') {
+          if (rowNumber > lastRowWithContent) lastRowWithContent = rowNumber
+          if (colNumber > lastColWithContent) lastColWithContent = colNumber
+        }
+      })
+    })
+    // Sin ningún dato: no hay nada que dibujar más allá de la fila/columna 1.
+    const colCount = Math.max(1, lastColWithContent)
+    const rowCount = Math.max(1, lastRowWithContent)
+
     const colWidths = Array.from({ length: colCount }, (_, i) => {
       const w = ws.getColumn(i + 1).width
       return Math.max(COL_MIN_PX, Math.round((w || 8.43) * CHAR_TO_PX))
     })
 
     const rows = []
-    ws.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+    for (let rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
+      const row = ws.getRow(rowNumber)
       const cells = []
       for (let c = 1; c <= colCount; c++) {
         if (mergedAway.has(`${rowNumber},${c}`)) continue
@@ -125,7 +147,7 @@ export default function SpreadsheetPreview({ url, nombre, fill = false }) {
         })
       }
       rows.push({ key: rowNumber, cells })
-    })
+    }
 
     return { colWidths, rows }
   }, [workbook, activeSheet])
