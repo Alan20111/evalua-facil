@@ -1,120 +1,129 @@
-# Ventajas competitivas — orden para material publicitario
+# Ventajas competitivas — inventario verificado
 
-> Lista original del autor, reordenada por **dolor del docente** en vez de por módulo.
-> Cada punto trae el gancho (qué decir), la prueba (qué mostrar en pantalla) y por qué pega.
-> Todo lo listado está verificado contra el código — no hay funciones prometidas que no existan.
-
----
-
-## Los tres primeros — con estos abre
-
-Son los que resuelven un dolor que el docente sufre **antes** de poder usar cualquier plataforma.
-
-### 1. Tus alumnos no necesitan correo electrónico
-
-- **Gancho:** "¿Cuántos de tus alumnos tienen correo? Aquí no hace falta ninguno."
-- **Prueba en pantalla:** subir la lista por Excel → aparecen los usuarios ya generados (`mendez.enrique`) → el alumno escanea el QR, escribe su usuario y elige su contraseña.
-- **Por qué pega:** es la barrera del día uno. Las plataformas que piden una cuenta de correo por alumno dejan gente fuera antes de empezar, y el maestro termina haciendo de mesa de ayuda. Aquí el usuario se genera solo del apellido y el nombre, y el alumno elige su propia contraseña.
-- **Remate:** el maestro nunca ve ni reparte contraseñas. El PDF de lista de acceso trae usuarios, no claves.
-
-### 2. Programa tu horario una vez y la asistencia se genera sola
-
-- **Gancho:** "No captures los días de clase. Ya los sabe."
-- **Prueba en pantalla:** armar el horario semanal arrastrando bloques → ir a Asistencias → las columnas ya están, cada una en su parcial.
-- **Por qué pega:** aquí es donde tu lista original tenía dos puntos sueltos ("pasa lista desde el móvil" y "programa tus clases") que valen mucho más juntos. Separados suenan a dos funciones; juntos suenan a algo que nadie más hace.
-- **Detalles que rematan:** dos horas seguidas generan dos columnas; los días de asueto y vacaciones no generan lista; si alargas las fechas del curso, el horario se extiende solo.
-
-### 3. Pasa lista desde tu celular
-
-- **Gancho:** "Toma lista en clase, sin cargar la computadora."
-- **Prueba en pantalla:** abrir la app, tocar solo a los que faltaron, listo.
-- **Por qué pega:** todos empiezan presentes, así que el trabajo es marcar la excepción, que es justo lo que el maestro hace de todos modos.
-- **Detalle:** la justificada cuenta como asistencia y guarda el motivo, para releerlo después.
+> Lista de lo que la plataforma **realmente hace**, verificado contra el código.
+> Sin recomendaciones de cómo venderlo — eso lo decide el autor.
 
 ---
 
-## Los que demuestran profundidad
+## Acceso
 
-Aquí ya no compites contra "no tener nada": compites contra otras plataformas.
+**El alumno no necesita correo electrónico.**
+- El usuario se genera solo del apellido paterno y el primer nombre: `mendez.enrique`. Sin acentos ni ñ.
+- Duplicados llevan sufijo: `garcia.juan`, `garcia.juan01`.
+- El alumno elige su propia contraseña la primera vez. El docente nunca la ve ni la reparte.
+- Entra por QR, link o código de 6 caracteres.
 
-### 4. El examen te dice cuál pregunta falló
+**Un alumno, una cuenta para todas tus asignaturas.**
+- Si aparece en otra de tus materias, la plataforma pregunta si es la misma persona y reutiliza su cuenta.
+- Al copiar una asignatura con estudiantes, conservan usuario y contraseña.
 
-- **Gancho:** "No solo quién reprobó. Qué no entendieron."
-- **Prueba en pantalla:** aplicar el examen → abrir las gráficas por reactivo → la de pastel donde se ve que la mayoría eligió la misma opción incorrecta.
-- **Por qué pega:** tu lista decía "reportes gráficos", que se queda corto. La gráfica **por reactivo** es diagnóstico, no calificación: le dice al maestro qué volver a explicar. Eso es lo que convierte un examen en información.
-- **Además:** promedio, máxima, mínima y porcentaje de aprobados del grupo.
+**Recuperación de contraseña sin correos.**
+- El docente habilita la recuperación desde "Editar estudiante"; el alumno elige la nueva.
+- El docente no recibe ninguna clave temporal.
 
-### 5. Escribe una pregunta una vez, úsala siempre
+**Cuenta del docente.**
+- Correo y contraseña propios, o Google. Google es opción, no requisito.
 
-- **Gancho:** "Tu banco de reactivos, organizado por materia y tema."
-- **Prueba en pantalla:** filtrar el banco por tema → seleccionar varias preguntas → agregarlas al examen de un jalón.
-- **Por qué pega:** no está atado a parcial ni a ciclo. La pregunta que escribiste este semestre sirve el siguiente.
-- **Cuatro tipos:** opción múltiple, verdadero/falso, respuesta corta y subir documento. Con imagen y retroalimentación.
+## Asistencia
 
-### 6. Rúbricas y listas de cotejo — la que te faltaba en la lista
+**Los días se generan solos desde el horario.**
+- Programas el horario una vez y las columnas de asistencia aparecen, cada una en su parcial.
+- Dos horas seguidas ese día generan dos columnas independientes.
+- Días de asueto y vacaciones no generan lista.
+- Si alargas las fechas del curso, el horario se extiende solo al tramo nuevo.
+- Sin fechas de curso, los días se agregan a mano.
 
-- **Gancho:** "Marca el nivel de cada criterio. La calificación se calcula sola."
-- **Prueba en pantalla:** armar una rúbrica → calificar tocando niveles → el 10 aparece solo.
-- **Por qué pega:** es el instrumento de evaluación que ya te piden entregar, resuelto dentro de la plataforma en vez de en un Word aparte.
-- **El detalle que convence al desconfiado:** editar la rúbrica de tu banco **no altera** las calificaciones que ya pusiste con la versión anterior. Cada actividad guarda su propia copia.
-- **Bonus:** con rúbrica puedes calificar aunque no haya entrega — que es exactamente cómo se evalúa una exposición o la participación.
+**Tres estados:** presente, falta, justificada.
+- Todos empiezan presentes; se marca solo la excepción.
+- La justificada cuenta como asistencia y guarda motivo, editable después.
 
-### 7. Duplica tu planeación completa para el siguiente ciclo
+**Alumnos inscritos a media marcha** no cargan con los días anteriores a su alta.
 
-- **Gancho:** "El semestre que viene, empieza donde terminaste."
-- **Prueba en pantalla:** copiar asignatura → aparece con todas las actividades, instrucciones, adjuntos y preguntas.
-- **Por qué pega:** ahorra el trabajo acumulado de un semestre entero. No se copian entregas ni calificaciones: es tu planeación limpia.
-- **Hermano menor (tu punto 6):** importar actividades sueltas desde otra de tus asignaturas, que llegan como borrador para que ajustes fechas antes de publicar.
+**Borrar un día** no lo regenera solo; queda como "Restaurar día".
+
+## Evaluación
+
+**Cuatro tipos de actividad:** entregable, observación, cuestionario, examen.
+- Observación se califica sin entrega del alumno.
+- Cuestionario y examen son la misma herramienta con distintos valores de arranque.
+
+**Gráficas por reactivo.**
+- Gráfica de pastel por pregunta: muestra qué opción eligió el grupo.
+- Estadísticas de grupo: promedio, máxima, mínima, % aprobados y reprobados.
+
+**Banco de reactivos.**
+- Colección propia del docente, organizada por materia y tema. No atada a parcial ni ciclo.
+- Cuatro tipos de pregunta: opción múltiple, verdadero/falso, respuesta corta, subir documento.
+- Con imagen y retroalimentación por pregunta.
+- Se seleccionan varias y se agregan al examen de un jalón.
+
+**Rúbricas y listas de cotejo.**
+- Rúbrica: 2 a 6 criterios, 3 a 5 niveles. El nivel más alto vale 10.
+- Lista de cotejo: una sola columna, cada criterio se cumple o no.
+- Banco propio reutilizable en cualquier actividad.
+- Al asignarla, la actividad guarda su propia copia: editar la del banco no altera calificaciones ya puestas.
+- Se califica marcando niveles; el 10 se calcula solo.
+- Funcionan en entregables y observaciones, no en exámenes.
+- Crear y editar es de la web; desde la app se puede elegir una del banco y calificar.
+
+**Ponderación por parcial.**
+- Se activa parcial por parcial, no para toda la asignatura.
+- Sin ponderación, el promedio es simple sobre lo ya calificado.
+- Los pesos deben sumar 10 para exportar o cerrar el parcial.
+- Un interruptor decide si los alumnos ven cuánto vale cada actividad.
+
+**Cierre de parcial reversible.**
+- Rellena a quien no entregó con la calificación que elijas.
+- Revertir borra solo lo que puso el cierre; lo capturado a mano queda intacto.
+- Alumnos dados de alta después del cierre reciben el mismo relleno.
+
+**Promedio final:** media simple de los promedios de parcial.
+
+## Planeación
+
+**Copiar asignatura completa.**
+- Copia actividades, instrucciones, adjuntos, tipos de archivo y preguntas de exámenes.
+- No copia entregas ni calificaciones.
+- Opcionalmente copia la lista de estudiantes, conservando sus credenciales.
+
+**Importar actividades de otra asignatura tuya.**
+- Llegan como borrador, para ajustar fechas antes de publicar.
+
+**Horario y calendario.**
+- Bloques de clase por asignatura, colocados en una zona semanal.
+- Cuatro vistas: día, 3 días, semana, mes.
+- Eventos personales, además de fechas límite y publicaciones que aparecen solas.
+- Asuetos (un día) y vacaciones (periodo), con control independiente sobre qué se suspende: clases, eventos, actividades o asistencias.
+- Alarmas por bloque, con cinco sonidos.
+
+**Publicación programada de actividades:** eliges día y hora y aparecen solas.
+
+**Prórrogas:** fecha nueva para todo el grupo o para estudiantes específicos, con motivo.
+
+## Salidas
+
+- **Calificaciones:** Excel y PDF, completas o por parcial.
+- **Asistencia:** Excel, completa o por parcial.
+- **Ranking:** Excel y PDF, con lugar y promedio. En pantalla resalta el 20% superior e inferior.
+- **Acceso de estudiantes:** PDF del QR en grande y PDF de lista de acceso con usuarios.
+- **Entregas:** descarga en ZIP de los archivos subidos.
+
+## Orden de la lista de estudiantes
+
+- Respeta el número de lista con que se dieron de alta.
+- Se puede ordenar alfabéticamente por apellido paterno.
 
 ---
 
-## Los que cierran la venta
+## Sobre las redundancias en la lista original
 
-Menos espectaculares, pero son los que quitan la objeción "¿y luego cómo entrego lo que me piden?".
+Dos pares se traslapan:
 
-### 8. Excel y PDF listos para entregar
+1. **"Acceso con cuenta propia" y "recuperación de contraseña"** — ambas son sobre que nadie se quede fuera por no tener correo.
+2. **"Cuestionarios y exámenes" y "banco de reactivos"** — el banco es parte del sistema de exámenes.
 
-- **Gancho:** "Lo que te piden, en el formato en que te lo piden."
-- **Prueba:** calificaciones por parcial en Excel y PDF; asistencia en Excel; ranking en los dos.
-- **Honestidad que suma:** la asistencia solo sale en Excel, y dilo como lo que es — una hoja de muchos días se maneja mejor ahí que en un PDF.
+Y dos puntos separados que técnicamente son uno solo: **"pasa lista desde el móvil"** y **"programa tus clases"** — el horario es lo que genera los días de asistencia.
 
-### 9. Ranking, para ver quién necesita ayuda
+## Nota sobre la IA
 
-- **Gancho:** "Tu grupo ordenado por promedio, en un clic."
-- **Prueba:** activar el orden por promedio → aparece la columna de lugar → el 20% de arriba en verde, el 20% de abajo en naranja.
-- **Por qué pega:** el naranja no es para exhibir, es para ubicar rápido a quién acercarte. Véndelo así.
-
-### 10. Cierre de parcial en una acción, y reversible
-
-- **Gancho:** "Cierra el parcial completo sin perseguir a nadie."
-- **Prueba:** cerrar parcial → los que no entregaron reciben la calificación que elijas → revertir y ver que lo capturado a mano sigue intacto.
-- **Por qué pega:** el fin de parcial es el momento de más presión del semestre. Que sea reversible es lo que le quita el miedo a usarlo.
-
-### 11. Si un alumno olvida su contraseña, lo resuelves en dos toques
-
-- **Gancho:** "Sin correos, sin esperar a nadie."
-- **Prueba:** editar estudiante → habilitar recuperación → el alumno elige una nueva.
-- **Por qué pega:** el maestro no recibe ninguna clave temporal ni la teclea por él. Solo le abre la puerta.
-
-### 12. Un alumno, una cuenta, todas tus materias
-
-- **Gancho:** "Si lo tienes en tres asignaturas, entra una sola vez."
-- **Prueba:** dar de alta a alguien que ya existe en otra materia → la plataforma pregunta si es la misma persona → reutiliza su cuenta.
-
----
-
-## Redundancias en la lista original
-
-| Puntos que se pisan | Qué hacer |
-|---|---|
-| "Acceso con cuenta propia" + "Recuperación simple de contraseña" | Son la misma promesa (nadie se queda fuera) dicha dos veces. Un solo gancho con las dos pruebas dentro pega más que dos tibios. Quedaron como #1 y #11: uno abre, el otro cierra objeción. |
-| "Cuestionarios y exámenes" + "Banco de reactivos" | El banco es parte del sistema de exámenes. No lo quites — sepáralos por **beneficio**: el examen es el diagnóstico (#4), el banco es no volver a escribir lo mismo (#5). |
-| "Pasa lista desde el móvil" + "Programa tus clases" | Sueltos parecen dos funciones. Juntos son la ventaja real (#2 → #3). Uno alimenta al otro. |
-
-## "Orden de lista correcto"
-
-Este punto es real pero necesita decirse mejor. La lista respeta el número que tú diste de alta, y ordena por apellido paterno cuando lo pides — el orden mexicano, no el alfabético por nombre de pila. Dicho como "orden correcto" el espectador no entiende qué le estás resolviendo; dicho como "tu lista, en el orden de tu lista" sí.
-
-## Lo único que conviene no mencionar todavía
-
-**La IA.** Es de 2027 y va como complemento aparte, no como parte del plan de $116. Mencionarla en el material de hoy hace que el docente espere en vez de comprar lo que ya existe.
+No está construida. Va como complemento aparte en 2027, no dentro del plan de $116.
