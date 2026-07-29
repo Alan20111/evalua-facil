@@ -12,7 +12,11 @@ export default defineConfig([
   // android/app/src/main/assets/public. Lintarlo no aporta nada y ESLint se
   // queda sin memoria (OOM) intentando parsear esos JS de varios MB en una
   // sola línea. Igual que `dist`, se ignora por completo.
-  globalIgnores(['dist', 'android']),
+  // .claude/worktrees: copias temporales del repo que crean los agentes para
+  // trabajar en aislamiento (ver EnterWorktree). Lintarlas duplica cada
+  // hallazgo real y, si quedan huérfanas tras una sesión vieja, ESLint las
+  // sigue escaneando igual que si fuera código vivo.
+  globalIgnores(['dist', 'android', '.claude/worktrees']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -49,6 +53,28 @@ export default defineConfig([
     languageOptions: {
       globals: globals.node,
       sourceType: 'commonjs',
+    },
+  },
+  // seeds-db — otro paquete Node aparte (su propio package.json, sin
+  // "type": "module", así que es CommonJS pese a que el root sí es ESM).
+  // Scripts de un solo uso para poblar/limpiar Firestore vía Admin SDK.
+  {
+    files: ['seeds-db/**/*.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: globals.node,
+      sourceType: 'commonjs',
+    },
+  },
+  // api/ (funciones serverless de Vercel), Avatar/ (scripts CLI) y los
+  // archivos sueltos de config/tooling en la raíz: Node vía ESM, heredan
+  // "type": "module" del package.json raíz.
+  {
+    files: ['api/**/*.js', 'Avatar/**/*.js', 'vite.config.js', 'voice-pipeline.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: globals.node,
+      sourceType: 'module',
     },
   },
 ])
