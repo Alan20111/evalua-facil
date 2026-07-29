@@ -848,8 +848,8 @@ export default function EvaluacionEditor({
                         data-tooltip="Desactivar para recibir tarde"
                       />
                       <label htmlFor="cerrarEntregasEnFechaEval" className="text-sm text-on-surface cursor-pointer">
-                        Cerrar entregas en la fecha y hora programada
-                        <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
+                        Cerrar entregas.
+                        <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas (se marcarán como entregadas tarde).</span>
                       </label>
                       {(infoForm.cerrarEntregasEnFecha ?? true)
                         ? <Lock size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />
@@ -892,7 +892,7 @@ export default function EvaluacionEditor({
                       onClick={() => setNewDateOpen(true)}
                       className="w-full mt-2 py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
                     >
-                      <CalendarDays size={16} /> Nueva fecha límite de entrega
+                      <CalendarDays size={16} /> Nueva fecha para prórroga
                     </button>
                   )}
                 </div>

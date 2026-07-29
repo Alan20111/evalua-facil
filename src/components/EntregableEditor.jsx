@@ -418,8 +418,8 @@ export default function EntregableEditor({
                         data-tooltip="Desactivar para recibir tarde"
                       />
                       <label htmlFor="cerrarEntregasEnFecha" className="text-sm text-on-surface cursor-pointer">
-                        Cerrar entregas en la fecha y hora programada
-                        <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
+                        Cerrar entregas.
+                        <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas (se marcarán como entregadas tarde).</span>
                       </label>
                       {(form.cerrarEntregasEnFecha ?? true)
                         ? <Lock size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />
@@ -466,7 +466,7 @@ export default function EntregableEditor({
                     onClick={onNuevaFecha}
                     className="w-full py-2 text-sm border border-accent text-accent rounded hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
                   >
-                    <CalendarDays size={16} /> Nueva fecha límite de entrega
+                    <CalendarDays size={16} /> Nueva fecha para prórroga
                   </button>
                 )}
               </div>
