@@ -1193,7 +1193,7 @@ export default function CalendarPage() {
   }
   function openEditEvent(ev) {
     // Fecha límite / publicación: se editan desde la actividad, no aquí.
-    if (ev.activityId) { navigate(`/activity/${ev.activityId}`, { state: { openEditActivity: true } }); return }
+    if (ev.activityId) { navigate(`/activity/${ev.activityId}`, { state: { openEditActivity: true, returnTo: 'calendario' } }); return }
     if (!ev.editable) return
     setEditingEvent(ev.rawEvent)
     setSelectedDate(null)

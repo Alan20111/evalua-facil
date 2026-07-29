@@ -182,6 +182,10 @@ export default function ActivityPage() {
   // and closing the grading view must land back on that Calificaciones screen.
   const [pendingOpenId, setPendingOpenId] = useState(location.state?.openStudentId || null)
   const returnToGrades = location.state?.returnTo === 'calificaciones'
+  // Llegó aquí desde un clic en el evento de la actividad en Horario y
+  // agenda: al cerrar el editor debe regresar directo al calendario (que ya
+  // conserva su vista/fecha en localStorage), no quedarse en esta pantalla.
+  const returnToCalendar = location.state?.returnTo === 'calendario'
   const { subscription } = useSubscription()
   const canCreate = canCreateContent(subscription)
   // Observación: no student submission — the teacher observes and grades directly,
@@ -341,6 +345,7 @@ export default function ActivityPage() {
 
   // Header back arrow — also reused by the physical Android back button.
   function goBack() {
+    if (returnToCalendar) { navigate('/calendario'); return }
     navigate(`/subject/${activity?.asignaturaId}`, returnToGrades ? { state: { tab: 'calificaciones' } } : undefined)
   }
 
@@ -748,7 +753,7 @@ export default function ActivityPage() {
   // buttons already wired above. Order doesn't matter here — the module-level
   // stack in useBackHandler only activates whichever of these is actually open.
   useBackHandler(goBack)
-  useBackHandler(() => setEditingActivity(false), editingActivity)
+  useBackHandler(() => (returnToCalendar ? navigate('/calendario') : setEditingActivity(false)), editingActivity)
   useBackHandler(closeModal, !!selected)
   useBackHandler(() => setNewDateOpen(false), newDateOpen)
   // Ventanas flotantes de anular/modificar fecha en la vista de evaluar de
@@ -2200,9 +2205,10 @@ export default function ActivityPage() {
           docenteId={activity.docenteId}
           existingActivities={[]}
           activityLabel={activityLabel}
-          onClose={() => setEditingActivity(false)}
+          onClose={() => (returnToCalendar ? navigate('/calendario') : setEditingActivity(false))}
           onActivityUpdated={(updated) => {
             setActivity((prev) => ({ ...prev, ...updated }))
+            if (returnToCalendar) { navigate('/calendario'); return }
             setEditingActivity(false)
           }}
           initialForm={{
