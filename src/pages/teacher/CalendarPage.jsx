@@ -154,9 +154,9 @@ function EventPill({ ev, compact, onClick, movable }) {
       <span className="flex items-start gap-1 w-full">
         <Icon size={10} className="flex-shrink-0 mt-0.5" />
         {dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${ev.estado.tono === 'vencida' ? 'bg-red-500' : 'bg-amber-400'}`} />}
-        {/* Nunca se corta el nombre: si no cabe en un renglón, pasa a dos —
-            así "(Publicada)"/"(Cierre)" siempre queda visible. */}
-        <span className="line-clamp-2 break-words leading-tight">{ev.titulo}</span>
+        {/* Nunca se corta el nombre: crece a los renglones que necesite —
+            así "(Publicada)"/"(Cierre)" siempre queda visible completo. */}
+        <span className="break-words leading-tight">{ev.titulo}</span>
         {!compact && ev.timeStr && (
           <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{fmtHour(ev.timeStr)}</span>
         )}
@@ -386,7 +386,7 @@ function AgendaView({
                   </div>
                   {/* Evento y descripción a la derecha */}
                   <div className="flex-1 min-w-0 pl-2.5 py-1.5">
-                    <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight line-clamp-2 break-words`}>{titulo}</span>
+                    <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight break-words`}>{titulo}</span>
                     {sub && <span className="block text-xs opacity-75 leading-tight truncate">{sub}</span>}
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
                       <span className="inline-flex items-center gap-1 text-[10px] opacity-70 leading-tight">
@@ -814,7 +814,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                         {ev.tipo === 'deadline' && (ev.cierraEnFecha
                           ? <Lock size={9} className="flex-shrink-0 opacity-80 mt-0.5" />
                           : <LockOpen size={9} className="flex-shrink-0 opacity-80 mt-0.5" />)}
-                        <span className="line-clamp-2 break-words">{ev.titulo}</span>
+                        <span className="break-words">{ev.titulo}</span>
                       </span>
                       {ev.tipo === 'deadline' && (
                         <span className={`block text-[10px] opacity-90 leading-tight truncate font-medium ${ev.estado?.tono === 'vencida' ? 'text-red-100' : ''}`}>{ev.estado.label}</span>
