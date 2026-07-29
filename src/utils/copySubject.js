@@ -5,6 +5,7 @@ import {
 // Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
 import { addDoc, setDoc, writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
+import { nowIsoLocal } from './nowIso'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -101,6 +102,12 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       docenteId,
       oculta: false,
       publishAt: null,
+      // Se crea ya visible (oculta: false) para el grupo nuevo, así que su
+      // publicación "real" es este mismo momento — sin esto, `publishedAt`
+      // se quedaba en null para siempre (resolveVisibilidad solo lo llena
+      // al pasar por el modo 'show', y una actividad copiada nunca pasa por
+      // ahí), y el calendario no tenía de dónde sacar su fecha de "Publicada".
+      publishedAt: nowIsoLocal(),
       createdAt: serverTimestamp(),
     }
 

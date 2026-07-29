@@ -1040,7 +1040,7 @@ export default function CalendarPage() {
     const evs = []
 
     activities.forEach(a => {
-      if (!a.fechaLimite && !a.publishAt) return
+      if (!a.fechaLimite && !a.publishAt && !a.publishedAt) return
       const subj = subjects[a.asignaturaId]
       // Asignatura archivada = ciclo cerrado: sus fechas límite dejan de ser
       // pendientes y salen del calendario, igual que de la agenda del alumno.
