@@ -162,9 +162,37 @@ function ZoomOverlay({ src, alt, onClose }) {
 // estilos y no del orden en el atributo class.
 export default function ZoomableImage({ src, alt, className = 'block w-full', imgClassName = 'w-full h-auto rounded' }) {
   const [open, setOpen] = useState(false)
+  // Detección manual de tap en touchend, en vez de depender solo de onClick:
+  // dentro de un contenedor scrollable (páginas de PDF más altas que el
+  // panel — ver PdfCanvasPreview), Android suele cancelar el click sintético
+  // si hubo el más mínimo movimiento del dedo durante el toque, aunque el
+  // usuario sienta que solo tocó. Un umbral pequeño de movimiento distingue
+  // un tap real de un scroll.
+  const touchStart = useRef(null)
+  function handleTouchStart(e) {
+    const t = e.touches[0]
+    touchStart.current = { x: t.clientX, y: t.clientY }
+  }
+  function handleTouchEnd(e) {
+    const start = touchStart.current
+    touchStart.current = null
+    const t = e.changedTouches[0]
+    if (!start || !t) return
+    if (Math.abs(t.clientX - start.x) + Math.abs(t.clientY - start.y) < 10) {
+      e.preventDefault()
+      setOpen(true)
+    }
+  }
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={className} data-tooltip="Toca para ampliar">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className={className}
+        data-tooltip="Toca para ampliar"
+      >
         <img src={src} alt={alt} className={imgClassName} draggable={false} />
       </button>
       {open && <ZoomOverlay src={src} alt={alt} onClose={() => setOpen(false)} />}
