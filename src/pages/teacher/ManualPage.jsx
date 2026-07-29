@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, GraduationCap, Users, ClipboardList, ClipboardCheck, Database, Percent, UserCheck, CalendarDays, FileDown, UserCog, Check, AlertTriangle } from 'lucide-react'
+import { BookOpen, GraduationCap, Users, ClipboardList, ClipboardCheck, Database, Percent, UserCheck, CalendarDays, FileDown, UserCog, Check, AlertTriangle, Sparkles } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
 // Manual del docente. Todo el contenido está verificado contra el código real
@@ -11,6 +11,35 @@ import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 // (se pinta como advertencia). Ver feedback_writing_style_manuals: viñetas,
 // no prosa; el "error común" va dentro de la lista, no en un bloque aparte.
 const SECTIONS = [
+  {
+    id: 'que-puedes-hacer',
+    title: 'Lo que puedes hacer aquí',
+    icon: Sparkles,
+    content: [
+      {
+        subtitle: 'Lo que más te va a ahorrar tiempo',
+        items: [
+          'Tus alumnos entran sin cuenta de correo electrónico — tú das de alta la lista y cada quien elige su contraseña. Lo ves en Estudiantes.',
+          'Alta masiva de estudiantes por grupo, desde una plantilla de Excel — la descargas, la llenas y la subes. Lo ves en Estudiantes.',
+          'Pasa lista desde tu móvil — todos empiezan presentes, así que solo marcas a quien faltó. Lo ves en Asistencia.',
+          'Programa tus clases y crea tu horario — de ahí se definen los días de lista. Lo ves en Agenda y calendario.',
+          'Cuestionarios y exámenes con gráficas por reactivo — te dicen cuál pregunta falló el grupo, no solo quién reprobó. Lo ves en Actividades.',
+          'Banco de reactivos — escribes una pregunta una vez y la reutilizas cuando quieras. Lo ves en Banco de reactivos.',
+          'Rúbricas y listas de cotejo — marcas el nivel de cada criterio y la calificación se calcula sola. Lo ves en Rúbricas y listas de cotejo.',
+          'Cierra el parcial completo en una acción, y puedes revertirlo. Lo ves en Calificaciones.',
+          'Copia tu asignatura completa para el siguiente ciclo — tu planeación entera, lista otra vez. Lo ves en Asignaturas y grupos.',
+          'Excel y PDF listos para entregar. Lo ves en Reportes y exportación.',
+        ],
+      },
+      {
+        subtitle: 'Cómo usar este manual',
+        items: [
+          'Cada sección del índice explica una parte de la plataforma por separado. No hace falta leerlas en orden.',
+          'Si apenas estás empezando, sigue con Primeros pasos.',
+        ],
+      },
+    ],
+  },
   {
     id: 'primeros-pasos',
     title: 'Primeros pasos',
