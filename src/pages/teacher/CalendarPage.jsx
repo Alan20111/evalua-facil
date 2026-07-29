@@ -359,7 +359,7 @@ function AgendaView({
                 type="button"
                 onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, it) } : undefined}
                 onClick={!movable ? e => { e.stopPropagation(); onEventClick?.(it.ev) } : undefined}
-                className={`absolute rounded-card overflow-hidden shadow-sm ring-1 ring-black/5 select-none transition-[filter] hover:brightness-95 p-0 text-left block ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+                className={`absolute rounded-card shadow-sm ring-1 ring-black/5 select-none transition-[filter] hover:brightness-95 p-0 text-left block ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
                 style={{
                   top, height,
                   left: `calc(${lane * w}% + 3px)`,
@@ -439,7 +439,7 @@ function BloquePill({ b, subj, onClick }) {
     <button
       type="button"
       onClick={onClick ? e => { e.stopPropagation(); onClick(b) } : undefined}
-      className={`flex items-center gap-1 rounded-md w-full truncate px-1 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
+      className={`flex items-center gap-1 rounded-md w-full px-1 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
       style={{ background: pal.bg, color: pal.text }}
       data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}${b.lugar ? ' · ' + b.lugar : ''} · Usa modificar bloques para editar`}
     >
@@ -772,7 +772,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                     <div
                       key={b.id}
                       onPointerDown={editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'bloque', bloque: b }) } : undefined}
-                      className={`absolute rounded-lg px-1.5 py-1 text-left overflow-hidden shadow-sm ring-1 ring-black/5 hover:brightness-95 transition-[filter] select-none ${editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      className={`absolute rounded-lg px-1.5 py-1 text-left shadow-sm ring-1 ring-black/5 hover:brightness-95 transition-[filter] select-none ${editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{
                         top, height,
                         left: `calc(${lane * w}% + 2px)`,
@@ -803,7 +803,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                       type="button"
                       onPointerDown={ev.editable ? e => { e.stopPropagation(); startDrag(e, { kind: 'event', ev }) } : undefined}
                       onClick={!ev.editable ? e => { e.stopPropagation(); onEventClick?.(ev) } : undefined}
-                      className={`absolute right-0.5 rounded px-1 py-0.5 text-left overflow-hidden shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      className={`absolute right-0.5 rounded px-1 py-0.5 text-left shadow-sm ring-1 ring-white/60 hover:brightness-95 transition-[filter] select-none ${ev.editable ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{ top, width: '55%', minHeight: EV_H, background: ev.bg, color: ev.text, zIndex: 5, opacity: isDragging ? 0.3 : 1, touchAction: 'none' }}
                       data-tooltip={
                         ev.activityId ? 'Clic para editar esta actividad'
