@@ -30,6 +30,7 @@ import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { formatShortDate, formatShortDateRange } from '../../utils/dateRange'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
 import PaletteSelect from '../../components/PaletteSelect'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import IconSelect from '../../components/IconSelect'
@@ -2911,6 +2912,7 @@ export default function SubjectPage() {
   }
 
   async function handleExport() {
+    if (descargaSoloWeb(toast)) return
     if (!subject) return
     const falta = ponderacionIncompleta()
     if (falta) {
@@ -3072,6 +3074,7 @@ export default function SubjectPage() {
   // Ungated per-parcial exports (used by the top Excel/PDF ⋮ menus for a
   // "progress" print at any time).
   async function doExportParcialExcel(p) {
+    if (descargaSoloWeb(toast)) return
     if (!subject) return
     setExporting(true)
     try {
@@ -3081,6 +3084,7 @@ export default function SubjectPage() {
     finally { setExporting(false) }
   }
   async function doExportParcialPDF(p) {
+    if (descargaSoloWeb(toast)) return
     if (!subject) return
     setExportingGradesPdf(true)
     try {
@@ -3095,6 +3099,7 @@ export default function SubjectPage() {
   // tiene caso, Excel es el formato natural. groupStudents/attendanceParciales
   // ya están cargados porque el botón solo se ve con la pestaña abierta.
   async function handleExportAttendance() {
+    if (descargaSoloWeb(toast)) return
     if (!subject) return
     setExportingAttendance(true)
     try {
@@ -3107,6 +3112,7 @@ export default function SubjectPage() {
     finally { setExportingAttendance(false) }
   }
   async function doExportParcialAttendance(p) {
+    if (descargaSoloWeb(toast)) return
     if (!subject) return
     setExportingAttendance(true)
     try {
@@ -3118,6 +3124,7 @@ export default function SubjectPage() {
 
   // R12: grades as PDF (same data as the Excel export).
   async function handleExportGradesPDF() {
+    if (descargaSoloWeb(toast)) return
     if (!subject) return
     const falta = ponderacionIncompleta()
     if (falta) {
@@ -3147,6 +3154,7 @@ export default function SubjectPage() {
   // R16: download the access list (#, name, username + the class access code). No temp
   // passwords — each student sets their own password on first sign-in.
   async function handleGenerateCredentials() {
+    if (descargaSoloWeb(toast)) return
     if (!subject) return
     setGeneratingCredentials(true)
     try {
@@ -3574,6 +3582,7 @@ export default function SubjectPage() {
     return list.map((r, i) => ({ lugar: i + 1, ...r }))
   }
   async function doExportRanking(kind, parcial) {
+    if (descargaSoloWeb(toast)) return
     const rows = rankingRowsFor(parcial)
     const label = parcial == null ? 'Promedio final' : `Parcial ${parcial}`
     setRankingExportMenu(null)
