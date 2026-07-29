@@ -16,7 +16,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
-import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Download } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -30,6 +30,7 @@ import { canCreateContent } from '../../utils/subscriptionHelpers'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { APP_DOWNLOAD_URL, APP_DOWNLOAD_READY } from '../../config/appDownload'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
 
@@ -73,6 +74,9 @@ export default function TeacherDashboard() {
   // Recordatorio de la versión web (solo App): arranca colapsado, se ve nada
   // más el título hasta que el docente lo abre.
   const [showWebInfo, setShowWebInfo] = useState(false)
+
+  // Su espejo en la web: recordatorio de que también existe la app.
+  const [showAppInfo, setShowAppInfo] = useState(false)
 
   const navigate = useNavigate()
   const toast = useToast()
@@ -547,6 +551,47 @@ export default function TeacherDashboard() {
                     <p className="text-sm text-slate-500">Organiza tus asignaturas, configura actividades, consulta reportes y utiliza todas las herramientas de Evalúa Fácil desde la versión web, diseñada para ofrecerte la mejor experiencia de trabajo en computadora.</p>
                     <p className="text-sm text-slate-500 mt-1.5">Es tu misma cuenta: inicia sesión con el mismo correo y contraseña. Todo lo que hagas en la app se refleja en la versión web, y viceversa.</p>
                     <p className="text-sm font-semibold text-accent mt-1.5">www.evaluafacil.mx</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* El espejo del anterior: en la WEB se recuerda que también hay
+                app. Mismo trato — colapsado, informativo, sin prometer
+                destinos. El botón de descarga aparece solo cuando ya hay URL
+                oficial (config/appDownload.js); mientras tanto se explica que
+                está por publicarse, en vez de dejar un enlace muerto. */}
+            {!IS_NATIVE_APP && (
+              <div className="w-full mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowAppInfo((v) => !v)}
+                  aria-expanded={showAppInfo}
+                  className="w-full p-1.5 flex items-center gap-2 text-left hover:bg-[var(--accent-tint)] transition-colors"
+                >
+                  <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                    <Smartphone size={21} className="text-accent" />
+                  </div>
+                  <p className="flex-1 min-w-0 font-semibold text-on-surface">📱 Lleva Evalúa Fácil contigo al aula</p>
+                  <ChevronRight size={20} className={`text-slate-300 flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-90' : ''}`} />
+                </button>
+                {showAppInfo && (
+                  <div className="px-3 pb-3 pt-0.5">
+                    <p className="text-sm text-slate-500">Con la app en tu celular pasas lista, revisas entregas y capturas calificaciones desde el salón, sin cargar la computadora.</p>
+                    <p className="text-sm text-slate-500 mt-1.5">Es una sola app para docentes y estudiantes: al abrirla eliges con cuál perfil entras, igual que aquí.</p>
+                    <p className="text-sm text-slate-500 mt-1.5">Es tu misma cuenta: inicia sesión con el mismo correo y contraseña. Todo lo que hagas en la versión web se refleja en la app, y viceversa.</p>
+                    {APP_DOWNLOAD_READY ? (
+                      <a
+                        href={APP_DOWNLOAD_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-2 text-sm font-semibold text-accent hover:underline"
+                      >
+                        <Download size={15} /> Descargar la app
+                      </a>
+                    ) : (
+                      <p className="text-sm text-slate-400 mt-2">La descarga estará disponible muy pronto.</p>
+                    )}
                   </div>
                 )}
               </div>

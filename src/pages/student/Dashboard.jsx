@@ -16,7 +16,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
   BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive, Trash2, Download,
-  ArrowUp, ArrowDown, GripVertical, Globe,
+  ArrowUp, ArrowDown, GripVertical, Globe, Smartphone,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
@@ -32,6 +32,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { APP_DOWNLOAD_URL, APP_DOWNLOAD_READY } from '../../config/appDownload'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -75,6 +76,9 @@ export default function StudentDashboard() {
   // Recordatorio de la versión web (solo App): arranca colapsado, se ve nada
   // más el título hasta que el estudiante lo abre.
   const [showWebInfo, setShowWebInfo] = useState(false)
+
+  // Su espejo en la web: recordatorio de que también existe la app.
+  const [showAppInfo, setShowAppInfo] = useState(false)
   // Incrementa después de cada reorden confirmado — se lo pasa a StudentLayout
   // como `refreshKey` para que la barra lateral recargue su propia lista, que
   // vive en un componente aparte y de otro modo no se enteraría del cambio
@@ -628,6 +632,44 @@ export default function StudentDashboard() {
                 <p className="text-sm text-muted">Tus asignaturas, tus entregas, tus exámenes y tus calificaciones también están en la versión web. Es útil cuando necesitas subir un trabajo desde la computadora o presentar un examen en pantalla grande.</p>
                 <p className="text-sm text-muted mt-1.5">Es tu misma cuenta: inicia sesión con el mismo usuario y contraseña. Todo lo que hagas en la app se refleja en la versión web, y viceversa.</p>
                 <p className="text-sm font-semibold text-accent mt-1.5">www.evaluafacil.mx</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* El espejo del anterior: en la WEB se recuerda que también hay app.
+            El botón de descarga aparece solo cuando ya hay URL oficial
+            (config/appDownload.js); mientras tanto se dice que está por
+            publicarse, en vez de dejar un enlace muerto. */}
+        {!IS_NATIVE_APP && (
+          <div className="mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowAppInfo((v) => !v)}
+              aria-expanded={showAppInfo}
+              className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-accent-tint transition-colors text-left"
+            >
+              <Smartphone size={17} className="text-accent flex-shrink-0" />
+              <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">También puedes usar la app en tu celular</span>
+              <ChevronDown size={15} className={`text-slate-400 flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-180' : ''}`} />
+            </button>
+            {showAppInfo && (
+              <div className="px-4 pb-4 pt-0.5">
+                <p className="text-sm text-muted">Con la app puedes revisar tus asignaturas, entregar tus trabajos y ver tus calificaciones desde donde estés, y recibir avisos cuando tu maestro publique algo nuevo.</p>
+                <p className="text-sm text-muted mt-1.5">Es una sola app para estudiantes y docentes: al abrirla eliges con cuál perfil entras, igual que aquí.</p>
+                <p className="text-sm text-muted mt-1.5">Es tu misma cuenta: inicia sesión con el mismo usuario y contraseña. Todo lo que hagas en la versión web se refleja en la app, y viceversa.</p>
+                {APP_DOWNLOAD_READY ? (
+                  <a
+                    href={APP_DOWNLOAD_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 mt-2 text-sm font-semibold text-accent hover:underline"
+                  >
+                    <Download size={15} /> Descargar la app
+                  </a>
+                ) : (
+                  <p className="text-sm text-slate-400 mt-2">La descarga estará disponible muy pronto.</p>
+                )}
               </div>
             )}
           </div>
