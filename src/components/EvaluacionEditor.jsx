@@ -14,7 +14,7 @@ import { sanitizeHtml, toRichHtml, htmlToPlainText, richTextContentClass } from 
 import { repartirPonderacionParejo } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy, Scale, CheckSquare, Square,
-  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen,
+  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
@@ -858,17 +858,32 @@ export default function EvaluacionEditor({
                   )}
                   {/* Prórrogas por estudiante ya otorgadas — mismo resumen que en
                       un entregable. Es la confirmación en pantalla de que
-                      "Nueva fecha límite → Para algunos" quedó guardada. */}
-                  {groupExtensions(extensiones, extensionesMotivo, students).map((g, i) => (
-                    <div key={i} className="p-3 mt-2 bg-amber-50 rounded border border-amber-200 text-sm">
-                      <p className="font-medium text-on-surface flex items-center gap-1.5">
-                        <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
-                        Prórroga hasta {formatDeadline(g.date)}
-                      </p>
-                      <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
-                      {g.motivo && <p className="text-xs text-muted mt-0.5">Motivo: {g.motivo}</p>}
-                    </div>
-                  ))}
+                      "Nueva fecha límite → Para algunos" quedó guardada. Colapsado
+                      en <details> para no ocupar espacio de entrada: solo se consulta. */}
+                  {(() => {
+                    const grupos = groupExtensions(extensiones, extensionesMotivo, students)
+                    if (!grupos.length) return null
+                    return (
+                      <details className="group mt-2">
+                        <summary className="flex items-center gap-1 text-sm text-accent cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+                          <ChevronRight size={14} className="flex-shrink-0 transition-transform group-open:rotate-90" />
+                          Prórrogas otorgadas ({grupos.length})
+                        </summary>
+                        <div className="mt-2 space-y-2">
+                          {grupos.map((g, i) => (
+                            <div key={i} className="p-3 bg-amber-50 rounded border border-amber-200 text-sm">
+                              <p className="font-medium text-on-surface flex items-center gap-1.5">
+                                <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
+                                Prórroga hasta {formatDeadline(g.date)}
+                              </p>
+                              <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
+                              {g.motivo && <p className="text-xs text-muted mt-0.5">Motivo: {g.motivo}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )
+                  })()}
                   {/* Evaluación publicada: prorrogar la fecha para todo el grupo o
                       para estudiantes específicos — mismo modal que un entregable. */}
                   {!isNew && infoForm.publishedAt && (

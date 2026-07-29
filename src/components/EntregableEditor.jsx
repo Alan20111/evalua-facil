@@ -11,7 +11,7 @@ import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText, toRichHtml, richTextContentClass } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts, fileTypesInstructions } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight } from 'lucide-react'
 import RubricaPicker from './rubrica/RubricaPicker'
 import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
@@ -431,17 +431,32 @@ export default function EntregableEditor({
                 {/* Read-only: who currently has a per-student extension, to when, and
                     why — grouped from `extensiones`/`extensionesMotivo` since a single
                     "Nueva fecha límite" action writes the same date+motivo to everyone
-                    selected. Managed from the modal below; not editable here. */}
-                {groupExtensions(extensiones, extensionesMotivo, students).map((g, i) => (
-                  <div key={i} className="p-3 bg-amber-50 rounded border border-amber-200 text-sm">
-                    <p className="font-medium text-on-surface flex items-center gap-1.5">
-                      <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
-                      Prórroga hasta {formatDeadline(g.date)}
-                    </p>
-                    <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
-                    {g.motivo && <p className="text-xs text-muted mt-0.5">Motivo: {g.motivo}</p>}
-                  </div>
-                ))}
+                    selected. Managed from the modal below; not editable here. Colapsado
+                    en <details> para no ocupar espacio de entrada: solo se consulta. */}
+                {(() => {
+                  const grupos = groupExtensions(extensiones, extensionesMotivo, students)
+                  if (!grupos.length) return null
+                  return (
+                    <details className="group">
+                      <summary className="flex items-center gap-1 text-sm text-accent cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+                        <ChevronRight size={14} className="flex-shrink-0 transition-transform group-open:rotate-90" />
+                        Prórrogas otorgadas ({grupos.length})
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {grupos.map((g, i) => (
+                          <div key={i} className="p-3 bg-amber-50 rounded border border-amber-200 text-sm">
+                            <p className="font-medium text-on-surface flex items-center gap-1.5">
+                              <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
+                              Prórroga hasta {formatDeadline(g.date)}
+                            </p>
+                            <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
+                            {g.motivo && <p className="text-xs text-muted mt-0.5">Motivo: {g.motivo}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )
+                })()}
 
                 {/* Published activity: extend the deadline for the whole group or for
                     specific students who fell behind — opens the modal in ActivityPage. */}
