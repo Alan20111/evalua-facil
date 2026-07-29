@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Bell,
   Lock,
+  BookOpen,
 } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import {
@@ -132,14 +133,23 @@ export default function TeacherLayout({ children }) {
           {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
           <PortalBadge role="docente" />
         </div>
-        <button
-          type="button"
-          onClick={requestLogout}
-          aria-label="Cerrar sesión"
-          className="p-2 text-muted hover:text-error rounded transition-colors"
-        >
-          <LogOut size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <NavLink
+            to="/manual"
+            aria-label="Manual"
+            className="p-2 text-muted hover:text-accent rounded transition-colors"
+          >
+            <BookOpen size={20} />
+          </NavLink>
+          <button
+            type="button"
+            onClick={requestLogout}
+            aria-label="Cerrar sesión"
+            className="p-2 text-muted hover:text-error rounded transition-colors"
+          >
+            <LogOut size={20} />
+          </button>
+        </div>
       </header>
 
       {/* Desktop: sidebar + content */}
@@ -289,6 +299,17 @@ export default function TeacherLayout({ children }) {
             >
               <Bell size={17} className="flex-shrink-0" />
               Notificaciones
+            </NavLink>
+            <NavLink
+              to="/manual"
+              className={({ isActive }) =>
+                `flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium transition-colors ${
+                  isActive ? 'bg-white/15 text-white' : 'text-white/80 hover:bg-white/10'
+                }`
+              }
+            >
+              <BookOpen size={17} className="flex-shrink-0" />
+              Manual
             </NavLink>
           </div>
 
