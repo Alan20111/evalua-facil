@@ -153,8 +153,10 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
         </div>
 
         <form onSubmit={handleSave} className="px-4 pb-4 space-y-3 overflow-y-auto flex-1">
-          {/* Color strip */}
-          <div className="flex gap-2 flex-wrap">
+          {/* Color strip — pt-1: la bolita seleccionada crece (scale-110) y sin
+              este espacio su borde superior se recortaba contra el borde del
+              contenedor con scroll. */}
+          <div className="flex gap-2 flex-wrap pt-1">
             {EVENT_COLORS.map(c => (
               <button
                 key={c.id}
