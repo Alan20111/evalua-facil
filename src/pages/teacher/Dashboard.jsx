@@ -16,7 +16,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
-import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive } from 'lucide-react'
+import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe } from 'lucide-react'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
 import PaletteSelect from '../../components/PaletteSelect'
@@ -517,6 +517,26 @@ export default function TeacherDashboard() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Acceso a la versión web — solo en la App. Abre en el navegador
+                externo del dispositivo (no WebView, no diálogo de
+                confirmación); la sesión de la App no se toca. */}
+            {IS_NATIVE_APP && (
+              <button
+                type="button"
+                onClick={() => window.open('https://www.evaluafacil.mx', '_system')}
+                className="w-full mt-3 bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-2 text-left"
+              >
+                <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                  <Globe size={21} className="text-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-on-surface truncate">Abrir versión web</p>
+                  <p className="text-sm text-slate-500 mt-0.5">Accede a todas las herramientas de Evalúa Fácil.</p>
+                </div>
+                <ChevronRight size={20} className="text-slate-300 flex-shrink-0" />
+              </button>
             )}
 
           </>
