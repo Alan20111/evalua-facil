@@ -143,11 +143,13 @@ const SECTIONS = [
       {
         subtitle: 'Cómo entran ellos la primera vez',
         items: [
-          'Les compartes el acceso de la forma que te convenga: el QR proyectado o impreso, el link copiado, o solo el código de 6 caracteres.',
-          'El estudiante escribe su usuario, la plataforma lo reconoce en tu lista, y él elige su contraseña (mínimo 6 caracteres). Listo.',
+          'Les das el código de acceso de tu asignatura, el de 6 caracteres. Lo dictas, lo escribes en el pizarrón o lo copias con el botón que está junto al nombre de la materia.',
+          'El estudiante entra a su pantalla de acceso, toca "¿Primera vez? Activa tu cuenta" y escribe ese código.',
+          'Luego escribe su usuario, la plataforma lo reconoce en tu lista, y él elige su contraseña (mínimo 6 caracteres). Listo.',
           'Si ya tenía cuenta contigo en otra asignatura, no crea una nueva: escribe la contraseña que ya usa y esa asignatura se suma a su cuenta.',
-          'Puedes descargar dos PDF distintos: el QR solo, en grande, para proyectar o pegar en el salón; y la lista de acceso, con el código y el usuario de cada quien.',
-          '⚠ El PDF de lista de acceso no trae contraseñas, y no es un descuido: nadie más que el estudiante conoce la suya.',
+          'Puedes descargar el PDF de lista de acceso, con el código de la clase y el usuario de cada quien.',
+          '⚠ Ese PDF no trae contraseñas, y no es un descuido: nadie más que el estudiante conoce la suya.',
+          'El código es la única forma de entrar, en la web y en la app por igual. Así tu estudiante lo aprende desde el primer día y lo puede volver a usar solo.',
         ],
       },
       {
@@ -528,7 +530,6 @@ const SECTIONS = [
       {
         subtitle: 'Acceso de estudiantes',
         items: [
-          'PDF del QR en grande, para proyectar o pegar en el salón.',
           'PDF de lista de acceso, con el código de la clase y el usuario de cada estudiante.',
         ],
       },
