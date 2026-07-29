@@ -5,6 +5,27 @@
 
 ---
 
+## Las 10 elegidas para material publicitario
+
+Definidas el 2026-07-29.
+
+1. Tus alumnos entran sin correo electrónico
+2. Alta masiva de estudiantes por grupo, desde Excel
+3. Pasa lista desde tu móvil
+4. Programa tus clases y crea horarios — de ahí salen solos los días de lista
+5. Cuestionarios y exámenes con gráficas por reactivo
+6. Banco de reactivos
+7. Rúbricas y listas de cotejo
+8. Cierra el parcial completo en una acción, y puedes revertirlo
+9. Copia tu asignatura completa para el siguiente ciclo
+10. Excel y PDF listos para entregar
+
+**Quedaron fuera de las 10, pero siguen sirviendo para la página de precios y para cuando alguien ya está decidiendo:** que Google sea opción y no requisito, app y versión web con la misma cuenta, orden correcto de la lista de estudiantes, ranking de calificaciones, recuperación de contraseña del estudiante, e importar actividades sueltas de otra asignatura.
+
+El resto de este documento es el inventario completo de funciones verificadas, del que salieron estas 10.
+
+---
+
 ## Acceso
 
 **El alumno no necesita correo electrónico.**
