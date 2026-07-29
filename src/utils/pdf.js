@@ -162,45 +162,6 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
   await savePdfDoc(doc, `calificaciones_parcial${parcial}_${safeFile(subject)}.pdf`)
 }
 
-// Just the activation QR, large, with the subject name and group — nothing
-// else (no link, no code, no student list). For projecting/printing on its own.
-export async function exportQRPDF({ subject, activationUrl }) {
-  const [{ jsPDF }, QRCodeMod] = await Promise.all([
-    import('jspdf'),
-    import('qrcode'),
-  ])
-  const QRCode = QRCodeMod.default
-
-  const doc = new jsPDF()
-  const pageW = doc.internal.pageSize.getWidth()
-  const centerX = pageW / 2
-
-  doc.setFont(undefined, 'bold')
-  doc.setFontSize(20)
-  doc.setTextColor(20)
-  doc.text(subject.nombre || 'Asignatura', centerX, 30, { align: 'center' })
-
-  if (subject.grupo) {
-    doc.setFont(undefined, 'normal')
-    doc.setFontSize(14)
-    doc.setTextColor(90)
-    doc.text(`Grupo: ${subject.grupo}`, centerX, 39, { align: 'center' })
-  }
-
-  const qrDataUrl = await QRCode.toDataURL(activationUrl, { width: 600, margin: 1 })
-  const qrSize = 130
-  doc.addImage(qrDataUrl, 'PNG', centerX - qrSize / 2, 55, qrSize, qrSize)
-
-  if (subject.accessCode) {
-    doc.setFont(undefined, 'bold')
-    doc.setFontSize(40)
-    doc.setTextColor(20)
-    doc.text(subject.accessCode, centerX, 215, { align: 'center' })
-  }
-
-  await savePdfDoc(doc, `qr_${safeFile(subject)}.pdf`)
-}
-
 // Cuestionario/examen results: one enunciado + options table per reactivo de
 // opción múltiple. `counts`/`preguntas` mirror EvaluacionGraficas.jsx exactly
 // (counts computed there, passed straight through — no recomputation here).
@@ -260,17 +221,14 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
 }
 
 // Credentials list: one row per student with username + temp password (1st login).
-export async function exportCredentialsPDF({ subject, students, activationUrl, docenteNombre }) {
-  const [{ jsPDF }, autoTableMod, QRCodeMod] = await Promise.all([
+export async function exportCredentialsPDF({ subject, students, docenteNombre }) {
+  const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
-    import('qrcode'),
   ])
   const autoTable = autoTableMod.default
-  const QRCode = QRCodeMod.default
 
   const doc = new jsPDF()
-  const pageW = doc.internal.pageSize.getWidth()
 
   // ── Header ──
   doc.setFontSize(16); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
@@ -285,13 +243,6 @@ export async function exportCredentialsPDF({ subject, students, activationUrl, d
   }
   doc.setFontSize(13); doc.setTextColor(20); doc.setFont(undefined, 'bold')
   doc.text(`Código de la clase: ${subject.accessCode || '—'}`, 14, y37)
-
-  if (activationUrl) {
-    const qrDataUrl = await QRCode.toDataURL(activationUrl, { width: 240, margin: 1 })
-    doc.addImage(qrDataUrl, 'PNG', pageW - 52, 12, 38, 38)
-    doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(130)
-    doc.text('Escanea para activar', pageW - 52, 54)
-  }
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const body = sorted.map((s) => [
