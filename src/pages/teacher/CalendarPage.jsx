@@ -1069,14 +1069,20 @@ export default function CalendarPage() {
           estado: deadlineEstado(a.fechaLimite),
         })
       }
-      if (a.publishAt) {
+      // `publishAt` solo queda guardado cuando la publicación se PROGRAMÓ a
+      // futuro; si se publicó de inmediato, ese campo se guarda en null y la
+      // fecha real vive en `publishedAt` (permanente, no cambia si luego se
+      // vuelve a ocultar). Sin este fallback, las actividades publicadas al
+      // instante nunca mostraban su marca "(Publicada)" en el calendario.
+      const fechaPublicacion = a.publishAt || a.publishedAt
+      if (fechaPublicacion) {
         evs.push({
           id: `pub-${a.id}`,
           titulo: `↑ ${nombreConNumero} (Publicada)`,
           subtitulo: subjName,
           tipo: 'publicacion',
-          dateStr: a.publishAt.substring(0, 10),
-          timeStr: a.publishAt.substring(11, 16),
+          dateStr: fechaPublicacion.substring(0, 10),
+          timeStr: fechaPublicacion.substring(11, 16),
           bg: pal.bg, text: pal.text,
           editable: false,
         })
