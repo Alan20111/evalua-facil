@@ -3713,8 +3713,10 @@ export default function SubjectPage() {
       </button>
     </>
   )
-  // Editar sí está disponible en la app nativa. Duplicar/archivar/eliminar
-  // siguen solo en la web — en la app nativa esas acciones se manejan desde ahí.
+  // Los cuatro (editar, duplicar, archivar, eliminar) van igual en web y en
+  // app. Duplicar/archivar/eliminar estaban solo en la web por falta de
+  // espacio en el renglón; al quitarse el QR y el link ya caben. Sus modales
+  // nunca estuvieron restringidos, así que funcionaban desde el primer día.
   const subjectHeaderRightIcons = (
     <>
       {/* ml-auto en el PRIMER botón de este grupo: empuja editar/duplicar/
@@ -3729,28 +3731,24 @@ export default function SubjectPage() {
         className="p-2 ml-auto text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
         <Pencil size={21} />
       </button>
-      {!IS_NATIVE_APP && (
-        <>
-          <button type="button" onClick={openCopyModal}
-            aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
-            data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
-            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-            <Copy size={21} />
-          </button>
-          <button type="button" onClick={handleToggleArchive} disabled={archiving}
-            aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
-            data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
-            className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
-            {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
-          </button>
-          <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
-            aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
-            data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
-            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
-            <Trash2 size={21} />
-          </button>
-        </>
-      )}
+      <button type="button" onClick={openCopyModal}
+        aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
+        data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
+        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        <Copy size={21} />
+      </button>
+      <button type="button" onClick={handleToggleArchive} disabled={archiving}
+        aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
+        data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
+        className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
+        {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
+      </button>
+      <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
+        aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
+        data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
+        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+        <Trash2 size={21} />
+      </button>
     </>
   )
 
@@ -6598,15 +6596,22 @@ export default function SubjectPage() {
                 <li>• Ahí la pueden seguir abriendo, con sus entregas y calificaciones completas.</li>
               </ul>
             </div>
-            <div className="space-y-2 mb-4">
-              <label className="flex items-start gap-2 p-3 rounded border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
-                <input type="checkbox" checked={archiveConZip} onChange={(e) => setArchiveConZip(e.target.checked)} className="mt-0.5 accent-[var(--accent)]" />
-                <div>
-                  <p className="text-sm font-medium text-on-surface">Descargar también un respaldo ZIP</p>
-                  <p className="text-sm text-slate-500">Opcional — las entregas no se van a borrar</p>
-                </div>
-              </label>
-            </div>
+            {/* El respaldo ZIP es solo de la web: bajar un paquete con TODAS
+                las entregas de la asignatura es trabajo de computadora, y ahí
+                el archivo queda donde el docente lo va a encontrar. Archivar
+                sí se puede desde la app — lo único que no aparece ahí es esta
+                casilla. */}
+            {!IS_NATIVE_APP && (
+              <div className="space-y-2 mb-4">
+                <label className="flex items-start gap-2 p-3 rounded border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
+                  <input type="checkbox" checked={archiveConZip} onChange={(e) => setArchiveConZip(e.target.checked)} className="mt-0.5 accent-[var(--accent)]" />
+                  <div>
+                    <p className="text-sm font-medium text-on-surface">Descargar también un respaldo ZIP</p>
+                    <p className="text-sm text-slate-500">Opcional — las entregas no se van a borrar</p>
+                  </div>
+                </label>
+              </div>
+            )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowArchiveModal(false)} disabled={archiving}
                 className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
