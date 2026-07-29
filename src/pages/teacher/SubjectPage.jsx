@@ -6597,11 +6597,20 @@ export default function SubjectPage() {
               </ul>
             </div>
             {/* El respaldo ZIP es solo de la web: bajar un paquete con TODAS
-                las entregas de la asignatura es trabajo de computadora, y ahí
-                el archivo queda donde el docente lo va a encontrar. Archivar
-                sí se puede desde la app — lo único que no aparece ahí es esta
-                casilla. */}
-            {!IS_NATIVE_APP && (
+                las entregas es trabajo de computadora, y ahí el archivo queda
+                donde el docente lo va a encontrar. Archivar sí se puede desde
+                la app; en vez de esconder la opción sin explicación, se le
+                dice dónde está — si la necesita, todavía está a tiempo de ir
+                por ella antes de archivar. */}
+            {IS_NATIVE_APP ? (
+              <div className="flex items-start gap-2 p-3 mb-4 rounded border border-amber-200 bg-amber-50">
+                <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-900">¿Quieres el respaldo ZIP de las entregas?</p>
+                  <p className="text-sm text-amber-800">Archiva desde la versión web para descargarlo. Aquí puedes archivar, pero el ZIP solo se guarda desde la computadora.</p>
+                </div>
+              </div>
+            ) : (
               <div className="space-y-2 mb-4">
                 <label className="flex items-start gap-2 p-3 rounded border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
                   <input type="checkbox" checked={archiveConZip} onChange={(e) => setArchiveConZip(e.target.checked)} className="mt-0.5 accent-[var(--accent)]" />

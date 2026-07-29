@@ -67,9 +67,9 @@ export default function TeacherDashboard() {
   const [newSubjectParcialesFechas, setNewSubjectParcialesFechas] = useState([])
   const [creatingSubject, setCreatingSubject] = useState(false)
 
-  // Archivadas — en la App (sin sidebar) se agrupan aparte, colapsadas y con
-  // sangrado, igual que en la web (pedido explícito); en la web se quedan
-  // mezcladas en la lista con su etiqueta "archivada", que ya cumple ese rol.
+  // Archivadas — en la App (sin panel lateral) se agrupan aparte, colapsadas
+  // y con sangrado; en la web viven en el panel lateral. En ninguna de las dos
+  // se mezclan ya con las asignaturas vivas de la lista principal.
   const [showArchived, setShowArchived] = useState(false)
 
   // Recordatorio de la versión web (solo App): arranca colapsado, se ve nada
@@ -204,10 +204,12 @@ export default function TeacherDashboard() {
   const dragCardRefs = useRef([])
   const dragStateRef = useRef({ dragIndex: null, overIndex: null })
 
-  // mainList es lo que se ve y se arrastra; en la App las archivadas salen de
-  // ahí y bajan a su propio bloque colapsable (ver más abajo) — en la web se
-  // quedan mezcladas como siempre, así que ahí mainList === subjects.
-  const mainList = IS_NATIVE_APP ? subjects.filter((s) => !s.archived) : subjects
+  // Esta lista es SIEMPRE de asignaturas vivas, en web y en app. En la web las
+  // archivadas ya tienen su propia sección en el panel lateral; mezclarlas aquí
+  // con una etiqueta era tenerlas en dos lugares y alargaba la lista con cosas
+  // que ya terminaron. El conteo de arriba cuenta lo mismo que se ve.
+  const mainList = subjects.filter((s) => !s.archived)
+  // Solo la App las agrupa aquí abajo — la web las tiene en el panel lateral.
   const archivedList = IS_NATIVE_APP ? subjects.filter((s) => s.archived) : []
 
   // Lista mostrada mientras se arrastra: el elemento arrastrado ya aparece
@@ -484,14 +486,10 @@ export default function TeacherDashboard() {
                         <SubjectIcon iconKey={s.icon} size={21} className="text-accent" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
-                          {s.archived && (
-                            <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
-                              archivada
-                            </span>
-                          )}
-                        </div>
+                        {/* Sin etiqueta "archivada": a esta lista ya solo
+                            llegan asignaturas vivas, así que nunca se
+                            mostraría. */}
+                        <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
                         {subjectPeriodLabel(s) && (
                           <p className="text-sm text-slate-500 mt-0.5">{subjectPeriodLabel(s)}</p>
                         )}
