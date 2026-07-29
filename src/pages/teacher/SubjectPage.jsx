@@ -17,7 +17,7 @@ import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, expor
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
-import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay, enrolledFromDate } from '../../utils/attendance'
+import { fmtAttDateParts, fmtAttDateLong, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay, enrolledFromDate } from '../../utils/attendance'
 import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana } from '../../utils/attendanceAuto'
 import { diaSemanaLunes, DIAS_SEMANA, derivarPatrones, tramosFaltantes, generarBloques } from '../../utils/horarioBloques'
 import { buildAsuetoMap, esAsuetoPara } from '../../utils/asuetos'
@@ -319,7 +319,9 @@ const AttendanceTable = memo(function AttendanceTable({
               <th key={fecha} colSpan={records.length}
                 ref={setAttDayEl(fecha)}
                 onClick={() => onDeleteDay(fecha)}
-                data-tooltip={`Eliminar la asistencia del ${dia}/${mes}/${anio}`}
+                data-tooltip={IS_NATIVE_APP
+                  ? `Eliminar la asistencia del ${dia}/${mes}/${anio}`
+                  : `Eliminar la asistencia del ${fmtAttDateLong(fecha)}`}
                 className={`px-0.5 py-1 font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
                 {dia}
               </th>
