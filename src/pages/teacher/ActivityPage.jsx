@@ -19,7 +19,7 @@ import SearchInput from '../../components/SearchInput'
 import {
   ArrowLeft, Clock,
   Download, Star, CalendarDays,
-  ChevronLeft, ChevronRight, FolderDown, Pencil, Trash2,
+  ChevronLeft, ChevronRight, FolderDown, Pencil, Trash2, ExternalLink,
 } from 'lucide-react'
 import { FilePreview, canPreviewFile } from '../../components/AttachmentList'
 import ZoomableImage from '../../components/ZoomableImage'
@@ -27,7 +27,8 @@ import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { IS_NATIVE_APP } from '../../utils/platform'
-import { descargaSoloWeb, LEYENDA_REVISAR_EN_WEB } from '../../utils/descargaSoloWeb'
+import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
+import { abrirArchivoNativo } from '../../utils/nativeSave'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
@@ -87,6 +88,35 @@ const FILE_TYPE_SHORT_LABELS = {
 function isImageFile(name, url) {
   const s = `${name || ''} ${url || ''}`.toLowerCase()
   return /\.(jpg|jpeg|png|gif|webp)(\?|$|\s)/.test(s) || /\.(jpg|jpeg|png|gif|webp)$/.test((name || '').toLowerCase())
+}
+
+// Botón para archivos sin vista previa en la App (Excel, ZIP, y cualquier
+// otro formato que canPreviewFile no cubra): en vez de mandar a la web sin
+// más, descarga el archivo y abre el panel "Compartir" de Android, que
+// también ofrece las apps que pueden ABRIRLO (Sheets, Excel, WPS…) — el
+// docente ve el archivo real, con lo que ya tenga instalado. Ver
+// abrirArchivoNativo en utils/nativeSave.js.
+function AbrirConNativoButton({ url, nombre, className }) {
+  const [loading, setLoading] = useState(false)
+  const toast = useToast()
+
+  async function handleClick() {
+    setLoading(true)
+    try {
+      await abrirArchivoNativo(url, nombre)
+    } catch (err) {
+      toast('No se pudo abrir el archivo: ' + err.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <button type="button" onClick={handleClick} disabled={loading} className={className}>
+      {loading ? <Spinner size="sm" /> : <ExternalLink size={18} className="text-accent flex-shrink-0" />}
+      <span className="truncate">{nombre}</span>
+    </button>
+  )
 }
 
 // All files of a submission: `archivos[]` when present (multi-photo uploads),
@@ -1108,10 +1138,8 @@ export default function ActivityPage() {
                         <img src={f.url} alt={f.nombre} className="max-w-full rounded mx-auto" />
                       </a>
                     ) : IS_NATIVE_APP ? (
-                      <div key={`${f.url}-${i}`} className="px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted">
-                        <p className="truncate font-medium">{f.nombre}</p>
-                        <p className="text-xs mt-0.5">{LEYENDA_REVISAR_EN_WEB}</p>
-                      </div>
+                      <AbrirConNativoButton key={`${f.url}-${i}`} url={f.url} nombre={f.nombre}
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors w-full" />
                     ) : (
                       <a key={`${f.url}-${i}`} href={downloadUrl(f.url, f.nombre)} download={f.nombre} rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors">
@@ -1143,7 +1171,8 @@ export default function ActivityPage() {
                     <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
                       <p>Sin vista previa disponible para este archivo.</p>
                       {IS_NATIVE_APP ? (
-                        <p className="text-sm text-muted max-w-xs">{LEYENDA_REVISAR_EN_WEB}</p>
+                        <AbrirConNativoButton url={f.url} nombre={f.nombre}
+                          className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors" />
                       ) : (
                         <a
                           href={downloadUrl(f.url, f.nombre)}
@@ -1181,7 +1210,8 @@ export default function ActivityPage() {
                   <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-400 text-sm p-6 text-center">
                     <p>Sin vista previa disponible para este tipo de archivo.</p>
                     {IS_NATIVE_APP ? (
-                      <p className="text-sm text-muted max-w-xs">{LEYENDA_REVISAR_EN_WEB}</p>
+                      <AbrirConNativoButton url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo}
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors" />
                     ) : (
                       <a
                         href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
@@ -1752,10 +1782,8 @@ export default function ActivityPage() {
                           <FilePreview url={f.url} nombre={f.nombre} fill />
                         </div>
                       ) : IS_NATIVE_APP ? (
-                        <div className="px-4 py-3 bg-surface-card rounded border border-outline-variant text-sm text-muted">
-                          <p className="truncate font-medium">{f.nombre}</p>
-                          <p className="text-xs mt-0.5">{LEYENDA_REVISAR_EN_WEB}</p>
-                        </div>
+                        <AbrirConNativoButton url={f.url} nombre={f.nombre}
+                          className="flex items-center gap-2 px-4 py-3 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors w-full" />
                       ) : (
                         <a
                           href={downloadUrl(f.url, f.nombre)}

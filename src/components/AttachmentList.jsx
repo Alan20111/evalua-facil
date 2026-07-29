@@ -6,18 +6,20 @@ import { formatFileSize } from '../utils/formatBytes'
 import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
-import SpreadsheetPreview from './SpreadsheetPreview'
 
 const PDF_EXTS = ['pdf']
-// Word y PowerPoint: no hay forma confiable de mostrarlos sin un visor
-// externo, así que van por Google Docs Viewer (nunca fallaron; el problema
-// real era solo con hojas de cálculo).
+// Word y PowerPoint SÍ se ven bien con Google Docs Viewer — confirmado por
+// el docente, sin cambios aquí.
 const DOC_EXTS = ['docx', 'doc', 'pptx', 'ppt']
-// Excel: NO usa ningún visor externo (ver SpreadsheetPreview.jsx). Google lee
-// el archivo pero muestra "no se pudo obtener vista previa" igual; Microsoft
-// no se ve nada al incrustarlo fuera de su dominio.
-const SPREADSHEET_EXTS = ['xlsx', 'xls']
-const OFFICE_EXTS = [...DOC_EXTS, ...SPREADSHEET_EXTS]
+// Excel NUNCA se reconstruye dentro de la app — se probaron Google Docs
+// Viewer, Microsoft Office Viewer y reconstruirlo con SheetJS/ExcelJS, y
+// ninguno se veía fiel al documento real. La decisión: se abre con la app
+// que el docente ya tenga instalada (Excel, Google Sheets, WPS…) — ver
+// abrirArchivoNativo en utils/nativeSave.js y su uso en ActivityPage.jsx.
+export const SPREADSHEET_EXTS = ['xlsx', 'xls']
+// Exportado junto para que otras pantallas reconozcan "esto es un
+// documento de oficina" sin importar las dos listas por separado.
+export const OFFICE_EXTS = [...DOC_EXTS, ...SPREADSHEET_EXTS]
 const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']
 
 function docsViewerUrl(url) {
@@ -36,23 +38,19 @@ function FileRow({ f, onRemove, index }) {
   const [open, setOpen] = useState(false)
   const ext = resourceExtension(f.nombre)
   const isPdf = PDF_EXTS.includes(ext)
-  const isOffice = OFFICE_EXTS.includes(ext)
+  const isDoc = DOC_EXTS.includes(ext)
   const isImage = IMAGE_EXTS.includes(ext)
-  const canView = isPdf || isOffice || isImage
+  const canView = isPdf || isDoc || isImage
   const { icon: Icon, color } = getResourceIcon(f.nombre)
 
-  const isSpreadsheet = SPREADSHEET_EXTS.includes(ext)
   const isImgPdf = isPdf && isImageDeliveredPdf(f.url)
   const viewUrl = isPdf && !isImgPdf ? pdfUrl(f.url) : f.url
   const downloadHref = downloadUrl(f.url, f.nombre)
   // "Open in a new tab": image-delivered PDFs can't go through Google Docs
-  // (their raw URL is blocked), so open page 1 as an image instead. Excel no
-  // tiene "abrir en pestaña nueva" — su vista previa es propia (SheetJS), no
-  // una página externa que se pueda abrir aparte.
+  // (their raw URL is blocked), so open page 1 as an image instead.
   const openInTabUrl = isImgPdf
     ? pdfPageImageUrl(f.url, 1)
-    : isSpreadsheet ? null
-    : (isPdf || isOffice) ? docsViewerUrl(viewUrl)
+    : (isPdf || isDoc) ? docsViewerUrl(viewUrl)
     : null
 
   return (
@@ -107,16 +105,12 @@ export function FilePreview({ url, nombre, fill = false }) {
   const ext = resourceExtension(nombre)
   const isPdf = PDF_EXTS.includes(ext)
   const isImage = IMAGE_EXTS.includes(ext)
-  const isSpreadsheet = SPREADSHEET_EXTS.includes(ext)
   const viewUrl = isPdf ? pdfUrl(url) : url
   if (!url) return null
   // PDFs uploaded as an image resource → render their pages as JPGs. This works
   // even when the Cloudinary account has PDF delivery disabled.
   if (isPdf && isImageDeliveredPdf(url)) {
     return <PdfPagesPreview url={url} nombre={nombre} fill={fill} />
-  }
-  if (isSpreadsheet) {
-    return <SpreadsheetPreview url={url} nombre={nombre} fill={fill} />
   }
   // `allow-scripts` es obligatorio en los dos casos de abajo: no muestran el
   // archivo del alumno directamente, cargan la página de Google Docs Viewer —
@@ -147,8 +141,9 @@ export function FilePreview({ url, nombre, fill = false }) {
       />
     </object>
   ) : (
-    // Solo se llega aquí para Word/PowerPoint (canPreviewFile solo deja pasar
-    // PDF, imagen u Office, y Excel ya se resolvió arriba con SpreadsheetPreview).
+    // Solo se llega aquí para Word/PowerPoint (canPreviewFile ya deja fuera a
+    // Excel — ver SPREADSHEET_EXTS. Ese se abre con la app real del docente,
+    // no se reconstruye aquí).
     <iframe
       src={docsViewerUrl(viewUrl)}
       title={`Vista previa: ${nombre}`}
@@ -245,7 +240,7 @@ export function FilePreviewModal({ url, nombre, onClose }) {
 // no soportado.
 export function canPreviewFile(nombre) {
   const ext = resourceExtension(nombre)
-  return PDF_EXTS.includes(ext) || OFFICE_EXTS.includes(ext) || IMAGE_EXTS.includes(ext)
+  return PDF_EXTS.includes(ext) || DOC_EXTS.includes(ext) || IMAGE_EXTS.includes(ext)
 }
 
 export default function AttachmentList({ files, onRemove, title = 'Archivos adjuntos' }) {
