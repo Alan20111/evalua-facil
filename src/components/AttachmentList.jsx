@@ -15,6 +15,18 @@ function docsViewerUrl(url) {
   return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
 }
 
+// Word/Excel/PowerPoint van por el visor de MICROSOFT, no el de Google.
+// Probado 2026-07-29: subiendo un .xlsx real a este mismo Cloudinary (público,
+// 200 OK confirmado), el visor de Google devuelve "pages":0 en su propia
+// respuesta de metadatos —pese a haber leído el contenido correctamente— y
+// muestra "No se pudo obtener una vista previa" de todos modos. Es una
+// limitación conocida del visor viejo de Google con hojas de cálculo, no un
+// problema de Cloudinary ni de este proyecto. El de Microsoft está hecho
+// específicamente para estos tres formatos.
+function officeViewerUrl(url) {
+  return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(url)}`
+}
+
 // Cloudinary stores PDFs uploaded via /auto/upload as /image/upload/ which
 // causes browsers to receive the wrong Content-Type. Swapping to /raw/upload/
 // makes Cloudinary serve the file with application/pdf so viewers work.
@@ -36,10 +48,14 @@ function FileRow({ f, onRemove, index }) {
   const viewUrl = isPdf && !isImgPdf ? pdfUrl(f.url) : f.url
   const downloadHref = downloadUrl(f.url, f.nombre)
   // "Open in a new tab": image-delivered PDFs can't go through Google Docs
-  // (their raw URL is blocked), so open page 1 as an image instead.
+  // (their raw URL is blocked), so open page 1 as an image instead. Office
+  // documents van por el visor de Microsoft, no el de Google (ver
+  // officeViewerUrl).
   const openInTabUrl = isImgPdf
     ? pdfPageImageUrl(f.url, 1)
-    : (isPdf || isOffice) ? docsViewerUrl(viewUrl) : null
+    : isOffice ? officeViewerUrl(viewUrl)
+    : isPdf ? docsViewerUrl(viewUrl)
+    : null
 
   return (
     <div className="rounded border border-outline-variant bg-surface-card">
@@ -100,14 +116,14 @@ export function FilePreview({ url, nombre, fill = false }) {
   if (isPdf && isImageDeliveredPdf(url)) {
     return <PdfPagesPreview url={url} nombre={nombre} fill={fill} />
   }
-  // `allow-scripts` es obligatorio aquí: este iframe no muestra el archivo del
-  // alumno directamente, carga docs.google.com/viewer — una app de Google que
-  // necesita JavaScript para renderizar. Sin este permiso, Word/Excel/PowerPoint
-  // cargaban en blanco (se quitó por error el 2026-07-09 pensando que "solo se
-  // visualiza, no se necesita ejecutar script" — pero el visor SÍ es un script).
-  // Es seguro: el script que corre es el de Google en SU dominio, no el
-  // documento del alumno; same-origin policy impide que docs.google.com toque
-  // evaluafacil.mx. El PDF vía <object> no lo necesita y no lo lleva.
+  // `allow-scripts` es obligatorio en los dos iframes de abajo: no muestran el
+  // archivo del alumno directamente, cargan la página del visor (Google o
+  // Microsoft) — apps que necesitan JavaScript para renderizar. Sin este
+  // permiso, Word/Excel/PowerPoint cargaban en blanco (se quitó por error el
+  // 2026-07-09 pensando que "solo se visualiza, no se necesita ejecutar
+  // script" — pero el visor SÍ es un script). Es seguro: el script que corre
+  // es el del visor en SU dominio, no el documento del alumno; same-origin
+  // policy impide que ese dominio toque evaluafacil.mx.
   return isImage ? (
     <img src={url} alt={nombre} className={`w-full object-contain ${fill ? 'h-full' : 'max-h-[70vh]'}`} />
   ) : isPdf ? (
@@ -129,8 +145,13 @@ export function FilePreview({ url, nombre, fill = false }) {
       />
     </object>
   ) : (
+    // Solo se llega aquí para Word/Excel/PowerPoint (canPreviewFile solo deja
+    // pasar PDF, imagen u Office) — por eso siempre es el visor de Microsoft,
+    // sin condicional de por medio. Ver officeViewerUrl arriba: el de Google
+    // "lee" estos archivos pero se rehúsa a mostrarlos (pages:0 en su propia
+    // respuesta), verificado el 2026-07-29.
     <iframe
-      src={docsViewerUrl(viewUrl)}
+      src={officeViewerUrl(viewUrl)}
       title={`Vista previa: ${nombre}`}
       sandbox="allow-scripts allow-same-origin allow-popups"
       className={`w-full ${fill ? 'h-full' : 'h-[70vh]'}`}
