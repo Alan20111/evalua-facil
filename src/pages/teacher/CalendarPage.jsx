@@ -133,7 +133,7 @@ function assignLanes(items) {
 
 // ─── Event pill component ──────────────────────────────────────────────────
 
-function EventPill({ ev, compact, onClick }) {
+function EventPill({ ev, compact, onClick, movable }) {
   // Fecha límite: candado cerrado/abierto según si ya deja de recibir tarde
   // (cambia solo cuando el docente edita la actividad). Publicación: sin
   // candado, se queda como está.
@@ -147,7 +147,7 @@ function EventPill({ ev, compact, onClick }) {
     <button
       type="button"
       onClick={onClick ? e => { e.stopPropagation(); onClick(ev) } : undefined}
-      data-tooltip={esActividad ? 'Clic para editar esta actividad' : undefined}
+      data-tooltip={esActividad ? 'Clic para editar esta actividad' : movable ? 'Muévelo' : undefined}
       className={`block rounded text-left w-full transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${compact ? `px-1 py-0.5 ${MES_ITEM_TEXT}` : 'px-2 py-1 text-xs'}`}
       style={{ background: ev.bg, color: ev.text }}
     >
@@ -369,8 +369,8 @@ function AgendaView({
                   touchAction: 'none',
                 }}
                 data-tooltip={
-                  it.kind === 'bloque' ? 'Usa modificar bloques para editar'
-                  : movable ? 'Editar'
+                  it.kind === 'bloque' ? 'Usa modificar bloques para editar, o muévelo'
+                  : movable ? 'Editar, o muévelo'
                   : 'Clic para editar esta actividad'
                 }
               >
@@ -547,7 +547,7 @@ function MonthView({ year, month, events, bloques, subjects, selectedDate, onDat
                   const isDraggingThis = drag?.moved && it.kind === 'event' && drag.kind === 'event' && drag.ev?.id === it.ev.id
                   const pill = it.kind === 'bloque'
                     ? <BloquePill b={it.b} subj={subjects[it.b.asignaturaId]} onClick={editable ? onBlockClick : undefined} />
-                    : <EventPill ev={it.ev} compact onClick={movable ? undefined : onEventClick} />
+                    : <EventPill ev={it.ev} compact movable={movable} onClick={movable ? undefined : onEventClick} />
                   return (
                     <div
                       key={it.kind === 'bloque' ? it.b.id : it.ev.id}
@@ -781,7 +781,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                         opacity: isDragging ? 0.3 : 1,
                         touchAction: 'none',
                       }}
-                      data-tooltip="Usa modificar bloques para editar"
+                      data-tooltip={editable ? 'Usa modificar bloques para editar, o muévelo' : 'Usa modificar bloques para editar'}
                     >
                       <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>{subjectDisplayName(subj)}</span>
                       {b.lugar && <span className={`block ${GRID_ITEM_TEXT} opacity-70 leading-tight truncate`}>{b.lugar}</span>}
