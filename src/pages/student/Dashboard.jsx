@@ -16,7 +16,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import {
   BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive, Trash2, Download,
-  ArrowUp, ArrowDown, GripVertical,
+  ArrowUp, ArrowDown, GripVertical, Globe,
 } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
 import { isActivityPublished } from '../../utils/activityVisibility'
@@ -71,6 +71,10 @@ export default function StudentDashboard() {
   const [showJoin, setShowJoin] = useState(location.state?.openJoin === true)
   const [joinCode, setJoinCode] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+
+  // Recordatorio de la versión web (solo App): arranca colapsado, se ve nada
+  // más el título hasta que el estudiante lo abre.
+  const [showWebInfo, setShowWebInfo] = useState(false)
   // Incrementa después de cada reorden confirmado — se lo pasa a StudentLayout
   // como `refreshKey` para que la barra lateral recargue su propia lista, que
   // vive en un componente aparte y de otro modo no se enteraría del cambio
@@ -597,6 +601,33 @@ export default function StudentDashboard() {
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Recordatorio de la versión web — solo en la App. Igual que el del
+            docente en su Dashboard: informativo, NO navega (tocarlo solo abre
+            y cierra) y deja la dirección a la vista. Usa ChevronDown/rotate-180
+            porque ese es el lenguaje de desplegable del módulo del estudiante,
+            no el ChevronRight/rotate-90 del docente. */}
+        {IS_NATIVE_APP && (
+          <div className="mt-4 bg-surface-card rounded-card shadow-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowWebInfo((v) => !v)}
+              aria-expanded={showWebInfo}
+              className="w-full flex items-center gap-2.5 px-4 py-3 hover:bg-accent-tint transition-colors text-left"
+            >
+              <Globe size={17} className="text-accent flex-shrink-0" />
+              <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">También puedes entrar desde tu computadora</span>
+              <ChevronDown size={15} className={`text-slate-400 flex-shrink-0 transition-transform ${showWebInfo ? 'rotate-180' : ''}`} />
+            </button>
+            {showWebInfo && (
+              <div className="px-4 pb-4 pt-0.5">
+                <p className="text-sm text-muted">Tus asignaturas, tus entregas, tus exámenes y tus calificaciones también están en la versión web. Es útil cuando necesitas subir un trabajo desde la computadora o presentar un examen en pantalla grande.</p>
+                <p className="text-sm text-muted mt-1.5">Es tu misma cuenta: inicia sesión con el mismo usuario y contraseña. Todo lo que hagas en la app se refleja en la versión web, y viceversa.</p>
+                <p className="text-sm font-semibold text-accent mt-1.5">www.evaluafacil.mx</p>
               </div>
             )}
           </div>
