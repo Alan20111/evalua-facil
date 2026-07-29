@@ -152,7 +152,7 @@ function EventPill({ ev, compact, onClick, movable }) {
       style={{ background: ev.bg, color: ev.text }}
     >
       <span className="flex items-start gap-1 w-full">
-        <Icon size={10} className="flex-shrink-0 mt-0.5" />
+        <Icon size={13} className="flex-shrink-0 mt-0.5" />
         {dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${ev.estado.tono === 'vencida' ? 'bg-red-500' : 'bg-amber-400'}`} />}
         {/* Nunca se corta el nombre: crece a los renglones que necesite —
             así "(Publicada)"/"(Cierre)" siempre queda visible completo. */}
@@ -395,7 +395,7 @@ function AgendaView({
                     )}
                     {it.ev?.tipo === 'deadline' && (
                       <span className="inline-flex items-center gap-1 text-[10px] opacity-80 leading-tight">
-                        {it.ev.cierraEnFecha ? <Lock size={10} /> : <LockOpen size={10} />}
+                        {it.ev.cierraEnFecha ? <Lock size={13} /> : <LockOpen size={13} />}
                         {it.ev.estado?.label}
                       </span>
                     )}
@@ -812,8 +812,8 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                     >
                       <span className={`flex items-start gap-1 ${GRID_ITEM_TEXT} font-normal leading-tight`}>
                         {ev.tipo === 'deadline' && (ev.cierraEnFecha
-                          ? <Lock size={9} className="flex-shrink-0 opacity-80 mt-0.5" />
-                          : <LockOpen size={9} className="flex-shrink-0 opacity-80 mt-0.5" />)}
+                          ? <Lock size={12} className="flex-shrink-0 opacity-90 mt-0.5" />
+                          : <LockOpen size={12} className="flex-shrink-0 opacity-90 mt-0.5" />)}
                         <span className="break-words">{ev.titulo}</span>
                       </span>
                       {ev.tipo === 'deadline' && (
@@ -2070,8 +2070,8 @@ export default function CalendarPage() {
           <span className="flex items-center gap-1"><CalendarPlus size={12} /> Bloques de clase (Semana/Mes)</span>
           <span className="flex items-center gap-1"><Eye size={12} /> Publicación</span>
           <span className="flex items-center gap-1"><CalendarDays size={12} /> Evento personal</span>
-          <span className="flex items-center gap-1"><Lock size={12} /> Fecha límite — ya no recibe tarde</span>
-          <span className="flex items-center gap-1"><LockOpen size={12} /> Sigue recibiendo tarde</span>
+          <span className="flex items-center gap-1"><Lock size={14} /> Fecha límite — ya no recibe tarde</span>
+          <span className="flex items-center gap-1"><LockOpen size={14} /> Sigue recibiendo tarde</span>
         </div>
         )}
       </div>
