@@ -493,6 +493,23 @@ export default function TeacherDashboard() {
               </div>
             )}
 
+            {/* Nueva asignatura al pie de la lista — pedido explícito. Solo en
+                la WEB: en la App ese lugar ya lo ocupa el botón flotante.
+                Borde punteado (mismo lenguaje que "Unirme a otra asignatura"
+                del estudiante) para leerse como "agregar aquí" sin competir
+                con las tarjetas de asignatura, que son las que mandan.
+                Solo aparece si ya hay asignaturas: cuando la lista está vacía,
+                la tarjeta de "Crear mi primera asignatura" ya cumple ese rol. */}
+            {!IS_NATIVE_APP && mainList.length > 0 && (
+              <button
+                type="button"
+                onClick={openSubjectModal}
+                className="mb-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-card border border-dashed border-accent text-accent text-sm font-semibold hover:bg-accent-light transition-colors"
+              >
+                <Plus size={18} /> Nueva asignatura
+              </button>
+            )}
+
             {/* Archivadas — solo en la App (en la web ya viven en el sidebar,
                 colapsadas igual que aquí). Mismo lenguaje: ícono Archive,
                 contador, flecha que gira, e items con sangrado (pl-9, tras
