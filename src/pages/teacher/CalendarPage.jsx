@@ -441,7 +441,7 @@ function BloquePill({ b, subj, onClick }) {
       onClick={onClick ? e => { e.stopPropagation(); onClick(b) } : undefined}
       className={`flex items-center gap-1 rounded-md w-full px-1 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
       style={{ background: pal.bg, color: pal.text }}
-      data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)}${b.lugar ? ' · ' + b.lugar : ''} · Usa modificar bloques para editar`}
+      data-tooltip="Usa modificar bloques para editar"
     >
       <span className="truncate">{subjectDisplayName(subj)}</span>
     </button>
@@ -781,7 +781,7 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                         opacity: isDragging ? 0.3 : 1,
                         touchAction: 'none',
                       }}
-                      data-tooltip={`${subjectDisplayName(subj)} · ${formatHora12(b.horaInicio)}–${formatHora12(b.horaFin)} · Usa modificar bloques para editar`}
+                      data-tooltip="Usa modificar bloques para editar"
                     >
                       <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>{subjectDisplayName(subj)}</span>
                       {b.lugar && <span className={`block ${GRID_ITEM_TEXT} opacity-70 leading-tight truncate`}>{b.lugar}</span>}
