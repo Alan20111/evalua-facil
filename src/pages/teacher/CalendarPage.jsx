@@ -28,7 +28,7 @@ import { refreshTeacherReminders } from '../../utils/localReminders'
 import { formatHora12 } from '../../utils/formatHora'
 import { isDraftActivity } from '../../utils/activityVisibility'
 import {
-  Clock, Eye, CalendarDays, ChevronLeft, ChevronRight, Plus,
+  Clock, Send, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
   CalendarOff, Trash2, X, Minus, Columns3, Lock, LockOpen,
 } from 'lucide-react'
@@ -137,7 +137,9 @@ function EventPill({ ev, compact, onClick, movable }) {
   // Fecha límite: candado cerrado/abierto según si ya deja de recibir tarde
   // (cambia solo cuando el docente edita la actividad). Publicación: sin
   // candado, se queda como está.
-  const Icon = ev.tipo === 'deadline' ? (ev.cierraEnFecha ? Lock : LockOpen) : ev.tipo === 'publicacion' ? Eye : CalendarDays
+  // El ojito ya se usa en toda la app para "visible/no visible" (VisibilitySelect) —
+  // aquí necesitábamos algo distinto para "se publicó en esta fecha".
+  const Icon = ev.tipo === 'deadline' ? (ev.cierraEnFecha ? Lock : LockOpen) : ev.tipo === 'publicacion' ? Send : CalendarDays
   const dot = ev.tipo === 'deadline' && (ev.estado?.tono === 'vencida' || ev.estado?.tono === 'hoy')
   const esActividad = ev.tipo === 'deadline' || ev.tipo === 'publicacion'
   // La materia se muestra SIEMPRE como texto, nunca solo en tooltip: en
@@ -2068,7 +2070,7 @@ export default function CalendarPage() {
         {!IS_NATIVE_APP && (
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted px-1">
           <span className="flex items-center gap-1"><CalendarPlus size={12} /> Bloques de clase (Semana/Mes)</span>
-          <span className="flex items-center gap-1"><Eye size={12} /> Publicación</span>
+          <span className="flex items-center gap-1"><Send size={12} /> Publicación</span>
           <span className="flex items-center gap-1"><CalendarDays size={12} /> Evento personal</span>
           <span className="flex items-center gap-1"><Lock size={14} /> Fecha límite — ya no recibe tarde</span>
           <span className="flex items-center gap-1"><LockOpen size={14} /> Sigue recibiendo tarde</span>
