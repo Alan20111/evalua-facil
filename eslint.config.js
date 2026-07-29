@@ -24,7 +24,9 @@ export default defineConfig([
       jsxA11y.flatConfigs.recommended,
     ],
     languageOptions: {
-      globals: globals.browser,
+      // __BUILD_ID__: inyectado por vite.config.js (define) en build time —
+      // ver src/components/UpdateChecker.jsx.
+      globals: { ...globals.browser, __BUILD_ID__: 'readonly' },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
     settings: {

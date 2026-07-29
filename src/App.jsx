@@ -4,6 +4,7 @@ import { ToastProvider } from './components/Toast'
 import AndroidBackButton from './components/AndroidBackButton'
 import EscKeyHandler from './components/EscKeyHandler'
 import PwaInstallPrompt from './components/PwaInstallPrompt'
+import UpdateChecker from './components/UpdateChecker'
 import { needsPasswordSetup } from './utils/authLinking'
 import { installDraggableOverlays } from './utils/draggableOverlays'
 import { installFollowTooltips } from './utils/followTooltip'
@@ -166,6 +167,7 @@ export default function App() {
           <RoleWrapper>
           <AndroidBackButton />
           <EscKeyHandler />
+          <UpdateChecker />
           <Routes>
             {/* Public */}
             <Route path="/" element={<RootRedirect guest={<Landing />} />} />
