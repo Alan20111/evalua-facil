@@ -19,9 +19,9 @@ import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent
 import { copySubject } from '../../utils/copySubject'
 import { fmtAttDateParts, fmtAttMonth, loadAttendanceRecords, createAttendanceDay, attendanceState, nextAttendanceState, setAttendanceState, countPresence, deleteAttendanceDay, enrolledFromDate } from '../../utils/attendance'
 import { syncAutoAttendanceDays, loadAsuetoVacacionDiasClase, fetchClaseDiasSemana } from '../../utils/attendanceAuto'
-import { diaSemanaLunes, DIAS_SEMANA } from '../../utils/horarioBloques'
+import { diaSemanaLunes, DIAS_SEMANA, derivarPatrones, tramosFaltantes, generarBloques } from '../../utils/horarioBloques'
 import { buildAsuetoMap, esAsuetoPara } from '../../utils/asuetos'
-import { buildVacacionMap } from '../../utils/vacaciones'
+import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacaciones'
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity } from '../../utils/activityVisibility'
@@ -2797,10 +2797,71 @@ export default function SubjectPage() {
       }
       await updateDoc(doc(db, 'subjects', subjectId), subjUpdates)
       setSubject((s) => ({ ...s, ...subjUpdates }))
+      const fechasCambiaron = subjUpdates.fechaInicio !== (subject?.fechaInicio || '')
+        || subjUpdates.fechaFin !== (subject?.fechaFin || '')
+      if (fechasCambiaron && subjUpdates.fechaInicio && subjUpdates.fechaFin) {
+        await sincronizarBloquesConFechas(subjUpdates.fechaInicio, subjUpdates.fechaFin)
+      }
       toast('Asignatura actualizada')
       setShowEditSubjectModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setEditingSubject(false) }
+  }
+
+  // Las fechas del curso (Editar asignatura) son ahora la única fuente de
+  // verdad: si se alargan, esto extiende el patrón semanal ya programado para
+  // cubrir el tramo nuevo — así los bloques (y con ellos la asistencia
+  // automática, que sale de los bloques) nunca se quedan atrás de la fecha que
+  // el docente acaba de poner. No borra ni toca bloques existentes; solo
+  // rellena huecos, igual que "Faltan clases" en el calendario, pero sin que
+  // el docente tenga que ir a buscarlo.
+  async function sincronizarBloquesConFechas(fechaInicio, fechaFin) {
+    try {
+      const bloquesSnap = await getDocs(query(
+        collection(db, 'horarioBloques'),
+        where('docenteId', '==', currentUser.uid),
+        where('asignaturaId', '==', subjectId),
+      ))
+      const bloquesAsignatura = bloquesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      const tramos = tramosFaltantes(bloquesAsignatura, fechaInicio, fechaFin)
+      if (tramos.length === 0) return
+      const patrones = derivarPatrones(bloquesAsignatura)
+      if (patrones.length === 0) return
+
+      const [asuetosSnap, vacacionesSnap] = await Promise.all([
+        getDocs(query(collection(db, 'asuetos'), where('docenteId', '==', currentUser.uid))),
+        getDocs(query(collection(db, 'vacaciones'), where('docenteId', '==', currentUser.uid))),
+      ])
+      const diasAsueto = [
+        ...asuetosSnap.docs.map(d => d.data()).filter(a => a.clases).map(a => a.fecha),
+        ...fechasVacacionParaClases(vacacionesSnap.docs.map(d => d.data())),
+      ]
+      const nuevos = tramos.flatMap(t => generarBloques({
+        fechaInicio: t.desde,
+        fechaFin: t.hasta,
+        diasAsueto,
+        duracionMin: patrones[0].duracionMin || 60,
+        patrones,
+        color: patrones[0].color,
+        alarma: patrones[0].alarma,
+      }))
+      if (nuevos.length === 0) return
+
+      const meta = {
+        docenteId: currentUser.uid,
+        programacionId: crypto.randomUUID(),
+        asignaturaId: subjectId,
+        createdAt: serverTimestamp(),
+      }
+      for (let i = 0; i < nuevos.length; i += 450) {
+        const batch = writeBatch(db)
+        nuevos.slice(i, i + 450).forEach(b => batch.set(doc(collection(db, 'horarioBloques')), { ...b, ...meta }))
+        await batch.commit()
+      }
+      toast(`Se extendieron ${nuevos.length} bloque(s) de clase para cubrir las nuevas fechas`)
+    } catch (err) {
+      toast('La asignatura se guardó, pero no se pudieron extender los bloques de clase: ' + err.message, 'warning')
+    }
   }
 
   async function handleDeleteSubject() {

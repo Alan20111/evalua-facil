@@ -127,6 +127,70 @@ export const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'
 // Devuelve un array de bloques SIN docenteId/programacionId/createdAt (esos los
 // añade el llamador al persistir).
 
+// ─── Patrón semanal derivado de los bloques ya existentes ────────────────────
+// El combo (lugar/color/alarma) más frecuente entre las muestras de un mismo
+// horario — desempata a favor de lo que el docente dejó puesto la mayoría de
+// las veces.
+function comboMasFrecuente(muestras) {
+  const counts = new Map()
+  muestras.forEach(m => {
+    const combo = {
+      lugar: m.lugar || '',
+      color: m.color || 'blue',
+      alarma: m.alarma || { activa: false, sonido: 'campana', minutosAntes: 10 },
+    }
+    const key = JSON.stringify(combo)
+    const entry = counts.get(key)
+    if (entry) entry.count++
+    else counts.set(key, { combo, count: 1 })
+  })
+  let best = null
+  counts.forEach(entry => { if (!best || entry.count > best.count) best = entry })
+  return best.combo
+}
+
+// A partir de los bloques ya materializados de una asignatura, reconstruye el
+// patrón semanal (día + hora + duración + lugar/color/alarma) que los generó.
+// Se usa para extender el patrón a un tramo nuevo sin pedirle otra vez al
+// docente que lo vuelva a armar en la zona semanal.
+export function derivarPatrones(bloquesAsignatura) {
+  const recurrentes = bloquesAsignatura.filter(b => !b.movido)
+  const propios = recurrentes.length ? recurrentes : bloquesAsignatura
+  const porClave = {}
+  propios.forEach(b => {
+    const dia = b.diaSemana ?? diaSemanaLunes(new Date(b.fecha + 'T12:00:00'))
+    const key = `${dia}-${b.horaInicio}`
+    const dur = Math.max(5, timeToMinutes(b.horaFin) - timeToMinutes(b.horaInicio))
+    ;(porClave[key] ||= { diaSemana: dia, horaInicio: b.horaInicio, duracionMin: dur, muestras: [] })
+    porClave[key].muestras.push(b)
+  })
+  return Object.values(porClave)
+    .sort((a, b) => a.diaSemana - b.diaSemana || timeToMinutes(a.horaInicio) - timeToMinutes(b.horaInicio))
+    .map(({ muestras, ...p }) => ({ ...p, ...comboMasFrecuente(muestras) }))
+}
+
+// Tramos de [fechaInicio, fechaFin] que quedan SIN bloques respecto a los que
+// ya existen — el mismo cálculo que hace CalendarPage para el aviso "Faltan
+// clases", expuesto aquí para poder llamarlo también al editar la asignatura.
+export function tramosFaltantes(bloquesAsignatura, fechaInicio, fechaFin) {
+  if (!fechaInicio || !fechaFin) return []
+  const fechas = bloquesAsignatura.map(b => b.fecha).sort()
+  if (fechas.length === 0) return []
+  const correr = (f, dias) => toDateStr(addDaysStr(f, dias))
+  const primero = fechas[0]
+  const ultimo = fechas[fechas.length - 1]
+  const tramos = []
+  if (fechaInicio < primero) tramos.push({ desde: fechaInicio, hasta: correr(primero, -1) })
+  if (fechaFin > ultimo) tramos.push({ desde: correr(ultimo, 1), hasta: fechaFin })
+  return tramos
+}
+
+function addDaysStr(fechaStr, dias) {
+  const d = new Date(fechaStr + 'T12:00:00')
+  d.setDate(d.getDate() + dias)
+  return d
+}
+
 export function generarBloques({ fechaInicio, fechaFin, diasAsueto = [], duracionMin, patrones, color, alarma }) {
   const bloques = []
   if (!fechaInicio || !fechaFin || !patrones?.length) return bloques
