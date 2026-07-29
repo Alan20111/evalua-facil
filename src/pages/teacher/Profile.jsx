@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
@@ -763,6 +764,13 @@ export default function Profile() {
             <button type="button" onClick={() => { setSchoolSearch(''); setAddingCustomSchool(false); setCustomSchoolStep('form'); setShowSchoolPicker(true) }}
               className="text-accent text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
           </div>
+        </div>
+
+        {/* Aviso de privacidad */}
+        <div className="bg-surface-card rounded-card shadow-card p-3">
+          <Link to="/privacidad" className="text-sm text-accent font-semibold hover:underline">
+            Aviso de privacidad
+          </Link>
         </div>
 
         {/* Eliminar cuenta — hasta el fondo y en rojo, la única parte de la
