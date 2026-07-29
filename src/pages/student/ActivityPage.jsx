@@ -700,7 +700,7 @@ export default function StudentActivityPage() {
             {submission.comentario && (
               <div className="bg-surface rounded p-3 flex gap-2">
                 <MessageSquare size={17} className="text-slate-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-muted italic">"{submission.comentario}"</p>
+                <p className="text-sm text-muted italic">&ldquo;{submission.comentario}&rdquo;</p>
               </div>
             )}
           </div>

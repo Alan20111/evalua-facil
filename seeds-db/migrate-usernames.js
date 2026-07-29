@@ -15,11 +15,11 @@ let credential
 try {
   const firebaseCfg = require(path.join(os.homedir(), '.config/configstore/firebase-tools.json'))
   if (firebaseCfg.tokens) credential = admin.credential.refreshToken(firebaseCfg.tokens)
-} catch (_) {}
+} catch { /* sin firebase-tools.json, sigue sin credential explícito */ }
 
 try {
   admin.initializeApp({ projectId: 'evalua-facil-app', ...(credential ? { credential } : {}) })
-} catch (_) {}
+} catch { /* ya inicializado */ }
 
 const db = admin.firestore()
 

@@ -435,7 +435,7 @@ export default function StudentSubjectPage() {
                               </div>
                             )}
                             {sub?.comentario && (
-                              <p className="text-sm text-slate-500 leading-tight truncate mt-0.5">"{sub.comentario}"</p>
+                              <p className="text-sm text-slate-500 leading-tight truncate mt-0.5">&ldquo;{sub.comentario}&rdquo;</p>
                             )}
                           </div>
                           <div className="flex-shrink-0 text-right">

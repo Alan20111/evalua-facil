@@ -23,7 +23,7 @@ try {
       refresh_token: tokens.refresh_token,
     })
   }
-} catch (_) {}
+} catch { /* sin firebase-tools.json, sigue sin credential explícito */ }
 
 admin.initializeApp({
   projectId: 'evalua-facil-app',

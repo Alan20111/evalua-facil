@@ -93,7 +93,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
             <p className="text-xs text-slate-400 mt-2">
               Se aplicará a <strong>todo el grupo</strong> y se reabrirá la actividad si estaba cerrada.
               Al llegar esta fecha y hora, las entregas se cerrarán otra vez automáticamente
-              (según la casilla "Cerrar entregas en la fecha y hora programada").
+              (según la casilla &ldquo;Cerrar entregas en la fecha y hora programada&rdquo;).
             </p>
           )}
 

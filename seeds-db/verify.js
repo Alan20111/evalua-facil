@@ -12,7 +12,6 @@ async function verify() {
   let totalDocs = 0;
 
   for (const col of COLLECTIONS) {
-    const snap = await db.collection(col).limit(1).get();
     const count = (await db.collection(col).count().get()).data().count;
     console.log(`  ${col.padEnd(15)} : ${count} documents`);
     totalDocs += count;
