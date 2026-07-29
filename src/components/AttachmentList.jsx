@@ -8,7 +8,7 @@ import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../utils/platform'
 import PdfCanvasPreview from './PdfCanvasPreview'
-import ZoomableImage from './ZoomableImage'
+import PinchZoomImage from './PinchZoomImage'
 
 const PDF_EXTS = ['pdf']
 // Word y PowerPoint SÍ se ven bien con Google Docs Viewer — confirmado por
@@ -170,7 +170,7 @@ function PdfPagesPreview({ url, nombre, fill }) {
   return (
     <div className={`w-full overflow-auto bg-neutral-800 ${fill ? 'h-full' : 'max-h-[70vh]'}`}>
       {pages.map((p) => (
-        <ZoomableImage
+        <PinchZoomImage
           key={p}
           src={pdfPageImageUrl(url, p)}
           alt={`${nombre} — página ${p}`}
