@@ -6,6 +6,7 @@ import { formatFileSize } from '../utils/formatBytes'
 import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import { IS_NATIVE_APP } from '../utils/platform'
 
 const PDF_EXTS = ['pdf']
 // Word y PowerPoint SÍ se ven bien con Google Docs Viewer — confirmado por
@@ -132,6 +133,27 @@ export function FilePreview({ url, nombre, fill = false }) {
       className="w-full"
       style={{ height: fill ? '100%' : '70vh', border: 'none' }}
     >
+      {/* Respaldo, solo si el navegador no puede mostrar el PDF nativo — ver
+          el aviso sobre el botón "Ventana emergente" tapado, más abajo en la
+          rama de Word/PowerPoint: mismo motivo, mismo parche. */}
+      <div className="relative w-full h-full">
+        <iframe
+          src={docsViewerUrl(viewUrl)}
+          title={`Vista previa: ${nombre}`}
+          sandbox="allow-scripts allow-same-origin allow-popups"
+          className="w-full h-full"
+          style={{ border: 'none' }}
+        />
+        {IS_NATIVE_APP && (
+          <div className="absolute top-0 right-0 w-11 h-9 bg-white" />
+        )}
+      </div>
+    </object>
+  ) : (
+    // Solo se llega aquí para Word/PowerPoint (canPreviewFile ya deja fuera a
+    // Excel — ver SPREADSHEET_EXTS. Ese se abre con la app real del docente,
+    // no se reconstruye aquí).
+    <div className="relative w-full" style={{ height: fill ? '100%' : '70vh' }}>
       <iframe
         src={docsViewerUrl(viewUrl)}
         title={`Vista previa: ${nombre}`}
@@ -139,18 +161,20 @@ export function FilePreview({ url, nombre, fill = false }) {
         className="w-full h-full"
         style={{ border: 'none' }}
       />
-    </object>
-  ) : (
-    // Solo se llega aquí para Word/PowerPoint (canPreviewFile ya deja fuera a
-    // Excel — ver SPREADSHEET_EXTS. Ese se abre con la app real del docente,
-    // no se reconstruye aquí).
-    <iframe
-      src={docsViewerUrl(viewUrl)}
-      title={`Vista previa: ${nombre}`}
-      sandbox="allow-scripts allow-same-origin allow-popups"
-      className={`w-full ${fill ? 'h-full' : 'h-[70vh]'}`}
-      style={{ border: 'none' }}
-    />
+      {/* El botón "Ventana emergente" de Google (arriba a la derecha de su
+          propia barra de herramientas) no hace nada en la App: intenta abrir
+          una pestaña nueva, y un WebView no tiene pestañas — queda ahí
+          pareciendo tocable sin servir para nada. No es nuestro: vive dentro
+          del iframe de docs.google.com, así que no se puede quitar con CSS
+          normal (los navegadores no dejan tocar el contenido de un iframe de
+          otro dominio). Se tapa con esta esquina encima, solo en la App.
+          Frágil a propósito reconocido: si Google cambia el diseño de su
+          barra, esta esquina puede quedar mal puesta — revisar si el
+          problema reaparece o si empieza a tapar algo que sí sirve. */}
+      {IS_NATIVE_APP && (
+        <div className="absolute top-0 right-0 w-11 h-9 bg-white" />
+      )}
+    </div>
   )
 }
 
