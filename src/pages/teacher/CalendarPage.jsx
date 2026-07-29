@@ -2014,10 +2014,13 @@ export default function CalendarPage() {
               subjects={subjects}
               selectedDate={currentDate}
               onDateClick={IS_NATIVE_APP ? undefined : openNewEvent}
-              onEventClick={openEditEvent}
-              onBlockClick={openBloqueSoloBorrar}
-              onMoveEvent={moveEvent}
-              onMoveBloque={requestMoveBloque}
+              // En la App, Mes es solo informativo: presionar un bloque o
+              // evento no hace nada — evita saturar una vista ya de por sí
+              // apretada en pantallas chicas. La web sigue igual.
+              onEventClick={IS_NATIVE_APP ? undefined : openEditEvent}
+              onBlockClick={IS_NATIVE_APP ? undefined : openBloqueSoloBorrar}
+              onMoveEvent={IS_NATIVE_APP ? undefined : moveEvent}
+              onMoveBloque={IS_NATIVE_APP ? undefined : requestMoveBloque}
               asuetoMap={asuetoMap}
               vacacionMap={vacacionMap}
               editable={false}
@@ -2052,10 +2055,13 @@ export default function CalendarPage() {
               numDays={numDays}
               selectedDate={currentDate}
               onSlotClick={IS_NATIVE_APP ? undefined : openNewEventAt}
-              onEventClick={openEditEvent}
-              onBlockClick={openBloqueAcciones}
-              onMoveBloque={requestMoveBloque}
-              onMoveEvent={moveEvent}
+              // En la App, Semana es solo informativa: presionar un bloque o
+              // evento no hace nada — evita saturar la vista. La web sigue
+              // igual, y 3 días (arriba) tampoco cambia.
+              onEventClick={IS_NATIVE_APP ? undefined : openEditEvent}
+              onBlockClick={IS_NATIVE_APP ? undefined : openBloqueAcciones}
+              onMoveBloque={IS_NATIVE_APP ? undefined : requestMoveBloque}
+              onMoveEvent={IS_NATIVE_APP ? undefined : moveEvent}
               asuetoMap={asuetoMap}
               vacacionMap={vacacionMap}
               editable={false}
