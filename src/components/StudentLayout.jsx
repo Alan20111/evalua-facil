@@ -11,6 +11,7 @@ import { subjectDisplayName } from '../utils/subjectName'
 import { getEnrollments, visibleEnrollments } from '../utils/studentLookup'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
+import AppQRButton from './AppQRButton'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import StudentBottomNav from './StudentBottomNav'
@@ -257,6 +258,18 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               <Plus size={17} />
               Unirme a otra asignatura…
             </button>
+          </div>
+
+          {/* QR de descarga de la app — arriba de Archivadas, igual que en el
+              panel del docente. Fuera de cualquier asignatura porque el QR es
+              el mismo para todas: la app es una sola y el perfil se elige al
+              abrirla. */}
+          <div className="px-2 pt-2 border-t border-white/15">
+            <AppQRButton
+              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white/80 hover:bg-white/10 transition-colors disabled:opacity-60"
+            >
+              QR para descargar la app
+            </AppQRButton>
           </div>
 
           {/* Archivadas — al fondo, arriba de "Cerrar sesión", igual que en el

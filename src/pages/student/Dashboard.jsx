@@ -33,7 +33,6 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { APP_DOWNLOAD_URL, APP_DOWNLOAD_READY } from '../../config/appDownload'
-import AppQRButton from '../../components/AppQRButton'
 
 // All activities for a set of subjects in as few round trips as possible.
 // Firestore `in` takes up to 30 values, so chunk and run chunks in parallel.
@@ -560,17 +559,6 @@ export default function StudentDashboard() {
         >
           <Plus size={18} /> Unirme a otra asignatura
         </button>
-
-        {/* QR de descarga de la app — solo en la WEB, arriba de las
-            archivadas. En la app del estudiante NO va: ya la tiene instalada,
-            y ofrecerle descargar lo que está usando no le dice nada. */}
-        {!IS_NATIVE_APP && (
-          <AppQRButton
-            className="mt-4 w-full bg-surface-card rounded-card shadow-card px-4 py-3 flex items-center gap-2.5 text-left hover:bg-accent-tint transition-colors disabled:opacity-60 text-accent"
-          >
-            <span className="flex-1 min-w-0 text-sm font-semibold text-on-surface">QR para descargar la app</span>
-          </AppQRButton>
-        )}
 
         {/* Asignaturas archivadas — SOLO si el docente ya archivó alguna.
             Archivar es decisión del maestro: el estudiante no archiva nada, así
