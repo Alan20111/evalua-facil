@@ -152,12 +152,20 @@ function ZoomOverlay({ src, alt, onClose }) {
 // Imagen normal que, al tocarla, abre un visor de pantalla completa con
 // pinch-zoom (dos dedos), doble-tap para alternar zoom y arrastre para
 // desplazar cuando está ampliada — sin salir de la pantalla actual.
-export default function ZoomableImage({ src, alt, className }) {
+//
+// `className` (botón contenedor) e `imgClassName` (la imagen en miniatura)
+// tienen valores por defecto para el caso más común (miniatura a todo el
+// ancho), pero se pueden pasar completos para encajar en layouts distintos
+// (por ejemplo un panel centrado con object-contain) — se REEMPLAZAN, no se
+// concatenan con el default, para no arriesgar un choque de clases de
+// Tailwind (block vs flex, etc.) que depende del orden en la hoja de
+// estilos y no del orden en el atributo class.
+export default function ZoomableImage({ src, alt, className = 'block w-full', imgClassName = 'w-full h-auto rounded' }) {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={`block w-full ${className || ''}`} data-tooltip="Toca para ampliar">
-        <img src={src} alt={alt} className="w-full h-auto rounded" draggable={false} />
+      <button type="button" onClick={() => setOpen(true)} className={className} data-tooltip="Toca para ampliar">
+        <img src={src} alt={alt} className={imgClassName} draggable={false} />
       </button>
       {open && <ZoomOverlay src={src} alt={alt} onClose={() => setOpen(false)} />}
     </>

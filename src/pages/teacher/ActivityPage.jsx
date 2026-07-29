@@ -1134,9 +1134,7 @@ export default function ActivityPage() {
                 <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
                   {selFiles.map((f, i) => (
                     isImageFile(f.nombre, f.url) ? (
-                      <a key={`${f.url}-${i}`} href={f.url} target="_blank" rel="noopener noreferrer" className="block" data-tooltip="Abrir en tamaño completo">
-                        <img src={f.url} alt={f.nombre} className="max-w-full rounded mx-auto" />
-                      </a>
+                      <ZoomableImage key={`${f.url}-${i}`} src={f.url} alt={f.nombre} className="block" imgClassName="max-w-full rounded mx-auto" />
                     ) : IS_NATIVE_APP ? (
                       <AbrirConNativoButton key={`${f.url}-${i}`} url={f.url} nombre={f.nombre}
                         className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors w-full" />
@@ -1154,15 +1152,12 @@ export default function ActivityPage() {
                 (() => {
                   const f = selFiles[Math.min(previewIdx, selFiles.length - 1)]
                   return isImageFile(f.nombre, f.url) ? (
-                    <a
-                      href={f.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <ZoomableImage
+                      src={f.url}
+                      alt={f.nombre}
                       className="flex-1 min-h-0 flex items-center justify-center p-3"
-                      data-tooltip="Abrir en tamaño completo"
-                    >
-                      <img src={f.url} alt={f.nombre} className="max-w-full max-h-full object-contain rounded" />
-                    </a>
+                      imgClassName="max-w-full max-h-full object-contain rounded"
+                    />
                   ) : canPreviewFile(f.nombre) ? (
                     <div className="flex-1 min-h-0">
                       <FilePreview url={f.url} nombre={f.nombre} fill />
@@ -1189,19 +1184,12 @@ export default function ActivityPage() {
                 })()
               ) : selected.sub && !selected.sub.completadoSinArchivo && selected.sub.archivoURL ? (
                 isImageFile(selected.sub.nombreArchivo, selected.sub.archivoURL) ? (
-                  <a
-                    href={selected.sub.archivoURL}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <ZoomableImage
+                    src={selected.sub.archivoURL}
+                    alt="Entrega del estudiante"
                     className="flex-1 min-h-0 flex items-center justify-center p-3"
-                    data-tooltip="Abrir en tamaño completo"
-                  >
-                    <img
-                      src={selected.sub.archivoURL}
-                      alt="Entrega del estudiante"
-                      className="max-w-full max-h-full object-contain rounded"
-                    />
-                  </a>
+                    imgClassName="max-w-full max-h-full object-contain rounded"
+                  />
                 ) : canPreviewFile(selected.sub.nombreArchivo) ? (
                   <div className="flex-1 min-h-0">
                     <FilePreview url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo} fill />
