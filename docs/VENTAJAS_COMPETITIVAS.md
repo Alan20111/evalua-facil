@@ -9,10 +9,10 @@
 
 Definidas el 2026-07-29.
 
-1. Tus alumnos entran sin correo electrónico
-2. Alta masiva de estudiantes por grupo, desde Excel
+1. Tus alumnos entran sin cuenta de correo electrónico
+2. Alta masiva de estudiantes por grupo, desde una plantilla de Excel
 3. Pasa lista desde tu móvil
-4. Programa tus clases y crea horarios — de ahí salen solos los días de lista
+4. Programa tus clases y crea tu horario — de ahí se definen los días de lista
 5. Cuestionarios y exámenes con gráficas por reactivo
 6. Banco de reactivos
 7. Rúbricas y listas de cotejo
