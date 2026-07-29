@@ -9,7 +9,7 @@ import EFLogo from '../components/EFLogo'
 // correo. Mientras el correo de dominio no esté activo, cámbialo aquí por uno
 // que funcione (una sola línea, marcada abajo con CONTACTO).
 const CONTACTO = 'soporte@evaluafacil.mx'
-const ACTUALIZADO = '25 de julio de 2026'
+const ACTUALIZADO = '29 de julio de 2026'
 
 function Seccion({ titulo, children }) {
   return (
@@ -110,6 +110,11 @@ export default function Privacidad() {
             <li>
               <span className="font-semibold text-on-surface">Cloudinary</span>{' '}
               (almacenamiento de fotos y archivos que se suben a la plataforma).
+            </li>
+            <li>
+              <span className="font-semibold text-on-surface">Google Docs Viewer</span>{' '}
+              (vista previa de archivos de Word, Excel y PowerPoint entregados por
+              alumnos, para que el docente pueda revisarlos sin descargarlos).
             </li>
             <li>
               <span className="font-semibold text-on-surface">EmailJS</span>{' '}
