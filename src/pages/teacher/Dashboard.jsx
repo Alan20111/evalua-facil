@@ -545,7 +545,7 @@ export default function TeacherDashboard() {
                 {showWebInfo && (
                   <div className="px-3 pb-3 pt-0.5">
                     <p className="text-sm text-slate-500">Organiza tus asignaturas, configura actividades, consulta reportes y utiliza todas las herramientas de Evalúa Fácil desde la versión web, diseñada para ofrecerte la mejor experiencia de trabajo en computadora.</p>
-                    <p className="text-sm text-slate-500 mt-1.5">Es tu misma cuenta: entras con el mismo correo y contraseña, y todo lo que hagas aquí lo ves allá.</p>
+                    <p className="text-sm text-slate-500 mt-1.5">Es tu misma cuenta: inicia sesión con el mismo correo y contraseña. Todo lo que hagas en la app se refleja en la versión web, y viceversa.</p>
                     <p className="text-sm font-semibold text-accent mt-1.5">www.evaluafacil.mx</p>
                   </div>
                 )}
