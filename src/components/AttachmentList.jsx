@@ -7,7 +7,7 @@ import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/clou
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../utils/platform'
-import PinchZoomBox from './PinchZoomBox'
+import PdfCanvasPreview from './PdfCanvasPreview'
 
 const PDF_EXTS = ['pdf']
 // Word y PowerPoint SÍ se ven bien con Google Docs Viewer — confirmado por
@@ -125,40 +125,10 @@ export function FilePreview({ url, nombre, fill = false }) {
   return isImage ? (
     <img src={url} alt={nombre} className={`w-full object-contain ${fill ? 'h-full' : 'max-h-[70vh]'}`} />
   ) : isPdf ? (
-    <div className="w-full" style={{ height: fill ? '100%' : '70vh' }}>
-      {/* Pellizcar/doble-tap/Ctrl+rueda para acercar — mismo gesto que las
-          imágenes (ZoomableImage), aplicado aquí al visor nativo de PDF. Sin
-          confirmar todavía si el gesto le llega al <object> cuando el dedo
-          está justo encima (algunos navegadores lo aíslan como un plugin);
-          si no responde, el siguiente paso es un visor propio con pdf.js. */}
-      <PinchZoomBox>
-        {/* Use <object> with explicit type so the browser applies application/pdf
-            regardless of what Content-Type the server returns.
-            Falls back to Google Docs Viewer iframe if the browser can't render it. */}
-        <object
-          data={viewUrl}
-          type="application/pdf"
-          className="w-full h-full"
-          style={{ border: 'none' }}
-        >
-          {/* Respaldo, solo si el navegador no puede mostrar el PDF nativo — ver
-              el aviso sobre el botón "Ventana emergente" tapado, más abajo en la
-              rama de Word/PowerPoint: mismo motivo, mismo parche. */}
-          <div className="relative w-full h-full">
-            <iframe
-              src={docsViewerUrl(viewUrl)}
-              title={`Vista previa: ${nombre}`}
-              sandbox="allow-scripts allow-same-origin allow-popups"
-              className="w-full h-full"
-              style={{ border: 'none' }}
-            />
-            {IS_NATIVE_APP && (
-              <div className="absolute top-0 right-0 w-11 h-9 bg-white" />
-            )}
-          </div>
-        </object>
-      </PinchZoomBox>
-    </div>
+    // Visor propio (pdf.js → canvas), no el <object> nativo del navegador: ese
+    // visor aísla los eventos táctiles como si fuera un plugin y nunca dejaba
+    // pellizcar/acercar. Ver PdfCanvasPreview.jsx.
+    <PdfCanvasPreview key={viewUrl} url={viewUrl} nombre={nombre} fill={fill} />
   ) : (
     // Solo se llega aquí para Word/PowerPoint (canPreviewFile ya deja fuera a
     // Excel — ver SPREADSHEET_EXTS. Ese se abre con la app real del docente,
