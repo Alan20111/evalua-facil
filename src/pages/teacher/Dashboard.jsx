@@ -331,16 +331,20 @@ export default function TeacherDashboard() {
     <>
       <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Greeting — "Bienvenido {nombre}" en un solo renglón (con la foto a
-            la derecha del nombre si el docente dejó activado "Los
+        {/* Greeting — "Bienvenido {nombre}" en un solo renglón cuando cabe (con
+            la foto a la derecha del nombre si el docente dejó activado "Los
             estudiantes pueden ver mi foto de perfil" en su Perfil) — pedido
             explícito: así el docente ve tal cual lo que verían sus alumnos.
             "{prefijo} {nombre visible}" es el mismo que ven los alumnos
-            (teacherDisplayName, misma fuente de verdad que en sus pantallas). */}
+            (teacherDisplayName, misma fuente de verdad que en sus pantallas).
+            El nombre va en un inline-block y SIN truncate: si no cabe junto a
+            "Bienvenido", baja entero al siguiente renglón en vez de cortarse a
+            media palabra. Un nombre largo nunca se recorta — que se lea
+            completo importa más que dejarlo en una sola línea. */}
         <div className="mb-4">
           <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-lg font-bold text-on-surface truncate min-w-0">
-              Bienvenido {teacherGreetingName}
+            <h1 className="text-lg font-bold text-on-surface min-w-0">
+              Bienvenido <span className="inline-block">{teacherGreetingName}</span>
             </h1>
             {/* Pedido explícito: en la App se puede tocar la foto para
                 cambiarla al vuelo, sin entrar al perfil — por eso ahí se
@@ -400,9 +404,14 @@ export default function TeacherDashboard() {
         ) : (
           <>
             {/* ── Mis asignaturas ── */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
-              <h2 className="text-lg font-semibold text-on-surface">Mis asignaturas</h2>
-              <span className="text-sm text-slate-500">{mainList.length} asignatura{mainList.length !== 1 ? 's' : ''}</span>
+            {/* Una sola fila SIEMPRE, también en el celular (pedido explícito).
+                Antes era flex-col hasta `sm`, así que en la app el conteo caía
+                a su propio renglón y el título se veía suelto. `min-w-0` +
+                `truncate` en el título para que, si el renglón se apretara, se
+                recorte el título y no el conteo — que es el dato corto. */}
+            <div className="flex flex-row items-center justify-between gap-2 mb-2">
+              <h2 className="text-lg font-semibold text-on-surface truncate min-w-0">Mis asignaturas</h2>
+              <span className="text-sm text-slate-500 flex-shrink-0">{mainList.length} asignatura{mainList.length !== 1 ? 's' : ''}</span>
             </div>
 
             {mainList.length === 0 ? (
