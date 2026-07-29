@@ -417,7 +417,7 @@ export default function EntregableEditor({
                         className="mt-0.5"
                         data-tooltip="Desactivar para recibir tarde"
                       />
-                      <label htmlFor="cerrarEntregasEnFecha" className="text-sm text-on-surface cursor-pointer flex-1">
+                      <label htmlFor="cerrarEntregasEnFecha" className="text-sm text-on-surface cursor-pointer">
                         Cerrar entregas en la fecha y hora programada
                         <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas retrasadas</span>
                       </label>
