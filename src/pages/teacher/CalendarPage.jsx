@@ -2001,7 +2001,7 @@ export default function CalendarPage() {
               onBlockClick={openBloqueAcciones}
               onMoveBloque={requestMoveBloque}
               onMoveEvent={moveEvent}
-              onSlotClick={openNewEventAt}
+              onSlotClick={IS_NATIVE_APP ? undefined : openNewEventAt}
               asuetoMap={asuetoMap}
               vacacionMap={vacacionMap}
             />
@@ -2013,7 +2013,7 @@ export default function CalendarPage() {
               bloques={bloques}
               subjects={subjects}
               selectedDate={currentDate}
-              onDateClick={openNewEvent}
+              onDateClick={IS_NATIVE_APP ? undefined : openNewEvent}
               onEventClick={openEditEvent}
               onBlockClick={openBloqueSoloBorrar}
               onMoveEvent={moveEvent}
@@ -2033,7 +2033,7 @@ export default function CalendarPage() {
               dayStart={dayStart}
               dayEnd={dayEnd}
               selectedDate={currentDate}
-              onSlotClick={openNewEventAt}
+              onSlotClick={IS_NATIVE_APP ? undefined : openNewEventAt}
               onEventClick={openEditEvent}
               onBlockClick={openBloqueAcciones}
               onMoveBloque={requestMoveBloque}
@@ -2051,7 +2051,7 @@ export default function CalendarPage() {
               dayEnd={dayEnd}
               numDays={numDays}
               selectedDate={currentDate}
-              onSlotClick={openNewEventAt}
+              onSlotClick={IS_NATIVE_APP ? undefined : openNewEventAt}
               onEventClick={openEditEvent}
               onBlockClick={openBloqueAcciones}
               onMoveBloque={requestMoveBloque}
