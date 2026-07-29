@@ -114,9 +114,7 @@ export default function Privacidad() {
             <li>
               <span className="font-semibold text-on-surface">Google Docs Viewer</span>{' '}
               (vista previa de archivos de Word y PowerPoint entregados por alumnos,
-              para que el docente pueda revisarlos sin descargarlos). Los archivos de
-              Excel se procesan dentro de la aplicación, sin pasar por este ni por
-              ningún otro tercero.
+              para que el docente pueda revisarlos sin descargarlos).
             </li>
             <li>
               <span className="font-semibold text-on-surface">EmailJS</span>{' '}
