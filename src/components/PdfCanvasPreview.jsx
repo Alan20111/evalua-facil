@@ -5,16 +5,15 @@ import * as pdfjsLib from 'pdfjs-dist'
 // "fake worker" de un solo hilo, mucho más lento y con el riesgo de
 // bloquearse en páginas grandes.
 import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker'
-import ZoomableImage from './ZoomableImage'
+import PinchZoomImage from './PinchZoomImage'
 
 pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker()
 
 // Visor de PDF propio: dibuja cada página a un <canvas> con pdf.js y la
-// muestra como imagen dentro de ZoomableImage — el MISMO componente de zoom
-// que ya usan las imágenes de entregas (confirmado que funciona por el
-// docente). Reemplaza al <object> nativo del navegador porque ese visor
-// aísla los eventos táctiles como si fuera un plugin aparte y nunca deja
-// pellizcar/acercar.
+// muestra con pellizcar-para-acercar directo (PinchZoomImage), sin necesidad
+// de tocar primero. Reemplaza al <object> nativo del navegador porque ese
+// visor aísla los eventos táctiles como si fuera un plugin aparte y nunca
+// deja pellizcar/acercar.
 //
 // El caller debe pasar `key={url}` para forzar un remount (y así reiniciar
 // `pages`/`error`) cuando cambia el archivo — este componente nunca resetea
@@ -62,7 +61,7 @@ export default function PdfCanvasPreview({ url, nombre, fill }) {
   return (
     <div className={`w-full overflow-auto bg-neutral-800 ${fill ? 'h-full' : 'max-h-[70vh]'}`}>
       {pages.map((src, i) => (
-        <ZoomableImage
+        <PinchZoomImage
           key={i}
           src={src}
           alt={`${nombre} — página ${i + 1}`}
