@@ -94,3 +94,20 @@ export async function saveBlob(blob, filename) {
   })
   await writeAndShare(filename, base64)
 }
+
+// Descarga un archivo AJENO (una entrega de un alumno en Cloudinary, no algo
+// que generamos nosotros) y lo abre con lo que el docente ya tenga instalado
+// para ese tipo de archivo (Word, Excel, Google Sheets, WPS…). En vez de
+// reconstruir el documento dentro de la app —lo que se intentó varias veces
+// con Word/Excel/PowerPoint y nunca se vio fiel al original—, se le entrega
+// el archivo real a una app real. En Android, "Compartir" (Share) no es solo
+// para enviarlo a alguien: la lista de apps que ofrece también incluye las
+// que pueden ABRIRLO (Sheets, Word, WPS…), así que tocar una de esas lo abre
+// directo. En la web simplemente se descarga — no hay forma de forzar "abrir
+// con" desde un sitio, es una restricción del navegador, no de esta app.
+export async function abrirArchivoNativo(url, filename) {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`No se pudo descargar el archivo (${res.status})`)
+  const blob = await res.blob()
+  await saveBlob(blob, filename)
+}

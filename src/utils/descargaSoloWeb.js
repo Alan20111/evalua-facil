@@ -14,13 +14,6 @@ import { IS_NATIVE_APP } from './platform'
 export const MENSAJE_DESCARGA_SOLO_WEB =
   'Las descargas se hacen desde la versión web, en evaluafacil.mx — ahí el archivo queda guardado en tu computadora.'
 
-// Para las entregas que la pantalla no puede mostrar. No se enlistan
-// extensiones a propósito: hoy son Word, Excel o comprimidos, pero el docente
-// puede pedir cualquier tipo de archivo en su actividad, así que la leyenda
-// tiene que servir para todos.
-export const LEYENDA_REVISAR_EN_WEB =
-  'Para revisar este archivo, ábrelo desde la versión web en evaluafacil.mx.'
-
 // Devuelve true si hay que detenerse (estamos en la app y ya se avisó).
 // Uso: `if (descargaSoloWeb(toast)) return` al inicio del handler.
 export function descargaSoloWeb(toast) {
