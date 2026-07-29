@@ -27,6 +27,7 @@ import { downloadUrl } from '../../utils/cloudinary'
 import { buildJobsForActivity, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { descargaSoloWeb } from '../../utils/descargaSoloWeb'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { useSubscription } from '../../hooks/useSubscription'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
@@ -471,6 +472,7 @@ export default function ActivityPage() {
 
   // ZIP with just the current student's files, named "1.3 Actividad - Alumno.zip"
   async function downloadStudentZip() {
+    if (descargaSoloWeb(toast)) return
     if (!selected || selFiles.length < 2) return
     setStudentZipDownloading(true)
     try {
