@@ -1054,9 +1054,10 @@ export default function CalendarPage() {
 
       if (a.fechaLimite) {
         const categoriaLabel = CATEGORIA_LABEL[a.categoria] || CATEGORIA_LABEL.entregable
+        const cierraEnFecha = !a.recibirTarde
         evs.push({
           id: `dl-${a.id}`,
-          titulo: nombreConNumero,
+          titulo: cierraEnFecha ? `${nombreConNumero} (Cierre)` : nombreConNumero,
           subtitulo: `${subjName} · Parcial ${a.parcial ?? '–'} · ${categoriaLabel}`,
           tipo: 'deadline',
           dateStr: a.fechaLimite.substring(0, 10),
@@ -1064,14 +1065,14 @@ export default function CalendarPage() {
           bg: pal.bg, text: pal.text,
           editable: false,
           // true = deja de recibir entregas justo en la fecha; false = la fecha es informativa.
-          cierraEnFecha: !a.recibirTarde,
+          cierraEnFecha,
           estado: deadlineEstado(a.fechaLimite),
         })
       }
       if (a.publishAt) {
         evs.push({
           id: `pub-${a.id}`,
-          titulo: `↑ ${nombreConNumero}`,
+          titulo: `↑ ${nombreConNumero} (Publicada)`,
           subtitulo: subjName,
           tipo: 'publicacion',
           dateStr: a.publishAt.substring(0, 10),
