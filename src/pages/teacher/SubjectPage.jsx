@@ -13,7 +13,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, exportSubjectAttendance, exportParcialAttendance, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
 import { importActivitiesToSubject } from '../../utils/importActivities'
-import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF, exportQRPDF } from '../../utils/pdf'
+import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF } from '../../utils/pdf'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
@@ -53,13 +53,12 @@ import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet,
-  ArrowUpDown, UserPlus, RotateCcw, Upload, Download, QrCode, ChevronRight,
-  Link, Check as CheckIcon, KeyRound, Copy,
+  ArrowUpDown, UserPlus, RotateCcw, Upload, Download, ChevronRight,
+  Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
   AlertTriangle, ArrowUp, ArrowDown,
 } from 'lucide-react'
-import { QRCodeSVG as QRCode } from 'qrcode.react'
 import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
@@ -608,7 +607,6 @@ export default function SubjectPage() {
 
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  const [exportingPdf, setExportingPdf] = useState(false)
   const [exportingGradesPdf, setExportingGradesPdf] = useState(false)
   const [generatingCredentials, setGeneratingCredentials] = useState(false)
   const [showCredentialsModal, setShowCredentialsModal] = useState(false)
@@ -667,12 +665,10 @@ export default function SubjectPage() {
   const totalStudents = groupStudentsLoaded ? groupStudents.length : studentCountAtLoad
 
   // Copy feedback
-  const [copiedLink, setCopiedLink] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
 
   // Student management (Alumnos tab)
   const [showAddStudent, setShowAddStudent] = useState(false)
-  const [showQR, setShowQR] = useState(false)
   const [studentToDelete, setStudentToDelete] = useState(null)
   const [studentToEdit, setStudentToEdit] = useState(null)
   const [editStudentForm, setEditStudentForm] = useState({ apellidoPaterno: '', apellidoMaterno: '', nombre: '', comentarios: '' })
@@ -791,7 +787,6 @@ export default function SubjectPage() {
   useBackHandler(() => setDeleteMaterialConfirm(null), !!deleteMaterialConfirm)
   useBackHandler(() => setShowAddStudent(false), showAddStudent)
   useBackHandler(() => setStudentToEdit(null), !!studentToEdit)
-  useBackHandler(() => setShowQR(false), showQR)
   useBackHandler(() => setStudentToReset(null), !!studentToReset)
   useBackHandler(() => !generatingCredentials && setShowCredentialsModal(false), showCredentialsModal)
   useBackHandler(() => setActivityMenu(null), !!activityMenu)
@@ -829,7 +824,6 @@ export default function SubjectPage() {
   useScrollLock(deleteMaterialConfirm)
   useScrollLock(showAddStudent)
   useScrollLock(studentToEdit)
-  useScrollLock(showQR && subject)
   useScrollLock(studentToReset)
   useScrollLock(showCredentialsModal)
   useScrollLock(importFor != null)
@@ -2048,13 +2042,6 @@ export default function SubjectPage() {
     }
   }
 
-  function copyActivationLink() {
-    navigator.clipboard.writeText(activationUrl).then(() => {
-      setCopiedLink(true)
-      setTimeout(() => setCopiedLink(false), 2000)
-    })
-  }
-
   function copyAccessCode() {
     if (!subject?.accessCode) return
     navigator.clipboard.writeText(subject.accessCode).then(() => {
@@ -3128,17 +3115,6 @@ export default function SubjectPage() {
     finally { setExportingAttendance(false) }
   }
 
-  async function handleExportQRPDF() {
-    if (!subject) return
-    setExportingPdf(true)
-    try {
-      await exportQRPDF({ subject, activationUrl })
-    } catch (err) {
-      toast('Error al exportar PDF: ' + err.message, 'error')
-    } finally {
-      setExportingPdf(false)
-    }
-  }
 
   // R12: grades as PDF (same data as the Excel export).
   async function handleExportGradesPDF() {
@@ -3183,7 +3159,7 @@ export default function SubjectPage() {
       if (students.length === 0) { toast('No hay estudiantes en esta asignatura', 'error'); return }
 
       const docenteNombre = userProfile?.nombreMostrar || userProfile?.nombre || ''
-      await exportCredentialsPDF({ subject, students, activationUrl, docenteNombre })
+      await exportCredentialsPDF({ subject, students, docenteNombre })
       toast('Lista de acceso descargada')
       setShowCredentialsModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -3607,7 +3583,6 @@ export default function SubjectPage() {
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
   }
 
-  const activationUrl = `${window.location.origin}/activate/${subject?.accessCode}`
   const filteredAlumnos = groupStudents.filter((s) =>
     matchesStudentSearch(s, searchAlumnos) ||
     (s.username || '').toLowerCase().includes(searchAlumnos.trim().toLowerCase())
@@ -3722,20 +3697,13 @@ export default function SubjectPage() {
   // su contenido real (o reportando un scrollWidth "fantasma"), desbordando
   // toda la página. Con display:none/flex (hidden/flex) en vez de shrink/basis
   // no hay ambigüedad posible: cada layout es una fila plana normal.
+  // Solo el CÓDIGO. El QR y el link de activación se quitaron a propósito: le
+  // resolvían al alumno el paso de escribir el código, y así nunca se enteraba
+  // de que su asignatura tiene uno. Eso lo dejaba varado después, cuando en la
+  // app —que no trae lector de QR— unirse a otra materia exige teclearlo. Una
+  // sola forma de entrar, la misma en web y en app.
   const subjectHeaderLeftIcons = (
     <>
-      <button type="button" onClick={() => setShowQR(true)}
-        aria-label="Código QR de registro al curso para estudiantes"
-        data-tooltip="Código QR de registro al curso para estudiantes"
-        className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-        <QrCode size={21} />
-      </button>
-      <button type="button" onClick={copyActivationLink}
-        aria-label="Copiar link de registro al curso para estudiantes"
-        data-tooltip="Copiar link de registro al curso para estudiantes"
-        className={`p-2 rounded transition-colors flex-shrink-0 ${copiedLink ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
-        {copiedLink ? <CheckIcon size={21} /> : <Link size={21} />}
-      </button>
       <button type="button" onClick={copyAccessCode}
         data-tooltip="Copiar código de acceso para estudiantes"
         className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
@@ -5767,44 +5735,6 @@ export default function SubjectPage() {
                 Eliminar estudiante
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── QR modal ── */}
-      {showQR && subject && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-3">
-          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowQR(false)} aria-label="Cerrar" />
-          <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-md rounded-card p-6 shadow-2xl text-center max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-left">
-                <h3 className="text-xl font-semibold leading-tight">{subject.nombre}</h3>
-                {subject.grupo && <p className="text-base text-muted">Grupo: {subject.grupo}</p>}
-              </div>
-              <button type="button" onClick={() => setShowQR(false)} aria-label="Cerrar" className="p-2 text-slate-400 rounded flex-shrink-0"><X size={22} /></button>
-            </div>
-            <div className="flex justify-center p-4 bg-surface-card rounded border border-outline-variant mb-4">
-              <QRCode value={activationUrl} size={280} className="max-w-full h-auto" />
-            </div>
-            {subject.accessCode && (
-              <p className={`text-4xl font-bold tracking-wide text-accent ${totalStudents === 0 ? 'mb-1' : 'mb-4'}`}>
-                {subject.accessCode}
-              </p>
-            )}
-            {totalStudents === 0 && (
-              <p className="text-xs text-red-500 mb-4">
-                Antes de compartir estos datos, agrega estudiantes manualmente o mediante la
-                plantilla de Excel en la pestaña Estudiantes{IS_NATIVE_APP ? ' en la web' : ''}.
-              </p>
-            )}
-            <button type="button"
-              onClick={handleExportQRPDF}
-              disabled={exportingPdf}
-              className="w-full flex items-center justify-center gap-2 py-1.5 rounded border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
-            >
-              {exportingPdf ? <Spinner size="sm" /> : <Download size={17} />}
-              {exportingPdf ? 'Generando PDF…' : 'Descargar QR en PDF'}
-            </button>
           </div>
         </div>
       )}
