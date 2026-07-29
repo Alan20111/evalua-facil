@@ -134,7 +134,10 @@ function assignLanes(items) {
 // ─── Event pill component ──────────────────────────────────────────────────
 
 function EventPill({ ev, compact, onClick }) {
-  const Icon = ev.tipo === 'deadline' ? Clock : ev.tipo === 'publicacion' ? Eye : CalendarDays
+  // Fecha límite: candado cerrado/abierto según si ya deja de recibir tarde
+  // (cambia solo cuando el docente edita la actividad). Publicación: sin
+  // candado, se queda como está.
+  const Icon = ev.tipo === 'deadline' ? (ev.cierraEnFecha ? Lock : LockOpen) : ev.tipo === 'publicacion' ? Eye : CalendarDays
   const dot = ev.tipo === 'deadline' && (ev.estado?.tono === 'vencida' || ev.estado?.tono === 'hoy')
   const esActividad = ev.tipo === 'deadline' || ev.tipo === 'publicacion'
   // La materia se muestra SIEMPRE como texto, nunca solo en tooltip: en
@@ -2057,10 +2060,9 @@ export default function CalendarPage() {
         {!IS_NATIVE_APP && (
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted px-1">
           <span className="flex items-center gap-1"><CalendarPlus size={12} /> Bloques de clase (Semana/Mes)</span>
-          <span className="flex items-center gap-1"><Clock size={12} /> Fecha límite (de actividades)</span>
-          <span className="flex items-center gap-1"><Eye size={12} /> Publicación programada</span>
+          <span className="flex items-center gap-1"><Eye size={12} /> Publicación</span>
           <span className="flex items-center gap-1"><CalendarDays size={12} /> Evento personal</span>
-          <span className="flex items-center gap-1"><Lock size={12} /> Ya no recibe tarde</span>
+          <span className="flex items-center gap-1"><Lock size={12} /> Fecha límite — ya no recibe tarde</span>
           <span className="flex items-center gap-1"><LockOpen size={12} /> Sigue recibiendo tarde</span>
         </div>
         )}
