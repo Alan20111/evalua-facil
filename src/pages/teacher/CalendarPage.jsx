@@ -137,23 +137,25 @@ function EventPill({ ev, compact, onClick }) {
   const Icon = ev.tipo === 'deadline' ? Clock : ev.tipo === 'publicacion' ? Eye : CalendarDays
   const dot = ev.tipo === 'deadline' && (ev.estado?.tono === 'vencida' || ev.estado?.tono === 'hoy')
   const esActividad = ev.tipo === 'deadline' || ev.tipo === 'publicacion'
-  const tooltip = esActividad
-    ? [ev.titulo, ev.subtitulo, ev.estado?.label, ev.tipo === 'deadline' && (ev.cierraEnFecha ? 'Cierra en esa fecha' : 'Sigue recibiendo tarde')].filter(Boolean).join(' · ')
-    : undefined
+  // La materia se muestra SIEMPRE como texto, nunca solo en tooltip: en
+  // celular/tablet (touch) los tooltips no aparecen nunca (ver index.css).
+  const materia = esActividad && ev.subtitulo ? ev.subtitulo.split(' · ')[0] : null
   return (
     <button
       type="button"
       onClick={onClick ? e => { e.stopPropagation(); onClick(ev) } : undefined}
-      data-tooltip={tooltip}
-      className={`flex items-center gap-1 rounded text-left w-full truncate transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${compact ? `px-1 py-0.5 ${MES_ITEM_TEXT}` : 'px-2 py-1 text-xs'}`}
+      className={`block rounded text-left w-full transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${compact ? `px-1 py-0.5 ${MES_ITEM_TEXT}` : 'px-2 py-1 text-xs'}`}
       style={{ background: ev.bg, color: ev.text }}
     >
-      <Icon size={10} className="flex-shrink-0" />
-      {dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ev.estado.tono === 'vencida' ? 'bg-red-500' : 'bg-amber-400'}`} />}
-      <span className="truncate">{ev.titulo}</span>
-      {!compact && ev.timeStr && (
-        <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{fmtHour(ev.timeStr)}</span>
-      )}
+      <span className="flex items-center gap-1 w-full truncate">
+        <Icon size={10} className="flex-shrink-0" />
+        {dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ev.estado.tono === 'vencida' ? 'bg-red-500' : 'bg-amber-400'}`} />}
+        <span className="truncate">{ev.titulo}</span>
+        {!compact && ev.timeStr && (
+          <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{fmtHour(ev.timeStr)}</span>
+        )}
+      </span>
+      {materia && <span className="block truncate opacity-75 leading-tight" style={{ fontSize: '9px' }}>{materia}</span>}
     </button>
   )
 }
