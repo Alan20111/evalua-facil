@@ -70,6 +70,10 @@ export default function TeacherDashboard() {
   // mezcladas en la lista con su etiqueta "archivada", que ya cumple ese rol.
   const [showArchived, setShowArchived] = useState(false)
 
+  // Recordatorio de la versión web (solo App): arranca colapsado, se ve nada
+  // más el título hasta que el docente lo abre.
+  const [showWebInfo, setShowWebInfo] = useState(false)
+
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -519,21 +523,32 @@ export default function TeacherDashboard() {
               </div>
             )}
 
-            {/* Recordatorio de la versión web — solo en la App, y a propósito
-                NO es navegable: no abre el navegador ni lleva a ningún lado.
-                Solo deja a la vista la dirección para que el docente la use
-                después desde su computadora. Por eso va como <div> y sin
-                chevron: una flecha prometería un destino que no existe. */}
+            {/* Recordatorio de la versión web — solo en la App. Se ve solo el
+                título; el detalle y la dirección se despliegan al tocarlo.
+                A propósito NO navega: tocarlo abre y cierra, nada más. Por eso
+                el chevron GIRA (mismo lenguaje que "Archivadas" arriba) en vez
+                de apuntar siempre a la derecha, que prometería un destino. */}
             {IS_NATIVE_APP && (
-              <div className="w-full mt-3 bg-surface-card rounded-card p-1.5 shadow-card flex items-center gap-2">
-                <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
-                  <Globe size={21} className="text-accent" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-on-surface">🚀 Lleva tu productividad al siguiente nivel</p>
-                  <p className="text-sm text-slate-500 mt-0.5">Organiza tus asignaturas, configura actividades, consulta reportes y utiliza todas las herramientas de Evalúa Fácil desde la versión web, diseñada para ofrecerte la mejor experiencia de trabajo en computadora.</p>
-                  <p className="text-sm font-semibold text-accent mt-1">www.evaluafacil.mx</p>
-                </div>
+              <div className="w-full mt-3 bg-surface-card rounded-card shadow-card overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowWebInfo((v) => !v)}
+                  aria-expanded={showWebInfo}
+                  className="w-full p-1.5 flex items-center gap-2 text-left hover:bg-[var(--accent-tint)] transition-colors"
+                >
+                  <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
+                    <Globe size={21} className="text-accent" />
+                  </div>
+                  <p className="flex-1 min-w-0 font-semibold text-on-surface">🚀 Lleva tu productividad al siguiente nivel</p>
+                  <ChevronRight size={20} className={`text-slate-300 flex-shrink-0 transition-transform ${showWebInfo ? 'rotate-90' : ''}`} />
+                </button>
+                {showWebInfo && (
+                  <div className="px-3 pb-3 pt-0.5">
+                    <p className="text-sm text-slate-500">Organiza tus asignaturas, configura actividades, consulta reportes y utiliza todas las herramientas de Evalúa Fácil desde la versión web, diseñada para ofrecerte la mejor experiencia de trabajo en computadora.</p>
+                    <p className="text-sm text-slate-500 mt-1.5">Es tu misma cuenta: entras con el mismo correo y contraseña, y todo lo que hagas aquí lo ves allá.</p>
+                    <p className="text-sm font-semibold text-accent mt-1.5">www.evaluafacil.mx</p>
+                  </div>
+                )}
               </div>
             )}
 
