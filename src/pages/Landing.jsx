@@ -11,6 +11,7 @@ export default function Landing() {
         <div className="text-center mb-10">
           {/* Logotipo completo de la marca en lugar del texto "Evalúa Fácil" */}
           <EFLogo className="mx-auto w-64 sm:w-80 h-auto" />
+          <p className="text-xs text-slate-400 mt-2">Evalúa Fácil, creado por Enrique Méndez, Profesor.</p>
           <p className="text-muted mt-4">Elige cómo quieres entrar</p>
         </div>
 

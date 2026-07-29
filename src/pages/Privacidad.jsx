@@ -41,9 +41,10 @@ export default function Privacidad() {
 
         <Seccion titulo="1. Responsable del tratamiento">
           <p>
-            El responsable del tratamiento de tus datos personales es el equipo de
-            Evalúa Fácil. Para cualquier asunto relacionado con este aviso puedes
-            escribirnos a <span className="font-semibold text-on-surface">{CONTACTO}</span>.
+            El responsable del tratamiento de tus datos personales es Enrique Méndez,
+            Profesor y fundador de Evalúa Fácil. Para cualquier asunto relacionado con
+            este aviso puedes escribirnos a{' '}
+            <span className="font-semibold text-on-surface">{CONTACTO}</span>.
           </p>
         </Seccion>
 
