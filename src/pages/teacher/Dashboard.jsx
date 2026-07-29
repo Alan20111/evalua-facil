@@ -519,24 +519,22 @@ export default function TeacherDashboard() {
               </div>
             )}
 
-            {/* Acceso a la versión web — solo en la App. Abre en el navegador
-                externo del dispositivo (no WebView, no diálogo de
-                confirmación); la sesión de la App no se toca. */}
+            {/* Recordatorio de la versión web — solo en la App, y a propósito
+                NO es navegable: no abre el navegador ni lleva a ningún lado.
+                Solo deja a la vista la dirección para que el docente la use
+                después desde su computadora. Por eso va como <div> y sin
+                chevron: una flecha prometería un destino que no existe. */}
             {IS_NATIVE_APP && (
-              <button
-                type="button"
-                onClick={() => window.open('https://www.evaluafacil.mx', '_system')}
-                className="w-full mt-3 bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-2 text-left"
-              >
+              <div className="w-full mt-3 bg-surface-card rounded-card p-1.5 shadow-card flex items-center gap-2">
                 <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                   <Globe size={21} className="text-accent" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-on-surface truncate">🚀 Lleva tu productividad al siguiente nivel</p>
+                  <p className="font-semibold text-on-surface">🚀 Lleva tu productividad al siguiente nivel</p>
                   <p className="text-sm text-slate-500 mt-0.5">Organiza tus asignaturas, configura actividades, consulta reportes y utiliza todas las herramientas de Evalúa Fácil desde la versión web, diseñada para ofrecerte la mejor experiencia de trabajo en computadora.</p>
+                  <p className="text-sm font-semibold text-accent mt-1">www.evaluafacil.mx</p>
                 </div>
-                <ChevronRight size={20} className="text-slate-300 flex-shrink-0" />
-              </button>
+              </div>
             )}
 
           </>
