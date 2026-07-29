@@ -33,6 +33,7 @@ import { IS_NATIVE_APP } from '../utils/platform'
 import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
+import AppQRButton from './AppQRButton'
 import ConfirmModal from './ConfirmModal'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -288,6 +289,17 @@ export default function TeacherLayout({ children }) {
               que en la app móvil (activar/desactivar avisos, el registro de lo
               enviado); casi todo lo que controla solo aplica en el celular
               donde esté instalada la app, pero se puede gestionar desde aquí. */}
+          {/* QR de descarga de la app — arriba de Notificaciones. Va aquí y no
+              dentro de una asignatura porque es el MISMO para todas: la app es
+              una sola y el perfil se elige al abrirla. */}
+          <div className="px-2 pt-2 border-t border-white/15">
+            <AppQRButton
+              className="flex items-center gap-2 w-full px-3 py-1.5 rounded text-body-sm font-medium text-white/80 hover:bg-white/10 transition-colors disabled:opacity-60"
+            >
+              QR para descargar la app
+            </AppQRButton>
+          </div>
+
           <div className="px-2 pt-2 border-t border-white/15">
             <NavLink
               to="/notificaciones"

@@ -14,6 +14,50 @@ function safeFile(subject) {
     .replace(/\s+/g, '_')
 }
 
+// QR de descarga de la app, para proyectar o imprimir. NO lleva datos de
+// ninguna asignatura: es el MISMO para todas, porque la app es una sola y el
+// perfil (docente o estudiante) se elige al abrirla. Por eso vive fuera de la
+// asignatura y no dentro, como vivia el viejo QR de activacion.
+//
+// La direccion va tambien escrita debajo del codigo: si la camara del telefono
+// no lo lee (impresion pobre, proyector con poco contraste), se puede teclear.
+export async function exportAppQRPDF({ url }) {
+  const [{ jsPDF }, QRCodeMod] = await Promise.all([
+    import('jspdf'),
+    import('qrcode'),
+  ])
+  const QRCode = QRCodeMod.default
+
+  const doc = new jsPDF()
+  const centerX = doc.internal.pageSize.getWidth() / 2
+
+  doc.setFont(undefined, 'bold')
+  doc.setFontSize(22)
+  doc.setTextColor(20)
+  doc.text('Descarga la app de Evalua Facil', centerX, 30, { align: 'center' })
+
+  doc.setFont(undefined, 'normal')
+  doc.setFontSize(13)
+  doc.setTextColor(90)
+  doc.text('Escanea este codigo con la camara de tu telefono', centerX, 41, { align: 'center' })
+
+  const qrDataUrl = await QRCode.toDataURL(url, { width: 600, margin: 1 })
+  const qrSize = 120
+  doc.addImage(qrDataUrl, 'PNG', centerX - qrSize / 2, 55, qrSize, qrSize)
+
+  doc.setFont(undefined, 'normal')
+  doc.setFontSize(11)
+  doc.setTextColor(120)
+  doc.text('O escribe esta direccion en tu navegador:', centerX, 190, { align: 'center' })
+
+  doc.setFont(undefined, 'bold')
+  doc.setFontSize(14)
+  doc.setTextColor(37, 99, 235)
+  doc.text(url, centerX, 199, { align: 'center' })
+
+  await savePdfDoc(doc, 'descarga_app_evalua_facil.pdf')
+}
+
 // Ranking report: estudiantes ordenados por promedio (mayor a menor).
 // Columnas: Lugar, No., Estudiante, Promedio. `rows` = [{ lugar, orden, nombre,
 // promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".

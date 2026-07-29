@@ -31,6 +31,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { APP_DOWNLOAD_URL, APP_DOWNLOAD_READY } from '../../config/appDownload'
+import AppQRButton from '../../components/AppQRButton'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
 
@@ -508,6 +509,18 @@ export default function TeacherDashboard() {
               >
                 <Plus size={18} /> Nueva asignatura
               </button>
+            )}
+
+            {/* QR de descarga de la app — solo en la App, arriba de
+                "Archivadas". En la web el mismo botón vive en el menú lateral,
+                arriba de Notificaciones. */}
+            {IS_NATIVE_APP && (
+              <AppQRButton
+                iconSize={21}
+                className="w-full mb-3 bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-md hover:bg-[var(--accent-tint)] transition-all duration-200 flex items-center gap-2 text-left disabled:opacity-60 text-accent"
+              >
+                <span className="flex-1 min-w-0 font-semibold text-on-surface">QR para descargar la app</span>
+              </AppQRButton>
             )}
 
             {/* Archivadas — solo en la App (en la web ya viven en el sidebar,
