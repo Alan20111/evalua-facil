@@ -27,6 +27,21 @@ export function fmtAttDateParts(fecha) {
   }
 }
 
+const DIAS_SEMANA_LARGOS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+
+// 'YYYY-MM-DD' → 'miércoles 29/jul/2026' — para el tooltip del encabezado de
+// cada día en la WEB del docente, donde el número suelto de la columna no
+// alcanza a decir de qué día se trata. Año completo (no los dos dígitos de
+// fmtAttDateParts): en el tooltip hay espacio y no deja lugar a dudas.
+// Se construye con new Date(y, m-1, d) en hora local a propósito — armarlo
+// desde la cadena lo interpretaría como UTC y en México correría el día uno
+// hacia atrás, que es justo el dato que este tooltip existe para dar.
+export function fmtAttDateLong(fecha) {
+  const [y, m, d] = fecha.split('-').map(Number)
+  const diaSemana = DIAS_SEMANA_LARGOS[new Date(y, m - 1, d).getDay()] || ''
+  return `${diaSemana} ${String(d).padStart(2, '0')}/${MESES_CORTOS[m - 1] || ''}/${y}`
+}
+
 // Trae toda la asistencia de una asignatura en una sola lectura (igual que
 // loadGrades con submissions) — solo where('asignaturaId','==') para no
 // necesitar un índice compuesto nuevo. Ordena en memoria por fecha y slot.

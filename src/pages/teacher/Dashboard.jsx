@@ -589,12 +589,12 @@ export default function TeacherDashboard() {
                   <div className="w-11 h-11 rounded bg-accent-light flex items-center justify-center flex-shrink-0">
                     <Smartphone size={21} className="text-accent" />
                   </div>
-                  <p className="flex-1 min-w-0 font-semibold text-on-surface">📱 Lleva Evalúa Fácil contigo al aula</p>
+                  <p className="flex-1 min-w-0 font-semibold text-on-surface">📱 También puedes usar la app en tu celular</p>
                   <ChevronRight size={20} className={`text-slate-300 flex-shrink-0 transition-transform ${showAppInfo ? 'rotate-90' : ''}`} />
                 </button>
                 {showAppInfo && (
                   <div className="px-3 pb-3 pt-0.5">
-                    <p className="text-sm text-slate-500">Con la app en tu celular pasas lista, revisas entregas y capturas calificaciones desde el salón, sin cargar la computadora.</p>
+                    <p className="text-sm text-slate-500">Con la app revisas entregas y capturas calificaciones desde tu celular. Por ejemplo, puedes tomar lista en clase sin cargar la computadora.</p>
                     <p className="text-sm text-slate-500 mt-1.5">Es una sola app para docentes y estudiantes: al abrirla eliges con cuál perfil entras, igual que aquí.</p>
                     <p className="text-sm text-slate-500 mt-1.5">Es tu misma cuenta: inicia sesión con el mismo correo y contraseña. Todo lo que hagas en la versión web se refleja en la app, y viceversa.</p>
                     {APP_DOWNLOAD_READY ? (
