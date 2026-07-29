@@ -100,6 +100,14 @@ export function FilePreview({ url, nombre, fill = false }) {
   if (isPdf && isImageDeliveredPdf(url)) {
     return <PdfPagesPreview url={url} nombre={nombre} fill={fill} />
   }
+  // `allow-scripts` es obligatorio aquí: este iframe no muestra el archivo del
+  // alumno directamente, carga docs.google.com/viewer — una app de Google que
+  // necesita JavaScript para renderizar. Sin este permiso, Word/Excel/PowerPoint
+  // cargaban en blanco (se quitó por error el 2026-07-09 pensando que "solo se
+  // visualiza, no se necesita ejecutar script" — pero el visor SÍ es un script).
+  // Es seguro: el script que corre es el de Google en SU dominio, no el
+  // documento del alumno; same-origin policy impide que docs.google.com toque
+  // evaluafacil.mx. El PDF vía <object> no lo necesita y no lo lleva.
   return isImage ? (
     <img src={url} alt={nombre} className={`w-full object-contain ${fill ? 'h-full' : 'max-h-[70vh]'}`} />
   ) : isPdf ? (
@@ -115,7 +123,7 @@ export function FilePreview({ url, nombre, fill = false }) {
       <iframe
         src={docsViewerUrl(viewUrl)}
         title={`Vista previa: ${nombre}`}
-        sandbox="allow-same-origin allow-popups"
+        sandbox="allow-scripts allow-same-origin allow-popups"
         className="w-full h-full"
         style={{ border: 'none' }}
       />
@@ -124,7 +132,7 @@ export function FilePreview({ url, nombre, fill = false }) {
     <iframe
       src={docsViewerUrl(viewUrl)}
       title={`Vista previa: ${nombre}`}
-      sandbox="allow-same-origin allow-popups"
+      sandbox="allow-scripts allow-same-origin allow-popups"
       className={`w-full ${fill ? 'h-full' : 'h-[70vh]'}`}
       style={{ border: 'none' }}
     />
