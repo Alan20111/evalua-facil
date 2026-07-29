@@ -57,7 +57,7 @@ function buildHtml() {
                  style="margin-bottom:28px;">
             <tr>
               <td align="center">
-                <a href="https://evalua-facil.vercel.app"
+                <a href="https://evaluafacil.mx"
                    style="display:inline-block;background:#2563eb;color:#ffffff;
                           font-size:15px;font-weight:700;text-decoration:none;
                           padding:15px 40px;border-radius:12px;letter-spacing:0.3px;">
@@ -78,8 +78,8 @@ function buildHtml() {
 
           <p style="margin:28px 0 0;color:#94a3b8;font-size:12px;text-align:center;line-height:1.6;">
             Si tienes problemas con el botón, visita<br/>
-            <a href="https://evalua-facil.vercel.app"
-               style="color:#2563eb;text-decoration:none;">evalua-facil.vercel.app</a>
+            <a href="https://evaluafacil.mx"
+               style="color:#2563eb;text-decoration:none;">evaluafacil.mx</a>
           </p>
 
         </td>
