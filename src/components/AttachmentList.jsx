@@ -6,25 +6,29 @@ import { formatFileSize } from '../utils/formatBytes'
 import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import SpreadsheetPreview from './SpreadsheetPreview'
 
 const PDF_EXTS = ['pdf']
-const OFFICE_EXTS = ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt']
+// Word y PowerPoint: no hay forma confiable de mostrarlos sin un visor
+// externo, así que van por Google Docs Viewer (funciona para estos dos; el
+// problema real era solo con hojas de cálculo, ver SPREADSHEET_EXTS).
+const DOC_EXTS = ['docx', 'doc', 'pptx', 'ppt']
+// Excel: NO usa ningún visor externo. Se prueban y se descartan dos:
+// - Google Docs Viewer lee el archivo (su propia respuesta de metadatos trae
+//   las celdas) pero devuelve "pages":0 y muestra "No se pudo obtener una
+//   vista previa" de todos modos — limitación conocida del visor viejo de
+//   Google con hojas de cálculo.
+// - Microsoft Office Viewer, probado en vivo el 2026-07-29: no se ve nada al
+//   incrustarlo, ni siquiera un error — rechaza mostrarse fuera de un dominio
+//   de Microsoft.
+// La solución: SpreadsheetPreview baja el archivo y lo convierte con SheetJS,
+// sin depender de ningún tercero.
+const SPREADSHEET_EXTS = ['xlsx', 'xls']
+const OFFICE_EXTS = [...DOC_EXTS, ...SPREADSHEET_EXTS]
 const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']
 
 function docsViewerUrl(url) {
   return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
-}
-
-// Word/Excel/PowerPoint van por el visor de MICROSOFT, no el de Google.
-// Probado 2026-07-29: subiendo un .xlsx real a este mismo Cloudinary (público,
-// 200 OK confirmado), el visor de Google devuelve "pages":0 en su propia
-// respuesta de metadatos —pese a haber leído el contenido correctamente— y
-// muestra "No se pudo obtener una vista previa" de todos modos. Es una
-// limitación conocida del visor viejo de Google con hojas de cálculo, no un
-// problema de Cloudinary ni de este proyecto. El de Microsoft está hecho
-// específicamente para estos tres formatos.
-function officeViewerUrl(url) {
-  return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(url)}`
 }
 
 // Cloudinary stores PDFs uploaded via /auto/upload as /image/upload/ which
@@ -44,17 +48,18 @@ function FileRow({ f, onRemove, index }) {
   const canView = isPdf || isOffice || isImage
   const { icon: Icon, color } = getResourceIcon(f.nombre)
 
+  const isSpreadsheet = SPREADSHEET_EXTS.includes(ext)
   const isImgPdf = isPdf && isImageDeliveredPdf(f.url)
   const viewUrl = isPdf && !isImgPdf ? pdfUrl(f.url) : f.url
   const downloadHref = downloadUrl(f.url, f.nombre)
   // "Open in a new tab": image-delivered PDFs can't go through Google Docs
-  // (their raw URL is blocked), so open page 1 as an image instead. Office
-  // documents van por el visor de Microsoft, no el de Google (ver
-  // officeViewerUrl).
+  // (their raw URL is blocked), so open page 1 as an image instead. Excel no
+  // tiene "abrir en pestaña nueva" — su vista previa es propia (SheetJS), no
+  // una página externa que se pueda abrir aparte.
   const openInTabUrl = isImgPdf
     ? pdfPageImageUrl(f.url, 1)
-    : isOffice ? officeViewerUrl(viewUrl)
-    : isPdf ? docsViewerUrl(viewUrl)
+    : isSpreadsheet ? null
+    : (isPdf || isOffice) ? docsViewerUrl(viewUrl)
     : null
 
   return (
@@ -109,6 +114,7 @@ export function FilePreview({ url, nombre, fill = false }) {
   const ext = resourceExtension(nombre)
   const isPdf = PDF_EXTS.includes(ext)
   const isImage = IMAGE_EXTS.includes(ext)
+  const isSpreadsheet = SPREADSHEET_EXTS.includes(ext)
   const viewUrl = isPdf ? pdfUrl(url) : url
   if (!url) return null
   // PDFs uploaded as an image resource → render their pages as JPGs. This works
@@ -116,14 +122,17 @@ export function FilePreview({ url, nombre, fill = false }) {
   if (isPdf && isImageDeliveredPdf(url)) {
     return <PdfPagesPreview url={url} nombre={nombre} fill={fill} />
   }
-  // `allow-scripts` es obligatorio en los dos iframes de abajo: no muestran el
-  // archivo del alumno directamente, cargan la página del visor (Google o
-  // Microsoft) — apps que necesitan JavaScript para renderizar. Sin este
-  // permiso, Word/Excel/PowerPoint cargaban en blanco (se quitó por error el
-  // 2026-07-09 pensando que "solo se visualiza, no se necesita ejecutar
-  // script" — pero el visor SÍ es un script). Es seguro: el script que corre
-  // es el del visor en SU dominio, no el documento del alumno; same-origin
-  // policy impide que ese dominio toque evaluafacil.mx.
+  if (isSpreadsheet) {
+    return <SpreadsheetPreview url={url} nombre={nombre} fill={fill} />
+  }
+  // `allow-scripts` es obligatorio en los dos casos de abajo: no muestran el
+  // archivo del alumno directamente, cargan la página de Google Docs Viewer —
+  // una app que necesita JavaScript para renderizar. Sin este permiso, PDF y
+  // Word/PowerPoint cargaban en blanco (se quitó por error el 2026-07-09
+  // pensando que "solo se visualiza, no se necesita ejecutar script" — pero
+  // el visor SÍ es un script). Es seguro: el script que corre es el de
+  // Google en SU dominio, no el documento del alumno; same-origin policy
+  // impide que docs.google.com toque evaluafacil.mx.
   return isImage ? (
     <img src={url} alt={nombre} className={`w-full object-contain ${fill ? 'h-full' : 'max-h-[70vh]'}`} />
   ) : isPdf ? (
@@ -145,13 +154,10 @@ export function FilePreview({ url, nombre, fill = false }) {
       />
     </object>
   ) : (
-    // Solo se llega aquí para Word/Excel/PowerPoint (canPreviewFile solo deja
-    // pasar PDF, imagen u Office) — por eso siempre es el visor de Microsoft,
-    // sin condicional de por medio. Ver officeViewerUrl arriba: el de Google
-    // "lee" estos archivos pero se rehúsa a mostrarlos (pages:0 en su propia
-    // respuesta), verificado el 2026-07-29.
+    // Solo se llega aquí para Word/PowerPoint (canPreviewFile solo deja pasar
+    // PDF, imagen u Office, y Excel ya se resolvió arriba con SpreadsheetPreview).
     <iframe
-      src={officeViewerUrl(viewUrl)}
+      src={docsViewerUrl(viewUrl)}
       title={`Vista previa: ${nombre}`}
       sandbox="allow-scripts allow-same-origin allow-popups"
       className={`w-full ${fill ? 'h-full' : 'h-[70vh]'}`}
