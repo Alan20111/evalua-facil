@@ -532,8 +532,8 @@ export default function TeacherDashboard() {
                   <Globe size={21} className="text-accent" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-on-surface truncate">Abrir versión web</p>
-                  <p className="text-sm text-slate-500 mt-0.5">Accede a todas las herramientas de Evalúa Fácil.</p>
+                  <p className="font-semibold text-on-surface truncate">🚀 Lleva tu productividad al siguiente nivel</p>
+                  <p className="text-sm text-slate-500 mt-0.5">Organiza tus asignaturas, configura actividades, consulta reportes y utiliza todas las herramientas de Evalúa Fácil desde la versión web, diseñada para ofrecerte la mejor experiencia de trabajo en computadora.</p>
                 </div>
                 <ChevronRight size={20} className="text-slate-300 flex-shrink-0" />
               </button>
