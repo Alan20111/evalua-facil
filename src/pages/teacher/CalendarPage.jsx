@@ -147,10 +147,12 @@ function EventPill({ ev, compact, onClick }) {
       className={`block rounded text-left w-full transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'} ${compact ? `px-1 py-0.5 ${MES_ITEM_TEXT}` : 'px-2 py-1 text-xs'}`}
       style={{ background: ev.bg, color: ev.text }}
     >
-      <span className="flex items-center gap-1 w-full truncate">
-        <Icon size={10} className="flex-shrink-0" />
-        {dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ev.estado.tono === 'vencida' ? 'bg-red-500' : 'bg-amber-400'}`} />}
-        <span className="truncate">{ev.titulo}</span>
+      <span className="flex items-start gap-1 w-full">
+        <Icon size={10} className="flex-shrink-0 mt-0.5" />
+        {dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${ev.estado.tono === 'vencida' ? 'bg-red-500' : 'bg-amber-400'}`} />}
+        {/* Nunca se corta el nombre: si no cabe en un renglón, pasa a dos —
+            así "(Publicada)"/"(Cierre)" siempre queda visible. */}
+        <span className="line-clamp-2 break-words leading-tight">{ev.titulo}</span>
         {!compact && ev.timeStr && (
           <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{fmtHour(ev.timeStr)}</span>
         )}
@@ -201,10 +203,14 @@ function AgendaView({
     })),
     ...timedEvs.map(ev => {
       const start = timeToMinutes(ev.timeStr)
-      let end = start + 40 // duración visual mínima
+      // Duración visual mínima: las actividades llevan nombre (hasta 2
+      // renglones) + materia + estado/candado, así que necesitan más alto
+      // que un evento personal simple para no recortarse.
+      const minVisual = (ev.tipo === 'deadline' || ev.tipo === 'publicacion') ? 75 : 40
+      let end = start + minVisual
       if (ev.endTimeStr && ev.endDateStr === ev.dateStr) {
         const e = timeToMinutes(ev.endTimeStr)
-        if (e > start + 40) end = e
+        if (e > start + minVisual) end = e
       }
       return { kind: 'event', id: ev.id, start, end, ev }
     }),
@@ -372,7 +378,7 @@ function AgendaView({
                   </div>
                   {/* Evento y descripción a la derecha */}
                   <div className="flex-1 min-w-0 pl-2.5 py-1.5">
-                    <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight truncate`}>{titulo}</span>
+                    <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight line-clamp-2 break-words`}>{titulo}</span>
                     {sub && <span className="block text-xs opacity-75 leading-tight truncate">{sub}</span>}
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
                       <span className="inline-flex items-center gap-1 text-[10px] opacity-70 leading-tight">
@@ -797,11 +803,11 @@ function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numD
                         ev.editable && 'arrastra para mover',
                       ].filter(Boolean).join(' · ')}
                     >
-                      <span className={`flex items-center gap-1 ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>
+                      <span className={`flex items-start gap-1 ${GRID_ITEM_TEXT} font-normal leading-tight`}>
                         {ev.tipo === 'deadline' && (ev.cierraEnFecha
-                          ? <Lock size={9} className="flex-shrink-0 opacity-80" />
-                          : <LockOpen size={9} className="flex-shrink-0 opacity-80" />)}
-                        <span className="truncate">{ev.titulo}</span>
+                          ? <Lock size={9} className="flex-shrink-0 opacity-80 mt-0.5" />
+                          : <LockOpen size={9} className="flex-shrink-0 opacity-80 mt-0.5" />)}
+                        <span className="line-clamp-2 break-words">{ev.titulo}</span>
                       </span>
                       {ev.tipo === 'deadline' && (
                         <span className={`block text-[10px] opacity-90 leading-tight truncate font-medium ${ev.estado?.tono === 'vencida' ? 'text-red-100' : ''}`}>{ev.estado.label}</span>
@@ -2054,6 +2060,8 @@ export default function CalendarPage() {
           <span className="flex items-center gap-1"><Clock size={12} /> Fecha límite (de actividades)</span>
           <span className="flex items-center gap-1"><Eye size={12} /> Publicación programada</span>
           <span className="flex items-center gap-1"><CalendarDays size={12} /> Evento personal</span>
+          <span className="flex items-center gap-1"><Lock size={12} /> Ya no recibe tarde</span>
+          <span className="flex items-center gap-1"><LockOpen size={12} /> Sigue recibiendo tarde</span>
         </div>
         )}
       </div>
