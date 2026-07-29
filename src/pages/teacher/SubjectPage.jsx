@@ -3803,7 +3803,17 @@ export default function SubjectPage() {
               cualquier ancho, sin excepción. Se pierde el espacio extra entre
               el grupo de "compartir" y el de "administrar", pero la fila
               nunca vuelve a desbordar la página. */}
-          <div className="flex flex-wrap items-center gap-1 mt-2 overflow-hidden">
+          {/* SIN overflow-hidden: los tooltips de estos botones se dibujan
+              ARRIBA del botón, o sea fuera de esta caja, y con overflow-hidden
+              quedaban recortados — invisibles. Antes no se notaba porque la
+              fila traía dos botones más (QR y link) y se partía en dos
+              renglones: los del segundo sí tenían espacio arriba, dentro de la
+              caja. Al quedar todo en un renglón se recortaron todos.
+              Quitarlo es seguro para el desbordamiento que arreglaba el #499:
+              lo que de verdad lo resolvió fue que estos botones sean hijos
+              PLANOS de un solo flex-wrap (ver el comentario de arriba), no el
+              recorte. */}
+          <div className="flex flex-wrap items-center gap-1 mt-2">
             {subjectHeaderLeftIcons}
             {subjectHeaderRightIcons}
           </div>
