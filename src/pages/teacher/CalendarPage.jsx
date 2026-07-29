@@ -155,7 +155,7 @@ function EventPill({ ev, compact, onClick }) {
           <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{fmtHour(ev.timeStr)}</span>
         )}
       </span>
-      {materia && <span className="block truncate opacity-75 leading-tight" style={{ fontSize: '9px' }}>{materia}</span>}
+      {materia && <span className={`block truncate opacity-80 leading-tight ${IS_NATIVE_APP ? 'text-[10px]' : 'text-[11px]'}`}>{materia}</span>}
     </button>
   )
 }
