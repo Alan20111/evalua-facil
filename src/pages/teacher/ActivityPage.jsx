@@ -2220,7 +2220,12 @@ export default function ActivityPage() {
             oculta: activity.oculta ?? false,
             publishAt: activity.publishAt || '',
             publishedAt: activity.publishedAt || '',
-            visibilidadMode: activity.publishedAt ? 'show' : (activity.publishAt ? 'schedule' : 'hide'),
+            // 'published', no 'show': 'show' significa "publicar AHORA MISMO" y
+            // resolveVisibilidad valida la fecha límite contra ese instante de
+            // guardado (no contra publishedAt) — en una actividad ya publicada
+            // eso comparaba la fecha límite contra la hora de editar, no contra
+            // la hora real de publicación, y rechazaba fechas límite válidas.
+            visibilidadMode: activity.publishedAt ? 'published' : (activity.publishAt ? 'schedule' : 'hide'),
             // Checkbox reads the positive framing ("cerrar en fecha"); the real DB field
             // (recibirTarde) is the inverse — see EntregableEditor's save payload.
             cerrarEntregasEnFecha: !activity.recibirTarde,
