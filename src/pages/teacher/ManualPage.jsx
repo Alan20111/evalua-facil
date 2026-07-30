@@ -28,7 +28,7 @@ const SECTIONS = [
           'Programa tus clases y crea tu horario — de ahí se definen los días de lista. Lo ves en Agenda y calendario.',
           'Cuestionarios y exámenes con gráficas por reactivo — te dicen cuál pregunta falló el grupo, no solo quién reprobó. Lo ves en Actividades.',
           'Banco de reactivos — escribes una pregunta una vez y la reutilizas cuando quieras. Lo ves en Banco de reactivos.',
-          'Rúbricas y listas de cotejo — marcas el nivel de cada criterio y la calificación se calcula sola. Lo ves en Rúbricas y listas de cotejo.',
+          'Rúbricas y listas de cotejo — tú las armas con tus propios criterios; al calificar, marcas el nivel de cada uno y la calificación se calcula sola. Lo ves en Rúbricas y listas de cotejo.',
           'Cierra el parcial completo en una acción, y puedes revertirlo. Lo ves en Calificaciones.',
           'Copia tu asignatura completa para el siguiente ciclo — tu planeación entera, lista otra vez. Lo ves en Asignaturas y grupos.',
           'Excel y PDF listos para entregar. Lo ves en Reportes y exportación.',
