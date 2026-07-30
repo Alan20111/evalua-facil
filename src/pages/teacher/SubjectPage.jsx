@@ -69,6 +69,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import EvaluacionEditor from '../../components/EvaluacionEditor'
 import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
+import AvisosTab from '../../components/subject/AvisosTab'
 import { canCreateContent } from '../../utils/subscriptionHelpers'
 
 async function fetchSubmissionsForActivities(actIds) {
@@ -3845,14 +3846,14 @@ export default function SubjectPage() {
               escritorio, donde sí caben cómodas. */}
           <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded overflow-x-auto">
             {(IS_NATIVE_APP
-              ? ['actividades', 'asistencia', 'alumnos', 'recursos']
-              : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos']
+              ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
+              : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos']
             ).map((t) => (
               <button type="button" key={t} onClick={() => switchTab(t)}
                 className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
                   activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
                 }`}>
-                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : 'Recursos'}
+                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : 'Avisos'}
               </button>
             ))}
           </div>
@@ -5201,6 +5202,20 @@ export default function SubjectPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════
+          TAB: AVISOS
+      ══════════════════════════════════════════════════════════ */}
+      {activeTab === 'avisos' && (
+        <div className={TEACHER_CONTAINER_NARROW}>
+          <AvisosTab
+            subjectId={subjectId}
+            docenteId={currentUser.uid}
+            canCreate={canCreate}
+            onBlockedCreate={() => toast('Activa tu suscripción mensual para publicar avisos', 'error')}
+          />
         </div>
       )}
       </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, GraduationCap, Users, ClipboardList, ClipboardCheck, Database, Percent, UserCheck, CalendarDays, FileDown, UserCog, Check, AlertTriangle, Compass } from 'lucide-react'
+import { BookOpen, GraduationCap, Users, ClipboardList, ClipboardCheck, Database, Percent, UserCheck, CalendarDays, FileDown, UserCog, Check, AlertTriangle, Compass, Megaphone } from 'lucide-react'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 
 // Manual del docente. Todo el contenido está verificado contra el código real
@@ -286,6 +286,36 @@ const SECTIONS = [
         subtitle: 'Dónde se crean',
         items: [
           '⚠ Crear y editar rúbricas es de la versión web. Desde la app puedes elegir una que ya tengas en tu banco y calificar con ella.',
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'avisos',
+    title: 'Avisos',
+    icon: Megaphone,
+    content: [
+      {
+        subtitle: 'Para qué existe',
+        items: [
+          'Es un comunicado, no un chat: no hay respuestas, comentarios, reacciones ni archivos adjuntos. Solo informas.',
+          'El aviso es de la asignatura completa, no de un parcial ni de una actividad — lo ve todo tu grupo.',
+        ],
+      },
+      {
+        subtitle: 'Publicar un aviso',
+        items: [
+          'Eliges primero el motivo (no habrá clase, cambio de horario, calificaciones publicadas, etc.) y el título se completa solo. Lo puedes cambiar.',
+          'Escribes el mensaje y publicas. Aparece de inmediato en la pestaña Avisos de tus estudiantes, con el más reciente arriba.',
+          'Editar y eliminar están en el menú de tres puntos de cada aviso.',
+        ],
+      },
+      {
+        subtitle: 'Aviso a tus estudiantes',
+        items: [
+          'Cada estudiante inscrito recibe una notificación push al celular donde tenga instalada la app, con tu título y tu mensaje.',
+          'Al tocarla, entra directo a Avisos de esa asignatura.',
         ],
       },
     ],

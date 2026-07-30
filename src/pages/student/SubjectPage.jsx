@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection,
   query,
@@ -28,13 +28,14 @@ import AttachmentList from '../../components/AttachmentList'
 import {
   ArrowLeft, ChevronDown, ChevronUp,
   Clock, Star, FolderOpen, BookOpen, Paperclip,
-  GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download,
+  GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { avisoTipoInfo, formatAvisoFecha } from '../../utils/avisos'
 
 function ResourceCard({ resource: r }) {
   const isLink = r.tipo === 'link'
@@ -78,7 +79,7 @@ function formatResourceDate(ts) {
   return ts.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-const TABS = ['Actividades y calificaciones', 'Asistencias', 'Recursos']
+const TABS = ['Actividades y calificaciones', 'Asistencias', 'Recursos', 'Avisos']
 
 const DIAS_SEMANA = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
@@ -123,11 +124,13 @@ export default function StudentSubjectPage() {
   const [submissions, setSubmissions] = useState({})
   const [resources, setResources] = useState([])
   const [materials, setMaterials] = useState([])
+  const [avisos, setAvisos] = useState([])
   const [attendanceSummary, setAttendanceSummary] = useState(null)
   const [teacherName, setTeacherName] = useState('')
   const [teacherPhoto, setTeacherPhoto] = useState(null)
   const [openParcial, setOpenParcial] = useState(1)
-  const [activeTab, setActiveTab] = useState('Actividades y calificaciones')
+  const routerLocation = useLocation()
+  const [activeTab, setActiveTab] = useState(routerLocation.state?.tab || 'Actividades y calificaciones')
   // Descarga de sus propias entregas — su trabajo es suyo y debe poder
   // llevárselo sin depender de que su maestro se lo pase.
   const [zipping, setZipping] = useState(false)
@@ -153,11 +156,12 @@ export default function StudentSubjectPage() {
     // component is reused (not remounted) when switching subjects, so reset it here.
     setOpenParcial(1)
     try {
-      const [subSnap, studData, actsSnap, resSnap] = await Promise.all([
+      const [subSnap, studData, actsSnap, resSnap, avisosSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
         getEnrollmentForSubject(currentUser, userProfile, subjectId),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
         getDocs(query(collection(db, 'resources'), where('asignaturaId', '==', subjectId))),
+        getDocs(query(collection(db, 'avisos'), where('asignaturaId', '==', subjectId))),
       ])
       const matsSnap = await getDocs(
         query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))
@@ -212,6 +216,11 @@ export default function StudentSubjectPage() {
       setResources(
         resSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.fechaPublicacion?.seconds ?? 0) - (a.fechaPublicacion?.seconds ?? 0))
+      )
+      setAvisos(
+        avisosSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+          .filter((a) => a.activo !== false)
+          .sort((a, b) => (b.fechaCreacion?.seconds ?? 0) - (a.fechaCreacion?.seconds ?? 0))
       )
       setMaterials(
         matsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -700,6 +709,36 @@ export default function StudentSubjectPage() {
                   <ResourceCard key={r.id} resource={r} />
                 ))}
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Avisos — solo lectura, sin responder/comentar/reaccionar. */}
+      {activeTab === 'Avisos' && (
+        <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
+          {avisos.length === 0 ? (
+            <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
+              <Megaphone size={32} className="text-slate-300 mx-auto mb-3" />
+              <p className="text-muted text-sm">El docente no ha publicado avisos aún.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {avisos.map((a) => {
+                const info = avisoTipoInfo(a.tipo)
+                return (
+                  <div key={a.id} className="bg-surface-card rounded-card border border-outline-variant shadow-card px-4 py-3">
+                    <div className="flex items-start gap-3">
+                      <span className="text-xl leading-none flex-shrink-0 mt-0.5" aria-hidden="true">{info.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-on-surface">{a.titulo}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{formatAvisoFecha(a.fechaCreacion)}</p>
+                        <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap">{a.mensaje}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

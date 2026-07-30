@@ -198,6 +198,20 @@ service cloud.firestore {
         request.auth.uid == resource.data.docenteId;
     }
 
+    // Avisos — comunicados de solo-informar del docente a todo el grupo de
+    // una asignatura (no es un chat: sin respuestas ni reacciones, así que
+    // no hay una sub-colección de mensajes que proteger). Mismo patrón de
+    // lectura/escritura que `activities`: cualquier autenticado lee, solo el
+    // docente dueño de la asignatura crea/edita/borra los suyos.
+    match /avisos/{avisoId} {
+      allow read: if request.auth != null;
+      allow create: if isDocente() &&
+        request.auth.uid == request.resource.data.docenteId &&
+        ownsSubject(request.resource.data.asignaturaId);
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+    }
+
     // "Material de apoyo" — per-parcial course material (one or more files +
     // optional rich-text description). Independent of `activities`: it never
     // creates a submission/grade, so it has no link to `submissions` at all.
