@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Download, X, FileSearch, ExternalLink, ZoomIn } from 'lucide-react'
+import { Download, X, FileSearch, ExternalLink } from 'lucide-react'
 import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
 import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
@@ -140,12 +140,11 @@ export function FilePreview({ url, nombre, fill = false }) {
 
 // Word/PowerPoint vía Google Docs Viewer. En la App, el botón "Ventana
 // emergente" de la propia barra de Google (arriba a la derecha) no hace
-// nada — intenta abrir una pestaña nueva y un WebView no tiene pestañas.
-// En ese MISMO lugar ponemos nuestro propio botón de zoom (real, funcional):
-// abre el documento en una ventana completa aparte, con el aviso de
-// "pellizca para hacer zoom" bien visible — el zoom del iframe inline a
-// veces aparecía y a veces no, así que se explica claramente en la ventana
-// dedicada en vez de dejarlo a la suerte del ancho angosto del panel.
+// nada útil — intenta abrir una pestaña nueva y un WebView no tiene
+// pestañas. En ese MISMO lugar ponemos nuestro propio botón: sin ícono
+// encima (se ve igual que antes, invisible), pero ahora sí funcional — al
+// presionarlo abre el documento en una ventana completa aparte, con el
+// aviso de "pellizca para hacer zoom" bien visible.
 function OfficeDocPreview({ url, nombre, fill }) {
   const [zoomOpen, setZoomOpen] = useState(false)
   return (
@@ -154,7 +153,7 @@ function OfficeDocPreview({ url, nombre, fill }) {
         <iframe
           src={docsViewerUrl(url)}
           title={`Vista previa: ${nombre}`}
-          sandbox="allow-scripts allow-same-origin allow-popups"
+          sandbox="allow-scripts allow-same-origin"
           className="w-full h-full"
           style={{ border: 'none' }}
         />
@@ -162,12 +161,10 @@ function OfficeDocPreview({ url, nombre, fill }) {
           <button
             type="button"
             onClick={() => setZoomOpen(true)}
-            aria-label="Ampliar para hacer zoom"
-            data-tooltip="Ampliar para hacer zoom"
-            className="absolute top-0 right-0 w-11 h-9 bg-white flex items-center justify-center text-accent"
-          >
-            <ZoomIn size={18} />
-          </button>
+            aria-label="Ver ampliado"
+            data-tooltip="Ver ampliado"
+            className="absolute top-0 right-0 w-11 h-9 bg-white"
+          />
         )}
       </div>
       {zoomOpen && <OfficeDocZoomModal url={url} nombre={nombre} onClose={() => setZoomOpen(false)} />}
@@ -191,10 +188,16 @@ function OfficeDocZoomModal({ url, nombre, onClose }) {
         Pellizca con dos dedos sobre el documento para hacer zoom
       </p>
       <div className="flex-1 min-h-0">
+        {/* Sin allow-popups: los botones de zoom/+/- de la barra de Google
+            usan window.open() para algo interno de su UI — con allow-popups,
+            eso lo intercepta el WebView de Capacitor y saca al docente de la
+            App hacia el navegador del sistema (lo que se reportó como "se
+            sale"). Sin ese permiso, esas llamadas simplemente no hacen nada,
+            en vez de expulsar al usuario. */}
         <iframe
           src={docsViewerUrl(url)}
           title={`Vista ampliada: ${nombre}`}
-          sandbox="allow-scripts allow-same-origin allow-popups"
+          sandbox="allow-scripts allow-same-origin"
           className="w-full h-full"
           style={{ border: 'none' }}
         />
