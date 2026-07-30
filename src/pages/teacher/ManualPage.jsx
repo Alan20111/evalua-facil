@@ -258,6 +258,7 @@ const SECTIONS = [
       {
         subtitle: 'Cómo se arma una rúbrica',
         items: [
+          'Tú defines los criterios, los niveles y los puntajes — la plataforma no la genera por ti, solo te ayuda a capturarla y hace la suma.',
           'Entre 2 y 6 criterios, y entre 3 y 5 niveles de desempeño.',
           'El nivel más alto vale 10 puntos. Los siguientes valen menos, en orden descendente, y solo el más bajo puede valer 0.',
           'El peso de los criterios se reparte parejo al empezar, y tú lo ajustas. Cada columna debe cuadrar con el puntaje de su nivel.',
