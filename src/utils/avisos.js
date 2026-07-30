@@ -27,3 +27,10 @@ export function formatAvisoFecha(ts) {
   if (!ts?.toDate) return ''
   return ts.toDate().toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
+
+// Id determinístico de `avisoLecturas` — un doc por (aviso, estudiante), para
+// que confirmar "Entendido" dos veces (doble tap, reintento de red) actualice
+// el mismo registro en vez de crear duplicados.
+export function lecturaDocId(avisoId, studentId) {
+  return `${avisoId}_${studentId}`
+}

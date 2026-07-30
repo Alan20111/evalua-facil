@@ -47,6 +47,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect -- recarga al cambiar de asignatura
   useEffect(() => { loadAvisos() }, [subjectId])
 
   function openAdd() {
@@ -207,13 +208,13 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-on-surface mb-1">Título</label>
-                    <input type="text" value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
-                      className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm" autoFocus />
+                    <label htmlFor="aviso-titulo" className="block text-sm font-medium text-on-surface mb-1">Título</label>
+                    <input id="aviso-titulo" type="text" value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
+                      className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-on-surface mb-1">Mensaje</label>
-                    <textarea value={form.mensaje} onChange={(e) => setForm((f) => ({ ...f, mensaje: e.target.value }))}
+                    <label htmlFor="aviso-mensaje" className="block text-sm font-medium text-on-surface mb-1">Mensaje</label>
+                    <textarea id="aviso-mensaje" value={form.mensaje} onChange={(e) => setForm((f) => ({ ...f, mensaje: e.target.value }))}
                       rows={5} className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
                   </div>
                 </div>

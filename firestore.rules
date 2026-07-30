@@ -212,6 +212,21 @@ service cloud.firestore {
         request.auth.uid == resource.data.docenteId;
     }
 
+    // Confirmación de lectura de un aviso — un doc por (aviso, estudiante),
+    // creado únicamente cuando el estudiante toca "Entendido" en la pantalla
+    // obligatoria (ver AvisoLecturaModal.jsx). `estudianteId` es el ID del
+    // DOC DE INSCRIPCIÓN (mismo patrón que `submissions.alumnoId`), no el
+    // auth uid — se resuelve la propiedad con ownsStudentDoc(). Inmutable:
+    // ni el estudiante ni el docente pueden editarla o borrarla después,
+    // es un registro de auditoría de que sí se mostró y confirmó el aviso.
+    match /avisoLecturas/{lecturaId} {
+      allow read: if isAdmin() || isDocente() ||
+        (request.auth != null && ownsStudentDoc(resource.data.estudianteId));
+      allow create: if request.auth != null &&
+        ownsStudentDoc(request.resource.data.estudianteId);
+      allow update, delete: if false;
+    }
+
     // "Material de apoyo" — per-parcial course material (one or more files +
     // optional rich-text description). Independent of `activities`: it never
     // creates a submission/grade, so it has no link to `submissions` at all.
