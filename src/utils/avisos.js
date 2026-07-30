@@ -67,3 +67,11 @@ export function formatAvisoFecha(ts) {
 export function lecturaDocId(avisoId, studentId) {
   return `${avisoId}_${studentId}`
 }
+
+// Mismo esquema de id para `avisoGuardados` — el "guardar" del alumno es
+// personal (varios alumnos comparten el mismo doc de aviso, a diferencia del
+// docente donde `guardado` vive directo en el aviso porque hay un solo
+// dueño), así que es su propia colección con un doc por (aviso, estudiante).
+export function guardadoDocId(avisoId, studentId) {
+  return `${avisoId}_${studentId}`
+}
