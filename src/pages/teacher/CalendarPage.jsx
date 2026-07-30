@@ -101,10 +101,15 @@ const AGENDA_ROW_H = 64 // px por hora en la agenda del día
 //   Semana   → clases y eventos 14, horas 12
 //   Mes      → clases y eventos 11
 // Mes va más chico a propósito: en cada día solo caben tres antes del "+N más".
+//
+// En la app, Día traía el título más grande que 3 días (14px vs 12px,
+// text-sm vs text-xs) — mismo tipo de contenido (eventos, materias,
+// actividades), a dos tamaños distintos según la vista. Ahora Día usa el
+// mismo tamaño que 3 días.
 const GRID_ITEM_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[14px]'
 const GRID_ITEM_TITLE = IS_NATIVE_APP ? 'text-xs' : 'text-[14px]'
 const GRID_HOUR_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[12px]'
-const DIA_ITEM_TEXT = IS_NATIVE_APP ? 'text-sm' : 'text-[13px]'
+const DIA_ITEM_TEXT = IS_NATIVE_APP ? GRID_ITEM_TITLE : 'text-[13px]'
 const DIA_HOUR_TEXT = IS_NATIVE_APP ? 'text-[11px]' : 'text-[12px]'
 // El am/pm cuelga debajo de la hora, más chico: es la etiqueta, no el dato.
 const DIA_HOUR_AMPM = IS_NATIVE_APP ? 'text-[9px]' : 'text-[10px]'
@@ -398,7 +403,7 @@ function AgendaView({
                       <span className={`block font-bold leading-tight whitespace-nowrap ${DIA_HOUR_INI_TEXT}`}>{fmtHour(horaIni)}</span>
                     )}
                     <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight ${total >= 3 ? 'truncate' : 'break-words'}`}>{titulo}</span>
-                    {sub && total < 3 && <span className="block text-xs opacity-75 leading-tight truncate">{sub}</span>}
+                    {sub && total < 3 && <span className={`block ${IS_NATIVE_APP ? GRID_ITEM_TEXT : 'text-xs'} opacity-75 leading-tight truncate`}>{sub}</span>}
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
                       <span className="inline-flex items-center gap-1 text-[10px] opacity-70 leading-tight">
                         <Bell size={10} /> {it.b.alarma.minutosAntes} min antes
