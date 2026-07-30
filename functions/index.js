@@ -139,11 +139,15 @@ const TOKEN_INVALIDO = new Set([
 // para otros tipos de notificaciones", así que cada categoría declara el
 // suyo aquí. Categorías sin canal propio (docente: nuevasEntregas) se quedan
 // sin este campo — FCM usa el canal por default del plugin.
+// Sufijo "_v2": ver el mismo comentario en src/utils/pushNotifications.js —
+// un NotificationChannel de Android es inmutable una vez creado, así que el
+// id tuvo que cambiar para que el sonido/importancia nuevos de verdad
+// aplicaran en teléfonos que ya tenían el canal viejo instalado.
 const CANAL_POR_CATEGORIA = {
-  avisos: 'avisos',
-  actividadesNuevas: 'actividades',
-  calificaciones: 'calificaciones',
-  recordatorios: 'recordatorios',
+  avisos: 'avisos_v2',
+  actividadesNuevas: 'actividades_v2',
+  calificaciones: 'calificaciones_v2',
+  recordatorios: 'recordatorios_v2',
 }
 
 async function enviarPushDirecto(uid, notification, data = {}, descripcion = null, logExtra = null) {

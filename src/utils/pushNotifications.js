@@ -40,11 +40,21 @@ export function registrarExplicacionPush(fn) { solicitarExplicacionPush = fn }
 // lo que sea. Los demás quedan en importancia normal (con sonido) pero en su
 // PROPIO canal, para que el estudiante los pueda silenciar por separado desde
 // los ajustes del sistema sin tocar Avisos.
+// Sufijo "_v2": un NotificationChannel de Android es INMUTABLE una vez creado
+// — createChannel() con un id que ya existe en el teléfono no cambia nada,
+// aunque el objeto que mandes traiga importance/sound distintos (confirmado:
+// las primeras instalaciones de este build recibían el push bien, pero SIN
+// sonido, porque el canal "avisos" ya existía de una build anterior sin
+// `sound`/`importance` configurados). Version-bump del id es la forma
+// correcta de forzar los ajustes nuevos sin pisarle al estudiante una
+// personalización que haya hecho a mano desde Ajustes del sistema — subir el
+// número de versión aquí (_v3, _v4…) la próxima vez que haga falta cambiar
+// alguno de estos.
 const CANALES = [
-  { id: 'avisos', name: 'Avisos', description: 'Comunicados de tus maestros — alta prioridad', importance: 5, visibility: 1, vibration: true },
-  { id: 'actividades', name: 'Actividades', description: 'Actividades nuevas publicadas por tus maestros', importance: 4, visibility: 1, vibration: true },
-  { id: 'calificaciones', name: 'Calificaciones', description: 'Cuando te califiquen una entrega', importance: 4, visibility: 1, vibration: true },
-  { id: 'recordatorios', name: 'Recordatorios', description: 'Recordatorios de fecha límite', importance: 4, visibility: 1, vibration: true },
+  { id: 'avisos_v2', name: 'Avisos', description: 'Comunicados de tus maestros — alta prioridad', importance: 5, visibility: 1, vibration: true },
+  { id: 'actividades_v2', name: 'Actividades', description: 'Actividades nuevas publicadas por tus maestros', importance: 4, visibility: 1, vibration: true },
+  { id: 'calificaciones_v2', name: 'Calificaciones', description: 'Cuando te califiquen una entrega', importance: 4, visibility: 1, vibration: true },
+  { id: 'recordatorios_v2', name: 'Recordatorios', description: 'Recordatorios de fecha límite', importance: 4, visibility: 1, vibration: true },
 ]
 
 // `data.categoria` (nombre interno, ver TITULOS en functions/index.js) no
@@ -52,13 +62,21 @@ const CANALES = [
 // ajustes de Android) — mismo mapeo que CANAL_POR_CATEGORIA del lado del
 // servidor.
 const CANAL_POR_CATEGORIA = {
-  avisos: 'avisos',
-  actividadesNuevas: 'actividades',
-  calificaciones: 'calificaciones',
-  recordatorios: 'recordatorios',
+  avisos: 'avisos_v2',
+  actividadesNuevas: 'actividades_v2',
+  calificaciones: 'calificaciones_v2',
+  recordatorios: 'recordatorios_v2',
 }
 
 async function crearCanales() {
+  // Borra los canales de la versión anterior (sin sonido/importancia
+  // configurados) — best-effort, deleteChannel no falla si el canal no
+  // existe, y si el estudiante ya tenía la app desde antes de este fix,
+  // esto es lo único que de verdad limpia el canal roto en vez de dejarlo
+  // huérfano en Ajustes junto al nuevo.
+  await Promise.all(['avisos', 'actividades', 'calificaciones', 'recordatorios'].map((id) =>
+    PushNotifications.deleteChannel({ id }).catch(() => {})
+  ))
   await Promise.all(CANALES.map((c) => PushNotifications.createChannel(c).catch(() => {})))
 }
 
