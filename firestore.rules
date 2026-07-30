@@ -227,6 +227,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Guardado personal de un aviso — el "marcador" del alumno, un doc por
+    // (aviso, estudiante). A diferencia de `avisos.guardado` (del docente,
+    // vive en el propio aviso porque hay un solo dueño), aquí cada alumno
+    // necesita su propio estado: uno lo guarda, otro no, sobre el MISMO
+    // aviso. Sí se puede borrar (a diferencia de avisoLecturas) — guardar es
+    // una preferencia editable, no un registro de auditoría.
+    match /avisoGuardados/{guardadoId} {
+      allow read, delete: if request.auth != null && ownsStudentDoc(resource.data.estudianteId);
+      allow create: if request.auth != null && ownsStudentDoc(request.resource.data.estudianteId);
+      allow update: if false;
+    }
+
     // Plantillas de avisos — el banco personal de mensajes rápidos de cada
     // docente (arranca con una copia editable de los 12 predefinidos, ver
     // PLANTILLAS_SEED en src/utils/avisos.js), para elegir de un toque al

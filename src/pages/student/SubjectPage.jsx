@@ -8,6 +8,8 @@ import {
   getDoc,
   doc,
   onSnapshot,
+  setDoc,
+  deleteDoc,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -30,14 +32,14 @@ import {
   ArrowLeft, ChevronDown, ChevronUp,
   Clock, Star, FolderOpen, BookOpen, Paperclip,
   GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone,
-  CheckCircle2, Circle,
+  CheckCircle2, Circle, Bookmark,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
+import { avisoEmoji, formatAvisoFecha, guardadoDocId } from '../../utils/avisos'
 
 function ResourceCard({ resource: r }) {
   const isLink = r.tipo === 'link'
@@ -130,6 +132,8 @@ export default function StudentSubjectPage() {
   const [avisosReady, setAvisosReady] = useState(false)
   const [lecturas, setLecturas] = useState({}) // { [avisoId]: true }
   const [lecturasReady, setLecturasReady] = useState(false)
+  const [avisosGuardados, setAvisosGuardados] = useState({}) // { [avisoId]: true }
+  const [soloAvisosGuardados, setSoloAvisosGuardados] = useState(false)
   const [attendanceSummary, setAttendanceSummary] = useState(null)
   const [teacherName, setTeacherName] = useState('')
   const [teacherPhoto, setTeacherPhoto] = useState(null)
@@ -199,6 +203,38 @@ export default function StudentSubjectPage() {
     )
     return unsub
   }, [studentId])
+
+  // Guardados del alumno — personal, ver avisoGuardados en firestore.rules
+  // (a diferencia de avisoLecturas, sí se puede borrar: guardar es una
+  // preferencia, no un registro de auditoría).
+  useEffect(() => {
+    if (!studentId) return undefined
+    const unsub = onSnapshot(
+      query(collection(db, 'avisoGuardados'), where('estudianteId', '==', studentId)),
+      (snap) => {
+        const map = {}
+        snap.docs.forEach((d) => { map[d.data().avisoId] = true })
+        setAvisosGuardados(map)
+      },
+      () => {}
+    )
+    return unsub
+  }, [studentId])
+
+  async function toggleAvisoGuardado(aviso) {
+    const id = guardadoDocId(aviso.id, studentId)
+    try {
+      if (avisosGuardados[aviso.id]) {
+        await deleteDoc(doc(db, 'avisoGuardados', id))
+      } else {
+        await setDoc(doc(db, 'avisoGuardados', id), {
+          avisoId: aviso.id, asignaturaId: subjectId, estudianteId: studentId,
+        })
+      }
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
 
   async function loadAll() {
     setLoading(true)
@@ -758,19 +794,35 @@ export default function StudentSubjectPage() {
         </div>
       )}
 
-      {/* Tab: Avisos — solo lectura, sin responder/comentar/reaccionar. */}
-      {activeTab === 'Avisos' && (
+      {/* Tab: Avisos — solo lectura, sin responder/comentar/reaccionar. Sí
+          puede guardar los suyos, con Todos/Guardados igual que la app del
+          docente: guardar "mueve" el aviso, deja de verse en Todos. */}
+      {activeTab === 'Avisos' && (() => {
+        const guardadosList = avisos.filter((a) => avisosGuardados[a.id])
+        const avisosMostrados = soloAvisosGuardados ? guardadosList : avisos.filter((a) => !avisosGuardados[a.id])
+        return (
         <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
-          {avisos.length === 0 ? (
+          <div className="flex gap-1 bg-surface-container p-1 rounded w-fit mb-3">
+            <button type="button" onClick={() => setSoloAvisosGuardados(false)}
+              className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${!soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
+              Todos
+            </button>
+            <button type="button" onClick={() => setSoloAvisosGuardados(true)}
+              className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>
+              <Bookmark size={13} /> Guardados{guardadosList.length > 0 ? ` (${guardadosList.length})` : ''}
+            </button>
+          </div>
+          {avisosMostrados.length === 0 ? (
             <div className="bg-surface-card rounded-card border border-outline-variant p-10 text-center">
               <Megaphone size={32} className="text-slate-300 mx-auto mb-3" />
-              <p className="text-muted text-sm">El docente no ha publicado avisos aún.</p>
+              <p className="text-muted text-sm">{soloAvisosGuardados ? 'No has guardado ningún aviso.' : 'El docente no ha publicado avisos aún.'}</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {avisos.map((a) => {
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+              {avisosMostrados.map((a) => {
                 const emoji = avisoEmoji(a)
                 const leido = !!lecturas[a.id]
+                const guardado = !!avisosGuardados[a.id]
                 return (
                   <div key={a.id} className="bg-surface-card rounded-card border border-outline-variant shadow-card px-4 py-3">
                     <div className="flex items-start gap-3">
@@ -793,6 +845,11 @@ export default function StudentSubjectPage() {
                         </p>
                         {a.mensaje && <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap">{a.mensaje}</p>}
                       </div>
+                      <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label={guardado ? 'Quitar de guardados' : 'Guardar'}
+                        data-tooltip={guardado ? 'Quitar de guardados' : 'Guardar'}
+                        className={`p-2 -m-1 rounded transition-colors flex-shrink-0 ${guardado ? 'text-accent' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
+                        <Bookmark size={18} className={guardado ? 'fill-current' : ''} />
+                      </button>
                     </div>
                   </div>
                 )
@@ -800,7 +857,8 @@ export default function StudentSubjectPage() {
             </div>
           )}
         </div>
-      )}
+        )
+      })()}
 
     </div>
     </StudentLayout>

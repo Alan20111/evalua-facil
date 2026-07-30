@@ -347,7 +347,9 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
 
   const totalEstudiantes = students.length
   const avisosGuardados = avisos.filter((a) => a.guardado)
-  const avisosMostrados = soloGuardados ? avisosGuardados : avisos
+  // Guardado se comporta como "mover", no como etiqueta: en cuanto un aviso
+  // se guarda, deja de aparecer en "Todos" — pedido explícito.
+  const avisosMostrados = soloGuardados ? avisosGuardados : avisos.filter((a) => !a.guardado)
 
   return (
     <div className="px-4 py-2 space-y-2">
@@ -456,11 +458,17 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
               <>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-semibold">¿Qué deseas comunicar?</h3>
-                  <button type="button" onClick={() => setStep('plantillas')}
-                    data-tooltip="Editar tus plantillas"
-                    className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
-                    <Settings size={18} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => setStep('plantillas')}
+                      data-tooltip="Editar tus plantillas"
+                      className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                      <Settings size={18} />
+                    </button>
+                    <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
+                      className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                      <X size={18} />
+                    </button>
+                  </div>
                 </div>
                 {!plantillasLoaded ? (
                   <div className="flex justify-center py-10"><Spinner /></div>
@@ -488,7 +496,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
               <form onSubmit={handleSave}>
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-2xl flex-shrink-0" aria-hidden="true">{form.emoji}</span>
-                  <h3 className="text-lg font-semibold">{form.titulo || (modalMode === 'create' ? 'Nuevo aviso' : 'Editar aviso')}</h3>
+                  <h3 className="text-lg font-semibold flex-1">{form.titulo || (modalMode === 'create' ? 'Nuevo aviso' : 'Editar aviso')}</h3>
+                  <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
+                    className="p-1.5 -mr-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                    <X size={18} />
+                  </button>
                 </div>
                 <div>
                   <label htmlFor="aviso-mensaje" className="block text-sm font-medium text-on-surface mb-1">Mensaje <span className="font-normal text-muted">(opcional)</span></label>
@@ -527,6 +539,10 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
                   <button type="button" onClick={() => openPlantillaForm(null)}
                     className="flex items-center gap-1 px-2.5 py-1.5 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
                     <Plus size={14} /> Nueva
+                  </button>
+                  <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
+                    className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                    <X size={18} />
                   </button>
                 </div>
                 <p className="text-xs text-muted mb-3">
@@ -581,7 +597,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
                   <button type="button" onClick={() => setStep('plantillas')} aria-label="Regresar" className="p-1 -ml-1 text-muted hover:text-accent rounded">
                     <ArrowLeft size={18} />
                   </button>
-                  <h3 className="text-lg font-semibold">{plantillaForm.id ? 'Editar plantilla' : 'Nueva plantilla'}</h3>
+                  <h3 className="text-lg font-semibold flex-1">{plantillaForm.id ? 'Editar plantilla' : 'Nueva plantilla'}</h3>
+                  <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
+                    className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                    <X size={18} />
+                  </button>
                 </div>
                 <div className="space-y-3">
                   <div>
