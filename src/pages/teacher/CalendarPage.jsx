@@ -102,14 +102,15 @@ const AGENDA_ROW_H = 64 // px por hora en la agenda del día
 //   Mes      → clases y eventos 11
 // Mes va más chico a propósito: en cada día solo caben tres antes del "+N más".
 //
-// En la app, Día traía el título más grande que 3 días (14px vs 12px,
-// text-sm vs text-xs) — mismo tipo de contenido (eventos, materias,
-// actividades), a dos tamaños distintos según la vista. Ahora Día usa el
-// mismo tamaño que 3 días.
+// En la app, Día se seguía viendo grande incluso ya emparejado con el
+// tamaño de título de 3 días (12px) — la columna de Día es de ancho
+// completo, así que el mismo tamaño se percibe más grande que en 3 días
+// (columnas angostas). Se redujo directo a 10px, igual al texto secundario
+// de la rejilla.
 const GRID_ITEM_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[14px]'
 const GRID_ITEM_TITLE = IS_NATIVE_APP ? 'text-xs' : 'text-[14px]'
 const GRID_HOUR_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[12px]'
-const DIA_ITEM_TEXT = IS_NATIVE_APP ? GRID_ITEM_TITLE : 'text-[13px]'
+const DIA_ITEM_TEXT = IS_NATIVE_APP ? 'text-[10px]' : 'text-[13px]'
 const DIA_HOUR_TEXT = IS_NATIVE_APP ? 'text-[11px]' : 'text-[12px]'
 // El am/pm cuelga debajo de la hora, más chico: es la etiqueta, no el dato.
 const DIA_HOUR_AMPM = IS_NATIVE_APP ? 'text-[9px]' : 'text-[10px]'
