@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 
-const MIN_SCALE = 1
+// MIN_SCALE por debajo de 1 permite alejar más allá del tamaño ajustado al
+// ancho del panel (antes tope duro en 1 — Ctrl+rueda hacia atrás no hacía
+// nada una vez llegado al 100%, aunque la página se viera más grande que la
+// pantalla y el docente quisiera verla completa).
+const MIN_SCALE = 0.5
 const MAX_SCALE = 4
 const DOUBLE_TAP_SCALE = 2.5
 const DOUBLE_TAP_MS = 300
