@@ -169,7 +169,6 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
 
   async function handleSave(e) {
     e.preventDefault()
-    if (!form.mensaje.trim()) { toast('Escribe un mensaje', 'error'); return }
     setSaving(true)
     try {
       if (modalMode === 'create') {
@@ -311,8 +310,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
                       <p className="text-xs text-slate-400">{formatAvisoFecha(a.fechaCreacion)}</p>
                       {/* Sin línea de título aparte — el mensaje ya lo dice
                           todo, mostrar los dos era repetir la misma idea dos
-                          veces y le hacía perder tiempo al docente. */}
-                      <p className="text-sm font-medium text-on-surface mt-0.5 whitespace-pre-wrap line-clamp-3">{a.mensaje}</p>
+                          veces y le hacía perder tiempo al docente. El
+                          mensaje es opcional: si el docente lo deja vacío,
+                          se cae al título (ej. "No habrá clase" ya se
+                          explica solo). */}
+                      <p className="text-sm font-medium text-on-surface mt-0.5 whitespace-pre-wrap line-clamp-3">{a.mensaje || a.titulo}</p>
                       <ProgressoLectura leidos={leidos} total={totalEstudiantes} />
                     </div>
                   </button>
@@ -393,9 +395,10 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
                   <h3 className="text-lg font-semibold">{form.titulo || (modalMode === 'create' ? 'Nuevo aviso' : 'Editar aviso')}</h3>
                 </div>
                 <div>
-                  <label htmlFor="aviso-mensaje" className="block text-sm font-medium text-on-surface mb-1">Mensaje</label>
+                  <label htmlFor="aviso-mensaje" className="block text-sm font-medium text-on-surface mb-1">Mensaje <span className="font-normal text-muted">(opcional)</span></label>
                   <textarea id="aviso-mensaje" value={form.mensaje} onChange={(e) => setForm((f) => ({ ...f, mensaje: e.target.value }))}
-                    rows={5} className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
+                    rows={5} placeholder="Deja este campo vacío si el título ya lo dice todo"
+                    className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
                 </div>
                 <div className="flex justify-end gap-2 mt-5">
                   <button type="button" onClick={() => setStep(null)}
@@ -525,7 +528,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
                 <X size={18} />
               </button>
             </div>
-            <p className="text-sm text-on-surface mb-3 line-clamp-2">{detailAviso.mensaje}</p>
+            <p className="text-sm text-on-surface mb-3 line-clamp-2">{detailAviso.mensaje || detailAviso.titulo}</p>
             <ProgressoLectura leidos={Object.keys(lecturasByAviso[detailAviso.id] || {}).length} total={totalEstudiantes} />
             <div className="mt-3 space-y-1">
               {students
