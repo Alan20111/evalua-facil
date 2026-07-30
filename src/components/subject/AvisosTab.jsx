@@ -6,7 +6,7 @@ import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft } from 'lucide-react'
+import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark } from 'lucide-react'
 import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
 import { studentFullName } from '../../utils/studentSearch'
 
@@ -56,6 +56,10 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [detailAviso, setDetailAviso] = useState(null)
+  // "Todos" o solo los que el docente marcó para encontrar rápido después
+  // (ej. el aviso de bienvenida que reutiliza cada ciclo) — pedido explícito:
+  // poder guardarlos y ver los guardados aparte.
+  const [soloGuardados, setSoloGuardados] = useState(false)
 
   const modalOpen = step != null || !!deleteConfirm || !!deletePlantillaConfirm || !!detailAviso
   useBackHandler(() => {
@@ -199,6 +203,14 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
     }
   }
 
+  async function toggleGuardado(a) {
+    try {
+      await updateDoc(doc(db, 'avisos', a.id), { guardado: !a.guardado })
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
   async function handleDelete() {
     if (!deleteConfirm) return
     setDeleting(true)
@@ -272,6 +284,8 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
   }
 
   const totalEstudiantes = students.length
+  const avisosGuardados = avisos.filter((a) => a.guardado)
+  const avisosMostrados = soloGuardados ? avisosGuardados : avisos
 
   return (
     <div className="px-4 py-2 space-y-2">
@@ -286,16 +300,31 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
         </button>
       </div>
 
+      {/* Todos / Guardados — pedido explícito: poder guardar avisos y ver los
+          guardados aparte. */}
+      <div className="flex gap-1 bg-surface-container p-1 rounded w-fit">
+        <button type="button" onClick={() => setSoloGuardados(false)}
+          className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${!soloGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+          Todos
+        </button>
+        <button type="button" onClick={() => setSoloGuardados(true)}
+          className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${soloGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+          <Bookmark size={13} /> Guardados{avisosGuardados.length > 0 ? ` (${avisosGuardados.length})` : ''}
+        </button>
+      </div>
+
       {!avisosLoaded ? (
         <div className="flex justify-center py-10"><Spinner /></div>
-      ) : avisos.length === 0 ? (
+      ) : avisosMostrados.length === 0 ? (
         <div className="text-center py-10 text-slate-400 text-sm flex flex-col items-center gap-2">
           <Megaphone size={28} className="text-slate-300" />
-          Aún no hay avisos en esta asignatura
+          {soloGuardados ? 'No has guardado ningún aviso' : 'Aún no hay avisos en esta asignatura'}
         </div>
       ) : (
-        <div className="space-y-1.5">
-          {avisos.map((a) => {
+        // Caja con scroll propio — pedido explícito: el historial completo
+        // no debe empujar el resto de la pestaña hacia abajo.
+        <div className="space-y-1.5 max-h-[60vh] overflow-y-auto pr-1 border border-outline-variant rounded-card p-2 bg-surface">
+          {avisosMostrados.map((a) => {
             const leidosMap = lecturasByAviso[a.id] || {}
             const leidos = Object.keys(leidosMap).length
             return (
@@ -317,6 +346,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
                       <p className="text-sm font-medium text-on-surface mt-0.5 whitespace-pre-wrap line-clamp-3">{a.mensaje || a.titulo}</p>
                       <ProgressoLectura leidos={leidos} total={totalEstudiantes} />
                     </div>
+                  </button>
+                  <button type="button" onClick={() => toggleGuardado(a)} aria-label={a.guardado ? 'Quitar de guardados' : 'Guardar'}
+                    data-tooltip={a.guardado ? 'Quitar de guardados' : 'Guardar'}
+                    className={`p-2 rounded transition-colors flex-shrink-0 ${a.guardado ? 'text-accent' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
+                    <Bookmark size={18} className={a.guardado ? 'fill-current' : ''} />
                   </button>
                   <div className="relative flex-shrink-0">
                     <button type="button" onClick={() => setOpenMenuId((id) => (id === a.id ? null : a.id))}
