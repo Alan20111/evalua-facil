@@ -8,8 +8,6 @@ import {
   getDoc,
   doc,
   onSnapshot,
-  setDoc,
-  serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -39,8 +37,7 @@ import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { avisoEmoji, formatAvisoFecha, lecturaDocId } from '../../utils/avisos'
-import AvisoLecturaModal from '../../components/subject/AvisoLecturaModal'
+import { avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
 
 function ResourceCard({ resource: r }) {
   const isLink = r.tipo === 'link'
@@ -133,7 +130,6 @@ export default function StudentSubjectPage() {
   const [avisosReady, setAvisosReady] = useState(false)
   const [lecturas, setLecturas] = useState({}) // { [avisoId]: true }
   const [lecturasReady, setLecturasReady] = useState(false)
-  const [confirmingLectura, setConfirmingLectura] = useState(false)
   const [attendanceSummary, setAttendanceSummary] = useState(null)
   const [teacherName, setTeacherName] = useState('')
   const [teacherPhoto, setTeacherPhoto] = useState(null)
@@ -203,29 +199,6 @@ export default function StudentSubjectPage() {
     )
     return unsub
   }, [studentId])
-
-  // Del más antiguo al más reciente — "uno por uno hasta que todos hayan
-  // sido confirmados", en el orden en que se publicaron.
-  const avisosPendientes = avisosReady && lecturasReady
-    ? avisos.filter((a) => !lecturas[a.id]).sort((a, b) => (a.fechaCreacion?.seconds ?? 0) - (b.fechaCreacion?.seconds ?? 0))
-    : []
-
-  async function confirmarLectura(aviso) {
-    setConfirmingLectura(true)
-    try {
-      await setDoc(doc(db, 'avisoLecturas', lecturaDocId(aviso.id, studentId)), {
-        avisoId: aviso.id,
-        asignaturaId: subjectId,
-        estudianteId: studentId,
-        fechaHoraLectura: serverTimestamp(),
-        dispositivo: `${IS_NATIVE_APP ? 'app' : 'web'} · ${navigator.userAgent}`,
-      })
-    } catch (err) {
-      toast('Error al confirmar el aviso: ' + err.message, 'error')
-    } finally {
-      setConfirmingLectura(false)
-    }
-  }
 
   async function loadAll() {
     setLoading(true)
@@ -372,11 +345,6 @@ export default function StudentSubjectPage() {
   return (
     <StudentLayout>
     <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
-
-      {/* Lectura obligatoria — se dibuja SIEMPRE que haya pendientes, encima
-          de cualquier pestaña, así el alumno no tiene que buscar el aviso.
-          Sin botón de cerrar/atrás (ver AvisoLecturaModal.jsx). */}
-      <AvisoLecturaModal avisos={avisosPendientes} teacherName={teacherName} onConfirm={confirmarLectura} confirming={confirmingLectura} />
 
       {/* Page header */}
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
@@ -823,7 +791,7 @@ export default function StudentSubjectPage() {
                         <p className="text-xs text-slate-400 mt-0.5">
                           {formatAvisoFecha(a.fechaCreacion)}{teacherName ? ` · ${teacherName}` : ''}
                         </p>
-                        <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap">{a.mensaje}</p>
+                        {a.mensaje && <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap">{a.mensaje}</p>}
                       </div>
                     </div>
                   </div>

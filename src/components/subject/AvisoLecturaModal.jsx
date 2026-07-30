@@ -9,7 +9,11 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 // pendiente. Por eso useBackHandler recibe un no-op (no un cierre): consume
 // el botón físico de Android sin dejarlo pasar a la pantalla de atrás, en vez
 // de simplemente no engancharse (que dejaría "atrás" navegar libre).
-export default function AvisoLecturaModal({ avisos, teacherName, onConfirm, confirming }) {
+// `teacherNames`/`subjectNames` son mapas ({docenteId: nombre} / {asignaturaId:
+// nombre}) — este gate es GLOBAL (ver AvisosGate.jsx, montado en
+// StudentLayout), así que un aviso pendiente puede venir de cualquiera de
+// las materias del alumno, no solo la que tiene abierta.
+export default function AvisoLecturaModal({ avisos, teacherNames = {}, subjectNames = {}, onConfirm, confirming }) {
   const [idx, setIdx] = useState(0)
   useBackHandler(() => {}, avisos.length > 0)
   useScrollLock(avisos.length > 0)
@@ -17,6 +21,8 @@ export default function AvisoLecturaModal({ avisos, teacherName, onConfirm, conf
   if (avisos.length === 0) return null
   const aviso = avisos[Math.min(idx, avisos.length - 1)]
   const emoji = avisoEmoji(aviso)
+  const teacherName = teacherNames[aviso.docenteId]
+  const subjectName = subjectNames[aviso.asignaturaId]
 
   async function handleEntendido() {
     await onConfirm(aviso)
@@ -32,8 +38,11 @@ export default function AvisoLecturaModal({ avisos, teacherName, onConfirm, conf
           </p>
         )}
         <span className="text-4xl leading-none block mb-3" aria-hidden="true">{emoji}</span>
+        {subjectName && <p className="text-xs font-semibold text-accent mb-1">{subjectName}</p>}
         <h2 className="text-lg font-bold text-on-surface mb-2">{aviso.titulo}</h2>
-        <p className="text-sm text-on-surface whitespace-pre-wrap text-left mb-4">{aviso.mensaje}</p>
+        {aviso.mensaje && (
+          <p className="text-sm text-on-surface whitespace-pre-wrap text-left mb-4">{aviso.mensaje}</p>
+        )}
         <p className="text-xs text-slate-400 mb-6">
           {formatAvisoFecha(aviso.fechaCreacion)}{teacherName ? ` · ${teacherName}` : ''}
         </p>

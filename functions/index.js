@@ -244,9 +244,14 @@ exports.onAvisoEscrito = onDocumentWritten('avisos/{avisoId}', async (event) => 
   const materia = subjSnap.exists ? subjSnap.data().nombre || '' : ''
 
   const estudiantes = await estudiantesDeAsignatura(a.asignaturaId)
+  // Pedido explícito: la notificación debe mostrar, como mínimo, nombre de la
+  // asignatura (título del push), título del aviso y un fragmento del
+  // mensaje (cuerpo del push, "título: mensaje"). El mensaje es opcional —
+  // si el docente lo deja vacío (ej. "No habrá clase" ya se explica solo),
+  // el cuerpo se queda solo con el título, sin el "" pegado.
   const notification = {
     title: materia ? `Nuevo aviso en ${materia}` : 'Nuevo aviso',
-    body: a.mensaje,
+    body: a.mensaje ? `${a.titulo}: ${a.mensaje}` : a.titulo,
   }
   await Promise.all(estudiantes.map((d) =>
     enviarPush(d.data().uid, 'avisos', { asignaturaId: a.asignaturaId, avisoId: event.params.avisoId }, notification, a.asignaturaId)
