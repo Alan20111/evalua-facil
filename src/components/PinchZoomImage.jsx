@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const MIN_SCALE = 1
 const MAX_SCALE = 4
@@ -79,13 +79,22 @@ export default function PinchZoomImage({ src, alt, className = 'block w-full mb-
     if (e.touches.length === 0) gesture.current.mode = null
   }
 
-  // Solo con Ctrl/Cmd presionado en desktop: la rueda del mouse sola sigue
-  // haciendo scroll normal por las páginas.
-  function handleWheel(e) {
-    if (!e.ctrlKey && !e.metaKey) return
-    e.preventDefault()
-    setTransform((t) => clampTransform({ ...t, scale: t.scale - e.deltaY * 0.01 }))
-  }
+  // Nativo y no-pasivo a propósito: el onWheel sintético de React se registra
+  // como pasivo, así que e.preventDefault() ahí NO evita el zoom nativo del
+  // navegador (Ctrl+rueda hace zoom a toda la pantalla, no solo aquí) — con
+  // un listener nativo { passive: false } sí se puede bloquear. Solo con
+  // Ctrl/Cmd presionado: la rueda sola sigue haciendo scroll normal.
+  useEffect(() => {
+    const el = stageRef.current
+    if (!el) return
+    function handleWheel(e) {
+      if (!e.ctrlKey && !e.metaKey) return
+      e.preventDefault()
+      setTransform((t) => clampTransform({ ...t, scale: t.scale - e.deltaY * 0.01 }))
+    }
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [])
 
   return (
     <div
@@ -95,7 +104,6 @@ export default function PinchZoomImage({ src, alt, className = 'block w-full mb-
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      onWheel={handleWheel}
       onDoubleClick={(e) => toggleZoom(e.clientX, e.clientY)}
     >
       <img
