@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
@@ -27,12 +27,13 @@ function ZoomOverlay({ src, alt, onClose }) {
   // Estado del gesto en curso — vive en un ref porque cambia en cada evento
   // de touch/mouse y no necesita disparar un re-render por sí solo.
   const gesture = useRef({ mode: null, startDist: 0, startScale: 1, startX: 0, startY: 0, lastX: 0, lastY: 0, lastTapTime: 0 })
+  const stageRef = useRef(null)
 
   function toggleZoom(clientX, clientY) {
     setTransform((t) => {
       if (t.scale > 1) return { scale: 1, x: 0, y: 0 }
       // Centra el acercamiento en el punto tocado/clickeado.
-      const box = document.getElementById('ef-zoom-stage')?.getBoundingClientRect()
+      const box = stageRef.current?.getBoundingClientRect()
       const dx = box ? (box.width / 2 - (clientX - box.left)) : 0
       const dy = box ? (box.height / 2 - (clientY - box.top)) : 0
       return clampTransform({ scale: DOUBLE_TAP_SCALE, x: dx * (DOUBLE_TAP_SCALE - 1), y: dy * (DOUBLE_TAP_SCALE - 1) })
@@ -99,10 +100,20 @@ function ZoomOverlay({ src, alt, onClose }) {
   function handleMouseUp() {
     gesture.current.mode = null
   }
-  function handleWheel(e) {
-    e.preventDefault()
-    setTransform((t) => clampTransform({ ...t, scale: t.scale - e.deltaY * 0.002 }))
-  }
+  // Nativo y no-pasivo a propósito: el onWheel sintético de React se registra
+  // como pasivo, así que e.preventDefault() ahí NO evita el zoom nativo del
+  // navegador — con Ctrl+rueda se zoomeaba la página ENTERA además de la
+  // imagen. Con un listener nativo { passive: false } sí se puede bloquear.
+  useEffect(() => {
+    const el = stageRef.current
+    if (!el) return
+    function handleWheel(e) {
+      e.preventDefault()
+      setTransform((t) => clampTransform({ ...t, scale: t.scale - e.deltaY * 0.002 }))
+    }
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [])
 
   return createPortal(
     <div
@@ -124,10 +135,9 @@ function ZoomOverlay({ src, alt, onClose }) {
           discreto, no hay equivalente de teclado razonable para "pellizcar". */}
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
-        id="ef-zoom-stage"
+        ref={stageRef}
         className="flex-1 min-h-0 flex items-center justify-center overflow-hidden"
         onDoubleClick={(e) => toggleZoom(e.clientX, e.clientY)}
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
