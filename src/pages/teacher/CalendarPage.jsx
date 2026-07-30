@@ -378,15 +378,27 @@ function AgendaView({
                       "am"/"pm" se corte o se pegue al borde). En la app ya
                       quedó bien de tamaño; en la web se veía demasiado chico,
                       un punto más grande ahí (con su columna un poco más
-                      ancha para que siga cabiendo completo). */}
-                  <div className={`flex-shrink-0 text-right pl-1 pr-1.5 py-1.5 border-r ${IS_NATIVE_APP ? 'w-16' : 'w-[72px]'}`} style={{ borderColor: `${fg}22` }}>
-                    <span className={`block font-bold leading-tight whitespace-nowrap ${DIA_HOUR_INI_TEXT}`}>{fmtHour(horaIni)}</span>
-                    {horaFin && <span className={`block opacity-70 leading-tight whitespace-nowrap ${DIA_HOUR_FIN_TEXT}`}>{fmtHour(horaFin)}</span>}
-                  </div>
+                      ancha para que siga cabiendo completo).
+                      Con muchos eventos encimados (total >= 3, carriles muy
+                      angostos) esta columna fija de hora ya no cabe —
+                      se quitaba casi todo el ancho al título y lo dejaba en
+                      una franja de un carácter, envolviendo letra por letra.
+                      Con pocos carriles libres, la hora se mueve arriba del
+                      título en vez de a un lado, y el título trunca en una
+                      línea en vez de envolver. */}
+                  {total < 3 && (
+                    <div className={`flex-shrink-0 text-right pl-1 pr-1.5 py-1.5 border-r ${IS_NATIVE_APP ? 'w-16' : 'w-[72px]'}`} style={{ borderColor: `${fg}22` }}>
+                      <span className={`block font-bold leading-tight whitespace-nowrap ${DIA_HOUR_INI_TEXT}`}>{fmtHour(horaIni)}</span>
+                      {horaFin && <span className={`block opacity-70 leading-tight whitespace-nowrap ${DIA_HOUR_FIN_TEXT}`}>{fmtHour(horaFin)}</span>}
+                    </div>
+                  )}
                   {/* Evento y descripción a la derecha */}
                   <div className="flex-1 min-w-0 pl-2.5 py-1.5">
-                    <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight break-words`}>{titulo}</span>
-                    {sub && <span className="block text-xs opacity-75 leading-tight truncate">{sub}</span>}
+                    {total >= 3 && (
+                      <span className={`block font-bold leading-tight whitespace-nowrap ${DIA_HOUR_INI_TEXT}`}>{fmtHour(horaIni)}</span>
+                    )}
+                    <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight ${total >= 3 ? 'truncate' : 'break-words'}`}>{titulo}</span>
+                    {sub && total < 3 && <span className="block text-xs opacity-75 leading-tight truncate">{sub}</span>}
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
                       <span className="inline-flex items-center gap-1 text-[10px] opacity-70 leading-tight">
                         <Bell size={10} /> {it.b.alarma.minutosAntes} min antes
