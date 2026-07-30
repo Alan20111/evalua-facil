@@ -132,16 +132,16 @@ export function FilePreview({ url, nombre, fill = false }) {
   ) : (
     // Solo se llega aquí para Word/PowerPoint (canPreviewFile ya deja fuera a
     // Excel — ver SPREADSHEET_EXTS. Ese se abre con la app real del docente,
-    // no se reconstruye aquí). Sin allow-popups: los botones de la barra de
-    // Google (incluida "Ventana emergente") usan window.open() para algo
-    // interno de su UI — con allow-popups, eso lo intercepta el WebView de
-    // Capacitor y saca al docente de la App hacia el navegador del sistema.
-    // Sin ese permiso, esas llamadas simplemente no hacen nada.
+    // no se reconstruye aquí). Con allow-popups: así "Ventana emergente" (el
+    // botón de la propia barra de Google) hace en la App lo mismo que en la
+    // web — abre el documento en su propia ventana (Capacitor lo manda al
+    // navegador del sistema, que es el equivalente de una pestaña nueva
+    // dentro de un WebView, que no tiene pestañas propias).
     <div className="relative w-full" style={{ height: fill ? '100%' : '70vh' }}>
       <iframe
         src={docsViewerUrl(viewUrl)}
         title={`Vista previa: ${nombre}`}
-        sandbox="allow-scripts allow-same-origin"
+        sandbox="allow-scripts allow-same-origin allow-popups"
         className="w-full h-full"
         style={{ border: 'none' }}
       />
