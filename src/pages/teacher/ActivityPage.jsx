@@ -1755,6 +1755,15 @@ export default function ActivityPage() {
               cupiera en una pantalla muy pequeña. */}
           <div className="flex-1 min-h-0 flex flex-col overflow-y-auto p-3 gap-2">
 
+            {/* Aviso solo cuando hay al menos una imagen entre los archivos
+                entregados — el PDF ya pellizca directo, sin tocar primero
+                (ver PinchZoomImage), así que este aviso no le aplica. */}
+            {selFiles.some((f) => isImageFile(f.nombre, f.url)) && (
+              <p className="text-xs text-muted text-center flex-shrink-0">
+                Presiona la imagen para luego hacer zoom
+              </p>
+            )}
+
             {/* Entrega: alto = todo lo que sobra, mismo tamaño haya o no
                 archivos. Varias imágenes/archivos se apilan y se navegan
                 hacia abajo DENTRO de esta misma zona (scroll interno). */}
