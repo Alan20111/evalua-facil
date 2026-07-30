@@ -27,6 +27,41 @@ import { db } from '../firebase'
 let solicitarExplicacionPush = null
 export function registrarExplicacionPush(fn) { solicitarExplicacionPush = fn }
 
+// Canales de notificación de Android — un canal POR CATEGORÍA, nunca
+// compartidos (pedido explícito: "no reutilizar este canal para otros tipos
+// de notificaciones"). El id de cada canal debe coincidir exactamente con
+// `CANAL_POR_CATEGORIA` en functions/index.js — ahí es donde el push de FCM
+// declara a qué canal pertenece (`android.notification.channelId`); si el
+// id no coincide con uno ya creado en el teléfono, Android lo manda al canal
+// "Miscellaneous" genérico y estas reglas nunca aplican.
+//
+// Solo "avisos" pide máxima urgencia (HIGH + heads-up + pantalla de bloqueo)
+// — es el único caso donde el aviso original exige que se muestre encima de
+// lo que sea. Los demás quedan en importancia normal (con sonido) pero en su
+// PROPIO canal, para que el estudiante los pueda silenciar por separado desde
+// los ajustes del sistema sin tocar Avisos.
+const CANALES = [
+  { id: 'avisos', name: 'Avisos', description: 'Comunicados de tus maestros — alta prioridad', importance: 5, visibility: 1, vibration: true },
+  { id: 'actividades', name: 'Actividades', description: 'Actividades nuevas publicadas por tus maestros', importance: 4, visibility: 1, vibration: true },
+  { id: 'calificaciones', name: 'Calificaciones', description: 'Cuando te califiquen una entrega', importance: 4, visibility: 1, vibration: true },
+  { id: 'recordatorios', name: 'Recordatorios', description: 'Recordatorios de fecha límite', importance: 4, visibility: 1, vibration: true },
+]
+
+// `data.categoria` (nombre interno, ver TITULOS en functions/index.js) no
+// siempre coincide con el id del canal (nombre de cara al estudiante en los
+// ajustes de Android) — mismo mapeo que CANAL_POR_CATEGORIA del lado del
+// servidor.
+const CANAL_POR_CATEGORIA = {
+  avisos: 'avisos',
+  actividadesNuevas: 'actividades',
+  calificaciones: 'calificaciones',
+  recordatorios: 'recordatorios',
+}
+
+async function crearCanales() {
+  await Promise.all(CANALES.map((c) => PushNotifications.createChannel(c).catch(() => {})))
+}
+
 let installed = false
 // uid "dueño" del token en este proceso — los listeners de abajo se registran
 // UNA sola vez (installed) pero deben reflejar SIEMPRE la sesión activa, así
@@ -105,6 +140,11 @@ async function mostrarEnPrimerPlano(notification) {
         id: Math.floor(Date.now() % 1_000_000_000),
         title: notification.title || 'Evalúa Fácil',
         body: notification.body || 'Toca para ver los detalles',
+        // Mismo canal que el push real (ver CANALES arriba) — con la app en
+        // primer plano, Android no muestra el push del sistema, este es su
+        // único reflejo; sin channelId caería en el canal por default,
+        // perdiendo la prioridad/sonido propios de "avisos".
+        channelId: CANAL_POR_CATEGORIA[notification.data?.categoria] || undefined,
         // `extra` viaja tal cual al listener de abajo (localNotificationActionPerformed)
         // — para que tocar el reflejo EN PRIMER PLANO también lleve directo a
         // la entrega, igual que el push real en segundo plano/cerrado.
@@ -151,6 +191,10 @@ export async function initPushNotifications(uid, navigate, deepLink) {
     if (perm.receive !== 'granted') perm = await PushNotifications.requestPermissions()
     if (perm.receive !== 'granted') return
     await LocalNotifications.requestPermissions()
+    // No-op en iOS/web (los canales son un concepto de Android) — crea todos
+    // de una vez, antes de que llegue el primer push, para que ya exista el
+    // canal "avisos" cuando FCM lo referencie por id.
+    await crearCanales()
 
     PushNotifications.addListener('registration', (token) => {
       currentToken = token.value
