@@ -131,14 +131,35 @@ const TOKEN_INVALIDO = new Set([
 // logExtra, vía enviarPush) se quedan con el comportamiento de antes (solo
 // si el push de verdad se mandó): no hay pantalla que las muestre, así que
 // registrarlas sin push no serviría más que para inflar la base de datos.
+// Canal de Android por categoría — DEBE coincidir con CANALES/
+// CANAL_POR_CATEGORIA en src/utils/pushNotifications.js, que es quien crea
+// estos canales en el teléfono la primera vez. Sin `android.notification.
+// channelId` en el mensaje de FCM, Android ignora el canal que la app haya
+// creado y cae en uno genérico — pedido explícito: "no reutilizar este canal
+// para otros tipos de notificaciones", así que cada categoría declara el
+// suyo aquí. Categorías sin canal propio (docente: nuevasEntregas) se quedan
+// sin este campo — FCM usa el canal por default del plugin.
+const CANAL_POR_CATEGORIA = {
+  avisos: 'avisos',
+  actividadesNuevas: 'actividades',
+  calificaciones: 'calificaciones',
+  recordatorios: 'recordatorios',
+}
+
 async function enviarPushDirecto(uid, notification, data = {}, descripcion = null, logExtra = null) {
   if (!uid) return
   const settingsSnap = await db.collection('notificationSettings').doc(uid).get()
   const tokens = settingsSnap.exists ? (settingsSnap.data().fcmTokens || []) : []
+  const channelId = CANAL_POR_CATEGORIA[data.categoria]
   let enviado = false
   if (tokens.length) {
     try {
-      const res = await messaging.sendEachForMulticast({ tokens, notification, data })
+      const res = await messaging.sendEachForMulticast({
+        tokens,
+        notification,
+        data,
+        ...(channelId ? { android: { notification: { channelId } } } : {}),
+      })
       res.responses.forEach((r, i) => {
         if (!r.success) logger.error(`enviarPushDirecto(${uid}) token ${i} falló: ${r.error?.code} — ${r.error?.message}`)
       })
