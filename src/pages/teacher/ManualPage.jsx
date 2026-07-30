@@ -591,8 +591,8 @@ export default function ManualPage() {
   return (
     <div className={`px-4 py-4 ${TEACHER_CONTAINER_NARROW}`}>
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-on-surface">Manual</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Cómo funciona cada parte de Evalúa Fácil.</p>
+        <h1 className="text-[21px] font-bold text-on-surface">Manual</h1>
+        <p className="text-[15px] text-slate-500 mt-0.5">Cómo funciona cada parte de Evalúa Fácil.</p>
       </div>
 
       {/* Índice — tira horizontal en móvil, columna fija en escritorio. */}
@@ -606,7 +606,7 @@ export default function ManualPage() {
                 key={s.id}
                 type="button"
                 onClick={() => setActiveId(s.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-card text-sm font-medium text-left whitespace-nowrap md:whitespace-normal flex-shrink-0 md:flex-shrink transition-colors ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-card text-[15px] font-medium text-left whitespace-nowrap md:whitespace-normal flex-shrink-0 md:flex-shrink transition-colors ${
                   isActive
                     ? 'bg-accent text-white shadow-card'
                     : 'bg-surface-card text-muted hover:bg-[var(--accent-tint)]'
@@ -620,17 +620,17 @@ export default function ManualPage() {
         </nav>
 
         <div className="bg-surface-card rounded-card shadow-card p-5 min-w-0">
-          <h2 className="text-lg font-bold text-on-surface mb-4">{active.title}</h2>
+          <h2 className="text-[19px] font-bold text-on-surface mb-4">{active.title}</h2>
           <div className="space-y-5">
             {active.content.map((block) => (
               <section key={block.subtitle}>
-                <h3 className="text-sm font-bold text-accent mb-2">{block.subtitle}</h3>
+                <h3 className="text-[15px] font-bold text-accent mb-2">{block.subtitle}</h3>
                 <ul className="space-y-2">
                   {block.items.map((item, i) => {
                     const isWarning = item.startsWith('⚠ ')
                     const text = isWarning ? item.slice(2) : item
                     return (
-                      <li key={i} className="flex items-start gap-2 text-sm text-on-surface leading-relaxed">
+                      <li key={i} className="flex items-start gap-2 text-[15px] text-on-surface leading-relaxed">
                         {isWarning ? (
                           <AlertTriangle size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
                         ) : (
