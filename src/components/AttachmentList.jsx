@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Download, X, FileSearch, ExternalLink } from 'lucide-react'
+import { Download, X, FileSearch, ExternalLink, ZoomIn } from 'lucide-react'
 import { getResourceIcon, resourceExtension } from '../utils/resourceTypes'
 import { formatFileSize } from '../utils/formatBytes'
 import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
@@ -134,28 +134,73 @@ export function FilePreview({ url, nombre, fill = false }) {
     // Solo se llega aquí para Word/PowerPoint (canPreviewFile ya deja fuera a
     // Excel — ver SPREADSHEET_EXTS. Ese se abre con la app real del docente,
     // no se reconstruye aquí).
-    <div className="relative w-full" style={{ height: fill ? '100%' : '70vh' }}>
-      <iframe
-        src={docsViewerUrl(viewUrl)}
-        title={`Vista previa: ${nombre}`}
-        sandbox="allow-scripts allow-same-origin allow-popups"
-        className="w-full h-full"
-        style={{ border: 'none' }}
-      />
-      {/* El botón "Ventana emergente" de Google (arriba a la derecha de su
-          propia barra de herramientas) no hace nada en la App: intenta abrir
-          una pestaña nueva, y un WebView no tiene pestañas — queda ahí
-          pareciendo tocable sin servir para nada. No es nuestro: vive dentro
-          del iframe de docs.google.com, así que no se puede quitar con CSS
-          normal (los navegadores no dejan tocar el contenido de un iframe de
-          otro dominio). Se tapa con esta esquina encima, solo en la App.
-          Frágil a propósito reconocido: si Google cambia el diseño de su
-          barra, esta esquina puede quedar mal puesta — revisar si el
-          problema reaparece o si empieza a tapar algo que sí sirve. */}
-      {IS_NATIVE_APP && (
-        <div className="absolute top-0 right-0 w-11 h-9 bg-white" />
-      )}
-    </div>
+    <OfficeDocPreview url={viewUrl} nombre={nombre} fill={fill} />
+  )
+}
+
+// Word/PowerPoint vía Google Docs Viewer. En la App, el botón "Ventana
+// emergente" de la propia barra de Google (arriba a la derecha) no hace
+// nada — intenta abrir una pestaña nueva y un WebView no tiene pestañas.
+// En ese MISMO lugar ponemos nuestro propio botón de zoom (real, funcional):
+// abre el documento en una ventana completa aparte, con el aviso de
+// "pellizca para hacer zoom" bien visible — el zoom del iframe inline a
+// veces aparecía y a veces no, así que se explica claramente en la ventana
+// dedicada en vez de dejarlo a la suerte del ancho angosto del panel.
+function OfficeDocPreview({ url, nombre, fill }) {
+  const [zoomOpen, setZoomOpen] = useState(false)
+  return (
+    <>
+      <div className="relative w-full" style={{ height: fill ? '100%' : '70vh' }}>
+        <iframe
+          src={docsViewerUrl(url)}
+          title={`Vista previa: ${nombre}`}
+          sandbox="allow-scripts allow-same-origin allow-popups"
+          className="w-full h-full"
+          style={{ border: 'none' }}
+        />
+        {IS_NATIVE_APP && (
+          <button
+            type="button"
+            onClick={() => setZoomOpen(true)}
+            aria-label="Ampliar para hacer zoom"
+            data-tooltip="Ampliar para hacer zoom"
+            className="absolute top-0 right-0 w-11 h-9 bg-white flex items-center justify-center text-accent"
+          >
+            <ZoomIn size={18} />
+          </button>
+        )}
+      </div>
+      {zoomOpen && <OfficeDocZoomModal url={url} nombre={nombre} onClose={() => setZoomOpen(false)} />}
+    </>
+  )
+}
+
+function OfficeDocZoomModal({ url, nombre, onClose }) {
+  useBackHandler(onClose, true)
+  useScrollLock(true)
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex flex-col bg-black/90">
+      <div className="flex items-center gap-2 px-3 py-2 bg-surface-card border-b border-outline-variant flex-shrink-0 safe-top">
+        <button type="button" onClick={onClose} aria-label="Cerrar" data-tooltip="Cerrar"
+          className="p-2 -ml-1 text-muted hover:text-accent rounded flex-shrink-0 transition-colors">
+          <X size={20} />
+        </button>
+        <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
+      </div>
+      <p className="text-center text-xs text-white bg-black/60 py-1.5 flex-shrink-0">
+        Pellizca con dos dedos sobre el documento para hacer zoom
+      </p>
+      <div className="flex-1 min-h-0">
+        <iframe
+          src={docsViewerUrl(url)}
+          title={`Vista ampliada: ${nombre}`}
+          sandbox="allow-scripts allow-same-origin allow-popups"
+          className="w-full h-full"
+          style={{ border: 'none' }}
+        />
+      </div>
+    </div>,
+    document.body
   )
 }
 
