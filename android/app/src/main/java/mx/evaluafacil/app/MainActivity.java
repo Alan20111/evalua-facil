@@ -1,9 +1,16 @@
 package mx.evaluafacil.app;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Message;
 import android.view.OrientationEventListener;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import androidx.activity.EdgeToEdge;
+import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebChromeClient;
 
 public class MainActivity extends BridgeActivity {
     // Orientación FÍSICA del dispositivo (sensor nativo). Los eventos web
@@ -22,6 +29,45 @@ public class MainActivity extends BridgeActivity {
         // reporte los insets correctos (env(safe-area-inset-*) en el
         // WebView) — Android 15+ ya fuerza edge-to-edge de todos modos.
         EdgeToEdge.enable(this);
+
+        // Word/PowerPoint se ven con el visor de Google Docs embebido en un
+        // <iframe>; su botón "Ventana emergente" llama a window.open() desde
+        // JavaScript. Un WebView de Android, por defecto, no soporta abrir
+        // "otra ventana" (no hace nada con esas llamadas) — por eso el botón
+        // no funcionaba pese al allow-popups del iframe. Esto activa ese
+        // soporte y, cuando el WebView pide una ventana nueva, la abre en el
+        // navegador del sistema: el equivalente más cercano a una pestaña
+        // nueva, ya que el WebView de la app no tiene pestañas propias.
+        Bridge bridge = getBridge();
+        WebView webView = bridge.getWebView();
+        webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
+        webView.getSettings().setSupportMultipleWindows(true);
+        webView.setWebChromeClient(new BridgeWebChromeClient(bridge) {
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                WebView.HitTestResult hit = view.getHitTestResult();
+                String url = hit != null ? hit.getExtra() : null;
+                if (url != null) {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                    return false;
+                }
+                // window.open() sin un <a> debajo del dedo (el caso normal aquí):
+                // se entrega un WebView "de transporte" desechable solo para
+                // leer a dónde intenta navegar, y esa URL se abre afuera.
+                WebView transportWebView = new WebView(view.getContext());
+                transportWebView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, String u) {
+                        startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(u)));
+                        return true;
+                    }
+                });
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(transportWebView);
+                resultMsg.sendToTarget();
+                return true;
+            }
+        });
 
         orientationListener = new OrientationEventListener(this) {
             @Override
