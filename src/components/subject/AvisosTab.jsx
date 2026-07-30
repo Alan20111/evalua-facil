@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { collection, query, where, onSnapshot, doc, serverTimestamp } from 'firebase/firestore'
-import { addDoc, updateDoc, deleteDoc } from '../../utils/firestoreGuard'
+import { addDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark } from 'lucide-react'
+import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical } from 'lucide-react'
 import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
 import { studentFullName } from '../../utils/studentSearch'
+import { IS_NATIVE_APP } from '../../utils/platform'
 
 const EMPTY_FORM = { id: null, emoji: '', titulo: '', mensaje: '' }
 const EMPTY_PLANTILLA = { id: null, emoji: '✏️', label: '', mensaje: '' }
@@ -51,6 +52,14 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
   const [plantillaForm, setPlantillaForm] = useState(EMPTY_PLANTILLA)
   const [savingPlantilla, setSavingPlantilla] = useState(false)
   const [deletePlantillaConfirm, setDeletePlantillaConfirm] = useState(null)
+
+  // Reordenar plantillas arrastrando — SOLO en la App (mismo criterio que el
+  // Dashboard del docente: en la web las flechas ya funcionan bien con
+  // mouse; en la App, antes, no había forma de reordenar sin escritorio).
+  const [dragIndex, setDragIndex] = useState(null)
+  const [overIndex, setOverIndex] = useState(null)
+  const dragCardRefs = useRef([])
+  const dragStateRef = useRef({ dragIndex: null, overIndex: null })
 
   const [openMenuId, setOpenMenuId] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
@@ -283,6 +292,59 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
     }
   }
 
+  // Lista mostrada mientras se arrastra: el elemento ya aparece en su
+  // posición "de prueba" (overIndex); el commit real (batch con el orden de
+  // TODAS, no solo un swap) pasa hasta soltar. Mismo patrón que el Dashboard
+  // del docente (reordenar asignaturas arrastrando en la App).
+  const displayPlantillas = dragIndex == null ? plantillas : (() => {
+    const arr = [...plantillas]
+    const [item] = arr.splice(dragIndex, 1)
+    arr.splice(overIndex ?? dragIndex, 0, item)
+    return arr
+  })()
+
+  function dragPointerDown(e, index) {
+    e.preventDefault()
+    setDragIndex(index)
+    setOverIndex(index)
+    dragStateRef.current = { dragIndex: index, overIndex: index }
+    window.addEventListener('pointermove', dragPointerMove)
+    window.addEventListener('pointerup', dragPointerUp)
+    window.addEventListener('pointercancel', dragPointerUp)
+  }
+  function dragPointerMove(e) {
+    const y = e.clientY
+    let newOver = dragStateRef.current.overIndex
+    dragCardRefs.current.forEach((el, i) => {
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      if (y >= rect.top && y <= rect.bottom) newOver = i
+    })
+    if (newOver !== dragStateRef.current.overIndex) {
+      dragStateRef.current.overIndex = newOver
+      setOverIndex(newOver)
+    }
+  }
+  async function dragPointerUp() {
+    window.removeEventListener('pointermove', dragPointerMove)
+    window.removeEventListener('pointerup', dragPointerUp)
+    window.removeEventListener('pointercancel', dragPointerUp)
+    const { dragIndex: from, overIndex: to } = dragStateRef.current
+    setDragIndex(null)
+    setOverIndex(null)
+    if (from == null || to == null || from === to) return
+    const newList = [...plantillas]
+    const [item] = newList.splice(from, 1)
+    newList.splice(to, 0, item)
+    try {
+      const batch = writeBatch(db)
+      newList.forEach((p, i) => batch.update(doc(db, 'avisoPlantillas', p.id), { orden: i }))
+      await batch.commit()
+    } catch (err) {
+      toast('No se pudo reordenar: ' + err.message, 'error')
+    }
+  }
+
   const totalEstudiantes = students.length
   const avisosGuardados = avisos.filter((a) => a.guardado)
   const avisosMostrados = soloGuardados ? avisosGuardados : avisos
@@ -467,20 +529,35 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
                     <Plus size={14} /> Nueva
                   </button>
                 </div>
-                <p className="text-xs text-muted mb-3">Edítalas, cámbiales el ícono, reordénalas o crea las tuyas — son tuyas, se usan en todas tus asignaturas.</p>
+                <p className="text-xs text-muted mb-3">
+                  Edítalas, cámbiales el ícono, {IS_NATIVE_APP ? 'mantén y arrastra para reordenar' : 'reordénalas'} o crea las tuyas — son tuyas, se usan en todas tus asignaturas.
+                </p>
                 <div className="space-y-1.5">
-                  {plantillas.map((p, i) => (
-                    <div key={p.id} className="flex items-center gap-2 bg-surface-container rounded-card px-2 py-1.5">
-                      <div className="flex flex-col flex-shrink-0">
-                        <button type="button" onClick={() => movePlantilla(i, -1)} disabled={i === 0} aria-label="Subir"
-                          className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-20 disabled:hover:text-slate-400">
-                          <ChevronUp size={14} />
+                  {displayPlantillas.map((p, i) => (
+                    <div key={p.id}
+                      ref={(el) => { dragCardRefs.current[i] = el }}
+                      className={`flex items-center gap-2 bg-surface-container rounded-card px-2 py-1.5 transition-opacity ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}>
+                      {/* Reordenar: flechas en la web, arrastrar en la App —
+                          mismo criterio que la lista de asignaturas del
+                          Dashboard del docente. */}
+                      {IS_NATIVE_APP ? (
+                        <button type="button" onPointerDown={(e) => dragPointerDown(e, i)} aria-label="Arrastrar para reordenar"
+                          data-tooltip="Mantén y arrastra para reordenar"
+                          className="p-1.5 -m-0.5 text-slate-400 hover:text-accent flex-shrink-0 cursor-grab active:cursor-grabbing touch-none">
+                          <GripVertical size={16} />
                         </button>
-                        <button type="button" onClick={() => movePlantilla(i, 1)} disabled={i === plantillas.length - 1} aria-label="Bajar"
-                          className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-20 disabled:hover:text-slate-400">
-                          <ChevronDown size={14} />
-                        </button>
-                      </div>
+                      ) : (
+                        <div className="flex flex-col flex-shrink-0">
+                          <button type="button" onClick={() => movePlantilla(i, -1)} disabled={i === 0} aria-label="Subir"
+                            className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-20 disabled:hover:text-slate-400">
+                            <ChevronUp size={14} />
+                          </button>
+                          <button type="button" onClick={() => movePlantilla(i, 1)} disabled={i === plantillas.length - 1} aria-label="Bajar"
+                            className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-20 disabled:hover:text-slate-400">
+                            <ChevronDown size={14} />
+                          </button>
+                        </div>
+                      )}
                       <span className="text-xl flex-shrink-0" aria-hidden="true">{p.emoji}</span>
                       <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{p.label}</span>
                       <button type="button" onClick={() => openPlantillaForm(p)} aria-label="Editar" data-tooltip="Editar"
