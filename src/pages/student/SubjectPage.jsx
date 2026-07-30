@@ -7,6 +7,9 @@ import {
   getDocs,
   getDoc,
   doc,
+  onSnapshot,
+  setDoc,
+  serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -29,13 +32,15 @@ import {
   ArrowLeft, ChevronDown, ChevronUp,
   Clock, Star, FolderOpen, BookOpen, Paperclip,
   GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone,
+  CheckCircle2, Circle,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { avisoTipoInfo, formatAvisoFecha } from '../../utils/avisos'
+import { avisoTipoInfo, formatAvisoFecha, lecturaDocId } from '../../utils/avisos'
+import AvisoLecturaModal from '../../components/subject/AvisoLecturaModal'
 
 function ResourceCard({ resource: r }) {
   const isLink = r.tipo === 'link'
@@ -125,6 +130,10 @@ export default function StudentSubjectPage() {
   const [resources, setResources] = useState([])
   const [materials, setMaterials] = useState([])
   const [avisos, setAvisos] = useState([])
+  const [avisosReady, setAvisosReady] = useState(false)
+  const [lecturas, setLecturas] = useState({}) // { [avisoId]: true }
+  const [lecturasReady, setLecturasReady] = useState(false)
+  const [confirmingLectura, setConfirmingLectura] = useState(false)
   const [attendanceSummary, setAttendanceSummary] = useState(null)
   const [teacherName, setTeacherName] = useState('')
   const [teacherPhoto, setTeacherPhoto] = useState(null)
@@ -150,18 +159,84 @@ export default function StudentSubjectPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   }, [subjectId, currentUser])
 
+  // Avisos en tiempo real — a diferencia del resto de esta pantalla (una sola
+  // lectura al entrar), un aviso que el docente publica/edita/borra mientras
+  // el alumno ya tiene la materia abierta debe aparecer/desaparecer solo, sin
+  // que recargue la página. `onSnapshot` en vez de `getDocs`, ver pedido
+  // explícito de sincronización en tiempo real.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reinicia el gate de "listo" al cambiar de asignatura, antes de suscribirse
+    setAvisosReady(false)
+    const unsub = onSnapshot(
+      query(collection(db, 'avisos'), where('asignaturaId', '==', subjectId)),
+      (snap) => {
+        setAvisos(
+          snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+            .filter((a) => a.activo !== false)
+            .sort((a, b) => (b.fechaCreacion?.seconds ?? 0) - (a.fechaCreacion?.seconds ?? 0))
+        )
+        setAvisosReady(true)
+      },
+      () => setAvisosReady(true)
+    )
+    return unsub
+  }, [subjectId])
+
+  // Sus propias confirmaciones de lectura — también en vivo: si confirma un
+  // aviso en un dispositivo, no debe volver a pedírselo en otro donde tenga
+  // la sesión abierta al mismo tiempo. Espera a `studentId` (llega de
+  // loadAll) porque `avisoLecturas.estudianteId` es el id de SU inscripción,
+  // no su uid de Firebase Auth.
+  useEffect(() => {
+    if (!studentId) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reinicia el gate de "listo" al cambiar de asignatura, antes de suscribirse
+    setLecturasReady(false)
+    const unsub = onSnapshot(
+      query(collection(db, 'avisoLecturas'), where('estudianteId', '==', studentId)),
+      (snap) => {
+        const map = {}
+        snap.docs.forEach((d) => { map[d.data().avisoId] = true })
+        setLecturas(map)
+        setLecturasReady(true)
+      },
+      () => setLecturasReady(true)
+    )
+    return unsub
+  }, [studentId])
+
+  // Del más antiguo al más reciente — "uno por uno hasta que todos hayan
+  // sido confirmados", en el orden en que se publicaron.
+  const avisosPendientes = avisosReady && lecturasReady
+    ? avisos.filter((a) => !lecturas[a.id]).sort((a, b) => (a.fechaCreacion?.seconds ?? 0) - (b.fechaCreacion?.seconds ?? 0))
+    : []
+
+  async function confirmarLectura(aviso) {
+    setConfirmingLectura(true)
+    try {
+      await setDoc(doc(db, 'avisoLecturas', lecturaDocId(aviso.id, studentId)), {
+        avisoId: aviso.id,
+        estudianteId: studentId,
+        fechaHoraLectura: serverTimestamp(),
+        dispositivo: `${IS_NATIVE_APP ? 'app' : 'web'} · ${navigator.userAgent}`,
+      })
+    } catch (err) {
+      toast('Error al confirmar el aviso: ' + err.message, 'error')
+    } finally {
+      setConfirmingLectura(false)
+    }
+  }
+
   async function loadAll() {
     setLoading(true)
     // Default view for every subject: only the first parcial expanded. This same
     // component is reused (not remounted) when switching subjects, so reset it here.
     setOpenParcial(1)
     try {
-      const [subSnap, studData, actsSnap, resSnap, avisosSnap] = await Promise.all([
+      const [subSnap, studData, actsSnap, resSnap] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
         getEnrollmentForSubject(currentUser, userProfile, subjectId),
         getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
         getDocs(query(collection(db, 'resources'), where('asignaturaId', '==', subjectId))),
-        getDocs(query(collection(db, 'avisos'), where('asignaturaId', '==', subjectId))),
       ])
       const matsSnap = await getDocs(
         query(collection(db, 'materials'), where('asignaturaId', '==', subjectId))
@@ -216,11 +291,6 @@ export default function StudentSubjectPage() {
       setResources(
         resSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.fechaPublicacion?.seconds ?? 0) - (a.fechaPublicacion?.seconds ?? 0))
-      )
-      setAvisos(
-        avisosSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-          .filter((a) => a.activo !== false)
-          .sort((a, b) => (b.fechaCreacion?.seconds ?? 0) - (a.fechaCreacion?.seconds ?? 0))
       )
       setMaterials(
         matsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -290,7 +360,7 @@ export default function StudentSubjectPage() {
     }
   }
 
-  if (loading) return (
+  if (loading || !avisosReady || (studentId && !lecturasReady)) return (
     <StudentLayout>
       <div className="flex items-center justify-center py-20">
         <Spinner size="lg" />
@@ -301,6 +371,11 @@ export default function StudentSubjectPage() {
   return (
     <StudentLayout>
     <div className="bg-surface" {...subjectPaletteProps(subject?.colorPalette)}>
+
+      {/* Lectura obligatoria — se dibuja SIEMPRE que haya pendientes, encima
+          de cualquier pestaña, así el alumno no tiene que buscar el aviso.
+          Sin botón de cerrar/atrás (ver AvisoLecturaModal.jsx). */}
+      <AvisoLecturaModal avisos={avisosPendientes} teacherName={teacherName} onConfirm={confirmarLectura} confirming={confirmingLectura} />
 
       {/* Page header */}
       <header className="bg-surface-card border-b border-outline-variant px-4 py-3 flex items-center gap-3 shadow-card">
@@ -726,13 +801,27 @@ export default function StudentSubjectPage() {
             <div className="space-y-2">
               {avisos.map((a) => {
                 const info = avisoTipoInfo(a.tipo)
+                const leido = !!lecturas[a.id]
                 return (
                   <div key={a.id} className="bg-surface-card rounded-card border border-outline-variant shadow-card px-4 py-3">
                     <div className="flex items-start gap-3">
                       <span className="text-xl leading-none flex-shrink-0 mt-0.5" aria-hidden="true">{info.emoji}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-on-surface">{a.titulo}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{formatAvisoFecha(a.fechaCreacion)}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-on-surface">{a.titulo}</p>
+                          {leido ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                              <CheckCircle2 size={13} /> Leído
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs text-accent font-medium">
+                              <Circle size={8} className="fill-current" /> Nuevo
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {formatAvisoFecha(a.fechaCreacion)}{teacherName ? ` · ${teacherName}` : ''}
+                        </p>
                         <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap">{a.mensaje}</p>
                       </div>
                     </div>
