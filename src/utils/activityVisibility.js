@@ -92,14 +92,17 @@ export function isDueToday(activity) {
   return d.getFullYear() === hoy.getFullYear() && d.getMonth() === hoy.getMonth() && d.getDate() === hoy.getDate()
 }
 
-// 'calificada' | 'entregada' | 'hoy' | 'vencida' | 'proxima' | null (sin
-// fecha límite — p.ej. una observación, que no aplica a la Agenda por fecha).
+// 'calificada' | 'entregada' | 'hoy' | 'vencida' | 'proxima'. Una actividad
+// sin fecha límite (p.ej. el maestro aún no la captura) se trata como 'hoy'
+// de forma persistente — sin esto, la Agenda la excluía por completo aunque
+// ya fuera visible en "Actividades" (issue reportado: entregable nuevo, sin
+// fecha límite, no aparecía en la agenda del día de publicación).
 export function estadoAgenda(activity, submission) {
-  if (!activity?.fechaLimite) return null
   const graded = submission?.calificacion != null
   const delivered = submission && !graded
   if (graded) return 'calificada'
   if (delivered) return 'entregada'
+  if (!activity?.fechaLimite) return 'hoy'
   if (isDueToday(activity)) return 'hoy'
   if (isOverdue(activity)) return 'vencida'
   return 'proxima'

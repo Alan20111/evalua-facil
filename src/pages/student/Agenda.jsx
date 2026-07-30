@@ -106,7 +106,7 @@ export default function Agenda() {
           // vencidas para siempre.
           if (subj.archived) return false
           const parcialesOcultos = subj.parcialesOcultos || []
-          return isActivityPublished(a, parcialesOcultos.includes(a.parcial)) && !!a.fechaLimite
+          return isActivityPublished(a, parcialesOcultos.includes(a.parcial))
         })
         .map((a) => {
           const subj = subjectById[a.asignaturaId]
@@ -120,7 +120,12 @@ export default function Agenda() {
           const extendedDate = a.extensiones?.[docIdBySubject[a.asignaturaId]] || null
           const displayDeadline = extendedDate || a.fechaLimite
           const estado = estadoAgenda({ ...a, fechaLimite: displayDeadline }, submission)
-          const fecha = new Date(displayDeadline.includes('T') ? displayDeadline : `${displayDeadline}T23:59:59`)
+          // Sin fecha límite, la actividad se ancla al día de hoy (persistente
+          // hasta que el maestro capture una fecha) — ver comentario en
+          // estadoAgenda sobre por qué antes desaparecía de la Agenda.
+          const fecha = !displayDeadline
+            ? new Date()
+            : new Date(displayDeadline.includes('T') ? displayDeadline : `${displayDeadline}T23:59:59`)
           return { id: a.id, activity: a, submission, subject: subj, teacherName: teacherName[subj.docenteId] || '', estado, fecha, extendedDate }
         })
         .filter((it) => it.estado)
