@@ -15,6 +15,8 @@
 //      publishAt ya pasó (visibilidad puramente por tiempo, sin escritura de
 //      doc) + recordatorios de entrega, con la anticipación que cada
 //      estudiante haya elegido (recordatorios.anticipacionMinutos).
+//   6. onAvisoEscrito       — el docente publicó un aviso nuevo (título y
+//      cuerpo los escribe el propio docente, no un texto genérico).
 //
 // Todo push que de verdad se manda (sin importar la categoría) queda
 // registrado en `notificationLog` — ver enviarPushDirecto() — que alimenta
@@ -174,13 +176,16 @@ async function enviarPushDirecto(uid, notification, data = {}, descripcion = nul
 // casi ningún alumno abre esa pantalla, "Calificaciones"/"Actividades
 // nuevas"/"Recordatorios" nunca se enviaban a la gran mayoría, aunque la
 // app les mostrara que estaban activadas.
-async function enviarPush(uid, categoria, dataExtra = {}) {
+// `notificationOverride` reemplaza el título/cuerpo fijo de TITULOS[categoria]
+// — lo usan los Avisos, donde el título y el mensaje los escribe el propio
+// docente en cada aviso, no un texto genérico por categoría.
+async function enviarPush(uid, categoria, dataExtra = {}, notificationOverride = null) {
   if (!uid) return
   const settingsSnap = await db.collection('notificationSettings').doc(uid).get()
   const cfg = settingsSnap.exists ? settingsSnap.data()[categoria] : null
   if (cfg?.habilitado === false) return
 
-  const notification = TITULOS[categoria]
+  const notification = notificationOverride || TITULOS[categoria]
   const data = {
     categoria,
     ...Object.fromEntries(Object.entries(dataExtra).map(([k, v]) => [k, String(v)])),
@@ -212,6 +217,34 @@ exports.onActividadEscrita = onDocumentWritten('activities/{activityId}', async 
     enviarPush(d.data().uid, 'actividadesNuevas', { actividadId: event.params.activityId })
   ))
   await after.ref.update({ notificadoNuevaActividad: true })
+})
+
+// ─── Aviso publicado ────────────────────────────────────────────────────
+// onCreate únicamente (a diferencia de onActividadEscrita): un aviso nace ya
+// publicado siempre — no hay borrador ni programación (ver src/utils/avisos.js
+// y AvisosTab.jsx), así que solo el primer write importa. Idempotente por
+// `notificado` de todos modos, para no duplicar el push si la función
+// reintenta la misma escritura.
+exports.onAvisoEscrito = onDocumentWritten('avisos/{avisoId}', async (event) => {
+  const after = event.data?.after
+  if (!after?.exists) return // borrado
+  const before = event.data.before
+  if (before?.exists) return // solo se notifica al crear, no al editar
+  const a = after.data()
+  if (a.notificado) return
+
+  const subjSnap = await db.collection('subjects').doc(a.asignaturaId).get()
+  const materia = subjSnap.exists ? subjSnap.data().nombre || '' : ''
+
+  const estudiantes = await estudiantesDeAsignatura(a.asignaturaId)
+  const notification = {
+    title: materia ? `Nuevo aviso en ${materia}` : 'Nuevo aviso',
+    body: a.mensaje,
+  }
+  await Promise.all(estudiantes.map((d) =>
+    enviarPush(d.data().uid, 'avisos', { asignaturaId: a.asignaturaId, avisoId: event.params.avisoId }, notification)
+  ))
+  await after.ref.update({ notificado: true })
 })
 
 // ─── 2) Calificación publicada ──────────────────────────────────────────────

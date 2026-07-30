@@ -74,6 +74,9 @@ function resolveDestino(data) {
   if ((data.categoria === 'calificaciones' || data.categoria === 'actividadesNuevas') && data.actividadId) {
     return { path: `/alumno/actividad/${data.actividadId}` }
   }
+  if (data.categoria === 'avisos' && data.asignaturaId) {
+    return { path: `/alumno/materia/${data.asignaturaId}`, state: { tab: 'Avisos' } }
+  }
   return null
 }
 
