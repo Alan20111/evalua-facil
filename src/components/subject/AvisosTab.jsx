@@ -1,77 +1,174 @@
-import { useEffect, useState } from 'react'
-import { collection, query, where, getDocs, doc, serverTimestamp } from 'firebase/firestore'
+import { useEffect, useRef, useState } from 'react'
+import { collection, query, where, onSnapshot, doc, serverTimestamp } from 'firebase/firestore'
 import { addDoc, updateDoc, deleteDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { Plus, MoreVertical, Pencil, Trash2, Megaphone } from 'lucide-react'
-import { AVISO_TIPOS, avisoTipoInfo, formatAvisoFecha } from '../../utils/avisos'
+import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft } from 'lucide-react'
+import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
+import { studentFullName } from '../../utils/studentSearch'
 
-const EMPTY_FORM = { id: null, tipo: null, titulo: '', mensaje: '' }
+const EMPTY_FORM = { id: null, emoji: '', titulo: '', mensaje: '' }
+const EMPTY_PLANTILLA = { id: null, emoji: '✏️', label: '', mensaje: '' }
+
+// Barra de progreso de lectura — pedido explícito: "████████░░ 80% · 24 de
+// 30 estudiantes han confirmado la lectura". Barra real con CSS (no
+// caracteres de bloque literales — no se ven parejos entre fuentes/tamaños).
+function ProgressoLectura({ leidos, total }) {
+  const pct = total > 0 ? Math.round((leidos / total) * 100) : 0
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-2 rounded-full bg-surface-container overflow-hidden">
+          <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="text-xs font-semibold text-accent flex-shrink-0">{pct}%</span>
+      </div>
+      <p className="text-xs text-slate-400 mt-1">
+        {total === 0 ? 'Sin estudiantes inscritos aún' : `${leidos} de ${total} estudiantes han confirmado la lectura.`}
+      </p>
+    </div>
+  )
+}
 
 export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBlockedCreate }) {
   const toast = useToast()
   const [avisos, setAvisos] = useState([])
-  const [loaded, setLoaded] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [avisosLoaded, setAvisosLoaded] = useState(false)
+  const [students, setStudents] = useState([])
+  const [lecturasByAviso, setLecturasByAviso] = useState({}) // { [avisoId]: { [estudianteId]: Timestamp } }
+  const [plantillas, setPlantillas] = useState([])
+  const [plantillasLoaded, setPlantillasLoaded] = useState(false)
+  const seedingRef = useRef(false)
 
-  const [step, setStep] = useState(null) // null | 'picker' | 'form'
+  const [step, setStep] = useState(null) // null | 'picker' | 'form' | 'plantillas' | 'plantilla-form'
   const [modalMode, setModalMode] = useState('create')
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
 
+  const [plantillaForm, setPlantillaForm] = useState(EMPTY_PLANTILLA)
+  const [savingPlantilla, setSavingPlantilla] = useState(false)
+  const [deletePlantillaConfirm, setDeletePlantillaConfirm] = useState(null)
+
   const [openMenuId, setOpenMenuId] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [detailAviso, setDetailAviso] = useState(null)
 
-  useBackHandler(() => (deleteConfirm ? setDeleteConfirm(null) : setStep(null)), step != null || !!deleteConfirm)
-  useScrollLock(step != null || !!deleteConfirm)
+  const modalOpen = step != null || !!deleteConfirm || !!deletePlantillaConfirm || !!detailAviso
+  useBackHandler(() => {
+    if (deleteConfirm) setDeleteConfirm(null)
+    else if (deletePlantillaConfirm) setDeletePlantillaConfirm(null)
+    else if (detailAviso) setDetailAviso(null)
+    else if (step === 'plantilla-form') setStep('plantillas')
+    else setStep(null)
+  }, modalOpen)
+  useScrollLock(modalOpen)
 
-  async function loadAvisos() {
-    setLoading(true)
+  // Avisos — en vivo: la barra de progreso de cada tarjeta se actualiza sola
+  // conforme los estudiantes confirman, sin que el docente recargue nada.
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, 'avisos'), where('asignaturaId', '==', subjectId)),
+      (snap) => {
+        setAvisos(
+          snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+            .filter((a) => a.activo !== false)
+            // Más reciente primero — orden en memoria porque este proyecto no
+            // usa orderBy en Firestore (ver CLAUDE.md).
+            .sort((a, b) => (b.fechaCreacion?.seconds ?? 0) - (a.fechaCreacion?.seconds ?? 0))
+        )
+        setAvisosLoaded(true)
+      },
+      () => { toast('Error al cargar avisos', 'error'); setAvisosLoaded(true) }
+    )
+    return unsub
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toast estable, no hace falta re-suscribir por él
+  }, [subjectId])
+
+  // Roster de la asignatura — el "total de estudiantes inscritos" de la barra.
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, 'students'), where('asignaturaId', '==', subjectId)),
+      (snap) => setStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    )
+    return unsub
+  }, [subjectId])
+
+  // Todas las confirmaciones de lectura de la asignatura, en un solo listener
+  // (una consulta `==` por `asignaturaId`, no una por aviso) — agrupadas por
+  // avisoId en memoria para alimentar cada barra de progreso.
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, 'avisoLecturas'), where('asignaturaId', '==', subjectId)),
+      (snap) => {
+        const map = {}
+        snap.docs.forEach((d) => {
+          const l = d.data()
+          ;(map[l.avisoId] ||= {})[l.estudianteId] = l.fechaHoraLectura
+        })
+        setLecturasByAviso(map)
+      }
+    )
+    return unsub
+  }, [subjectId])
+
+  // Banco de plantillas del docente — su propia colección, no depende de la
+  // asignatura (se reutiliza en todas sus materias).
+  useEffect(() => {
+    const unsub = onSnapshot(
+      query(collection(db, 'avisoPlantillas'), where('docenteId', '==', docenteId)),
+      (snap) => {
+        setPlantillas(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)))
+        setPlantillasLoaded(true)
+      },
+      () => setPlantillasLoaded(true)
+    )
+    return unsub
+  }, [docenteId])
+
+  // La primera vez que un docente abre "Nuevo aviso" y su banco está vacío,
+  // le copiamos los 12 predefinidos como punto de partida editable — pedido
+  // explícito: "una forma de optimizar sería editar los que ya están", en vez
+  // de arrancar de cero. `seedingRef` evita duplicar la siembra si el
+  // snapshot todavía no refleja los docs recién creados.
+  async function ensurePlantillasSeed() {
+    if (plantillas.length > 0 || seedingRef.current) return
+    seedingRef.current = true
     try {
-      const snap = await getDocs(query(collection(db, 'avisos'), where('asignaturaId', '==', subjectId)))
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-        .filter((a) => a.activo !== false)
-        // Más reciente primero — orden en memoria porque este proyecto no usa
-        // orderBy en Firestore (ver CLAUDE.md).
-        .sort((a, b) => (b.fechaCreacion?.seconds ?? 0) - (a.fechaCreacion?.seconds ?? 0))
-      setAvisos(list)
-      setLoaded(true)
-    } catch (err) {
-      toast('Error al cargar avisos: ' + err.message, 'error')
+      await Promise.all(PLANTILLAS_SEED.map((p) => addDoc(collection(db, 'avisoPlantillas'), { ...p, docenteId })))
+    } catch {
+      // Best-effort: si falla, el picker simplemente se queda vacío con el
+      // botón de "Nueva plantilla" disponible para armar el banco a mano.
     } finally {
-      setLoading(false)
+      seedingRef.current = false
     }
   }
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect -- recarga al cambiar de asignatura
-  useEffect(() => { loadAvisos() }, [subjectId])
 
   function openAdd() {
     if (!canCreate) { onBlockedCreate?.(); return }
     setModalMode('create')
     setForm(EMPTY_FORM)
     setStep('picker')
+    if (plantillasLoaded) ensurePlantillasSeed()
   }
 
-  function pickTipo(tipoDef) {
-    setForm({ id: null, tipo: tipoDef.key, titulo: tipoDef.titulo, mensaje: '' })
+  function pickPlantilla(p) {
+    setForm({ id: null, emoji: p.emoji, titulo: p.label, mensaje: p.mensaje || '' })
     setStep('form')
   }
 
   function openEdit(aviso) {
     setOpenMenuId(null)
     setModalMode('edit')
-    setForm({ id: aviso.id, tipo: aviso.tipo, titulo: aviso.titulo, mensaje: aviso.mensaje })
+    setForm({ id: aviso.id, emoji: avisoEmoji(aviso), titulo: aviso.titulo, mensaje: aviso.mensaje })
     setStep('form')
   }
 
   async function handleSave(e) {
     e.preventDefault()
-    if (!form.titulo.trim()) { toast('Escribe un título', 'error'); return }
     if (!form.mensaje.trim()) { toast('Escribe un mensaje', 'error'); return }
     setSaving(true)
     try {
@@ -79,9 +176,10 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
         await addDoc(collection(db, 'avisos'), {
           asignaturaId: subjectId,
           docenteId,
-          titulo: form.titulo.trim(),
+          titulo: form.titulo,
+          emoji: form.emoji,
           mensaje: form.mensaje.trim(),
-          tipo: form.tipo,
+          tipo: 'OTRO',
           activo: true,
           fechaCreacion: serverTimestamp(),
           fechaActualizacion: serverTimestamp(),
@@ -89,14 +187,12 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
         toast('Aviso publicado')
       } else {
         await updateDoc(doc(db, 'avisos', form.id), {
-          titulo: form.titulo.trim(),
           mensaje: form.mensaje.trim(),
           fechaActualizacion: serverTimestamp(),
         })
         toast('Aviso actualizado')
       }
       setStep(null)
-      await loadAvisos()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -110,7 +206,6 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
     try {
       await deleteDoc(doc(db, 'avisos', deleteConfirm.id))
       setDeleteConfirm(null)
-      await loadAvisos()
       toast('Aviso eliminado')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -118,6 +213,66 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
       setDeleting(false)
     }
   }
+
+  // ── Plantillas (mensajes rápidos personalizables) ──────────────────────
+  function openPlantillaForm(p) {
+    setPlantillaForm(p ? { id: p.id, emoji: p.emoji, label: p.label, mensaje: p.mensaje || '' } : EMPTY_PLANTILLA)
+    setStep('plantilla-form')
+  }
+
+  async function savePlantilla(e) {
+    e.preventDefault()
+    if (!plantillaForm.label.trim()) { toast('Escribe un nombre para la plantilla', 'error'); return }
+    setSavingPlantilla(true)
+    try {
+      if (plantillaForm.id) {
+        await updateDoc(doc(db, 'avisoPlantillas', plantillaForm.id), {
+          emoji: plantillaForm.emoji, label: plantillaForm.label.trim(), mensaje: plantillaForm.mensaje.trim(),
+        })
+        toast('Plantilla actualizada')
+      } else {
+        await addDoc(collection(db, 'avisoPlantillas'), {
+          docenteId, emoji: plantillaForm.emoji, label: plantillaForm.label.trim(), mensaje: plantillaForm.mensaje.trim(),
+          orden: plantillas.length,
+        })
+        toast('Plantilla creada')
+      }
+      setStep('plantillas')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setSavingPlantilla(false)
+    }
+  }
+
+  async function handleDeletePlantilla() {
+    if (!deletePlantillaConfirm) return
+    try {
+      await deleteDoc(doc(db, 'avisoPlantillas', deletePlantillaConfirm.id))
+      setDeletePlantillaConfirm(null)
+      toast('Plantilla eliminada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  // Swap de `orden` con el vecino — misma idea que reordenar asignaturas con
+  // flechas (ver SubjectPage del docente), sin arrastrar.
+  async function movePlantilla(index, delta) {
+    const target = index + delta
+    if (target < 0 || target >= plantillas.length) return
+    const a = plantillas[index], b = plantillas[target]
+    try {
+      await Promise.all([
+        updateDoc(doc(db, 'avisoPlantillas', a.id), { orden: b.orden ?? target }),
+        updateDoc(doc(db, 'avisoPlantillas', b.id), { orden: a.orden ?? index }),
+      ])
+    } catch (err) {
+      toast('Error al reordenar: ' + err.message, 'error')
+    }
+  }
+
+  const totalEstudiantes = students.length
 
   return (
     <div className="px-4 py-2 space-y-2">
@@ -132,7 +287,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
         </button>
       </div>
 
-      {!loaded || loading ? (
+      {!avisosLoaded ? (
         <div className="flex justify-center py-10"><Spinner /></div>
       ) : avisos.length === 0 ? (
         <div className="text-center py-10 text-slate-400 text-sm flex flex-col items-center gap-2">
@@ -142,16 +297,25 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
       ) : (
         <div className="space-y-1.5">
           {avisos.map((a) => {
-            const info = avisoTipoInfo(a.tipo)
+            const leidosMap = lecturasByAviso[a.id] || {}
+            const leidos = Object.keys(leidosMap).length
             return (
               <div key={a.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card px-3 py-2.5">
                 <div className="flex items-start gap-3">
-                  <span className="text-xl leading-none flex-shrink-0 mt-0.5" aria-hidden="true">{info.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-on-surface truncate">{a.titulo}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{formatAvisoFecha(a.fechaCreacion)}</p>
-                    <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap line-clamp-3">{a.mensaje}</p>
-                  </div>
+                  {/* El cuerpo de la tarjeta abre "Ver lecturas" — pedido
+                      explícito: clic sobre el aviso o el ítem del menú, las
+                      dos rutas llevan al mismo detalle. */}
+                  <button type="button" onClick={() => setDetailAviso(a)} className="flex-1 min-w-0 flex items-start gap-3 text-left">
+                    <span className="text-xl leading-none flex-shrink-0 mt-0.5" aria-hidden="true">{avisoEmoji(a)}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-400">{formatAvisoFecha(a.fechaCreacion)}</p>
+                      {/* Sin línea de título aparte — el mensaje ya lo dice
+                          todo, mostrar los dos era repetir la misma idea dos
+                          veces y le hacía perder tiempo al docente. */}
+                      <p className="text-sm font-medium text-on-surface mt-0.5 whitespace-pre-wrap line-clamp-3">{a.mensaje}</p>
+                      <ProgressoLectura leidos={leidos} total={totalEstudiantes} />
+                    </div>
+                  </button>
                   <div className="relative flex-shrink-0">
                     <button type="button" onClick={() => setOpenMenuId((id) => (id === a.id ? null : a.id))}
                       aria-label="Más opciones" data-tooltip="Más opciones"
@@ -161,7 +325,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
                     {openMenuId === a.id && (
                       <>
                         <button type="button" className="fixed inset-0 z-30 cursor-default" aria-label="Cerrar menú" onClick={() => setOpenMenuId(null)} />
-                        <div className="absolute right-0 top-full mt-1 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[140px]">
+                        <div className="absolute right-0 top-full mt-1 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[160px]">
+                          <button type="button" onClick={() => { setOpenMenuId(null); setDetailAviso(a) }}
+                            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-on-surface hover:bg-[var(--accent-tint)]">
+                            <CheckCircle2 size={14} /> Ver lecturas
+                          </button>
                           <button type="button" onClick={() => openEdit(a)}
                             className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-on-surface hover:bg-[var(--accent-tint)]">
                             <Pencil size={14} /> Editar
@@ -182,7 +350,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
       )}
 
       {/* ── Nuevo / editar aviso ── */}
-      {step && (
+      {step && (step === 'picker' || step === 'form') && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setStep(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -190,33 +358,44 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
               <>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-semibold">¿Qué deseas comunicar?</h3>
+                  <button type="button" onClick={() => setStep('plantillas')}
+                    data-tooltip="Editar tus plantillas"
+                    className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                    <Settings size={18} />
+                  </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {AVISO_TIPOS.map((t) => (
-                    <button key={t.key} type="button" onClick={() => pickTipo(t)}
-                      className="flex flex-col items-center gap-1.5 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-center">
-                      <span className="text-2xl" aria-hidden="true">{t.emoji}</span>
-                      <span className="text-sm font-medium text-on-surface">{t.label}</span>
+                {!plantillasLoaded ? (
+                  <div className="flex justify-center py-10"><Spinner /></div>
+                ) : plantillas.length === 0 ? (
+                  <div className="text-center py-8 text-sm text-muted">
+                    <p className="mb-3">Aún no tienes plantillas.</p>
+                    <button type="button" onClick={() => openPlantillaForm(null)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
+                      <Plus size={16} /> Crear tu primera plantilla
                     </button>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {plantillas.map((p) => (
+                      <button key={p.id} type="button" onClick={() => pickPlantilla(p)}
+                        className="flex flex-col items-center gap-1.5 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-center">
+                        <span className="text-2xl" aria-hidden="true">{p.emoji}</span>
+                        <span className="text-sm font-medium text-on-surface">{p.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </>
             ) : (
               <form onSubmit={handleSave}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">{modalMode === 'create' ? 'Nuevo aviso' : 'Editar aviso'}</h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-2xl flex-shrink-0" aria-hidden="true">{form.emoji}</span>
+                  <h3 className="text-lg font-semibold">{form.titulo || (modalMode === 'create' ? 'Nuevo aviso' : 'Editar aviso')}</h3>
                 </div>
-                <div className="space-y-3">
-                  <div>
-                    <label htmlFor="aviso-titulo" className="block text-sm font-medium text-on-surface mb-1">Título</label>
-                    <input id="aviso-titulo" type="text" value={form.titulo} onChange={(e) => setForm((f) => ({ ...f, titulo: e.target.value }))}
-                      className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm" />
-                  </div>
-                  <div>
-                    <label htmlFor="aviso-mensaje" className="block text-sm font-medium text-on-surface mb-1">Mensaje</label>
-                    <textarea id="aviso-mensaje" value={form.mensaje} onChange={(e) => setForm((f) => ({ ...f, mensaje: e.target.value }))}
-                      rows={5} className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
-                  </div>
+                <div>
+                  <label htmlFor="aviso-mensaje" className="block text-sm font-medium text-on-surface mb-1">Mensaje</label>
+                  <textarea id="aviso-mensaje" value={form.mensaje} onChange={(e) => setForm((f) => ({ ...f, mensaje: e.target.value }))}
+                    rows={5} className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
                 </div>
                 <div className="flex justify-end gap-2 mt-5">
                   <button type="button" onClick={() => setStep(null)}
@@ -234,13 +413,154 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
         </div>
       )}
 
-      {/* ── Confirmación de borrado ── */}
+      {/* ── Gestionar plantillas ── */}
+      {(step === 'plantillas' || step === 'plantilla-form') && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setStep(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
+            {step === 'plantillas' ? (
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <button type="button" onClick={() => setStep('picker')} aria-label="Regresar" className="p-1 -ml-1 text-muted hover:text-accent rounded">
+                    <ArrowLeft size={18} />
+                  </button>
+                  <h3 className="text-lg font-semibold flex-1">Tus plantillas</h3>
+                  <button type="button" onClick={() => openPlantillaForm(null)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
+                    <Plus size={14} /> Nueva
+                  </button>
+                </div>
+                <p className="text-xs text-muted mb-3">Edítalas, cámbiales el ícono, reordénalas o crea las tuyas — son tuyas, se usan en todas tus asignaturas.</p>
+                <div className="space-y-1.5">
+                  {plantillas.map((p, i) => (
+                    <div key={p.id} className="flex items-center gap-2 bg-surface-container rounded-card px-2 py-1.5">
+                      <div className="flex flex-col flex-shrink-0">
+                        <button type="button" onClick={() => movePlantilla(i, -1)} disabled={i === 0} aria-label="Subir"
+                          className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-20 disabled:hover:text-slate-400">
+                          <ChevronUp size={14} />
+                        </button>
+                        <button type="button" onClick={() => movePlantilla(i, 1)} disabled={i === plantillas.length - 1} aria-label="Bajar"
+                          className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-20 disabled:hover:text-slate-400">
+                          <ChevronDown size={14} />
+                        </button>
+                      </div>
+                      <span className="text-xl flex-shrink-0" aria-hidden="true">{p.emoji}</span>
+                      <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{p.label}</span>
+                      <button type="button" onClick={() => openPlantillaForm(p)} aria-label="Editar" data-tooltip="Editar"
+                        className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+                        <Pencil size={15} />
+                      </button>
+                      <button type="button" onClick={() => setDeletePlantillaConfirm(p)} aria-label="Eliminar" data-tooltip="Eliminar"
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ))}
+                  {plantillas.length === 0 && (
+                    <p className="text-center text-sm text-muted py-6">Aún no tienes plantillas.</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <form onSubmit={savePlantilla}>
+                <div className="flex items-center gap-2 mb-4">
+                  <button type="button" onClick={() => setStep('plantillas')} aria-label="Regresar" className="p-1 -ml-1 text-muted hover:text-accent rounded">
+                    <ArrowLeft size={18} />
+                  </button>
+                  <h3 className="text-lg font-semibold">{plantillaForm.id ? 'Editar plantilla' : 'Nueva plantilla'}</h3>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <span className="block text-sm font-medium text-on-surface mb-1">Ícono</span>
+                    <div className="grid grid-cols-8 gap-1.5">
+                      {EMOJI_PALETTE.map((em) => (
+                        <button key={em} type="button" onClick={() => setPlantillaForm((f) => ({ ...f, emoji: em }))}
+                          aria-label={`Ícono ${em}`}
+                          className={`aspect-square rounded flex items-center justify-center text-lg transition-colors ${
+                            plantillaForm.emoji === em ? 'bg-accent text-white' : 'bg-surface-container hover:bg-[var(--accent-tint)]'
+                          }`}>
+                          {em}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="plantilla-label" className="block text-sm font-medium text-on-surface mb-1">Nombre</label>
+                    <input id="plantilla-label" type="text" value={plantillaForm.label} onChange={(e) => setPlantillaForm((f) => ({ ...f, label: e.target.value }))}
+                      placeholder="Ej. No habrá clase" className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm" />
+                  </div>
+                  <div>
+                    <label htmlFor="plantilla-mensaje" className="block text-sm font-medium text-on-surface mb-1">Mensaje sugerido (opcional)</label>
+                    <textarea id="plantilla-mensaje" value={plantillaForm.mensaje} onChange={(e) => setPlantillaForm((f) => ({ ...f, mensaje: e.target.value }))}
+                      rows={3} placeholder="Se precarga al elegir esta plantilla — puedes ajustarlo cada vez"
+                      className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-5">
+                  <button type="button" onClick={() => setStep('plantillas')}
+                    className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={savingPlantilla}
+                    className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-50">
+                    {savingPlantilla ? 'Guardando…' : 'Guardar'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Ver lecturas ── */}
+      {detailAviso && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDetailAviso(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card w-full max-w-lg rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <span aria-hidden="true">{avisoEmoji(detailAviso)}</span> Lecturas
+              </h3>
+              <button type="button" onClick={() => setDetailAviso(null)} aria-label="Cerrar" className="p-1.5 text-muted hover:text-accent rounded">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="text-sm text-on-surface mb-3 line-clamp-2">{detailAviso.mensaje}</p>
+            <ProgressoLectura leidos={Object.keys(lecturasByAviso[detailAviso.id] || {}).length} total={totalEstudiantes} />
+            <div className="mt-3 space-y-1">
+              {students
+                .slice()
+                .sort((a, b) => studentFullName(a).localeCompare(studentFullName(b), 'es'))
+                .map((s) => {
+                  const leidoAt = (lecturasByAviso[detailAviso.id] || {})[s.id]
+                  return (
+                    <div key={s.id} className="flex items-center gap-2 py-1.5 border-b border-outline-variant last:border-0">
+                      <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{studentFullName(s)}</span>
+                      {leidoAt ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium flex-shrink-0">
+                          <CheckCircle2 size={13} /> Leído · {formatAvisoFecha(leidoAt)}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs text-slate-400 font-medium flex-shrink-0">
+                          <Circle size={11} /> Pendiente
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              {students.length === 0 && <p className="text-center text-sm text-muted py-6">Sin estudiantes inscritos aún.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirmación de borrado de aviso ── */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-lg font-semibold mb-2">¿Deseas eliminar este aviso?</h3>
-            <p className="text-sm text-muted mb-4">&ldquo;<strong>{deleteConfirm.titulo}</strong>&rdquo; se eliminará permanentemente.</p>
+            <p className="text-sm text-muted mb-4">Se eliminará permanentemente, junto con el avance de lectura registrado.</p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setDeleteConfirm(null)}
                 className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
@@ -249,6 +569,27 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
               <button type="button" onClick={handleDelete} disabled={deleting}
                 className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors disabled:opacity-50">
                 {deleting ? 'Eliminando…' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirmación de borrado de plantilla ── */}
+      {deletePlantillaConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeletePlantillaConfirm(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-lg font-semibold mb-2">¿Eliminar esta plantilla?</h3>
+            <p className="text-sm text-muted mb-4">&ldquo;<strong>{deletePlantillaConfirm.label}</strong>&rdquo; ya no aparecerá al crear un aviso nuevo. Los avisos ya publicados con ella no cambian.</p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setDeletePlantillaConfirm(null)}
+                className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleDeletePlantilla}
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors">
+                Eliminar
               </button>
             </div>
           </div>

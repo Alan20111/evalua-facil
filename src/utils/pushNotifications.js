@@ -16,6 +16,17 @@ import { LocalNotifications } from '@capacitor/local-notifications'
 import { doc, setDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore'
 import { db } from '../firebase'
 
+// Registrado por PushPermissionPrimer.jsx (montado dentro de StudentLayout) —
+// muestra la explicación propia de la app ANTES del diálogo nativo del
+// sistema operativo, pedido explícito: "explicando al estudiante que las
+// notificaciones son utilizadas para informarle sobre nuevos avisos,
+// actividades, calificaciones..." en vez del prompt genérico de Android sin
+// contexto. Si nadie se registró todavía (carrera con el montaje de
+// StudentLayout en el primer login), se sigue de largo al permiso nativo —
+// degrada con gracia, no bloquea el registro del dispositivo.
+let solicitarExplicacionPush = null
+export function registrarExplicacionPush(fn) { solicitarExplicacionPush = fn }
+
 let installed = false
 // uid "dueño" del token en este proceso — los listeners de abajo se registran
 // UNA sola vez (installed) pero deben reflejar SIEMPRE la sesión activa, así
@@ -132,6 +143,11 @@ export async function initPushNotifications(uid, navigate, deepLink) {
 
   try {
     let perm = await PushNotifications.checkPermissions()
+    // 'prompt' = el sistema operativo todavía no le ha preguntado nada a
+    // este usuario — es el único momento en que tiene sentido explicar antes,
+    // no en cada login. Si ya dijo que sí o que no antes, no se le vuelve a
+    // interrumpir con la explicación.
+    if (perm.receive === 'prompt' && solicitarExplicacionPush) await solicitarExplicacionPush()
     if (perm.receive !== 'granted') perm = await PushNotifications.requestPermissions()
     if (perm.receive !== 'granted') return
     await LocalNotifications.requestPermissions()

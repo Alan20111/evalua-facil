@@ -39,7 +39,7 @@ import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { avisoTipoInfo, formatAvisoFecha, lecturaDocId } from '../../utils/avisos'
+import { avisoEmoji, formatAvisoFecha, lecturaDocId } from '../../utils/avisos'
 import AvisoLecturaModal from '../../components/subject/AvisoLecturaModal'
 
 function ResourceCard({ resource: r }) {
@@ -215,6 +215,7 @@ export default function StudentSubjectPage() {
     try {
       await setDoc(doc(db, 'avisoLecturas', lecturaDocId(aviso.id, studentId)), {
         avisoId: aviso.id,
+        asignaturaId: subjectId,
         estudianteId: studentId,
         fechaHoraLectura: serverTimestamp(),
         dispositivo: `${IS_NATIVE_APP ? 'app' : 'web'} · ${navigator.userAgent}`,
@@ -800,12 +801,12 @@ export default function StudentSubjectPage() {
           ) : (
             <div className="space-y-2">
               {avisos.map((a) => {
-                const info = avisoTipoInfo(a.tipo)
+                const emoji = avisoEmoji(a)
                 const leido = !!lecturas[a.id]
                 return (
                   <div key={a.id} className="bg-surface-card rounded-card border border-outline-variant shadow-card px-4 py-3">
                     <div className="flex items-start gap-3">
-                      <span className="text-xl leading-none flex-shrink-0 mt-0.5" aria-hidden="true">{info.emoji}</span>
+                      <span className="text-xl leading-none flex-shrink-0 mt-0.5" aria-hidden="true">{emoji}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-on-surface">{a.titulo}</p>

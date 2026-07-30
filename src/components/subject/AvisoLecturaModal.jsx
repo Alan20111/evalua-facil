@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { avisoTipoInfo, formatAvisoFecha } from '../../utils/avisos'
+import { avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
@@ -16,7 +16,7 @@ export default function AvisoLecturaModal({ avisos, teacherName, onConfirm, conf
 
   if (avisos.length === 0) return null
   const aviso = avisos[Math.min(idx, avisos.length - 1)]
-  const info = avisoTipoInfo(aviso.tipo)
+  const emoji = avisoEmoji(aviso)
 
   async function handleEntendido() {
     await onConfirm(aviso)
@@ -31,7 +31,7 @@ export default function AvisoLecturaModal({ avisos, teacherName, onConfirm, conf
             Aviso {idx + 1} de {avisos.length}
           </p>
         )}
-        <span className="text-4xl leading-none block mb-3" aria-hidden="true">{info.emoji}</span>
+        <span className="text-4xl leading-none block mb-3" aria-hidden="true">{emoji}</span>
         <h2 className="text-lg font-bold text-on-surface mb-2">{aviso.titulo}</h2>
         <p className="text-sm text-on-surface whitespace-pre-wrap text-left mb-4">{aviso.mensaje}</p>
         <p className="text-xs text-slate-400 mb-6">

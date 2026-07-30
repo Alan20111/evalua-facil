@@ -179,11 +179,18 @@ async function enviarPushDirecto(uid, notification, data = {}, descripcion = nul
 // `notificationOverride` reemplaza el título/cuerpo fijo de TITULOS[categoria]
 // — lo usan los Avisos, donde el título y el mensaje los escribe el propio
 // docente en cada aviso, no un texto genérico por categoría.
-async function enviarPush(uid, categoria, dataExtra = {}, notificationOverride = null) {
+// `asignaturaId` solo aplica a la categoría 'avisos' — es el único caso con
+// un segundo nivel de silencio POR ASIGNATURA (ver NotificationSettings.jsx
+// del alumno, "Avisos por asignatura"): el interruptor general puede seguir
+// prendido y aun así no mandar el push de una materia puntual que el
+// estudiante silenció. Las demás categorías no tienen ese segundo nivel.
+async function enviarPush(uid, categoria, dataExtra = {}, notificationOverride = null, asignaturaId = null) {
   if (!uid) return
   const settingsSnap = await db.collection('notificationSettings').doc(uid).get()
-  const cfg = settingsSnap.exists ? settingsSnap.data()[categoria] : null
+  const settingsData = settingsSnap.exists ? settingsSnap.data() : {}
+  const cfg = settingsData[categoria]
   if (cfg?.habilitado === false) return
+  if (categoria === 'avisos' && asignaturaId && settingsData.avisosPorAsignatura?.[asignaturaId] === false) return
 
   const notification = notificationOverride || TITULOS[categoria]
   const data = {
@@ -242,7 +249,7 @@ exports.onAvisoEscrito = onDocumentWritten('avisos/{avisoId}', async (event) => 
     body: a.mensaje,
   }
   await Promise.all(estudiantes.map((d) =>
-    enviarPush(d.data().uid, 'avisos', { asignaturaId: a.asignaturaId, avisoId: event.params.avisoId }, notification)
+    enviarPush(d.data().uid, 'avisos', { asignaturaId: a.asignaturaId, avisoId: event.params.avisoId }, notification, a.asignaturaId)
   ))
   await after.ref.update({ notificado: true })
 })

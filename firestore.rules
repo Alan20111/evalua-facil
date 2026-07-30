@@ -227,6 +227,19 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Plantillas de avisos — el banco personal de mensajes rápidos de cada
+    // docente (arranca con una copia editable de los 12 predefinidos, ver
+    // PLANTILLAS_SEED en src/utils/avisos.js), para elegir de un toque al
+    // publicar un aviso. Nadie más las necesita leer: no son parte del aviso
+    // ya publicado (ese guarda su propio emoji/título, ver avisoEmoji()),
+    // así que a diferencia de `avisos` esto NO es de lectura pública.
+    match /avisoPlantillas/{plantillaId} {
+      allow read, update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if isDocente() &&
+        request.auth.uid == request.resource.data.docenteId;
+    }
+
     // "Material de apoyo" — per-parcial course material (one or more files +
     // optional rich-text description). Independent of `activities`: it never
     // creates a submission/grade, so it has no link to `submissions` at all.
