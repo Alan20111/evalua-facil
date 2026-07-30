@@ -15,6 +15,7 @@ import AppQRButton from './AppQRButton'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import StudentBottomNav from './StudentBottomNav'
+import PushPermissionPrimer from './PushPermissionPrimer'
 
 // `refreshKey`: el Dashboard del alumno reordena sus asignaturas (flechas
 // subir/bajar o arrastrar) SIN desmontar este layout — a diferencia del
@@ -116,6 +117,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
 
   return (
     <div className="min-h-screen bg-surface">
+      <PushPermissionPrimer />
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-30 bg-surface-card border-b border-outline-variant px-4 py-2.5 flex items-center justify-between shadow-card safe-top">
         <button

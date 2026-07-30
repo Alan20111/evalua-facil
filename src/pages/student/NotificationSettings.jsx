@@ -5,10 +5,12 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ArrowLeft, Settings } from 'lucide-react'
+import { ArrowLeft, Settings, Megaphone } from 'lucide-react'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import StudentBottomNav from '../../components/StudentBottomNav'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { getEnrollments } from '../../utils/studentLookup'
+import { subjectDisplayName } from '../../utils/subjectName'
 
 // Pantalla completa (no usa StudentLayout — mismo patrón que EvaluacionRunner:
 // un overlay fixed inset-0 con SOLO un encabezado del estudiante, sin la barra
@@ -19,12 +21,21 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 // Colección `notificationSettings/{uid}` — UNA por estudiante (uid de Auth,
 // global entre todas sus inscripciones):
 //   {
-//     actividadesNuevas: { habilitado },
-//     calificaciones:    { habilitado },
-//     recordatorios:     { habilitado, anticipacionMinutos },
+//     actividadesNuevas:  { habilitado },
+//     calificaciones:     { habilitado },
+//     recordatorios:      { habilitado, anticipacionMinutos },
+//     avisos:             { habilitado },
+//     avisosPorAsignatura: { [asignaturaId]: boolean },  // solo se guarda cuando es false
 //     fcmTokens: [],
 //     updatedAt,
 //   }
+//
+// `avisosPorAsignatura` es aparte de `avisos.habilitado`: el interruptor
+// general prende/apaga TODO el push de avisos; este mapa permite silenciar
+// solo una asignatura puntual (la que manda demasiados) sin tocar las demás.
+// Pedido explícito: apagar el push NUNCA quita la obligación de leer y tocar
+// "Entendido" — eso sigue pasando dentro de la app sin importar este ajuste,
+// ver AvisoLecturaModal.jsx.
 
 const ANTICIPACION_OPCIONES = [
   { minutos: 15, label: '15 minutos antes' },
@@ -38,12 +49,14 @@ const DEFAULTS = {
   actividadesNuevas: { habilitado: true },
   calificaciones: { habilitado: true },
   recordatorios: { habilitado: true, anticipacionMinutos: 1440 },
+  avisos: { habilitado: true },
 }
 
 const CATEGORIAS = [
   { key: 'actividadesNuevas', label: 'Actividades nuevas', description: 'Cuando tu maestro publique una actividad' },
   { key: 'calificaciones', label: 'Calificaciones', description: 'Cuando te califiquen una entrega' },
   { key: 'recordatorios', label: 'Recordatorios de entrega', description: 'Antes de que cierre una fecha límite' },
+  { key: 'avisos', label: 'Avisos', description: 'Cuando tu maestro publique un aviso' },
 ]
 
 function mergeWithDefaults(data) {
@@ -93,6 +106,8 @@ export default function NotificationSettings() {
   const toast = useToast()
 
   const [settings, setSettings] = useState(DEFAULTS)
+  const [avisosPorAsignatura, setAvisosPorAsignatura] = useState({})
+  const [subjects, setSubjects] = useState([]) // [{ id, nombre, grupo }] — solo las suyas, para el toggle por asignatura
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const saveTimer = useRef(null)
@@ -101,6 +116,8 @@ export default function NotificationSettings() {
   // cancelaba el guardado sin escribirlo. Se guarda aquí el `updated`
   // pendiente para poder escribirlo de inmediato al desmontar.
   const pendingSaveRef = useRef(null)
+  const asignaturaSaveTimer = useRef(null)
+  const pendingAsignaturaSaveRef = useRef(null)
   const goBack = () => navigate('/alumno/dashboard')
   useBackHandler(goBack)
 
@@ -108,10 +125,16 @@ export default function NotificationSettings() {
     if (!currentUser) return
     getDoc(doc(db, 'notificationSettings', currentUser.uid))
       .then((snap) => {
-        setSettings(mergeWithDefaults(snap.exists() ? snap.data() : null))
+        const data = snap.exists() ? snap.data() : null
+        setSettings(mergeWithDefaults(data))
+        setAvisosPorAsignatura(data?.avisosPorAsignatura || {})
       })
       .catch(() => toast('No se pudo cargar tu configuración de notificaciones', 'error'))
       .finally(() => setLoading(false))
+    getEnrollments(currentUser, userProfile)
+      .then((enrollments) => Promise.all(enrollments.map((e) => getDoc(doc(db, 'subjects', e.asignaturaId)))))
+      .then((snaps) => setSubjects(snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() }))))
+      .catch(() => {})
   }, [currentUser]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => {
@@ -120,6 +143,12 @@ export default function NotificationSettings() {
     if (pending) {
       pendingSaveRef.current = null
       setDoc(doc(db, 'notificationSettings', pending.uid), { ...pending.data, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {})
+    }
+    clearTimeout(asignaturaSaveTimer.current)
+    const pendingAsig = pendingAsignaturaSaveRef.current
+    if (pendingAsig) {
+      pendingAsignaturaSaveRef.current = null
+      setDoc(doc(db, 'notificationSettings', pendingAsig.uid), { avisosPorAsignatura: pendingAsig.data, updatedAt: serverTimestamp() }, { merge: true }).catch(() => {})
     }
   }, [])
 
@@ -135,6 +164,27 @@ export default function NotificationSettings() {
     saveTimer.current = setTimeout(() => {
       pendingSaveRef.current = null
       setDoc(doc(db, 'notificationSettings', currentUser.uid), { ...updated, updatedAt: serverTimestamp() }, { merge: true })
+        .catch(() => toast('No se pudo guardar: intenta de nuevo', 'error'))
+        .finally(() => setSaving(false))
+    }, 400)
+  }
+
+  // Silenciar avisos de UNA asignatura puntual, sin tocar el interruptor
+  // general de "Avisos" ni el de las demás — solo se guarda la llave cuando
+  // es `false`; ausente = habilitado (mismo criterio opt-out de todo el resto
+  // de esta pantalla).
+  function updateAvisoAsignatura(subjectId, enabled) {
+    const updated = { ...avisosPorAsignatura }
+    if (enabled) delete updated[subjectId]
+    else updated[subjectId] = false
+    setAvisosPorAsignatura(updated)
+    if (!currentUser) return
+    clearTimeout(asignaturaSaveTimer.current)
+    setSaving(true)
+    pendingAsignaturaSaveRef.current = { uid: currentUser.uid, data: updated }
+    asignaturaSaveTimer.current = setTimeout(() => {
+      pendingAsignaturaSaveRef.current = null
+      setDoc(doc(db, 'notificationSettings', currentUser.uid), { avisosPorAsignatura: updated, updatedAt: serverTimestamp() }, { merge: true })
         .catch(() => toast('No se pudo guardar: intenta de nuevo', 'error'))
         .finally(() => setSaving(false))
     }, 400)
@@ -192,6 +242,35 @@ export default function NotificationSettings() {
               </div>
             ))}
           </div>
+
+          {/* Silenciar avisos de una asignatura puntual sin apagar el
+              interruptor general — pedido explícito: "quiere no recibir
+              avisos de una [asignatura] que manda demasiados". Solo aparece
+              si el interruptor general de Avisos sigue prendido (si ya está
+              apagado, el detalle por asignatura no aplica a nada) y si tiene
+              más de una asignatura (con una sola no hay nada que elegir). */}
+          {settings.avisos.habilitado && subjects.length > 1 && (
+            <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Megaphone size={16} className="text-accent flex-shrink-0" />
+                <p className="text-sm font-semibold text-on-surface">Avisos por asignatura</p>
+              </div>
+              <p className="text-xs text-muted mb-3">
+                Silencia el push de una asignatura en particular sin apagar Avisos por completo.
+              </p>
+              <div className="divide-y divide-outline-variant">
+                {subjects.map((s, i) => (
+                  <div key={s.id} className={i !== 0 ? 'pt-2' : ''}>
+                    <Toggle
+                      checked={avisosPorAsignatura[s.id] !== false}
+                      onChange={(v) => updateAvisoAsignatura(s.id, v)}
+                      label={subjectDisplayName(s)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Sonido, volumen y repetición los controla el teléfono, no la
               app — aquí solo explicamos cómo activarlas ahí. */}
