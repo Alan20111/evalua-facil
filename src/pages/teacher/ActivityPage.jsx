@@ -688,6 +688,14 @@ export default function ActivityPage() {
   const curIdx = selected ? navList.findIndex((s) => s.id === selected.student.id) : -1
   // Files of the submission being graded (multi-photo entregas have several)
   const selFiles = selected ? submissionFiles(selected.sub) : []
+  // Para el aviso de zoom en la web (ver "Left: file preview" más abajo):
+  // qué se está mostrando ahora mismo, sea la lista completa o un solo
+  // archivo (selFiles.length<=1 cae al archivo de selected.sub).
+  const previewFiles = selFiles.length > 0
+    ? selFiles
+    : (selected?.sub?.archivoURL ? [{ nombre: selected.sub.nombreArchivo, url: selected.sub.archivoURL }] : [])
+  const previewHasImage = previewFiles.some((f) => isImageFile(f.nombre, f.url))
+  const previewHasPdf = previewFiles.some((f) => f.nombre?.toLowerCase().endsWith('.pdf'))
   // Clamp while typing: never above maxCalif, never below 0, at most 1 decimal.
   // Partial input like "9." is left alone so decimals can still be typed.
   function onCalifChange(e) {
@@ -1129,6 +1137,19 @@ export default function ActivityPage() {
 
             {/* Left: file preview, top to bottom */}
             <div className="h-[45vh] md:h-auto md:flex-1 min-w-0 bg-surface-container flex flex-col">
+              {/* Aviso de cómo hacer zoom en la web — con mouse no hay pellizcar,
+                  así que el gesto no es obvio: clic para las imágenes (abre un
+                  visor ampliado), Ctrl + rueda o doble clic para el PDF (in-line,
+                  para no robarle la rueda al scroll normal entre páginas). */}
+              {(previewHasImage || previewHasPdf) && (
+                <p className="text-xs text-muted text-center px-3 py-1.5 flex-shrink-0 border-b border-outline-variant">
+                  {previewHasImage && previewHasPdf
+                    ? 'Clic en la imagen para ampliar y hacer zoom · Ctrl + rueda del mouse (o doble clic) sobre el PDF para acercar'
+                    : previewHasImage
+                      ? 'Clic en la imagen para ampliar y hacer zoom'
+                      : 'Ctrl + rueda del mouse (o doble clic) sobre el PDF para acercar'}
+                </p>
+              )}
               {selFiles.length > 1 && previewIdx === -1 ? (
                 /* "Todas las imágenes": every file stacked, scrollable */
                 <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
