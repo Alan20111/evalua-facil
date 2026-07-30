@@ -301,21 +301,49 @@ const SECTIONS = [
         items: [
           'Es un comunicado, no un chat: no hay respuestas, comentarios, reacciones ni archivos adjuntos. Solo informas.',
           'El aviso es de la asignatura completa, no de un parcial ni de una actividad — lo ve todo tu grupo.',
+          'La lista completa vive en su propia caja con scroll, para no alargar la pestaña.',
         ],
       },
       {
         subtitle: 'Publicar un aviso',
         items: [
-          'Eliges primero el motivo (no habrá clase, cambio de horario, calificaciones publicadas, etc.) y el título se completa solo. Lo puedes cambiar.',
-          'Escribes el mensaje y publicas. Aparece de inmediato en la pestaña Avisos de tus estudiantes, con el más reciente arriba.',
+          'Eliges primero una plantilla ("No habrá clase", "Cambio de horario", etc.) — su ícono y su título se completan solos.',
+          'El mensaje es opcional: si el título ya lo dice todo, lo dejas en blanco.',
+          'Publicas y aparece de inmediato en la pestaña Avisos de tus estudiantes, con el más reciente arriba.',
+          '⚠ El título y el ícono quedan grabados en ese aviso desde que lo publicas. Si después editas o borras la plantilla que usaste, el aviso ya publicado no cambia.',
+        ],
+      },
+      {
+        subtitle: 'Tus plantillas',
+        items: [
+          'La primera vez que publicas un aviso, tu banco arranca con 12 plantillas listas para usar — las puedes editar, cambiarles el ícono (de una paleta de emojis) o el mensaje sugerido, sin partir de cero.',
+          'Se administran desde el engrane junto a "¿Qué deseas comunicar?": ahí las reordenas, editas, borras o creas las tuyas.',
+          'En la web las reordenas con flechas; en la app, manteniendo presionada y arrastrando.',
+          'Son tuyas y se usan en todas tus asignaturas, no solo en la que las creaste.',
+        ],
+      },
+      {
+        subtitle: 'Avance de lectura',
+        items: [
+          'Cada aviso muestra una barra con el porcentaje y cuántos estudiantes ya confirmaron "Entendido".',
+          'Se actualiza sola conforme confirman, sin que recargues nada.',
+          '"Ver lecturas" (clic en el aviso o desde el menú de tres puntos) te da el detalle: nombre de cada estudiante, si ya leyó o sigue pendiente, y la fecha y hora exacta de su confirmación.',
+        ],
+      },
+      {
+        subtitle: 'Editar, guardar y eliminar',
+        items: [
           'Editar y eliminar están en el menú de tres puntos de cada aviso.',
+          'El marcador guarda un aviso para encontrarlo rápido después (por ejemplo uno que reutilizas cada ciclo) — al guardarlo, pasa de "Todos" a su propia pestaña "Guardados".',
         ],
       },
       {
         subtitle: 'Aviso a tus estudiantes',
         items: [
-          'Cada estudiante inscrito recibe una notificación push al celular donde tenga instalada la app, con tu título y tu mensaje.',
+          'Cada estudiante inscrito recibe una notificación push al celular donde tenga instalada la app, con la asignatura, el título y un fragmento del mensaje.',
           'Al tocarla, entra directo a Avisos de esa asignatura.',
+          'La notificación llega aunque el estudiante haya silenciado otras categorías (Actividades, Calificaciones) — Avisos tiene su propio canal en el celular, de máxima prioridad.',
+          'Un estudiante puede silenciar el push de Avisos de una sola asignatura suya sin apagarlo en las demás — eso no le quita la obligación de confirmar "Entendido" dentro de la app: el aviso se le sigue mostrando aunque no le haya sonado el celular.',
         ],
       },
     ],
