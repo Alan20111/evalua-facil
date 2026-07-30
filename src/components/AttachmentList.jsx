@@ -6,7 +6,6 @@ import { formatFileSize } from '../utils/formatBytes'
 import { downloadUrl, isImageDeliveredPdf, pdfPageImageUrl } from '../utils/cloudinary'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
-import { IS_NATIVE_APP } from '../utils/platform'
 import PdfCanvasPreview from './PdfCanvasPreview'
 import PinchZoomImage from './PinchZoomImage'
 
@@ -133,77 +132,20 @@ export function FilePreview({ url, nombre, fill = false }) {
   ) : (
     // Solo se llega aquí para Word/PowerPoint (canPreviewFile ya deja fuera a
     // Excel — ver SPREADSHEET_EXTS. Ese se abre con la app real del docente,
-    // no se reconstruye aquí).
-    <OfficeDocPreview url={viewUrl} nombre={nombre} fill={fill} />
-  )
-}
-
-// Word/PowerPoint vía Google Docs Viewer. En la App, el botón "Ventana
-// emergente" de la propia barra de Google (arriba a la derecha) no hace
-// nada útil — intenta abrir una pestaña nueva y un WebView no tiene
-// pestañas. En ese MISMO lugar ponemos nuestro propio botón: sin ícono
-// encima (se ve igual que antes, invisible), pero ahora sí funcional — al
-// presionarlo abre el documento en una ventana completa aparte, con el
-// aviso de "pellizca para hacer zoom" bien visible.
-function OfficeDocPreview({ url, nombre, fill }) {
-  const [zoomOpen, setZoomOpen] = useState(false)
-  return (
-    <>
-      <div className="relative w-full" style={{ height: fill ? '100%' : '70vh' }}>
-        <iframe
-          src={docsViewerUrl(url)}
-          title={`Vista previa: ${nombre}`}
-          sandbox="allow-scripts allow-same-origin"
-          className="w-full h-full"
-          style={{ border: 'none' }}
-        />
-        {IS_NATIVE_APP && (
-          <button
-            type="button"
-            onClick={() => setZoomOpen(true)}
-            aria-label="Ver ampliado"
-            data-tooltip="Ver ampliado"
-            className="absolute top-0 right-0 w-11 h-9 bg-white"
-          />
-        )}
-      </div>
-      {zoomOpen && <OfficeDocZoomModal url={url} nombre={nombre} onClose={() => setZoomOpen(false)} />}
-    </>
-  )
-}
-
-function OfficeDocZoomModal({ url, nombre, onClose }) {
-  useBackHandler(onClose, true)
-  useScrollLock(true)
-  return createPortal(
-    <div className="fixed inset-0 z-[70] flex flex-col bg-black/90">
-      <div className="flex items-center gap-2 px-3 py-2 bg-surface-card border-b border-outline-variant flex-shrink-0 safe-top">
-        <button type="button" onClick={onClose} aria-label="Cerrar" data-tooltip="Cerrar"
-          className="p-2 -ml-1 text-muted hover:text-accent rounded flex-shrink-0 transition-colors">
-          <X size={20} />
-        </button>
-        <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
-      </div>
-      <p className="text-center text-xs text-white bg-black/60 py-1.5 flex-shrink-0">
-        Pellizca con dos dedos sobre el documento para hacer zoom
-      </p>
-      <div className="flex-1 min-h-0">
-        {/* Sin allow-popups: los botones de zoom/+/- de la barra de Google
-            usan window.open() para algo interno de su UI — con allow-popups,
-            eso lo intercepta el WebView de Capacitor y saca al docente de la
-            App hacia el navegador del sistema (lo que se reportó como "se
-            sale"). Sin ese permiso, esas llamadas simplemente no hacen nada,
-            en vez de expulsar al usuario. */}
-        <iframe
-          src={docsViewerUrl(url)}
-          title={`Vista ampliada: ${nombre}`}
-          sandbox="allow-scripts allow-same-origin"
-          className="w-full h-full"
-          style={{ border: 'none' }}
-        />
-      </div>
-    </div>,
-    document.body
+    // no se reconstruye aquí). Sin allow-popups: los botones de la barra de
+    // Google (incluida "Ventana emergente") usan window.open() para algo
+    // interno de su UI — con allow-popups, eso lo intercepta el WebView de
+    // Capacitor y saca al docente de la App hacia el navegador del sistema.
+    // Sin ese permiso, esas llamadas simplemente no hacen nada.
+    <div className="relative w-full" style={{ height: fill ? '100%' : '70vh' }}>
+      <iframe
+        src={docsViewerUrl(viewUrl)}
+        title={`Vista previa: ${nombre}`}
+        sandbox="allow-scripts allow-same-origin"
+        className="w-full h-full"
+        style={{ border: 'none' }}
+      />
+    </div>
   )
 }
 
