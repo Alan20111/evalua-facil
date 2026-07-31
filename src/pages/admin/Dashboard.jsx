@@ -18,7 +18,7 @@ const TAB_TITLES = {
 }
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('resumen')
+  const [activeTab, setActiveTab] = useState('pagos')
   const { stats, loading, refresh } = useAdminStats()
   const [refreshing, setRefreshing] = useState(false)
 
