@@ -148,6 +148,7 @@ const CANAL_POR_CATEGORIA = {
   actividadesNuevas: 'actividades_v2',
   calificaciones: 'calificaciones_v2',
   recordatorios: 'recordatorios_v2',
+  pagoNuevo: 'pagos_v1',
 }
 
 async function enviarPushDirecto(uid, notification, data = {}, descripcion = null, logExtra = null) {
@@ -782,4 +783,50 @@ exports.revisarProgramados = onSchedule(SCHEDULE_INTERVAL, async () => {
       await doc.ref.update({ recordatoriosEnviados: [...yaEnviados, ...nuevosEnviados] })
     }
   }
+})
+
+// ─── 6) Pago nuevo — aviso al administrador ────────────────────────────────
+// Cada docente que registra un pago (queda "pendiente" hasta que el admin lo
+// aprueba/rechaza en el panel — ver PaymentsTable.jsx) dispara un push a
+// TODOS los administradores, para no depender de que alguien entre a
+// revisar el panel a cada rato. onCreate únicamente (before no existe): un
+// pago no se vuelve a "crear", solo cambia de estado con Aprobar/Rechazar,
+// que son updates — esos NO deben volver a notificar. Idempotente por
+// `notificadoAdmin`, mismo criterio que el resto de las funciones de este
+// archivo.
+exports.onPagoCreado = onDocumentWritten('payments/{paymentId}', async (event) => {
+  const after = event.data?.after
+  if (!after?.exists) return // borrado
+  if (event.data.before?.exists) return // solo al crearse, no en updates (Aprobar/Rechazar)
+  const pago = after.data()
+  if (pago.notificadoAdmin) return
+
+  const [teacherSnap, adminsSnap] = await Promise.all([
+    pago.docenteId ? db.collection('users').doc(pago.docenteId).get() : Promise.resolve(null),
+    db.collection('users').where('role', '==', 'admin').get(),
+  ])
+  const docente = teacherSnap?.exists ? teacherSnap.data() : null
+  const nombreDocente = docente?.nombreMostrar || docente?.email || 'Un docente'
+  const monto = typeof pago.monto === 'number'
+    ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(pago.monto)
+    : ''
+  const notification = {
+    title: 'Nuevo pago',
+    body: monto ? `${nombreDocente} registró un pago de ${monto}` : `${nombreDocente} registró un pago nuevo`,
+  }
+
+  await Promise.all(adminsSnap.docs.map(async (adminDoc) => {
+    const settingsSnap = await db.collection('notificationSettings').doc(adminDoc.id).get()
+    // Opt-out, no opt-in — default activado (ver Toggle en el panel del
+    // admin): ausente/true = notifica, solo se salta si el propio admin lo
+    // apagó a propósito. Mismo criterio que el resto de las categorías del
+    // docente en este archivo (nuevasEntregas, activacionEstudiante).
+    if (settingsSnap.exists && settingsSnap.data().pagoNuevo?.habilitado === false) return
+    await enviarPushDirecto(
+      adminDoc.id,
+      notification,
+      { categoria: 'pagoNuevo', paymentId: event.params.paymentId },
+    )
+  }))
+  await after.ref.update({ notificadoAdmin: true })
 })
