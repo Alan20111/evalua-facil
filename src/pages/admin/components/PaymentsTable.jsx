@@ -187,6 +187,69 @@ export default function PaymentsTable({ stats, onRefresh }) {
     }
   }
 
+  // Acciones — se muestran igual en la tarjeta (móvil) y en la tabla
+  // (escritorio), así que viven en un solo lugar.
+  function Acciones({ payment }) {
+    if (soloArchivadas) {
+      return (
+        <div className="flex items-center gap-1 flex-wrap">
+          <button
+            type="button"
+            onClick={() => handleRestaurar(payment)}
+            data-tooltip="Restaurar a Pagos"
+            className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold hover:bg-emerald-200"
+          >
+            <ArchiveRestore size={13} /> Restaurar
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeleteArchivado(payment)}
+            data-tooltip="Eliminar definitivamente"
+            className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold hover:bg-red-200"
+          >
+            <Trash2 size={13} /> Eliminar
+          </button>
+        </div>
+      )
+    }
+    return (
+      <>
+        {payment.status === 'pendiente' && (
+          <div className="flex items-center gap-1 mb-1 flex-wrap">
+            <button
+              type="button"
+              onClick={() => handleApprove(payment)}
+              disabled={processing === payment.id}
+              className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold hover:bg-emerald-200 disabled:opacity-60"
+            >
+              {processing === payment.id ? <Spinner size="sm" /> : <Check size={14} />}
+              Aprobar
+            </button>
+            <button
+              type="button"
+              onClick={() => setRejectModal(payment)}
+              disabled={processing === payment.id}
+              className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold hover:bg-red-200 disabled:opacity-60"
+            >
+              <X size={14} /> Rechazar
+            </button>
+          </div>
+        )}
+        {payment.notasAdmin && (
+          <p className="text-xs text-slate-400 mt-1">{payment.notasAdmin}</p>
+        )}
+        <button
+          type="button"
+          onClick={() => handleArchivar(payment)}
+          data-tooltip="Archivar"
+          className="flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded text-xs font-medium transition-colors"
+        >
+          <Archive size={13} /> Archivar
+        </button>
+      </>
+    )
+  }
+
   return (
     <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-outline-variant space-y-2">
@@ -204,125 +267,112 @@ export default function PaymentsTable({ stats, onRefresh }) {
         </div>
       </div>
 
-      {/* Scroll propio — pedido explícito: la lista no debe empujar el resto
-          del panel hacia abajo conforme crezca (mismo criterio que la caja
-          de historial en Avisos). */}
-      <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
-        <table className="w-full text-sm min-w-[880px]">
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-surface text-left text-xs text-muted uppercase">
-              <th className="px-4 py-2">Transacción</th>
-              <th className="px-4 py-2">Correo</th>
-              <th className="px-4 py-2">Monto</th>
-              <th className="px-4 py-2">Medio</th>
-              <th className="px-4 py-2">Referencia</th>
-              <th className="px-4 py-2">Situación</th>
-              <th className="px-4 py-2">Fecha</th>
-              <th className="px-4 py-2">Comentarios</th>
-              <th className="px-4 py-2">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
-                  {soloArchivadas ? 'No hay transacciones archivadas' : 'Sin pagos registrados'}
-                </td>
-              </tr>
-            ) : (
-              rows.map((payment) => {
-                const teacher = teachersMap[payment.docenteId]
-                const subscription = subscriptionsMap[payment.subscriptionId]
-                const domiciliado = payment.metodo === 'mercadopago' && !!subscription?.mpPreapprovalId
-                return (
-                  <tr key={payment.id} className="hover:bg-[var(--accent-tint)]">
-                    <td className="px-4 py-2 font-mono text-xs text-muted">#{numeroPorId[payment.id]}</td>
-                    <td className="px-4 py-2">
-                      <p className="font-medium text-on-surface">
-                        {teacher?.email || '—'}
-                      </p>
-                    </td>
-                    <td className="px-4 py-2 font-semibold">{formatCurrency(payment.monto)}</td>
-                    <td className="px-4 py-2">
+      {rows.length === 0 ? (
+        <p className="px-4 py-8 text-center text-slate-400 text-sm">
+          {soloArchivadas ? 'No hay transacciones archivadas' : 'Sin pagos registrados'}
+        </p>
+      ) : (
+        <>
+          {/* ── Tarjetas — móvil/tablet: una transacción por bloque, todo el
+              detalle apilado y legible sin desplazar la pantalla de lado.
+              Mismo criterio de scroll propio que la tabla de escritorio. */}
+          <div className="md:hidden max-h-[70vh] overflow-y-auto divide-y divide-slate-100">
+            {rows.map((payment) => {
+              const teacher = teachersMap[payment.docenteId]
+              const subscription = subscriptionsMap[payment.subscriptionId]
+              const domiciliado = payment.metodo === 'mercadopago' && !!subscription?.mpPreapprovalId
+              return (
+                <div key={payment.id} className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-mono text-xs text-muted">#{numeroPorId[payment.id]}</p>
+                      <p className="font-medium text-on-surface truncate">{teacher?.email || '—'}</p>
+                    </div>
+                    <StatusBadge status={payment.status} />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-lg">{formatCurrency(payment.monto)}</span>
+                    <div className="text-right">
                       <p className="text-sm">{METODO_LABELS[payment.metodo] || payment.metodo || '—'}</p>
                       {domiciliado && (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold mt-0.5">
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold">
                           <RefreshCw size={11} /> Domiciliado
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-xs">{payment.referencia || '—'}</td>
-                    <td className="px-4 py-2">
-                      <StatusBadge status={payment.status} />
-                    </td>
-                    <td className="px-4 py-2 text-muted">{formatDateTime(payment.createdAt)}</td>
-                    <td className="px-4 py-2">
-                      <ComentarioCell key={`${payment.id}:${payment.comentarios || ''}`} payment={payment} onSaved={onRefresh} />
-                    </td>
-                    <td className="px-4 py-2">
-                      {soloArchivadas ? (
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleRestaurar(payment)}
-                            data-tooltip="Restaurar a Pagos"
-                            className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold hover:bg-emerald-200"
-                          >
-                            <ArchiveRestore size={13} /> Restaurar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteArchivado(payment)}
-                            data-tooltip="Eliminar definitivamente"
-                            className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold hover:bg-red-200"
-                          >
-                            <Trash2 size={13} /> Eliminar
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          {payment.status === 'pendiente' && (
-                            <div className="flex items-center gap-1 mb-1">
-                              <button
-                                type="button"
-                                onClick={() => handleApprove(payment)}
-                                disabled={processing === payment.id}
-                                className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold hover:bg-emerald-200 disabled:opacity-60"
-                              >
-                                {processing === payment.id ? <Spinner size="sm" /> : <Check size={14} />}
-                                Aprobar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setRejectModal(payment)}
-                                disabled={processing === payment.id}
-                                className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold hover:bg-red-200 disabled:opacity-60"
-                              >
-                                <X size={14} /> Rechazar
-                              </button>
-                            </div>
-                          )}
-                          {payment.notasAdmin && (
-                            <p className="text-xs text-slate-400 mt-1">{payment.notasAdmin}</p>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleArchivar(payment)}
-                            data-tooltip="Archivar"
-                            className="flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded text-xs font-medium transition-colors"
-                          >
-                            <Archive size={13} /> Archivar
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted">{formatDateTime(payment.createdAt)}</p>
+                  {payment.referencia && (
+                    <p className="text-xs font-mono text-muted">Ref: {payment.referencia}</p>
+                  )}
+                  <ComentarioCell key={`${payment.id}:${payment.comentarios || ''}`} payment={payment} onSaved={onRefresh} />
+                  <div className="pt-1">
+                    <Acciones payment={payment} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* ── Tabla — escritorio. Scroll propio: la lista no debe empujar el
+              resto del panel hacia abajo conforme crezca (mismo criterio que
+              la caja de historial en Avisos). */}
+          <div className="hidden md:block overflow-x-auto overflow-y-auto max-h-[60vh]">
+            <table className="w-full text-sm min-w-[880px]">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-surface text-left text-xs text-muted uppercase">
+                  <th className="px-4 py-2">Transacción</th>
+                  <th className="px-4 py-2">Correo</th>
+                  <th className="px-4 py-2">Monto</th>
+                  <th className="px-4 py-2">Medio</th>
+                  <th className="px-4 py-2">Referencia</th>
+                  <th className="px-4 py-2">Situación</th>
+                  <th className="px-4 py-2">Fecha</th>
+                  <th className="px-4 py-2">Comentarios</th>
+                  <th className="px-4 py-2">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((payment) => {
+                  const teacher = teachersMap[payment.docenteId]
+                  const subscription = subscriptionsMap[payment.subscriptionId]
+                  const domiciliado = payment.metodo === 'mercadopago' && !!subscription?.mpPreapprovalId
+                  return (
+                    <tr key={payment.id} className="hover:bg-[var(--accent-tint)]">
+                      <td className="px-4 py-2 font-mono text-xs text-muted">#{numeroPorId[payment.id]}</td>
+                      <td className="px-4 py-2">
+                        <p className="font-medium text-on-surface">
+                          {teacher?.email || '—'}
+                        </p>
+                      </td>
+                      <td className="px-4 py-2 font-semibold">{formatCurrency(payment.monto)}</td>
+                      <td className="px-4 py-2">
+                        <p className="text-sm">{METODO_LABELS[payment.metodo] || payment.metodo || '—'}</p>
+                        {domiciliado && (
+                          <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold mt-0.5">
+                            <RefreshCw size={11} /> Domiciliado
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 font-mono text-xs">{payment.referencia || '—'}</td>
+                      <td className="px-4 py-2">
+                        <StatusBadge status={payment.status} />
+                      </td>
+                      <td className="px-4 py-2 text-muted">{formatDateTime(payment.createdAt)}</td>
+                      <td className="px-4 py-2">
+                        <ComentarioCell key={`${payment.id}:${payment.comentarios || ''}`} payment={payment} onSaved={onRefresh} />
+                      </td>
+                      <td className="px-4 py-2">
+                        <Acciones payment={payment} />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {rejectModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
