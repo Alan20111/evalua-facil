@@ -162,6 +162,14 @@ export function formatDate(value) {
   return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+export function formatDateTime(value) {
+  const d = toDate(value)
+  if (!d) return '—'
+  const fecha = d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+  const hora = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  return `${fecha}, ${hora}`
+}
+
 export function getSubscriptionStatusColor(status) {
   const colors = {
     activa: 'bg-emerald-100 text-emerald-700',
