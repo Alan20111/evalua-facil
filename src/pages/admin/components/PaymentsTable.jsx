@@ -105,6 +105,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
     try {
       await updateDoc(doc(db, 'payments', payment.id), { archivado: true })
       toast('Transacción archivada')
+      onRefresh?.()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     }
@@ -114,6 +115,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
     try {
       await updateDoc(doc(db, 'payments', payment.id), { archivado: false })
       toast('Transacción restaurada a Pagos')
+      onRefresh?.()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     }
@@ -125,6 +127,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
       await deleteDoc(doc(db, 'payments', deleteArchivado.id))
       toast('Transacción eliminada definitivamente')
       setDeleteArchivado(null)
+      onRefresh?.()
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     }
