@@ -27,7 +27,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { usePointerDrag } from '../../hooks/usePointerDrag'
 import { refreshTeacherReminders } from '../../utils/localReminders'
 import { formatHora12 } from '../../utils/formatHora'
-import { isDraftActivity } from '../../utils/activityVisibility'
+import { isDraftActivity, withDefaultTime } from '../../utils/activityVisibility'
 import {
   Clock, Send, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
@@ -357,7 +357,7 @@ export function AgendaView({
                   touchAction: 'none',
                 }}
                 data-tooltip={
-                  it.kind === 'bloque' ? 'Usa modificar bloques para editar, o muévelo'
+                  it.kind === 'bloque' ? (editableBloques ? 'Usa modificar bloques para editar, o muévelo' : undefined)
                   : movable ? 'Editar, o muévelo'
                   : 'Clic para editar esta actividad'
                 }
@@ -441,7 +441,7 @@ export function BloquePill({ b, subj, onClick }) {
       onClick={onClick ? e => { e.stopPropagation(); onClick(b) } : undefined}
       className={`flex items-center gap-1 rounded-md w-full px-1 py-0.5 ${MES_ITEM_TEXT} ring-1 ring-black/5 transition-opacity ${onClick ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
       style={{ background: pal.bg, color: pal.text }}
-      data-tooltip="Usa modificar bloques para editar"
+      data-tooltip={onClick ? 'Usa modificar bloques para editar' : undefined}
     >
       <span className="truncate">{subjectDisplayName(subj)}</span>
     </button>
@@ -781,7 +781,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                         opacity: isDragging ? 0.3 : 1,
                         touchAction: 'none',
                       }}
-                      data-tooltip={editable ? 'Usa modificar bloques para editar, o muévelo' : 'Usa modificar bloques para editar'}
+                      data-tooltip={editable ? 'Usa modificar bloques para editar, o muévelo' : undefined}
                     >
                       <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate`}>{subjectDisplayName(subj)}</span>
                       {b.lugar && <span className={`block ${GRID_ITEM_TEXT} opacity-70 leading-tight truncate`}>{b.lugar}</span>}
@@ -1077,14 +1077,19 @@ export default function CalendarPage() {
       if (a.fechaLimite) {
         const categoriaLabel = CATEGORIA_LABEL[a.categoria] || CATEGORIA_LABEL.entregable
         const cierraEnFecha = !a.recibirTarde
+        // `fechaLimite` puede venir sin hora (fecha límite legada, 'YYYY-MM-DD')
+        // — sin normalizar, `timeStr` queda vacío y WeekView (Semana/3 días, a
+        // diferencia de AgendaView) nunca pinta eventos sin hora: la actividad
+        // desaparecía por completo de esas dos vistas.
+        const fechaLimiteConHora = withDefaultTime(a.fechaLimite, '23:59:59')
         evs.push({
           id: `dl-${a.id}`,
           activityId: a.id,
           titulo: cierraEnFecha ? `${nombreConNumero} (Cierre)` : nombreConNumero,
           subtitulo: `${subjName} · Parcial ${a.parcial ?? '–'} · ${categoriaLabel}`,
           tipo: 'deadline',
-          dateStr: a.fechaLimite.substring(0, 10),
-          timeStr: a.fechaLimite.substring(11, 16),
+          dateStr: fechaLimiteConHora.substring(0, 10),
+          timeStr: fechaLimiteConHora.substring(11, 16),
           bg: pal.bg, text: pal.text,
           editable: false,
           // true = deja de recibir entregas justo en la fecha; false = la fecha es informativa.

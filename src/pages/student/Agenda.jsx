@@ -7,7 +7,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { ArrowLeft, ChevronLeft, ChevronRight, List, Columns3, CalendarRange, LayoutGrid, Plus } from 'lucide-react'
 import { getEnrollments } from '../../utils/studentLookup'
-import { isActivityPublished, estadoAgenda } from '../../utils/activityVisibility'
+import { isActivityPublished, estadoAgenda, withDefaultTime } from '../../utils/activityVisibility'
 import { toDateStr } from '../../utils/horarioBloques'
 import { MESES, DIAS_LARGO, addDays, addMonths, addWeeks, getWeekDays, isToday } from '../../utils/calendarGrid'
 import { CATEGORIA_LABEL, deadlineEstado } from '../../utils/calendarEvents'
@@ -19,7 +19,8 @@ import StudentEventEditor from '../../components/agenda/StudentEventEditor'
 import StudentLayout from '../../components/StudentLayout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { teacherDisplayName } from '../../utils/studentSearch'
-import { STUDENT_CONTAINER_WIDE } from '../../config/layout'
+import { STUDENT_CONTAINER_WIDE, TEACHER_CONTAINER } from '../../config/layout'
+import { IS_NATIVE_APP } from '../../utils/platform'
 
 // Rediseño: una sola pantalla "Agenda", misma filosofía/experiencia que el
 // Calendario del docente (src/pages/teacher/CalendarPage.jsx) — Día/3 días/
@@ -198,14 +199,19 @@ export default function Agenda() {
       const nombreConNumero = numero ? `${numero} ${a.nombre || 'Actividad'}` : (a.nombre || 'Actividad')
       const categoriaLabel = CATEGORIA_LABEL[a.categoria] || CATEGORIA_LABEL.entregable
       const cierraEnFecha = !a.recibirTarde
+      // `fechaLimite` puede venir sin hora (fecha límite legada, 'YYYY-MM-DD')
+      // — sin normalizar, `timeStr` queda vacío y WeekView (Semana/3 días, a
+      // diferencia de AgendaView) NUNCA pinta eventos sin hora: la actividad
+      // desaparecía por completo de esas dos vistas.
+      const fechaLimiteConHora = withDefaultTime(a.fechaLimite, '23:59:59')
       evs.push({
         id: `dl-${a.id}`,
         activityId: a.id,
         titulo: cierraEnFecha ? `${nombreConNumero} (Cierre)` : nombreConNumero,
         subtitulo: `${subjectDisplayName(subj)} · Parcial ${a.parcial ?? '–'} · ${categoriaLabel}`,
         tipo: 'deadline',
-        dateStr: a.fechaLimite.substring(0, 10),
-        timeStr: a.fechaLimite.substring(11, 16),
+        dateStr: fechaLimiteConHora.substring(0, 10),
+        timeStr: fechaLimiteConHora.substring(11, 16),
         bg: pal.bg, text: pal.text,
         editable: false,
         cierraEnFecha,
@@ -328,6 +334,20 @@ export default function Agenda() {
 
   const dayHours = { dayStart: DEFAULT_DAY_START, dayEnd: DEFAULT_DAY_END }
 
+  // Ancho por vista — pedido explícito: Día necesita mucho más espacio
+  // (igual que el docente, que la ve dentro de TEACHER_CONTAINER), Semana un
+  // poco más que el resto del módulo, 3 días y Mes se quedan como estaban.
+  const CONTAINER_BY_VIEW = {
+    agenda: TEACHER_CONTAINER,
+    '3dias': STUDENT_CONTAINER_WIDE,
+    semana: 'max-w-xl md:max-w-5xl lg:max-w-6xl mx-auto',
+    mes: STUDENT_CONTAINER_WIDE,
+  }
+  // En la app, la vista Semana debe aprovechar todo el ancho de pantalla —
+  // el padding horizontal de la página le resta espacio a una rejilla de 7
+  // columnas que ya de por sí es angosta en un teléfono.
+  const padClass = IS_NATIVE_APP && view === 'semana' ? 'px-1' : 'px-4'
+
   return (
     <StudentLayout>
     <div className="bg-surface flex flex-col min-h-full">
@@ -369,7 +389,7 @@ export default function Agenda() {
       {loading ? (
         <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
       ) : (
-        <div className={`px-4 py-4 flex-1 ${STUDENT_CONTAINER_WIDE}`}>
+        <div className={`${padClass} py-4 flex-1 ${CONTAINER_BY_VIEW[view]}`}>
           <div className="flex items-center justify-between mb-3">
             <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
               <ChevronLeft size={18} />
