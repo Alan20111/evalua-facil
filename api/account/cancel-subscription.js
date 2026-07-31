@@ -43,6 +43,23 @@ export default async function handler(req, res) {
       return res.status(409).json({ error: 'Esta suscripción no se puede cancelar.' })
     }
 
+    // Si es una suscripción recurrente de Mercado Pago, hay que cancelar el
+    // preapproval allá también — si no, MP le sigue cobrando la tarjeta cada
+    // mes aunque aquí la marquemos cancelada.
+    if (sub.mpPreapprovalId) {
+      const token = process.env.MP_ACCESS_TOKEN
+      if (token) {
+        await fetch(`https://api.mercadopago.com/preapproval/${sub.mpPreapprovalId}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status: 'cancelled' }),
+        })
+      }
+    }
+
     const ahora = admin.firestore.Timestamp.now()
     await db.collection('subscriptions').doc(sub.id).update({
       status: 'cancelada',

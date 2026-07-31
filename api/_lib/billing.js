@@ -61,6 +61,62 @@ export async function completePayment(paymentId, gatewayData = {}) {
   return { alreadyDone: false }
 }
 
+// Records one automatic recurring charge for a Mercado Pago subscription
+// (preapproval). Unlike completePayment(), there is no pre-created `payments`
+// doc for this cycle — MP charges the card on its own schedule and just
+// notifies us — so this creates the payment doc itself for the record.
+// Idempotent on mpPaymentId so retried webhook deliveries don't double-extend.
+export async function recordRecurringCharge(mpPreapprovalId, gatewayData = {}) {
+  const db = getDb()
+  const subsSnap = await db
+    .collection('subscriptions')
+    .where('mpPreapprovalId', '==', mpPreapprovalId)
+    .limit(1)
+    .get()
+  if (subsSnap.empty) {
+    const err = new Error('Suscripción no encontrada para ese preapproval')
+    err.status = 404
+    throw err
+  }
+  const subDoc = subsSnap.docs[0]
+  const subscription = subDoc.data()
+
+  const dupSnap = await db
+    .collection('payments')
+    .where('subscriptionId', '==', subDoc.id)
+    .where('mpPaymentId', '==', gatewayData.mpPaymentId)
+    .limit(1)
+    .get()
+  if (!dupSnap.empty) return { alreadyDone: true }
+
+  const plan = await getPlan(subscription.planId)
+  const inicio = new Date()
+  const vencimiento = addPeriod(inicio, plan.periodicidad || 'mensual')
+
+  await db.collection('payments').add({
+    docenteId: subscription.docenteId,
+    subscriptionId: subDoc.id,
+    planId: subscription.planId,
+    escuelaId: subscription.escuelaId || '',
+    monto: plan.precio || 0,
+    metodo: 'mercadopago',
+    origen: 'webhook_recurrente',
+    status: 'completado',
+    gateway: gatewayData,
+    mpPaymentId: gatewayData.mpPaymentId,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  })
+
+  await subDoc.ref.update({
+    status: 'activa',
+    fechaInicio: admin.firestore.Timestamp.fromDate(inicio),
+    fechaVencimiento: admin.firestore.Timestamp.fromDate(vencimiento),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  })
+
+  return { alreadyDone: false }
+}
+
 // Creates (or reuses) a pending subscription + a pending payment for a teacher.
 // Returns { subscriptionId, paymentId, plan }.
 export async function startPayment({ uid, planId, escuelaId, schoolName, metodo }) {
