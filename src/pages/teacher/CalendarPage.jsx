@@ -124,6 +124,13 @@ const DIAS_LARGO = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','
 
 // Asigna "carriles" a items { start, end } (minutos desde medianoche) que se
 // solapan en un mismo día, para mostrarlos lado a lado en vez de encimados.
+// `personalEvents` mezcla dos listeners independientes ('events' y
+// 'academicEvents') — cada snapshot reemplaza solo las entradas de SU
+// propio tipo, conservando las del otro listener intactas.
+function mergeEvents(nuevos, prevList, tipo) {
+  return [...prevList.filter((e) => e.tipo !== tipo), ...nuevos]
+}
+
 function assignLanes(items) {
   const sorted = [...items].sort((a, b) => a.start - b.start)
   const lanesEnd = [] // minuto de fin de cada carril
@@ -1009,7 +1016,7 @@ export default function CalendarPage() {
   // ── Load data ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentUser) return
-    let pending = 4
+    let pending = 5
     const finish = () => { pending--; if (pending <= 0) setLoading(false) }
 
     getDocs(query(collection(db, 'subjects'), where('docenteId', '==', currentUser.uid)))
@@ -1025,8 +1032,17 @@ export default function CalendarPage() {
 
     const unsubEv = onSnapshot(
       query(collection(db, 'events'), where('docenteId', '==', currentUser.uid)),
-      snap => { setPersonalEvents(snap.docs.map(d => ({ id: d.id, ...d.data() }))); finish() },
+      snap => { setPersonalEvents(prev => mergeEvents(snap.docs.map(d => ({ id: d.id, ...d.data(), tipo: 'personal' })), prev, 'personal')); finish() },
       () => { toast('No se pudieron cargar tus eventos', 'error'); finish() }
+    )
+    // Eventos académicos — colección separada (ver firestore.rules: el
+    // alumno los lee por asignaturaId, algo que `events` no puede autorizar
+    // para un `list`). Se mezclan en el mismo estado `personalEvents` para
+    // que el resto del calendario los pinte sin distinguir de dónde vienen.
+    const unsubAcEv = onSnapshot(
+      query(collection(db, 'academicEvents'), where('docenteId', '==', currentUser.uid)),
+      snap => { setPersonalEvents(prev => mergeEvents(snap.docs.map(d => ({ id: d.id, ...d.data(), tipo: 'academico' })), prev, 'academico')); finish() },
+      () => { toast('No se pudieron cargar tus eventos académicos', 'error'); finish() }
     )
     const unsubH = onSnapshot(
       query(collection(db, 'horarioBloques'), where('docenteId', '==', currentUser.uid)),
@@ -1044,7 +1060,7 @@ export default function CalendarPage() {
       () => { /* vacaciones son opcionales: si fallan, seguimos sin ellas */ }
     )
 
-    return () => { unsubEv(); unsubH(); unsubA(); unsubV() }
+    return () => { unsubEv(); unsubAcEv(); unsubH(); unsubA(); unsubV() }
   }, [currentUser])
 
   // ── Aggregate events ───────────────────────────────────────────────────
@@ -1612,7 +1628,8 @@ export default function CalendarPage() {
       ? { ...x, inicio: nuevoInicio, fin: nuevoFin }
       : x))
     try {
-      await updateDoc(doc(db, 'events', rawEvent.id), { inicio: nuevoInicio, fin: nuevoFin })
+      const col = rawEvent.tipo === 'academico' ? 'academicEvents' : 'events'
+      await updateDoc(doc(db, col, rawEvent.id), { inicio: nuevoInicio, fin: nuevoFin })
       refreshTeacherReminders(currentUser.uid)
     } catch (err) {
       toast('No se pudo mover el evento: ' + err.message, 'error')
@@ -2104,6 +2121,7 @@ export default function CalendarPage() {
         <EventEditor
           event={editingEvent}
           defaultDate={selectedDate}
+          subjects={Object.values(subjects).filter(s => !s.archived)}
           onClose={closeEventEditor}
           onSaved={closeEventEditor}
           onDeleted={closeEventEditor}

@@ -5,13 +5,15 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ArrowLeft, List, CalendarDays } from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, CalendarDays } from 'lucide-react'
 import { getEnrollments } from '../../utils/studentLookup'
 import { isActivityPublished, estadoAgenda } from '../../utils/activityVisibility'
 import { toDateStr } from '../../utils/horarioBloques'
-import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
-import AgendaLista from '../../components/agenda/AgendaLista'
+import { normalizeGrade } from '../../utils/ponderacion'
+import { STUDENT_CONTAINER_NARROW, STUDENT_CONTAINER_WIDE } from '../../config/layout'
+import AgendaDashboard from '../../components/agenda/AgendaDashboard'
 import AgendaCalendario from '../../components/agenda/AgendaCalendario'
+import StudentEventEditor from '../../components/agenda/StudentEventEditor'
 import StudentLayout from '../../components/StudentLayout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { teacherDisplayName } from '../../utils/studentSearch'
@@ -19,9 +21,14 @@ import { teacherDisplayName } from '../../utils/studentSearch'
 // Dentro de StudentLayout (no "pantalla completa" como NotificationSettings/
 // EvaluacionRunner): en escritorio debe quedar visible y clicable el sidebar
 // azul de asignaturas a la izquierda — pedido explícito, antes un overlay
-// fixed inset-0 lo tapaba por completo. La Agenda del estudiante, con dos
-// pestañas: Lista (vencidas/hoy/próximas, cronológica) y Calendario (Día/
-// Semana/Mes).
+// fixed inset-0 lo tapaba por completo.
+//
+// Rediseño: la Agenda deja de ser una lista cronológica agrupada por fecha
+// (Hoy/Ayer/Viernes…) y se vuelve un dashboard organizado por PRIORIDAD (ver
+// src/utils/agendaEngine.js). El tab "Calendario" (Día/Semana/Mes) se
+// mantiene tal cual por ahora — su propio rediseño (bloques de horario +
+// eventos con los indicadores de color del pedido) queda para una entrega
+// aparte, no se toca aquí para no dejarlo a medias.
 
 async function fetchActivitiesForSubjects(subjectIds) {
   if (subjectIds.length === 0) return []
@@ -44,8 +51,22 @@ async function fetchSubmissionsForStudents(studentDocIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
+// horarioBloques/events no soportan `in` + filtro adicional sin un índice
+// compuesto nuevo (ver CLAUDE.md) — se piden por asignaturaId `in` nada más y
+// se filtra `tipo`/fecha del lado cliente, igual que ya hace este archivo con
+// `activities`.
+async function fetchByAsignaturaIn(coleccion, subjectIds) {
+  if (subjectIds.length === 0) return []
+  const chunks = []
+  for (let i = 0; i < subjectIds.length; i += 30) chunks.push(subjectIds.slice(i, i + 30))
+  const snaps = await Promise.all(
+    chunks.map((ids) => getDocs(query(collection(db, coleccion), where('asignaturaId', 'in', ids))))
+  )
+  return snaps.flatMap((s) => s.docs)
+}
+
 const TABS = [
-  { key: 'lista', label: 'Lista', Icon: List },
+  { key: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { key: 'calendario', label: 'Calendario', Icon: CalendarDays },
 ]
 
@@ -54,11 +75,15 @@ export default function Agenda() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  const [tab, setTab] = useState('calendario')
+  const [tab, setTab] = useState('dashboard')
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState([]) // { id, activity, submission, subject, teacherName, estado, fecha (Date) }
+  const [bloquesHoy, setBloquesHoy] = useState([]) // horarioBloques de HOY, enriquecidos con subject/teacherName
+  const [eventos, setEventos] = useState([]) // académicos + personales, { id, titulo, tipo, fechaInicio, fechaFin, color, subject? }
+  const [editingEvent, setEditingEvent] = useState(null) // null=cerrado, {}=nuevo, {...}=editar
   const goBack = () => navigate('/alumno/dashboard')
   useBackHandler(goBack)
+  useBackHandler(() => setEditingEvent(null), !!editingEvent)
 
   // `loading` ya inicia en true y loadData() solo corre al montar — sin
   // setState síncrono aquí (react-hooks/set-state-in-effect).
@@ -82,13 +107,45 @@ export default function Agenda() {
       const activeSubjectIds = subjectIds.filter((id) => subjectById[id] && !subjectById[id].archived)
       const activeDocIds = activeSubjectIds.map((id) => docIdBySubject[id])
       const teacherIds = [...new Set(activeSubjectIds.map((id) => subjectById[id].docenteId).filter(Boolean))]
-      const [teacherSnaps, actDocs, subDocs] = await Promise.all([
+      // `eventDocs` = academicEvents (compartidos por materia).
+      const [teacherSnaps, actDocs, subDocs, bloqueDocs, eventDocs, studentEventDocs] = await Promise.all([
         Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'users', tid)))),
         fetchActivitiesForSubjects(activeSubjectIds),
         fetchSubmissionsForStudents(activeDocIds),
+        fetchByAsignaturaIn('horarioBloques', activeSubjectIds),
+        fetchByAsignaturaIn('academicEvents', activeSubjectIds),
+        getDocs(query(collection(db, 'studentEvents'), where('alumnoId', '==', currentUser.uid))),
       ])
       const teacherName = {}
       teacherSnaps.forEach((t) => { if (t.exists()) { const d = t.data(); teacherName[t.id] = teacherDisplayName(d) } })
+
+      // "Ahora" / "Próxima clase" — solo los bloques de HOY, con la materia
+      // y el docente ya resueltos (mismo patrón que las actividades).
+      const todayKey = toDateStr(new Date())
+      const bloquesDeHoy = bloqueDocs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((b) => b.fecha === todayKey && activeSubjectIds.includes(b.asignaturaId))
+        .map((b) => ({ ...b, subject: subjectById[b.asignaturaId], teacherName: teacherName[subjectById[b.asignaturaId]?.docenteId] || '' }))
+      setBloquesHoy(bloquesDeHoy)
+
+      // Eventos académicos (del docente, compartidos con el grupo) + personales
+      // del propio alumno — unificados en una sola lista para las secciones
+      // "Prioridad de hoy" y "Próximos 7 días".
+      const eventosAcademicos = eventDocs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((e) => activeSubjectIds.includes(e.asignaturaId))
+        .map((e) => ({
+          id: e.id, titulo: e.titulo, tipo: 'academico', color: e.color,
+          subject: subjectById[e.asignaturaId],
+          fechaInicio: new Date(e.inicio), fechaFin: new Date(e.fin || e.inicio),
+        }))
+      const eventosPersonales = studentEventDocs.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .map((e) => ({
+          id: e.id, titulo: e.titulo, tipo: 'personal', color: e.color,
+          fechaInicio: new Date(e.inicio), fechaFin: new Date(e.fin || e.inicio),
+        }))
+      setEventos([...eventosAcademicos, ...eventosPersonales].sort((a, b) => a.fechaInicio - b.fechaInicio))
 
       const submissionByActivity = {}
       subDocs.forEach((d) => { submissionByActivity[d.data().actividadId] = { id: d.id, ...d.data() } })
@@ -145,7 +202,7 @@ export default function Agenda() {
   const firstName = userProfile?.nombre || 'Estudiante'
   const todayStr = toDateStr(new Date())
 
-  // Agrupado por fecha — lo consumen tanto Lista como Calendario.
+  // Agrupado por fecha — lo sigue usando el tab Calendario (Día/Semana/Mes).
   const itemsByDate = useMemo(() => {
     const map = {}
     items.forEach((it) => {
@@ -153,6 +210,24 @@ export default function Agenda() {
       ;(map[key] ||= []).push(it)
     })
     return map
+  }, [items])
+
+  // Promedio actual: media de las actividades ya calificadas, normalizadas a
+  // /10 (mismo helper que usa el resto de la plataforma) — una sola cifra
+  // global entre todas las materias para el panel del Dashboard, no un
+  // promedio por parcial/materia (eso ya vive en cada SubjectPage).
+  const promedioActual = useMemo(() => {
+    const notas = items
+      .filter((it) => it.estado === 'calificada')
+      .map((it) => normalizeGrade(it.submission.calificacion, it.activity.maxCalif))
+      .filter((n) => n != null)
+    return notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null
+  }, [items])
+
+  const porcentajeEntregado = useMemo(() => {
+    if (items.length === 0) return null
+    const entregadas = items.filter((it) => it.estado === 'entregada' || it.estado === 'calificada').length
+    return Math.round((entregadas / items.length) * 100)
   }, [items])
 
   return (
@@ -195,15 +270,35 @@ export default function Agenda() {
       {loading ? (
         <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
       ) : (
-        <div className={`px-4 py-5 ${STUDENT_CONTAINER_NARROW}`}>
-          {tab === 'lista' ? (
-            <AgendaLista itemsByDate={itemsByDate} todayStr={todayStr} onActivityClick={(id) => navigate(`/alumno/actividad/${id}`)} />
+        <div className={`px-4 py-5 ${tab === 'dashboard' ? STUDENT_CONTAINER_WIDE : STUDENT_CONTAINER_NARROW}`}>
+          {tab === 'dashboard' ? (
+            <AgendaDashboard
+              items={items}
+              eventos={eventos}
+              bloquesHoy={bloquesHoy}
+              todayStr={todayStr}
+              ahora={new Date()}
+              promedioActual={promedioActual}
+              porcentajeEntregado={porcentajeEntregado}
+              onActivityClick={(id) => navigate(`/alumno/actividad/${id}`)}
+              onEventClick={(evento) => { if (evento.tipo === 'personal') setEditingEvent(evento) }}
+              onCreateEvent={() => setEditingEvent({})}
+            />
           ) : (
             <AgendaCalendario itemsByDate={itemsByDate} todayStr={todayStr} onActivityClick={(id) => navigate(`/alumno/actividad/${id}`)} />
           )}
         </div>
       )}
     </div>
+
+    {editingEvent && (
+      <StudentEventEditor
+        event={editingEvent.id ? editingEvent : null}
+        onClose={() => setEditingEvent(null)}
+        onSaved={() => loadData()}
+        onDeleted={() => loadData()}
+      />
+    )}
     </StudentLayout>
   )
 }

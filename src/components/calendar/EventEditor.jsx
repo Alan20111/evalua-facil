@@ -9,6 +9,7 @@ import { X, Trash2, Copy } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { refreshTeacherReminders } from '../../utils/localReminders'
+import { subjectDisplayName } from '../../utils/subjectName'
 
 export const EVENT_COLORS = [
   { id: 'slate',  bg: '#f1f5f9', text: '#475569', label: 'Gris' },
@@ -20,7 +21,7 @@ export const EVENT_COLORS = [
   { id: 'teal',   bg: '#ccfbf1', text: '#0d9488', label: 'Teal' },
 ]
 
-export default function EventEditor({ event, defaultDate, onClose, onSaved, onDeleted }) {
+export default function EventEditor({ event, defaultDate, subjects = [], onClose, onSaved, onDeleted }) {
   const { currentUser } = useAuth()
   const toast = useToast()
   const isNew = !event?.id
@@ -32,6 +33,8 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
     inicio: event?.inicio || defaultDate || '',
     fin: event?.fin || '',
     color: event?.color || 'blue',
+    tipo: event?.tipo || 'personal',
+    asignaturaId: event?.asignaturaId || '',
   })
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -45,7 +48,9 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
     form.notas.trim() !== (event?.notas || '') ||
     form.inicio !== (event?.inicio || '') ||
     form.fin !== (event?.fin || '') ||
-    form.color !== (event?.color || 'blue')
+    form.color !== (event?.color || 'blue') ||
+    form.tipo !== (event?.tipo || 'personal') ||
+    form.asignaturaId !== (event?.asignaturaId || '')
   )
 
   // Botón atrás físico (Android): si está pidiendo confirmación de borrado,
@@ -55,10 +60,19 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
   // Este componente solo se monta mientras está abierto (lo controla el padre).
   useScrollLock(true)
 
+  // Personal y académico viven en colecciones DISTINTAS — ver el comentario
+  // en firestore.rules sobre por qué `academicEvents` no puede ser solo un
+  // campo `tipo` dentro de `events`: Firestore no puede autorizar un `list`
+  // por asignaturaId si la regla depende de otro campo (docenteId/tipo) que
+  // no es parte del filtro de la consulta.
+  const collectionFor = (tipo) => (tipo === 'academico' ? 'academicEvents' : 'events')
+  const originalCollection = event ? collectionFor(event.tipo || 'personal') : null
+
   async function handleSave(e) {
     e.preventDefault()
     if (!form.titulo.trim()) { toast('Escribe un título', 'error'); return }
     if (!form.inicio) { toast('Selecciona la fecha de inicio', 'error'); return }
+    if (form.tipo === 'academico' && !form.asignaturaId) { toast('Elige la materia para el evento académico', 'error'); return }
     setSaving(true)
     try {
       const payload = {
@@ -69,14 +83,24 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
         fin: form.fin || form.inicio,
         color: form.color,
         docenteId: currentUser.uid,
+        tipo: form.tipo,
+        asignaturaId: form.tipo === 'academico' ? form.asignaturaId : null,
       }
+      const targetCollection = collectionFor(form.tipo)
       if (isNew) {
-        const ref = await addDoc(collection(db, 'events'), { ...payload, createdAt: serverTimestamp() })
+        const ref = await addDoc(collection(db, targetCollection), { ...payload, createdAt: serverTimestamp() })
         onSaved?.({ id: ref.id, ...payload })
         toast('Evento creado')
-      } else {
-        await updateDoc(doc(db, 'events', event.id), payload)
+      } else if (targetCollection === originalCollection) {
+        await updateDoc(doc(db, targetCollection, event.id), payload)
         onSaved?.({ id: event.id, ...payload })
+        toast('Evento actualizado')
+      } else {
+        // Cambió de tipo (personal ↔ académico): hay que moverlo de colección
+        // — no hay una forma atómica de "renombrar" la colección de un doc.
+        await deleteDoc(doc(db, originalCollection, event.id))
+        const ref = await addDoc(collection(db, targetCollection), { ...payload, createdAt: serverTimestamp() })
+        onSaved?.({ id: ref.id, ...payload })
         toast('Evento actualizado')
       }
       // Reprograma los recordatorios locales YA — si no, el aviso de "empieza
@@ -95,7 +119,7 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
   async function handleDelete() {
     setSaving(true)
     try {
-      await deleteDoc(doc(db, 'events', event.id))
+      await deleteDoc(doc(db, originalCollection, event.id))
       onDeleted?.(event.id)
       toast('Evento eliminado')
       refreshTeacherReminders(currentUser.uid)
@@ -111,9 +135,10 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
   // el docente después la arrastra o la edita para acomodarla.
   async function handleDuplicate() {
     if (!form.titulo.trim() || !form.inicio) { toast('Completa el título y el inicio para duplicar', 'error'); return }
+    if (form.tipo === 'academico' && !form.asignaturaId) { toast('Elige la materia para el evento académico', 'error'); return }
     setSaving(true)
     try {
-      await addDoc(collection(db, 'events'), {
+      await addDoc(collection(db, collectionFor(form.tipo)), {
         titulo: form.titulo.trim(),
         descripcion: form.descripcion.trim(),
         notas: form.notas.trim(),
@@ -121,6 +146,8 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
         fin: form.fin || form.inicio,
         color: form.color,
         docenteId: currentUser.uid,
+        tipo: form.tipo,
+        asignaturaId: form.tipo === 'academico' ? form.asignaturaId : null,
         createdAt: serverTimestamp(),
       })
       toast('Evento duplicado — arrástralo o edítalo para cambiar su horario')
@@ -168,6 +195,46 @@ export default function EventEditor({ event, defaultDate, onClose, onSaved, onDe
                 aria-label={c.label}
               />
             ))}
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-xs text-muted font-medium">Tipo de evento</p>
+            <div className="flex gap-1 bg-surface-container p-1 rounded-full">
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, tipo: 'personal' }))}
+                className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors ${
+                  form.tipo === 'personal' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-accent-tint'
+                }`}
+              >
+                Personal
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm(f => ({ ...f, tipo: 'academico' }))}
+                className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors ${
+                  form.tipo === 'academico' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-accent-tint'
+                }`}
+              >
+                Académico
+              </button>
+            </div>
+            {form.tipo === 'academico' && (
+              <>
+                <p className="text-xs text-muted">Los alumnos de esta materia lo verán en su Agenda.</p>
+                <select
+                  value={form.asignaturaId}
+                  onChange={e => setForm(f => ({ ...f, asignaturaId: e.target.value }))}
+                  required
+                  className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                >
+                  <option value="">Elige una materia…</option>
+                  {subjects.map(s => (
+                    <option key={s.id} value={s.id}>{subjectDisplayName(s)}</option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
 
           <input
