@@ -206,9 +206,11 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
   await savePdfDoc(doc, `calificaciones_parcial${parcial}_${safeFile(subject)}.pdf`)
 }
 
-// Cuestionario/examen results: one enunciado + options table per reactivo de
-// opción múltiple. `counts`/`preguntas` mirror EvaluacionGraficas.jsx exactly
-// (counts computed there, passed straight through — no recomputation here).
+// Cuestionario/examen results: one enunciado + options table per reactivo
+// graficable (opción múltiple y verdadero/falso — ver `graficables` en
+// EvaluacionGraficas.jsx, mismo filtro). `counts`/`preguntas` mirror ese
+// componente exactamente (counts computed there, passed straight through —
+// no recomputation here).
 export async function exportEvaluacionResultadosPDF({ activity, subject, preguntas, counts }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
@@ -230,7 +232,7 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
   let y = 40
   if (!preguntas.length) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-    doc.text('Este cuestionario/examen no tiene reactivos de opción múltiple.', 14, y)
+    doc.text('Este cuestionario/examen no tiene reactivos de opción múltiple ni de verdadero/falso.', 14, y)
   }
 
   preguntas.forEach((p, i) => {
@@ -238,24 +240,37 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
     doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.setTextColor(20)
     const enunciadoLines = doc.splitTextToSize(`${i + 1}. ${p.enunciado}`, pageW - 28)
     doc.text(enunciadoLines, 14, y)
-    y += enunciadoLines.length * 5 + 3
+    y += enunciadoLines.length * 5
 
     const preguntaCounts = counts[p.id] || {}
     const total = Object.values(preguntaCounts).reduce((sum, n) => sum + n, 0)
+    // Total explícito arriba de la tabla — antes había que sumar la columna
+    // "Respuestas" a mano para saber cuántos alumnos contestaron esta
+    // pregunta en particular (no siempre son todos los inscritos: alguien
+    // pudo dejarla en blanco).
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(110)
+    doc.text(`${total} ${total === 1 ? 'respuesta' : 'respuestas'} en total`, 14, y + 4)
+    y += 8
+
     const body = (p.opciones || []).map((o) => {
       const count = preguntaCounts[o.id] || 0
       const pct = total ? Math.round((count / total) * 100) : 0
-      return [o.texto, String(count), `${pct}%`]
+      const esCorrecta = p.respuestaCorrecta != null && o.id === p.respuestaCorrecta
+      return [esCorrecta ? '✓' : '', o.texto, String(count), `${pct}%`]
     })
 
     autoTable(doc, {
       startY: y,
-      head: [['Opción', 'Respuestas', '%']],
+      head: [['', 'Opción', 'Respuestas', 'Porcentaje']],
       body,
       styles: { fontSize: 9, cellPadding: 2.5, textColor: 30 },
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [241, 245, 249] },
-      columnStyles: { 1: { halign: 'center', cellWidth: 30 }, 2: { halign: 'center', cellWidth: 20 } },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 8, textColor: [16, 128, 80], fontStyle: 'bold' },
+        2: { halign: 'center', cellWidth: 28 },
+        3: { halign: 'center', cellWidth: 28 },
+      },
       margin: { left: 14, right: 14 },
     })
     y = doc.lastAutoTable.finalY + 10
