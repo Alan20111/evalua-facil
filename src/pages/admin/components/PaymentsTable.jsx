@@ -199,9 +199,12 @@ export default function PaymentsTable({ stats, onRefresh }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Scroll propio — pedido explícito: la lista no debe empujar el resto
+          del panel hacia abajo conforme crezca (mismo criterio que la caja
+          de historial en Avisos). */}
+      <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
         <table className="w-full text-sm min-w-[880px]">
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="bg-surface text-left text-xs text-muted uppercase">
               <th className="px-4 py-2">Transacción</th>
               <th className="px-4 py-2">Correo</th>
