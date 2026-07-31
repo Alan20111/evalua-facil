@@ -64,11 +64,13 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
     schoolName: userProfile?.schoolName || '',
   })
 
-  // ── Mercado Pago: create preference then redirect to checkout ──
+  // ── Mercado Pago: create a recurring subscription (preapproval), then
+  // redirect to MP's hosted checkout. MP charges the card automatically
+  // every month after this — no manual renewal needed. ──
   async function payWithMercadoPago() {
     setSubmitting(true)
     try {
-      const res = await fetch(apiUrl('/api/mp/create-preference'), {
+      const res = await fetch(apiUrl('/api/mp/create-subscription'), {
         method: 'POST',
         headers: await authHeader(),
         body: JSON.stringify(planPayload()),
