@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
-import { Check, X } from 'lucide-react'
+import { Check, X, RefreshCw } from 'lucide-react'
 import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
@@ -21,6 +21,12 @@ function StatusBadge({ status }) {
   )
 }
 
+const METODO_LABELS = {
+  mercadopago: 'Mercado Pago',
+  paypal: 'PayPal',
+  transferencia: 'Transferencia',
+}
+
 export default function PaymentsTable({ stats, onRefresh }) {
   const toast = useToast()
   const [processing, setProcessing] = useState(null)
@@ -37,9 +43,10 @@ export default function PaymentsTable({ stats, onRefresh }) {
 
   if (!stats) return null
 
-  const { payments, teachers, plans } = stats
+  const { payments, teachers, plans, subscriptions } = stats
   const teachersMap = Object.fromEntries(teachers.map((t) => [t.id, t]))
   const plansMap = Object.fromEntries(plans.map((p) => [p.id, p]))
+  const subscriptionsMap = Object.fromEntries((subscriptions || []).map((s) => [s.id, s]))
 
   const rows = [...payments].sort((a, b) => {
     const ta = a.createdAt?.toMillis?.() || 0
@@ -111,6 +118,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
             <tr className="bg-surface text-left text-xs text-muted uppercase">
               <th className="px-4 py-2">Docente</th>
               <th className="px-4 py-2">Monto</th>
+              <th className="px-4 py-2">Medio</th>
               <th className="px-4 py-2">Referencia</th>
               <th className="px-4 py-2">Estado</th>
               <th className="px-4 py-2">Fecha</th>
@@ -120,13 +128,15 @@ export default function PaymentsTable({ stats, onRefresh }) {
           <tbody className="divide-y divide-slate-100">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                   Sin pagos registrados
                 </td>
               </tr>
             ) : (
               rows.map((payment) => {
                 const teacher = teachersMap[payment.docenteId]
+                const subscription = subscriptionsMap[payment.subscriptionId]
+                const domiciliado = !!subscription?.mpPreapprovalId
                 return (
                   <tr key={payment.id} className="hover:bg-[var(--accent-tint)]">
                     <td className="px-4 py-2">
@@ -135,6 +145,14 @@ export default function PaymentsTable({ stats, onRefresh }) {
                       </p>
                     </td>
                     <td className="px-4 py-2 font-semibold">{formatCurrency(payment.monto)}</td>
+                    <td className="px-4 py-2">
+                      <p className="text-sm">{METODO_LABELS[payment.metodo] || payment.metodo || '—'}</p>
+                      {domiciliado && (
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold mt-0.5">
+                          <RefreshCw size={11} /> Domiciliado
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-2 font-mono text-xs">{payment.referencia || '—'}</td>
                     <td className="px-4 py-2">
                       <StatusBadge status={payment.status} />
