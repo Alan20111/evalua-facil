@@ -6,6 +6,7 @@ import { isDraftActivity } from './activityVisibility'
 import { subjectPeriodLabel } from './dateRange'
 import { studentFullName as fullName } from './studentSearch'
 import { savePdfDoc } from './nativeSave'
+import { applyPdfWatermarkIfNeeded, addPdfFooter, getLogoDataUrl, drawPdfWatermarkOnPage } from './exportWatermark'
 
 function safeFile(subject) {
   return (subjectDisplayName(subject) || 'asignatura')
@@ -61,7 +62,7 @@ export async function exportAppQRPDF({ url }) {
 // Ranking report: estudiantes ordenados por promedio (mayor a menor).
 // Columnas: Lugar, No., Estudiante, Promedio. `rows` = [{ lugar, orden, nombre,
 // promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
-export async function exportRankingPDF({ subject, rows, label }) {
+export async function exportRankingPDF({ subject, rows, label, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -69,6 +70,7 @@ export async function exportRankingPDF({ subject, rows, label }) {
   const autoTable = autoTableMod.default
 
   const doc = new jsPDF({ orientation: 'portrait' })
+  await applyPdfWatermarkIfNeeded(doc, watermark)
   doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
   doc.text(`${subjectDisplayName(subject) || 'Asignatura'} — Ranking · ${label}`, 14, 16)
   const periodo = subjectPeriodLabel(subject)
@@ -90,12 +92,13 @@ export async function exportRankingPDF({ subject, rows, label }) {
       2: { halign: 'center', cellWidth: 26, fontStyle: 'bold' },
     },
   })
+  if (watermark) addPdfFooter(doc)
   const safeLabel = label.toLowerCase().replace(/\s+/g, '')
   await savePdfDoc(doc, `ranking_${safeLabel}_${safeFile(subject)}.pdf`)
 }
 
 // Grades report: one row per student with per-parcial average + final.
-export async function exportSubjectGradesPDF({ subject, activities, students, submissions }) {
+export async function exportSubjectGradesPDF({ subject, activities, students, submissions, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -103,6 +106,7 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
   const autoTable = autoTableMod.default
 
   const doc = new jsPDF({ orientation: 'landscape' })
+  await applyPdfWatermarkIfNeeded(doc, watermark)
   const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
 
   // ── Header ──
@@ -149,12 +153,13 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
     },
   })
 
+  if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `calificaciones_${safeFile(subject)}.pdf`)
 }
 
 // Detailed grades report for a SINGLE parcial: one column per activity
 // (1.1., 1.2.…) plus the parcial average. Mirrors exportParcialGrades (Excel).
-export async function exportParcialGradesPDF({ subject, activities, students, submissions, parcial }) {
+export async function exportParcialGradesPDF({ subject, activities, students, submissions, parcial, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -166,6 +171,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
 
   const doc = new jsPDF({ orientation: acts.length > 6 ? 'landscape' : 'portrait' })
+  await applyPdfWatermarkIfNeeded(doc, watermark)
 
   doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
   doc.text(`${subjectDisplayName(subject) || 'Asignatura'} — Parcial ${parcial}`, 14, 16)
@@ -203,6 +209,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
     },
   })
 
+  if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `calificaciones_parcial${parcial}_${safeFile(subject)}.pdf`)
 }
 
@@ -211,7 +218,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
 // EvaluacionGraficas.jsx, mismo filtro). `counts`/`preguntas` mirror ese
 // componente exactamente (counts computed there, passed straight through —
 // no recomputation here).
-export async function exportEvaluacionResultadosPDF({ activity, subject, preguntas, counts }) {
+export async function exportEvaluacionResultadosPDF({ activity, subject, preguntas, counts, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -219,6 +226,11 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
   const autoTable = autoTableMod.default
 
   const doc = new jsPDF()
+  // Logo cacheado una sola vez aquí — este es el único export que llama
+  // doc.addPage() (líneas de abajo), y cada página nueva necesita su propia
+  // marca de agua repintada, no solo la primera.
+  const logoDataUrl = watermark ? await getLogoDataUrl() : null
+  if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl)
   const pageW = doc.internal.pageSize.getWidth()
   const pageH = doc.internal.pageSize.getHeight()
 
@@ -236,7 +248,7 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
   }
 
   preguntas.forEach((p, i) => {
-    if (y > pageH - 30) { doc.addPage(); y = 20 }
+    if (y > pageH - 30) { doc.addPage(); if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl); y = 20 }
     doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.setTextColor(20)
     const enunciadoLines = doc.splitTextToSize(`${i + 1}. ${p.enunciado}`, pageW - 28)
     doc.text(enunciadoLines, 14, y)
@@ -276,11 +288,12 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
     y = doc.lastAutoTable.finalY + 10
   })
 
+  if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `resultados_${safeFile(subject)}.pdf`)
 }
 
 // Credentials list: one row per student with username + temp password (1st login).
-export async function exportCredentialsPDF({ subject, students, docenteNombre }) {
+export async function exportCredentialsPDF({ subject, students, docenteNombre, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -288,6 +301,7 @@ export async function exportCredentialsPDF({ subject, students, docenteNombre })
   const autoTable = autoTableMod.default
 
   const doc = new jsPDF()
+  await applyPdfWatermarkIfNeeded(doc, watermark)
 
   // ── Header ──
   doc.setFontSize(16); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
@@ -327,5 +341,6 @@ export async function exportCredentialsPDF({ subject, students, docenteNombre })
   doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(130)
   doc.text('Cada estudiante entra con su usuario y el código de la clase, y elige su propia contraseña la primera vez.', 14, y)
 
+  if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `lista_acceso_${safeFile(subject)}.pdf`)
 }
