@@ -14,6 +14,7 @@ import useAlarmas from '../../components/calendar/useAlarmas'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectColors } from '../../utils/subjectPalette'
 import { bloqueColor, timeToMinutes, addMinutesToTime, generarBloques } from '../../utils/horarioBloques'
+import { CATEGORIA_LABEL, deadlineEstado, assignLanes, mergeEvents } from '../../utils/calendarEvents'
 import { formatLongDate } from '../../utils/dateRange'
 import SubjectIcon from '../../components/SubjectIcon'
 import { useNavigate } from 'react-router-dom'
@@ -73,17 +74,6 @@ function getWeekDays(date) {
 function fmtHour(timeStr) {
   return formatHora12(timeStr)
 }
-const CATEGORIA_LABEL = { examen: 'Examen', cuestionario: 'Cuestionario', observacion: 'Observación', entregable: 'Entregable' }
-// Estado de una fecha límite respecto a ahora, para dar contexto sin abrir la actividad.
-function deadlineEstado(fechaLimiteISO) {
-  const ms = new Date(fechaLimiteISO) - new Date()
-  const dias = Math.ceil(ms / 86400000)
-  if (ms < 0) return { label: 'Vencida', tono: 'vencida' }
-  if (dias <= 0) return { label: 'Vence hoy', tono: 'hoy' }
-  if (dias === 1) return { label: 'Vence mañana', tono: 'proxima' }
-  return { label: `Vence en ${dias} días`, tono: 'proxima' }
-}
-
 const ROW_H = 52        // px por hora en la vista semana
 const AGENDA_ROW_H = 64 // px por hora en la agenda del día
 
@@ -122,31 +112,9 @@ const DEFAULT_DAY_START = 7
 const DEFAULT_DAY_END = 21
 const DIAS_LARGO = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
 
-// Asigna "carriles" a items { start, end } (minutos desde medianoche) que se
-// solapan en un mismo día, para mostrarlos lado a lado en vez de encimados.
-// `personalEvents` mezcla dos listeners independientes ('events' y
-// 'academicEvents') — cada snapshot reemplaza solo las entradas de SU
-// propio tipo, conservando las del otro listener intactas.
-function mergeEvents(nuevos, prevList, tipo) {
-  return [...prevList.filter((e) => e.tipo !== tipo), ...nuevos]
-}
-
-function assignLanes(items) {
-  const sorted = [...items].sort((a, b) => a.start - b.start)
-  const lanesEnd = [] // minuto de fin de cada carril
-  const placed = sorted.map(it => {
-    let lane = lanesEnd.findIndex(e => e <= it.start)
-    if (lane === -1) { lane = lanesEnd.length; lanesEnd.push(it.end) }
-    else lanesEnd[lane] = it.end
-    return { it, lane }
-  })
-  const total = Math.max(1, lanesEnd.length)
-  return placed.map(p => ({ ...p, total }))
-}
-
 // ─── Event pill component ──────────────────────────────────────────────────
 
-function EventPill({ ev, compact, onClick, movable }) {
+export function EventPill({ ev, compact, onClick, movable }) {
   // Fecha límite: candado cerrado/abierto según si ya deja de recibir tarde
   // (cambia solo cuando el docente edita la actividad). Publicación: sin
   // candado, se queda como está.
@@ -186,9 +154,13 @@ function EventPill({ ev, compact, onClick, movable }) {
 // Agenda del día: rejilla de horas (configurable) con las clases y eventos del
 // día mostrado. Los items se pueden arrastrar verticalmente para cambiar de
 // hora, o soltarse sobre los chips de días posteriores para moverlos de día.
-function AgendaView({
+export function AgendaView({
   date, events, bloques, subjects, dayStart, dayEnd,
   onEventClick, onBlockClick, onMoveBloque, onMoveEvent, onSlotClick, asuetoMap = {}, vacacionMap = {},
+  // La Agenda del alumno reutiliza esta misma vista con su horario de
+  // clases, que él no puede mover — a diferencia del docente (siempre
+  // `true` por default, así su comportamiento no cambia).
+  editableBloques = true,
 }) {
   const dateStr = toDateStr(date)
   const asuetoDia = asuetoMap[dateStr]
@@ -236,7 +208,7 @@ function AgendaView({
   ]
   const placed = assignLanes(items)
 
-  const isMovable = it => it.kind === 'bloque' || it.ev?.editable
+  const isMovable = it => (it.kind === 'bloque' && editableBloques) || it.ev?.editable
 
   const { drag, startDrag: startDragRaw } = usePointerDrag((d, e) => {
     const { item } = d
@@ -370,7 +342,11 @@ function AgendaView({
                 key={it.id}
                 type="button"
                 onPointerDown={movable ? e => { e.stopPropagation(); startDrag(e, it) } : undefined}
-                onClick={!movable ? e => { e.stopPropagation(); onEventClick?.(it.ev) } : undefined}
+                onClick={!movable ? e => {
+                  e.stopPropagation()
+                  if (it.kind === 'bloque') onBlockClick?.(it.b)
+                  else onEventClick?.(it.ev)
+                } : undefined}
                 className={`absolute rounded-card shadow-sm ring-1 ring-black/5 select-none transition-[filter] hover:brightness-95 p-0 text-left block ${movable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
                 style={{
                   top, height,
@@ -457,7 +433,7 @@ function AgendaView({
 
 // ─── Month view ────────────────────────────────────────────────────────────
 
-function BloquePill({ b, subj, onClick }) {
+export function BloquePill({ b, subj, onClick }) {
   const pal = bloqueColor(b.color)
   return (
     <button
@@ -472,7 +448,7 @@ function BloquePill({ b, subj, onClick }) {
   )
 }
 
-function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick, onMoveEvent, asuetoMap = {}, vacacionMap = {}, editable = true }) {
+export function MonthView({ year, month, events, bloques, subjects, selectedDate, onDateClick, onEventClick, onBlockClick, onMoveEvent, asuetoMap = {}, vacacionMap = {}, editable = true }) {
   const cells = getMonthGrid(year, month)
   const selStr = selectedDate ? toDateStr(selectedDate) : null
 
@@ -615,7 +591,7 @@ function minutesToTimeStr(mins) {
 }
 const SNAP_MIN = 15 // los bloques se sueltan alineados a 15 min
 
-function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, anchorToday = false, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque, onMoveEvent, asuetoMap = {}, vacacionMap = {}, editable = true }) {
+export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEnd, numDays = 7, anchorToday = false, selectedDate, onSlotClick, onBlockClick, onEventClick, onMoveBloque, onMoveEvent, asuetoMap = {}, vacacionMap = {}, editable = true }) {
   // Vista "3 días": ventana móvil de numDays días consecutivos arrancando en
   // weekStart (no anclada a lunes, a diferencia de la vista Semana normal).
   const days = anchorToday

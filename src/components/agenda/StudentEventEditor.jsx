@@ -122,13 +122,24 @@ export default function StudentEventEditor({ event, defaultDate, onClose, onSave
           />
 
           <div className="space-y-1">
-            <p className="text-xs text-muted font-medium">Fecha y hora</p>
+            <p className="text-xs text-muted font-medium">Inicio</p>
             <EFDateTimePicker
               mode="datetime"
               value={form.inicio}
               onChange={(v) => setForm((f) => ({ ...f, inicio: v, fin: f.fin && f.fin < v ? v : f.fin }))}
-              placeholder="Fecha y hora"
+              placeholder="Fecha y hora de inicio"
               clearable={false}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-xs text-muted font-medium">Fin (opcional)</p>
+            <EFDateTimePicker
+              mode="datetime"
+              value={form.fin}
+              onChange={(v) => setForm((f) => ({ ...f, fin: v }))}
+              placeholder="Fecha y hora de fin (opcional)"
+              clearable
             />
           </div>
 
