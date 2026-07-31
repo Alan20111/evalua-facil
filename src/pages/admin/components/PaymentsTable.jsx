@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
-import { Check, X, RefreshCw } from 'lucide-react'
+import { doc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { Check, X, RefreshCw, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
 import { db } from '../../../firebase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
@@ -27,19 +27,52 @@ const METODO_LABELS = {
   transferencia: 'Transferencia',
 }
 
+// Comentario editable de la transacción — solo escribe al perder el foco y
+// si cambió, para no disparar un update por cada tecla.
+function ComentarioCell({ payment }) {
+  const toast = useToast()
+  const [value, setValue] = useState(payment.comentarios || '')
+
+  async function handleBlur() {
+    if (value === (payment.comentarios || '')) return
+    try {
+      await updateDoc(doc(db, 'payments', payment.id), { comentarios: value.trim() })
+    } catch (err) {
+      toast('Error al guardar el comentario: ' + err.message, 'error')
+    }
+  }
+
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={handleBlur}
+      placeholder="—"
+      className="w-full min-w-[140px] px-2 py-1 rounded border border-transparent bg-transparent text-sm hover:border-outline-variant focus:border-accent focus:bg-surface focus:outline-none"
+    />
+  )
+}
+
 export default function PaymentsTable({ stats, onRefresh }) {
   const toast = useToast()
   const [processing, setProcessing] = useState(null)
   const [rejectModal, setRejectModal] = useState(null)
   const [notasAdmin, setNotasAdmin] = useState('')
+  const [showArchivados, setShowArchivados] = useState(false)
+  const [deleteArchivado, setDeleteArchivado] = useState(null)
 
   function closeRejectModal() {
     setRejectModal(null)
     setNotasAdmin('')
   }
 
-  useBackHandler(closeRejectModal, !!rejectModal)
-  useScrollLock(!!rejectModal)
+  useBackHandler(() => {
+    if (deleteArchivado) setDeleteArchivado(null)
+    else if (showArchivados) setShowArchivados(false)
+    else closeRejectModal()
+  }, !!rejectModal || showArchivados || !!deleteArchivado)
+  useScrollLock(!!rejectModal || showArchivados)
 
   if (!stats) return null
 
@@ -48,11 +81,52 @@ export default function PaymentsTable({ stats, onRefresh }) {
   const plansMap = Object.fromEntries(plans.map((p) => [p.id, p]))
   const subscriptionsMap = Object.fromEntries((subscriptions || []).map((s) => [s.id, s]))
 
-  const rows = [...payments].sort((a, b) => {
+  // Número de transacción — folio fijo y legible (a diferencia del id de
+  // Firestore), asignado por orden cronológico de creación sobre TODOS los
+  // pagos (archivados incluidos) para que nunca cambie al archivar/restaurar.
+  const porAntiguedad = [...payments].sort((a, b) => {
+    const ta = a.createdAt?.toMillis?.() || 0
+    const tb = b.createdAt?.toMillis?.() || 0
+    return ta - tb
+  })
+  const numeroPorId = Object.fromEntries(porAntiguedad.map((p, i) => [p.id, i + 1]))
+
+  const todas = [...payments].sort((a, b) => {
     const ta = a.createdAt?.toMillis?.() || 0
     const tb = b.createdAt?.toMillis?.() || 0
     return tb - ta
   })
+  const rows = todas.filter((p) => !p.archivado)
+  const archivadas = todas.filter((p) => p.archivado)
+
+  async function handleArchivar(payment) {
+    try {
+      await updateDoc(doc(db, 'payments', payment.id), { archivado: true })
+      toast('Transacción archivada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  async function handleRestaurar(payment) {
+    try {
+      await updateDoc(doc(db, 'payments', payment.id), { archivado: false })
+      toast('Transacción restaurada a Pagos')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  async function handleEliminarDefinitivo() {
+    if (!deleteArchivado) return
+    try {
+      await deleteDoc(doc(db, 'payments', deleteArchivado.id))
+      toast('Transacción eliminada definitivamente')
+      setDeleteArchivado(null)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
 
   async function handleApprove(payment) {
     if (!confirm('¿Confirmas que este pago fue recibido y quieres activar la suscripción?')) return
@@ -108,27 +182,37 @@ export default function PaymentsTable({ stats, onRefresh }) {
 
   return (
     <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
-      <div className="px-5 py-3 border-b border-outline-variant">
+      <div className="px-5 py-3 border-b border-outline-variant flex items-center justify-between gap-3">
         <h2 className="font-semibold text-on-surface">Pagos</h2>
+        <button
+          type="button"
+          onClick={() => setShowArchivados(true)}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted hover:text-accent hover:bg-[var(--accent-tint)] rounded transition-colors"
+        >
+          <Archive size={14} />
+          Archivadas{archivadas.length > 0 ? ` (${archivadas.length})` : ''}
+        </button>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
+        <table className="w-full text-sm min-w-[880px]">
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
+              <th className="px-4 py-2">Transacción</th>
               <th className="px-4 py-2">Correo</th>
               <th className="px-4 py-2">Monto</th>
               <th className="px-4 py-2">Medio</th>
               <th className="px-4 py-2">Referencia</th>
               <th className="px-4 py-2">Situación</th>
               <th className="px-4 py-2">Fecha</th>
+              <th className="px-4 py-2">Comentarios</th>
               <th className="px-4 py-2">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
                   Sin pagos registrados
                 </td>
               </tr>
@@ -139,6 +223,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                 const domiciliado = payment.metodo === 'mercadopago' && !!subscription?.mpPreapprovalId
                 return (
                   <tr key={payment.id} className="hover:bg-[var(--accent-tint)]">
+                    <td className="px-4 py-2 font-mono text-xs text-muted">#{numeroPorId[payment.id]}</td>
                     <td className="px-4 py-2">
                       <p className="font-medium text-on-surface">
                         {teacher?.email || '—'}
@@ -159,8 +244,11 @@ export default function PaymentsTable({ stats, onRefresh }) {
                     </td>
                     <td className="px-4 py-2 text-muted">{formatDateTime(payment.createdAt)}</td>
                     <td className="px-4 py-2">
+                      <ComentarioCell payment={payment} />
+                    </td>
+                    <td className="px-4 py-2">
                       {payment.status === 'pendiente' && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 mb-1">
                           <button
                             type="button"
                             onClick={() => handleApprove(payment)}
@@ -183,6 +271,14 @@ export default function PaymentsTable({ stats, onRefresh }) {
                       {payment.notasAdmin && (
                         <p className="text-xs text-slate-400 mt-1">{payment.notasAdmin}</p>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleArchivar(payment)}
+                        data-tooltip="Archivar"
+                        className="flex items-center gap-1 px-2 py-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded text-xs font-medium transition-colors"
+                      >
+                        <Archive size={13} /> Archivar
+                      </button>
                     </td>
                   </tr>
                 )
@@ -220,6 +316,81 @@ export default function PaymentsTable({ stats, onRefresh }) {
                 className="flex-1 py-2 bg-red-600 text-white rounded text-sm font-semibold disabled:opacity-60"
               >
                 Rechazar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Transacciones archivadas ── */}
+      {showArchivados && (
+        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setShowArchivados(false)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card w-full max-w-2xl rounded-t-card sm:rounded-card p-4 drop-shadow-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Archive size={18} /> Transacciones archivadas
+              </h3>
+              <button type="button" onClick={() => setShowArchivados(false)} aria-label="Cerrar" data-tooltip="Cerrar"
+                className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            {archivadas.length === 0 ? (
+              <p className="text-center text-sm text-muted py-8">No hay transacciones archivadas.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {archivadas.map((payment) => {
+                  const teacher = teachersMap[payment.docenteId]
+                  return (
+                    <div key={payment.id} className="flex flex-wrap items-center gap-2 bg-surface-container rounded-card px-3 py-2">
+                      <span className="font-mono text-xs text-muted">#{numeroPorId[payment.id]}</span>
+                      <span className="flex-1 min-w-[160px] text-sm text-on-surface truncate">{teacher?.email || '—'}</span>
+                      <span className="text-sm font-semibold">{formatCurrency(payment.monto)}</span>
+                      <span className="text-xs text-muted">{formatDateTime(payment.createdAt)}</span>
+                      <StatusBadge status={payment.status} />
+                      <button
+                        type="button"
+                        onClick={() => handleRestaurar(payment)}
+                        data-tooltip="Restaurar a Pagos"
+                        className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-semibold hover:bg-emerald-200"
+                      >
+                        <ArchiveRestore size={13} /> Restaurar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleteArchivado(payment)}
+                        data-tooltip="Eliminar definitivamente"
+                        className="flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-semibold hover:bg-red-200"
+                      >
+                        <Trash2 size={13} /> Eliminar
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirmación de borrado definitivo ── */}
+      {deleteArchivado && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteArchivado(null)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-lg font-semibold mb-2">¿Eliminar esta transacción?</h3>
+            <p className="text-sm text-muted mb-4">
+              Se borrará permanentemente el registro #{numeroPorId[deleteArchivado.id]}. Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setDeleteArchivado(null)}
+                className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleEliminarDefinitivo}
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors">
+                Eliminar definitivamente
               </button>
             </div>
           </div>
