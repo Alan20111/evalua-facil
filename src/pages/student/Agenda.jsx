@@ -1,34 +1,45 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore'
+import { collection, query, where, getDocs, getDoc, doc, updateDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ArrowLeft, LayoutDashboard, CalendarDays } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, List, Columns3, CalendarRange, LayoutGrid, Plus } from 'lucide-react'
 import { getEnrollments } from '../../utils/studentLookup'
 import { isActivityPublished, estadoAgenda } from '../../utils/activityVisibility'
 import { toDateStr } from '../../utils/horarioBloques'
-import { normalizeGrade } from '../../utils/ponderacion'
-import { STUDENT_CONTAINER_NARROW, STUDENT_CONTAINER_WIDE } from '../../config/layout'
-import AgendaDashboard from '../../components/agenda/AgendaDashboard'
-import AgendaCalendario from '../../components/agenda/AgendaCalendario'
+import { MESES, DIAS_LARGO, addDays, addMonths, addWeeks, getWeekDays, isToday } from '../../utils/calendarGrid'
+import { CATEGORIA_LABEL, deadlineEstado } from '../../utils/calendarEvents'
+import { subjectColors } from '../../utils/subjectPalette'
+import { subjectDisplayName } from '../../utils/subjectName'
+import { AgendaView, WeekView, MonthView } from '../teacher/CalendarPage'
+import { EVENT_COLORS } from '../../components/calendar/EventEditor'
 import StudentEventEditor from '../../components/agenda/StudentEventEditor'
 import StudentLayout from '../../components/StudentLayout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { teacherDisplayName } from '../../utils/studentSearch'
+import { STUDENT_CONTAINER_WIDE } from '../../config/layout'
 
-// Dentro de StudentLayout (no "pantalla completa" como NotificationSettings/
-// EvaluacionRunner): en escritorio debe quedar visible y clicable el sidebar
-// azul de asignaturas a la izquierda — pedido explícito, antes un overlay
-// fixed inset-0 lo tapaba por completo.
-//
-// Rediseño: la Agenda deja de ser una lista cronológica agrupada por fecha
-// (Hoy/Ayer/Viernes…) y se vuelve un dashboard organizado por PRIORIDAD (ver
-// src/utils/agendaEngine.js). El tab "Calendario" (Día/Semana/Mes) se
-// mantiene tal cual por ahora — su propio rediseño (bloques de horario +
-// eventos con los indicadores de color del pedido) queda para una entrega
-// aparte, no se toca aquí para no dejarlo a medias.
+// Rediseño: una sola pantalla "Agenda", misma filosofía/experiencia que el
+// Calendario del docente (src/pages/teacher/CalendarPage.jsx) — Día/3 días/
+// Semana/Mes reutilizando EXACTAMENTE los mismos componentes de vista
+// (AgendaView/WeekView/MonthView, exportados desde ahí para esto). La
+// diferencia es solo la información y los permisos: el alumno ve su propio
+// horario (de sus docentes, no editable), sus actividades/exámenes con fecha
+// límite, los eventos académicos publicados para sus materias, y puede
+// crear/editar/borrar ÚNICAMENTE sus propios eventos personales
+// (`studentEvents`) — los eventos personales del docente nunca se leen aquí.
+
+const DEFAULT_DAY_START = 7
+const DEFAULT_DAY_END = 21
+
+const VIEWS = [
+  { id: 'agenda', label: 'Día', Icon: List },
+  { id: '3dias', label: '3 días', Icon: Columns3 },
+  { id: 'semana', label: 'Semana', Icon: CalendarRange },
+  { id: 'mes', label: 'Mes', Icon: LayoutGrid },
+]
 
 async function fetchActivitiesForSubjects(subjectIds) {
   if (subjectIds.length === 0) return []
@@ -51,10 +62,9 @@ async function fetchSubmissionsForStudents(studentDocIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-// horarioBloques/events no soportan `in` + filtro adicional sin un índice
-// compuesto nuevo (ver CLAUDE.md) — se piden por asignaturaId `in` nada más y
-// se filtra `tipo`/fecha del lado cliente, igual que ya hace este archivo con
-// `activities`.
+// horarioBloques/academicEvents no soportan `in` + filtro adicional sin un
+// índice compuesto nuevo (ver CLAUDE.md) — se piden por asignaturaId `in`
+// nada más, igual que ya hace este archivo con `activities`.
 async function fetchByAsignaturaIn(coleccion, subjectIds) {
   if (subjectIds.length === 0) return []
   const chunks = []
@@ -65,32 +75,37 @@ async function fetchByAsignaturaIn(coleccion, subjectIds) {
   return snaps.flatMap((s) => s.docs)
 }
 
-const TABS = [
-  { key: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { key: 'calendario', label: 'Calendario', Icon: CalendarDays },
-]
-
 export default function Agenda() {
   const { currentUser, userProfile } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
 
-  const [tab, setTab] = useState('dashboard')
+  const [view, setView] = useState(() => {
+    const raw = localStorage.getItem('alumno_cal_view')
+    return VIEWS.some((v) => v.id === raw) ? raw : 'agenda'
+  })
+  const [currentDate, setCurrentDate] = useState(new Date())
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState([]) // { id, activity, submission, subject, teacherName, estado, fecha (Date) }
-  const [bloquesHoy, setBloquesHoy] = useState([]) // horarioBloques de HOY, enriquecidos con subject/teacherName
-  const [eventos, setEventos] = useState([]) // académicos + personales, { id, titulo, tipo, fechaInicio, fechaFin, color, subject? }
+  const [bloques, setBloques] = useState([])
+  const [academicEvents, setAcademicEvents] = useState([])
+  const [studentEvents, setStudentEvents] = useState([])
+  const [subjectsById, setSubjectsById] = useState({})
   const [editingEvent, setEditingEvent] = useState(null) // null=cerrado, {}=nuevo, {...}=editar
+  const [selectedDate, setSelectedDate] = useState(null)
   const goBack = () => navigate('/alumno/dashboard')
   useBackHandler(goBack)
-  useBackHandler(() => setEditingEvent(null), !!editingEvent)
+  useBackHandler(closeEventEditor, !!editingEvent)
 
-  // `loading` ya inicia en true y loadData() solo corre al montar — sin
-  // setState síncrono aquí (react-hooks/set-state-in-effect).
+  function changeView(v) {
+    setView(v)
+    localStorage.setItem('alumno_cal_view', v)
+  }
+
   async function loadData() {
     try {
       const enrollments = await getEnrollments(currentUser, userProfile)
-      if (enrollments.length === 0) { setItems([]); return }
+      if (enrollments.length === 0) { setItems([]); setLoading(false); return }
 
       const docIdBySubject = {}
       enrollments.forEach((e) => { docIdBySubject[e.asignaturaId] = e.id })
@@ -99,16 +114,13 @@ export default function Agenda() {
       const subjectSnaps = await Promise.all(subjectIds.map((id) => getDoc(doc(db, 'subjects', id))))
       const subjectById = {}
       subjectSnaps.forEach((s) => { if (s.exists()) subjectById[s.id] = { id: s.id, ...s.data() } })
+      setSubjectsById(subjectById)
 
-      // Una materia archivada nunca aparece en la Agenda (ver el filtro `built`
-      // de abajo: `if (subj.archived) return false`), así que sus actividades
-      // y entregas no hacen falta aquí — pedirlas de todos modos era lectura
-      // desperdiciada en cada carga para cualquier alumno con ciclos cerrados.
+      // Una materia archivada nunca aparece en la Agenda — ciclo cerrado.
       const activeSubjectIds = subjectIds.filter((id) => subjectById[id] && !subjectById[id].archived)
       const activeDocIds = activeSubjectIds.map((id) => docIdBySubject[id])
       const teacherIds = [...new Set(activeSubjectIds.map((id) => subjectById[id].docenteId).filter(Boolean))]
-      // `eventDocs` = academicEvents (compartidos por materia).
-      const [teacherSnaps, actDocs, subDocs, bloqueDocs, eventDocs, studentEventDocs] = await Promise.all([
+      const [teacherSnaps, actDocs, subDocs, bloqueDocs, academicEventDocs, studentEventDocs] = await Promise.all([
         Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'users', tid)))),
         fetchActivitiesForSubjects(activeSubjectIds),
         fetchSubmissionsForStudents(activeDocIds),
@@ -119,33 +131,9 @@ export default function Agenda() {
       const teacherName = {}
       teacherSnaps.forEach((t) => { if (t.exists()) { const d = t.data(); teacherName[t.id] = teacherDisplayName(d) } })
 
-      // "Ahora" / "Próxima clase" — solo los bloques de HOY, con la materia
-      // y el docente ya resueltos (mismo patrón que las actividades).
-      const todayKey = toDateStr(new Date())
-      const bloquesDeHoy = bloqueDocs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((b) => b.fecha === todayKey && activeSubjectIds.includes(b.asignaturaId))
-        .map((b) => ({ ...b, subject: subjectById[b.asignaturaId], teacherName: teacherName[subjectById[b.asignaturaId]?.docenteId] || '' }))
-      setBloquesHoy(bloquesDeHoy)
-
-      // Eventos académicos (del docente, compartidos con el grupo) + personales
-      // del propio alumno — unificados en una sola lista para las secciones
-      // "Prioridad de hoy" y "Próximos 7 días".
-      const eventosAcademicos = eventDocs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((e) => activeSubjectIds.includes(e.asignaturaId))
-        .map((e) => ({
-          id: e.id, titulo: e.titulo, tipo: 'academico', color: e.color,
-          subject: subjectById[e.asignaturaId],
-          fechaInicio: new Date(e.inicio), fechaFin: new Date(e.fin || e.inicio),
-        }))
-      const eventosPersonales = studentEventDocs.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .map((e) => ({
-          id: e.id, titulo: e.titulo, tipo: 'personal', color: e.color,
-          fechaInicio: new Date(e.inicio), fechaFin: new Date(e.fin || e.inicio),
-        }))
-      setEventos([...eventosAcademicos, ...eventosPersonales].sort((a, b) => a.fechaInicio - b.fechaInicio))
+      setBloques(bloqueDocs.map((d) => ({ id: d.id, ...d.data() })))
+      setAcademicEvents(academicEventDocs.map((d) => ({ id: d.id, ...d.data() })))
+      setStudentEvents(studentEventDocs.docs.map((d) => ({ id: d.id, ...d.data() })))
 
       const submissionByActivity = {}
       subDocs.forEach((d) => { submissionByActivity[d.data().actividadId] = { id: d.id, ...d.data() } })
@@ -155,12 +143,6 @@ export default function Agenda() {
         .filter((a) => {
           const subj = subjectById[a.asignaturaId]
           if (!subj) return false
-          // Asignatura archivada = ciclo cerrado. Sus fechas límite no son
-          // pendientes de nadie, así que no tienen nada que hacer en la agenda
-          // ni en el calendario. Este renglón faltaba: el filtro ya tenía la
-          // asignatura en la mano y solo revisaba los parciales ocultos, así
-          // que una materia terminada seguía apareciendo con sus entregas
-          // vencidas para siempre.
           if (subj.archived) return false
           const parcialesOcultos = subj.parcialesOcultos || []
           return isActivityPublished(a, parcialesOcultos.includes(a.parcial))
@@ -168,25 +150,16 @@ export default function Agenda() {
         .map((a) => {
           const subj = subjectById[a.asignaturaId]
           const submission = submissionByActivity[a.id] || null
-          // Prórroga individual de este alumno para esta actividad — sin esto,
-          // una actividad con prórroga vigente aparecía "vencida" (roja) en la
-          // Agenda aunque su propia página de detalle, correctamente, siguiera
-          // aceptando la entrega. docIdBySubject[a.asignaturaId] es el id de
-          // SU inscripción en esa materia, la misma llave con la que
-          // `extensiones` guarda las prórrogas.
+          // Prórroga individual de este alumno para esta actividad.
           const extendedDate = a.extensiones?.[docIdBySubject[a.asignaturaId]] || null
           const displayDeadline = extendedDate || a.fechaLimite
           const estado = estadoAgenda({ ...a, fechaLimite: displayDeadline }, submission)
-          // Sin fecha límite, la actividad se ancla al día de hoy (persistente
-          // hasta que el maestro capture una fecha) — ver comentario en
-          // estadoAgenda sobre por qué antes desaparecía de la Agenda.
           const fecha = !displayDeadline
             ? new Date()
             : new Date(displayDeadline.includes('T') ? displayDeadline : `${displayDeadline}T23:59:59`)
-          return { id: a.id, activity: a, submission, subject: subj, teacherName: teacherName[subj.docenteId] || '', estado, fecha, extendedDate }
+          return { id: a.id, activity: { ...a, fechaLimite: displayDeadline }, submission, subject: subj, teacherName: teacherName[subj.docenteId] || '', estado, fecha, extendedDate }
         })
         .filter((it) => it.estado)
-        .sort((a, b) => a.fecha - b.fecha)
 
       setItems(built)
     } catch (err) {
@@ -199,45 +172,167 @@ export default function Agenda() {
   // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect -- mount-only intencional
   useEffect(() => { if (currentUser) loadData() }, [currentUser])
 
-  const firstName = userProfile?.nombre || 'Estudiante'
-  const todayStr = toDateStr(new Date())
-
-  // Agrupado por fecha — lo sigue usando el tab Calendario (Día/Semana/Mes).
-  const itemsByDate = useMemo(() => {
-    const map = {}
-    items.forEach((it) => {
-      const key = toDateStr(it.fecha)
-      ;(map[key] ||= []).push(it)
+  // Numeración "1.3." — misma regla que en la web del docente: posición entre
+  // las hermanas del mismo parcial+asignatura, ordenadas por `orden`.
+  const activityLabels = useMemo(() => {
+    const labels = {}
+    const groups = {}
+    items.forEach((it) => { (groups[`${it.activity.asignaturaId}|${it.activity.parcial}`] ||= []).push(it.activity) })
+    Object.values(groups).forEach((group) => {
+      group.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      group.forEach((a, idx) => { labels[a.id] = `${a.parcial}.${idx + 1}.` })
     })
-    return map
+    return labels
   }, [items])
 
-  // Promedio actual: media de las actividades ya calificadas, normalizadas a
-  // /10 (mismo helper que usa el resto de la plataforma) — una sola cifra
-  // global entre todas las materias para el panel del Dashboard, no un
-  // promedio por parcial/materia (eso ya vive en cada SubjectPage).
-  const promedioActual = useMemo(() => {
-    const notas = items
-      .filter((it) => it.estado === 'calificada')
-      .map((it) => normalizeGrade(it.submission.calificacion, it.activity.maxCalif))
-      .filter((n) => n != null)
-    return notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null
-  }, [items])
+  // Mismo "shape" de evento que usa el Calendario del docente — así
+  // AgendaView/WeekView/MonthView (reutilizados tal cual) los pintan sin
+  // ningún cambio.
+  const events = useMemo(() => {
+    const evs = []
 
-  const porcentajeEntregado = useMemo(() => {
-    if (items.length === 0) return null
-    const entregadas = items.filter((it) => it.estado === 'entregada' || it.estado === 'calificada').length
-    return Math.round((entregadas / items.length) * 100)
-  }, [items])
+    items.forEach(({ activity: a, subject: subj }) => {
+      if (!a.fechaLimite) return
+      const pal = subjectColors(subj)
+      const numero = activityLabels[a.id]
+      const nombreConNumero = numero ? `${numero} ${a.nombre || 'Actividad'}` : (a.nombre || 'Actividad')
+      const categoriaLabel = CATEGORIA_LABEL[a.categoria] || CATEGORIA_LABEL.entregable
+      const cierraEnFecha = !a.recibirTarde
+      evs.push({
+        id: `dl-${a.id}`,
+        activityId: a.id,
+        titulo: cierraEnFecha ? `${nombreConNumero} (Cierre)` : nombreConNumero,
+        subtitulo: `${subjectDisplayName(subj)} · Parcial ${a.parcial ?? '–'} · ${categoriaLabel}`,
+        tipo: 'deadline',
+        dateStr: a.fechaLimite.substring(0, 10),
+        timeStr: a.fechaLimite.substring(11, 16),
+        bg: pal.bg, text: pal.text,
+        editable: false,
+        cierraEnFecha,
+        estado: deadlineEstado(a.fechaLimite),
+      })
+    })
+
+    academicEvents.forEach((e) => {
+      const subj = subjectsById[e.asignaturaId]
+      const colorDef = EVENT_COLORS.find((c) => c.id === e.color) || EVENT_COLORS[0]
+      evs.push({
+        id: e.id,
+        titulo: e.titulo || '',
+        subtitulo: subj ? subjectDisplayName(subj) : (e.descripcion || ''),
+        tipo: 'academico',
+        dateStr: (e.inicio || '').substring(0, 10),
+        timeStr: (e.inicio || '').substring(11, 16),
+        endDateStr: (e.fin || '').substring(0, 10),
+        endTimeStr: (e.fin || '').substring(11, 16),
+        bg: colorDef.bg, text: colorDef.text,
+        editable: false,
+        descripcion: e.descripcion,
+      })
+    })
+
+    studentEvents.forEach((e) => {
+      const colorDef = EVENT_COLORS.find((c) => c.id === e.color) || EVENT_COLORS[0]
+      evs.push({
+        id: e.id,
+        titulo: e.titulo || '',
+        subtitulo: e.descripcion || '',
+        tipo: 'personal',
+        dateStr: (e.inicio || '').substring(0, 10),
+        timeStr: (e.inicio || '').substring(11, 16),
+        endDateStr: (e.fin || '').substring(0, 10),
+        endTimeStr: (e.fin || '').substring(11, 16),
+        bg: colorDef.bg, text: colorDef.text,
+        editable: true,
+        rawEvent: e,
+      })
+    })
+
+    return evs.filter((ev) => ev.dateStr)
+  }, [items, academicEvents, studentEvents, subjectsById, activityLabels])
+
+  // ── Navegación ────────────────────────────────────────────────────────
+  function prev() {
+    if (view === 'mes') setCurrentDate((d) => addMonths(d, -1))
+    else if (view === 'semana') setCurrentDate((d) => addWeeks(d, -1))
+    else if (view === '3dias') setCurrentDate((d) => addDays(d, -3))
+    else setCurrentDate((d) => addDays(d, -1))
+  }
+  function next() {
+    if (view === 'mes') setCurrentDate((d) => addMonths(d, 1))
+    else if (view === 'semana') setCurrentDate((d) => addWeeks(d, 1))
+    else if (view === '3dias') setCurrentDate((d) => addDays(d, 3))
+    else setCurrentDate((d) => addDays(d, 1))
+  }
+  function goToday() { setCurrentDate(new Date()) }
+
+  function navLabel() {
+    if (view === 'mes') return `${MESES[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+    if (view === 'agenda') {
+      const dl = DIAS_LARGO[(currentDate.getDay() + 6) % 7]
+      const base = `${dl} ${currentDate.getDate()} de ${MESES[currentDate.getMonth()]}`
+      return isToday(currentDate) ? `Hoy · ${base}` : `${base} ${currentDate.getFullYear()}`
+    }
+    if (view === '3dias') {
+      const first = currentDate; const last = addDays(currentDate, 2)
+      if (first.getMonth() === last.getMonth()) return `${first.getDate()}–${last.getDate()} ${MESES[first.getMonth()]} ${first.getFullYear()}`
+      return `${first.getDate()} ${MESES[first.getMonth()]} – ${last.getDate()} ${MESES[last.getMonth()]}`
+    }
+    const days = getWeekDays(currentDate)
+    const first = days[0]; const last = days[6]
+    if (first.getMonth() === last.getMonth()) return `${first.getDate()}–${last.getDate()} ${MESES[first.getMonth()]} ${first.getFullYear()}`
+    return `${first.getDate()} ${MESES[first.getMonth()]} – ${last.getDate()} ${MESES[last.getMonth()]}`
+  }
+
+  // ── Eventos personales ───────────────────────────────────────────────
+  function openNewEvent(dateStr, hora) {
+    setEditingEvent({})
+    setSelectedDate(dateStr ? `${dateStr}T${hora || '08:00'}` : '')
+  }
+  function openEvent(ev) {
+    if (ev.activityId) { navigate(`/alumno/actividad/${ev.activityId}`); return }
+    if (ev.tipo === 'academico') { toast(ev.descripcion || ev.titulo); return }
+    if (!ev.editable) return
+    setEditingEvent(ev.rawEvent)
+    setSelectedDate(null)
+  }
+  function closeEventEditor() {
+    setEditingEvent(null)
+    setSelectedDate(null)
+  }
+
+  async function moveEvent(rawEvent, nuevaFecha, nuevaHora) {
+    // Solo los eventos personales del alumno llegan aquí (son los únicos con
+    // `editable: true`, la única condición que activa el arrastre en las
+    // vistas reutilizadas del docente).
+    const inicio = rawEvent.inicio || ''
+    const fecha = nuevaFecha || inicio.substring(0, 10)
+    const hora = nuevaHora || inicio.substring(11, 16) || '08:00'
+    const nuevoInicio = `${fecha}T${hora}`
+    let nuevoFin = nuevoInicio
+    if (rawEvent.fin && inicio) {
+      const durMs = new Date(rawEvent.fin) - new Date(inicio)
+      if (Number.isFinite(durMs) && durMs > 0) {
+        const f = new Date(new Date(`${nuevoInicio}:00`).getTime() + durMs)
+        nuevoFin = `${toDateStr(f)}T${String(f.getHours()).padStart(2, '0')}:${String(f.getMinutes()).padStart(2, '0')}`
+      }
+    }
+    setStudentEvents((prev) => prev.map((x) => (x.id === rawEvent.id ? { ...x, inicio: nuevoInicio, fin: nuevoFin } : x)))
+    try {
+      await updateDoc(doc(db, 'studentEvents', rawEvent.id), { inicio: nuevoInicio, fin: nuevoFin })
+    } catch (err) {
+      toast('No se pudo mover el evento: ' + err.message, 'error')
+      loadData()
+    }
+  }
+
+  const dayHours = { dayStart: DEFAULT_DAY_START, dayEnd: DEFAULT_DAY_END }
 
   return (
     <StudentLayout>
-    <div className="bg-surface">
+    <div className="bg-surface flex flex-col min-h-full">
       <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 safe-top">
         <div className="flex items-center gap-3">
-          {/* Solo móvil: en escritorio el sidebar ya permite navegar a otro
-              lado, la flecha ahí sería redundante (mismo criterio que
-              asignatura/actividad). */}
           <button
             type="button"
             onClick={goBack}
@@ -246,22 +341,26 @@ export default function Agenda() {
           >
             <ArrowLeft size={20} />
           </button>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold truncate">Agenda</h1>
-            <p className="text-xs text-white/60 truncate">{firstName}</p>
-          </div>
+          <h1 className="text-lg font-bold truncate flex-1">Agenda</h1>
+          <button
+            type="button"
+            onClick={() => openNewEvent(toDateStr(currentDate))}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-sm font-medium transition-colors flex-shrink-0"
+          >
+            <Plus size={15} /> Evento
+          </button>
         </div>
         <div className="flex gap-1 mt-3 bg-white/10 p-1 rounded-full">
-          {TABS.map((t) => (
+          {VIEWS.map((v) => (
             <button
-              key={t.key}
+              key={v.id}
               type="button"
-              onClick={() => setTab(t.key)}
+              onClick={() => changeView(v.id)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-sm font-semibold rounded-full transition-colors ${
-                tab === t.key ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
+                view === v.id ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
               }`}
             >
-              <t.Icon size={15} /> {t.label}
+              <v.Icon size={15} /> {v.label}
             </button>
           ))}
         </div>
@@ -270,23 +369,81 @@ export default function Agenda() {
       {loading ? (
         <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
       ) : (
-        <div className={`px-4 py-5 ${tab === 'dashboard' ? STUDENT_CONTAINER_WIDE : STUDENT_CONTAINER_NARROW}`}>
-          {tab === 'dashboard' ? (
-            <AgendaDashboard
-              items={items}
-              eventos={eventos}
-              bloquesHoy={bloquesHoy}
-              todayStr={todayStr}
-              ahora={new Date()}
-              promedioActual={promedioActual}
-              porcentajeEntregado={porcentajeEntregado}
-              onActivityClick={(id) => navigate(`/alumno/actividad/${id}`)}
-              onEventClick={(evento) => { if (evento.tipo === 'personal') setEditingEvent(evento) }}
-              onCreateEvent={() => setEditingEvent({})}
-            />
-          ) : (
-            <AgendaCalendario itemsByDate={itemsByDate} todayStr={todayStr} onActivityClick={(id) => navigate(`/alumno/actividad/${id}`)} />
-          )}
+        <div className={`px-4 py-4 flex-1 ${STUDENT_CONTAINER_WIDE}`}>
+          <div className="flex items-center justify-between mb-3">
+            <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
+              <ChevronLeft size={18} />
+            </button>
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="text-sm font-semibold text-on-surface truncate">{navLabel()}</p>
+              <button type="button" onClick={goToday} className="text-xs font-medium text-accent border border-accent rounded-full px-2 py-0.5 flex-shrink-0 hover:bg-accent-tint transition-colors">
+                Hoy
+              </button>
+            </div>
+            <button type="button" onClick={next} aria-label="Siguiente" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          <div className="bg-surface-card rounded-card shadow-card border border-outline-variant overflow-hidden">
+            {view === 'agenda' && (
+              <AgendaView
+                date={currentDate}
+                events={events}
+                bloques={bloques}
+                subjects={subjectsById}
+                dayStart={dayHours.dayStart}
+                dayEnd={dayHours.dayEnd}
+                onEventClick={openEvent}
+                onMoveEvent={moveEvent}
+                onSlotClick={openNewEvent}
+                editableBloques={false}
+              />
+            )}
+            {view === '3dias' && (
+              <WeekView
+                weekStart={currentDate}
+                events={events}
+                bloques={bloques}
+                subjects={subjectsById}
+                dayStart={dayHours.dayStart}
+                dayEnd={dayHours.dayEnd}
+                numDays={3}
+                anchorToday
+                onSlotClick={openNewEvent}
+                onEventClick={openEvent}
+                onMoveEvent={moveEvent}
+                editable={false}
+              />
+            )}
+            {view === 'semana' && (
+              <WeekView
+                weekStart={currentDate}
+                events={events}
+                bloques={bloques}
+                subjects={subjectsById}
+                dayStart={dayHours.dayStart}
+                dayEnd={dayHours.dayEnd}
+                onSlotClick={openNewEvent}
+                onEventClick={openEvent}
+                onMoveEvent={moveEvent}
+                editable={false}
+              />
+            )}
+            {view === 'mes' && (
+              <MonthView
+                year={currentDate.getFullYear()}
+                month={currentDate.getMonth()}
+                events={events}
+                bloques={bloques}
+                subjects={subjectsById}
+                onDateClick={(d) => { setCurrentDate(d); changeView('agenda') }}
+                onEventClick={openEvent}
+                onMoveEvent={moveEvent}
+                editable={false}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -294,7 +451,8 @@ export default function Agenda() {
     {editingEvent && (
       <StudentEventEditor
         event={editingEvent.id ? editingEvent : null}
-        onClose={() => setEditingEvent(null)}
+        defaultDate={selectedDate}
+        onClose={closeEventEditor}
         onSaved={() => loadData()}
         onDeleted={() => loadData()}
       />
