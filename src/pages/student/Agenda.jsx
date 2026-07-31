@@ -334,13 +334,13 @@ export default function Agenda() {
 
   const dayHours = { dayStart: DEFAULT_DAY_START, dayEnd: DEFAULT_DAY_END }
 
-  // Ancho por vista — pedido explícito: Día necesita mucho más espacio
-  // (igual que el docente, que la ve dentro de TEACHER_CONTAINER), Semana un
-  // poco más que el resto del módulo, 3 días y Mes se quedan como estaban.
+  // Ancho por vista — pedido explícito: Día se queda en el ancho normal del
+  // módulo, Semana necesita mucho más espacio (igual que el docente, que la
+  // ve dentro de TEACHER_CONTAINER), 3 días y Mes se quedan como estaban.
   const CONTAINER_BY_VIEW = {
-    agenda: TEACHER_CONTAINER,
+    agenda: STUDENT_CONTAINER_WIDE,
     '3dias': STUDENT_CONTAINER_WIDE,
-    semana: 'max-w-xl md:max-w-5xl lg:max-w-6xl mx-auto',
+    semana: TEACHER_CONTAINER,
     mes: STUDENT_CONTAINER_WIDE,
   }
   // En la app, la vista Semana debe aprovechar todo el ancho de pantalla —
