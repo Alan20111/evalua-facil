@@ -80,3 +80,63 @@ export async function applyPdfWatermarkIfNeeded(doc, watermark) {
   const logoDataUrl = await getLogoDataUrl()
   drawPdfWatermarkOnPage(doc, logoDataUrl)
 }
+
+// ── Marca de agua para Excel (exceljs) ──────────────────────────────────────
+// `exceljs` sí puede insertar imágenes (a diferencia de la librería `xlsx`
+// usada para el resto de excel.js), pero NO soporta opacidad nativa por
+// imagen. Para lograr el mismo ~10% de opacidad diagonal que en el PDF, se
+// "hornea" la rotación y la transparencia directamente en los píxeles del PNG
+// usando un canvas, una sola vez por sesión (cacheado), y esa imagen ya
+// rotada/transparente es la que se inserta en cada hoja.
+let excelWatermarkDataUrlPromise = null
+export function getExcelWatermarkImage() {
+  if (!excelWatermarkDataUrlPromise) {
+    excelWatermarkDataUrlPromise = getLogoDataUrl().then((logoDataUrl) => {
+      if (!logoDataUrl) return null
+      return new Promise((resolve) => {
+        const img = new Image()
+        img.onload = () => {
+          try {
+            const size = 480
+            const canvas = document.createElement('canvas')
+            canvas.width = size
+            canvas.height = size
+            const ctx = canvas.getContext('2d')
+            ctx.translate(size / 2, size / 2)
+            ctx.rotate(-45 * (Math.PI / 180))
+            const logoSize = size * 0.5
+            ctx.globalAlpha = 0.1
+            ctx.drawImage(img, -logoSize / 2, -logoSize / 2 - 30, logoSize, logoSize)
+            ctx.globalAlpha = 0.16
+            ctx.fillStyle = '#333333'
+            ctx.textAlign = 'center'
+            ctx.font = 'bold 26px sans-serif'
+            ctx.fillText('Versión de evaluación', 0, logoSize / 2 + 8)
+            ctx.font = '18px sans-serif'
+            ctx.fillText('evaluafacil.mx', 0, logoSize / 2 + 34)
+            resolve(canvas.toDataURL('image/png'))
+          } catch {
+            resolve(null) // best-effort — sin marca gráfica, la leyenda de texto sigue identificando el documento
+          }
+        }
+        img.onerror = () => resolve(null)
+        img.src = logoDataUrl
+      })
+    }).catch(() => null)
+  }
+  return excelWatermarkDataUrlPromise
+}
+
+// Inserta la marca de agua (ya horneada en un PNG) en TODAS las hojas del
+// libro — se llama una sola vez, justo antes de escribir el archivo, después
+// de que todas las hojas ya existen.
+export async function addExcelWatermarkIfNeeded(workbook, watermark) {
+  if (!watermark) return
+  const dataUrl = await getExcelWatermarkImage()
+  if (!dataUrl) return
+  const base64 = dataUrl.split(',')[1]
+  const imageId = workbook.addImage({ base64, extension: 'png' })
+  workbook.eachSheet((worksheet) => {
+    worksheet.addImage(imageId, { tl: { col: 0.5, row: 0.5 }, ext: { width: 380, height: 380 } })
+  })
+}

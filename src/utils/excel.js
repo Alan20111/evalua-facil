@@ -5,23 +5,46 @@ import { promedioParcial, pesoDe, ponderacionActivaEnParcial, normalizeGrade } f
 import { attendanceState, countPresence, fmtAttDateParts, enrolledFromDate } from './attendance'
 import { studentFullName } from './studentSearch'
 import { isDraftActivity } from './activityVisibility'
-import { saveWorkbook, saveBlob } from './nativeSave'
+import { saveBlob } from './nativeSave'
+import { addExcelWatermarkIfNeeded } from './exportWatermark'
 
 // Leyenda de "Versión de evaluación" para el docente en periodo de prueba —
-// pedido explícito, ver src/utils/exportWatermark.js (la versión de PDF).
-// La librería `xlsx` (SheetJS free) usada en todo este archivo NO tiene
-// ninguna API para insertar imágenes (esa función es exclusiva de su build de
-// paga) — por eso aquí solo se agrega el texto de la leyenda, no el logotipo
-// como marca de agua gráfica. Meter la imagen de verdad requeriría reescribir
-// estas hojas con `exceljs` (que sí soporta imágenes, ver downloadStudentTemplate
-// más abajo), un cambio de librería mucho más grande que una leyenda de texto.
+// pedido explícito, ver src/utils/exportWatermark.js (que también pone la
+// marca gráfica, ver addExcelWatermarkIfNeeded). Migradas de `xlsx` a
+// `exceljs` porque la librería `xlsx` (SheetJS free) usada antes no tiene
+// ninguna API para insertar imágenes (esa función es exclusiva de su build
+// de paga) — `exceljs` sí soporta imágenes (ver downloadStudentTemplate).
 const WATERMARK_LEGEND = 'Este archivo fue generado con Evalúa Fácil (Versión de evaluación) · evaluafacil.mx'
 
+function safeExcelName(subject) {
+  return subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
+}
+
+// Arma una hoja a partir de un arreglo de arreglos (mismo modelo que se usaba
+// con XLSX.utils.aoa_to_sheet), aplicando merges/anchos/alturas — mantiene el
+// resto del archivo con la misma forma de construir tablas que antes.
+function addSheetFromRows(workbook, sheetName, rows, { merges = [], colWidths = [], rowHeights = [] } = {}) {
+  const ws = workbook.addWorksheet(sheetName)
+  if (colWidths.length) ws.columns = colWidths.map((width) => ({ width }))
+  rows.forEach((r) => ws.addRow(r))
+  merges.forEach(([r1, c1, r2, c2]) => ws.mergeCells(r1, c1, r2, c2))
+  rowHeights.forEach(([r, h]) => { ws.getRow(r).height = h })
+  return ws
+}
+
+async function finalizeWorkbook(workbook, filename, watermark) {
+  await addExcelWatermarkIfNeeded(workbook, watermark)
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  await saveBlob(blob, filename)
+}
+
 // Todas las hojas de abajo dejan un renglón vacío entre el título y los
-// encabezados de columna (`[titleRow, [], nameRow, ...]`) — se reutiliza ESE
-// mismo renglón para la leyenda en vez de insertar uno nuevo, así ningún
-// `!merges` que apunte a números de fila fijos (título en fila 0, secciones
-// en fila 2, etc.) se corre y hay que reajustar.
+// encabezados de columna — se reutiliza ESE mismo renglón para la leyenda en
+// vez de insertar uno nuevo, así ningún merge que apunte a números de fila
+// fijos (título en fila 1, secciones en fila 3, etc.) se corre.
 function spacerRow(watermark) {
   return watermark ? [WATERMARK_LEGEND] : []
 }
@@ -29,8 +52,8 @@ function spacerRow(watermark) {
 // Loaded dynamically (only when actually downloading the template) because
 // it's needed for one feature `xlsx` can't do: writing real sheet protection
 // so Excel itself blocks editing outside columns A/B — `xlsx` (the free
-// SheetJS build used elsewhere in this file for reading/exporting) can only
-// read protection, not write it.
+// SheetJS build used elsewhere in this file for reading uploaded rosters) can
+// only read protection, not write it.
 export async function downloadStudentTemplate() {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
@@ -131,24 +154,30 @@ export function parseStudentExcel(file) {
 // Columnas: LUGAR, No., NOMBRE, PROMEDIO. `rows` = [{ lugar, orden, nombre,
 // promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
 export async function exportRankingExcel({ subject, rows, label, watermark = false }) {
+  const ExcelJS = (await import('exceljs')).default
+  const workbook = new ExcelJS.Workbook()
+
   const periodo = subjectPeriodLabel(subject)
-  const titleRow = ['', '', '']
-  titleRow[0] = `${subjectDisplayName(subject)} — Ranking · ${label}${periodo ? `   (${periodo})` : ''}`
+  const titleRow = [`${subjectDisplayName(subject)} — Ranking · ${label}${periodo ? `   (${periodo})` : ''}`]
   const nameRow = ['LUGAR', 'NOMBRE', label]
   const dataRows = rows.map((r) => [r.lugar, r.nombre, r.promedio != null ? r.promedio : '—'])
   const allRows = [titleRow, spacerRow(watermark), nameRow, ...dataRows]
-  const ws = XLSX.utils.aoa_to_sheet(allRows)
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }]
-  ws['!cols'] = [{ wch: 7 }, { wch: 42 }, { wch: 14 }]
-  ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }]
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Ranking')
-  const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
+
+  addSheetFromRows(workbook, 'Ranking', allRows, {
+    merges: [[1, 1, 1, 3]],
+    colWidths: [7, 42, 14],
+    rowHeights: [[1, 22], [3, 18]],
+  })
+
+  const safeName = safeExcelName(subject)
   const safeLabel = label.toLowerCase().replace(/\s+/g, '')
-  await saveWorkbook(wb, `ranking_${safeLabel}_${safeName}.xlsx`)
+  await finalizeWorkbook(workbook, `ranking_${safeLabel}_${safeName}.xlsx`, watermark)
 }
 
 export async function exportParcialGrades({ subject, activities, students, submissions, parcial, watermark = false }) {
+  const ExcelJS = (await import('exceljs')).default
+  const workbook = new ExcelJS.Workbook()
+
   const acts = activities
     .filter((a) => a.parcial === parcial && !isDraftActivity(a))
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
@@ -188,15 +217,15 @@ export async function exportParcialGrades({ subject, activities, students, submi
   const allRows = pondOn
     ? [titleRow, spacerRow(watermark), pesoRow, nameRow, ...dataRows]
     : [titleRow, spacerRow(watermark), nameRow, ...dataRows]
-  const ws = XLSX.utils.aoa_to_sheet(allRows)
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }]
-  ws['!cols'] = [{ wch: 4 }, { wch: 42 }, ...Array(totalCols - 2).fill({ wch: 10 })]
-  ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }]
 
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, `Parcial ${parcial}`)
-  const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
-  await saveWorkbook(wb, `calificaciones_parcial${parcial}_${safeName}.xlsx`)
+  addSheetFromRows(workbook, `Parcial ${parcial}`, allRows, {
+    merges: [[1, 1, 1, totalCols]],
+    colWidths: [4, 42, ...Array(totalCols - 2).fill(10)],
+    rowHeights: [[1, 22], [3, 18]],
+  })
+
+  const safeName = safeExcelName(subject)
+  await finalizeWorkbook(workbook, `calificaciones_parcial${parcial}_${safeName}.xlsx`, watermark)
 }
 
 export async function exportSubjectGrades({
@@ -206,6 +235,9 @@ export async function exportSubjectGrades({
   submissions,
   watermark = false,
 }) {
+  const ExcelJS = (await import('exceljs')).default
+  const workbook = new ExcelJS.Workbook()
+
   const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
 
   const FIXED = 2
@@ -220,12 +252,12 @@ export async function exportSubjectGrades({
   const gradeCols = FIXED + parcialMeta.reduce((s, m) => s + m.cols, 0) + 1
   const totalCols = gradeCols
 
-  // Row 0: Title
+  // Row 1: Title
   const titleRow = Array(totalCols).fill('')
   const periodo = subjectPeriodLabel(subject)
   titleRow[0] = periodo ? `${subjectDisplayName(subject)}   (${periodo})` : subjectDisplayName(subject)
 
-  // Row 2: Section headers
+  // Row 3: Section headers
   const sectionRow = Array(totalCols).fill('')
   let col = FIXED
   const parcialRanges = {}
@@ -256,7 +288,7 @@ export async function exportSubjectGrades({
     pesoRowFull.push('')
   }
 
-  // Row 3: Column names — activities as their number only (1.1, 1.2…)
+  // Row 4: Column names — activities as their number only (1.1, 1.2…)
   const nameRow = ['#', 'NOMBRE']
   PARCIALES.forEach((p, pi) => {
     const { acts } = parcialMeta[pi]
@@ -299,29 +331,21 @@ export async function exportSubjectGrades({
   const allRows = anyPond
     ? [titleRow, spacerRow(watermark), sectionRow, pesoRowFull, nameRow, ...dataRows]
     : [titleRow, spacerRow(watermark), sectionRow, nameRow, ...dataRows]
-  const ws = XLSX.utils.aoa_to_sheet(allRows)
 
-  // Merges: title spans all + each parcial header
+  // Merges: title spans all + each parcial header (section row is always row 3)
   const merges = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
-    ...PARCIALES.map((p) => ({
-      s: { r: 2, c: parcialRanges[p].start },
-      e: { r: 2, c: parcialRanges[p].end },
-    })),
+    [1, 1, 1, totalCols],
+    ...PARCIALES.map((p) => [3, parcialRanges[p].start + 1, 3, parcialRanges[p].end + 1]),
   ]
-  ws['!merges'] = merges
 
-  ws['!cols'] = [
-    { wch: 4 },
-    { wch: 42 },
-    ...Array(gradeCols - FIXED).fill({ wch: 10 }),
-  ]
-  ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }, { hpt: 18 }]
+  addSheetFromRows(workbook, 'Calificaciones', allRows, {
+    merges,
+    colWidths: [4, 42, ...Array(gradeCols - FIXED).fill(10)],
+    rowHeights: [[1, 22], [3, 18], [4, 18]],
+  })
 
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Calificaciones')
-  const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
-  await saveWorkbook(wb, `calificaciones_${safeName}.xlsx`)
+  const safeName = safeExcelName(subject)
+  await finalizeWorkbook(workbook, `calificaciones_${safeName}.xlsx`, watermark)
 }
 
 // ── Asistencia — un botón por número (1 = asistió o justificó, 0 = faltó,
@@ -355,6 +379,9 @@ function attendanceRowCells(days, studentId, enrolledFrom) {
 }
 
 export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial, watermark = false }) {
+  const ExcelJS = (await import('exceljs')).default
+  const workbook = new ExcelJS.Workbook()
+
   const g = attendanceParciales.find((x) => x.parcial === parcial)
   const days = g?.days || []
   const dayHeaders = attendanceColumnHeaders(days)
@@ -378,18 +405,21 @@ export async function exportParcialAttendance({ subject, students, attendancePar
   })
 
   const allRows = [titleRow, spacerRow(watermark), nameRow, ...dataRows]
-  const ws = XLSX.utils.aoa_to_sheet(allRows)
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }]
-  ws['!cols'] = [{ wch: 4 }, { wch: 42 }, ...Array(totalCols - FIXED).fill({ wch: 9 })]
-  ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }]
 
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, `Parcial ${parcial}`)
-  const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
-  await saveWorkbook(wb, `asistencia_parcial${parcial}_${safeName}.xlsx`)
+  addSheetFromRows(workbook, `Parcial ${parcial}`, allRows, {
+    merges: [[1, 1, 1, totalCols]],
+    colWidths: [4, 42, ...Array(totalCols - FIXED).fill(9)],
+    rowHeights: [[1, 22], [3, 18]],
+  })
+
+  const safeName = safeExcelName(subject)
+  await finalizeWorkbook(workbook, `asistencia_parcial${parcial}_${safeName}.xlsx`, watermark)
 }
 
 export async function exportSubjectAttendance({ subject, students, attendanceParciales, watermark = false }) {
+  const ExcelJS = (await import('exceljs')).default
+  const workbook = new ExcelJS.Workbook()
+
   const FIXED = 2
   const parcialMeta = attendanceParciales.map((g) => {
     const dayHeaders = attendanceColumnHeaders(g.days)
@@ -434,21 +464,18 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
   })
 
   const allRows = [titleRow, spacerRow(watermark), sectionRow, nameRow, ...dataRows]
-  const ws = XLSX.utils.aoa_to_sheet(allRows)
 
   const merges = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
-    ...parcialMeta.map((m) => ({
-      s: { r: 2, c: parcialRanges[m.parcial].start },
-      e: { r: 2, c: parcialRanges[m.parcial].end },
-    })),
+    [1, 1, 1, totalCols],
+    ...parcialMeta.map((m) => [3, parcialRanges[m.parcial].start + 1, 3, parcialRanges[m.parcial].end + 1]),
   ]
-  ws['!merges'] = merges
-  ws['!cols'] = [{ wch: 4 }, { wch: 42 }, ...Array(totalCols - FIXED).fill({ wch: 9 })]
-  ws['!rows'] = [{ hpt: 22 }, {}, { hpt: 18 }, { hpt: 18 }]
 
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Asistencia')
-  const safeName = subjectDisplayName(subject).replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_')
-  await saveWorkbook(wb, `asistencia_${safeName}.xlsx`)
+  addSheetFromRows(workbook, 'Asistencia', allRows, {
+    merges,
+    colWidths: [4, 42, ...Array(totalCols - FIXED).fill(9)],
+    rowHeights: [[1, 22], [3, 18], [4, 18]],
+  })
+
+  const safeName = safeExcelName(subject)
+  await finalizeWorkbook(workbook, `asistencia_${safeName}.xlsx`, watermark)
 }
