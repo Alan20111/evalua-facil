@@ -117,42 +117,48 @@ export async function recordRecurringCharge(mpPreapprovalId, gatewayData = {}) {
   return { alreadyDone: false }
 }
 
-// Creates (or reuses) a pending subscription + a pending payment for a teacher.
-// Returns { subscriptionId, paymentId, plan }.
-export async function startPayment({ uid, planId, escuelaId, schoolName, metodo }) {
-  const db = getDb()
-  const plan = await getPlan(planId)
-
-  // Reuse the teacher's most recent subscription if present, else create one.
+// Reuses the teacher's most recent subscription if present, else creates one,
+// moving it to 'pendiente_pago'. Shared by startPayment() and
+// startSubscription() below.
+async function upsertPendingSubscription(db, { uid, planId, escuelaId, schoolName }) {
   const subsSnap = await db
     .collection('subscriptions')
     .where('docenteId', '==', uid)
     .get()
-  let subscriptionId
   if (!subsSnap.empty) {
     const docs = subsSnap.docs.sort((a, b) => {
       const ta = a.data().updatedAt?.toMillis?.() || 0
       const tb = b.data().updatedAt?.toMillis?.() || 0
       return tb - ta
     })
-    subscriptionId = docs[0].id
+    const subscriptionId = docs[0].id
     await db.collection('subscriptions').doc(subscriptionId).update({
       planId,
       status: 'pendiente_pago',
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     })
-  } else {
-    const ref = await db.collection('subscriptions').add({
-      docenteId: uid,
-      planId,
-      escuelaId: escuelaId || '',
-      schoolName: schoolName || '',
-      status: 'pendiente_pago',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    })
-    subscriptionId = ref.id
+    return subscriptionId
   }
+  const ref = await db.collection('subscriptions').add({
+    docenteId: uid,
+    planId,
+    escuelaId: escuelaId || '',
+    schoolName: schoolName || '',
+    status: 'pendiente_pago',
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  })
+  return ref.id
+}
+
+// Creates (or reuses) a pending subscription + a pending payment for a teacher.
+// Used by one-time payment flows (Checkout Pro, PayPal, transferencia) where
+// the webhook/approval completes THIS SAME payment doc.
+// Returns { subscriptionId, paymentId, plan }.
+export async function startPayment({ uid, planId, escuelaId, schoolName, metodo }) {
+  const db = getDb()
+  const plan = await getPlan(planId)
+  const subscriptionId = await upsertPendingSubscription(db, { uid, planId, escuelaId, schoolName })
 
   const payRef = await db.collection('payments').add({
     docenteId: uid,
@@ -166,4 +172,18 @@ export async function startPayment({ uid, planId, escuelaId, schoolName, metodo 
   })
 
   return { subscriptionId, paymentId: payRef.id, plan }
+}
+
+// Creates (or reuses) a pending subscription for a recurring Mercado Pago
+// preapproval. Unlike startPayment(), it does NOT create a `payments` doc —
+// every charge (first authorization and every renewal) arrives later via
+// recordRecurringCharge(), which creates its own payment record. Creating a
+// stub payment here would leave it stuck in 'pendiente' forever, since
+// nothing ever completes that specific doc.
+// Returns { subscriptionId, plan }.
+export async function startSubscription({ uid, planId, escuelaId, schoolName }) {
+  const db = getDb()
+  const plan = await getPlan(planId)
+  const subscriptionId = await upsertPendingSubscription(db, { uid, planId, escuelaId, schoolName })
+  return { subscriptionId, plan }
 }

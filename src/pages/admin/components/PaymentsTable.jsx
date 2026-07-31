@@ -136,7 +136,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
               rows.map((payment) => {
                 const teacher = teachersMap[payment.docenteId]
                 const subscription = subscriptionsMap[payment.subscriptionId]
-                const domiciliado = !!subscription?.mpPreapprovalId
+                const domiciliado = payment.metodo === 'mercadopago' && !!subscription?.mpPreapprovalId
                 return (
                   <tr key={payment.id} className="hover:bg-[var(--accent-tint)]">
                     <td className="px-4 py-2">

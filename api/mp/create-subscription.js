@@ -1,5 +1,5 @@
 import { verifyRequest, getDb } from '../_lib/firebaseAdmin.js'
-import { startPayment } from '../_lib/billing.js'
+import { startSubscription } from '../_lib/billing.js'
 import { aplicarCors } from '../_lib/cors.js'
 
 const APP_URL = process.env.APP_URL || 'https://evalua-facil.vercel.app'
@@ -23,17 +23,15 @@ export default async function handler(req, res) {
     const { planId, escuelaId, schoolName } = req.body || {}
     if (!planId) return res.status(400).json({ error: 'Falta planId' })
 
-    const { subscriptionId, plan } = await startPayment({
+    const { subscriptionId, plan } = await startSubscription({
       uid,
       planId,
       escuelaId,
       schoolName,
-      metodo: 'mercadopago',
     })
 
     const preapprovalBody = {
       reason: plan.nombre || 'Suscripción Evalúa Fácil',
-      external_reference: subscriptionId,
       payer_email: decoded.email,
       back_url: `${APP_URL}/pago-resultado?status=success`,
       auto_recurring: {
