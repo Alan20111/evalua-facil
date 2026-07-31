@@ -29,7 +29,7 @@ const METODO_LABELS = {
 
 // Comentario editable de la transacción — solo escribe al perder el foco y
 // si cambió, para no disparar un update por cada tecla.
-function ComentarioCell({ payment }) {
+function ComentarioCell({ payment, onSaved }) {
   const toast = useToast()
   const [value, setValue] = useState(payment.comentarios || '')
 
@@ -37,6 +37,8 @@ function ComentarioCell({ payment }) {
     if (value === (payment.comentarios || '')) return
     try {
       await updateDoc(doc(db, 'payments', payment.id), { comentarios: value.trim() })
+      toast('Comentario guardado')
+      onSaved?.()
     } catch (err) {
       toast('Error al guardar el comentario: ' + err.message, 'error')
     }
@@ -255,7 +257,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                     </td>
                     <td className="px-4 py-2 text-muted">{formatDateTime(payment.createdAt)}</td>
                     <td className="px-4 py-2">
-                      <ComentarioCell payment={payment} />
+                      <ComentarioCell key={`${payment.id}:${payment.comentarios || ''}`} payment={payment} onSaved={onRefresh} />
                     </td>
                     <td className="px-4 py-2">
                       {soloArchivadas ? (
