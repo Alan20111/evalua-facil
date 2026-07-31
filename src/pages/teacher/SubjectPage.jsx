@@ -654,6 +654,27 @@ export default function SubjectPage() {
 
   const [activeTab, setActiveTab] = useState(routerLocation.state?.tab || 'actividades')
 
+  // Pista de que la barra de pestañas se puede deslizar — en la App, con 6
+  // pestañas angostas, algunas quedan fuera de vista sin ningún indicio de
+  // que hay más a la derecha (pedido explícito, mismo criterio que la barra
+  // del alumno).
+  const tabsScrollRef = useRef(null)
+  const [tabsOverflow, setTabsOverflow] = useState(false)
+  useEffect(() => {
+    const el = tabsScrollRef.current
+    if (!el) return undefined
+    function check() {
+      setTabsOverflow(el.scrollWidth - el.clientWidth - el.scrollLeft > 4)
+    }
+    check()
+    el.addEventListener('scroll', check, { passive: true })
+    window.addEventListener('resize', check)
+    return () => {
+      el.removeEventListener('scroll', check)
+      window.removeEventListener('resize', check)
+    }
+  }, [])
+
   // Shared students (used by calificaciones + alumnos tab)
   const [groupStudents, setGroupStudents] = useState([])
   const [groupStudentsLoaded, setGroupStudentsLoaded] = useState(false)
@@ -3844,18 +3865,28 @@ export default function SubjectPage() {
               recortaban), forzando overflow de TODA la página en vez de solo
               esta fila. sm:flex-1 restaura el ancho igual de siempre en
               escritorio, donde sí caben cómodas. */}
-          <div className="flex gap-1 mt-2 bg-surface-container p-1 rounded overflow-x-auto">
-            {(IS_NATIVE_APP
-              ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
-              : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos']
-            ).map((t) => (
-              <button type="button" key={t} onClick={() => switchTab(t)}
-                className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
-                  activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
-                }`}>
-                {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : 'Avisos'}
-              </button>
-            ))}
+          <div className="relative">
+            <div ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded overflow-x-auto">
+              {(IS_NATIVE_APP
+                ? ['actividades', 'asistencia', 'alumnos', 'recursos', 'avisos']
+                : ['actividades', 'calificaciones', 'asistencia', 'alumnos', 'recursos', 'avisos']
+              ).map((t) => (
+                <button type="button" key={t} onClick={() => switchTab(t)}
+                  className={`flex-shrink-0 sm:flex-1 whitespace-nowrap px-3 sm:px-0 py-2 text-xs sm:text-sm font-medium rounded transition-colors ${
+                    activeTab === t ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'
+                  }`}>
+                  {t === 'actividades' ? 'Actividades' : t === 'calificaciones' ? 'Calificaciones' : t === 'asistencia' ? 'Asistencias' : t === 'alumnos' ? 'Estudiantes' : t === 'recursos' ? 'Recursos' : 'Avisos'}
+                </button>
+              ))}
+            </div>
+            {/* Desvanecido + flecha: mismo indicio que la barra del alumno,
+                solo aparece si de verdad hay pestañas fuera de vista y
+                desaparece en cuanto el docente ya deslizó hasta el final. */}
+            {tabsOverflow && (
+              <div className="absolute right-0 top-2 bottom-0 flex items-center pointer-events-none bg-gradient-to-l from-surface-container via-surface-container to-transparent pl-6 pr-1 rounded-r">
+                <ChevronRight size={16} className="text-accent animate-pulse" />
+              </div>
+            )}
           </div>
           {/* Aviso simple y permanente (no solo cuando no hay estudiantes,
               ver arriba) de por qué Calificaciones no aparece en la App —

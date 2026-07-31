@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection,
@@ -32,7 +32,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp,
   Clock, Star, FolderOpen, BookOpen, Paperclip,
   GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone,
-  CheckCircle2, Circle, Bookmark,
+  CheckCircle2, Circle, Bookmark, ChevronRight, Trash2,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
@@ -140,6 +140,12 @@ export default function StudentSubjectPage() {
   const [openParcial, setOpenParcial] = useState(1)
   const routerLocation = useLocation()
   const [activeTab, setActiveTab] = useState(routerLocation.state?.tab || 'Actividades y calificaciones')
+  // Pista de que la barra de pestañas se puede deslizar — con 4 pestañas y
+  // "Actividades y calificaciones" de nombre largo, en un celular angosto
+  // "Avisos" queda cortado fuera de la vista sin ningún indicio de que hay
+  // más a la derecha (pedido explícito: el estudiante no se daba cuenta).
+  const tabsScrollRef = useRef(null)
+  const [tabsOverflow, setTabsOverflow] = useState(false)
   // Descarga de sus propias entregas — su trabajo es suyo y debe poder
   // llevárselo sin depender de que su maestro se lo pase.
   const [zipping, setZipping] = useState(false)
@@ -220,6 +226,24 @@ export default function StudentSubjectPage() {
     )
     return unsub
   }, [studentId])
+
+  // Muestra el desvanecido/flecha solo si de verdad hay más pestañas fuera
+  // de vista, y lo quita en cuanto el estudiante ya deslizó hasta el final —
+  // no tiene caso seguir insistiendo una vez que ya lo descubrió.
+  useEffect(() => {
+    const el = tabsScrollRef.current
+    if (!el) return undefined
+    function check() {
+      setTabsOverflow(el.scrollWidth - el.clientWidth - el.scrollLeft > 4)
+    }
+    check()
+    el.addEventListener('scroll', check, { passive: true })
+    window.addEventListener('resize', check)
+    return () => {
+      el.removeEventListener('scroll', check)
+      window.removeEventListener('resize', check)
+    }
+  }, [loading])
 
   async function toggleAvisoGuardado(aviso) {
     const id = guardadoDocId(aviso.id, studentId)
@@ -408,22 +432,32 @@ export default function StudentSubjectPage() {
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="bg-surface-card border-b border-outline-variant px-4 flex gap-1 overflow-x-auto">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-              activeTab === tab
-                ? 'border-accent text-accent'
-                : 'border-transparent text-muted hover:text-on-surface hover:bg-[var(--accent-tint)]'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      {/* Tabs — con 4 pestañas y nombres largos, en un celular angosto
+          "Avisos" queda fuera de vista sin ningún indicio de que hay más a
+          la derecha. El desvanecido + flecha avisan que se puede deslizar, y
+          desaparecen solos en cuanto el estudiante ya llegó al final. */}
+      <div className="relative bg-surface-card border-b border-outline-variant">
+        <div ref={tabsScrollRef} className="px-4 flex gap-1 overflow-x-auto">
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                activeTab === tab
+                  ? 'border-accent text-accent'
+                  : 'border-transparent text-muted hover:text-on-surface hover:bg-[var(--accent-tint)]'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+        {tabsOverflow && (
+          <div className="absolute right-0 top-0 bottom-0 flex items-center pointer-events-none bg-gradient-to-l from-surface-card via-surface-card to-transparent pl-6 pr-1">
+            <ChevronRight size={16} className="text-accent animate-pulse" />
+          </div>
+        )}
       </div>
 
       {/* Tab: Actividades y calificaciones */}
@@ -845,11 +879,23 @@ export default function StudentSubjectPage() {
                         </p>
                         {a.mensaje && <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap">{a.mensaje}</p>}
                       </div>
-                      <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label={guardado ? 'Quitar de guardados' : 'Guardar'}
-                        data-tooltip={guardado ? 'Quitar de guardados' : 'Guardar'}
-                        className={`p-2 -m-1 rounded transition-colors flex-shrink-0 ${guardado ? 'text-accent' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
-                        <Bookmark size={18} className={guardado ? 'fill-current' : ''} />
-                      </button>
+                      {/* En "Guardados" el ícono cambia a bote de basura —
+                          pedido explícito: reutilizar el mismo marcador ahí
+                          se leía como un filtro más, no como "esto lo
+                          elimina". En "Todos" solo llegan avisos sin guardar
+                          (ver avisosMostrados), el marcador siempre es
+                          "Guardar". */}
+                      {guardado ? (
+                        <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Quitar de guardados" data-tooltip="Quitar de guardados"
+                          className="p-2 -m-1 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-red-500 hover:bg-red-50">
+                          <Trash2 size={18} />
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Guardar" data-tooltip="Guardar"
+                          className="p-2 -m-1 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                          <Bookmark size={18} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
