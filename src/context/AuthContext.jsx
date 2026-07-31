@@ -111,6 +111,14 @@ export function AuthProvider({ children }) {
             refreshTeacherReminders(user.uid)
             installReminderResumeListener(user.uid)
             installReminderDeliveryListener(user.uid, navigate)
+          } else if (profile.role === 'admin') {
+            // Aviso de "pago nuevo" (ver onPagoCreado en functions/index.js) —
+            // mismo mecanismo que el docente, sin los recordatorios locales
+            // (esos son de horario de clase, no aplican al admin). Toca la
+            // notificación → /Admin (que ya abre en Pagos por default, ver
+            // AdminDashboard).
+            initPushNotifications(user.uid, navigate, '/Admin')
+            initWebPush(user.uid).catch(() => {})
           }
         } else if (user.email?.endsWith('@evalua.local')) {
           // Student account: no users/{uid} doc. Prefer the enrollment(s) that already carry

@@ -55,6 +55,7 @@ const CANALES = [
   { id: 'actividades_v2', name: 'Actividades', description: 'Actividades nuevas publicadas por tus maestros', importance: 4, visibility: 1, vibration: true },
   { id: 'calificaciones_v2', name: 'Calificaciones', description: 'Cuando te califiquen una entrega', importance: 4, visibility: 1, vibration: true },
   { id: 'recordatorios_v2', name: 'Recordatorios', description: 'Recordatorios de fecha límite', importance: 4, visibility: 1, vibration: true },
+  { id: 'pagos_v1', name: 'Pagos', description: 'Cuando llega un pago nuevo para revisar', importance: 4, visibility: 1, vibration: true },
 ]
 
 // `data.categoria` (nombre interno, ver TITULOS en functions/index.js) no
@@ -66,6 +67,7 @@ const CANAL_POR_CATEGORIA = {
   actividadesNuevas: 'actividades_v2',
   calificaciones: 'calificaciones_v2',
   recordatorios: 'recordatorios_v2',
+  pagoNuevo: 'pagos_v1',
 }
 
 async function crearCanales() {
@@ -140,6 +142,11 @@ function resolveDestino(data) {
   }
   if (data.categoria === 'avisos' && data.asignaturaId) {
     return { path: `/alumno/materia/${data.asignaturaId}`, state: { tab: 'Avisos' } }
+  }
+  // El panel admin abre siempre en Pagos (ver AdminDashboard), así que basta
+  // con llevar a /Admin — no hace falta un estado de "qué pestaña" propio.
+  if (data.categoria === 'pagoNuevo') {
+    return { path: '/Admin' }
   }
   return null
 }

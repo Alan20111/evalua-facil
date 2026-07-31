@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { doc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
-import { Check, X, RefreshCw, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { Bell, BellOff, Check, X, RefreshCw, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
 import { db } from '../../../firebase'
+import { useAuth } from '../../../context/AuthContext'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import { useBackHandler } from '../../../hooks/useBackHandler'
@@ -53,6 +54,59 @@ function ComentarioCell({ payment, onSaved }) {
       placeholder="—"
       className="w-full min-w-[140px] px-2 py-1 rounded border border-transparent bg-transparent text-sm hover:border-outline-variant focus:border-accent focus:bg-surface focus:outline-none"
     />
+  )
+}
+
+// Interruptor de "Pago nuevo" — push al admin cuando un docente registra un
+// pago (ver onPagoCreado en functions/index.js). Opt-out: default activado,
+// se guarda en notificationSettings/{uid} (misma colección que docente/
+// alumno) apenas se carga, para que el gate del servidor tenga algo que leer
+// incluso si el admin nunca toca el interruptor (ausente/true = notifica).
+function PagoNotifToggle() {
+  const { currentUser } = useAuth()
+  const toast = useToast()
+  const [habilitado, setHabilitado] = useState(true)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!currentUser) return
+    getDoc(doc(db, 'notificationSettings', currentUser.uid))
+      .then((snap) => setHabilitado(snap.exists() ? snap.data().pagoNuevo?.habilitado !== false : true))
+      .catch(() => {})
+      .finally(() => setLoaded(true))
+  }, [currentUser])
+
+  async function toggle() {
+    if (!currentUser) return
+    const next = !habilitado
+    setHabilitado(next)
+    try {
+      await setDoc(
+        doc(db, 'notificationSettings', currentUser.uid),
+        { pagoNuevo: { habilitado: next }, updatedAt: serverTimestamp() },
+        { merge: true }
+      )
+    } catch (err) {
+      setHabilitado(!next)
+      toast('No se pudo guardar: ' + err.message, 'error')
+    }
+  }
+
+  if (!loaded) return null
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      data-tooltip={habilitado ? 'Avisarme de pagos nuevos: activado' : 'Avisarme de pagos nuevos: apagado'}
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded border transition-colors ${
+        habilitado
+          ? 'border-accent text-accent bg-[var(--accent-tint)]'
+          : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
+      }`}
+    >
+      {habilitado ? <Bell size={13} /> : <BellOff size={13} />}
+      Aviso de pagos
+    </button>
   )
 }
 
@@ -260,18 +314,21 @@ export default function PaymentsTable({ stats, onRefresh }) {
   return (
     <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-outline-variant space-y-2">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <h2 className="font-semibold text-on-surface">Pagos</h2>
-          <button
-            type="button"
-            onClick={handleRefreshClick}
-            disabled={refreshing}
-            data-tooltip="Actualizar"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted border border-outline-variant rounded hover:bg-[var(--accent-tint)] hover:border-accent hover:text-accent transition-colors disabled:opacity-60"
-          >
-            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-            Actualizar
-          </button>
+          <div className="flex items-center gap-2">
+            <PagoNotifToggle />
+            <button
+              type="button"
+              onClick={handleRefreshClick}
+              disabled={refreshing}
+              data-tooltip="Actualizar"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted border border-outline-variant rounded hover:bg-[var(--accent-tint)] hover:border-accent hover:text-accent transition-colors disabled:opacity-60"
+            >
+              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+              Actualizar
+            </button>
+          </div>
         </div>
         {/* Pagos / Archivadas — mismo patrón que Todos / Guardados en Avisos */}
         <div className="flex gap-1 bg-surface-container p-1 rounded w-fit">
