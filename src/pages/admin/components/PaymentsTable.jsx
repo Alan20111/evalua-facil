@@ -63,6 +63,13 @@ export default function PaymentsTable({ stats, onRefresh }) {
   const [notasAdmin, setNotasAdmin] = useState('')
   const [soloArchivadas, setSoloArchivadas] = useState(false)
   const [deleteArchivado, setDeleteArchivado] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  async function handleRefreshClick() {
+    setRefreshing(true)
+    await onRefresh?.()
+    setRefreshing(false)
+  }
 
   function closeRejectModal() {
     setRejectModal(null)
@@ -253,7 +260,19 @@ export default function PaymentsTable({ stats, onRefresh }) {
   return (
     <div className="bg-surface-card rounded-card shadow-card overflow-hidden">
       <div className="px-5 py-3 border-b border-outline-variant space-y-2">
-        <h2 className="font-semibold text-on-surface">Pagos</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-semibold text-on-surface">Pagos</h2>
+          <button
+            type="button"
+            onClick={handleRefreshClick}
+            disabled={refreshing}
+            data-tooltip="Actualizar"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted border border-outline-variant rounded hover:bg-[var(--accent-tint)] hover:border-accent hover:text-accent transition-colors disabled:opacity-60"
+          >
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            Actualizar
+          </button>
+        </div>
         {/* Pagos / Archivadas — mismo patrón que Todos / Guardados en Avisos */}
         <div className="flex gap-1 bg-surface-container p-1 rounded w-fit">
           <button type="button" onClick={() => setSoloArchivadas(false)}
@@ -276,13 +295,13 @@ export default function PaymentsTable({ stats, onRefresh }) {
           {/* ── Tarjetas — móvil/tablet: una transacción por bloque, todo el
               detalle apilado y legible sin desplazar la pantalla de lado.
               Mismo criterio de scroll propio que la tabla de escritorio. */}
-          <div className="md:hidden max-h-[70vh] overflow-y-auto divide-y divide-slate-100">
+          <div className="md:hidden max-h-[70vh] overflow-y-auto p-3 space-y-2.5 bg-surface">
             {rows.map((payment) => {
               const teacher = teachersMap[payment.docenteId]
               const subscription = subscriptionsMap[payment.subscriptionId]
               const domiciliado = payment.metodo === 'mercadopago' && !!subscription?.mpPreapprovalId
               return (
-                <div key={payment.id} className="p-3 space-y-2">
+                <div key={payment.id} className="p-3 space-y-2 bg-surface-card border border-outline-variant rounded-card shadow-card">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-mono text-xs text-muted">#{numeroPorId[payment.id]}</p>
