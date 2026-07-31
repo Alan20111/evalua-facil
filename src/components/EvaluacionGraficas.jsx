@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
-import { ArrowLeft, PieChart as PieChartIcon, Download } from 'lucide-react'
+import { ArrowLeft, PieChart as PieChartIcon, Download, Check } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { useToast } from './Toast'
@@ -77,12 +77,16 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
   const [counts, setCounts] = useState({}) // { [preguntaId]: { [opcionId]: number } }
   const [exportingPdf, setExportingPdf] = useState(false)
 
-  const opcionMultiple = preguntas.filter((p) => p.tipo === 'opcion_multiple')
+  // Opción múltiple Y verdadero/falso — las dos tienen respuesta cerrada
+  // (mismo campo `opciones` + `opcionSeleccionada`, ver EvaluacionRunner.jsx),
+  // así que las dos se pueden graficar. Antes solo entraba opción múltiple:
+  // un examen todo en V/F se quedaba sin ninguna gráfica ni fila en el PDF.
+  const graficables = preguntas.filter((p) => p.tipo === 'opcion_multiple' || p.tipo === 'verdadero_falso')
 
   async function handleExportPdf() {
     setExportingPdf(true)
     try {
-      await exportEvaluacionResultadosPDF({ activity, subject, preguntas: opcionMultiple, counts })
+      await exportEvaluacionResultadosPDF({ activity, subject, preguntas: graficables, counts })
     } catch (err) {
       toast('Error al generar el PDF: ' + err.message, 'error')
     } finally {
@@ -94,9 +98,9 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
     let cancelled = false
     async function load() {
       setLoading(true)
-      const preguntaIds = new Set(opcionMultiple.map((p) => p.id))
+      const preguntaIds = new Set(graficables.map((p) => p.id))
       const acc = {}
-      opcionMultiple.forEach((p) => { acc[p.id] = {} })
+      graficables.forEach((p) => { acc[p.id] = {} })
       const subs = Object.values(submissions).filter((s) => s?.id)
       await Promise.all(subs.map(async (sub) => {
         const snap = await getDocs(collection(db, 'submissions', sub.id, 'respuestas'))
@@ -149,13 +153,13 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
         <div className="max-w-3xl mx-auto p-4 space-y-4">
           {loading ? (
             <div className="flex justify-center py-16"><Spinner size="lg" /></div>
-          ) : opcionMultiple.length === 0 ? (
+          ) : graficables.length === 0 ? (
             <div className="flex flex-col items-center gap-2 text-center text-muted py-16">
               <PieChartIcon size={28} className="text-slate-300" />
-              <p className="text-sm">Este {activity.categoria === 'examen' ? 'examen' : 'cuestionario'} no tiene reactivos de opción múltiple.</p>
+              <p className="text-sm">Este {activity.categoria === 'examen' ? 'examen' : 'cuestionario'} no tiene reactivos de opción múltiple ni de verdadero/falso.</p>
             </div>
           ) : (
-            opcionMultiple.map((p, i) => {
+            graficables.map((p, i) => {
               const preguntaCounts = counts[p.id] || {}
               const total = Object.values(preguntaCounts).reduce((sum, n) => sum + n, 0)
               const slices = (p.opciones || []).map((o, idx) => ({
@@ -166,21 +170,52 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
               return (
                 <div key={p.id} className="rounded-card overflow-hidden bg-surface-card shadow-card border border-outline-variant">
                   <div className="p-4">
-                    <p className="text-sm font-semibold text-on-surface mb-3">{i + 1}. {p.enunciado}</p>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <p className="text-sm font-semibold text-on-surface flex-1">{i + 1}. {p.enunciado}</p>
+                      {/* Total explícito arriba de la gráfica — antes solo se
+                          podía inferir sumando los conteos de cada opción. */}
+                      <span className="text-xs text-muted flex-shrink-0 whitespace-nowrap">
+                        {total} {total === 1 ? 'respuesta' : 'respuestas'}
+                      </span>
+                    </div>
                     <div className="flex flex-col sm:flex-row items-center gap-4">
                       <Pie slices={slices} />
-                      <div className="flex-1 w-full min-w-0 space-y-1.5">
+                      <div className="flex-1 w-full min-w-0 space-y-2.5">
                         {(p.opciones || []).map((o, idx) => {
                           const count = preguntaCounts[o.id] || 0
                           const pct = total ? Math.round((count / total) * 100) : 0
+                          const esCorrecta = p.respuestaCorrecta != null && o.id === p.respuestaCorrecta
                           return (
-                            <div key={o.id} className="flex items-center gap-2 text-sm">
-                              <span
-                                className="w-3 h-3 rounded-full flex-shrink-0"
-                                style={{ background: SLICE_COLORS[idx % SLICE_COLORS.length] }}
-                              />
-                              <span className="flex-1 min-w-0 truncate text-on-surface">{o.texto}</span>
-                              <span className="text-muted flex-shrink-0">{count} · {pct}%</span>
+                            <div key={o.id}>
+                              <div className="flex items-center gap-2 text-sm">
+                                <span
+                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  style={{ background: SLICE_COLORS[idx % SLICE_COLORS.length] }}
+                                />
+                                <span className="flex-1 min-w-0 truncate text-on-surface flex items-center gap-1">
+                                  {o.texto}
+                                  {esCorrecta && (
+                                    <span data-tooltip="Respuesta correcta" className="inline-flex text-emerald-600 flex-shrink-0">
+                                      <Check size={13} strokeWidth={3} />
+                                    </span>
+                                  )}
+                                </span>
+                                {/* Conteo y porcentaje ya no comparten una sola
+                                    línea ambigua ("5 · 40%") — cada dato trae
+                                    su propia etiqueta. */}
+                                <span className="text-muted flex-shrink-0 tabular-nums">
+                                  {count} resp. ({pct}%)
+                                </span>
+                              </div>
+                              {/* Barra de porcentaje — mismo dato que la dona,
+                                  en un formato que se lee de un vistazo y sin
+                                  ambigüedad al compararlo entre opciones. */}
+                              <div className="h-1.5 rounded-full bg-surface-container overflow-hidden mt-1 ml-5">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{ width: `${pct}%`, background: SLICE_COLORS[idx % SLICE_COLORS.length] }}
+                                />
+                              </div>
                             </div>
                           )
                         })}
