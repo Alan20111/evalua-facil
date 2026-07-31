@@ -411,11 +411,23 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
                       <ProgressoLectura leidos={leidos} total={totalEstudiantes} />
                     </div>
                   </button>
-                  <button type="button" onClick={() => toggleGuardado(a)} aria-label={a.guardado ? 'Quitar de guardados' : 'Guardar'}
-                    data-tooltip={a.guardado ? 'Quitar de guardados' : 'Guardar'}
-                    className={`p-2 rounded transition-colors flex-shrink-0 ${a.guardado ? 'text-accent' : 'text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
-                    <Bookmark size={18} className={a.guardado ? 'fill-current' : ''} />
-                  </button>
+                  {/* En "Guardados" el ícono cambia a bote de basura — pedido
+                      explícito: reutilizar el mismo marcador ahí se leía
+                      como un filtro más, no como "esto lo elimina". En
+                      "Todos" solo llegan avisos sin guardar (ver
+                      avisosMostrados), así que el marcador siempre significa
+                      "Guardar". */}
+                  {soloGuardados ? (
+                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Quitar de guardados" data-tooltip="Quitar de guardados"
+                      className="p-2 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-red-500 hover:bg-red-50">
+                      <Trash2 size={18} />
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Guardar" data-tooltip="Guardar"
+                      className="p-2 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                      <Bookmark size={18} />
+                    </button>
+                  )}
                   <div className="relative flex-shrink-0">
                     <button type="button" onClick={() => setOpenMenuId((id) => (id === a.id ? null : a.id))}
                       aria-label="Más opciones" data-tooltip="Más opciones"
