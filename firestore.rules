@@ -383,12 +383,34 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Personal calendar events created by the teacher.
+    // Personal calendar events created by the teacher — 100% privados, nunca
+    // visibles a alumnos.
     match /events/{eventId} {
       allow read, update, delete: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.docenteId;
+    }
+
+    // Eventos ACADÉMICOS del docente (conferencias, suspensiones, entregas de
+    // proyecto…) — compartidos con los alumnos de `asignaturaId`. Colección
+    // SEPARADA de `events` a propósito: Firestore solo puede autorizar un
+    // `list` cuando la regla se puede probar a partir de los propios filtros
+    // de la consulta. El alumno consulta por `asignaturaId` (no conoce el
+    // docenteId de antemano), así que una regla que dependiera de
+    // `resource.data.docenteId`/`tipo` (como en `events`) rechaza la
+    // consulta ENTERA aunque cada documento sí cumpliera la condición —
+    // comprobado en vivo: `getDoc` de un documento así sí funciona, pero el
+    // `list` por `asignaturaId` da "Missing or insufficient permissions".
+    // Lectura amplia (mismo patrón que activities/avisos/materials): no es
+    // información sensible, el alumno filtra del lado cliente sus materias.
+    match /academicEvents/{eventId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.docenteId &&
+        ownsSubject(request.resource.data.asignaturaId);
+      allow update, delete: if request.auth != null &&
+        request.auth.uid == resource.data.docenteId;
     }
 
     // Personal calendar events created by a STUDENT (their own Agenda) —
@@ -410,9 +432,14 @@ service cloud.firestore {
 
     // Programación de bloques de clases por asignatura (fechas reales generadas
     // a partir de un rango + patrones semanales; se pueden mover/editar/eliminar
-    // individualmente).
+    // individualmente). Lectura ampliada a cualquier autenticado — igual que
+    // activities/avisos/materials — para que la Agenda del alumno pueda armar
+    // "Ahora"/"Próxima clase" a partir del horario de sus propios docentes;
+    // no es información sensible (materia, hora, aula), y el alumno filtra
+    // del lado cliente solo lo de sus materias inscritas.
     match /horarioBloques/{bloqueId} {
-      allow read, update, delete: if request.auth != null &&
+      allow read: if request.auth != null;
+      allow update, delete: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.docenteId;

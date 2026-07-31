@@ -34,3 +34,9 @@ export const STUDENT_CONTAINER = 'max-w-2xl mx-auto'
 // single item's reading/form content, so they stay narrower for comfortable
 // line lengths.
 export const STUDENT_CONTAINER_NARROW = 'max-w-xl mx-auto'
+
+// Agenda Dashboard — la única pantalla del alumno con un layout de DOS
+// columnas en escritorio (pedido explícito: "aprovechar completamente el
+// espacio disponible... no debe ser una copia de la App"). Se queda de una
+// sola columna angosta en móvil, igual que el resto del módulo.
+export const STUDENT_CONTAINER_WIDE = 'max-w-xl md:max-w-4xl lg:max-w-5xl mx-auto'
