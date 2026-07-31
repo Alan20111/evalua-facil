@@ -7,6 +7,25 @@ import { studentFullName } from './studentSearch'
 import { isDraftActivity } from './activityVisibility'
 import { saveWorkbook, saveBlob } from './nativeSave'
 
+// Leyenda de "Versión de evaluación" para el docente en periodo de prueba —
+// pedido explícito, ver src/utils/exportWatermark.js (la versión de PDF).
+// La librería `xlsx` (SheetJS free) usada en todo este archivo NO tiene
+// ninguna API para insertar imágenes (esa función es exclusiva de su build de
+// paga) — por eso aquí solo se agrega el texto de la leyenda, no el logotipo
+// como marca de agua gráfica. Meter la imagen de verdad requeriría reescribir
+// estas hojas con `exceljs` (que sí soporta imágenes, ver downloadStudentTemplate
+// más abajo), un cambio de librería mucho más grande que una leyenda de texto.
+const WATERMARK_LEGEND = 'Este archivo fue generado con Evalúa Fácil (Versión de evaluación) · evaluafacil.mx'
+
+// Todas las hojas de abajo dejan un renglón vacío entre el título y los
+// encabezados de columna (`[titleRow, [], nameRow, ...]`) — se reutiliza ESE
+// mismo renglón para la leyenda en vez de insertar uno nuevo, así ningún
+// `!merges` que apunte a números de fila fijos (título en fila 0, secciones
+// en fila 2, etc.) se corre y hay que reajustar.
+function spacerRow(watermark) {
+  return watermark ? [WATERMARK_LEGEND] : []
+}
+
 // Loaded dynamically (only when actually downloading the template) because
 // it's needed for one feature `xlsx` can't do: writing real sheet protection
 // so Excel itself blocks editing outside columns A/B — `xlsx` (the free
@@ -111,13 +130,13 @@ export function parseStudentExcel(file) {
 // Ranking export: estudiantes ordenados por promedio (mayor a menor).
 // Columnas: LUGAR, No., NOMBRE, PROMEDIO. `rows` = [{ lugar, orden, nombre,
 // promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
-export async function exportRankingExcel({ subject, rows, label }) {
+export async function exportRankingExcel({ subject, rows, label, watermark = false }) {
   const periodo = subjectPeriodLabel(subject)
   const titleRow = ['', '', '']
   titleRow[0] = `${subjectDisplayName(subject)} — Ranking · ${label}${periodo ? `   (${periodo})` : ''}`
   const nameRow = ['LUGAR', 'NOMBRE', label]
   const dataRows = rows.map((r) => [r.lugar, r.nombre, r.promedio != null ? r.promedio : '—'])
-  const allRows = [titleRow, [], nameRow, ...dataRows]
+  const allRows = [titleRow, spacerRow(watermark), nameRow, ...dataRows]
   const ws = XLSX.utils.aoa_to_sheet(allRows)
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }]
   ws['!cols'] = [{ wch: 7 }, { wch: 42 }, { wch: 14 }]
@@ -129,7 +148,7 @@ export async function exportRankingExcel({ subject, rows, label }) {
   await saveWorkbook(wb, `ranking_${safeLabel}_${safeName}.xlsx`)
 }
 
-export async function exportParcialGrades({ subject, activities, students, submissions, parcial }) {
+export async function exportParcialGrades({ subject, activities, students, submissions, parcial, watermark = false }) {
   const acts = activities
     .filter((a) => a.parcial === parcial && !isDraftActivity(a))
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
@@ -167,8 +186,8 @@ export async function exportParcialGrades({ subject, activities, students, submi
   })
 
   const allRows = pondOn
-    ? [titleRow, [], pesoRow, nameRow, ...dataRows]
-    : [titleRow, [], nameRow, ...dataRows]
+    ? [titleRow, spacerRow(watermark), pesoRow, nameRow, ...dataRows]
+    : [titleRow, spacerRow(watermark), nameRow, ...dataRows]
   const ws = XLSX.utils.aoa_to_sheet(allRows)
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }]
   ws['!cols'] = [{ wch: 4 }, { wch: 42 }, ...Array(totalCols - 2).fill({ wch: 10 })]
@@ -185,6 +204,7 @@ export async function exportSubjectGrades({
   activities,
   students,
   submissions,
+  watermark = false,
 }) {
   const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
 
@@ -277,8 +297,8 @@ export async function exportSubjectGrades({
   })
 
   const allRows = anyPond
-    ? [titleRow, [], sectionRow, pesoRowFull, nameRow, ...dataRows]
-    : [titleRow, [], sectionRow, nameRow, ...dataRows]
+    ? [titleRow, spacerRow(watermark), sectionRow, pesoRowFull, nameRow, ...dataRows]
+    : [titleRow, spacerRow(watermark), sectionRow, nameRow, ...dataRows]
   const ws = XLSX.utils.aoa_to_sheet(allRows)
 
   // Merges: title spans all + each parcial header
@@ -334,7 +354,7 @@ function attendanceRowCells(days, studentId, enrolledFrom) {
   return cells
 }
 
-export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial }) {
+export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial, watermark = false }) {
   const g = attendanceParciales.find((x) => x.parcial === parcial)
   const days = g?.days || []
   const dayHeaders = attendanceColumnHeaders(days)
@@ -357,7 +377,7 @@ export async function exportParcialAttendance({ subject, students, attendancePar
     return row
   })
 
-  const allRows = [titleRow, [], nameRow, ...dataRows]
+  const allRows = [titleRow, spacerRow(watermark), nameRow, ...dataRows]
   const ws = XLSX.utils.aoa_to_sheet(allRows)
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }]
   ws['!cols'] = [{ wch: 4 }, { wch: 42 }, ...Array(totalCols - FIXED).fill({ wch: 9 })]
@@ -369,7 +389,7 @@ export async function exportParcialAttendance({ subject, students, attendancePar
   await saveWorkbook(wb, `asistencia_parcial${parcial}_${safeName}.xlsx`)
 }
 
-export async function exportSubjectAttendance({ subject, students, attendanceParciales }) {
+export async function exportSubjectAttendance({ subject, students, attendanceParciales, watermark = false }) {
   const FIXED = 2
   const parcialMeta = attendanceParciales.map((g) => {
     const dayHeaders = attendanceColumnHeaders(g.days)
@@ -413,7 +433,7 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
     return row
   })
 
-  const allRows = [titleRow, [], sectionRow, nameRow, ...dataRows]
+  const allRows = [titleRow, spacerRow(watermark), sectionRow, nameRow, ...dataRows]
   const ws = XLSX.utils.aoa_to_sheet(allRows)
 
   const merges = [

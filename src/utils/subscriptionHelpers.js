@@ -193,3 +193,11 @@ export function getDaysLabel(days) {
 }
 
 export const SUBSCRIPTION_STATUSES = ['activa', 'vencida', 'cancelada', 'pendiente_pago', 'trial']
+
+// Documentos "limpios" (sin marca de agua) — únicamente una suscripción
+// pagada y vigente los obtiene. Trial, vencida, cancelada y pendiente_pago
+// caen todos del lado de "marca de agua", tal cual el pedido: "si el usuario
+// NO tiene una suscripción activa". Ver src/utils/exportWatermark.js.
+export function hasCleanExports(subscription) {
+  return subscription?.status === 'activa' && !isSubscriptionExpired(subscription)
+}
