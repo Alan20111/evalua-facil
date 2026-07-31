@@ -9,7 +9,7 @@ import { useScrollLock } from '../../../hooks/useScrollLock'
 import {
   calcVencimientoTimestamp,
   formatCurrency,
-  formatDate,
+  formatDateTime,
   getPaymentStatusColor,
 } from '../../../utils/subscriptionHelpers'
 
@@ -116,11 +116,11 @@ export default function PaymentsTable({ stats, onRefresh }) {
         <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="bg-surface text-left text-xs text-muted uppercase">
-              <th className="px-4 py-2">Docente</th>
+              <th className="px-4 py-2">Correo</th>
               <th className="px-4 py-2">Monto</th>
               <th className="px-4 py-2">Medio</th>
               <th className="px-4 py-2">Referencia</th>
-              <th className="px-4 py-2">Estado</th>
+              <th className="px-4 py-2">Situación</th>
               <th className="px-4 py-2">Fecha</th>
               <th className="px-4 py-2">Acciones</th>
             </tr>
@@ -141,7 +141,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                   <tr key={payment.id} className="hover:bg-[var(--accent-tint)]">
                     <td className="px-4 py-2">
                       <p className="font-medium text-on-surface">
-                        {teacher?.username || teacher?.email || '—'}
+                        {teacher?.email || '—'}
                       </p>
                     </td>
                     <td className="px-4 py-2 font-semibold">{formatCurrency(payment.monto)}</td>
@@ -157,7 +157,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                     <td className="px-4 py-2">
                       <StatusBadge status={payment.status} />
                     </td>
-                    <td className="px-4 py-2 text-muted">{formatDate(payment.createdAt)}</td>
+                    <td className="px-4 py-2 text-muted">{formatDateTime(payment.createdAt)}</td>
                     <td className="px-4 py-2">
                       {payment.status === 'pendiente' && (
                         <div className="flex items-center gap-1">
