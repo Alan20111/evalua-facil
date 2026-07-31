@@ -1,19 +1,15 @@
-import emailjs from '@emailjs/browser'
+import { sendEmail } from './sendEmail'
 
 // Correos de confirmación de las dos acciones delicadas del perfil: cancelar
-// la suscripción y eliminar la cuenta. Se mandan por EmailJS igual que el de
-// bienvenida (ver welcomeEmail.js): la plantilla del panel es solo
-// {{{html_content}}}, así que el correo completo se arma aquí.
+// la suscripción y eliminar la cuenta. Se mandan por la API de Brevo (ver
+// api/send-email.js) igual que el de bienvenida: el correo completo se arma
+// aquí y se envía desde soporte@evaluafacil.mx.
 //
 // El de "cuenta eliminada" se manda ANTES de borrar, no después: una vez que
 // se va la cuenta el docente ya está fuera de la sesión y no queda quién lo
 // mande desde el navegador.
 
-const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID
-const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID
-const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-
-const SITIO = 'https://evalua-facil.vercel.app'
+const SITIO = 'https://evaluafacil.mx'
 
 // Marco visual compartido — mismo encabezado azul y pie que el correo de
 // bienvenida, para que los tres se vean de la misma casa.
@@ -90,14 +86,8 @@ function boton(texto, url) {
 </table>`
 }
 
-async function enviar(email, html) {
-  if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY) return
-  await emailjs.send(
-    SERVICE_ID,
-    TEMPLATE_ID,
-    { to_email: email, to_name: email, html_content: html },
-    PUBLIC_KEY
-  )
+async function enviar(email, html, subject) {
+  await sendEmail({ to: email, subject, html })
 }
 
 // Confirmación de cancelación. Lo importante que tiene que quedar claro:
@@ -115,7 +105,7 @@ export function sendSubscriptionCancelledEmail({ email, accesoHasta, eraTrial })
     titulo: 'Tu suscripción fue cancelada',
     cuerpo,
     accion: boton('Volver a activarla →', SITIO),
-  }))
+  }), 'Tu suscripción fue cancelada')
 }
 
 // Confirmación de eliminación. Se manda antes de borrar, así que se redacta
@@ -131,5 +121,5 @@ export function sendAccountDeletedEmail({ email }) {
     titulo: 'Tu cuenta fue eliminada',
     cuerpo,
     accion: boton('Crear una cuenta nueva →', `${SITIO}/register`),
-  }))
+  }), 'Tu cuenta fue eliminada')
 }

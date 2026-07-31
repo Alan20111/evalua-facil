@@ -1,8 +1,4 @@
-import emailjs from '@emailjs/browser'
-
-const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID
-const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID
-const PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+import { sendEmail } from './sendEmail'
 
 function buildHtml() {
   return `<!DOCTYPE html>
@@ -106,15 +102,9 @@ function buildHtml() {
 }
 
 export async function sendWelcomeEmail({ email }) {
-  if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY) return
-  await emailjs.send(
-    SERVICE_ID,
-    TEMPLATE_ID,
-    {
-      to_email: email,
-      to_name: email,
-      html_content: buildHtml(),
-    },
-    PUBLIC_KEY
-  )
+  await sendEmail({
+    to: email,
+    subject: 'Bienvenido/a a Evalúa Fácil',
+    html: buildHtml(),
+  })
 }
