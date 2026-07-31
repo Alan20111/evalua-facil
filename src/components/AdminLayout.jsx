@@ -17,9 +17,9 @@ import { useScrollLock } from '../hooks/useScrollLock'
 import { useResizableSidebar, SIDEBAR_MIN, SIDEBAR_MAX } from '../hooks/useResizableSidebar'
 
 const TABS = [
+  { id: 'pagos', label: 'Pagos', icon: Receipt },
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
   { id: 'suscripciones', label: 'Suscripciones', icon: CreditCard },
-  { id: 'pagos', label: 'Pagos', icon: Receipt },
   { id: 'cobros', label: 'Cobros', icon: Wallet },
   { id: 'estudiantes', label: 'Estudiantes', icon: GraduationCap },
 ]
