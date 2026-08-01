@@ -1,35 +1,30 @@
 import { calcDaysRemaining, effectiveVencimiento } from './subscriptionHelpers'
 
-// A cuántos días de vencer se enciende el aviso naranja en el panel.
-// Es distinto de TRIAL_WARNING_DAYS (subscriptionHelpers), que controla el
-// aviso que ve el DOCENTE en su barra lateral: son dos públicos distintos y
-// no tienen por qué cambiar juntos.
+// A cuántos días de vencer se enciende el aviso naranja en el panel (Resumen,
+// "por vencer"). No se pinta ya en la insignia de Situación —ver más abajo—
+// pero sigue usándose para esos conteos.
 export const DIAS_POR_VENCER = 10
 
-// Situación de una suscripción, ya resuelta para mostrarse.
-//
-// La regla de color tiene dos ejes, y por eso las combinaciones no se
-// enumeran a mano:
-//   - el COLOR BASE dice QUÉ es      (azul prueba · verde pagada · morada cortesía)
-//   - el LADO DERECHO en naranja dice que está POR VENCER
-//   - rojo entero dice que YA VENCIÓ
-// Así, "pagada pero por vencer" se lee de un vistazo como media verde y media
-// naranja: sigue estando pagada, pero hay que cobrar la renovación.
+// Situación de una suscripción — pedido explícito: solo estas 5 categorías
+// (más "Cuenta eliminada" y "Sin suscripción", que no son una situación de LA
+// SUSCRIPCIÓN sino la ausencia de una):
+//   - Prueba
+//   - Cancelada           (prueba vencida, plan sin pagar, cortesía vencida, o el docente la canceló — un solo bote)
+//   - Suscripción mensual (domiciliada: se cobra sola cada mes vía Mercado Pago)
+//   - Depósito por mes    (pago manual — transferencia o PayPal de una sola vez — que hay que repetir cada mes)
+//   - Cortesía
+// "Pendiente de pago" NO es una situación de la suscripción sino del PAGO:
+// vive en la pestaña Pagos, columna Verificación. Mientras un pago está en
+// revisión, aquí se muestra lo que la suscripción YA era antes de ese pago
+// (Prueba si todavía no vencía nada, Cancelada si ya no le quedaba nada).
 const AZUL = '#2563eb'
 const VERDE = '#16a34a'
+const CIAN = '#0891b2'
 const MORADO = '#9333ea'
-const NARANJA = '#f97316'
-const ROJO = '#dc2626'
 const GRIS = '#64748b'
 const NEGRO = '#1e293b'
 
 const solido = (c) => ({ background: c, color: '#fff' })
-// Mitad y mitad, con corte limpio: el color base a la izquierda y el naranja
-// de "por vencer" a la derecha.
-const mitades = (izq) => ({
-  background: `linear-gradient(90deg, ${izq} 0 50%, ${NARANJA} 50% 100%)`,
-  color: '#fff',
-})
 
 // Todas las insignias, cada una con su etiqueta y su color, indexadas por
 // clave. `situacionDe` las devuelve a partir de una suscripción; el Resumen
@@ -39,17 +34,10 @@ export const INSIGNIAS = {
   eliminada: { etiqueta: 'Cuenta eliminada', estilo: solido(NEGRO) },
   sin_suscripcion: { etiqueta: 'Sin suscripción', estilo: solido(GRIS) },
   cancelada: { etiqueta: 'Cancelada', estilo: solido(GRIS) },
-  pendiente_pago: { etiqueta: 'Pendiente de pago', estilo: solido(NARANJA) },
-  cortesia_vencida: { etiqueta: 'Cortesía vencida', estilo: solido(ROJO) },
-  cortesia_por_vencer: { etiqueta: 'Cortesía por vencer', estilo: mitades(MORADO) },
-  cortesia: { etiqueta: 'Cortesía', estilo: solido(MORADO) },
-  cortesia_indefinida: { etiqueta: 'Cortesía sin vencimiento', estilo: solido(MORADO) },
-  prueba_vencida: { etiqueta: 'Prueba vencida', estilo: solido(ROJO) },
-  prueba_por_vencer: { etiqueta: 'Prueba por vencer', estilo: solido(NARANJA) },
   prueba: { etiqueta: 'Prueba', estilo: solido(AZUL) },
-  vencida: { etiqueta: 'Vencida', estilo: solido(ROJO) },
-  por_cobrar: { etiqueta: 'Por cobrar renovación', estilo: mitades(VERDE) },
-  pagada: { etiqueta: 'Pagada', estilo: solido(VERDE) },
+  mensual: { etiqueta: 'Suscripción mensual', estilo: solido(VERDE) },
+  deposito: { etiqueta: 'Depósito por mes', estilo: solido(CIAN) },
+  cortesia: { etiqueta: 'Cortesía', estilo: solido(MORADO) },
 }
 
 const insignia = (clave) => ({ clave, ...INSIGNIAS[clave] })
@@ -59,41 +47,35 @@ export function situacionDe(sub) {
   // (nombre, correo y fecha), sin nada de su contenido.
   if (sub?.cuentaEliminada) return insignia('eliminada')
   if (!sub) return insignia('sin_suscripcion')
-  if (sub.status === 'cancelada') return insignia('cancelada')
-  if (sub.status === 'pendiente_pago') return insignia('pendiente_pago')
 
   const esCortesia = sub.planId === 'cortesia'
   // Una cortesía sin fecha de fin no vence nunca: no se le calculan días.
   const indefinida = esCortesia && sub.cortesiaIndefinida === true
   const dias = indefinida ? null : calcDaysRemaining(effectiveVencimiento(sub))
   const vencida = dias !== null && dias <= 0
-  const porVencer = dias !== null && dias > 0 && dias <= DIAS_POR_VENCER
 
-  if (esCortesia) {
-    if (vencida) return insignia('cortesia_vencida')
-    if (porVencer) return insignia('cortesia_por_vencer')
-    // La clave sigue siendo 'cortesia' en ambos casos: el filtro de la tabla
-    // distingue por etiqueta, no por clave.
-    return { ...insignia(indefinida ? 'cortesia_indefinida' : 'cortesia'), clave: 'cortesia' }
-  }
+  if (sub.status === 'cancelada') return insignia('cancelada')
 
-  if (sub.status === 'trial') {
-    if (vencida) return insignia('prueba_vencida')
-    if (porVencer) return insignia('prueba_por_vencer')
-    return insignia('prueba')
-  }
+  // El pago (de cualquier tipo) todavía está en revisión: eso no cambia en
+  // qué situación estaba la suscripción, así que se resuelve como si ese
+  // pago no existiera todavía.
+  if (sub.status === 'pendiente_pago') return vencida ? insignia('cancelada') : insignia('prueba')
 
-  // Resto: plan de pago contratado.
-  if (sub.status === 'vencida' || vencida) return insignia('vencida')
-  if (porVencer) return insignia('por_cobrar')
-  return insignia('pagada')
+  if (esCortesia) return vencida ? insignia('cancelada') : insignia('cortesia')
+
+  if (sub.status === 'trial') return vencida ? insignia('cancelada') : insignia('prueba')
+
+  // Resto: plan de pago contratado (activa, o vencida guardada explícita).
+  if (sub.status === 'vencida' || vencida) return insignia('cancelada')
+  // Domiciliada (Mercado Pago cobra solo cada mes) vs. depósito manual que
+  // el docente tiene que repetir cada mes (transferencia o PayPal de una
+  // sola exhibición).
+  return sub.mpPreapprovalId ? insignia('mensual') : insignia('deposito')
 }
 
 // Todas las etiquetas posibles, para llenar el desplegable de filtro sin
 // depender de cuáles existan hoy en los datos.
 export const SITUACIONES = [
-  'Prueba', 'Prueba por vencer', 'Prueba vencida',
-  'Pagada', 'Por cobrar renovación', 'Vencida',
-  'Cortesía', 'Cortesía sin vencimiento', 'Cortesía por vencer', 'Cortesía vencida',
-  'Pendiente de pago', 'Cancelada', 'Cuenta eliminada', 'Sin suscripción',
+  'Prueba', 'Suscripción mensual', 'Depósito por mes', 'Cortesía', 'Cancelada',
+  'Cuenta eliminada', 'Sin suscripción',
 ]

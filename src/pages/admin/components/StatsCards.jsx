@@ -18,11 +18,15 @@ function mesEnCurso() {
 // hablan de una situación de suscripción no llevan ninguna.
 const KPI_CONFIG = [
   { key: 'teacherCount', label: 'Docentes registrados', format: (v) => v },
-  { key: 'activeSubCount', label: 'Suscripciones activas', insignia: 'pagada', format: (v) => v },
+  {
+    key: 'activeSubCount',
+    label: 'Suscripciones activas',
+    ayuda: 'Suma de Suscripción mensual (domiciliada) y Depósito por mes.',
+    format: (v) => v,
+  },
   {
     key: 'activeExpiringSoonCount',
     label: 'Suscripciones por vencer',
-    insignia: 'por_cobrar',
     ayuda: `Suscripciones de paga que vencen dentro de los próximos ${DIAS_POR_VENCER} días.`,
     format: (v) => v,
   },
@@ -30,7 +34,7 @@ const KPI_CONFIG = [
   {
     key: 'trialExpiringSoonCount',
     label: 'En periodo de prueba por vencer',
-    insignia: 'prueba_por_vencer',
+    insignia: 'prueba',
     ayuda: `Pruebas que terminan dentro de los próximos ${DIAS_POR_VENCER} días.`,
     format: (v) => v,
   },
