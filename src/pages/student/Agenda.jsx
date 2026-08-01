@@ -220,6 +220,25 @@ export default function Agenda() {
         cierraEnFecha,
         estado: deadlineEstado(a.fechaLimite || fechaLimiteConHora),
       })
+
+      // Marca "(Publicada)" — mismo criterio que el Calendario del docente
+      // (CalendarPage.jsx): `publishAt` solo queda guardado cuando la
+      // publicación se PROGRAMÓ a futuro; si se publicó de inmediato, la
+      // fecha real vive en `publishedAt` (permanente).
+      const fechaPublicacion = a.publishAt || a.publishedAt
+      if (fechaPublicacion) {
+        evs.push({
+          id: `pub-${a.id}`,
+          activityId: a.id,
+          titulo: `↑ ${nombreConNumero} (Publicada)`,
+          subtitulo: subjectDisplayName(subj),
+          tipo: 'publicacion',
+          dateStr: fechaPublicacion.substring(0, 10),
+          timeStr: fechaPublicacion.substring(11, 16),
+          bg: pal.bg, text: pal.text,
+          editable: false,
+        })
+      }
     })
 
     academicEvents.forEach((e) => {
