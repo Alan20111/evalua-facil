@@ -192,8 +192,7 @@ export default function Agenda() {
   const events = useMemo(() => {
     const evs = []
 
-    items.forEach(({ activity: a, subject: subj }) => {
-      if (!a.fechaLimite) return
+    items.forEach(({ activity: a, subject: subj, fecha }) => {
       const pal = subjectColors(subj)
       const numero = activityLabels[a.id]
       const nombreConNumero = numero ? `${numero} ${a.nombre || 'Actividad'}` : (a.nombre || 'Actividad')
@@ -202,8 +201,12 @@ export default function Agenda() {
       // `fechaLimite` puede venir sin hora (fecha límite legada, 'YYYY-MM-DD')
       // — sin normalizar, `timeStr` queda vacío y WeekView (Semana/3 días, a
       // diferencia de AgendaView) NUNCA pinta eventos sin hora: la actividad
-      // desaparecía por completo de esas dos vistas.
-      const fechaLimiteConHora = withDefaultTime(a.fechaLimite, '23:59:59')
+      // desaparecía por completo de esas dos vistas. Sin fecha límite
+      // capturada, `fecha` ya viene anclada a hoy (ver `items` más arriba) —
+      // sin este fallback, la actividad SÍ entraba a `items` pero nunca se
+      // dibujaba como evento aquí, desapareciendo de la Agenda visual pese a
+      // estar publicada.
+      const fechaLimiteConHora = a.fechaLimite ? withDefaultTime(a.fechaLimite, '23:59:59') : `${toDateStr(fecha)}T23:59:59`
       evs.push({
         id: `dl-${a.id}`,
         activityId: a.id,
@@ -215,7 +218,7 @@ export default function Agenda() {
         bg: pal.bg, text: pal.text,
         editable: false,
         cierraEnFecha,
-        estado: deadlineEstado(a.fechaLimite),
+        estado: deadlineEstado(a.fechaLimite || fechaLimiteConHora),
       })
     })
 
