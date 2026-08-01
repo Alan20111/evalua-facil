@@ -397,7 +397,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                   <th className="px-4 py-2">Monto</th>
                   <th className="px-4 py-2">Medio</th>
                   <th className="px-4 py-2">Referencia</th>
-                  <th className="px-4 py-2">Situación</th>
+                  <th className="px-4 py-2">Verificación</th>
                   <th className="px-4 py-2">Fecha</th>
                   <th className="px-4 py-2">Comentarios</th>
                   <th className="px-4 py-2">Acciones</th>
