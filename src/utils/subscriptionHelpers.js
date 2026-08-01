@@ -115,15 +115,17 @@ export function canCreateContent(subscription) {
   return !isSubscriptionExpired(subscription)
 }
 
-// Whether to offer "renovar/activar" — no plan at all, already expired/vencida,
-// still on trial, or a paid plan that's about to expire (7 días o menos).
+// Whether to offer "renovar/activar" — no plan at all, ya vencida (sin
+// importar si venció por falta de pago o porque el docente la canceló y se
+// le acabaron los días que tenía cubiertos), en prueba, o un plan pagado que
+// está por vencer (7 días o menos).
 // Pendiente_pago NO se ofrece: ya hay un comprobante en revisión por el
 // administrador, reabrir el checkout solo confundiría al docente.
 // Single source of truth — antes Profile.jsx volvía a calcular esta misma
 // regla por su cuenta en vez de leerla de aquí.
 export function canRenew(subscription) {
   if (!subscription) return true
-  if (subscription.status === 'vencida') return true
+  if (isSubscriptionExpired(subscription)) return true
   if (subscription.status === 'pendiente_pago') return false
   if (subscription.status === 'trial') return true
   if (subscription.status === 'activa') {
