@@ -508,8 +508,8 @@ export default function Profile() {
                   {(() => {
                     const dias = diasParaEliminacion(subscription)
                     return dias > 0
-                      ? `Guardamos tu información ${RETENTION_DAYS} días desde que venció — se elimina en ${dias} día${dias === 1 ? '' : 's'} si no reactivas.`
-                      : 'Tu información está a punto de eliminarse definitivamente — reactiva para conservarla.'
+                      ? `Se elimina en ${dias} día${dias === 1 ? '' : 's'} si no reactivas (la conservamos ${RETENTION_DAYS} días desde que venció).`
+                      : 'Está a punto de eliminarse definitivamente. Reactiva para conservarla.'
                   })()}
                 </p>
               )}
