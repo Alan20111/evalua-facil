@@ -310,7 +310,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                   onChange={(e) => setReferencia(e.target.value)}
                   required
                   className={inputCls}
-                  placeholder="Folio bancario"
+                  placeholder="Folio de operación"
                 />
                 <p className="text-xs text-slate-500 -mt-2">
                   Es el número que te muestra tu banco al confirmar la transferencia — con él lo cotejamos en nuestro estado de cuenta.
