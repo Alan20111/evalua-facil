@@ -29,7 +29,6 @@ const COLS = [
   { key: 'correo', label: 'Correo', w: 190 },
   { key: 'monto', label: 'Monto', w: 100 },
   { key: 'medio', label: 'Medio', w: 130 },
-  { key: 'referencia', label: 'Referencia', w: 140 },
   // Misma Situación que en Suscripciones (Prueba, Cancelada, Suscripción
   // mensual, Depósito por mes, Cortesía) — no confundir con Verificación,
   // que es del PAGO, no de la suscripción.
@@ -469,7 +468,6 @@ export default function PaymentsTable({ stats, onRefresh }) {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2 font-mono text-xs truncate">{payment.referencia || '—'}</td>
                       <td className="px-4 py-2">
                         <SituacionBadge situacion={situacionDe(subscription)} />
                       </td>
