@@ -398,7 +398,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                   </div>
                   <p className="text-xs text-muted">{formatDateTime(payment.createdAt)}</p>
                   {payment.referencia && (
-                    <p className="text-xs font-mono text-muted">Ref: {payment.referencia}</p>
+                    <p className="text-xs font-mono text-muted">Folio: {payment.referencia}</p>
                   )}
                   <ComentarioCell key={`${payment.id}:${payment.comentarios || ''}`} payment={payment} onSaved={onRefresh} />
                   <div className="pt-1">
@@ -516,7 +516,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
           <div className="bg-surface-card rounded-card p-5 w-[calc(100%-2rem)] max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="font-bold text-on-surface mb-2">Rechazar pago</h3>
             <p className="text-sm text-muted mb-3">
-              Referencia: {rejectModal.referencia} — {formatCurrency(rejectModal.monto)}
+              Folio: {rejectModal.referencia} — {formatCurrency(rejectModal.monto)}
             </p>
             <textarea
               value={notasAdmin}
