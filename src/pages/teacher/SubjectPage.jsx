@@ -5715,17 +5715,22 @@ export default function SubjectPage() {
                   campo se sigue identificando aunque ya tenga texto. */}
               {[
                 { field: 'apellidoPaterno', label: 'Apellido paterno', placeholder: 'Ej: García' },
-                { field: 'apellidoMaterno', label: 'Apellido materno', placeholder: 'Ej: López' },
+                // No todos los estudiantes tienen segundo apellido — pedir que
+                // escriban "No tengo" o algo así sería innecesariamente
+                // incómodo, así que este campo no es obligatorio.
+                { field: 'apellidoMaterno', label: 'Apellido materno', placeholder: 'Ej: López', optional: true },
                 { field: 'nombre', label: 'Nombre(s)', placeholder: 'Ej: Juan Carlos' },
-              ].map(({ field, label, placeholder }) => (
+              ].map(({ field, label, placeholder, optional }) => (
                 <div key={field}>
-                  <label htmlFor={`add-student-${field}`} className="block text-sm font-medium text-muted mb-1">{label}</label>
+                  <label htmlFor={`add-student-${field}`} className="block text-sm font-medium text-muted mb-1">
+                    {label} {optional && <span className="text-slate-400 font-normal">(opcional)</span>}
+                  </label>
                   <input
                     id={`add-student-${field}`}
                     type="text"
                     value={newStudent[field]}
                     onChange={(e) => setNewStudent((f) => ({ ...f, [field]: e.target.value }))}
-                    required
+                    required={!optional}
                     // autoFocus intencional: primer campo del modal, se abre
                     // una sola vez por apertura — no hay nada más que esperar.
                     autoFocus={field === 'apellidoPaterno'}
