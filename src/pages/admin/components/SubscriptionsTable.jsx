@@ -93,7 +93,7 @@ const COLS = [
     label: 'Situación (Plan)',
     filtro: 'lista',
     w: 155,
-    ayuda: 'CÓMO está hoy esa suscripción: en prueba, con depósito automático (domiciliada), con mes pagado, en cortesía, o cancelada. Un pago en revisión se ve en Pagos → Verificación, no aquí.',
+    ayuda: 'CÓMO está hoy esa suscripción: en prueba, con pago automático (domiciliada), con mes pagado, en cortesía, o cancelada. Un pago en revisión se ve en Pagos → Verificación, no aquí.',
   },
   {
     key: 'vencimiento',
@@ -1028,7 +1028,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <span className="text-xs text-slate-400">se calcula sola</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-snug">
-                  Depende del docente y del calendario: Prueba al registrarse; Depósito
+                  Depende del docente y del calendario: Prueba al registrarse; Pago
                   automático o Mes pagado al tener un plan pagado (según si es domiciliada
                   con Mercado Pago); Cortesía si se la das; Cancelada al vencer o al cancelarla.
                 </p>

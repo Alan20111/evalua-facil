@@ -10,7 +10,7 @@ export const DIAS_POR_VENCER = 10
 // SUSCRIPCIÓN sino la ausencia de una):
 //   - Prueba
 //   - Cancelada           (prueba vencida, plan sin pagar, cortesía vencida, o el docente la canceló — un solo bote)
-//   - Depósito automático (domiciliada: se cobra sola cada mes vía Mercado Pago)
+//   - Pago automático (domiciliada: se cobra sola cada mes vía Mercado Pago)
 //   - Mes pagado          (pago manual — transferencia o PayPal de una sola vez — que hay que repetir cada mes)
 //   - Cortesía
 // "Pendiente de pago" NO es una situación de la suscripción sino del PAGO:
@@ -35,7 +35,7 @@ export const INSIGNIAS = {
   sin_suscripcion: { etiqueta: 'Sin suscripción', estilo: solido(GRIS) },
   cancelada: { etiqueta: 'Cancelada', estilo: solido(GRIS) },
   prueba: { etiqueta: 'Prueba', estilo: solido(AZUL) },
-  mensual: { etiqueta: 'Depósito automático', estilo: solido(VERDE) },
+  mensual: { etiqueta: 'Pago automático', estilo: solido(VERDE) },
   deposito: { etiqueta: 'Mes pagado', estilo: solido(CIAN) },
   cortesia: { etiqueta: 'Cortesía', estilo: solido(MORADO) },
 }
@@ -96,6 +96,6 @@ export function situacionDe(sub) {
 // Todas las etiquetas posibles, para llenar el desplegable de filtro sin
 // depender de cuáles existan hoy en los datos.
 export const SITUACIONES = [
-  'Prueba', 'Depósito automático', 'Mes pagado', 'Cortesía', 'Cancelada',
+  'Prueba', 'Pago automático', 'Mes pagado', 'Cortesía', 'Cancelada',
   'Cuenta eliminada', 'Sin suscripción',
 ]
