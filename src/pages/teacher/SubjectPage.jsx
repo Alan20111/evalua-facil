@@ -5265,8 +5265,14 @@ export default function SubjectPage() {
           <AvisosTab
             subjectId={subjectId}
             docenteId={currentUser.uid}
-            canCreate={canCreate}
-            onBlockedCreate={() => toast('Activa tu suscripción mensual para publicar avisos', 'error')}
+            canCreate={canCreate && totalStudents > 0}
+            blockedTooltip={!canCreate ? 'Activa tu suscripción mensual para publicar avisos' : 'Necesitas al menos un estudiante inscrito para publicar un aviso'}
+            onBlockedCreate={() => toast(
+              !canCreate
+                ? 'Activa tu suscripción mensual para publicar avisos'
+                : 'Necesitas al menos un estudiante inscrito para publicar un aviso',
+              'error'
+            )}
           />
         </div>
       )}
