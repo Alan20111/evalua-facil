@@ -84,13 +84,6 @@ const COLS = [
     ayuda: 'Cuándo empezó esta suscripción (su fecha de inicio).',
   },
   {
-    key: 'plan',
-    label: 'Plan',
-    filtro: 'lista',
-    w: 165,
-    ayuda: 'QUÉ contrató. Hoy solo existe la Suscripción mensual; quien está en prueba todavía no tiene plan.',
-  },
-  {
     // Antes se llamaba "Estado", que ahora es la entidad federativa del
     // docente. Esta columna es el estatus de la suscripción, de ahí el
     // cambio a "Situación": dos columnas "Estado" no se podían distinguir.
@@ -118,7 +111,7 @@ const COLS = [
 ]
 
 const CAMPOS_TEXTO = ['codigoPostal', 'estado', 'ciudad', 'escuela']
-const CAMPOS_LISTA = ['plan', 'situacion']
+const CAMPOS_LISTA = ['situacion']
 const CAMPOS_FILTRO = COLS.filter((c) => c.filtro).map((c) => c.key)
 const SIN_FILTROS = Object.fromEntries(CAMPOS_FILTRO.map((k) => [k, '']))
 
@@ -209,7 +202,6 @@ function pasaFiltros(r, filtros, search, excepto) {
   if (t('escuela') && !r.buscarEscuela.includes(t('escuela'))) return false
   if (excepto !== 'alta' && filtros.alta && r.altaISO !== filtros.alta) return false
   if (excepto !== 'vencimiento' && filtros.vencimiento && r.vencimientoISO !== filtros.vencimiento) return false
-  if (excepto !== 'plan' && filtros.plan && r.plan !== filtros.plan) return false
   if (excepto !== 'situacion' && filtros.situacion && r.situacionLabel !== filtros.situacion) return false
   // La caja de arriba busca en TODO el renglón (docente, usuario, correo,
   // ciudad, escuela, plan, situación, fechas…), no solo en el nombre:
@@ -383,7 +375,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         alta: altaTexto,
         altaISO: alta ? isoLocal(alta) : '',
         altaMs: alta ? alta.getTime() : 0,
-        plan: planNombre,
         situacion,
         situacionLabel,
         vencimiento: vencTexto,
@@ -616,7 +607,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             )}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            Una suscripción por docente. <strong>Plan</strong> es qué contrató; <strong>Situación</strong>, cómo está hoy.
+            Una suscripción por docente. <strong>Situación</strong> es cómo está hoy.
           </p>
         </div>
 
@@ -732,7 +723,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate" title={r.ciudad}>{r.ciudad}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
-                  <td className="px-3 py-2 text-muted truncate" title={r.plan}>{r.plan}</td>
                   <td className="px-3 py-2">
                     <StatusBadge situacion={r.situacion} />
                     {r.situacion.motivo && (
