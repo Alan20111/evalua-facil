@@ -22,6 +22,7 @@ import { normalizeName } from '../../../utils/schoolSelection'
 import { situacionDe, SITUACIONES, MOTIVOS_CANCELACION } from '../../../utils/situacionSuscripcion'
 import {
   calcDaysRemaining,
+  calcTrialEnd,
   calcVencimiento,
   effectiveVencimiento,
   formatCurrency,
@@ -470,12 +471,19 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   function openEdit(sub) {
     const fi = sub.fechaInicio?.toDate?.()
     const fv = sub.fechaVencimiento?.toDate?.()
+    const planId = sub.planId || ''
+    // Documentos viejos o incompletos (guardados antes de que esto se
+    // autocompletara solo) pueden no traer vencimiento: se calcula aquí
+    // mismo para que el modal ya abra con algo, en vez de "Seleccionar
+    // fecha…" en blanco — misma regla que effectiveVencimiento().
+    const fvCalculado =
+      fv || (fi && planId !== PLAN_CORTESIA ? (planId ? calcVencimiento(fi, 'mensual') : calcTrialEnd(fi)) : null)
     const form = {
       docenteId: sub.docenteId,
-      planId: sub.planId || '',
+      planId,
       cancelada: sub.status === 'cancelada',
       fechaInicio: fi ? fi.toISOString().slice(0, 10) : '',
-      fechaVencimiento: fv ? fv.toISOString().slice(0, 10) : '',
+      fechaVencimiento: fvCalculado ? fvCalculado.toISOString().slice(0, 10) : '',
       cortesiaDias: sub.cortesiaDias ? String(sub.cortesiaDias) : '30',
       cortesiaIndefinida: sub.cortesiaIndefinida === true,
       extender: false,
@@ -877,12 +885,14 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       // decisión de que la suscripción ya no está cancelada:
                       // si el checkbox seguía marcado de antes, se destilda solo.
                       const form = { ...modal.form, planId: nuevoPlanId, cancelada: false }
-                      // Con un plan pagado (no cortesía, que calcula el suyo
-                      // aparte), el campo Vencimiento de Vigencia se
-                      // autocompleta con fecha de inicio + 1 mes, para que no
-                      // quede desalineado con lo que se ve arriba.
-                      if (nuevoPlanId && nuevoPlanId !== PLAN_CORTESIA && form.fechaInicio) {
-                        const vence = calcVencimiento(new Date(`${form.fechaInicio}T12:00:00`), 'mensual')
+                      // El campo Vencimiento de Vigencia se autocompleta solo,
+                      // para que no quede desalineado con lo que se ve arriba:
+                      // cortesía calcula el suyo aparte (por días, más abajo);
+                      // un plan pagado, inicio + 1 mes; Prueba, inicio + 30 días
+                      // (mismos 30 días que ve el docente, ver TRIAL_DURATION_DAYS).
+                      if (nuevoPlanId !== PLAN_CORTESIA && form.fechaInicio) {
+                        const inicio = new Date(`${form.fechaInicio}T12:00:00`)
+                        const vence = nuevoPlanId ? calcVencimiento(inicio, 'mensual') : calcTrialEnd(inicio)
                         form.fechaVencimiento = isoLocal(vence)
                       }
                       setModal({ ...modal, form })
@@ -898,10 +908,10 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     ))}
                   </select>
                   {/* No es cortesía (esa trae su propio vencimiento calculado
-                      más abajo): con un plan pagado, el campo Vencimiento de
-                      Vigencia ya se autocompletó solo (inicio + 1 mes) — se
+                      más abajo): tanto Prueba como un plan pagado ya
+                      autocompletaron solos el Vencimiento de Vigencia — se
                       repite aquí para que se vea sin bajar hasta esa sección. */}
-                  {modal.form.planId && modal.form.planId !== PLAN_CORTESIA && modal.form.fechaVencimiento && (
+                  {modal.form.planId !== PLAN_CORTESIA && modal.form.fechaVencimiento && (
                     <p className="text-xs text-accent font-semibold mt-1">
                       Vence el {formatDate(new Date(`${modal.form.fechaVencimiento}T12:00:00`))}
                     </p>
@@ -981,11 +991,15 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       value={modal.form.fechaInicio}
                       onChange={(v) => {
                         const form = { ...modal.form, fechaInicio: v }
-                        // Mismo recálculo que al elegir el plan: si ya hay uno
-                        // pagado escogido, mover el inicio mueve también el
-                        // vencimiento, para que ambos campos sigan de acuerdo.
-                        if (form.planId && form.planId !== PLAN_CORTESIA && v) {
-                          form.fechaVencimiento = isoLocal(calcVencimiento(new Date(`${v}T12:00:00`), 'mensual'))
+                        // Mismo recálculo que al elegir la situación: mover el
+                        // inicio mueve también el vencimiento (mes o 30 días
+                        // de prueba, según lo que ya estaba elegido), para que
+                        // ambos campos sigan de acuerdo.
+                        if (form.planId !== PLAN_CORTESIA && v) {
+                          const inicio = new Date(`${v}T12:00:00`)
+                          form.fechaVencimiento = isoLocal(
+                            form.planId ? calcVencimiento(inicio, 'mensual') : calcTrialEnd(inicio)
+                          )
                         }
                         setModal({ ...modal, form })
                       }}
