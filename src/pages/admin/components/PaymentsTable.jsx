@@ -117,13 +117,6 @@ export default function PaymentsTable({ stats, onRefresh }) {
   const [notasAdmin, setNotasAdmin] = useState('')
   const [soloArchivadas, setSoloArchivadas] = useState(false)
   const [deleteArchivado, setDeleteArchivado] = useState(null)
-  const [refreshing, setRefreshing] = useState(false)
-
-  async function handleRefreshClick() {
-    setRefreshing(true)
-    await onRefresh?.()
-    setRefreshing(false)
-  }
 
   function closeRejectModal() {
     setRejectModal(null)
@@ -316,19 +309,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
       <div className="px-5 py-3 border-b border-outline-variant space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h2 className="font-semibold text-on-surface">Pagos</h2>
-          <div className="flex items-center gap-2">
-            <PagoNotifToggle />
-            <button
-              type="button"
-              onClick={handleRefreshClick}
-              disabled={refreshing}
-              data-tooltip="Actualizar"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-muted border border-outline-variant rounded hover:bg-[var(--accent-tint)] hover:border-accent hover:text-accent transition-colors disabled:opacity-60"
-            >
-              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-              Actualizar
-            </button>
-          </div>
+          <PagoNotifToggle />
         </div>
         {/* Pagos / Archivadas — mismo patrón que Todos / Guardados en Avisos */}
         <div className="flex gap-1 bg-surface-container p-1 rounded w-fit">
