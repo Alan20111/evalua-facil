@@ -22,6 +22,7 @@ import { normalizeName } from '../../../utils/schoolSelection'
 import { situacionDe, SITUACIONES, MOTIVOS_CANCELACION } from '../../../utils/situacionSuscripcion'
 import {
   calcDaysRemaining,
+  calcVencimiento,
   effectiveVencimiento,
   formatCurrency,
   formatDate,
@@ -861,19 +862,28 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
               <div className="border-t border-outline-variant pt-3 space-y-3">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Qué se le otorga</p>
                 <div>
-                  <label htmlFor="sub-plan" className="block text-xs font-medium text-muted mb-1">Plan</label>
+                  <label htmlFor="sub-plan" className="block text-xs font-medium text-muted mb-1">
+                    Situación a asignar
+                  </label>
                   <select
                     id="sub-plan"
                     value={modal.form.planId}
-                    onChange={(e) =>
-                      // Elegir un plan (incluido "Sin plan/prueba") es decisión
-                      // de que la suscripción ya no está cancelada: si el
-                      // checkbox seguía marcado de antes, se destilda solo.
-                      setModal({
-                        ...modal,
-                        form: { ...modal.form, planId: e.target.value, cancelada: false },
-                      })
-                    }
+                    onChange={(e) => {
+                      const nuevoPlanId = e.target.value
+                      // Elegir una situación (incluido "Sin plan/prueba") es
+                      // decisión de que la suscripción ya no está cancelada:
+                      // si el checkbox seguía marcado de antes, se destilda solo.
+                      const form = { ...modal.form, planId: nuevoPlanId, cancelada: false }
+                      // Con un plan pagado (no cortesía, que calcula el suyo
+                      // aparte), el campo Vencimiento de Vigencia se
+                      // autocompleta con fecha de inicio + 1 mes, para que no
+                      // quede desalineado con lo que se ve arriba.
+                      if (nuevoPlanId && nuevoPlanId !== PLAN_CORTESIA && form.fechaInicio) {
+                        const vence = calcVencimiento(new Date(`${form.fechaInicio}T12:00:00`), 'mensual')
+                        form.fechaVencimiento = isoLocal(vence)
+                      }
+                      setModal({ ...modal, form })
+                    }}
                     className={inputCls}
                   >
                     <option value="">&mdash; Sin plan (prueba) &mdash;</option>
@@ -884,6 +894,15 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       </option>
                     ))}
                   </select>
+                  {/* No es cortesía (esa trae su propio vencimiento calculado
+                      más abajo): con un plan pagado, el campo Vencimiento de
+                      Vigencia ya se autocompletó solo (inicio + 1 mes) — se
+                      repite aquí para que se vea sin bajar hasta esa sección. */}
+                  {modal.form.planId && modal.form.planId !== PLAN_CORTESIA && modal.form.fechaVencimiento && (
+                    <p className="text-xs text-accent font-semibold mt-1">
+                      Vence el {formatDate(new Date(`${modal.form.fechaVencimiento}T12:00:00`))}
+                    </p>
+                  )}
                 </div>
               {/* Cortesía: se otorga por días, no por una fecha suelta. El
                   vencimiento se calcula solo, así que no hay forma de teclear
@@ -957,7 +976,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     <EFDateTimePicker
                       mode="date"
                       value={modal.form.fechaInicio}
-                      onChange={v => setModal({ ...modal, form: { ...modal.form, fechaInicio: v } })}
+                      onChange={(v) => {
+                        const form = { ...modal.form, fechaInicio: v }
+                        // Mismo recálculo que al elegir el plan: si ya hay uno
+                        // pagado escogido, mover el inicio mueve también el
+                        // vencimiento, para que ambos campos sigan de acuerdo.
+                        if (form.planId && form.planId !== PLAN_CORTESIA && v) {
+                          form.fechaVencimiento = isoLocal(calcVencimiento(new Date(`${v}T12:00:00`), 'mensual'))
+                        }
+                        setModal({ ...modal, form })
+                      }}
                     />
                   </div>
                   {modal.form.planId !== PLAN_CORTESIA && (
