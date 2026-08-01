@@ -400,9 +400,10 @@ export default function Profile() {
   // se refresca la tarjeta y se manda el correo.
   function requestCancelSub() {
     const hasta = formatDate(effectiveVencimiento(subscription))
+    const hastaBorrado = formatDate(fechaEliminacion(subscription))
     setConfirm({
       title: 'Cancelar mi suscripción',
-      message: `No se borra nada: tus grupos, estudiantes y calificaciones se quedan, y puedes seguir trabajando hasta el ${hasta}. Después de esa fecha tu cuenta pasará a “Suscripción cancelada”. ¿Confirmas?`,
+      message: `Luego de ${hasta}, podrás seguir teniendo acceso a toda la información que hayas creado hasta ese momento, hasta por 90 días más (${hastaBorrado}). Al renovar podrás seguir usando Evalúa Fácil de forma normal. ¿Confirmas?`,
       onConfirm: executeCancelSub,
     })
   }
