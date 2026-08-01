@@ -123,7 +123,13 @@ export function FilePreview({ url, nombre, fill = false }) {
   // Google en SU dominio, no el documento del alumno; same-origin policy
   // impide que docs.google.com toque evaluafacil.mx.
   return isImage ? (
-    <img src={url} alt={nombre} className={`w-full object-contain ${fill ? 'h-full' : 'max-h-[70vh]'}`} />
+    // Mismo zoom (pellizcar/doble toque/rueda con ctrl) que ya usan los PDFs
+    // — ver PinchZoomImage.jsx. Antes era un <img> plano sin acercamiento.
+    <PinchZoomImage
+      src={url} alt={nombre}
+      className={`w-full ${fill ? 'h-full' : 'max-h-[70vh]'}`}
+      imgClassName="w-full h-full object-contain"
+    />
   ) : isPdf ? (
     // Visor propio (pdf.js → canvas), no el <object> nativo del navegador: ese
     // visor aísla los eventos táctiles como si fuera un plugin y nunca dejaba
