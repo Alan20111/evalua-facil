@@ -57,11 +57,13 @@ export default function SuscripcionVencidaModal({ open, subscription, onSoloCons
           Tus grupos, tus estudiantes, tus actividades y tus calificaciones siguen completos.
           Puedes consultarlos y descargarlos cuando quieras.
         </p>
-        <p className={`text-sm mt-2 text-center ${urgente ? 'text-red-600 font-semibold' : 'text-muted'}`}>
-          {urgente
-            ? `Se eliminan definitivamente en ${diasRestantes <= 0 ? 'cualquier momento' : `${diasRestantes} día${diasRestantes === 1 ? '' : 's'}`} si no reactivas.`
-            : `Los conservamos ${RETENTION_DAYS} días desde que venció tu suscripción — pasado ese plazo se eliminan definitivamente.`}
-        </p>
+        {diasRestantes !== null && (
+          <p className={`text-sm mt-2 text-center ${urgente ? 'text-red-600 font-semibold' : 'text-muted'}`}>
+            {diasRestantes <= 0
+              ? 'Se eliminan definitivamente en cualquier momento si no reactivas.'
+              : `Se eliminan definitivamente en ${diasRestantes} día${diasRestantes === 1 ? '' : 's'} si no reactivas (los conservamos ${RETENTION_DAYS} días desde que venció).`}
+          </p>
+        )}
         <p className="text-sm text-on-surface mt-3 text-center font-medium">
           Para volver a trabajar —calificar, pasar lista, crear actividades— activa tu {SUBSCRIPTION_NAME.toLowerCase()}.
         </p>
