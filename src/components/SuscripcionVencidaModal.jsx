@@ -3,7 +3,13 @@ import { Lock, Download, CreditCard } from 'lucide-react'
 import CheckoutModal from './CheckoutModal'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
-import { MONTHLY_PRICE_LABEL, SUBSCRIPTION_NAME, RETENTION_DAYS, diasParaEliminacion } from '../utils/subscriptionHelpers'
+import {
+  MONTHLY_PRICE_LABEL,
+  SUBSCRIPTION_NAME,
+  diasParaEliminacion,
+  fechaEliminacion,
+  formatDate,
+} from '../utils/subscriptionHelpers'
 
 // A partir de aquí (30 días o menos para que se cumplan los RETENTION_DAYS)
 // el mensaje pasa de informativo a urgente — mismo umbral que el correo
@@ -54,14 +60,14 @@ export default function SuscripcionVencidaModal({ open, subscription, onSoloCons
         <h2 className="text-xl font-bold text-on-surface text-center">Tu suscripción venció</h2>
 
         <p className="text-sm text-muted mt-2 text-center">
-          Tus grupos, tus estudiantes, tus actividades y tus calificaciones siguen completos.
+          Tus grupos, estudiantes, actividades, entregas y calificaciones siguen completos.
           Puedes consultarlos y descargarlos cuando quieras.
         </p>
         {diasRestantes !== null && (
           <p className={`text-sm mt-2 text-center ${urgente ? 'text-red-600 font-semibold' : 'text-muted'}`}>
             {diasRestantes <= 0
               ? 'Se eliminan definitivamente en cualquier momento si no reactivas.'
-              : `Se eliminan definitivamente en ${diasRestantes} día${diasRestantes === 1 ? '' : 's'} si no reactivas (los conservamos ${RETENTION_DAYS} días desde que venció).`}
+              : `Guardamos toda tu información hasta el ${formatDate(fechaEliminacion(subscription))} (${diasRestantes} día${diasRestantes === 1 ? '' : 's'} más), por si decides volver.`}
           </p>
         )}
         <p className="text-sm text-on-surface mt-3 text-center font-medium">
