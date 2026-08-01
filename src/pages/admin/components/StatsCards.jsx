@@ -21,7 +21,7 @@ const KPI_CONFIG = [
   {
     key: 'activeSubCount',
     label: 'Suscripciones activas',
-    ayuda: 'Suma de Suscripción mensual (domiciliada) y Mes pagado.',
+    ayuda: 'Suma de Depósito automático (domiciliada) y Mes pagado.',
     format: (v) => v,
   },
   {

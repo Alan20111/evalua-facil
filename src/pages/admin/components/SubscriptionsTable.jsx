@@ -89,10 +89,10 @@ const COLS = [
     // docente. Esta columna es el estatus de la suscripción, de ahí el
     // cambio a "Situación": dos columnas "Estado" no se podían distinguir.
     key: 'situacion',
-    label: 'Situación',
+    label: 'Situación (Plan)',
     filtro: 'lista',
     w: 155,
-    ayuda: 'CÓMO está hoy esa suscripción: en prueba, con suscripción mensual (domiciliada), con depósito por mes, en cortesía, o cancelada. Un pago en revisión se ve en Pagos → Verificación, no aquí.',
+    ayuda: 'CÓMO está hoy esa suscripción: en prueba, con depósito automático (domiciliada), con mes pagado, en cortesía, o cancelada. Un pago en revisión se ve en Pagos → Verificación, no aquí.',
   },
   {
     key: 'vencimiento',
@@ -740,7 +740,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate">{r.vencimiento}</td>
                   {/* Los días ya vencidos van en rojo: es lo que se busca al
                       barrer la tabla con la vista. */}
-                  <td className={`px-3 py-2 text-right tabular-nums ${r.dias !== null && r.dias <= 0 ? 'text-red-600 font-semibold' : 'text-muted'}`}>
+                  <td className={`px-3 py-2 text-right tabular-nums ${r.dias !== null && r.dias < 0 ? 'text-red-600 font-semibold' : 'text-muted'}`}>
                     {r.dias !== null ? r.dias : '—'}
                   </td>
                   <td className="px-3 py-2 text-muted truncate" title={r.ultimoPago}>{r.ultimoPago}</td>
@@ -1011,8 +1011,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <span className="text-xs text-slate-400">se calcula sola</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-snug">
-                  Depende del docente y del calendario: Prueba al registrarse; Suscripción
-                  mensual o Mes pagado al tener un plan pagado (según si es domiciliada
+                  Depende del docente y del calendario: Prueba al registrarse; Depósito
+                  automático o Mes pagado al tener un plan pagado (según si es domiciliada
                   con Mercado Pago); Cortesía si se la das; Cancelada al vencer o al cancelarla.
                 </p>
                 <label className="flex items-start gap-2 text-sm text-on-surface cursor-pointer">
