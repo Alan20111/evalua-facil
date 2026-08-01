@@ -453,6 +453,13 @@ export default function Profile() {
   // prueba no aparece: no hay ningún cobro que detener, y un botón
   // "cancelar" ahí solo haría dudar a quien apenas está probando.
   const puedeCancelar = subscription?.status === 'activa' || subscription?.status === 'pendiente_pago'
+  // Vencida por cualquier motivo (no pagó, o él la canceló y ya se le acabaron
+  // los días cubiertos): mismo mensaje terminal en ambos casos.
+  const expirada = subscription ? isSubscriptionExpired(subscription) : false
+  // Canceló pero todavía le quedan días pagados: sigue viendo su plan con
+  // normalidad — no se le anuncia "cancelada" antes de tiempo — solo se le
+  // avisa que no se va a renovar.
+  const enGraciaCancelada = subscription?.status === 'cancelada' && !expirada
 
   return (
     <>
@@ -482,22 +489,26 @@ export default function Profile() {
                   )}
                 </div>
                 <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${getSubscriptionStatusColor(subscription.status)}`}
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                    expirada ? 'bg-slate-100 text-slate-600' : getSubscriptionStatusColor(subscription.status)
+                  }`}
                 >
-                  {subscription.status?.replace('_', ' ')}
+                  {expirada ? 'Suscripción cancelada' : subscription.status?.replace('_', ' ')}
                 </span>
               </div>
-              {daysRemaining !== null && subscription.status !== 'cancelada' && (
+              {daysRemaining !== null && !expirada && (
                 <p
                   className={`text-sm font-medium ${
-                    daysRemaining <= 7
-                      ? 'text-amber-600'
-                      : subscription.status === 'vencida'
-                      ? 'text-red-600'
-                      : 'text-emerald-600'
+                    daysRemaining <= 7 && !enGraciaCancelada ? 'text-amber-600' : 'text-emerald-600'
                   }`}
                 >
                   {getDaysLabel(daysRemaining)}
+                </p>
+              )}
+              {enGraciaCancelada && (
+                <p className="text-sm text-muted">
+                  Cancelaste tu suscripción — sigues usando todo con normalidad hasta el{' '}
+                  {formatDate(effectiveVencimiento(subscription))}, cuando ya no se renovará.
                 </p>
               )}
               {subscription.status === 'pendiente_pago' && (
@@ -505,7 +516,13 @@ export default function Profile() {
                   Tu pago está en revisión. Lo aprobamos dentro de las 12 horas siguientes a que lo hiciste — vuelve a checar aquí.
                 </p>
               )}
-              {isSubscriptionExpired(subscription) && (
+              {expirada && (
+                <p className="text-sm text-red-600">
+                  Tus grupos, estudiantes, actividades y calificaciones siguen disponibles. Solo no puedes crear
+                  ni editar hasta que actives tu suscripción.
+                </p>
+              )}
+              {expirada && (
                 <p className="text-sm text-red-600">
                   {(() => {
                     const dias = diasParaEliminacion(subscription)
@@ -525,7 +542,9 @@ export default function Profile() {
               onClick={() => setShowPaymentModal(true)}
               className="mt-2 w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors"
             >
-              {subscription && subscription.status !== 'trial' ? 'Renovar suscripción mensual' : 'Activar suscripción mensual'}
+              {subscription && subscription.status !== 'trial' && !expirada
+                ? 'Renovar suscripción mensual'
+                : 'Activar suscripción mensual'}
             </button>
           )}
           {puedeCancelar && (
