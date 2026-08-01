@@ -29,7 +29,7 @@ import { refreshTeacherReminders } from '../../utils/localReminders'
 import { formatHora12 } from '../../utils/formatHora'
 import { isDraftActivity, withDefaultTime } from '../../utils/activityVisibility'
 import {
-  Clock, Send, CalendarDays, ChevronLeft, ChevronRight, Plus,
+  Clock, Send, CalendarDays, ChevronLeft, ChevronRight, ChevronDown, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
   CalendarOff, Trash2, X, Minus, Columns3, Lock, LockOpen,
 } from 'lucide-react'
@@ -878,6 +878,49 @@ const VIEWS = [
   { id: 'semana', label: 'Semana', Icon: CalendarRange },
   { id: 'mes',    label: 'Mes',    Icon: LayoutGrid },
 ]
+
+// Select propio con el estilo de la app — reemplaza el <select> nativo, que
+// en Android abre el picker del sistema operativo (se ve fuera de lugar).
+function MiniSelect({ value, options, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  const selected = options.find(o => o.value === value)
+
+  return (
+    <div className="relative flex-1 min-w-0" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between gap-1 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm text-on-surface transition-colors"
+      >
+        <span className="truncate">{selected?.label}</span>
+        <ChevronDown size={14} className={`text-muted flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-10 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 w-full min-w-[8rem] max-h-56 overflow-y-auto">
+          {options.map(o => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${o.value === value ? 'bg-accent text-white font-semibold' : 'text-on-surface hover:bg-accent-tint'}`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function CalendarPage() {
   const { currentUser } = useAuth()
@@ -1851,40 +1894,36 @@ export default function CalendarPage() {
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted w-12 flex-shrink-0">Desde</span>
-              <select
+              <MiniSelect
                 value={dayStart}
-                onChange={e => changeDayStart(Number(e.target.value))}
-                className="w-28 flex-shrink-0 ml-auto px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
-              >
-                {Array.from({ length: 23 }, (_, h) => h).map(h => (
-                  <option key={h} value={h}>{formatHora12(`${String(h).padStart(2, '0')}:00`)}</option>
-                ))}
-              </select>
+                onChange={v => changeDayStart(v)}
+                options={Array.from({ length: 23 }, (_, h) => h).map(h => ({
+                  value: h, label: formatHora12(`${String(h).padStart(2, '0')}:00`),
+                }))}
+              />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted w-12 flex-shrink-0">Hasta</span>
-              <select
+              <MiniSelect
                 value={dayEnd}
-                onChange={e => changeDayEnd(Number(e.target.value))}
-                className="w-28 flex-shrink-0 ml-auto px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
-              >
-                {Array.from({ length: 24 }, (_, h) => h + 1).filter(h => h > dayStart).map(h => (
-                  <option key={h} value={h}>{formatHora12(`${String(h % 24).padStart(2, '0')}:00`)}</option>
-                ))}
-              </select>
+                onChange={v => changeDayEnd(v)}
+                options={Array.from({ length: 24 }, (_, h) => h + 1).filter(h => h > dayStart).map(h => ({
+                  value: h, label: formatHora12(`${String(h % 24).padStart(2, '0')}:00`),
+                }))}
+              />
             </div>
             <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-1">Días de tu semana</p>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted w-12 flex-shrink-0">Días</span>
-              <select
+              <MiniSelect
                 value={numDays}
-                onChange={e => changeNumDays(Number(e.target.value))}
-                className="flex-1 min-w-0 px-2 py-1.5 rounded border border-outline-variant bg-surface text-sm"
-              >
-                <option value={5}>Lunes a Viernes</option>
-                <option value={6}>Lunes a Sábado</option>
-                <option value={7}>Lunes a Domingo</option>
-              </select>
+                onChange={v => changeNumDays(v)}
+                options={[
+                  { value: 5, label: 'Lunes a Viernes' },
+                  { value: 6, label: 'Lunes a Sábado' },
+                  { value: 7, label: 'Lunes a Domingo' },
+                ]}
+              />
             </div>
           </div>
         </>
