@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
-import { Bell, BellOff, Check, X, RefreshCw, Archive, ArchiveRestore, Trash2 } from 'lucide-react'
+import { Bell, BellOff, Check, X, RefreshCw, Archive, ArchiveRestore, Trash2, RotateCcw } from 'lucide-react'
 import { db } from '../../../firebase'
 import { useAuth } from '../../../context/AuthContext'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
+import { useColumnWidths } from '../../../hooks/useColumnWidths'
+import SituacionBadge from './StatusBadge'
+import { situacionDe } from '../../../utils/situacionSuscripcion'
 import {
   calcVencimientoTimestamp,
   effectiveVencimiento,
@@ -16,6 +19,26 @@ import {
   getPaymentStatusColor,
   toDate,
 } from '../../../utils/subscriptionHelpers'
+
+// Igual patrón que Suscripciones: anchos ajustables y recordados por
+// separado (storage key propia), con la última columna absorbiendo el
+// sobrante para que el total siga llenando el área.
+const WIDTHS_KEY = 'admin-pagos-cols-v1'
+const COLS = [
+  { key: 'transaccion', label: 'Transacción', w: 90 },
+  { key: 'correo', label: 'Correo', w: 190 },
+  { key: 'monto', label: 'Monto', w: 100 },
+  { key: 'medio', label: 'Medio', w: 130 },
+  { key: 'referencia', label: 'Referencia', w: 140 },
+  // Misma Situación que en Suscripciones (Prueba, Cancelada, Suscripción
+  // mensual, Depósito por mes, Cortesía) — no confundir con Verificación,
+  // que es del PAGO, no de la suscripción.
+  { key: 'situacion', label: 'Situación', w: 150 },
+  { key: 'verificacion', label: 'Verificación', w: 130 },
+  { key: 'fecha', label: 'Fecha', w: 150 },
+  { key: 'comentarios', label: 'Comentarios', w: 170 },
+  { key: 'acciones', label: 'Acciones', w: 180 },
+]
 
 function StatusBadge({ status }) {
   return (
@@ -120,6 +143,8 @@ export default function PaymentsTable({ stats, onRefresh }) {
   const [notasAdmin, setNotasAdmin] = useState('')
   const [soloArchivadas, setSoloArchivadas] = useState(false)
   const [deleteArchivado, setDeleteArchivado] = useState(null)
+  const { containerRef, widths, total, dragKey, startResize, resetWidths, resetColumn, esRedimensionable } =
+    useColumnWidths(WIDTHS_KEY, COLS)
 
   function closeRejectModal() {
     setRejectModal(null)
@@ -387,20 +412,39 @@ export default function PaymentsTable({ stats, onRefresh }) {
 
           {/* ── Tabla — escritorio. Scroll propio: la lista no debe empujar el
               resto del panel hacia abajo conforme crezca (mismo criterio que
-              la caja de historial en Avisos). */}
-          <div className="hidden md:block overflow-x-auto overflow-y-auto max-h-[60vh]">
-            <table className="w-full text-sm min-w-[880px]">
+              la caja de historial en Avisos). table-fixed + <colgroup> es lo
+              que hace que los anchos arrastrados se respeten — mismo patrón
+              que Suscripciones. */}
+          <div ref={containerRef} className="hidden md:block overflow-x-auto overflow-y-auto max-h-[60vh]">
+            <table className="text-sm table-fixed" style={{ width: total }}>
+              <colgroup>
+                {COLS.map((c) => (
+                  <col key={c.key} style={{ width: widths[c.key] }} />
+                ))}
+              </colgroup>
               <thead className="sticky top-0 z-10">
                 <tr className="bg-surface text-left text-xs text-muted uppercase">
-                  <th className="px-4 py-2">Transacción</th>
-                  <th className="px-4 py-2">Correo</th>
-                  <th className="px-4 py-2">Monto</th>
-                  <th className="px-4 py-2">Medio</th>
-                  <th className="px-4 py-2">Referencia</th>
-                  <th className="px-4 py-2">Verificación</th>
-                  <th className="px-4 py-2">Fecha</th>
-                  <th className="px-4 py-2">Comentarios</th>
-                  <th className="px-4 py-2">Acciones</th>
+                  {COLS.map((col) => (
+                    <th key={col.key} className="relative px-4 py-2 select-none">
+                      <span className="block truncate">{col.label}</span>
+                      {esRedimensionable(col.key) && (
+                        <span
+                          onPointerDown={(e) => startResize(e, col.key)}
+                          onDoubleClick={() => resetColumn(col.key)}
+                          title="Arrastra para cambiar el ancho (doble clic para restablecer)"
+                          className="absolute top-0 right-0 h-full w-2 cursor-col-resize flex justify-center group"
+                        >
+                          <span
+                            className={`h-full transition-colors ${
+                              dragKey === col.key
+                                ? 'w-[2px] bg-accent'
+                                : 'w-px bg-outline-variant group-hover:bg-accent'
+                            }`}
+                          />
+                        </span>
+                      )}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -410,26 +454,29 @@ export default function PaymentsTable({ stats, onRefresh }) {
                   const domiciliado = payment.metodo === 'mercadopago' && !!subscription?.mpPreapprovalId
                   return (
                     <tr key={payment.id} className="hover:bg-[var(--accent-tint)]">
-                      <td className="px-4 py-2 font-mono text-xs text-muted">#{numeroPorId[payment.id]}</td>
-                      <td className="px-4 py-2">
-                        <p className="font-medium text-on-surface">
+                      <td className="px-4 py-2 font-mono text-xs text-muted truncate">#{numeroPorId[payment.id]}</td>
+                      <td className="px-4 py-2 truncate">
+                        <p className="font-medium text-on-surface truncate">
                           {teacher?.email || '—'}
                         </p>
                       </td>
-                      <td className="px-4 py-2 font-semibold">{formatCurrency(payment.monto)}</td>
-                      <td className="px-4 py-2">
-                        <p className="text-sm">{METODO_LABELS[payment.metodo] || payment.metodo || '—'}</p>
+                      <td className="px-4 py-2 font-semibold truncate">{formatCurrency(payment.monto)}</td>
+                      <td className="px-4 py-2 truncate">
+                        <p className="text-sm truncate">{METODO_LABELS[payment.metodo] || payment.metodo || '—'}</p>
                         {domiciliado && (
                           <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold mt-0.5">
                             <RefreshCw size={11} /> Domiciliado
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2 font-mono text-xs">{payment.referencia || '—'}</td>
+                      <td className="px-4 py-2 font-mono text-xs truncate">{payment.referencia || '—'}</td>
+                      <td className="px-4 py-2">
+                        <SituacionBadge situacion={situacionDe(subscription)} />
+                      </td>
                       <td className="px-4 py-2">
                         <StatusBadge status={payment.status} />
                       </td>
-                      <td className="px-4 py-2 text-muted">{formatDateTime(payment.createdAt)}</td>
+                      <td className="px-4 py-2 text-muted truncate">{formatDateTime(payment.createdAt)}</td>
                       <td className="px-4 py-2">
                         <ComentarioCell key={`${payment.id}:${payment.comentarios || ''}`} payment={payment} onSaved={onRefresh} />
                       </td>
@@ -441,6 +488,15 @@ export default function PaymentsTable({ stats, onRefresh }) {
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="hidden md:flex px-4 py-2 border-t border-outline-variant">
+            <button
+              type="button"
+              onClick={resetWidths}
+              className="inline-flex items-center gap-1 text-xs text-muted hover:text-accent transition-colors"
+            >
+              <RotateCcw size={13} /> Restablecer ancho de columnas
+            </button>
           </div>
         </>
       )}
