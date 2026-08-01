@@ -1919,8 +1919,8 @@ export default function CalendarPage() {
               {dateNav}
               {hoyBtn}
               {eventoBtn}
-              {viewSwitcher}
               {hourRangeBtn}
+              {viewSwitcher}
             </div>
 
             {/* Segunda fila: asuetos + programación de bloques */}
