@@ -34,7 +34,7 @@ function ProgressoLectura({ leidos, total }) {
   )
 }
 
-export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBlockedCreate }) {
+export default function AvisosTab({ subjectId, docenteId, canCreate = true, blockedTooltip = 'Activa tu suscripción mensual para publicar avisos', onBlockedCreate }) {
   const toast = useToast()
   const [avisos, setAvisos] = useState([])
   const [avisosLoaded, setAvisosLoaded] = useState(false)
@@ -358,7 +358,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, onBl
           Comunicados para todo el grupo — sin respuestas ni comentarios, solo para informar.
         </p>
         <button type="button" onClick={openAdd}
-          data-tooltip={canCreate ? 'Nuevo aviso' : 'Activa tu suscripción mensual para publicar avisos'}
+          data-tooltip={canCreate ? 'Nuevo aviso' : blockedTooltip}
           className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-50">
           <Plus size={16} /> Nuevo aviso
         </button>
