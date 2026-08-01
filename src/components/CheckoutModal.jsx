@@ -8,7 +8,15 @@ import Spinner from './Spinner'
 import { usePaymentConfig } from '../hooks/usePaymentConfig'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
-import { MONTHLY_PLAN_ID, MONTHLY_PRICE_MXN, SUBSCRIPTION_NAME, formatCurrency } from '../utils/subscriptionHelpers'
+import {
+  MONTHLY_PLAN_ID,
+  MONTHLY_PRICE_MXN,
+  SUBSCRIPTION_NAME,
+  calcDaysRemaining,
+  effectiveVencimiento,
+  formatCurrency,
+  formatDate,
+} from '../utils/subscriptionHelpers'
 import { apiUrl } from '../utils/apiBase'
 
 const inputCls =
@@ -186,6 +194,14 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
 
   if (!open) return null
 
+  // Si aún le quedan días vigentes (de prueba o de un plan pagado previo), lo
+  // pagado ahora no los recorta: el mes nuevo arranca cuando esos días se
+  // agoten. Se lo decimos aquí para que no le sorprenda ver la misma fecha de
+  // vencimiento que ya tenía en vez de "hoy + 1 mes".
+  const vigenteHasta = effectiveVencimiento(subscription)
+  const diasVigentes = calcDaysRemaining(vigenteHasta)
+  const tieneDiasVigentes = diasVigentes !== null && diasVigentes > 0
+
   const t = config?.transferencia
   const methods = [
     config?.mercadoPago?.enabled && { id: 'mercadopago', label: 'Mercado Pago', icon: Wallet },
@@ -218,6 +234,14 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
               <p className="font-semibold text-on-surface">{SUBSCRIPTION_NAME}</p>
               <p className="text-sm text-muted">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
             </div>
+
+            {tieneDiasVigentes && (
+              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2.5">
+                Todavía te quedan {diasVigentes} día{diasVigentes === 1 ? '' : 's'} vigentes.
+                No los pierdes: tu mes pagado empieza el {formatDate(vigenteHasta)}, cuando esos
+                días terminen, y corre completo desde ahí.
+              </p>
+            )}
 
             {/* Method tabs */}
             <div className="flex gap-2">

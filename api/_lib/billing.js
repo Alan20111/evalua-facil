@@ -1,5 +1,9 @@
 import { admin, getDb } from './firebaseAdmin.js'
 
+// Duplicado de TRIAL_DURATION_DAYS (src/utils/subscriptionHelpers.js) —
+// api/ no puede importar de src/. Si cambia allá, cambiar aquí también.
+const TRIAL_DURATION_DAYS = 30
+
 // Reads a plan from Firestore. The price ALWAYS comes from here, never from the
 // client, so a user cannot pay less by tampering with the request.
 export async function getPlan(planId) {
@@ -23,6 +27,24 @@ function addPeriod(date, periodicidad) {
   return d
 }
 
+// Hasta cuándo sigue vigente lo que el docente ya tenía ANTES de este pago
+// (los días de prueba que le quedaban, o el vencimiento de un plan pagado
+// previo) — o null si ya no le quedaba nada. Lo pagado nunca debe recortar
+// días ya en curso: el nuevo periodo arranca ahí, no "ahora mismo".
+function vigenciaPrevia(subscription) {
+  if (!subscription) return null
+  let fin
+  if (subscription.status === 'trial') {
+    const inicio = subscription.fechaInicio?.toDate?.() || null
+    if (!inicio) return null
+    fin = new Date(inicio)
+    fin.setDate(fin.getDate() + TRIAL_DURATION_DAYS)
+  } else {
+    fin = subscription.fechaVencimiento?.toDate?.() || null
+  }
+  return fin && fin > new Date() ? fin : null
+}
+
 // Marks a payment as completed and activates its subscription.
 // Idempotent: if the payment is already completed, it does nothing (webhooks
 // and capture calls can both fire for the same payment).
@@ -39,7 +61,12 @@ export async function completePayment(paymentId, gatewayData = {}) {
   if (payment.status === 'completado') return { alreadyDone: true }
 
   const plan = await getPlan(payment.planId)
-  const inicio = new Date()
+  let subscription = null
+  if (payment.subscriptionId) {
+    const subSnap = await db.collection('subscriptions').doc(payment.subscriptionId).get()
+    subscription = subSnap.exists ? subSnap.data() : null
+  }
+  const inicio = vigenciaPrevia(subscription) || new Date()
   const vencimiento = addPeriod(inicio, plan.periodicidad || 'mensual')
 
   await payRef.update({
@@ -90,7 +117,10 @@ export async function recordRecurringCharge(mpPreapprovalId, gatewayData = {}) {
   if (!dupSnap.empty) return { alreadyDone: true }
 
   const plan = await getPlan(subscription.planId)
-  const inicio = new Date()
+  // Solo aplica en el primer cobro de la preapproval (la suscripción todavía
+  // podía estar en trial/pendiente_pago); en renovaciones posteriores ya está
+  // 'activa' y su vencimiento previo es, en la práctica, "ahora".
+  const inicio = vigenciaPrevia(subscription) || new Date()
   const vencimiento = addPeriod(inicio, plan.periodicidad || 'mensual')
 
   await db.collection('payments').add({

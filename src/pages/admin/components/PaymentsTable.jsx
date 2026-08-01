@@ -9,9 +9,12 @@ import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import {
   calcVencimientoTimestamp,
+  effectiveVencimiento,
   formatCurrency,
+  formatDate,
   formatDateTime,
   getPaymentStatusColor,
+  toDate,
 } from '../../../utils/subscriptionHelpers'
 
 function StatusBadge({ status }) {
@@ -190,11 +193,22 @@ export default function PaymentsTable({ stats, onRefresh }) {
   }
 
   async function handleApprove(payment) {
-    if (!confirm('¿Confirmas que este pago fue recibido y quieres activar la suscripción?')) return
+    const subPrevia = payment.subscriptionId ? subscriptionsMap[payment.subscriptionId] : null
+    // Lo pagado cubre desde HOY o, si todavía le quedaban días de prueba (o de
+    // un plan previo vigente), desde que esos días se agoten — nunca se le
+    // recortan días ya en curso. calcVencimiento suma el mes/año a partir de
+    // esa fecha efectiva.
+    const vigenteHasta = subPrevia ? toDate(effectiveVencimiento(subPrevia)) : null
+    const ahora = new Date()
+    const fechaInicio = vigenteHasta && vigenteHasta > ahora ? vigenteHasta : ahora
+    const avisoContinuidad =
+      vigenteHasta && vigenteHasta > ahora
+        ? ` Como aún le quedaban días vigentes, la nueva suscripción arranca el ${formatDate(vigenteHasta)} (no se le recortó nada) y corre un mes completo desde ahí.`
+        : ''
+    if (!confirm(`¿Confirmas que este pago fue recibido y quieres activar la suscripción?${avisoContinuidad}`)) return
     setProcessing(payment.id)
     try {
       const plan = plansMap[payment.planId]
-      const fechaInicio = new Date()
       const fechaVencimiento = calcVencimientoTimestamp(fechaInicio, plan?.periodicidad || 'mensual')
 
       await updateDoc(doc(db, 'payments', payment.id), {
