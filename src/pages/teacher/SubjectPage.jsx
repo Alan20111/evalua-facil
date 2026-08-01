@@ -3725,7 +3725,7 @@ export default function SubjectPage() {
         <ArrowLeft size={20} />
       </button>
       <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
-      {addDayLabel && (
+      {addDayLabel && totalStudents > 0 && (
         <button type="button" onClick={handleAddDayClick}
           className="ml-auto flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
           <CalendarPlus size={14} /> {addDayLabel}
@@ -4201,6 +4201,10 @@ export default function SubjectPage() {
         ══════════════════════════════════════════════════════════ */}
         {activeTab === 'calificaciones' && (
           <div className="px-4 py-2 space-y-2">
+          {totalStudents === 0 ? (
+            <p className="text-center text-slate-400 text-sm py-12">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p>
+          ) : (
+            <>
             {/* 1 — Descargar calificaciones. El botón grande baja TODO; el ⋮
                  ofrece una descarga por parcial (progreso, sin cerrar). */}
             <div>
@@ -4214,9 +4218,6 @@ export default function SubjectPage() {
                   "presente" aunque invisible). min-w-0 por sí solo ya evita
                   que los dos flex-1 fuercen scroll horizontal, sin necesidad
                   de recortar overflow. */}
-              {totalStudents === 0 ? (
-                <p className="text-sm text-muted">Necesitas al menos un estudiante inscrito para poder descargar calificaciones.</p>
-              ) : (
               <div className="flex gap-2">
                 {/* Excel y PDF: relleno de tinte de acento + borde, no borde
                     solo (se perdían sobre la tarjeta blanca) ni acento sólido
@@ -4240,7 +4241,6 @@ export default function SubjectPage() {
                   parciales={parcialesConActividades} onPickParcial={doExportParcialPDF}
                 />
               </div>
-              )}
             </div>
 
             <SearchInput
@@ -4604,6 +4604,8 @@ export default function SubjectPage() {
                 )}
               </>
             )}
+            </>
+          )}
           </div>
         )}
 
@@ -4620,8 +4622,8 @@ export default function SubjectPage() {
         <div className="fixed inset-0 z-[70] bg-surface flex flex-col safe-top">
           {loadingAttendance ? (
             <>{nativeAttBar}<div className="flex-1 flex items-center justify-center"><Spinner size="lg" /></div></>
-          ) : groupStudents.length === 0 ? (
-            <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">No hay estudiantes en esta asignatura</p></>
+          ) : totalStudents === 0 ? (
+            <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p></>
           ) : attendanceRecords.length === 0 ? (
             <>{nativeAttBar}<p className="flex-1 grid place-items-center text-slate-400 text-sm px-6 text-center">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p></>
           ) : attendanceParciales.length === 0 ? (
@@ -4634,6 +4636,10 @@ export default function SubjectPage() {
         </div>
       ) : (
         <div className="px-4 py-2 space-y-2">
+        {totalStudents === 0 ? (
+          <p className="text-center text-slate-400 text-sm py-12">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p>
+        ) : (
+          <>
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Asistencias</p>
             {addDayLabel && (
@@ -4724,8 +4730,6 @@ export default function SubjectPage() {
 
           {loadingAttendance ? (
             <div className="flex justify-center py-12"><Spinner size="lg" /></div>
-          ) : groupStudents.length === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-12">No hay estudiantes en esta asignatura</p>
           ) : attendanceRecords.length === 0 ? (
             <p className="text-center text-slate-400 text-sm py-12">Aún no hay días de asistencia — toca &quot;Agregar día&quot; para empezar.</p>
           ) : attendanceParciales.length === 0 ? (
@@ -4741,6 +4745,8 @@ export default function SubjectPage() {
               )}
             </>
           )}
+          </>
+        )}
         </div>
       ))}
 
