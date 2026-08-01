@@ -162,18 +162,22 @@ function calcFinCortesia(form, vencimientoActual) {
 // La situación NO la elige el administrador: es consecuencia. Prueba la
 // determina el registro del docente, Activa el tener plan o cortesía, y
 // Vencida el calendario. Lo único que sí es decisión suya es CANCELAR.
-function situacionCalculada(form, statusPrevio) {
+//
+// "— Sin plan (prueba) —" es literal: quitarle el plan a alguien SIEMPRE lo
+// manda a Prueba, sin excepción — antes conservaba el status anterior
+// (p. ej. seguía "activa" sin ningún plan asignado), lo que contradecía la
+// propia opción del desplegable y hacía que la vista previa mostrara "Mes
+// pagado" para algo marcado como "sin plan".
+function situacionCalculada(form) {
   if (form.cancelada) return 'cancelada'
   if (form.planId) return 'activa'
-  // Sin plan conserva lo que ya traía (prueba / pendiente de pago / vencida);
-  // si venía cancelada y se descancela, vuelve a ser una prueba.
-  return statusPrevio && statusPrevio !== 'cancelada' ? statusPrevio : 'trial'
+  return 'trial'
 }
 
 // Cómo quedaría la suscripción con lo que hay escrito ahora en el formulario,
 // para pintar la insignia de vista previa con la misma regla que la tabla.
 function previsualizarSuscripcion(modal) {
-  const status = situacionCalculada(modal.form, modal.statusPrevio)
+  const status = situacionCalculada(modal.form)
   const fin = calcFinCortesia(modal.form, modal.vencimientoActual)
   return {
     status,
@@ -444,7 +448,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   function openCreate() {
     setModal({
       mode: 'create',
-      statusPrevio: null,
       form: {
         docenteId: teachers[0]?.id || '',
         // Sin plan (prueba) por default: un docente normal ya tiene su propia
@@ -483,7 +486,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       // sobre la que se extiende una cortesía, y no debe cambiar mientras el
       // administrador teclea.
       vencimientoActual: effectiveVencimiento(sub) ? toDate(effectiveVencimiento(sub)) : null,
-      statusPrevio: sub.status,
       form,
       // Copia congelada de `form` tal como se abrió — el botón Guardar se
       // apaga mientras `form` siga siendo idéntico a esto. `extender` entra
@@ -520,7 +522,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         planId: modal.form.planId,
         escuelaId: teacher?.escuelaId || '',
         schoolName: school?.nombre || teacher?.schoolName || '',
-        status: situacionCalculada(modal.form, modal.statusPrevio),
+        status: situacionCalculada(modal.form),
         updatedAt: serverTimestamp(),
       }
       const toTimestamp = (val) => {
