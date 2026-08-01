@@ -3756,8 +3756,13 @@ export default function SubjectPage() {
   // sola forma de entrar, la misma en web y en app.
   const subjectHeaderLeftIcons = (
     <>
+      {/* Etiqueta explicando qué es el código — solo en la web, pedido
+          explícito de no tocar cómo se ve en la App. */}
+      {!IS_NATIVE_APP && (
+        <span className="text-sm font-medium text-muted flex-shrink-0">Código de acceso a este curso para estudiantes:</span>
+      )}
       <button type="button" onClick={copyAccessCode}
-        data-tooltip="Copiar código de acceso para estudiantes"
+        data-tooltip={IS_NATIVE_APP ? 'Copiar código de acceso para estudiantes' : 'Copiar'}
         className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
         {copiedCode
           ? <><CheckIcon size={22} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
