@@ -485,7 +485,15 @@ export default function Profile() {
                     </>
                   ) : (
                     <>
-                      <p className="font-bold text-on-surface">{SUBSCRIPTION_NAME}</p>
+                      {/* Domiciliada (Mercado Pago cobra solo cada mes) sigue
+                          llamándose "Suscripción mensual"; un pago manual
+                          (transferencia o PayPal de una sola exhibición) es
+                          literal un mes ya pagado, no una suscripción en
+                          curso — mismo criterio que "Depósito por mes" en el
+                          admin (ver situacionSuscripcion.js). */}
+                      <p className="font-bold text-on-surface">
+                        {subscription.mpPreapprovalId ? SUBSCRIPTION_NAME : 'Mes pagado'}
+                      </p>
                       <p className="text-sm text-muted">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
                     </>
                   )}
