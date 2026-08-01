@@ -19,7 +19,7 @@ import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
-import { situacionDe, SITUACIONES } from '../../../utils/situacionSuscripcion'
+import { situacionDe, SITUACIONES, MOTIVOS_CANCELACION } from '../../../utils/situacionSuscripcion'
 import {
   calcDaysRemaining,
   effectiveVencimiento,
@@ -356,6 +356,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
           : (plan?.nombre || (sub.status === 'trial' ? 'Sin plan (prueba)' : '—'))
       const situacion = situacionDe(sub)
       const situacionLabel = situacion.etiqueta
+      const motivoTexto = situacion.motivo ? MOTIVOS_CANCELACION[situacion.motivo] : ''
       const altaTexto = sub ? formatDate(altaValor) : '—'
       const vencTexto = sub ? formatDate(vencValor) : '—'
       return {
@@ -377,7 +378,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         // arriba, que busca por cualquier motivo (ciudad, escuela, nombre…).
         buscarTodo: normalizeName(
           [docente, usuario, correo, codigoPostal, estadoUbicacion, ciudad, escuela,
-            altaTexto, planNombre, situacionLabel, vencTexto, ultimoPago].join(' ')
+            altaTexto, planNombre, situacionLabel, motivoTexto, vencTexto, ultimoPago].join(' ')
         ),
         alta: altaTexto,
         altaISO: alta ? isoLocal(alta) : '',
@@ -732,7 +733,14 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate" title={r.escuela}>{r.escuela}</td>
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
                   <td className="px-3 py-2 text-muted truncate" title={r.plan}>{r.plan}</td>
-                  <td className="px-3 py-2"><StatusBadge situacion={r.situacion} /></td>
+                  <td className="px-3 py-2">
+                    <StatusBadge situacion={r.situacion} />
+                    {r.situacion.motivo && (
+                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                        {MOTIVOS_CANCELACION[r.situacion.motivo]}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-muted truncate">{r.vencimiento}</td>
                   {/* Los días ya vencidos van en rojo: es lo que se busca al
                       barrer la tabla con la vista. */}
