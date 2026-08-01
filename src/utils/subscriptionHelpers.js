@@ -108,6 +108,19 @@ export function diasParaEliminacion(subscription) {
   return RETENTION_DAYS - diasVencida
 }
 
+// Fecha exacta en que se cumplen los RETENTION_DAYS desde que venció (o
+// null si no aplica). Complementa a diasParaEliminacion: un día se cuenta
+// distinto según cuándo se mire la pantalla, pero la fecha calendario es
+// siempre la misma — es lo que de verdad le importa a quien decide si
+// vuelve o no.
+export function fechaEliminacion(subscription) {
+  const venc = toDate(effectiveVencimiento(subscription))
+  if (!venc) return null
+  const fin = new Date(venc)
+  fin.setDate(fin.getDate() + RETENTION_DAYS)
+  return fin
+}
+
 // Consultar, exportar y todo lo ya creado sigue disponible siempre. Esto
 // gatea el TRABAJO: crear, editar, calificar, pasar lista, publicar… (ver
 // utils/firestoreGuard.js, que lo aplica sobre las escrituras mismas).

@@ -35,7 +35,7 @@ import {
   canRenew as canRenewSubscription,
   isSubscriptionExpired,
   diasParaEliminacion,
-  RETENTION_DAYS,
+  fechaEliminacion,
 } from '../../utils/subscriptionHelpers'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -524,16 +524,17 @@ export default function Profile() {
               )}
               {expirada && (
                 <p className="text-sm text-red-600">
-                  Tus grupos, estudiantes, actividades y calificaciones siguen disponibles. Solo no puedes crear
-                  ni editar hasta que actives tu suscripción.
+                  Tus grupos, estudiantes, actividades, entregas y calificaciones siguen disponibles. Solo no puedes
+                  crear ni editar hasta que actives tu suscripción.
                 </p>
               )}
               {expirada && (
                 <p className="text-sm text-red-600">
                   {(() => {
                     const dias = diasParaEliminacion(subscription)
+                    const fecha = formatDate(fechaEliminacion(subscription))
                     return dias > 0
-                      ? `Se elimina en ${dias} día${dias === 1 ? '' : 's'} si no reactivas (la conservamos ${RETENTION_DAYS} días desde que venció).`
+                      ? `Guardamos toda tu información hasta el ${fecha} (${dias} día${dias === 1 ? '' : 's'} más) por si decides volver. Después de esa fecha se elimina definitivamente.`
                       : 'Está a punto de eliminarse definitivamente. Reactiva para conservarla.'
                   })()}
                 </p>
