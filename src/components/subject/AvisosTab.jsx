@@ -353,6 +353,10 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
 
   return (
     <div className="px-4 py-2 space-y-2">
+      {totalEstudiantes === 0 ? (
+        <p className="text-center text-slate-400 text-sm py-12">Necesitas al menos un estudiante inscrito para poder acceder a este apartado</p>
+      ) : (
+      <>
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-muted leading-relaxed">
           Comunicados para todo el grupo — sin respuestas ni comentarios, solo para informar.
@@ -459,6 +463,8 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
             )
           })}
         </div>
+      )}
+      </>
       )}
 
       {/* ── Nuevo / editar aviso ── */}
