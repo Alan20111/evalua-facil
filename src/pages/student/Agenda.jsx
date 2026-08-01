@@ -5,7 +5,9 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { ArrowLeft, ChevronLeft, ChevronRight, List, Columns3, CalendarRange, LayoutGrid, Plus } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, List, Columns3, CalendarRange, LayoutGrid, Plus, Clock } from 'lucide-react'
+import { formatHora12 } from '../../utils/formatHora'
+import MiniSelect from '../../components/calendar/MiniSelect'
 import { getEnrollments } from '../../utils/studentLookup'
 import { isActivityPublished, estadoAgenda, withDefaultTime } from '../../utils/activityVisibility'
 import { toDateStr } from '../../utils/horarioBloques'
@@ -94,6 +96,41 @@ export default function Agenda() {
   const [subjectsById, setSubjectsById] = useState({})
   const [editingEvent, setEditingEvent] = useState(null) // null=cerrado, {}=nuevo, {...}=editar
   const [selectedDate, setSelectedDate] = useState(null)
+
+  // Rango de horas y días visibles del día — igual que el docente, mismo
+  // patrón de guardado en localStorage (Number(null) === 0, por eso hay
+  // que distinguir "sin guardar" de un 0 guardado explícitamente).
+  const [dayStart, setDayStart] = useState(() => {
+    const raw = localStorage.getItem('alumno_cal_dia_ini')
+    const v = raw == null || raw === '' ? NaN : Number(raw)
+    return Number.isInteger(v) && v >= 0 && v <= 22 ? v : DEFAULT_DAY_START
+  })
+  const [dayEnd, setDayEnd] = useState(() => {
+    const raw = localStorage.getItem('alumno_cal_dia_fin')
+    const v = raw == null || raw === '' ? NaN : Number(raw)
+    return Number.isInteger(v) && v >= 1 && v <= 24 ? v : DEFAULT_DAY_END
+  })
+  const [showHoras, setShowHoras] = useState(false)
+  function changeDayStart(v) {
+    setDayStart(v)
+    localStorage.setItem('alumno_cal_dia_ini', String(v))
+    if (v >= dayEnd) { setDayEnd(v + 1); localStorage.setItem('alumno_cal_dia_fin', String(v + 1)) }
+  }
+  function changeDayEnd(v) {
+    setDayEnd(v)
+    localStorage.setItem('alumno_cal_dia_fin', String(v))
+  }
+  // Días visibles de la semana (5 = L-V, 6 = L-S, 7 = L-D).
+  const [numDays, setNumDays] = useState(() => {
+    const raw = localStorage.getItem('alumno_cal_dias_sem')
+    const v = raw == null ? NaN : Number(raw)
+    return [5, 6, 7].includes(v) ? v : 7
+  })
+  function changeNumDays(v) {
+    setNumDays(v)
+    localStorage.setItem('alumno_cal_dias_sem', String(v))
+  }
+
   const goBack = () => navigate('/alumno/dashboard')
   useBackHandler(goBack)
   useBackHandler(closeEventEditor, !!editingEvent)
@@ -220,6 +257,25 @@ export default function Agenda() {
         cierraEnFecha,
         estado: deadlineEstado(a.fechaLimite || fechaLimiteConHora),
       })
+
+      // Marca "(Publicada)" — mismo criterio que el Calendario del docente
+      // (CalendarPage.jsx): `publishAt` solo queda guardado cuando la
+      // publicación se PROGRAMÓ a futuro; si se publicó de inmediato, la
+      // fecha real vive en `publishedAt` (permanente).
+      const fechaPublicacion = a.publishAt || a.publishedAt
+      if (fechaPublicacion) {
+        evs.push({
+          id: `pub-${a.id}`,
+          activityId: a.id,
+          titulo: `↑ ${nombreConNumero} (Publicada)`,
+          subtitulo: subjectDisplayName(subj),
+          tipo: 'publicacion',
+          dateStr: fechaPublicacion.substring(0, 10),
+          timeStr: fechaPublicacion.substring(11, 16),
+          bg: pal.bg, text: pal.text,
+          editable: false,
+        })
+      }
     })
 
     academicEvents.forEach((e) => {
@@ -335,7 +391,7 @@ export default function Agenda() {
     }
   }
 
-  const dayHours = { dayStart: DEFAULT_DAY_START, dayEnd: DEFAULT_DAY_END }
+  const dayHours = { dayStart, dayEnd }
 
   // Ancho por vista — pedido explícito, valores fijos en px SOLO para Web
   // (la App se queda tal cual estaba, ver WEB_CONTAINER_BY_VIEW más abajo).
@@ -393,6 +449,67 @@ export default function Agenda() {
               <v.Icon size={15} /> {v.label}
             </button>
           ))}
+        </div>
+        <div className="flex justify-end mt-2">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowHoras((v) => !v)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-xs font-medium transition-colors"
+              data-tooltip="Horas visibles de tu día (Agenda y Semana)"
+              data-tooltip-pos="bottom"
+            >
+              {/* % 24 — dayEnd puede ser 24 (medianoche, límite exclusivo del
+                  rango visible), que formatHora12 debe leer como "12:00 am". */}
+              <Clock size={13} /> {formatHora12(`${String(dayStart % 24).padStart(2, '0')}:00`)}–{formatHora12(`${String(dayEnd % 24).padStart(2, '0')}:00`)}
+            </button>
+            {showHoras && (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-30 bg-transparent border-none cursor-default"
+                  onClick={() => setShowHoras(false)}
+                  aria-label="Cerrar selector de horas"
+                />
+                <div className="absolute right-0 top-9 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2 text-left">
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted w-12 flex-shrink-0">Desde</span>
+                    <MiniSelect
+                      value={dayStart}
+                      onChange={(v) => changeDayStart(v)}
+                      options={Array.from({ length: 23 }, (_, h) => h).map((h) => ({
+                        value: h, label: formatHora12(`${String(h).padStart(2, '0')}:00`),
+                      }))}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted w-12 flex-shrink-0">Hasta</span>
+                    <MiniSelect
+                      value={dayEnd}
+                      onChange={(v) => changeDayEnd(v)}
+                      options={Array.from({ length: 24 }, (_, h) => h + 1).filter((h) => h > dayStart).map((h) => ({
+                        value: h, label: formatHora12(`${String(h % 24).padStart(2, '0')}:00`),
+                      }))}
+                    />
+                  </div>
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-1">Días de tu semana</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted w-12 flex-shrink-0">Días</span>
+                    <MiniSelect
+                      value={numDays}
+                      onChange={(v) => changeNumDays(v)}
+                      options={[
+                        { value: 5, label: 'Lunes a Viernes' },
+                        { value: 6, label: 'Lunes a Sábado' },
+                        { value: 7, label: 'Lunes a Domingo' },
+                      ]}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -454,6 +571,7 @@ export default function Agenda() {
                 subjects={subjectsById}
                 dayStart={dayHours.dayStart}
                 dayEnd={dayHours.dayEnd}
+                numDays={numDays}
                 onSlotClick={openNewEvent}
                 onEventClick={openEvent}
                 onMoveEvent={moveEvent}
