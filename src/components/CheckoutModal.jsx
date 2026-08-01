@@ -13,6 +13,7 @@ import {
   MONTHLY_PRICE_MXN,
   SUBSCRIPTION_NAME,
   calcDaysRemaining,
+  calcVencimiento,
   effectiveVencimiento,
   formatCurrency,
   formatDate,
@@ -195,12 +196,14 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   if (!open) return null
 
   // Si aún le quedan días vigentes (de prueba o de un plan pagado previo), lo
-  // pagado ahora no los recorta: el mes nuevo arranca cuando esos días se
-  // agoten. Se lo decimos aquí para que no le sorprenda ver la misma fecha de
-  // vencimiento que ya tenía en vez de "hoy + 1 mes".
+  // pagado ahora no los recorta: el periodo que se está pagando arranca
+  // cuando esos días se agoten, no desde hoy. Se le muestra siempre el rango
+  // exacto que cubre este pago para que quede claro desde antes de pagar.
   const vigenteHasta = effectiveVencimiento(subscription)
   const diasVigentes = calcDaysRemaining(vigenteHasta)
   const tieneDiasVigentes = diasVigentes !== null && diasVigentes > 0
+  const inicioPeriodo = tieneDiasVigentes ? vigenteHasta : new Date()
+  const finPeriodo = calcVencimiento(inicioPeriodo, 'mensual')
 
   const t = config?.transferencia
   const methods = [
@@ -235,13 +238,20 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
               <p className="text-sm text-muted">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
             </div>
 
-            {tieneDiasVigentes && (
-              <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2.5">
-                Todavía te quedan {diasVigentes} día{diasVigentes === 1 ? '' : 's'} vigentes.
-                No los pierdes: tu mes pagado empieza el {formatDate(vigenteHasta)}, cuando esos
-                días terminen, y corre completo desde ahí.
-              </p>
-            )}
+            <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2.5">
+              {tieneDiasVigentes ? (
+                <>
+                  Todavía te quedan {diasVigentes} día{diasVigentes === 1 ? '' : 's'} vigentes — no los pierdes.
+                  Este pago cubre del <strong>{formatDate(inicioPeriodo)}</strong> al{' '}
+                  <strong>{formatDate(finPeriodo)}</strong>.
+                </>
+              ) : (
+                <>
+                  Este pago cubre del <strong>{formatDate(inicioPeriodo)}</strong> al{' '}
+                  <strong>{formatDate(finPeriodo)}</strong>.
+                </>
+              )}
+            </p>
 
             {/* Method tabs */}
             <div className="flex gap-2">
