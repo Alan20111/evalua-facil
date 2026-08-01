@@ -1830,7 +1830,7 @@ export default function CalendarPage() {
         type="button"
         onClick={() => setShowHoras(v => !v)}
         className={IS_NATIVE_APP
-          ? 'flex items-center gap-1 px-2 py-1.5 rounded-card border-2 border-accent/40 bg-surface-card shadow-card text-xs text-muted transition-colors'
+          ? 'flex items-center gap-1 px-2 py-1.5 rounded-card border-2 border-accent/40 bg-surface-card shadow-card text-[11px] whitespace-nowrap text-muted transition-colors'
           : 'flex items-center gap-1.5 px-3 py-1.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-accent-tint transition-colors'}
         data-tooltip="Horas visibles de tu día (Agenda y Semana)"
         data-tooltip-pos="bottom"
@@ -1843,11 +1843,11 @@ export default function CalendarPage() {
         <>
           <button
             type="button"
-            className="fixed inset-0 z-20 bg-transparent border-none cursor-default"
+            className="fixed inset-0 z-30 bg-transparent border-none cursor-default"
             onClick={() => setShowHoras(false)}
             aria-label="Cerrar selector de horas"
           />
-          <div className="absolute right-0 top-10 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
+          <div className="absolute right-0 top-10 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64 space-y-2">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Horas del día en tu agenda</p>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted w-12 flex-shrink-0">Desde</span>
@@ -1904,7 +1904,7 @@ export default function CalendarPage() {
             <div className="flex items-center gap-2 mb-2">
               {dateNav}
             </div>
-            <div className="flex flex-nowrap items-center gap-1.5 mb-2 overflow-x-auto">
+            <div className="flex flex-nowrap items-center gap-1.5 mb-2">
               {hoyBtn}
               {eventoBtn}
               {hourRangeBtn}
