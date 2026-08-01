@@ -446,7 +446,12 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       statusPrevio: null,
       form: {
         docenteId: teachers[0]?.id || '',
-        planId: plans[0]?.id || '',
+        // Sin plan (prueba) por default: un docente normal ya tiene su propia
+        // suscripción de prueba creada sola al registrarse — "Nueva" aquí es
+        // para el caso raro de alguien sin ninguna (fila "Sin suscripción"),
+        // y no debe arrancar ya "activa" con un plan de pago sin que el
+        // administrador lo haya elegido a propósito.
+        planId: '',
         cancelada: false,
         fechaInicio: new Date().toISOString().slice(0, 10),
         fechaVencimiento: '',

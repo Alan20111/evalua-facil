@@ -479,7 +479,9 @@ export default function Profile() {
                   {subscription.status === 'trial' ? (
                     <>
                       <p className="font-bold text-on-surface">Período de prueba</p>
-                      <p className="text-sm text-muted">{TRIAL_DURATION_DAYS} días gratuitos</p>
+                      <p className="text-sm text-muted">
+                        {TRIAL_DURATION_DAYS} días gratuitos · termina el {formatDate(effectiveVencimiento(subscription))}
+                      </p>
                     </>
                   ) : (
                     <>
