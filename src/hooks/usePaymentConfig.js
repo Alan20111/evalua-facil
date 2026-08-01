@@ -15,7 +15,7 @@ export const DEFAULT_PAYMENT_CONFIG = {
     titular: '',
     cuenta: '',
     clabe: '',
-    nota: 'Indica tu usuario o correo en el concepto de la transferencia.',
+    nota: '',
   },
 }
 

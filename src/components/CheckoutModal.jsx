@@ -173,7 +173,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
         status: 'pendiente',
         createdAt: serverTimestamp(),
       })
-      toast('Pago registrado. Espera la confirmación del administrador.')
+      toast('Pago registrado. Lo aprobamos dentro de las próximas 12 horas.')
       setReferencia('')
       onSuccess?.()
       onClose()
@@ -286,6 +286,9 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                   {submitting ? <Spinner size="sm" /> : null}
                   {submitting ? 'Registrando…' : 'Registrar pago'}
                 </button>
+                <p className="text-xs text-slate-500 text-center">
+                  Lo revisamos y aprobamos dentro de las 12 horas siguientes a tu transferencia.
+                </p>
               </form>
             )}
           </div>
