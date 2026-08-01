@@ -48,3 +48,8 @@ Avatar/Output/*
 
 # Tokens temporales de pruebas locales — nunca deben commitearse ni servirse
 public/zz-*.txt
+
+# Credenciales de Firebase Admin SDK (service account) — nunca deben commitearse
+seeds-db/*.json
+!seeds-db/package.json
+!seeds-db/package-lock.json

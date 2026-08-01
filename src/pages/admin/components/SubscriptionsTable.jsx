@@ -1012,7 +1012,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 </div>
                 <p className="text-xs text-slate-400 leading-snug">
                   Depende del docente y del calendario: Prueba al registrarse; Suscripción
-                  mensual o Depósito por mes al tener un plan pagado (según si es domiciliada
+                  mensual o Mes pagado al tener un plan pagado (según si es domiciliada
                   con Mercado Pago); Cortesía si se la das; Cancelada al vencer o al cancelarla.
                 </p>
                 <label className="flex items-start gap-2 text-sm text-on-surface cursor-pointer">

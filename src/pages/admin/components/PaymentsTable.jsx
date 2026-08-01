@@ -30,7 +30,7 @@ const COLS = [
   { key: 'monto', label: 'Monto', w: 100 },
   { key: 'medio', label: 'Medio', w: 130 },
   // Misma Situación que en Suscripciones (Prueba, Cancelada, Suscripción
-  // mensual, Depósito por mes, Cortesía) — no confundir con Verificación,
+  // mensual, Mes pagado, Cortesía) — no confundir con Verificación,
   // que es del PAGO, no de la suscripción.
   { key: 'situacion', label: 'Situación', w: 150 },
   { key: 'verificacion', label: 'Verificación', w: 130 },
