@@ -147,20 +147,21 @@ export function canRenew(subscription) {
 //   - expired (days <= 0): notice only, tone 'expired'.
 export function getTrialBannerMessage(subscription) {
   if (subscription?.status !== 'trial') return null
-  const days = calcDaysRemaining(effectiveVencimiento(subscription))
+  const vencimiento = effectiveVencimiento(subscription)
+  const days = calcDaysRemaining(vencimiento)
   if (days === null) return null
 
   if (days <= 0) {
     return {
       counter: null,
-      notice: `Tu período de prueba terminó. Tu información sigue segura — la guardamos ${RETENTION_DAYS} días. Activa tu suscripción mensual para seguir creando.`,
+      notice: `Tu período de prueba terminó y tu cuenta pasó a “Suscripción cancelada”. Tu información sigue segura — la guardamos ${RETENTION_DAYS} días. Activa tu suscripción mensual para seguir creando.`,
       tone: 'expired',
     }
   }
   if (days === 1) {
     return {
       counter: null,
-      notice: 'Último día de tu período de prueba.',
+      notice: `Último día de tu período de prueba. Si no activas tu suscripción, mañana ${formatDate(vencimiento)} tu cuenta pasará a “Suscripción cancelada”.`,
       tone: 'warning',
     }
   }
@@ -168,7 +169,7 @@ export function getTrialBannerMessage(subscription) {
   if (days <= TRIAL_WARNING_DAYS) {
     return {
       counter,
-      notice: `Tu período de prueba está por terminar. Conserva tus grupos, estudiantes, actividades y calificaciones activando tu suscripción mensual por solo $${MONTHLY_PRICE_MXN} MXN.`,
+      notice: `Tu período de prueba termina el ${formatDate(vencimiento)}. Si no activas tu suscripción mensual por solo $${MONTHLY_PRICE_MXN} MXN, ese día tu cuenta pasará a “Suscripción cancelada” (conservas tus grupos, estudiantes, actividades y calificaciones, solo no puedes seguir creando).`,
       tone: 'warning',
     }
   }

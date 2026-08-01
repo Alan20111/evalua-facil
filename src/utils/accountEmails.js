@@ -96,8 +96,8 @@ export function sendSubscriptionCancelledEmail({ email, accesoHasta, eraTrial })
   const cuerpo = [
     parrafo('Cancelamos tu <strong>suscripción mensual</strong> a Evalúa Fácil, tal como lo pediste desde tu perfil.'),
     accesoHasta
-      ? parrafo(`Puedes seguir usando tu cuenta con normalidad hasta el <strong>${accesoHasta}</strong>${eraTrial ? ', cuando termina tu período de prueba' : ', el último día que ya tenías cubierto'}. Después de esa fecha ya no se renovará.`)
-      : parrafo('Tu suscripción ya no se renovará.'),
+      ? parrafo(`Puedes seguir usando tu cuenta con normalidad hasta el <strong>${accesoHasta}</strong>${eraTrial ? ', cuando termina tu período de prueba' : ', el último día que ya tenías cubierto'}. Después de esa fecha tu cuenta pasará a "Suscripción cancelada".`)
+      : parrafo('Tu cuenta pasará a "Suscripción cancelada".'),
     parrafo('<strong>Tus grupos, estudiantes, actividades y calificaciones siguen ahí.</strong> Cancelar no borra nada — si vuelves a activar la suscripción, encuentras todo tal como lo dejaste.'),
   ].join('')
 

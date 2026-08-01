@@ -402,7 +402,7 @@ export default function Profile() {
     const hasta = formatDate(effectiveVencimiento(subscription))
     setConfirm({
       title: 'Cancelar mi suscripción',
-      message: `No se borra nada: tus grupos, estudiantes y calificaciones se quedan, y puedes seguir trabajando hasta el ${hasta}. Después de esa fecha ya no se renovará. ¿Confirmas?`,
+      message: `No se borra nada: tus grupos, estudiantes y calificaciones se quedan, y puedes seguir trabajando hasta el ${hasta}. Después de esa fecha tu cuenta pasará a “Suscripción cancelada”. ¿Confirmas?`,
       onConfirm: executeCancelSub,
     })
   }
@@ -508,7 +508,13 @@ export default function Profile() {
               {enGraciaCancelada && (
                 <p className="text-sm text-muted">
                   Cancelaste tu suscripción — sigues usando todo con normalidad hasta el{' '}
-                  {formatDate(effectiveVencimiento(subscription))}, cuando ya no se renovará.
+                  {formatDate(effectiveVencimiento(subscription))}, cuando tu cuenta pasará a “Suscripción cancelada”.
+                </p>
+              )}
+              {subscription.status === 'activa' && !expirada && daysRemaining !== null && daysRemaining <= 7 && (
+                <p className="text-sm text-amber-600">
+                  Si no renuevas, el {formatDate(effectiveVencimiento(subscription))} tu cuenta pasará a
+                  “Suscripción cancelada” (conservas todo, solo no puedes seguir creando).
                 </p>
               )}
               {subscription.status === 'pendiente_pago' && (
