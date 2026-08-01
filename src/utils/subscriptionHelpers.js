@@ -141,7 +141,10 @@ export function canRenew(subscription) {
   if (isSubscriptionExpired(subscription)) return true
   if (subscription.status === 'pendiente_pago') return false
   if (subscription.status === 'trial') return true
-  if (subscription.status === 'activa') {
+  // 'activa' por vencer pronto, o 'cancelada' con días vigentes por
+  // agotarse pronto — mismo umbral de 7 días en los dos casos, para que el
+  // botón aparezca a tiempo y no solo hasta que ya perdió el acceso.
+  if (subscription.status === 'activa' || subscription.status === 'cancelada') {
     const daysRemaining = calcDaysRemaining(effectiveVencimiento(subscription))
     return daysRemaining !== null && daysRemaining <= 7
   }
