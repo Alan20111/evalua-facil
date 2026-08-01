@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs, getDocsFromServer } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, writeBatch, serverTimestamp, collection, query, where, getDocs, getDocsFromServer } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -372,6 +372,12 @@ export default function TeacherNotificationSettings() {
   const [deletingEntry, setDeletingEntry] = useState(false)
   useBackHandler(() => setEntryToDelete(null), !!entryToDelete)
   useScrollLock(!!entryToDelete)
+  // Borrar TODA la bitácora de un golpe (pedido explícito) — pide
+  // confirmación aparte de la de un solo renglón.
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
+  const [deletingAll, setDeletingAll] = useState(false)
+  useBackHandler(() => setConfirmDeleteAll(false), confirmDeleteAll)
+  useScrollLock(confirmDeleteAll)
   // Renglón tocado en la app (color distinto del verde de "más nueva", para
   // que el docente se enfoque en el que acaba de tocar) — solo aplica en la
   // app, con clic/toque; en la web el mismo color sale con hover (puro CSS,
@@ -389,6 +395,27 @@ export default function TeacherNotificationSettings() {
       toast('No se pudo borrar: ' + err.message, 'error')
     } finally {
       setDeletingEntry(false)
+    }
+  }
+
+  // Batched writes tienen un tope de 500 operaciones — se parte en tandas de
+  // 450 (mismo margen que usa el resto de la app, ver CalendarPage.jsx) para
+  // no arriesgarse a un lote justo en el límite.
+  async function confirmDeleteAllEntries() {
+    if (!logEntries?.length) return
+    setDeletingAll(true)
+    try {
+      for (let i = 0; i < logEntries.length; i += 450) {
+        const batch = writeBatch(db)
+        logEntries.slice(i, i + 450).forEach((e) => batch.delete(doc(db, 'notificationLog', e.id)))
+        await batch.commit()
+      }
+      setLogEntries([])
+      setConfirmDeleteAll(false)
+    } catch (err) {
+      toast('No se pudo borrar la bitácora: ' + err.message, 'error')
+    } finally {
+      setDeletingAll(false)
     }
   }
 
@@ -527,15 +554,29 @@ export default function TeacherNotificationSettings() {
             </div>
 
             <div className="rounded-card border border-outline-variant overflow-hidden bg-surface-card shadow-card">
-              <button
-                type="button"
-                onClick={() => setLogOpen((v) => !v)}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
-              >
-                <History size={16} className="flex-shrink-0 text-accent" />
-                <span className="flex-1 text-left">Bitácora de notificaciones</span>
-                {logOpen ? <ChevronUp size={16} className="text-muted flex-shrink-0" /> : <ChevronDown size={16} className="text-muted flex-shrink-0" />}
-              </button>
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setLogOpen((v) => !v)}
+                  className="flex-1 min-w-0 flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left"
+                >
+                  <History size={16} className="flex-shrink-0 text-accent" />
+                  <span className="flex-1 text-left truncate">Bitácora de notificaciones</span>
+                  {logOpen ? <ChevronUp size={16} className="text-muted flex-shrink-0" /> : <ChevronDown size={16} className="text-muted flex-shrink-0" />}
+                </button>
+                {!!logEntries?.length && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteAll(true)}
+                    aria-label="Eliminar todas las notificaciones"
+                    data-tooltip="Eliminar todas"
+                    data-tooltip-pos="bottom"
+                    className="p-2 mr-2 text-muted hover:text-error rounded transition-colors flex-shrink-0"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
               {logOpen && (
                 <div className="border-t border-outline-variant">
                   {logLoading ? (
@@ -685,6 +726,22 @@ export default function TeacherNotificationSettings() {
           showClose={false}
           onConfirm={confirmDeleteEntry}
           onCancel={() => setEntryToDelete(null)}
+        />
+      )}
+
+      {/* ── Borrar TODA la Bitácora — confirmación aparte ── */}
+      {confirmDeleteAll && (
+        <ConfirmModal
+          title="¿Borrar toda tu bitácora?"
+          message={<>Se borrarán las <strong>{logEntries?.length ?? 0}</strong> notificaciones registradas, permanentemente.</>}
+          confirmLabel="Borrar todo"
+          confirmingLabel="Borrando…"
+          confirmIcon={<Trash2 size={16} />}
+          danger
+          busy={deletingAll}
+          showClose={false}
+          onConfirm={confirmDeleteAllEntries}
+          onCancel={() => setConfirmDeleteAll(false)}
         />
       )}
     </>
