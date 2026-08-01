@@ -1901,8 +1901,10 @@ export default function CalendarPage() {
             {/* Nativo: fecha/Hoy/Evento/horas en un renglón; vista debajo.
                 Días de asueto, Vacaciones, Modificar y Programar bloques se
                 manejan solo en la web. */}
-            <div className="flex flex-wrap items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2">
               {dateNav}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               {hoyBtn}
               {eventoBtn}
               {hourRangeBtn}
