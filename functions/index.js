@@ -362,44 +362,58 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
   })
   if (!claimed) return
 
-  const [studentSnap, subjSnap, numeroActividad] = await Promise.all([
-    db.collection('students').doc(afterData.alumnoId).get(),
-    db.collection('subjects').doc(act.asignaturaId).get(),
-    actividadLabelDe(act, afterData.actividadId),
-  ])
-  const subj = subjSnap.data()
-  const nombreEstudiante = nombreEstudianteDe(studentSnap.data())
-  const nombreAsignatura = nombreAsignaturaDe(subj)
-  const verbo = !esEvaluacion ? 'entregó'
-    : act.categoria === 'examen' ? 'presentó el examen'
-    : act.categoria === 'cuestionario' ? 'presentó el cuestionario'
-    : 'terminó la evaluación'
-  // Distingue ENTREGA / CUESTIONARIO / EXAMEN en la Bitácora (pedido
-  // explícito) — mismo criterio que `verbo` arriba, pero como valor plano
-  // para que el cliente (describeEntry en NotificationSettings.jsx) arme el
-  // rótulo sin repetir esta lógica.
-  const tipoEntrega = !esEvaluacion ? 'entrega'
-    : act.categoria === 'examen' ? 'examen'
-    : act.categoria === 'cuestionario' ? 'cuestionario'
-    : 'evaluacion'
+  // El aviso ya quedó reclamado (notificadoEntregaDocente:true) arriba, así
+  // que si algo de aquí en adelante truena (un get() que falla, un timeout),
+  // sin este try/catch la entrega se queda marcada como "ya notificada" para
+  // siempre sin haber mandado el push NI escrito la Bitácora — silencioso,
+  // sin forma de reintentar. Si falla, se libera el reclamo para que la
+  // PRÓXIMA escritura a este submission (una calificación, una edición) lo
+  // vuelva a intentar, y se relanza el error para que quede en los logs de
+  // Cloud Functions en vez de perderse.
+  try {
+    const [studentSnap, subjSnap, numeroActividad] = await Promise.all([
+      db.collection('students').doc(afterData.alumnoId).get(),
+      db.collection('subjects').doc(act.asignaturaId).get(),
+      actividadLabelDe(act, afterData.actividadId),
+    ])
+    const subj = subjSnap.data()
+    const nombreEstudiante = nombreEstudianteDe(studentSnap.data())
+    const nombreAsignatura = nombreAsignaturaDe(subj)
+    const verbo = !esEvaluacion ? 'entregó'
+      : act.categoria === 'examen' ? 'presentó el examen'
+      : act.categoria === 'cuestionario' ? 'presentó el cuestionario'
+      : 'terminó la evaluación'
+    // Distingue ENTREGA / CUESTIONARIO / EXAMEN en la Bitácora (pedido
+    // explícito) — mismo criterio que `verbo` arriba, pero como valor plano
+    // para que el cliente (describeEntry en NotificationSettings.jsx) arme el
+    // rótulo sin repetir esta lógica.
+    const tipoEntrega = !esEvaluacion ? 'entrega'
+      : act.categoria === 'examen' ? 'examen'
+      : act.categoria === 'cuestionario' ? 'cuestionario'
+      : 'evaluacion'
 
-  await enviarPushDirecto(
-    act.docenteId,
-    { title: 'Nueva entrega', body: `${nombreEstudiante} ${verbo} "${act.nombre}" — ${nombreAsignatura}` },
-    // alumnoId viaja aquí también (no solo en logExtra) porque este `data` es
-    // lo único que de verdad llega al dispositivo por FCM — sin él, tocar la
-    // notificación push no sabía a qué entrega específica ir (ver
-    // resolveDestino en src/utils/pushNotifications.js).
-    { categoria: 'nuevasEntregas', actividadId: afterData.actividadId, submissionId: event.params.submissionId, alumnoId: afterData.alumnoId },
-    null,
-    {
-      categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '',
-      actividad: act.nombre || '', numeroActividad, tipoEntrega,
-      // Para que la Bitácora pueda llevar directo a esa entrega (pedido
-      // explícito: el nombre del estudiante en Detalles es un enlace).
-      actividadId: afterData.actividadId, alumnoId: afterData.alumnoId,
-    },
-  )
+    await enviarPushDirecto(
+      act.docenteId,
+      { title: 'Nueva entrega', body: `${nombreEstudiante} ${verbo} "${act.nombre}" — ${nombreAsignatura}` },
+      // alumnoId viaja aquí también (no solo en logExtra) porque este `data` es
+      // lo único que de verdad llega al dispositivo por FCM — sin él, tocar la
+      // notificación push no sabía a qué entrega específica ir (ver
+      // resolveDestino en src/utils/pushNotifications.js).
+      { categoria: 'nuevasEntregas', actividadId: afterData.actividadId, submissionId: event.params.submissionId, alumnoId: afterData.alumnoId },
+      null,
+      {
+        categoria: 'nuevasEntregas', estudiante: nombreEstudiante, asignatura: subj?.nombre || '', grupo: subj?.grupo || '',
+        actividad: act.nombre || '', numeroActividad, tipoEntrega,
+        // Para que la Bitácora pueda llevar directo a esa entrega (pedido
+        // explícito: el nombre del estudiante en Detalles es un enlace).
+        actividadId: afterData.actividadId, alumnoId: afterData.alumnoId,
+      },
+    )
+  } catch (err) {
+    logger.error(`onSubmissionEntregada(${event.params.submissionId}) falló tras reclamar el aviso — se libera para reintentar:`, err)
+    await after.ref.update({ notificadoEntregaDocente: false }).catch(() => {})
+    throw err
+  }
 })
 
 // ─── 4) Estudiante activado ─────────────────────────────────────────────────
