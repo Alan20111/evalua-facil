@@ -80,7 +80,15 @@ export function calcTrialEndTimestamp(fechaInicio) {
 export function effectiveVencimiento(subscription) {
   if (!subscription) return null
   if (subscription.status === 'trial') return calcTrialEnd(subscription.fechaInicio)
-  return subscription.fechaVencimiento
+  if (subscription.fechaVencimiento) return subscription.fechaVencimiento
+  // Cortesía indefinida no vence nunca a propósito — no rellenar nada ahí.
+  if (subscription.planId === 'cortesia' && subscription.cortesiaIndefinida) return null
+  // Vencimiento faltante (documento viejo o incompleto, guardado antes de que
+  // el modal de admin lo autocompletara) pero sí hay fecha de inicio: se
+  // calcula inicio + 1 mes en vez de dejarlo en blanco — un plan pagado
+  // siempre dura un mes desde que arrancó.
+  if (subscription.fechaInicio) return calcVencimiento(subscription.fechaInicio, 'mensual')
+  return null
 }
 
 // Vencida = su ventana efectiva ya pasó, sin importar en qué estado esté
