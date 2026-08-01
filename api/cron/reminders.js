@@ -64,11 +64,11 @@ function correoTrial(nombre, urgente) {
       : parrafo('Te quedan <strong>6 días</strong> de tu período de prueba en Evalúa Fácil.'),
     parrafo('Tus grupos, estudiantes, actividades y calificaciones siguen ahí — activar tu suscripción mensual no cambia nada de lo que ya hiciste, solo te deja seguir usándolo.'),
   ].join('')
-  return armarCorreo({
-    titulo: urgente ? 'Tu prueba termina hoy' : 'Tu período de prueba está por terminar',
-    cuerpo,
-    accion: boton('Activar mi suscripción →', SITIO),
-  })
+  const titulo = urgente ? 'Tu prueba termina hoy' : 'Tu período de prueba está por terminar'
+  return {
+    subject: titulo,
+    html: armarCorreo({ titulo, cuerpo, accion: boton('Activar mi suscripción →', SITIO) }),
+  }
 }
 
 function correoSuscripcion(nombre, urgente) {
@@ -80,11 +80,11 @@ function correoSuscripcion(nombre, urgente) {
       : parrafo('Tu suscripción mensual vence en <strong>7 días</strong>.'),
     parrafo('Si ya tienes activada la renovación automática no necesitas hacer nada. Si no, renueva desde tu perfil para no perder acceso a tu cuenta.'),
   ].join('')
-  return armarCorreo({
-    titulo: urgente ? 'Tu suscripción vence hoy' : 'Tu suscripción está por vencer',
-    cuerpo,
-    accion: boton('Renovar mi suscripción →', SITIO),
-  })
+  const titulo = urgente ? 'Tu suscripción vence hoy' : 'Tu suscripción está por vencer'
+  return {
+    subject: titulo,
+    html: armarCorreo({ titulo, cuerpo, accion: boton('Renovar mi suscripción →', SITIO) }),
+  }
 }
 
 function correoRetencion(nombre, urgente) {
@@ -96,11 +96,11 @@ function correoRetencion(nombre, urgente) {
       : parrafo('Tu cuenta de Evalúa Fácil lleva más de 60 días sin una suscripción activa. Guardamos tu información <strong>90 días</strong> desde que venció — pasado ese plazo se elimina definitivamente y no se puede recuperar.'),
     parrafo('Reactiva tu suscripción para conservar todo tal como lo dejaste.'),
   ].join('')
-  return armarCorreo({
-    titulo: urgente ? 'Tu cuenta se elimina en 7 días' : 'Tu información se elimina en 30 días',
-    cuerpo,
-    accion: boton('Reactivar mi cuenta →', SITIO),
-  })
+  const titulo = urgente ? 'Tu cuenta se elimina en 7 días' : 'Tu información se elimina en 30 días'
+  return {
+    subject: titulo,
+    html: armarCorreo({ titulo, cuerpo, accion: boton('Reactivar mi cuenta →', SITIO) }),
+  }
 }
 
 export default async function handler(req, res) {
@@ -155,11 +155,11 @@ export default async function handler(req, res) {
       if (!perfil.email) continue
 
       const nombre = nombreDe(perfil)
-      const html = tipo === 'trial' ? correoTrial(nombre, urgente)
+      const { subject, html } = tipo === 'trial' ? correoTrial(nombre, urgente)
         : tipo === 'sub' ? correoSuscripcion(nombre, urgente)
         : correoRetencion(nombre, urgente)
 
-      const ok = await enviarCorreo({ email: perfil.email, html })
+      const ok = await enviarCorreo({ to: perfil.email, toName: nombre, subject, html })
       if (ok) {
         await doc.ref.update({ remindersSent: [...yaEnviados, clave] })
         const contador = tipo === 'trial' ? (urgente ? 'trialUrgente' : 'trialTemprano')
