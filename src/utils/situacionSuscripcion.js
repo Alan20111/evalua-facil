@@ -42,6 +42,20 @@ export const INSIGNIAS = {
 
 const insignia = (clave) => ({ clave, ...INSIGNIAS[clave] })
 
+// Por qué quedó cancelada — pedido explícito para distinguirlo de un vistazo
+// sin abrir cada renglón. Tres motivos "reales" más la cortesía vencida, que
+// entra en el mismo bote de Cancelada pero merece su propio texto.
+export const MOTIVOS_CANCELACION = {
+  prueba: 'venció la prueba',
+  pago: 'venció el pago',
+  cortesia: 'venció la cortesía',
+  docente: 'la canceló el docente',
+}
+
+// clave 'cancelada' con su motivo pegado — `situacionDe` decide cuál aplica;
+// aquí solo se arma el objeto para no repetir el spread en cada rama.
+const cancelada = (motivo) => ({ ...insignia('cancelada'), motivo })
+
 export function situacionDe(sub) {
   // Baja definitiva: el docente borró su cuenta. Queda solo la constancia
   // (nombre, correo y fecha), sin nada de su contenido.
@@ -54,19 +68,23 @@ export function situacionDe(sub) {
   const dias = indefinida ? null : calcDaysRemaining(effectiveVencimiento(sub))
   const vencida = dias !== null && dias <= 0
 
-  if (sub.status === 'cancelada') return insignia('cancelada')
+  if (sub.status === 'cancelada') return cancelada('docente')
 
   // El pago (de cualquier tipo) todavía está en revisión: eso no cambia en
   // qué situación estaba la suscripción, así que se resuelve como si ese
-  // pago no existiera todavía.
-  if (sub.status === 'pendiente_pago') return vencida ? insignia('cancelada') : insignia('prueba')
+  // pago no existiera todavía. Si ya estaba vencida antes de intentar pagar,
+  // el motivo es el mismo que hubiera tenido sin ese intento.
+  if (sub.status === 'pendiente_pago') {
+    if (!vencida) return insignia('prueba')
+    return cancelada(esCortesia ? 'cortesia' : 'pago')
+  }
 
-  if (esCortesia) return vencida ? insignia('cancelada') : insignia('cortesia')
+  if (esCortesia) return vencida ? cancelada('cortesia') : insignia('cortesia')
 
-  if (sub.status === 'trial') return vencida ? insignia('cancelada') : insignia('prueba')
+  if (sub.status === 'trial') return vencida ? cancelada('prueba') : insignia('prueba')
 
   // Resto: plan de pago contratado (activa, o vencida guardada explícita).
-  if (sub.status === 'vencida' || vencida) return insignia('cancelada')
+  if (sub.status === 'vencida' || vencida) return cancelada('pago')
   // Domiciliada (Mercado Pago cobra solo cada mes) vs. depósito manual que
   // el docente tiene que repetir cada mes (transferencia o PayPal de una
   // sola exhibición).

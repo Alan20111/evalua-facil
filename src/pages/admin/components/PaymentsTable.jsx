@@ -9,7 +9,7 @@ import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import SituacionBadge from './StatusBadge'
-import { situacionDe } from '../../../utils/situacionSuscripcion'
+import { situacionDe, MOTIVOS_CANCELACION } from '../../../utils/situacionSuscripcion'
 import {
   calcVencimientoTimestamp,
   effectiveVencimiento,
@@ -469,7 +469,19 @@ export default function PaymentsTable({ stats, onRefresh }) {
                         )}
                       </td>
                       <td className="px-4 py-2">
-                        <SituacionBadge situacion={situacionDe(subscription)} />
+                        {(() => {
+                          const situacion = situacionDe(subscription)
+                          return (
+                            <>
+                              <SituacionBadge situacion={situacion} />
+                              {situacion.motivo && (
+                                <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                                  {MOTIVOS_CANCELACION[situacion.motivo]}
+                                </p>
+                              )}
+                            </>
+                          )
+                        })()}
                       </td>
                       <td className="px-4 py-2">
                         <StatusBadge status={payment.status} />
