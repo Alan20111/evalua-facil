@@ -506,6 +506,12 @@ export default function Profile() {
                   {expirada ? 'Suscripción cancelada' : subscription.status?.replace('_', ' ')}
                 </span>
               </div>
+              {subscription.status !== 'trial' && subscription.fechaInicio && (
+                <p className="text-xs text-slate-400">
+                  Pagaste el {formatDate(subscription.fechaInicio)} · Vence el{' '}
+                  {formatDate(effectiveVencimiento(subscription))}
+                </p>
+              )}
               {daysRemaining !== null && !expirada && (
                 <p
                   className={`text-sm font-medium ${

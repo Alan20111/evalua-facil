@@ -66,7 +66,9 @@ export function situacionDe(sub) {
   // Una cortesía sin fecha de fin no vence nunca: no se le calculan días.
   const indefinida = esCortesia && sub.cortesiaIndefinida === true
   const dias = indefinida ? null : calcDaysRemaining(effectiveVencimiento(sub))
-  const vencida = dias !== null && dias <= 0
+  // El día de vencimiento sigue vigente hasta las 23:59:59 — mismo criterio
+  // que isSubscriptionExpired en subscriptionHelpers.js.
+  const vencida = dias !== null && dias < 0
 
   if (sub.status === 'cancelada') return cancelada('docente')
 

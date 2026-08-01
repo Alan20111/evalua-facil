@@ -91,11 +91,16 @@ export function effectiveVencimiento(subscription) {
 // pagaba un mes y dejaba de pagar nunca se topaba con ningún límite.
 // Sin fecha de vencimiento no se bloquea a nadie: dato faltante nunca debe
 // dejar a un docente fuera de su propio trabajo.
+//
+// El DÍA de vencimiento sigue vigente completo, hasta las 23:59:59 — por
+// eso `< 0` y no `<= 0`: calcDaysRemaining da 0 mientras hoy sea ese día
+// (con las horas truncadas a medianoche), y recién da -1 al día siguiente.
+// Usar `<= 0` aquí cortaba el acceso desde las 00:00 del propio día pagado.
 export function isSubscriptionExpired(subscription) {
   if (!subscription) return false
   if (subscription.status === 'vencida') return true
   const days = calcDaysRemaining(effectiveVencimiento(subscription))
-  return days !== null && days <= 0
+  return days !== null && days < 0
 }
 
 // Días que faltan para que se cumplan los RETENTION_DAYS desde que venció,
@@ -157,27 +162,30 @@ export function canRenew(subscription) {
 // (activate the subscription) instead of an alarm.
 //
 // Returns { counter, notice, tone } or null when there's no trial to report.
+// El día de vencimiento sigue vigente completo hasta las 23:59:59 — mismo
+// criterio que isSubscriptionExpired, por eso "expirado" es days < 0 y el
+// día 0 (vence hoy) es el de "último día", no el día 1.
 //   - days 1-24 (days >= 7): counter only, tone 'neutral', no notice.
-//   - days 25-29 (2-6 días restantes): counter + amber notice, tone 'warning'.
-//   - day 30 (1 día restante): notice only ("Último día…"), tone 'warning'.
-//   - expired (days <= 0): notice only, tone 'expired'.
+//   - days 1-6 (días restantes): counter + amber notice, tone 'warning'.
+//   - day 0 (vence hoy): notice only ("Último día…"), tone 'warning'.
+//   - expired (days < 0): notice only, tone 'expired'.
 export function getTrialBannerMessage(subscription) {
   if (subscription?.status !== 'trial') return null
   const vencimiento = effectiveVencimiento(subscription)
   const days = calcDaysRemaining(vencimiento)
   if (days === null) return null
 
-  if (days <= 0) {
+  if (days < 0) {
     return {
       counter: null,
       notice: `Tu período de prueba terminó y tu cuenta pasó a “Suscripción cancelada”. Tu información sigue segura — la guardamos ${RETENTION_DAYS} días. Activa tu suscripción mensual para seguir creando.`,
       tone: 'expired',
     }
   }
-  if (days === 1) {
+  if (days === 0) {
     return {
       counter: null,
-      notice: `Último día de tu período de prueba. Si no activas tu suscripción, mañana ${formatDate(vencimiento)} tu cuenta pasará a “Suscripción cancelada”.`,
+      notice: `Último día de tu período de prueba — termina hoy a las 23:59. Si no activas tu suscripción, tu cuenta pasará a “Suscripción cancelada”.`,
       tone: 'warning',
     }
   }

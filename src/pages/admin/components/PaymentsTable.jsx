@@ -32,7 +32,7 @@ const COLS = [
   // Misma Situación que en Suscripciones (Prueba, Cancelada, Depósito
   // automático, Mes pagado, Cortesía) — no confundir con Verificación,
   // que es del PAGO, no de la suscripción.
-  { key: 'situacion', label: 'Situación', w: 150 },
+  { key: 'situacion', label: 'Situación (Plan)', w: 150 },
   { key: 'verificacion', label: 'Verificación', w: 130 },
   { key: 'fecha', label: 'Fecha', w: 150 },
   { key: 'comentarios', label: 'Comentarios', w: 170 },

@@ -89,7 +89,7 @@ const COLS = [
     // docente. Esta columna es el estatus de la suscripción, de ahí el
     // cambio a "Situación": dos columnas "Estado" no se podían distinguir.
     key: 'situacion',
-    label: 'Situación',
+    label: 'Situación (Plan)',
     filtro: 'lista',
     w: 155,
     ayuda: 'CÓMO está hoy esa suscripción: en prueba, con depósito automático (domiciliada), con mes pagado, en cortesía, o cancelada. Un pago en revisión se ve en Pagos → Verificación, no aquí.',
@@ -740,7 +740,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate">{r.vencimiento}</td>
                   {/* Los días ya vencidos van en rojo: es lo que se busca al
                       barrer la tabla con la vista. */}
-                  <td className={`px-3 py-2 text-right tabular-nums ${r.dias !== null && r.dias <= 0 ? 'text-red-600 font-semibold' : 'text-muted'}`}>
+                  <td className={`px-3 py-2 text-right tabular-nums ${r.dias !== null && r.dias < 0 ? 'text-red-600 font-semibold' : 'text-muted'}`}>
                     {r.dias !== null ? r.dias : '—'}
                   </td>
                   <td className="px-3 py-2 text-muted truncate" title={r.ultimoPago}>{r.ultimoPago}</td>
