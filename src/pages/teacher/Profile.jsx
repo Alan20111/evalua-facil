@@ -501,7 +501,9 @@ export default function Profile() {
                 </p>
               )}
               {subscription.status === 'pendiente_pago' && (
-                <p className="text-sm text-amber-600">Tu pago está en revisión por el administrador.</p>
+                <p className="text-sm text-amber-600">
+                  Tu pago está en revisión. Lo aprobamos dentro de las 12 horas siguientes a que lo hiciste — vuelve a checar aquí.
+                </p>
               )}
               {isSubscriptionExpired(subscription) && (
                 <p className="text-sm text-red-600">
