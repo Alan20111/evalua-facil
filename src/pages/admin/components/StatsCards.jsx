@@ -130,7 +130,7 @@ export function ResumenCharts({ stats }) {
   const { teachersBySchool, subscriptions } = stats
 
   const statusItems = [
-    { status: 'trial', label: 'Trial' },
+    { status: 'trial', label: 'Prueba' },
     { status: 'activa', label: 'Activa' },
     { status: 'vencida', label: 'Vencida' },
     { status: 'pendiente_pago', label: 'Pendiente pago' },

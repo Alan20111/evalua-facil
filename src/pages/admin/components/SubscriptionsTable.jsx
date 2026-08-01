@@ -163,11 +163,12 @@ function calcFinCortesia(form, vencimientoActual) {
 // determina el registro del docente, Activa el tener plan o cortesía, y
 // Vencida el calendario. Lo único que sí es decisión suya es CANCELAR.
 //
-// "— Sin plan (prueba) —" es literal: quitarle el plan a alguien SIEMPRE lo
-// manda a Prueba, sin excepción — antes conservaba el status anterior
-// (p. ej. seguía "activa" sin ningún plan asignado), lo que contradecía la
-// propia opción del desplegable y hacía que la vista previa mostrara "Mes
-// pagado" para algo marcado como "sin plan".
+// "— Prueba —" es literal: quitarle el plan a alguien SIEMPRE lo manda a
+// Prueba, sin excepción — antes conservaba el status anterior (p. ej.
+// seguía "activa" sin ningún plan asignado), lo que contradecía la propia
+// opción del desplegable y hacía que la vista previa mostrara "Mes pagado"
+// para algo marcado como Prueba. (`'trial'` es solo el valor interno que se
+// guarda en Firestore — de cara al admin y al docente siempre es "Prueba".)
 function situacionCalculada(form) {
   if (form.cancelada) return 'cancelada'
   if (form.planId) return 'activa'
@@ -350,7 +351,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         ? '—'
         : sub.planId === PLAN_CORTESIA
           ? `Cortesía${sub.cortesiaIndefinida ? ' (sin vencimiento)' : sub.cortesiaDias ? ` (${sub.cortesiaDias} días)` : ''}`
-          : (plan?.nombre || (sub.status === 'trial' ? 'Sin plan (prueba)' : '—'))
+          : (plan?.nombre || (sub.status === 'trial' ? 'Prueba' : '—'))
       const situacion = situacionDe(sub)
       const situacionLabel = situacion.etiqueta
       const motivoTexto = situacion.motivo ? MOTIVOS_CANCELACION[situacion.motivo] : ''
@@ -450,7 +451,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       mode: 'create',
       form: {
         docenteId: teachers[0]?.id || '',
-        // Sin plan (prueba) por default: un docente normal ya tiene su propia
+        // Prueba por default: un docente normal ya tiene su propia
         // suscripción de prueba creada sola al registrarse — "Nueva" aquí es
         // para el caso raro de alguien sin ninguna (fila "Sin suscripción"),
         // y no debe arrancar ya "activa" con un plan de pago sin que el
@@ -872,7 +873,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     value={modal.form.planId}
                     onChange={(e) => {
                       const nuevoPlanId = e.target.value
-                      // Elegir una situación (incluido "Sin plan/prueba") es
+                      // Elegir una situación (incluida "Prueba") es
                       // decisión de que la suscripción ya no está cancelada:
                       // si el checkbox seguía marcado de antes, se destilda solo.
                       const form = { ...modal.form, planId: nuevoPlanId, cancelada: false }
@@ -888,7 +889,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     }}
                     className={inputCls}
                   >
-                    <option value="">&mdash; Sin plan (prueba) &mdash;</option>
+                    <option value="">&mdash; Prueba &mdash;</option>
                     <option value={PLAN_CORTESIA}>Cortesía (sin cobro)</option>
                     {plans.map((p) => (
                       <option key={p.id} value={p.id}>
