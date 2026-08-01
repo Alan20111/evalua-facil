@@ -489,7 +489,7 @@ export default function Profile() {
                           llamándose "Suscripción mensual"; un pago manual
                           (transferencia o PayPal de una sola exhibición) es
                           literal un mes ya pagado, no una suscripción en
-                          curso — mismo criterio que "Depósito por mes" en el
+                          curso — mismo criterio que "Mes pagado" en el
                           admin (ver situacionSuscripcion.js). */}
                       <p className="font-bold text-on-surface">
                         {subscription.mpPreapprovalId ? SUBSCRIPTION_NAME : 'Mes pagado'}
