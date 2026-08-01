@@ -426,8 +426,10 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       })
       res[campo] = campo === 'situacion'
         // Catálogo completo y en su orden natural (de prueba a baja), no solo
-        // las situaciones que hoy existen en los datos.
-        ? SITUACIONES.filter((v) => set.has(v))
+        // las situaciones que hoy existen en los datos — así se puede filtrar
+        // por "Pago automático" aunque hoy nadie esté domiciliado, en vez de
+        // que la opción simplemente no aparezca.
+        ? SITUACIONES
         : [...set].filter((v) => v && v !== '—').sort((a, b) => a.localeCompare(b, 'es'))
     })
     return res
