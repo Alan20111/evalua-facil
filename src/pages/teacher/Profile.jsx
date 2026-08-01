@@ -45,6 +45,7 @@ import CodigoPostalField from '../../components/CodigoPostalField'
 import EliminarCuentaModal from '../../components/EliminarCuentaModal'
 import { sendSubscriptionCancelledEmail } from '../../utils/accountEmails'
 import { apiUrl } from '../../utils/apiBase'
+import { PREFIJOS } from '../../utils/prefijos'
 
 async function uploadAvatar(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -70,13 +71,6 @@ const inputCls =
 // Mismos números que en el perfil del estudiante (student/Profile.jsx).
 const FOTO = IS_NATIVE_APP ? 'w-24 h-24' : 'w-16 h-16'       // 96px en app, 64px en web
 const FOTO_INICIAL = IS_NATIVE_APP ? 'text-3xl' : 'text-2xl'
-
-// Prefijos predefinidos para el nombre visible — "Otro…" permite escribir
-// cualquier otro que no esté en la lista.
-const PREFIJOS = [
-  'Profesor', 'Profesora', 'Maestro', 'Maestra', 'Profe',
-  'Mtro.', 'Mtra.', 'Lic.', 'Ing.', 'Dr.', 'Dra.', 'Arq.',
-]
 
 export default function Profile() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
@@ -781,7 +775,7 @@ export default function Profile() {
             <div className="flex gap-2 items-start">
               <div className="w-32 sm:w-36 flex-shrink-0">
                 <label htmlFor="prof-prefijo" className="block text-xs font-medium text-muted mb-1">
-                  Prefijo <span className="text-slate-400 font-normal">(opcional)</span>
+                  Prefijo <span className="text-slate-400 font-normal hidden sm:inline">(opcional)</span>
                 </label>
                 <select id="prof-prefijo" value={prefijoOption} onChange={(e) => setPrefijoOption(e.target.value)}
                   className={inputCls}>
@@ -791,6 +785,7 @@ export default function Profile() {
                   ))}
                   <option value="__otro__">Otro… (escríbelo)</option>
                 </select>
+                <p className="text-xs text-slate-400 mt-1 sm:hidden">(opcional)</p>
                 {prefijoOption === '__otro__' && (
                   <input type="text" value={prefijoCustom} onChange={(e) => setPrefijoCustom(e.target.value)}
                     className={`${inputCls} mt-2`} placeholder="Escribe el prefijo" />

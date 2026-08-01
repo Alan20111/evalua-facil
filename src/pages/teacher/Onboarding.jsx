@@ -11,6 +11,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
+import { PREFIJOS } from '../../utils/prefijos'
 
 // Ventana para el "presiona de nuevo" de abajo — la misma que usa
 // AndroidBackButton para salir de la app desde la pantalla raíz.
@@ -25,6 +26,11 @@ export default function Onboarding() {
   const [apellidoPaterno, setApellidoPaterno] = useState('')
   const [apellidoMaterno, setApellidoMaterno] = useState('')
   const [nombre, setNombre] = useState('')
+  // Prefijo del nombre visible (opcional) — mismo patrón que Profile.jsx:
+  // el <select> guarda uno de los valores predefinidos, '' (sin prefijo) o
+  // '__otro__' (texto libre en prefijoCustom).
+  const [prefijoOption, setPrefijoOption] = useState('')
+  const [prefijoCustom, setPrefijoCustom] = useState('')
   const [codigoPostal, setCodigoPostal] = useState('')
   const { ubicacion, buscando } = useUbicacionCP(codigoPostal)
   const [saving, setSaving] = useState(false)
@@ -63,11 +69,13 @@ export default function Onboarding() {
     if (errorCP) { toast(errorCP, 'error'); return }
     setSaving(true)
     try {
+      const prefijo = prefijoOption === '__otro__' ? prefijoCustom.trim() : prefijoOption
       const updates = {
         nombre: realNombre.trim(),
         apellidoPaterno: apellidoPaterno.trim(),
         apellidoMaterno: apellidoMaterno.trim(),
         nombreMostrar: nombre.trim(),
+        prefijo,
         // Estado, municipio y ciudad se guardan resueltos junto al CP para
         // poder agrupar por zona sin volver a cargar el catálogo.
         codigoPostal: soloDigitosCP(codigoPostal),
@@ -151,16 +159,48 @@ export default function Onboarding() {
             />
 
             <div>
-              <label htmlFor="onboarding-nombre" className="block text-sm font-medium text-muted mb-1">¿Cómo quieres que te vean tus estudiantes?</label>
-              <input
-                id="onboarding-nombre"
-                type="text"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                required
-                className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                placeholder="Ej. Profa. Laura García"
-              />
+              <label className="block text-sm font-medium text-muted mb-1">¿Cómo quieres que te vean tus estudiantes?</label>
+              <div className="flex gap-2 items-start">
+                <div className="w-32 sm:w-36 flex-shrink-0">
+                  <label htmlFor="onboarding-prefijo" className="block text-xs font-medium text-muted mb-1">
+                    Prefijo <span className="text-slate-400 font-normal hidden sm:inline">(opcional)</span>
+                  </label>
+                  <select
+                    id="onboarding-prefijo"
+                    value={prefijoOption}
+                    onChange={(e) => setPrefijoOption(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  >
+                    <option value="">Sin prefijo</option>
+                    {PREFIJOS.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                    <option value="__otro__">Otro… (escríbelo)</option>
+                  </select>
+                  <p className="text-xs text-slate-400 mt-1 sm:hidden">(opcional)</p>
+                  {prefijoOption === '__otro__' && (
+                    <input
+                      type="text"
+                      value={prefijoCustom}
+                      onChange={(e) => setPrefijoCustom(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface mt-2"
+                      placeholder="Escribe el prefijo"
+                    />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label htmlFor="onboarding-nombre" className="block text-xs font-medium text-muted mb-1">Nombre</label>
+                  <input
+                    id="onboarding-nombre"
+                    type="text"
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                    required
+                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                    placeholder="Ej. Laura García"
+                  />
+                </div>
+              </div>
               <p className="text-sm text-muted mt-1">Puede ser distinto a tu nombre real — un apodo, un título, como prefieras.</p>
             </div>
 
