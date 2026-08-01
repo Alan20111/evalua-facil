@@ -29,6 +29,7 @@ const COLS = [
   { key: 'correo', label: 'Correo', w: 190 },
   { key: 'monto', label: 'Monto', w: 100 },
   { key: 'medio', label: 'Medio', w: 130 },
+  { key: 'folio', label: 'Folio bancario', w: 150 },
   // Misma Situación que en Suscripciones (Prueba, Cancelada, Pago
   // automático, Mes pagado, Cortesía) — no confundir con Verificación,
   // que es del PAGO, no de la suscripción.
@@ -398,7 +399,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                   </div>
                   <p className="text-xs text-muted">{formatDateTime(payment.createdAt)}</p>
                   {payment.referencia && (
-                    <p className="text-xs font-mono text-muted">Folio: {payment.referencia}</p>
+                    <p className="text-xs font-mono text-muted">Folio bancario: {payment.referencia}</p>
                   )}
                   <ComentarioCell key={`${payment.id}:${payment.comentarios || ''}`} payment={payment} onSaved={onRefresh} />
                   <div className="pt-1">
@@ -468,6 +469,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                           </span>
                         )}
                       </td>
+                      <td className="px-4 py-2 font-mono text-xs text-muted truncate">{payment.referencia || '—'}</td>
                       <td className="px-4 py-2">
                         {(() => {
                           const situacion = situacionDe(subscription)
