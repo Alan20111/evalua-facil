@@ -863,7 +863,13 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     id="sub-plan"
                     value={modal.form.planId}
                     onChange={(e) =>
-                      setModal({ ...modal, form: { ...modal.form, planId: e.target.value } })
+                      // Elegir un plan (incluido "Sin plan/prueba") es decisión
+                      // de que la suscripción ya no está cancelada: si el
+                      // checkbox seguía marcado de antes, se destilda solo.
+                      setModal({
+                        ...modal,
+                        form: { ...modal.form, planId: e.target.value, cancelada: false },
+                      })
                     }
                     className={inputCls}
                   >
