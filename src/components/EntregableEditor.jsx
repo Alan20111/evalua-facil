@@ -111,8 +111,11 @@ export default function EntregableEditor({
 
   // Dirty check: save buttons stay disabled while nothing changed. Publishing
   // a draft is an action by itself, so "Guardar y publicar" ignores it.
+  // notificarDocente se excluye a propósito: se guarda sola al tocarla (ver
+  // handleToggleNotificar) — que ya no cuente aquí para no dejar el botón
+  // "Guardar" habilitado por algo que no tiene nada pendiente.
   const isDirty = isNew
-    || JSON.stringify(form) !== JSON.stringify(initialForm)
+    || JSON.stringify({ ...form, notificarDocente: null }) !== JSON.stringify({ ...initialForm, notificarDocente: null })
     || newFiles.length > 0
     || existingFiles.length !== (initialExistingFiles || []).length
 
@@ -127,6 +130,28 @@ export default function EntregableEditor({
       setExistingFiles((prev) => prev.filter((_, i) => i !== index))
     } else {
       setNewFiles((prev) => prev.filter((_, i) => i !== index - existingFiles.length))
+    }
+  }
+
+  // "Notificarme" se guarda SOLA, aparte del botón "Guardar" de todo el
+  // formulario — pedido explícito tras un caso real: el docente la marcó,
+  // nunca le dio "Guardar" y nunca supo que se quedó sin aplicar (no sonó
+  // ninguna notificación de esa actividad). Solo aplica editando una
+  // actividad que ya existe — una nueva todavía no tiene documento en
+  // Firestore, así que ahí sigue viajando junto con la creación.
+  const [savingNotificar, setSavingNotificar] = useState(false)
+  async function handleToggleNotificar(checked) {
+    setForm((f) => ({ ...f, notificarDocente: checked }))
+    if (isNew) return
+    setSavingNotificar(true)
+    try {
+      await updateDoc(doc(db, 'activities', activityId), { notificarDocente: checked })
+      onActivityUpdated?.({ id: activityId, notificarDocente: checked })
+    } catch (err) {
+      toast('No se pudo guardar: ' + err.message, 'error')
+      setForm((f) => ({ ...f, notificarDocente: !checked }))
+    } finally {
+      setSavingNotificar(false)
     }
   }
 
@@ -244,18 +269,19 @@ export default function EntregableEditor({
                 type="checkbox"
                 id="ent-notificar-docente"
                 checked={form.notificarDocente ?? false}
-                onChange={(e) => setForm((f) => ({ ...f, notificarDocente: e.target.checked }))}
+                onChange={(e) => handleToggleNotificar(e.target.checked)}
+                disabled={savingNotificar}
                 className="mt-1"
               />
               <label htmlFor="ent-notificar-docente" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
                 Notificarme cuando entreguen esta actividad
                 <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante la entregue</span>
-                {/* Esta casilla no se guarda sola — es fácil marcarla y salir
-                    creyendo que ya quedó, sin notar que el botón "Guardar"
-                    de abajo sigue pendiente. Aviso justo aquí, junto al
-                    cambio, en vez de solo confiar en el estado del botón. */}
-                {form.notificarDocente !== (initialForm?.notificarDocente ?? false) && (
-                  <span className="text-amber-600 text-xs font-semibold block mt-1">⚠ Guarda los cambios para que esto aplique</span>
+                {/* Se guarda sola en cuanto se toca (ver handleToggleNotificar)
+                    — ya no depende del botón "Guardar" de abajo. Solo al crear
+                    una actividad nueva viaja junto con el resto, porque el
+                    documento todavía no existe. */}
+                {isNew && (
+                  <span className="text-muted text-xs block mt-1">Se guarda junto con el resto al crear la actividad</span>
                 )}
               </label>
             </div>

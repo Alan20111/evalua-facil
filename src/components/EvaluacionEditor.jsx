@@ -312,6 +312,33 @@ export default function EvaluacionEditor({
     } catch (err) { toast('Error al cargar banco: ' + err.message, 'error') }
   }
 
+  // "Notificarme" se guarda SOLA, aparte del botón "Guardar" de la
+  // información general — pedido explícito tras un caso real: el docente la
+  // marcó, nunca le dio "Guardar" y nunca supo que se quedó sin aplicar (no
+  // sonó ninguna notificación de esa evaluación). Solo aplica editando una
+  // evaluación que ya existe — una nueva todavía no tiene documento en
+  // Firestore, así que ahí sigue viajando junto con la creación.
+  const [savingNotificar, setSavingNotificar] = useState(false)
+  async function handleToggleNotificar(checked) {
+    setInfoForm((f) => ({ ...f, notificarDocente: checked }))
+    if (isNew) return
+    setSavingNotificar(true)
+    try {
+      await updateDoc(doc(db, 'activities', currentActivityId), { notificarDocente: checked })
+      onActivityUpdated?.({ id: currentActivityId, notificarDocente: checked })
+      // Ya quedó guardado — que el botón "Guardar" de abajo no se vea
+      // habilitado por este cambio, que no tiene nada pendiente.
+      if (loadedSnapshot.current !== null) {
+        loadedSnapshot.current = JSON.stringify({ ...JSON.parse(loadedSnapshot.current), notificarDocente: checked })
+      }
+    } catch (err) {
+      toast('No se pudo guardar: ' + err.message, 'error')
+      setInfoForm((f) => ({ ...f, notificarDocente: !checked }))
+    } finally {
+      setSavingNotificar(false)
+    }
+  }
+
   // ── Save basic info (create or update) ───────────────────────────
   // asDraft: save hidden with NO publication — a borrador. It only becomes
   // published when the teacher publishes it (here or via the card's eye icon).
@@ -747,18 +774,19 @@ export default function EvaluacionEditor({
                   type="checkbox"
                   id="eval-notificar-docente"
                   checked={infoForm.notificarDocente ?? false}
-                  onChange={(e) => setInfoForm((f) => ({ ...f, notificarDocente: e.target.checked }))}
+                  onChange={(e) => handleToggleNotificar(e.target.checked)}
+                  disabled={savingNotificar}
                   className="mt-1"
                 />
                 <label htmlFor="eval-notificar-docente" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
                   Notificarme cuando entreguen esta evaluación
                   <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante la finalice</span>
-                  {/* Esta casilla no se guarda sola — es fácil marcarla y salir
-                      creyendo que ya quedó, sin notar que el botón "Guardar"
-                      de abajo sigue pendiente. Aviso justo aquí, junto al
-                      cambio, en vez de solo confiar en el estado del botón. */}
-                  {infoForm.notificarDocente !== (loadedSnapshot.current ? (JSON.parse(loadedSnapshot.current).notificarDocente ?? false) : false) && (
-                    <span className="text-amber-600 text-xs font-semibold block mt-1">⚠ Guarda los cambios para que esto aplique</span>
+                  {/* Se guarda sola en cuanto se toca (ver handleToggleNotificar)
+                      — ya no depende del botón "Guardar" de abajo. Solo al
+                      crear una evaluación nueva viaja junto con el resto,
+                      porque el documento todavía no existe. */}
+                  {isNew && (
+                    <span className="text-muted text-xs block mt-1">Se guarda junto con el resto al crear la evaluación</span>
                   )}
                 </label>
               </div>
