@@ -4214,6 +4214,9 @@ export default function SubjectPage() {
                   "presente" aunque invisible). min-w-0 por sí solo ya evita
                   que los dos flex-1 fuercen scroll horizontal, sin necesidad
                   de recortar overflow. */}
+              {totalStudents === 0 ? (
+                <p className="text-sm text-muted">Necesitas al menos un estudiante inscrito para poder descargar calificaciones.</p>
+              ) : (
               <div className="flex gap-2">
                 {/* Excel y PDF: relleno de tinte de acento + borde, no borde
                     solo (se perdían sobre la tarjeta blanca) ni acento sólido
@@ -4237,6 +4240,7 @@ export default function SubjectPage() {
                   parciales={parcialesConActividades} onPickParcial={doExportParcialPDF}
                 />
               </div>
+              )}
             </div>
 
             <SearchInput
