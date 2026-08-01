@@ -21,6 +21,15 @@ export const SUBSCRIPTION_NAME = 'Suscripción mensual'
 // document's `precio` in sync with MONTHLY_PRICE_MXN via seeds-db/seed-plans.js.
 export const MONTHLY_PLAN_ID = 'pro'
 
+// ── Retención tras vencer ────────────────────────────────────────────────
+// Cuántos días se conserva la información de una cuenta vencida (prueba sin
+// convertir o suscripción sin renovar) antes de que se elimine definitiva.
+// Mismo número que usa api/cron/reminders.js para los correos de aviso — si
+// cambia aquí, cambiar también allá (api/ no puede importar de src/).
+// NOTA: el borrado automático al llegar a este plazo TODAVÍA NO EXISTE, solo
+// el aviso. Ver [[project_borrado_de_cuenta]] — hoy solo se borra a mano.
+export const RETENTION_DAYS = 90
+
 export function toDate(value) {
   if (!value) return null
   if (value instanceof Date) return value
@@ -89,6 +98,16 @@ export function isSubscriptionExpired(subscription) {
   return days !== null && days <= 0
 }
 
+// Días que faltan para que se cumplan los RETENTION_DAYS desde que venció,
+// o null si la suscripción no está vencida (no aplica el conteo). Puede dar
+// negativo si ya se pasó de los 90 días — hoy eso no borra nada solo, es la
+// señal de que el borrado manual ya debería haber pasado.
+export function diasParaEliminacion(subscription) {
+  if (!isSubscriptionExpired(subscription)) return null
+  const diasVencida = -calcDaysRemaining(effectiveVencimiento(subscription))
+  return RETENTION_DAYS - diasVencida
+}
+
 // Consultar, exportar y todo lo ya creado sigue disponible siempre. Esto
 // gatea el TRABAJO: crear, editar, calificar, pasar lista, publicar… (ver
 // utils/firestoreGuard.js, que lo aplica sobre las escrituras mismas).
@@ -130,7 +149,7 @@ export function getTrialBannerMessage(subscription) {
   if (days <= 0) {
     return {
       counter: null,
-      notice: 'Tu período de prueba terminó. Tu información sigue segura — activa tu suscripción mensual para seguir creando.',
+      notice: `Tu período de prueba terminó. Tu información sigue segura — la guardamos ${RETENTION_DAYS} días. Activa tu suscripción mensual para seguir creando.`,
       tone: 'expired',
     }
   }

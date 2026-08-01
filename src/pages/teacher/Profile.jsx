@@ -33,6 +33,9 @@ import {
   getPaymentStatusColor,
   getSubscriptionStatusColor,
   canRenew as canRenewSubscription,
+  isSubscriptionExpired,
+  diasParaEliminacion,
+  RETENTION_DAYS,
 } from '../../utils/subscriptionHelpers'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -499,6 +502,16 @@ export default function Profile() {
               )}
               {subscription.status === 'pendiente_pago' && (
                 <p className="text-sm text-amber-600">Tu pago está en revisión por el administrador.</p>
+              )}
+              {isSubscriptionExpired(subscription) && (
+                <p className="text-sm text-red-600">
+                  {(() => {
+                    const dias = diasParaEliminacion(subscription)
+                    return dias > 0
+                      ? `Guardamos tu información ${RETENTION_DAYS} días desde que venció — se elimina en ${dias} día${dias === 1 ? '' : 's'} si no reactivas.`
+                      : 'Tu información está a punto de eliminarse definitivamente — reactiva para conservarla.'
+                  })()}
+                </p>
               )}
             </div>
           ) : (

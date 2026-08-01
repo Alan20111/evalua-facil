@@ -3,7 +3,12 @@ import { Lock, Download, CreditCard } from 'lucide-react'
 import CheckoutModal from './CheckoutModal'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
-import { MONTHLY_PRICE_LABEL, SUBSCRIPTION_NAME } from '../utils/subscriptionHelpers'
+import { MONTHLY_PRICE_LABEL, SUBSCRIPTION_NAME, RETENTION_DAYS, diasParaEliminacion } from '../utils/subscriptionHelpers'
+
+// A partir de aquí (30 días o menos para que se cumplan los RETENTION_DAYS)
+// el mensaje pasa de informativo a urgente — mismo umbral que el correo
+// "temprano" del cron de recordatorios (api/cron/reminders.js).
+const DIAS_URGENCIA = 30
 
 // Ventana que ve el docente cuya suscripción venció. Aparece al entrar y cada
 // vez que intenta trabajar (ver utils/firestoreGuard.js).
@@ -16,6 +21,8 @@ import { MONTHLY_PRICE_LABEL, SUBSCRIPTION_NAME } from '../utils/subscriptionHel
 // vuelve a abrir en cualquier momento.
 export default function SuscripcionVencidaModal({ open, subscription, onSoloConsultar, onPagado }) {
   const [mostrarPago, setMostrarPago] = useState(false)
+  const diasRestantes = diasParaEliminacion(subscription)
+  const urgente = diasRestantes !== null && diasRestantes <= DIAS_URGENCIA
 
   // Atrás (botón físico de Android) hace lo mismo que "Solo consultar": nunca
   // dejar a nadie encerrado en una pantalla sin salida.
@@ -47,8 +54,13 @@ export default function SuscripcionVencidaModal({ open, subscription, onSoloCons
         <h2 className="text-xl font-bold text-on-surface text-center">Tu suscripción venció</h2>
 
         <p className="text-sm text-muted mt-2 text-center">
-          Toda tu información sigue completa y a salvo: tus grupos, tus estudiantes, tus
-          actividades y tus calificaciones. Puedes consultarlas y descargarlas cuando quieras.
+          Tus grupos, tus estudiantes, tus actividades y tus calificaciones siguen completos.
+          Puedes consultarlos y descargarlos cuando quieras.
+        </p>
+        <p className={`text-sm mt-2 text-center ${urgente ? 'text-red-600 font-semibold' : 'text-muted'}`}>
+          {urgente
+            ? `Se eliminan definitivamente en ${diasRestantes <= 0 ? 'cualquier momento' : `${diasRestantes} día${diasRestantes === 1 ? '' : 's'}`} si no reactivas.`
+            : `Los conservamos ${RETENTION_DAYS} días desde que venció tu suscripción — pasado ese plazo se eliminan definitivamente.`}
         </p>
         <p className="text-sm text-on-surface mt-3 text-center font-medium">
           Para volver a trabajar —calificar, pasar lista, crear actividades— activa tu {SUBSCRIPTION_NAME.toLowerCase()}.
