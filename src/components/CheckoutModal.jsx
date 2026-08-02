@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { collection, doc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, addDoc, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { X, Wallet, Landmark, Loader2 } from 'lucide-react'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
@@ -152,6 +152,13 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
     }
     setSubmitting(true)
     try {
+      // Un solo batch: si algo falla a medio camino, NINGUNO de los dos
+      // escritos se aplica. Antes eran dos escrituras independientes — una
+      // falla entre la primera y la segunda dejaba al docente marcado
+      // "pendiente_pago" (su pantalla decía "en revisión") sin que existiera
+      // el doc en `payments` que el panel de admin sí revisa, un pago
+      // huérfano invisible para ambos lados.
+      const batch = writeBatch(db)
       const subData = {
         docenteId: currentUser.uid,
         planId: MONTHLY_PLAN_ID,
@@ -162,16 +169,14 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
       }
       let subscriptionId
       if (subscription?.id) {
-        await updateDoc(doc(db, 'subscriptions', subscription.id), subData)
+        batch.update(doc(db, 'subscriptions', subscription.id), subData)
         subscriptionId = subscription.id
       } else {
-        const ref = await addDoc(collection(db, 'subscriptions'), {
-          ...subData,
-          createdAt: serverTimestamp(),
-        })
+        const ref = doc(collection(db, 'subscriptions'))
+        batch.set(ref, { ...subData, createdAt: serverTimestamp() })
         subscriptionId = ref.id
       }
-      await addDoc(collection(db, 'payments'), {
+      batch.set(doc(collection(db, 'payments')), {
         docenteId: currentUser.uid,
         subscriptionId,
         planId: MONTHLY_PLAN_ID,
@@ -182,6 +187,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
         status: 'pendiente',
         createdAt: serverTimestamp(),
       })
+      await batch.commit()
       toast('Pago registrado. Lo aprobamos dentro de las próximas 12 horas.')
       setReferencia('')
       onSuccess?.()
