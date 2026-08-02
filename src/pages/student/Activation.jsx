@@ -119,14 +119,32 @@ export default function StudentActivation() {
       return
     }
     try {
-      const snaps = await Promise.all(usernameCandidates(userProfile.username).map((u) =>
-        getDocs(query(
+      // Primero por uid — inequívoco, ya queda grabado en CADA inscripción
+      // desde su activación (finishActivation). userProfile.username viene
+      // de una sola de las inscripciones del alumno (AuthContext elige
+      // cualquiera), así que si ESTA asignatura en particular le tocó un
+      // username distinto (colisión de nombres al darlo de alta, importación
+      // CSV, etc.), la búsqueda por username fallaba aunque el alumno ya
+      // estuviera inscrito — falso "aún no estás inscrito ahí".
+      let found = []
+      if (currentUser?.uid) {
+        const byUid = await getDocs(query(
           collection(db, 'students'),
           where('asignaturaId', '==', subject.id),
-          where('username', '==', u)
+          where('uid', '==', currentUser.uid)
         ))
-      ))
-      const found = snaps.flatMap((s) => s.docs)
+        found = byUid.docs
+      }
+      if (found.length === 0) {
+        const snaps = await Promise.all(usernameCandidates(userProfile.username).map((u) =>
+          getDocs(query(
+            collection(db, 'students'),
+            where('asignaturaId', '==', subject.id),
+            where('username', '==', u)
+          ))
+        ))
+        found = snaps.flatMap((s) => s.docs)
+      }
       // No encontrado ≠ cuenta equivocada — el caso normal es que el
       // maestro simplemente no ha agregado a este alumno ahí todavía. Antes
       // se mostraba el mismo aviso de "cierra sesión" que el de cuenta
