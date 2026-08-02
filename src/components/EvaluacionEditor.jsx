@@ -161,6 +161,7 @@ export default function EvaluacionEditor({
   onClose,
   onActivityCreated,
   onActivityUpdated,
+  onDeleteActivity,   // EvaluacionManager only: abre la confirmación de borrado — ausente al crear
 }) {
   const toast = useToast()
   // This component is only mounted while open — same close path as its own
@@ -1004,6 +1005,12 @@ export default function EvaluacionEditor({
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
               {isDirty ? 'Salir sin guardar cambios' : 'Salir'}
+            </button>
+          )}
+          {!isNew && onDeleteActivity && (
+            <button type="button" onClick={onDeleteActivity} disabled={savingInfo}
+              className="w-full py-2.5 text-error font-medium rounded-card hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
+              <Trash2 size={16} /> Eliminar actividad
             </button>
           )}
         </div>
