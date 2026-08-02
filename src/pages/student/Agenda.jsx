@@ -417,12 +417,13 @@ export default function Agenda() {
   return (
     <StudentLayout>
     <div className="bg-surface flex flex-col min-h-full">
-      <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 safe-top">
+      <div className="sticky top-0 z-10 safe-top">
+      <header className="bg-accent text-white px-4 py-3 shadow-lg">
         {/* Todo en un solo renglón: selector de vista (izquierda, junto al
             botón de regresar), +Evento (centro) y Horas del día (derecha,
             donde antes vivía +Evento) — pedido explícito, para ganar el
             espacio vertical que antes ocupaban 3 renglones. */}
-        <div className="grid grid-cols-3 items-center gap-2">
+        <div className="grid items-center gap-2" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
           <div className="flex items-center gap-1 min-w-0 justify-self-start">
             <button
               type="button"
@@ -432,20 +433,17 @@ export default function Agenda() {
             >
               <ArrowLeft size={20} />
             </button>
-            <div className="flex gap-0.5 bg-white/10 p-1 rounded-full min-w-0">
+            <div className="flex gap-0.5 bg-white/10 p-1 rounded-full min-w-0 overflow-x-auto">
               {VIEWS.map((v) => (
                 <button
                   key={v.id}
                   type="button"
                   onClick={() => changeView(v.id)}
-                  aria-label={v.label}
-                  data-tooltip={v.label}
-                  data-tooltip-pos="bottom"
-                  className={`p-1.5 rounded-full transition-colors ${
+                  className={`flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition-colors ${
                     view === v.id ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
                   }`}
                 >
-                  <v.Icon size={15} />
+                  <v.Icon size={14} /> {v.label}
                 </button>
               ))}
             </div>
@@ -519,25 +517,29 @@ export default function Agenda() {
         </div>
       </header>
 
+      {/* Navegación de fecha — pegada justo debajo del encabezado azul, dentro
+          del mismo contenedor sticky, para que no se pierda al hacer scroll
+          en ninguna vista (pedido explícito). */}
+      <div className="bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-between">
+        <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
+          <ChevronLeft size={18} />
+        </button>
+        <div className="flex items-center gap-2 min-w-0">
+          <p className="text-sm font-semibold text-on-surface truncate">{navLabel()}</p>
+          <button type="button" onClick={goToday} className="text-xs font-medium text-accent border border-accent rounded-full px-2 py-0.5 flex-shrink-0 hover:bg-accent-tint transition-colors">
+            Hoy
+          </button>
+        </div>
+        <button type="button" onClick={next} aria-label="Siguiente" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
+          <ChevronRight size={18} />
+        </button>
+      </div>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center py-20"><Spinner size="lg" /></div>
       ) : (
         <div className={`${padClass} py-4 flex-1 ${CONTAINER_BY_VIEW[view]}`}>
-          <div className="flex items-center justify-between mb-3">
-            <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
-              <ChevronLeft size={18} />
-            </button>
-            <div className="flex items-center gap-2 min-w-0">
-              <p className="text-sm font-semibold text-on-surface truncate">{navLabel()}</p>
-              <button type="button" onClick={goToday} className="text-xs font-medium text-accent border border-accent rounded-full px-2 py-0.5 flex-shrink-0 hover:bg-accent-tint transition-colors">
-                Hoy
-              </button>
-            </div>
-            <button type="button" onClick={next} aria-label="Siguiente" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
-              <ChevronRight size={18} />
-            </button>
-          </div>
-
           <div className="bg-surface-card rounded-card shadow-card border border-outline-variant overflow-hidden">
             {view === 'agenda' && (
               <AgendaView
