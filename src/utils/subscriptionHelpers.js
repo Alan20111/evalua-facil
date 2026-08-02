@@ -153,21 +153,12 @@ export function canRenew(subscription) {
   if (!subscription) return true
   if (isSubscriptionExpired(subscription)) return true
   if (subscription.status === 'pendiente_pago') return false
-  if (subscription.status === 'trial') return true
-  // 'activa' por vencer pronto — 7 días antes, para que el botón aparezca a
-  // tiempo y no solo hasta que ya perdió el acceso, sin ofrecer "renovar"
-  // semanas antes de que haga falta (evita pagos apilados de más).
-  if (subscription.status === 'activa') {
-    const daysRemaining = calcDaysRemaining(effectiveVencimiento(subscription))
-    return daysRemaining !== null && daysRemaining <= 7
-  }
-  // 'cancelada' es distinto: quien ya canceló decidió parar — si cambia de
-  // opinión, debe poder volver a pagar de inmediato, sin esperar a que se le
-  // acaben los días de gracia. Antes usaba el mismo umbral de 7 días que
-  // 'activa' y el botón de pagar desaparecía con hasta 29 días de gracia
-  // restantes, dejando a quien canceló por error sin forma de revertirlo.
-  if (subscription.status === 'cancelada') return true
-  return false
+  // Pedido explícito: el docente debe poder pagar en CUALQUIER momento, no
+  // solo en los últimos días — a veces tiene el dinero hoy y no lo tendrá
+  // más adelante. Pagar antes de tiempo no pierde nada: CheckoutModal ya
+  // extiende desde donde termina lo vigente (trial, activa o cancelada con
+  // gracia), nunca recorta ni empalma días.
+  return true
 }
 
 // Trial banner copy — the day counter is always visible from day 1 of the
