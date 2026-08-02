@@ -6,12 +6,15 @@ import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { GraduationCap } from 'lucide-react'
+import { GraduationCap, Trash2 } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
+import { useScrollLock } from '../../hooks/useScrollLock'
 import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
 import { PREFIJOS } from '../../utils/prefijos'
+import ConfirmModal from '../../components/ConfirmModal'
+import { apiUrl } from '../../utils/apiBase'
 
 // Ventana para el "presiona de nuevo" de abajo — la misma que usa
 // AndroidBackButton para salir de la app desde la pantalla raíz.
@@ -35,6 +38,38 @@ export default function Onboarding() {
   const { ubicacion, buscando } = useUbicacionCP(codigoPostal)
   const [saving, setSaving] = useState(false)
   const ultimaSalidaRef = useRef(0)
+
+  // Cancelar registro — pedido explícito: hasta este paso la cuenta ya existe
+  // en Firebase Auth + Firestore (users/{uid} + subscriptions), aunque el
+  // docente todavía no vio ni usó nada. Sin este botón quedaba atrapado:
+  // "Un último paso" era falso, porque el registro YA había quedado hecho
+  // antes de llegar aquí. Reutiliza /api/account/delete (el mismo borrado sin
+  // residuos del perfil) para no dejar un users/{uid} o una suscripción de
+  // prueba huérfanos.
+  const [showCancelar, setShowCancelar] = useState(false)
+  const [cancelando, setCancelando] = useState(false)
+  useBackHandler(() => setShowCancelar(false), showCancelar)
+  useScrollLock(showCancelar)
+
+  async function cancelarRegistro() {
+    setCancelando(true)
+    try {
+      const token = await currentUser.getIdToken()
+      const res = await fetch(apiUrl('/api/account/delete'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ confirmacion: 'ELIMINAR' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'No se pudo cancelar el registro')
+      await signOut(auth).catch(() => {})
+      navigate('/docente', { replace: true })
+      toast('Registro cancelado — no quedó ninguna cuenta creada')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+      setCancelando(false)
+    }
+  }
 
   // Botón físico de Android. Esta pantalla no tiene "atrás" posible: la ruta
   // protegida rebota aquí mientras el perfil esté incompleto, y cerrar la app
@@ -214,7 +249,30 @@ export default function Onboarding() {
             </button>
           </form>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowCancelar(true)}
+          disabled={saving}
+          className="w-full text-center text-sm text-muted hover:text-error mt-4 transition-colors disabled:opacity-60"
+        >
+          Cancelar registro
+        </button>
       </div>
+
+      {showCancelar && (
+        <ConfirmModal
+          title="¿Cancelar tu registro?"
+          message="Todavía no has entrado a tu panel, así que no perdiste ningún trabajo. Se eliminará por completo la cuenta que acabas de crear y podrás registrarte de nuevo cuando quieras."
+          confirmLabel="Cancelar registro"
+          confirmingLabel="Cancelando…"
+          confirmIcon={<Trash2 size={16} />}
+          danger
+          busy={cancelando}
+          onConfirm={cancelarRegistro}
+          onCancel={() => !cancelando && setShowCancelar(false)}
+        />
+      )}
     </div>
   )
 }
