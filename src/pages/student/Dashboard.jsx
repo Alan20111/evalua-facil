@@ -740,10 +740,6 @@ export default function StudentDashboard() {
               >
                 Continuar <ChevronRight size={18} />
               </button>
-              <p className="text-xs text-muted text-center mt-3 leading-relaxed">
-                También puedes escanear el QR de la asignatura. Como ya tienes cuenta,
-                solo confirmarás tu contraseña.
-              </p>
             </form>
           </div>
         </div>
