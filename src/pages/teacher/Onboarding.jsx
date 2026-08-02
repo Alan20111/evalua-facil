@@ -39,19 +39,21 @@ export default function Onboarding() {
   const [saving, setSaving] = useState(false)
   const ultimaSalidaRef = useRef(0)
 
-  // Cancelar registro — pedido explícito: hasta este paso la cuenta ya existe
-  // en Firebase Auth + Firestore (users/{uid} + subscriptions), aunque el
-  // docente todavía no vio ni usó nada. Sin este botón quedaba atrapado:
+  // "No continuar" — pedido explícito: hasta este paso la cuenta ya existe en
+  // Firebase Auth + Firestore (users/{uid} + subscriptions), aunque el
+  // docente todavía no vio ni usó nada. Sin esta salida quedaba atrapado:
   // "Un último paso" era falso, porque el registro YA había quedado hecho
-  // antes de llegar aquí. Reutiliza /api/account/delete (el mismo borrado sin
-  // residuos del perfil) para no dejar un users/{uid} o una suscripción de
-  // prueba huérfanos.
-  const [showCancelar, setShowCancelar] = useState(false)
+  // antes de llegar aquí, y ni cerrar la pestaña servía — al volver a
+  // evaluafacil.mx la sesión seguía viva y rebotaba aquí de nuevo. Reutiliza
+  // /api/account/delete (el mismo borrado sin residuos del perfil) y regresa
+  // a Crear cuenta, para que quien se arrepintió del correo pueda intentar
+  // con otro.
+  const [showNoContinuar, setShowNoContinuar] = useState(false)
   const [cancelando, setCancelando] = useState(false)
-  useBackHandler(() => setShowCancelar(false), showCancelar)
-  useScrollLock(showCancelar)
+  useBackHandler(() => setShowNoContinuar(false), showNoContinuar)
+  useScrollLock(showNoContinuar)
 
-  async function cancelarRegistro() {
+  async function noContinuar() {
     setCancelando(true)
     try {
       const token = await currentUser.getIdToken()
@@ -63,8 +65,8 @@ export default function Onboarding() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'No se pudo cancelar el registro')
       await signOut(auth).catch(() => {})
-      navigate('/docente', { replace: true })
-      toast('Registro cancelado — no quedó ninguna cuenta creada')
+      navigate('/register', { replace: true })
+      toast('No quedó ninguna cuenta registrada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
       setCancelando(false)
@@ -252,25 +254,25 @@ export default function Onboarding() {
 
         <button
           type="button"
-          onClick={() => setShowCancelar(true)}
+          onClick={() => setShowNoContinuar(true)}
           disabled={saving}
           className="w-full text-center text-sm text-muted hover:text-error mt-4 transition-colors disabled:opacity-60"
         >
-          Cancelar registro
+          No continuar
         </button>
       </div>
 
-      {showCancelar && (
+      {showNoContinuar && (
         <ConfirmModal
-          title="¿Cancelar tu registro?"
-          message="Todavía no has entrado a tu panel, así que no perdiste ningún trabajo. Se eliminará por completo la cuenta que acabas de crear y podrás registrarte de nuevo cuando quieras."
-          confirmLabel="Cancelar registro"
-          confirmingLabel="Cancelando…"
+          title="¿No quieres continuar?"
+          message="No quedará ninguna cuenta registrada con este correo: la borraremos por completo y regresarás a Crear cuenta, donde puedes intentar con otro correo o con Google."
+          confirmLabel="No continuar"
+          confirmingLabel="Un momento…"
           confirmIcon={<Trash2 size={16} />}
           danger
           busy={cancelando}
-          onConfirm={cancelarRegistro}
-          onCancel={() => !cancelando && setShowCancelar(false)}
+          onConfirm={noContinuar}
+          onCancel={() => !cancelando && setShowNoContinuar(false)}
         />
       )}
     </div>
