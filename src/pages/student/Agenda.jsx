@@ -417,7 +417,14 @@ export default function Agenda() {
   return (
     <StudentLayout>
     <div className="bg-surface flex flex-col min-h-full">
-      <div className="sticky top-0 z-10 safe-top">
+      {/* z-20: el header de días de WeekView (CalendarPage.jsx) es
+          `sticky z-10` y, siendo hermano posterior en el DOM dentro del
+          mismo stacking context de nivel superior, pintaba ENCIMA de este
+          bloque (y de su menú desplegable de Horas) pese al z-40 interno
+          del menú — un z-index anidado no compite fuera de su contexto de
+          apilamiento. Con z-20 aquí, todo el grupo (header + fecha + menú)
+          gana siempre. */}
+      <div className="sticky top-0 z-20 safe-top">
       <header className="bg-accent text-white px-4 py-3 shadow-lg">
         {/* Todo en un solo renglón: selector de vista (izquierda, junto al
             botón de regresar), +Evento (centro) y Horas del día (derecha,
