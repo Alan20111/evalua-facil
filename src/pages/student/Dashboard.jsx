@@ -9,6 +9,7 @@ import {
   getDocs,
   updateDoc,
   writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -136,7 +137,7 @@ export default function StudentDashboard() {
     if (!subjectToRemove?.enrollmentId) return
     setRemoving(true)
     try {
-      await updateDoc(doc(db, 'students', subjectToRemove.enrollmentId), { ocultaPorAlumno: true })
+      await updateDoc(doc(db, 'students', subjectToRemove.enrollmentId), { ocultaPorAlumno: true, ocultaPorAlumnoAt: serverTimestamp() })
       setSubjects((prev) => prev.filter((s) => s.id !== subjectToRemove.id))
       setSubjectToRemove(null)
       toast('Se quitó de tus asignaturas archivadas')

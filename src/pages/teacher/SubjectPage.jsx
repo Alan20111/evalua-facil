@@ -4565,10 +4565,17 @@ export default function SubjectPage() {
                           <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${hl || stripeBg}`}>
                             <span
                               className="block truncate"
-                              data-tooltip={!s.activado ? 'Este estudiante aún no ha activado su cuenta — no puede entrar ni entregar' : undefined}
+                              data-tooltip={
+                                !s.activado
+                                  ? 'Este estudiante aún no ha activado su cuenta — no puede entrar ni entregar'
+                                  : s.ocultaPorAlumno
+                                    ? `Salió de la asignatura${s.ocultaPorAlumnoAt?.toDate ? ` el ${s.ocultaPorAlumnoAt.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''} — no la ve en su lista, pero sigue inscrito y sus entregas/calificaciones cuentan igual`
+                                    : undefined
+                              }
                             >
                               {studentFullName(s)}
                               {!s.activado && <span className="text-red-500 text-[10px] font-semibold"> (no se ha activado)</span>}
+                              {s.activado && s.ocultaPorAlumno && <span className="text-slate-400 text-[10px] font-semibold"> (salió)</span>}
                             </span>
                           </td>
                           {visibleParcials.map(({ p, acts }) => {
@@ -5168,6 +5175,18 @@ export default function SubjectPage() {
                     <span className="w-7 flex-shrink-0 text-[11px] text-accent font-semibold">{s.orden}</span>
                   )}
                   <span className={`font-mono text-accent font-semibold truncate ${IS_NATIVE_APP ? 'flex-1 text-[10px]' : 'flex-shrink-0 w-44 text-xs'}`}>{s.username}</span>
+                  {s.ocultaPorAlumno && (
+                    // El alumno "salió" (se lo ocultó de sus propias listas) —
+                    // no está borrado ni afecta calificaciones/entregas, pero
+                    // el docente debe poder notarlo de un vistazo. Pedido
+                    // explícito, con la fecha en el tooltip.
+                    <span
+                      className={`leading-none bg-slate-200 text-slate-600 rounded-full flex-shrink-0 ${IS_NATIVE_APP ? 'text-[9px] px-1 py-0.5' : 'text-[11px] px-1.5 py-0.5'}`}
+                      data-tooltip={`Salió de la asignatura${s.ocultaPorAlumnoAt?.toDate ? ` el ${s.ocultaPorAlumnoAt.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}`}
+                    >
+                      salió
+                    </span>
+                  )}
                   <span className={`flex-shrink-0 flex items-center ${IS_NATIVE_APP ? 'w-14' : 'w-24'}`}>
                     {s.activado ? (
                       <span className={`leading-none bg-emerald-100 text-emerald-700 rounded-full ${IS_NATIVE_APP ? 'text-[9px] px-1 py-0.5' : 'text-[11px] px-1.5 py-0.5'}`}>activo</span>
