@@ -712,8 +712,12 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
         {/* Body: time gutter + day columns */}
         <div className="grid" style={{ gridTemplateColumns: gridCols }}>
           {/* Time gutter — el am/pm cuelga debajo de la hora, igual que en la
-              vista Día, para que las tres se lean igual. */}
-          <div className="relative" style={{ height: gridH }}>
+              vista Día, para que las tres se lean igual. z-10: en un grid,
+              los items posteriores en el DOM (columnas de días) pintan
+              encima de los anteriores donde se toquen (sombras/anillos de
+              bloques y eventos) — sin esto, esas sombras tapaban los
+              números de hora pegados al borde derecho de esta columna. */}
+          <div className="relative z-10" style={{ height: gridH }}>
             {hoursRange.map((hour, i) => {
               const [hNum, periodo] = formatHora12(`${String(hour).padStart(2, '0')}:00`).split(' ')
               return (
