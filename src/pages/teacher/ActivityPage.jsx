@@ -10,7 +10,8 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
-import { updateDoc, addDoc, deleteDoc } from '../../utils/firestoreGuard'
+import { updateDoc, addDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
+import { deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -152,6 +153,10 @@ export default function ActivityPage() {
   const [activityLabel, setActivityLabel] = useState(null)
   // "Nueva fecha de entrega" modal, offered from within the activity editor
   const [newDateOpen, setNewDateOpen] = useState(false)
+  // Eliminar actividad — disponible desde la propia edición, para entregable/
+  // observación y evaluación por igual, incluidos borradores. Pedido explícito.
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deletingActivity, setDeletingActivity] = useState(false)
   const [subject, setSubject] = useState(null)
   const [students, setStudents] = useState([])
   const [submissions, setSubmissions] = useState({})
@@ -378,6 +383,35 @@ export default function ActivityPage() {
   function goBack() {
     if (returnToCalendar) { navigate('/calendario'); return }
     navigate(`/subject/${activity?.asignaturaId}`, returnToGrades ? { state: { tab: 'calificaciones' } } : undefined)
+  }
+
+  // Eliminar la actividad desde su propia pantalla — entregable, observación
+  // o evaluación, publicada o borrador, todas por igual. Mismo criterio de
+  // cascada y reindexado de `orden` que el borrado desde el listado del
+  // parcial en SubjectPage.jsx (ver deleteSubmissionsByActivity).
+  async function handleDeleteActivity() {
+    if (!activity) return
+    setDeletingActivity(true)
+    try {
+      await deleteSubmissionsByActivity(activity.id)
+      await deleteDoc(doc(db, 'activities', activity.id))
+      const siblingsSnap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', activity.asignaturaId)))
+      const remaining = siblingsSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((a) => a.id !== activity.id && a.parcial === activity.parcial)
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      const batch = writeBatch(db)
+      remaining.forEach((a, i) => {
+        const orden = i + 1
+        if (a.orden !== orden) batch.update(doc(db, 'activities', a.id), { orden })
+      })
+      await batch.commit()
+      toast('Actividad eliminada')
+      navigate(`/subject/${activity.asignaturaId}`, returnToGrades ? { state: { tab: 'calificaciones' } } : undefined)
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+      setDeletingActivity(false)
+    }
   }
 
   async function closeModal() {
@@ -807,12 +841,37 @@ export default function ActivityPage() {
       <div className="flex justify-center py-20"><Spinner size="lg" /></div>
   )
 
+  // Eliminar actividad — un solo nodo, reutilizado en las dos ramas del
+  // ternario de abajo (evaluación y entregable/observación) para que
+  // funcione desde cualquiera de los dos tipos.
+  const deleteActivityModal = deleteConfirm && activity && (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+      <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteConfirm(false)} aria-label="Cerrar" />
+      <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+        <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
+        <p className="text-sm text-muted mb-4">
+          &ldquo;<strong>{activity.nombre}</strong>&rdquo; se eliminará permanentemente, junto con las entregas que tenga.
+        </p>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => setDeleteConfirm(false)}
+            className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+          <button type="button" onClick={handleDeleteActivity} disabled={deletingActivity}
+            className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+            {deletingActivity ? <Spinner size="sm" /> : <Trash2 size={16} />}
+            {deletingActivity ? 'Eliminando…' : 'Eliminar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
       <div {...subjectPaletteProps(subject?.colorPalette)}>
       {/* Evaluaciones render their manager as the page body, but share the
           fullscreen per-student grading overlay below (so a grades-table cell
           opens the SAME panel for every activity type). */}
       {activity?.tipo === 'evaluacion' ? (
+        <>
         <EvaluacionManager
           activity={activity}
           subject={subject}
@@ -831,7 +890,10 @@ export default function ActivityPage() {
           resultadosOnly
           backState={returnToGrades ? { tab: 'calificaciones' } : null}
           openStudentId={location.state?.openStudentId || null}
+          onDeleteActivity={() => setDeleteConfirm(true)}
         />
+        {deleteActivityModal}
+        </>
       ) : (
       <div className={TEACHER_CONTAINER_NARROW}>
         {/* Header */}
@@ -878,6 +940,15 @@ export default function ActivityPage() {
                   className="p-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
                 >
                   <Pencil size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(true)}
+                  data-tooltip="Eliminar actividad"
+                  aria-label="Eliminar actividad"
+                  className="p-1 text-slate-400 hover:text-error hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
+                >
+                  <Trash2 size={18} />
                 </button>
               </div>
               {/* text-base y no text-sm: es la línea que dice DE QUÉ va esto
@@ -2331,6 +2402,10 @@ export default function ActivityPage() {
           onSaved={applyNewDateResult}
         />
       )}
+
+      {/* Eliminar actividad — desde su propia edición, entregable/observación
+          o evaluación, publicada o borrador. */}
+      {deleteActivityModal}
 
       </div>
   )
