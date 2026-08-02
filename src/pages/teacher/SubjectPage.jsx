@@ -54,7 +54,7 @@ import {
   ArrowLeft, Plus, ChevronDown, ChevronUp, FileText, Clock,
   CheckCircle, X, Pencil, Trash2, Archive, ArchiveRestore,
   FileSpreadsheet,
-  ArrowUpDown, UserPlus, RotateCcw, Upload, Download, ChevronRight,
+  ArrowUpDown, UserPlus, RotateCcw, Upload, Download, ChevronRight, LogIn,
   Check as CheckIcon, KeyRound, Copy,
   Eye, EyeOff, FileSearch, ExternalLink, BookOpen, Paperclip, FileCheck2, Timer,
   ListChecks, GraduationCap, ClipboardCheck, MoreVertical, Lock, CalendarPlus,
@@ -2014,6 +2014,19 @@ export default function SubjectPage() {
     editStudentForm.apellidoMaterno.trim() !== (studentToEdit?.apellidoMaterno || '') ||
     editStudentForm.nombre.trim() !== (studentToEdit?.nombre || '') ||
     editStudentForm.comentarios.trim() !== (studentToEdit?.comentarios || '')
+
+  // Permitir reingreso a un alumno que salió por su cuenta (ocultaPorAlumno)
+  // — pedido explícito: no se reactiva solo con el código, requiere que el
+  // docente se lo permita explícitamente desde aquí.
+  async function handleAllowRejoin(s) {
+    try {
+      await updateDoc(doc(db, 'students', s.id), { ocultaPorAlumno: deleteField(), ocultaPorAlumnoAt: deleteField() })
+      setGroupStudents((prev) => prev.map((x) => (x.id === s.id ? { ...x, ocultaPorAlumno: false, ocultaPorAlumnoAt: null } : x)))
+      toast('Ahora puede volver a entrar con su código')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
 
   async function handleDeleteStudentPhoto() {
     if (!studentToEdit?.photoURL) return
@@ -5861,6 +5874,19 @@ export default function SubjectPage() {
                 <RotateCcw size={17} />
                 Habilitar recuperación de contraseña
               </button>
+              {studentToEdit?.ocultaPorAlumno && (
+                // Salió por su cuenta de la asignatura — no se reactiva sola
+                // con el código, requiere este permiso explícito del docente.
+                <button
+                  type="button"
+                  onClick={() => { handleAllowRejoin(studentToEdit); setStudentToEdit(null) }}
+                  disabled={savingStudent}
+                  className="w-full py-1.5 rounded border border-accent/30 text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <LogIn size={17} />
+                  Permitir reingreso — salió de la asignatura
+                </button>
+              )}
               <button
                 type="button"
                 onClick={requestDeleteFromEdit}
