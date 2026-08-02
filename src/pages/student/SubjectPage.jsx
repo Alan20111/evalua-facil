@@ -511,8 +511,8 @@ export default function StudentSubjectPage() {
                 Tienes <strong>{pendingActivitiesCount}</strong> {pendingActivitiesCount === 1 ? 'actividad pendiente' : 'actividades pendientes'} de entregar aquí — si sales, no te van a seguir apareciendo como pendientes hasta que regreses.
               </p>
             )}
-            <p className="text-sm text-muted mb-4">
-              Es reversible: puedes volver a entrar cuando quieras con el mismo código de acceso{subject?.accessCode ? <> (<strong>{subject.accessCode}</strong>)</> : ''}, y recuperas todo tal como lo dejaste.
+            <p className="text-sm text-error mb-4">
+              No podrás volver a entrar tú solo con el código — tendrás que pedirle a tu maestro(a) que te dé permiso de reingresar.
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowLeaveConfirm(false)} disabled={leaving}

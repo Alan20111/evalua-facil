@@ -7,8 +7,6 @@ import {
   getDocs,
   writeBatch,
   doc,
-  updateDoc,
-  deleteField,
   serverTimestamp,
 } from 'firebase/firestore'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth'
@@ -30,7 +28,7 @@ export default function StudentActivation() {
   const { currentUser, userProfile } = useAuth()
   const [subject, setSubject] = useState(null)
   const [student, setStudent] = useState(null)
-  // 'username' | 'password' | 'link_existing' | 'checking_session' | 'not_enrolled' | 'session_blocked'
+  // 'username' | 'password' | 'link_existing' | 'checking_session' | 'not_enrolled' | 'session_blocked' | 'left_needs_teacher'
   const [step, setStep] = useState('username')
   const [username, setUsername] = useState(location.state?.prefillUsername ?? '')
   const [password, setPassword] = useState('')
@@ -55,7 +53,7 @@ export default function StudentActivation() {
   function goBackStep() {
     if (step === 'link_existing') { setStep(linkFromPassword ? 'password' : 'username'); return }
     if (step === 'password') { setStep('username'); return }
-    if (step === 'session_blocked' || step === 'not_enrolled') { navigate(userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'); return }
+    if (step === 'session_blocked' || step === 'not_enrolled' || step === 'left_needs_teacher') { navigate(userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'); return }
     navigate('/alumno')
   }
   useBackHandler(goBackStep)
@@ -160,15 +158,11 @@ export default function StudentActivation() {
       // escuela (userProfile.escuelaId); si no coincide, no es su asignatura.
       if (data.escuelaId !== userProfile.escuelaId) { setStep('session_blocked'); return }
       if (data.activado) {
-        // Había salido de esta asignatura (ocultaPorAlumno) y volvió a meter
-        // el código para regresar — reactivarla es justo lo que pedía, no
-        // "ya está en tu cuenta" a secas dejándola invisible igual que antes.
-        if (data.ocultaPorAlumno) {
-          await updateDoc(doc(db, 'students', data.id), { ocultaPorAlumno: deleteField(), ocultaPorAlumnoAt: deleteField() })
-          toast('¡De vuelta! Ya puedes ver esta asignatura otra vez.')
-          navigate(`/alumno/materia/${subject.id}`)
-          return
-        }
+        // Salió de esta asignatura por su cuenta (ocultaPorAlumno) — pedido
+        // explícito: NO se reactiva sola con el código, para que un alumno no
+        // pueda salir y entrar a placer sin que el docente se entere. Debe
+        // pedirle al docente que le permita reingresar (botón en su lista).
+        if (data.ocultaPorAlumno) { setStep('left_needs_teacher'); return }
         toast('Esta asignatura ya está en tu cuenta.')
         navigate('/alumno/dashboard')
         return
@@ -427,6 +421,35 @@ export default function StudentActivation() {
   // sesión ni nada parecido, solo esperar a que lo agregue. Antes caía en el
   // mismo aviso largo de "cuenta equivocada" (session_blocked), pedido
   // explícito: separarlo en un mensaje corto y directo.
+  // Salió de esta asignatura por su cuenta y volvió a meter el código —
+  // pedido explícito: solo el docente puede permitirle reingresar (para que
+  // no pueda salir/entrar a placer sin que el maestro se entere).
+  if (step === 'left_needs_teacher') {
+    const panelPath = userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
+        <div className="w-full max-w-sm text-center">
+          <EFLogo className="mx-auto w-52 sm:w-60 h-auto mb-3" />
+          <div className="w-16 h-16 rounded-card bg-amber-100 flex items-center justify-center mx-auto mb-3">
+            <GraduationCap size={32} className="text-amber-600" />
+          </div>
+          <h1 className="text-xl font-bold text-on-surface mb-2">Saliste de esta asignatura</h1>
+          <p className="text-muted text-sm mb-6">
+            Antes saliste de {subject ? <strong>{subjectDisplayName(subject)}</strong> : 'esta asignatura'} por tu cuenta.
+            Para volver a entrar, pídele a tu maestro(a) que te dé permiso de reingresar.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate(panelPath)}
+            className="w-full px-5 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
+          >
+            Volver a mi panel
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (step === 'not_enrolled') {
     const panelPath = userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'
     return (
