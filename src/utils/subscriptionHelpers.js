@@ -79,7 +79,16 @@ export function calcTrialEndTimestamp(fechaInicio) {
 // trusting that field, the one place the trial length is allowed to live.
 export function effectiveVencimiento(subscription) {
   if (!subscription) return null
-  if (subscription.status === 'trial') return calcTrialEnd(subscription.fechaInicio)
+  // Sin `planId` nunca hubo un pago APROBADO — sin importar a qué status
+  // haya llegado (pendiente_pago, cancelada…), lo único real que tiene es su
+  // periodo de prueba. `planId` solo lo pone una aprobación de verdad (ver
+  // PaymentsTable.jsx handleApprove); createTeacherAccount crea la prueba
+  // con `planId: ''`. Pedido explícito tras un caso real: una cuenta que
+  // pidió transferencia y nunca fue aprobada mostraba "Pagaste el X" usando
+  // fechaVencimiento, que para ella seguía siendo el de su prueba —
+  // calculado siempre aquí, nunca confiando en el campo guardado, que para
+  // este caso es justo ese mismo dato de prueba sin serlo de un pago.
+  if (subscription.status === 'trial' || !subscription.planId) return calcTrialEnd(subscription.fechaInicio)
   if (subscription.fechaVencimiento) return subscription.fechaVencimiento
   // Cortesía indefinida no vence nunca a propósito — no rellenar nada ahí.
   if (subscription.planId === 'cortesia' && subscription.cortesiaIndefinida) return null
