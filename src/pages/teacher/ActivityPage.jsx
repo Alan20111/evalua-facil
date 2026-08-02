@@ -941,15 +941,6 @@ export default function ActivityPage() {
                 >
                   <Pencil size={18} />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setDeleteConfirm(true)}
-                  data-tooltip="Eliminar actividad"
-                  aria-label="Eliminar actividad"
-                  className="p-1 text-slate-400 hover:text-error hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
-                >
-                  <Trash2 size={18} />
-                </button>
               </div>
               {/* text-base y no text-sm: es la línea que dice DE QUÉ va esto
                   (parcial y tipo) y quedaba con el mismo tamaño que la letra
@@ -2354,6 +2345,7 @@ export default function ActivityPage() {
           docenteId={activity.docenteId}
           existingActivities={[]}
           activityLabel={activityLabel}
+          onDeleteActivity={() => setDeleteConfirm(true)}
           onClose={() => (returnToCalendar ? navigate('/calendario') : setEditingActivity(false))}
           onActivityUpdated={(updated) => {
             setActivity((prev) => ({ ...prev, ...updated }))

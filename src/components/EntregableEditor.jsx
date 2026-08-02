@@ -11,7 +11,7 @@ import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText, toRichHtml, richTextContentClass } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts, fileTypesInstructions } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight, Trash2 } from 'lucide-react'
 import RubricaPicker from './rubrica/RubricaPicker'
 import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
@@ -56,6 +56,7 @@ export default function EntregableEditor({
   students,           // full roster — resolves names for the extensiones list below
   extensiones,        // activity.extensiones — read-only display, never edited here
   extensionesMotivo,  // activity.extensionesMotivo — read-only display, never edited here
+  onDeleteActivity,   // ActivityPage only: abre la confirmación de borrado — ausente al crear
 }) {
   const toast = useToast()
   const isNew = !activityId
@@ -565,6 +566,12 @@ export default function EntregableEditor({
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
               {isDirty ? 'Salir sin guardar cambios' : 'Salir'}
+            </button>
+          )}
+          {!isNew && onDeleteActivity && (
+            <button type="button" onClick={onDeleteActivity} disabled={saving}
+              className="w-full py-2.5 text-error font-medium rounded-card hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
+              <Trash2 size={16} /> Eliminar actividad
             </button>
           )}
           <div className="h-6 safe-bottom" />

@@ -913,17 +913,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 >
                   <Pencil size={18} />
                 </button>
-                {onDeleteActivity && (
-                  <button
-                    type="button"
-                    onClick={onDeleteActivity}
-                    data-tooltip="Eliminar actividad"
-                    aria-label="Eliminar actividad"
-                    className="p-1 text-slate-400 hover:text-error hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                )}
               </div>
               <p className="text-base font-medium text-muted">Parcial {activity.parcial} · {activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}</p>
             </div>
@@ -1903,6 +1892,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           students={students}
           onClose={closeEvalEditor}
           onActivityUpdated={(act) => onActivityChange((prev) => ({ ...prev, ...act }))}
+          onDeleteActivity={onDeleteActivity}
         />
       )}
 
