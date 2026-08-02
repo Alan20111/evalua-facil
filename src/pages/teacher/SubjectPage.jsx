@@ -2375,6 +2375,11 @@ export default function SubjectPage() {
         return [...others, ...renumbered]
       })
       toast('Actividad eliminada'); setDeleteConfirm(null)
+      // Si se borró desde dentro de su propio editor (borrador), ciérralo —
+      // seguir mostrando el formulario de algo que ya no existe permitiría
+      // intentar "Guardar cambios" sobre un doc borrado.
+      if (entregableEditor?.activityId === deleteConfirm.id) setEntregableEditor(null)
+      if (evalEditor?.activityId === deleteConfirm.id) setEvalEditor(null)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setDeleting(false) }
   }
@@ -5563,8 +5568,10 @@ export default function SubjectPage() {
       )}
 
       {/* ── Delete activity confirmation ── */}
+      {/* z-[60]: puede abrirse desde dentro del editor de borradores (z-50),
+          igual que NuevaFechaEntregaModal — sin esto quedaba tapado detrás. */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => setDeleteConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
@@ -6981,6 +6988,7 @@ export default function SubjectPage() {
           students={groupStudents}
           extensiones={editingActivityData?.extensiones || {}}
           extensionesMotivo={editingActivityData?.extensionesMotivo || {}}
+          onDeleteActivity={editingActivityData ? () => setDeleteConfirm(editingActivityData) : undefined}
         />
       )}
 
@@ -7016,6 +7024,10 @@ export default function SubjectPage() {
           onActivityUpdated={(act) => {
             setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, ...act } : a))
           }}
+          onDeleteActivity={(() => {
+            const a = activities.find((x) => x.id === evalEditor.activityId)
+            return a ? () => setDeleteConfirm(a) : undefined
+          })()}
         />
       )}
 
