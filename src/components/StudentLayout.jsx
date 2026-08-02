@@ -150,18 +150,20 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           data-role="docente"
           className="hidden md:flex flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20"
         >
-          {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
-          <div className="px-3 pt-3 pb-2">
-            <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
-              <EFLogo className="w-full h-auto" />
-            </div>
-          </div>
-          {/* data-role="alumno" reafirma el naranja del alumno solo para esta
+          {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar.
+              La etiqueta de rol va a la derecha, en la misma fila, para liberar
+              la fila que antes ocupaba sola y que la foto de perfil suba.
+              data-role="alumno" reafirma el naranja del alumno solo para esta
               insignia — el resto del sidebar se queda en el azul institucional
               forzado arriba. */}
-          <div className="px-4 pt-2.5 pb-0.5" data-role="alumno">
-            {/* eslint-disable-next-line jsx-a11y/aria-role -- role aquí es la prop propia de PortalBadge, no un atributo ARIA */}
-            <PortalBadge role="alumno" />
+          <div className="px-3 pt-3 pb-2 flex items-center gap-2">
+            <div className="bg-white rounded-card px-3 py-2.5 shadow-card flex-1 min-w-0">
+              <EFLogo className="w-full h-auto" />
+            </div>
+            <div data-role="alumno">
+              {/* eslint-disable-next-line jsx-a11y/aria-role -- role aquí es la prop propia de PortalBadge, no un atributo ARIA */}
+              <PortalBadge role="alumno" />
+            </div>
           </div>
 
           {/* Identidad → clic = Mi perfil (la foto se cambia DENTRO del perfil —
@@ -172,9 +174,9 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             className="flex items-center gap-3 px-3 py-2 mx-2 mt-1 rounded text-left hover:bg-white/10 transition-colors focus:outline-none"
             data-tooltip="Mi perfil"
           >
-            {/* 72px — el doble que antes. Es una fila del menú lateral, así
-                que crecer solo hace más alta esa fila; no toca la barra. */}
-            <div className="w-[4.5rem] h-[4.5rem] rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
+            {/* 65px pedido explícito, aprovechando el espacio que dejó la
+                etiqueta de rol al moverse junto al logo. */}
+            <div className="w-[65px] h-[65px] rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
               {photoURL ? (
                 <img src={photoURL} alt="" className="w-full h-full object-cover" />
               ) : (
