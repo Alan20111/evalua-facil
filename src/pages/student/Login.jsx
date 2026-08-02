@@ -391,7 +391,11 @@ export default function StudentLogin() {
               {showCodeSection && (
                 <div className="px-5 pb-5 border-t border-outline-variant pt-4">
                   <p className="text-xs text-muted mb-3 leading-relaxed">
-                    Escanea el <strong>código QR</strong> de tu asignatura, abre el <strong>link</strong> que te compartió tu maestro, o ingresa el <strong>código de acceso</strong> de 6 caracteres:
+                    <strong>MUY IMPORTANTE:</strong>
+                    <br />
+                    1. Asegúrate de que tu Maestro(a) te haya agregado a su grupo
+                    <br />
+                    2. Pídele el <strong>Código de su Asignatura</strong> e ingrésalo AQUÍ:
                   </p>
                   <form onSubmit={handleActivateWithCode} className="flex gap-2">
                     <input
