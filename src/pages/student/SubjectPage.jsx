@@ -503,11 +503,16 @@ export default function StudentSubjectPage() {
           <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !leaving && setShowLeaveConfirm(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Salir de esta asignatura?</h3>
+            <p className="text-sm text-muted mb-2">
+              Dejará de aparecer en tu lista de asignaturas y en tu Agenda. Tu maestro(a) sí ve que saliste, pero te sigue viendo inscrito, con tus entregas y calificaciones intactas, tal cual están ahora.
+            </p>
+            {pendingActivitiesCount > 0 && (
+              <p className="text-sm text-amber-700 mb-2">
+                Tienes <strong>{pendingActivitiesCount}</strong> {pendingActivitiesCount === 1 ? 'actividad pendiente' : 'actividades pendientes'} de entregar aquí — si sales, no te van a seguir apareciendo como pendientes hasta que regreses.
+              </p>
+            )}
             <p className="text-sm text-muted mb-4">
-              Dejarás de ver &ldquo;<strong>{subjectDisplayName(subject)}</strong>&rdquo; en tu lista.
-              {pendingActivitiesCount > 0 && (
-                <> Tienes <strong>{pendingActivitiesCount}</strong> {pendingActivitiesCount === 1 ? 'actividad pendiente' : 'actividades pendientes'} de entregar aquí — si sales, dejarás de verlas en tu agenda, pero tu maestro(a) seguirá viéndote inscrito y las faltas de entrega cuentan igual.</>
-              )}
+              Es reversible: puedes volver a entrar cuando quieras con el mismo código de acceso{subject?.accessCode ? <> (<strong>{subject.accessCode}</strong>)</> : ''}, y recuperas todo tal como lo dejaste.
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowLeaveConfirm(false)} disabled={leaving}

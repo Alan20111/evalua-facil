@@ -7,6 +7,8 @@ import {
   getDocs,
   writeBatch,
   doc,
+  updateDoc,
+  deleteField,
   serverTimestamp,
 } from 'firebase/firestore'
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth'
@@ -158,6 +160,15 @@ export default function StudentActivation() {
       // escuela (userProfile.escuelaId); si no coincide, no es su asignatura.
       if (data.escuelaId !== userProfile.escuelaId) { setStep('session_blocked'); return }
       if (data.activado) {
+        // Había salido de esta asignatura (ocultaPorAlumno) y volvió a meter
+        // el código para regresar — reactivarla es justo lo que pedía, no
+        // "ya está en tu cuenta" a secas dejándola invisible igual que antes.
+        if (data.ocultaPorAlumno) {
+          await updateDoc(doc(db, 'students', data.id), { ocultaPorAlumno: deleteField(), ocultaPorAlumnoAt: deleteField() })
+          toast('¡De vuelta! Ya puedes ver esta asignatura otra vez.')
+          navigate(`/alumno/materia/${subject.id}`)
+          return
+        }
         toast('Esta asignatura ya está en tu cuenta.')
         navigate('/alumno/dashboard')
         return
