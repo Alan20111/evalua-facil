@@ -123,6 +123,10 @@ export default function StudentSubjectPage() {
   // guarda las prórrogas individuales. Sin guardarlo, la lista de abajo no
   // tenía forma de saber si ESTE alumno tiene una prórroga vigente.
   const [studentId, setStudentId] = useState(null)
+  // Segundos (epoch) desde que el docente dio de alta al alumno en esta
+  // asignatura — un aviso publicado antes de esa fecha no le corresponde,
+  // aunque siga activo. `null` mientras no se sabe aún (no filtra).
+  const [enrollmentSince, setEnrollmentSince] = useState(null)
   const [activities, setActivities] = useState([])
   const [activityLabels, setActivityLabels] = useState({})
   const [submissions, setSubmissions] = useState({})
@@ -288,6 +292,7 @@ export default function StudentSubjectPage() {
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
       setStudentId(studData.id)
+      setEnrollmentSince(studData.createdAt?.seconds ?? null)
 
       // Fetch teacher name separately — best-effort
       if (subData.docenteId) {
@@ -832,8 +837,13 @@ export default function StudentSubjectPage() {
           puede guardar los suyos, con Todos/Guardados igual que la app del
           docente: guardar "mueve" el aviso, deja de verse en Todos. */}
       {activeTab === 'Avisos' && (() => {
-        const guardadosList = avisos.filter((a) => avisosGuardados[a.id])
-        const avisosMostrados = soloAvisosGuardados ? guardadosList : avisos.filter((a) => !avisosGuardados[a.id])
+        // Solo avisos publicados a partir de que el docente dio de alta al
+        // alumno — uno anterior a su inscripción no le corresponde.
+        const avisosVisibles = enrollmentSince == null
+          ? avisos
+          : avisos.filter((a) => (a.fechaCreacion?.seconds ?? 0) >= enrollmentSince)
+        const guardadosList = avisosVisibles.filter((a) => avisosGuardados[a.id])
+        const avisosMostrados = soloAvisosGuardados ? guardadosList : avisosVisibles.filter((a) => !avisosGuardados[a.id])
         return (
         <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
           <div className="flex gap-1 bg-surface-container p-1 rounded w-fit mb-3">

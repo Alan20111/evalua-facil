@@ -100,6 +100,14 @@ export default function AvisosGate() {
 
   const avisosPendientes = avisos
     .filter((a) => !lecturas[a.id])
+    // Solo avisos publicados a partir de que el docente dio de alta al
+    // alumno en esa asignatura — uno anterior a su inscripción no le
+    // corresponde, aunque siga activo.
+    .filter((a) => {
+      const enr = enrollments.find((e) => e.asignaturaId === a.asignaturaId)
+      const since = enr?.createdAt?.seconds
+      return since == null || (a.fechaCreacion?.seconds ?? 0) >= since
+    })
     .sort((a, b) => (a.fechaCreacion?.seconds ?? 0) - (b.fechaCreacion?.seconds ?? 0))
 
   async function confirmarLectura(aviso) {
