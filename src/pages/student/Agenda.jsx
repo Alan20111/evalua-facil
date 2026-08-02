@@ -607,6 +607,9 @@ export default function Agenda() {
               />
             )}
           </div>
+          <p className="text-xs text-muted text-center mt-3">
+            Los horarios de las materias solo los verás si tu Maestro(a) los ha programado en su propia Agenda.
+          </p>
         </div>
       )}
     </div>
