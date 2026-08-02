@@ -246,6 +246,13 @@ export default function EntregableEditor({
               {activityLabel && <span className="text-white/90">{activityLabel}</span>}
               <span className="truncate">{form.nombre || `${isNew ? 'Nueva actividad' : 'Editar actividad'}`}</span>
             </h1>
+            {/* Aviso explícito de que se está configurando un borrador — sin
+                esto no había forma de saberlo de un vistazo dentro del editor. */}
+            {wasDraft && (
+              <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-semibold">
+                (Borrador)
+              </span>
+            )}
           </div>
         </div>
       </header>
