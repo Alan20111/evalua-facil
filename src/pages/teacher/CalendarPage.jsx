@@ -28,7 +28,7 @@ import { usePointerDrag } from '../../hooks/usePointerDrag'
 import { refreshTeacherReminders } from '../../utils/localReminders'
 import { formatHora12 } from '../../utils/formatHora'
 import MiniSelect from '../../components/calendar/MiniSelect'
-import { isDraftActivity, withDefaultTime } from '../../utils/activityVisibility'
+import { isActivityPublished, isDraftActivity, withDefaultTime } from '../../utils/activityVisibility'
 import {
   Clock, Send, CalendarDays, ChevronLeft, ChevronRight, Plus,
   List, LayoutGrid, CalendarRange, CalendarPlus, AlertTriangle, Bell, CalendarClock,
@@ -1076,6 +1076,10 @@ export default function CalendarPage() {
       // (Los bloques del horario NO se tocan: el calendario sigue siendo el
       // registro de lo que se programó; lo que se apagó son los avisos.)
       if (subj?.archived) return
+      // Actividad no visible (oculta, borrador o programada a futuro) — igual
+      // que en la agenda del alumno, no debe aparecer en la agenda del
+      // docente tampoco. Pedido explícito.
+      if (!isActivityPublished(a, subj?.parcialesOcultos?.includes(a.parcial))) return
       const pal = subjectColors(subj)
       const subjName = subjectDisplayName(subj)
       const numero = activityLabels[a.id]
