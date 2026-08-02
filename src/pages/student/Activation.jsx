@@ -184,7 +184,7 @@ export default function StudentActivation() {
       const q = query(collection(db, 'subjects'), where('accessCode', '==', accessCode))
       const snap = await getDocs(q)
       if (snap.empty) {
-        setLoadError('No encontramos ninguna asignatura con ese código de acceso. Revisa el código o el QR con tu maestro.')
+        setLoadError('No encontramos ninguna asignatura con ese código de acceso. Revisa el código con tu maestro.')
         return
       }
       setSubject({ id: snap.docs[0].id, ...snap.docs[0].data() })
