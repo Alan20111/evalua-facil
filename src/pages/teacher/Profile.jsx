@@ -576,12 +576,6 @@ export default function Profile() {
               {cancelandoSub ? 'Cancelando…' : 'Cancelar suscripción'}
             </button>
           )}
-          {subscription?.status === 'cancelada' && (
-            <p className="mt-2 text-sm text-muted">
-              Cancelaste tu suscripción. Puedes seguir usando tu cuenta hasta el{' '}
-              {formatDate(effectiveVencimiento(subscription))} — no se borró nada.
-            </p>
-          )}
           {recentPayments.length > 0 && (
             <div className="mt-2 pt-4 border-t border-outline-variant">
               <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Últimos pagos</p>

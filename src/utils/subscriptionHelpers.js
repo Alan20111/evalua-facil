@@ -154,13 +154,19 @@ export function canRenew(subscription) {
   if (isSubscriptionExpired(subscription)) return true
   if (subscription.status === 'pendiente_pago') return false
   if (subscription.status === 'trial') return true
-  // 'activa' por vencer pronto, o 'cancelada' con días vigentes por
-  // agotarse pronto — mismo umbral de 7 días en los dos casos, para que el
-  // botón aparezca a tiempo y no solo hasta que ya perdió el acceso.
-  if (subscription.status === 'activa' || subscription.status === 'cancelada') {
+  // 'activa' por vencer pronto — 7 días antes, para que el botón aparezca a
+  // tiempo y no solo hasta que ya perdió el acceso, sin ofrecer "renovar"
+  // semanas antes de que haga falta (evita pagos apilados de más).
+  if (subscription.status === 'activa') {
     const daysRemaining = calcDaysRemaining(effectiveVencimiento(subscription))
     return daysRemaining !== null && daysRemaining <= 7
   }
+  // 'cancelada' es distinto: quien ya canceló decidió parar — si cambia de
+  // opinión, debe poder volver a pagar de inmediato, sin esperar a que se le
+  // acaben los días de gracia. Antes usaba el mismo umbral de 7 días que
+  // 'activa' y el botón de pagar desaparecía con hasta 29 días de gracia
+  // restantes, dejando a quien canceló por error sin forma de revertirlo.
+  if (subscription.status === 'cancelada') return true
   return false
 }
 
