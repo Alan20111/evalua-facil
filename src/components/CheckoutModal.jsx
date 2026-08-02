@@ -170,9 +170,15 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
       // el doc en `payments` que el panel de admin sí revisa, un pago
       // huérfano invisible para ambos lados.
       const batch = writeBatch(db)
+      // Sin `planId` aquí a propósito: en todo el proyecto (admin incluido,
+      // ver SubscriptionsTable.jsx) `planId` presente = pago YA aprobado.
+      // Ponerlo antes de que el admin apruebe hacía que un intento nunca
+      // aprobado se leyera como si sí lo hubiera sido (ver Profile.jsx
+      // nuncaAprobado) — el mismo bug de fechas de "Pagaste el X" con una
+      // cuenta que nunca pagó. `handleApprove` en PaymentsTable.jsx es quien
+      // pone el `planId` real, junto con las fechas reales.
       const subData = {
         docenteId: currentUser.uid,
-        planId: MONTHLY_PLAN_ID,
         escuelaId: userProfile?.escuelaId || '',
         schoolName: userProfile?.schoolName || '',
         status: 'pendiente_pago',
