@@ -10,6 +10,8 @@ import {
   onSnapshot,
   setDoc,
   deleteDoc,
+  updateDoc,
+  serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -32,7 +34,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp,
   Clock, Star, FolderOpen, BookOpen, Paperclip,
   GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone,
-  CheckCircle2, Circle, Bookmark, ChevronRight, Trash2,
+  CheckCircle2, Circle, Bookmark, ChevronRight, Trash2, LogOut,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
@@ -159,6 +161,33 @@ export default function StudentSubjectPage() {
   const toast = useToast()
   const goBack = () => navigate('/alumno/dashboard')
   useBackHandler(goBack)
+
+  // "Salir de esta asignatura" — mismo ocultamiento de siempre (ocultaPorAlumno,
+  // ver Dashboard.jsx), no borra nada: el docente sigue viendo al alumno igual
+  // en su lista, con sus entregas/faltas tal cual. Pedido explícito: si tiene
+  // actividades entregables pendientes, se advierte antes de dejarlo salir.
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  useBackHandler(() => setShowLeaveConfirm(false), showLeaveConfirm)
+
+  const pendingActivitiesCount = activities.filter((a) => {
+    if (isDraftActivity(a) || !isActivityPublished(a, (subject?.parcialesOcultos || []).includes(a.parcial))) return false
+    if (a.categoria === 'observacion') return false // no la entrega el alumno, la captura el docente
+    return !submissions[a.id]
+  }).length
+
+  async function handleLeaveSubject() {
+    if (!studentId) return
+    setLeaving(true)
+    try {
+      await updateDoc(doc(db, 'students', studentId), { ocultaPorAlumno: true, ocultaPorAlumnoAt: serverTimestamp() })
+      toast('Saliste de esta asignatura')
+      navigate('/alumno/dashboard')
+    } catch (err) {
+      toast('No se pudo salir: ' + err.message, 'error')
+      setLeaving(false)
+    }
+  }
 
   useEffect(() => {
     // `currentUser` can still be null on first mount while Firebase Auth restores the
@@ -435,7 +464,43 @@ export default function StudentSubjectPage() {
             </span>
           )}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowLeaveConfirm(true)}
+          data-tooltip="Salir de esta asignatura"
+          aria-label="Salir de esta asignatura"
+          className="ml-auto p-2 text-slate-400 hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0"
+        >
+          <LogOut size={19} />
+        </button>
       </header>
+
+      {/* Salir de la asignatura — no borra nada, solo la oculta de sus
+          listas; el docente la sigue viendo igual (ver Dashboard.jsx
+          handleRemoveArchived, mismo campo ocultaPorAlumno). */}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !leaving && setShowLeaveConfirm(false)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-on-surface mb-1">¿Salir de esta asignatura?</h3>
+            <p className="text-sm text-muted mb-4">
+              Dejarás de ver &ldquo;<strong>{subjectDisplayName(subject)}</strong>&rdquo; en tu lista.
+              {pendingActivitiesCount > 0 && (
+                <> Tienes <strong>{pendingActivitiesCount}</strong> {pendingActivitiesCount === 1 ? 'actividad pendiente' : 'actividades pendientes'} de entregar aquí — si sales, dejarás de verlas en tu agenda, pero tu maestro(a) seguirá viéndote inscrito y las faltas de entrega cuentan igual.</>
+              )}
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowLeaveConfirm(false)} disabled={leaving}
+                className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+              <button type="button" onClick={handleLeaveSubject} disabled={leaving}
+                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                {leaving ? <Spinner size="sm" /> : <LogOut size={16} />}
+                {leaving ? 'Saliendo…' : 'Salir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs — con 4 pestañas y nombres largos, en un celular angosto
           "Avisos" queda fuera de vista sin ningún indicio de que hay más a
