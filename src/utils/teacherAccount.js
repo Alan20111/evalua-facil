@@ -14,7 +14,12 @@ import { calcTrialEnd } from './subscriptionHelpers'
 // record of how the account was created and whether it already has a
 // password (see ProtectAccount.jsx and ResetPassword.jsx, which set
 // hasLocalPassword: true once one is added later).
-export async function createTeacherAccount(uid, email, photoURL = null, provider = 'password', sendEmail = true) {
+// `extra` sobrescribe/añade campos al doc inicial — lo usa Register.jsx para
+// crear la cuenta ya con `profileComplete: true` y el resto del perfil (paso
+// 2, "Cuéntanos quién eres") en una sola escritura, en vez de crear primero
+// con profileComplete:false y depender de Onboarding para completarla en un
+// segundo paso.
+export async function createTeacherAccount(uid, email, photoURL = null, provider = 'password', sendEmail = true, extra = {}) {
   await setDoc(doc(db, 'users', uid), {
     role: 'docente',
     email: email.trim().toLowerCase(),
@@ -22,6 +27,7 @@ export async function createTeacherAccount(uid, email, photoURL = null, provider
     profileComplete: false,
     provider,
     hasLocalPassword: provider === 'password',
+    ...extra,
   })
 
   const trialStart = new Date()
