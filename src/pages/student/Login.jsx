@@ -395,7 +395,9 @@ export default function StudentLogin() {
                     <br />
                     1. Asegúrate de que tu Maestro(a) te haya agregado a su grupo
                     <br />
-                    2. Pídele el <strong>Código de su Asignatura</strong> e ingrésalo AQUÍ:
+                    2. Pídele que te comparta tu nombre de usuario
+                    <br />
+                    3. Pídele el <strong>Código de su Asignatura</strong> e ingrésalo AQUÍ:
                   </p>
                   <form onSubmit={handleActivateWithCode} className="flex gap-2">
                     <input
