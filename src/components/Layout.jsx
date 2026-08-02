@@ -157,13 +157,14 @@ export default function TeacherLayout({ children }) {
       <div className="flex">
         {/* Sidebar — desktop only (solid accent plane) */}
         <aside className="hidden md:flex flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
-          {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar.
-              La etiqueta de rol va a la derecha, en la misma fila, para liberar
-              la fila que antes ocupaba sola y que la foto de perfil suba. */}
-          <div className="px-3 pt-3 pb-2 flex items-center gap-2">
-            <div className="bg-white rounded-card px-3 py-2.5 shadow-card flex-1 min-w-0">
+          {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
+          <div className="px-3 pt-3 pb-2">
+            <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
               <EFLogo className="w-full h-auto" />
             </div>
+          </div>
+          {/* Etiqueta de rol alineada a la derecha de su renglón. */}
+          <div className="px-4 pt-2.5 pb-0.5 flex justify-end">
             {/* eslint-disable-next-line jsx-a11y/aria-role -- `role` aquí es la prop propia de PortalBadge, no un atributo ARIA */}
             <PortalBadge role="docente" />
           </div>
@@ -173,8 +174,7 @@ export default function TeacherLayout({ children }) {
             to="/profile"
             className="flex items-center gap-3 px-3 py-2 mx-2 mt-1 rounded hover:bg-white/10 transition-colors group"
           >
-            {/* 65px pedido explícito, aprovechando el espacio que dejó la
-                etiqueta de rol al moverse junto al logo. */}
+            {/* 65px pedido explícito. */}
             <div className="w-[65px] h-[65px] rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
               {userProfile?.photoURL ? (
                 <img src={userProfile.photoURL} alt="" className="w-full h-full object-cover" />
