@@ -172,9 +172,7 @@ export default function Onboarding() {
                 />
               </div>
               <div className="flex-1">
-                <label htmlFor="onboarding-apellido-materno" className="block text-sm font-medium text-muted mb-1">
-                  Apellido materno <span className="text-slate-400 font-normal">(opcional)</span>
-                </label>
+                <label htmlFor="onboarding-apellido-materno" className="block text-sm font-medium text-muted mb-1">Apellido materno</label>
                 <input
                   id="onboarding-apellido-materno"
                   type="text"
@@ -183,6 +181,7 @@ export default function Onboarding() {
                   className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   placeholder="Ej. Pérez"
                 />
+                <p className="text-xs text-slate-400 mt-1">(opcional)</p>
               </div>
             </div>
             {/* Sin marca de "obligatorio": se pide igual que los demás datos y
