@@ -747,6 +747,13 @@ export default function EvaluacionEditor({
               {activityLabel && <span className="text-white/90">{activityLabel} ·</span>}
               <span className="truncate">{infoForm.nombre || `Nuevo ${tipoLabel}`}</span>
             </h1>
+            {/* Aviso explícito de que se está configurando un borrador — sin
+                esto no había forma de saberlo de un vistazo dentro del editor. */}
+            {wasDraft && (
+              <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-semibold">
+                (Borrador)
+              </span>
+            )}
           </div>
           <span className="text-xs text-white/60 flex-shrink-0">{preguntas.length} pregunta{preguntas.length !== 1 ? 's' : ''}</span>
         </div>
