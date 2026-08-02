@@ -19,6 +19,7 @@ import {
   formatDate,
 } from '../utils/subscriptionHelpers'
 import { apiUrl } from '../utils/apiBase'
+import { isAppOutdated } from '../utils/checkAppVersion'
 
 const inputCls =
   'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
@@ -53,6 +54,16 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
 
   useBackHandler(onClose, open)
   useScrollLock(open)
+
+  // Dinero de por medio: si esta pestaña se quedó con una versión vieja del
+  // bundle (ver UpdateChecker.jsx — SPA que nunca vuelve a descargar el JS
+  // sola), aquí no basta con un banner descartable. Se recarga sola al abrir
+  // el modal de pago, antes de mostrar nada, para que el cálculo de fechas y
+  // montos que ve el docente sea siempre el del código más reciente.
+  useEffect(() => {
+    if (!open) return
+    isAppOutdated().then((outdated) => { if (outdated) window.location.reload() })
+  }, [open])
 
   // Default method = first enabled one.
   useEffect(() => {

@@ -15,6 +15,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { RefreshCw, X } from 'lucide-react'
 import { IS_NATIVE_APP } from '../utils/platform'
+import { isAppOutdated } from '../utils/checkAppVersion'
 
 const CHECK_INTERVAL_MS = 10 * 60 * 1000 // 10 min
 
@@ -24,15 +25,7 @@ export default function UpdateChecker() {
 
   const checkVersion = useCallback(async () => {
     if (dismissedRef.current || hayVersionNueva) return
-    try {
-      const res = await fetch(`/version.json?_=${Date.now()}`, { cache: 'no-store' })
-      if (!res.ok) return
-      const { buildId } = await res.json()
-      if (buildId && buildId !== __BUILD_ID__) setHayVersionNueva(true)
-    } catch {
-      // Sin conexión momentánea u otro problema de red: no molestar, se
-      // reintenta en el próximo ciclo.
-    }
+    if (await isAppOutdated()) setHayVersionNueva(true)
   }, [hayVersionNueva])
 
   useEffect(() => {
