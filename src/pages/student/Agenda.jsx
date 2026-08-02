@@ -418,44 +418,50 @@ export default function Agenda() {
     <StudentLayout>
     <div className="bg-surface flex flex-col min-h-full">
       <header className="bg-accent text-white px-4 py-3 shadow-lg sticky top-0 z-10 safe-top">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={goBack}
-            className="md:hidden p-2 -ml-2 hover:bg-white/10 rounded flex-shrink-0 transition-colors"
-            aria-label="Regresar"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <h1 className="text-lg font-bold truncate flex-1">Agenda</h1>
+        {/* Todo en un solo renglón: selector de vista (izquierda, junto al
+            botón de regresar), +Evento (centro) y Horas del día (derecha,
+            donde antes vivía +Evento) — pedido explícito, para ganar el
+            espacio vertical que antes ocupaban 3 renglones. */}
+        <div className="grid grid-cols-3 items-center gap-2">
+          <div className="flex items-center gap-1 min-w-0 justify-self-start">
+            <button
+              type="button"
+              onClick={goBack}
+              className="md:hidden p-2 -ml-2 hover:bg-white/10 rounded flex-shrink-0 transition-colors"
+              aria-label="Regresar"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div className="flex gap-0.5 bg-white/10 p-1 rounded-full min-w-0">
+              {VIEWS.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => changeView(v.id)}
+                  aria-label={v.label}
+                  data-tooltip={v.label}
+                  data-tooltip-pos="bottom"
+                  className={`p-1.5 rounded-full transition-colors ${
+                    view === v.id ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
+                  }`}
+                >
+                  <v.Icon size={15} />
+                </button>
+              ))}
+            </div>
+          </div>
           <button
             type="button"
             onClick={() => openNewEvent(toDateStr(currentDate))}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-sm font-medium transition-colors flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-sm font-medium transition-colors justify-self-center"
           >
             <Plus size={15} /> Evento
           </button>
-        </div>
-        <div className="flex gap-1 mt-3 bg-white/10 p-1 rounded-full">
-          {VIEWS.map((v) => (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => changeView(v.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-sm font-semibold rounded-full transition-colors ${
-                view === v.id ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
-              }`}
-            >
-              <v.Icon size={15} /> {v.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex justify-end mt-2">
-          <div className="relative">
+          <div className="relative justify-self-end">
             <button
               type="button"
               onClick={() => setShowHoras((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 hover:bg-white/25 text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-xs font-medium transition-colors"
               data-tooltip="Horas visibles de tu día (Agenda y Semana)"
               data-tooltip-pos="bottom"
             >
