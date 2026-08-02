@@ -444,6 +444,12 @@ export default function Profile() {
   const initials = displayName.charAt(0).toUpperCase()
   const daysRemaining = subscription ? calcDaysRemaining(effectiveVencimiento(subscription)) : null
   const canRenew = canRenewSubscription(subscription)
+  // planId solo se pone al aprobar un pago de verdad (ver PaymentsTable.jsx
+  // handleApprove) — createTeacherAccount crea la prueba con planId: ''. Si
+  // sigue vacío, este docente NUNCA tuvo un pago aprobado, sin importar qué
+  // tan lejos haya llegado el status (pendiente_pago, cancelada…): sus
+  // fechaInicio/fechaVencimiento siguen siendo los de su prueba original.
+  const nuncaAprobado = !subscription?.planId
   // Solo se ofrece cancelar cuando hay algo que cancelar. En período de
   // prueba no aparece: no hay ningún cobro que detener, y un botón
   // "cancelar" ahí solo haría dudar a quien apenas está probando.
@@ -471,7 +477,7 @@ export default function Profile() {
             <div className="space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  {subscription.status === 'trial' ? (
+                  {subscription.status === 'trial' || nuncaAprobado ? (
                     <>
                       <p className="font-bold text-on-surface">Período de prueba</p>
                       <p className="text-sm text-muted">
@@ -502,7 +508,15 @@ export default function Profile() {
                 </span>
               </div>
               <p className="text-xs text-slate-400">Hoy: {formatDate(new Date())}</p>
-              {subscription.status !== 'trial' && subscription.fechaInicio && (
+              {/* nuncaAprobado: nunca hubo un pago aprobado por el admin — el
+                  status pudo cambiar (pendiente_pago, cancelada) pero
+                  fechaInicio/fechaVencimiento siguen siendo los de SU
+                  PRUEBA (createTeacherAccount los deja ahí desde el
+                  registro; solo handleApprove en el admin los reescribe con
+                  fechas reales). Mostrar "Pagaste el X" aquí sería afirmar
+                  un pago que nunca se aprobó — bug real detectado con una
+                  cuenta de prueba (chary560@gmail.com, 2026-08-02). */}
+              {subscription.status !== 'trial' && !nuncaAprobado && subscription.fechaInicio && (
                 <p className="text-xs text-slate-400">
                   Pagaste el {formatDate(subscription.fechaInicio)} · Vence el{' '}
                   {formatDate(effectiveVencimiento(subscription))}
