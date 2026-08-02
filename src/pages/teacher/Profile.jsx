@@ -813,7 +813,7 @@ export default function Profile() {
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
-              <p className="text-sm text-slate-500 mt-0.5">Las escuelas con el mismo nombre pueden tener grupos en común.</p>
+              <p className="text-sm text-slate-500 mt-0.5">Los docentes de la misma escuela comparten el mismo registro — pero cada quien da de alta a sus propios alumnos por separado.</p>
             </div>
             <button type="button" onClick={() => { setSchoolSearch(''); setAddingCustomSchool(false); setCustomSchoolStep('form'); setShowSchoolPicker(true) }}
               className="text-accent text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
