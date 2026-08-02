@@ -34,7 +34,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp,
   Clock, Star, FolderOpen, BookOpen, Paperclip,
   GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone,
-  CheckCircle2, Circle, Bookmark, ChevronRight, Trash2, LogOut,
+  CheckCircle2, Circle, Bookmark, ChevronRight, Trash2, LogOut, MoreVertical,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
@@ -168,7 +168,9 @@ export default function StudentSubjectPage() {
   // actividades entregables pendientes, se advierte antes de dejarlo salir.
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
   const [leaving, setLeaving] = useState(false)
+  const [showSubjectMenu, setShowSubjectMenu] = useState(false)
   useBackHandler(() => setShowLeaveConfirm(false), showLeaveConfirm)
+  useBackHandler(() => setShowSubjectMenu(false), showSubjectMenu)
 
   const pendingActivitiesCount = activities.filter((a) => {
     if (isDraftActivity(a) || !isActivityPublished(a, (subject?.parcialesOcultos || []).includes(a.parcial))) return false
@@ -464,15 +466,33 @@ export default function StudentSubjectPage() {
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => setShowLeaveConfirm(true)}
-          data-tooltip="Salir de esta asignatura"
-          aria-label="Salir de esta asignatura"
-          className="ml-auto p-2 text-slate-400 hover:text-error hover:bg-red-50 rounded transition-colors flex-shrink-0"
-        >
-          <LogOut size={19} />
-        </button>
+        {/* Menú "···" en vez de un ícono de salida — con el mismo ícono que
+            "Cerrar sesión" del sidebar se confundía con cerrar sesión.
+            Pedido explícito: que quede sin ambigüedad. */}
+        <div className="relative ml-auto flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowSubjectMenu((v) => !v)}
+            aria-label="Más opciones de esta asignatura"
+            className="p-2 text-slate-400 hover:text-on-surface hover:bg-surface-container rounded transition-colors"
+          >
+            <MoreVertical size={19} />
+          </button>
+          {showSubjectMenu && (
+            <>
+              <button type="button" className="fixed inset-0 z-30 bg-transparent border-none cursor-default" onClick={() => setShowSubjectMenu(false)} aria-label="Cerrar menú" />
+              <div className="absolute right-0 top-10 z-40 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 w-56 text-left">
+                <button
+                  type="button"
+                  onClick={() => { setShowSubjectMenu(false); setShowLeaveConfirm(true) }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-red-50 transition-colors"
+                >
+                  <LogOut size={16} /> Salir de esta asignatura
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </header>
 
       {/* Salir de la asignatura — no borra nada, solo la oculta de sus
