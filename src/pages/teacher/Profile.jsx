@@ -26,6 +26,7 @@ import {
   MONTHLY_PRICE_MXN,
   SUBSCRIPTION_NAME,
   calcDaysRemaining,
+  calcTrialEnd,
   effectiveVencimiento,
   formatCurrency,
   formatDate,
@@ -450,6 +451,16 @@ export default function Profile() {
   // tan lejos haya llegado el status (pendiente_pago, cancelada…): sus
   // fechaInicio/fechaVencimiento siguen siendo los de su prueba original.
   const nuncaAprobado = !subscription?.planId
+  // Cuando SÍ hubo un pago real aprobado pero todavía quedaban días de
+  // prueba en ese momento, el plan pagado arranca hasta que esos días se
+  // agoten (política de "no se recorta nada" — ver handleApprove en el
+  // admin). Mientras tanto el docente sigue literalmente en su prueba, así
+  // que sus fechas no deben desaparecer solo porque ya haya un plan pagado
+  // esperando turno. `createdAt` es el único campo que handleApprove NUNCA
+  // toca — sigue siendo la fecha real de alta, de ahí se recalcula la
+  // prueba sin importar qué le haya pasado después a fechaInicio.
+  const finDePrueba = subscription?.createdAt ? calcTrialEnd(subscription.createdAt) : null
+  const siguePrueba = !nuncaAprobado && finDePrueba && (calcDaysRemaining(finDePrueba) ?? -1) >= 0
   // Solo se ofrece cancelar cuando hay algo que cancelar. En período de
   // prueba no aparece: no hay ningún cobro que detener, y un botón
   // "cancelar" ahí solo haría dudar a quien apenas está probando.
@@ -518,10 +529,26 @@ export default function Profile() {
                   fechas reales). Mostrar "Pagaste el X" aquí sería afirmar
                   un pago que nunca se aprobó — bug real detectado con una
                   cuenta de prueba (chary560@gmail.com, 2026-08-02). */}
+              {/* "Tu plan cubre del X al Y", no "Pagaste el X": cuando aún
+                  quedaban días vigentes al aprobar, el periodo pagado
+                  arranca cuando esos días se agotan (política de "no se
+                  recorta nada"), y esa fecha puede ser futura — "Pagaste el
+                  [fecha futura]" no tenía sentido con la fecha de hoy al
+                  lado. Mismo lenguaje que ya usa CheckoutModal ("Este pago
+                  cubre del X al Y") para la promesa antes de pagar. */}
               {subscription.status !== 'trial' && !nuncaAprobado && subscription.fechaInicio && (
                 <p className="text-xs text-slate-400">
-                  Pagaste el {formatDate(subscription.fechaInicio)} · Vence el{' '}
+                  Tu plan cubre del {formatDate(subscription.fechaInicio)} al{' '}
                   {formatDate(effectiveVencimiento(subscription))}
+                </p>
+              )}
+              {/* Sigue disfrutando su prueba aunque ya haya un pago real
+                  aprobado esperando turno — pedido explícito, sus fechas de
+                  prueba no deben desaparecer solo por eso. */}
+              {siguePrueba && (
+                <p className="text-xs text-emerald-600">
+                  Todavía estás en tu período de prueba: empezó el {formatDate(subscription.createdAt)} y
+                  termina el {formatDate(finDePrueba)}.
                 </p>
               )}
               {daysRemaining !== null && !expirada && (
