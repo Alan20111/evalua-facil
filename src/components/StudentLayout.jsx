@@ -17,6 +17,7 @@ import { useScrollLock } from '../hooks/useScrollLock'
 import StudentBottomNav from './StudentBottomNav'
 import PushPermissionPrimer from './PushPermissionPrimer'
 import AvisosGate from './AvisosGate'
+import { IS_NATIVE_APP } from '../utils/platform'
 
 // `refreshKey`: el Dashboard del alumno reordena sus asignaturas (flechas
 // subir/bajar o arrastrar) SIN desmontar este layout — a diferencia del
@@ -155,6 +156,10 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
               <EFLogo className="w-full h-auto" />
             </div>
+            {/* Solo en la web — en la app la versión vive en Perfil, debajo del aviso de privacidad. */}
+            {!IS_NATIVE_APP && (
+              <p className="text-metadata text-white/50 pl-1 pt-1">v.1.0.1</p>
+            )}
           </div>
           {/* Etiqueta de rol alineada a la derecha de su renglón. data-role="alumno"
               reafirma el naranja del alumno solo para esta insignia — el resto

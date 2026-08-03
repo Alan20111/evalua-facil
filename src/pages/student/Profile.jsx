@@ -397,6 +397,8 @@ export default function StudentProfile() {
             </button>
           </div>
         )}
+
+        <p className="text-xs text-muted text-center mt-2">v.1.0.1</p>
       </div>
 
       {confirm && (
@@ -414,8 +416,6 @@ export default function StudentProfile() {
       {showEliminar && (
         <EliminarCuentaAlumnoModal photoURL={photoURL} onClose={() => setShowEliminar(false)} />
       )}
-
-      <p className="text-center text-xs text-muted px-4 pb-4">Evalúa Fácil versión 1.0.1</p>
     </StudentLayout>
   )
 }
