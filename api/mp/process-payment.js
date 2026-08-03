@@ -151,7 +151,10 @@ async function crearPreferenciaWallet(res, { token, uid, planId, escuelaId, scho
         failure: `${APP_URL}/pago-resultado?pid=${paymentId}&status=failure`,
         pending: `${APP_URL}/pago-resultado?pid=${paymentId}&status=pending`,
       },
-      auto_return: 'approved',
+      // 'all' (no solo 'approved'): que regrese solo a la app también si el
+      // pago quedó rechazado o pendiente — pedido explícito de que el
+      // docente nunca se quede varado en la página de Mercado Pago.
+      auto_return: 'all',
       notification_url: `${APP_URL}/api/mp/webhook`,
       metadata: { paymentId, uid },
     }),

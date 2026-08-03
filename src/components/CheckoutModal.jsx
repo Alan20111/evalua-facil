@@ -620,7 +620,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
               <div>
                 <div id="mp-wallet-brick-container" ref={mpWalletRef} />
                 <p className="text-sm text-slate-500 mt-2 text-center">
-                  Inicia sesión con tu cuenta de Mercado Pago sin salir de esta pantalla.
+                  Te llevaremos un momento a iniciar sesión en Mercado Pago y volverás aquí automáticamente.
                 </p>
               </div>
             )}
