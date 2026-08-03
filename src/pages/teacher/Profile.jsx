@@ -577,9 +577,11 @@ export default function Profile() {
               onClick={() => setShowPaymentModal(true)}
               className="mt-2 w-full py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded text-sm transition-colors"
             >
-              {subscription && subscription.status !== 'trial' && !expirada
-                ? 'Renovar suscripción mensual'
-                : 'Activar suscripción mensual'}
+              {subscription?.status === 'trial' || nuncaAprobado
+                ? 'Suscripción mensual'
+                : subscription && !expirada
+                  ? 'Renovar suscripción mensual'
+                  : 'Activar suscripción mensual'}
             </button>
           )}
           {puedeCancelar && (
