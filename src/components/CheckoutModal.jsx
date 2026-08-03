@@ -230,7 +230,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
 
   const t = config?.transferencia
   const methods = [
-    config?.mercadoPago?.enabled && { id: 'mercadopago', label: 'Mercado Pago', icon: Wallet },
+    config?.mercadoPago?.enabled && { id: 'mercadopago', label: 'Tarjeta de crédito · Tarjeta de débito · Mercado pago', icon: Wallet },
     config?.paypal?.enabled && { id: 'paypal', label: 'PayPal', icon: Wallet },
     config?.transferencia?.enabled && { id: 'transferencia', label: 'Transferencia', icon: Landmark },
   ].filter(Boolean)
@@ -276,20 +276,22 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
               )}
             </p>
 
-            {/* Method tabs */}
-            <div className="flex gap-2">
+            {/* Method tabs — un renglón completo cada una, no repartidas
+                lado a lado, pedido explícito para que quepa la etiqueta
+                larga de Mercado Pago (tarjeta de crédito/débito). */}
+            <div className="flex flex-col gap-2">
               {methods.map((m) => (
                 <button
                   key={m.id}
                   type="button"
                   onClick={() => setMethod(m.id)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold border transition-colors ${
+                  className={`w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded text-xs font-semibold border transition-colors ${
                     method === m.id
                       ? 'bg-accent-light border-accent text-accent'
                       : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
                   }`}
                 >
-                  <m.icon size={16} />
+                  <m.icon size={16} className="flex-shrink-0" />
                   {m.label}
                 </button>
               ))}
