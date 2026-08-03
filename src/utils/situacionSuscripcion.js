@@ -1,17 +1,18 @@
-import { calcDaysRemaining, effectiveVencimiento } from './subscriptionHelpers'
+import { ANNUAL_PLAN_ID, calcDaysRemaining, effectiveVencimiento } from './subscriptionHelpers'
 
 // A cuántos días de vencer se enciende el aviso naranja en el panel (Resumen,
 // "por vencer"). No se pinta ya en la insignia de Situación —ver más abajo—
 // pero sigue usándose para esos conteos.
 export const DIAS_POR_VENCER = 10
 
-// Situación de una suscripción — pedido explícito: solo estas 5 categorías
+// Situación de una suscripción — pedido explícito: solo estas 6 categorías
 // (más "Cuenta eliminada" y "Sin suscripción", que no son una situación de LA
 // SUSCRIPCIÓN sino la ausencia de una):
 //   - Prueba
 //   - Cancelada           (prueba vencida, plan sin pagar, cortesía vencida, o el docente la canceló — un solo bote)
 //   - Pago automático (domiciliada: se cobra sola cada mes vía Mercado Pago)
 //   - Mes pagado          (pago manual — transferencia o PayPal de una sola vez — que hay que repetir cada mes)
+//   - Plan anual          (pago único de 12 meses — transferencia, PayPal o Mercado Pago sin domiciliar — que hay que repetir cada año)
 //   - Cortesía
 // "Pendiente de pago" NO es una situación de la suscripción sino del PAGO:
 // vive en la pestaña Pagos, columna Verificación. Mientras un pago está en
@@ -23,6 +24,7 @@ const CIAN = '#0891b2'
 const MORADO = '#9333ea'
 const GRIS = '#64748b'
 const NEGRO = '#1e293b'
+const INDIGO = '#4f46e5'
 
 const solido = (c) => ({ background: c, color: '#fff' })
 
@@ -37,6 +39,7 @@ export const INSIGNIAS = {
   prueba: { etiqueta: 'Prueba', estilo: solido(AZUL) },
   mensual: { etiqueta: 'Pago automático', estilo: solido(VERDE) },
   deposito: { etiqueta: 'Mes pagado', estilo: solido(CIAN) },
+  anual: { etiqueta: 'Plan anual', estilo: solido(INDIGO) },
   cortesia: { etiqueta: 'Cortesía', estilo: solido(MORADO) },
 }
 
@@ -87,6 +90,9 @@ export function situacionDe(sub) {
 
   // Resto: plan de pago contratado (activa, o vencida guardada explícita).
   if (sub.status === 'vencida' || vencida) return cancelada('pago')
+  // Plan anual: pago único de 12 meses, sin importar el método — nunca es
+  // "Pago automático" (eso es solo la domiciliación mensual de MP).
+  if (sub.planId === ANNUAL_PLAN_ID) return insignia('anual')
   // Domiciliada (Mercado Pago cobra solo cada mes) vs. depósito manual que
   // el docente tiene que repetir cada mes (transferencia o PayPal de una
   // sola exhibición).
@@ -96,6 +102,6 @@ export function situacionDe(sub) {
 // Todas las etiquetas posibles, para llenar el desplegable de filtro sin
 // depender de cuáles existan hoy en los datos.
 export const SITUACIONES = [
-  'Prueba', 'Pago automático', 'Mes pagado', 'Cortesía', 'Cancelada',
+  'Prueba', 'Pago automático', 'Mes pagado', 'Plan anual', 'Cortesía', 'Cancelada',
   'Cuenta eliminada', 'Sin suscripción',
 ]

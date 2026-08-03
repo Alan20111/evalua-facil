@@ -9,6 +9,10 @@ import { usePaymentConfig } from '../hooks/usePaymentConfig'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import {
+  ANNUAL_PLAN_ID,
+  ANNUAL_PRICE_MXN,
+  ANNUAL_SAVINGS_MXN,
+  ANNUAL_SUBSCRIPTION_NAME,
   LAUNCH_PRICE_NOTE,
   MONTHLY_PLAN_ID,
   MONTHLY_PRICE_MXN,
@@ -24,6 +28,14 @@ import { isAppOutdated } from '../utils/checkAppVersion'
 
 const inputCls =
   'w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface'
+
+// Los dos planes que existen — nada de esto se lee de Firestore aquí; el
+// precio que de verdad cobra cada pasarela sale del doc `plans/{id}` en el
+// servidor (ver api/_lib/billing.js getPlan), esto es solo para mostrar.
+const PLAN_INFO = {
+  [MONTHLY_PLAN_ID]: { nombre: SUBSCRIPTION_NAME, precio: MONTHLY_PRICE_MXN, periodicidad: 'mensual', unidad: 'mes' },
+  [ANNUAL_PLAN_ID]: { nombre: ANNUAL_SUBSCRIPTION_NAME, precio: ANNUAL_PRICE_MXN, periodicidad: 'anual', unidad: 'año' },
+}
 
 function loadPaypalSdk(clientId) {
   return new Promise((resolve, reject) => {
@@ -49,9 +61,11 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   const { config, loading: configLoading } = usePaymentConfig()
 
   const [method, setMethod] = useState(null)
+  const [selectedPlanId, setSelectedPlanId] = useState(MONTHLY_PLAN_ID)
   const [referencia, setReferencia] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const paypalRef = useRef(null)
+  const selectedPlan = PLAN_INFO[selectedPlanId]
 
   useBackHandler(onClose, open)
   useScrollLock(open)
@@ -104,18 +118,24 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   }
 
   const planPayload = () => ({
-    planId: MONTHLY_PLAN_ID,
+    planId: selectedPlanId,
     escuelaId: userProfile?.escuelaId || '',
     schoolName: userProfile?.schoolName || '',
   })
 
-  // ── Mercado Pago: create a recurring subscription (preapproval), then
-  // redirect to MP's hosted checkout. MP charges the card automatically
-  // every month after this — no manual renewal needed. ──
+  // ── Mercado Pago ──
+  // Mensual: domiciliación (preapproval) — MP cobra la tarjeta solo cada mes
+  // desde entonces, sin renovación manual.
+  // Anual: pago único (Checkout Pro, el mismo endpoint que ya usan
+  // transferencia/PayPal por dentro) — se cobran los $990 una sola vez y ya;
+  // el docente decide si renueva el año que sigue. Nada de domiciliar un
+  // cobro anual: la API de cobros recurrentes de Mercado Pago no confirma
+  // soportar un ciclo de 12 meses, así que no vale la pena el riesgo.
   async function payWithMercadoPago() {
     setSubmitting(true)
     try {
-      const res = await fetch(apiUrl('/api/mp/create-subscription'), {
+      const endpoint = selectedPlanId === ANNUAL_PLAN_ID ? '/api/mp/create-preference' : '/api/mp/create-subscription'
+      const res = await fetch(apiUrl(endpoint), {
         method: 'POST',
         headers: await authHeader(),
         body: JSON.stringify(planPayload()),
@@ -224,9 +244,9 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
       batch.set(doc(collection(db, 'payments')), {
         docenteId: currentUser.uid,
         subscriptionId,
-        planId: MONTHLY_PLAN_ID,
+        planId: selectedPlanId,
         escuelaId: userProfile?.escuelaId || '',
-        monto: MONTHLY_PRICE_MXN,
+        monto: selectedPlan.precio,
         metodo: 'transferencia',
         referencia: referencia.trim(),
         status: 'pendiente',
@@ -254,7 +274,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   const diasVigentes = calcDaysRemaining(vigenteHasta)
   const tieneDiasVigentes = diasVigentes !== null && diasVigentes > 0
   const inicioPeriodo = tieneDiasVigentes ? vigenteHasta : new Date()
-  const finPeriodo = calcVencimiento(inicioPeriodo, 'mensual')
+  const finPeriodo = calcVencimiento(inicioPeriodo, selectedPlan.periodicidad)
 
   const t = config?.transferencia
   const methods = [
@@ -270,7 +290,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
         className="relative bg-surface-card rounded-card p-5 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-bold text-on-surface">Activar suscripción mensual</h3>
+          <h3 className="font-bold text-on-surface">Activar suscripción</h3>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-muted">
             <X size={20} />
           </button>
@@ -284,15 +304,44 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
           </div>
         ) : (
           <div className="space-y-3">
-            <div>
-              <p className="font-semibold text-on-surface">{SUBSCRIPTION_NAME}</p>
-              <p className="text-sm text-muted">
-                {formatCurrency(MONTHLY_PRICE_MXN)}/mes{' '}
-                <span className="inline-block px-1.5 py-0.5 rounded-full bg-accent-light text-accent text-[11px] font-semibold align-middle">
+            {/* Selector de plan — mensual (precio de lanzamiento) o anual
+                (paga 10 meses, disfruta 12). Cambia el precio, el rango de
+                fechas de abajo y, si se paga con Mercado Pago, si es
+                domiciliación automática o pago único — pedido explícito. */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedPlanId(MONTHLY_PLAN_ID)}
+                className={`text-left p-2.5 rounded-card border transition-colors ${
+                  selectedPlanId === MONTHLY_PLAN_ID ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
+                }`}
+              >
+                <p className="font-semibold text-on-surface text-sm">Mensual</p>
+                <p className="text-sm text-muted">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
+                <span className="inline-block mt-1 px-1.5 py-0.5 rounded-full bg-accent text-white text-[10px] font-semibold">
                   {LAUNCH_PRICE_NOTE}
                 </span>
-              </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedPlanId(ANNUAL_PLAN_ID)}
+                className={`text-left p-2.5 rounded-card border transition-colors ${
+                  selectedPlanId === ANNUAL_PLAN_ID ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
+                }`}
+              >
+                <p className="font-semibold text-on-surface text-sm">Anual</p>
+                <p className="text-sm text-muted">{formatCurrency(ANNUAL_PRICE_MXN)}/año</p>
+                <span className="inline-block mt-1 px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-semibold">
+                  Ahorra {formatCurrency(ANNUAL_SAVINGS_MXN)}
+                </span>
+              </button>
             </div>
+            {selectedPlanId === ANNUAL_PLAN_ID && (
+              <p className="text-xs text-muted -mt-1">
+                Paga 10 meses y disfruta 12 — un pago único de {formatCurrency(ANNUAL_PRICE_MXN)} en vez de{' '}
+                {formatCurrency(MONTHLY_PRICE_MXN * 12)} pagando mes a mes.
+              </p>
+            )}
 
             <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2.5">
               {tieneDiasVigentes ? (
@@ -340,14 +389,21 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
 
             {/* Mercado Pago paga con un solo clic (ver más abajo) — no hay un
                 segundo paso donde avisar esto, así que va aquí, visible desde
-                antes de tocar el botón. Pedido explícito: que quede claro que
-                es domiciliación automática que se activa sola en cuanto se
-                confirme el cobro, sin que el administrador tenga que aprobar
-                nada — a diferencia de la transferencia, que sí lo requiere. */}
-            {config?.mercadoPago?.enabled && (
+                antes de tocar el botón. Pedido explícito: que quede claro qué
+                pasa con el cobro (domiciliación mensual vs. pago único
+                anual), y que ninguno de los dos necesita que el
+                administrador apruebe nada — a diferencia de la transferencia. */}
+            {config?.mercadoPago?.enabled && selectedPlanId === MONTHLY_PLAN_ID && (
               <p className="text-xs text-muted -mt-1">
                 Con tarjeta (Mercado Pago) queda en <strong>Pago automático</strong>: se te cobran{' '}
                 {formatCurrency(MONTHLY_PRICE_MXN)} cada mes sin que tengas que volver a pagar. Se
+                activa sola en cuanto se confirme el cobro — no necesita aprobación del administrador.
+              </p>
+            )}
+            {config?.mercadoPago?.enabled && selectedPlanId === ANNUAL_PLAN_ID && (
+              <p className="text-xs text-muted -mt-1">
+                Con tarjeta (Mercado Pago) es un <strong>pago único</strong> de {formatCurrency(ANNUAL_PRICE_MXN)} por
+                los 12 meses — no se te vuelve a cobrar solo el año que viene, tú decides si renuevas. Se
                 activa sola en cuanto se confirme el cobro — no necesita aprobación del administrador.
               </p>
             )}
