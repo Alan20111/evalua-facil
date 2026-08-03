@@ -2,6 +2,16 @@
   "appId": "mx.evaluafacil.app",
   "appName": "Evalúa Fácil",
   "webDir": "dist",
+  "server": {
+    "allowNavigation": [
+      "evalua-facil.vercel.app",
+      "*.mercadopago.com",
+      "*.mercadopago.com.mx",
+      "*.mercadolibre.com",
+      "*.mercadolibre.com.mx",
+      "*.mlstatic.com"
+    ]
+  },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 400,
