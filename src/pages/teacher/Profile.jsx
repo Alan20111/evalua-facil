@@ -1062,6 +1062,8 @@ export default function Profile() {
           </button>
         </div>
 
+        <p className="text-center text-xs text-muted">Evalúa Fácil versión 1.0.1</p>
+
       </div>
 
       {showEliminarCuenta && <EliminarCuentaModal onClose={() => setShowEliminarCuenta(false)} />}
