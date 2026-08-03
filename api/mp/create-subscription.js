@@ -4,10 +4,11 @@ import { aplicarCors } from '../_lib/cors.js'
 
 const APP_URL = process.env.APP_URL || 'https://evalua-facil.vercel.app'
 
-// Creates a Mercado Pago recurring subscription (preapproval) instead of a
-// one-time preference. The teacher authorizes once on MP's hosted page and
-// MP charges the same card automatically every month, notifying us via
-// api/mp/webhook.js — no cron or manual renewal needed.
+// Creates a Mercado Pago recurring subscription (preapproval), authorized
+// immediately with the card token from the Card Payment Brick (no redirect
+// to MP's hosted page — pago debe quedar en la app, pedido explícito). MP
+// charges the same card automatically every month from then on, notifying
+// us via api/mp/webhook.js — no cron or manual renewal needed.
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return // preflight de la app
   if (req.method !== 'POST') {
@@ -20,8 +21,9 @@ export default async function handler(req, res) {
     const decoded = await verifyRequest(req)
     const uid = decoded.uid
 
-    const { planId, escuelaId, schoolName } = req.body || {}
+    const { planId, escuelaId, schoolName, token: cardToken, payer } = req.body || {}
     if (!planId) return res.status(400).json({ error: 'Falta planId' })
+    if (!cardToken) return res.status(400).json({ error: 'Falta información de la tarjeta' })
 
     const { subscriptionId, plan } = await startSubscription({
       uid,
@@ -45,18 +47,21 @@ export default async function handler(req, res) {
 
     const preapprovalBody = {
       reason: plan.nombre || 'Suscripción Evalúa Fácil',
-      payer_email: decoded.email,
-      // `sid` en vez de `pid`: la domiciliación no crea un doc de pago por
-      // adelantado (el primer cobro llega después por webhook), así que la
-      // pantalla de resultado vigila la suscripción hasta verla activa.
+      payer_email: payer?.email || decoded.email,
+      // Con el token del Card Payment Brick, Mercado Pago autoriza la
+      // domiciliación de inmediato con esa tarjeta — sin abrir su página de
+      // checkout (pedido explícito: el pago no debe sacar al docente de la
+      // app ni del sitio). `back_url` se manda igual por si MP lo requiere
+      // internamente, pero con `card_token_id` nunca se usa para redirigir.
       back_url: `${APP_URL}/pago-resultado?sid=${subscriptionId}&status=success`,
+      card_token_id: cardToken,
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',
         transaction_amount: Number(plan.precio) || 0,
         currency_id: 'MXN',
       },
-      status: 'pending',
+      status: 'authorized',
     }
 
     const mpRes = await fetch('https://api.mercadopago.com/preapproval', {
@@ -86,7 +91,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       subscriptionId,
       preapprovalId: data.id,
-      init_point: data.init_point,
+      status: data.status,
     })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message })

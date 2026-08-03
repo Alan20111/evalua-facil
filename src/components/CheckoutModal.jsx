@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { collection, doc, addDoc, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
-import { X, Wallet, Landmark, Loader2 } from 'lucide-react'
+import { X, Wallet, Landmark } from 'lucide-react'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
@@ -37,6 +37,24 @@ const PLAN_INFO = {
   [ANNUAL_PLAN_ID]: { nombre: ANNUAL_SUBSCRIPTION_NAME, precio: ANNUAL_PRICE_MXN, periodicidad: 'anual', unidad: 'año' },
 }
 
+function loadMpSdk() {
+  return new Promise((resolve, reject) => {
+    if (window.MercadoPago) return resolve(window.MercadoPago)
+    const existing = document.getElementById('mp-sdk')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.MercadoPago))
+      existing.addEventListener('error', reject)
+      return
+    }
+    const s = document.createElement('script')
+    s.id = 'mp-sdk'
+    s.src = 'https://sdk.mercadopago.com/js/v2'
+    s.onload = () => resolve(window.MercadoPago)
+    s.onerror = reject
+    document.body.appendChild(s)
+  })
+}
+
 function loadPaypalSdk(clientId) {
   return new Promise((resolve, reject) => {
     if (window.paypal) return resolve(window.paypal)
@@ -65,6 +83,8 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   const [referencia, setReferencia] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const paypalRef = useRef(null)
+  const mpBrickRef = useRef(null)
+  const mpBrickControllerRef = useRef(null)
   const selectedPlan = PLAN_INFO[selectedPlanId]
 
   useBackHandler(onClose, open)
@@ -78,33 +98,6 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   useEffect(() => {
     if (open) setSubmitting(false)
   }, [open])
-
-  // payWithMercadoPago deja `submitting` en true y navega fuera con
-  // `window.location.href` (no un fetch que resuelva antes de irse). Si el
-  // docente le da "Atrás" del navegador, Chrome suele restaurar esta pestaña
-  // desde el bfcache tal cual estaba congelada — con `submitting` todavía en
-  // true — en vez de recargarla de cero, dejando el botón trabado en
-  // "Redirigiendo…" para siempre. `pageshow` con `persisted: true` es la
-  // señal de que la página volvió del bfcache, no de una carga nueva.
-  useEffect(() => {
-    function onPageShow(e) {
-      if (e.persisted) setSubmitting(false)
-    }
-    window.addEventListener('pageshow', onPageShow)
-    return () => window.removeEventListener('pageshow', onPageShow)
-  }, [])
-
-  // Respaldo para el WebView nativo de Android: ahí `pageshow`/`persisted`
-  // no siempre se dispara al volver de Mercado Pago con el botón Atrás, y el
-  // botón se queda trabado en "Redirigiendo…" aunque la pestaña sí volvió a
-  // quedar visible. `visibilitychange` sí es confiable en ese WebView.
-  useEffect(() => {
-    function onVisibilityChange() {
-      if (document.visibilityState === 'visible') setSubmitting(false)
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
-  }, [])
 
   // Dinero de por medio: si esta pestaña se quedó con una versión vieja del
   // bundle (ver UpdateChecker.jsx — SPA que nunca vuelve a descargar el JS
@@ -135,33 +128,106 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
     schoolName: userProfile?.schoolName || '',
   })
 
-  // ── Mercado Pago ──
-  // Mensual: domiciliación (preapproval) — MP cobra la tarjeta solo cada mes
-  // desde entonces, sin renovación manual.
-  // Anual: pago único (Checkout Pro, el mismo endpoint que ya usan
-  // transferencia/PayPal por dentro) — se cobran los $990 una sola vez y ya;
-  // el docente decide si renueva el año que sigue. Nada de domiciliar un
-  // cobro anual: la API de cobros recurrentes de Mercado Pago no confirma
-  // soportar un ciclo de 12 meses, así que no vale la pena el riesgo.
-  async function payWithMercadoPago() {
-    setSubmitting(true)
-    try {
-      const endpoint = selectedPlanId === ANNUAL_PLAN_ID ? '/api/mp/create-preference' : '/api/mp/create-subscription'
-      const res = await fetch(apiUrl(endpoint), {
-        method: 'POST',
-        headers: await authHeader(),
-        body: JSON.stringify(planPayload()),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.init_point) {
-        throw new Error(data.error || 'No se pudo iniciar el pago')
-      }
-      window.location.href = data.init_point
-    } catch (err) {
-      toast('Error: ' + err.message, 'error')
-      setSubmitting(false)
-    }
+  // ── Mercado Pago: tarjeta embebida (Card Payment Brick) ──
+  // Pedido explícito: el pago debe quedar en la misma pantalla, sin salir de
+  // la app ni del sitio — se abandonó Checkout Pro (redirección) por esto.
+  // El Brick tokeniza la tarjeta aquí mismo; el token se manda al backend,
+  // que cobra directo contra la API de Mercado Pago sin abrir ninguna otra
+  // página.
+  // Mensual: domiciliación (preapproval) autorizada con el token de tarjeta
+  // — MP cobra la misma tarjeta cada mes desde entonces, sin renovación
+  // manual.
+  // Anual: pago único directo contra la API de Pagos — se cobran los $990
+  // una sola vez; el docente decide si renueva el año que sigue. Nada de
+  // domiciliar un cobro anual: la API de cobros recurrentes de Mercado Pago
+  // no confirma soportar un ciclo de 12 meses, así que no vale la pena el
+  // riesgo.
+  async function processMpAnnualPayment(cardFormData) {
+    const res = await fetch(apiUrl('/api/mp/process-payment'), {
+      method: 'POST',
+      headers: await authHeader(),
+      body: JSON.stringify({ ...planPayload(), ...cardFormData }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'No se pudo procesar el pago')
+    return data
   }
+
+  async function authorizeMpSubscription(cardFormData) {
+    const res = await fetch(apiUrl('/api/mp/create-subscription'), {
+      method: 'POST',
+      headers: await authHeader(),
+      body: JSON.stringify({ ...planPayload(), ...cardFormData }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'No se pudo activar la suscripción')
+    return data
+  }
+
+  useEffect(() => {
+    if (!open || method !== 'mercadopago' || !config?.mercadoPago?.publicKey) return
+    let cancelled = false
+
+    loadMpSdk()
+      .then((MercadoPago) => {
+        if (cancelled || !mpBrickRef.current) return
+        const mp = new MercadoPago(config.mercadoPago.publicKey, { locale: 'es-MX' })
+        mpBrickRef.current.innerHTML = ''
+        return mp.bricks().create('cardPayment', 'mp-card-brick-container', {
+          initialization: { amount: selectedPlan.precio },
+          callbacks: {
+            onSubmit: (cardFormData) =>
+              new Promise((resolve, reject) => {
+                setSubmitting(true)
+                const accion =
+                  selectedPlanId === ANNUAL_PLAN_ID
+                    ? processMpAnnualPayment(cardFormData)
+                    : authorizeMpSubscription(cardFormData)
+                accion
+                  .then((data) => {
+                    if (data.status === 'rejected') {
+                      toast('Tu tarjeta fue rechazada' + (data.detail ? `: ${data.detail}` : ''), 'error')
+                    } else if (selectedPlanId === ANNUAL_PLAN_ID && data.status !== 'approved') {
+                      toast('Tu pago está en revisión. Se activará solo en cuanto se confirme.')
+                      onSuccess?.()
+                      onClose()
+                    } else {
+                      toast(
+                        selectedPlanId === ANNUAL_PLAN_ID
+                          ? '¡Pago confirmado! Tu suscripción ya está activa.'
+                          : '¡Suscripción activada! Confirmando el primer cobro…'
+                      )
+                      onSuccess?.()
+                      onClose()
+                    }
+                    resolve()
+                  })
+                  .catch((err) => {
+                    toast('Error: ' + err.message, 'error')
+                    reject(err)
+                  })
+                  .finally(() => setSubmitting(false))
+              }),
+            onError: (error) => {
+              console.error(error)
+              toast('No se pudo procesar la tarjeta', 'error')
+            },
+          },
+        })
+      })
+      .then((controller) => {
+        if (cancelled) controller?.unmount?.()
+        else mpBrickControllerRef.current = controller
+      })
+      .catch(() => toast('No se pudo cargar Mercado Pago', 'error'))
+
+    return () => {
+      cancelled = true
+      mpBrickControllerRef.current?.unmount?.()
+      mpBrickControllerRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps
+  }, [open, method, config?.mercadoPago?.publicKey, selectedPlanId])
 
   // ── PayPal: render SDK buttons ──
   useEffect(() => {
@@ -372,36 +438,30 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
 
             {/* Method tabs — un renglón completo cada una, no repartidas
                 lado a lado, pedido explícito para que quepa la etiqueta
-                larga de Mercado Pago (tarjeta de crédito/débito).
-                Mercado Pago es de un solo clic: lo manda directo a pagar, sin
-                pedir un segundo clic en un botón aparte más abajo — pedido
-                explícito. Transferencia (y PayPal) sí necesitan seguir
-                mostrando su propio formulario debajo, así que esas solo
-                cambian de pestaña. */}
+                larga de Mercado Pago (tarjeta de crédito/débito). Las tres
+                cambian de pestaña y muestran su propio formulario debajo —
+                ninguna sale de esta pantalla, pedido explícito. */}
             <div className="flex flex-col gap-2">
               {methods.map((m) => (
                 <button
                   key={m.id}
                   type="button"
-                  onClick={() => (m.id === 'mercadopago' ? payWithMercadoPago() : setMethod(m.id))}
-                  disabled={m.id === 'mercadopago' && submitting}
+                  onClick={() => setMethod(m.id)}
                   className={`w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded text-xs font-semibold border transition-colors disabled:opacity-60 ${
                     method === m.id
                       ? 'bg-accent-light border-accent text-accent'
                       : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
                   }`}
                 >
-                  {m.id === 'mercadopago' && submitting
-                    ? <Loader2 size={16} className="flex-shrink-0 animate-spin" />
-                    : <m.icon size={16} className="flex-shrink-0" />}
-                  {m.id === 'mercadopago' && submitting ? 'Redirigiendo…' : m.label}
+                  <m.icon size={16} className="flex-shrink-0" />
+                  {m.label}
                 </button>
               ))}
             </div>
 
-            {/* Mercado Pago paga con un solo clic (ver más abajo) — no hay un
-                segundo paso donde avisar esto, así que va aquí, visible desde
-                antes de tocar el botón. Pedido explícito: que quede claro qué
+            {/* Mercado Pago (ver más abajo el formulario embebido) — va aquí,
+                visible desde antes de llenar la tarjeta. Pedido explícito: que
+                quede claro qué
                 pasa con el cobro (domiciliación mensual vs. pago único
                 anual), y que ninguno de los dos necesita que el
                 administrador apruebe nada — a diferencia de la transferencia. */}
@@ -418,6 +478,15 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 los 12 meses — no se te vuelve a cobrar solo el año que viene, tú decides si renuevas. Se
                 activa sola en cuanto se confirme el cobro — no necesita aprobación del administrador.
               </p>
+            )}
+
+            {method === 'mercadopago' && (
+              <div>
+                <div id="mp-card-brick-container" ref={mpBrickRef} />
+                <p className="text-sm text-slate-500 mt-2 text-center">
+                  Tu tarjeta se procesa de forma segura por Mercado Pago, sin salir de esta pantalla.
+                </p>
+              </div>
             )}
 
             {method === 'paypal' && (
