@@ -3,7 +3,7 @@
 import { subjectDisplayName } from './subjectName'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
 import { isDraftActivity } from './activityVisibility'
-import { subjectPeriodLabel } from './dateRange'
+import { subjectPeriodLabel, cicloEscolarDe } from './dateRange'
 import { studentFullName as fullName } from './studentSearch'
 import { savePdfDoc } from './nativeSave'
 import { applyPdfWatermarkIfNeeded, addPdfFooter, getLogoDataUrl, drawPdfWatermarkOnPage } from './exportWatermark'
@@ -13,6 +13,33 @@ function safeFile(subject) {
     .replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '')
     .trim()
     .replace(/\s+/g, '_')
+}
+
+// ── Encabezado "oficial" (escuela + CCT + ciclo escolar) y firma del
+// docente al final — mismo criterio y mismo motivo que excel.js (ver ahí
+// el comentario largo): que estos PDF se puedan entregar tal cual a un
+// director. Devuelve la coordenada Y donde debe seguir dibujando el
+// llamador (el título propio de cada exporte).
+function drawOfficialHeader(doc, subject, escuela, x, startY) {
+  let y = startY
+  if (escuela?.schoolName) {
+    doc.setFont(undefined, 'bold'); doc.setFontSize(10); doc.setTextColor(60)
+    doc.text(escuela.claveSEP ? `${escuela.schoolName}   ·   CCT: ${escuela.claveSEP}` : escuela.schoolName, x, y)
+    y += 6
+  }
+  const ciclo = cicloEscolarDe(subject)
+  if (ciclo) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(110)
+    doc.text(`Ciclo Escolar ${ciclo}`, x, y)
+    y += 6
+  }
+  return y
+}
+
+function drawSignatureFooter(doc, escuela, x, y) {
+  doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(60)
+  doc.text('_________________________________', x, y)
+  doc.text(escuela?.docenteNombre || 'Nombre y firma del docente', x, y + 5)
 }
 
 // QR de descarga de la app, para proyectar o imprimir. NO lleva datos de
@@ -62,7 +89,7 @@ export async function exportAppQRPDF({ url }) {
 // Ranking report: estudiantes ordenados por promedio (mayor a menor).
 // Columnas: Lugar, No., Estudiante, Promedio. `rows` = [{ lugar, orden, nombre,
 // promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
-export async function exportRankingPDF({ subject, rows, label, watermark = false }) {
+export async function exportRankingPDF({ subject, rows, label, escuela, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -71,17 +98,20 @@ export async function exportRankingPDF({ subject, rows, label, watermark = false
 
   const doc = new jsPDF({ orientation: 'portrait' })
   await applyPdfWatermarkIfNeeded(doc, watermark)
+  let y = drawOfficialHeader(doc, subject, escuela, 14, 12) + 6
   doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
-  doc.text(`${subjectDisplayName(subject) || 'Asignatura'} — Ranking · ${label}`, 14, 16)
+  doc.text(`${subjectDisplayName(subject) || 'Asignatura'} — Ranking · ${label}`, 14, y)
+  y += 6
   const periodo = subjectPeriodLabel(subject)
   if (periodo) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-    doc.text(periodo, 14, 22)
+    doc.text(periodo, 14, y)
+    y += 6
   }
 
   const body = rows.map((r) => [r.lugar, r.nombre, r.promedio != null ? r.promedio.toFixed(1) : '—'])
   autoTable(doc, {
-    startY: periodo ? 28 : 24,
+    startY: y + 2,
     head: [['Lugar', 'Estudiante', label]],
     body,
     styles: { fontSize: 9, cellPadding: 2.5, textColor: 30 },
@@ -92,13 +122,14 @@ export async function exportRankingPDF({ subject, rows, label, watermark = false
       2: { halign: 'center', cellWidth: 26, fontStyle: 'bold' },
     },
   })
+  drawSignatureFooter(doc, escuela, 14, doc.lastAutoTable.finalY + 14)
   if (watermark) addPdfFooter(doc)
   const safeLabel = label.toLowerCase().replace(/\s+/g, '')
   await savePdfDoc(doc, `ranking_${safeLabel}_${safeFile(subject)}.pdf`)
 }
 
 // Grades report: one row per student with per-parcial average + final.
-export async function exportSubjectGradesPDF({ subject, activities, students, submissions, watermark = false }) {
+export async function exportSubjectGradesPDF({ subject, activities, students, submissions, escuela, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -110,14 +141,17 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
   const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
 
   // ── Header ──
+  let y = drawOfficialHeader(doc, subject, escuela, 14, 12) + 6
   doc.setFontSize(15)
   doc.setFont(undefined, 'bold')
   doc.setTextColor(20)
-  doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 16)
+  doc.text(subjectDisplayName(subject) || 'Asignatura', 14, y)
+  y += 6
   const periodo = subjectPeriodLabel(subject)
   if (periodo) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-    doc.text(periodo, 14, 22)
+    doc.text(periodo, 14, y)
+    y += 6
   }
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
@@ -140,7 +174,7 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
   })
 
   autoTable(doc, {
-    startY: periodo ? 28 : 24,
+    startY: y + 2,
     head: [['#', 'Estudiante', ...PARCIALES.map((p) => `Prom. P${p}`), 'Final']],
     body,
     styles: { fontSize: 9, cellPadding: 2.5, textColor: 30 },
@@ -153,13 +187,14 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
     },
   })
 
+  drawSignatureFooter(doc, escuela, 14, doc.lastAutoTable.finalY + 14)
   if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `calificaciones_${safeFile(subject)}.pdf`)
 }
 
 // Detailed grades report for a SINGLE parcial: one column per activity
 // (1.1., 1.2.…) plus the parcial average. Mirrors exportParcialGrades (Excel).
-export async function exportParcialGradesPDF({ subject, activities, students, submissions, parcial, watermark = false }) {
+export async function exportParcialGradesPDF({ subject, activities, students, submissions, parcial, escuela, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -173,12 +208,15 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
   const doc = new jsPDF({ orientation: acts.length > 6 ? 'landscape' : 'portrait' })
   await applyPdfWatermarkIfNeeded(doc, watermark)
 
+  let y = drawOfficialHeader(doc, subject, escuela, 14, 12) + 6
   doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
-  doc.text(`${subjectDisplayName(subject) || 'Asignatura'} — Parcial ${parcial}`, 14, 16)
+  doc.text(`${subjectDisplayName(subject) || 'Asignatura'} — Parcial ${parcial}`, 14, y)
+  y += 6
   const periodo = subjectPeriodLabel(subject)
   if (periodo) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-    doc.text(periodo, 14, 22)
+    doc.text(periodo, 14, y)
+    y += 6
   }
 
   const pondOn = ponderacionActivaEnParcial(subject, parcial)
@@ -196,7 +234,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
   })
 
   autoTable(doc, {
-    startY: periodo ? 28 : 24,
+    startY: y + 2,
     head: [['#', 'Estudiante', ...acts.map((a, ai) => `${parcial}.${ai + 1}.`), 'Prom.']],
     body,
     styles: { fontSize: 9, cellPadding: 2, textColor: 30 },
@@ -209,6 +247,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
     },
   })
 
+  drawSignatureFooter(doc, escuela, 14, doc.lastAutoTable.finalY + 14)
   if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `calificaciones_parcial${parcial}_${safeFile(subject)}.pdf`)
 }

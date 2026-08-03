@@ -1,8 +1,8 @@
 import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
-import { subjectPeriodLabel } from './dateRange'
+import { subjectPeriodLabel, cicloEscolarDe } from './dateRange'
 import { promedioParcial, pesoDe, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
-import { attendanceState, countPresence, fmtAttDateParts, enrolledFromDate } from './attendance'
+import { attendanceState, countPresence, fmtAttDateParts, fmtAttMonth, enrolledFromDate } from './attendance'
 import { studentFullName } from './studentSearch'
 import { isDraftActivity } from './activityVisibility'
 import { saveBlob } from './nativeSave'
@@ -47,6 +47,38 @@ async function finalizeWorkbook(workbook, filename, watermark) {
 // fijos (título en fila 1, secciones en fila 3, etc.) se corre.
 function spacerRow(watermark) {
   return watermark ? [WATERMARK_LEGEND] : []
+}
+
+// ── Encabezado "oficial" (escuela + CCT + ciclo escolar) y firma del
+// docente al final — pedido explícito: que los exportes de calificaciones/
+// asistencia se puedan entregar tal cual a un director, sin que el docente
+// tenga que agregar esto a mano encima. `escuela` es lo que ya trae
+// userProfile (AuthContext lo carga desde schools/{escuelaId} sin fetch
+// aparte — ver src/context/AuthContext.jsx): { schoolName, claveSEP,
+// docenteNombre }.
+//
+// SIEMPRE 2 filas, aunque falte algún dato (deja la celda vacía en vez de
+// omitir la fila) — así el desplazamiento de merges/alturas de cada función
+// de abajo es un número fijo (HEADER_ROWS) sin importar qué tan completo
+// esté el perfil del docente.
+export const HEADER_ROWS = 2
+function officialHeaderRows(subject, escuela) {
+  const linea1 = escuela?.schoolName
+    ? (escuela.claveSEP ? `${escuela.schoolName}   ·   CCT: ${escuela.claveSEP}` : escuela.schoolName)
+    : ''
+  const ciclo = cicloEscolarDe(subject)
+  return [
+    [linea1],
+    [ciclo ? `Ciclo Escolar ${ciclo}` : ''],
+  ]
+}
+
+function signatureFooterRows(escuela) {
+  return [
+    [],
+    ['_________________________________'],
+    [escuela?.docenteNombre || 'Nombre y firma del docente'],
+  ]
 }
 
 // Loaded dynamically (only when actually downloading the template) because
@@ -153,20 +185,22 @@ export function parseStudentExcel(file) {
 // Ranking export: estudiantes ordenados por promedio (mayor a menor).
 // Columnas: LUGAR, No., NOMBRE, PROMEDIO. `rows` = [{ lugar, orden, nombre,
 // promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
-export async function exportRankingExcel({ subject, rows, label, watermark = false }) {
+export async function exportRankingExcel({ subject, rows, label, escuela, watermark = false }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
+  const header = officialHeaderRows(subject, escuela)
   const periodo = subjectPeriodLabel(subject)
   const titleRow = [`${subjectDisplayName(subject)} — Ranking · ${label}${periodo ? `   (${periodo})` : ''}`]
   const nameRow = ['LUGAR', 'NOMBRE', label]
   const dataRows = rows.map((r) => [r.lugar, r.nombre, r.promedio != null ? r.promedio : '—'])
-  const allRows = [titleRow, spacerRow(watermark), nameRow, ...dataRows]
+  const allRows = [...header, titleRow, spacerRow(watermark), nameRow, ...dataRows, ...signatureFooterRows(escuela)]
 
+  const H = HEADER_ROWS
   addSheetFromRows(workbook, 'Ranking', allRows, {
-    merges: [[1, 1, 1, 3]],
+    merges: [[1, 1, 1, 3], [2, 1, 2, 3], [H + 1, 1, H + 1, 3]],
     colWidths: [7, 42, 14],
-    rowHeights: [[1, 22], [3, 18]],
+    rowHeights: [[H + 1, 22], [H + 3, 18]],
   })
 
   const safeName = safeExcelName(subject)
@@ -174,7 +208,7 @@ export async function exportRankingExcel({ subject, rows, label, watermark = fal
   await finalizeWorkbook(workbook, `ranking_${safeLabel}_${safeName}.xlsx`, watermark)
 }
 
-export async function exportParcialGrades({ subject, activities, students, submissions, parcial, watermark = false }) {
+export async function exportParcialGrades({ subject, activities, students, submissions, parcial, escuela, watermark = false }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
@@ -183,6 +217,7 @@ export async function exportParcialGrades({ subject, activities, students, submi
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
 
   const totalCols = 2 + acts.length + 1
+  const header = officialHeaderRows(subject, escuela)
 
   const titleRow = Array(totalCols).fill('')
   const periodo = subjectPeriodLabel(subject)
@@ -215,13 +250,14 @@ export async function exportParcialGrades({ subject, activities, students, submi
   })
 
   const allRows = pondOn
-    ? [titleRow, spacerRow(watermark), pesoRow, nameRow, ...dataRows]
-    : [titleRow, spacerRow(watermark), nameRow, ...dataRows]
+    ? [...header, titleRow, spacerRow(watermark), pesoRow, nameRow, ...dataRows, ...signatureFooterRows(escuela)]
+    : [...header, titleRow, spacerRow(watermark), nameRow, ...dataRows, ...signatureFooterRows(escuela)]
 
+  const H = HEADER_ROWS
   addSheetFromRows(workbook, `Parcial ${parcial}`, allRows, {
-    merges: [[1, 1, 1, totalCols]],
+    merges: [[1, 1, 1, totalCols], [2, 1, 2, totalCols], [H + 1, 1, H + 1, totalCols]],
     colWidths: [4, 42, ...Array(totalCols - 2).fill(10)],
-    rowHeights: [[1, 22], [3, 18]],
+    rowHeights: [[H + 1, 22], [H + 3, 18]],
   })
 
   const safeName = safeExcelName(subject)
@@ -233,11 +269,13 @@ export async function exportSubjectGrades({
   activities,
   students,
   submissions,
+  escuela,
   watermark = false,
 }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
+  const header = officialHeaderRows(subject, escuela)
   const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
 
   const FIXED = 2
@@ -329,19 +367,23 @@ export async function exportSubjectGrades({
   })
 
   const allRows = anyPond
-    ? [titleRow, spacerRow(watermark), sectionRow, pesoRowFull, nameRow, ...dataRows]
-    : [titleRow, spacerRow(watermark), sectionRow, nameRow, ...dataRows]
+    ? [...header, titleRow, spacerRow(watermark), sectionRow, pesoRowFull, nameRow, ...dataRows, ...signatureFooterRows(escuela)]
+    : [...header, titleRow, spacerRow(watermark), sectionRow, nameRow, ...dataRows, ...signatureFooterRows(escuela)]
 
-  // Merges: title spans all + each parcial header (section row is always row 3)
+  // Merges: encabezado oficial + título + cada parcial (section row era
+  // fila 3, ahora corrida H filas por el encabezado oficial de arriba).
+  const H = HEADER_ROWS
   const merges = [
     [1, 1, 1, totalCols],
-    ...PARCIALES.map((p) => [3, parcialRanges[p].start + 1, 3, parcialRanges[p].end + 1]),
+    [2, 1, 2, totalCols],
+    [H + 1, 1, H + 1, totalCols],
+    ...PARCIALES.map((p) => [H + 3, parcialRanges[p].start + 1, H + 3, parcialRanges[p].end + 1]),
   ]
 
   addSheetFromRows(workbook, 'Calificaciones', allRows, {
     merges,
     colWidths: [4, 42, ...Array(gradeCols - FIXED).fill(10)],
-    rowHeights: [[1, 22], [3, 18], [4, 18]],
+    rowHeights: [[H + 1, 22], [H + 3, 18], [H + 4, 18]],
   })
 
   const safeName = safeExcelName(subject)
@@ -365,6 +407,25 @@ function attendanceColumnHeaders(days) {
   return headers
 }
 
+// Fila "Mes Año" que agrupa las columnas de día por mes — mismo agrupamiento
+// que ya usa la tabla en pantalla (ver SubjectPage.jsx groupDaysByMonth,
+// que arma `months` sobre CADA grupo de attendanceParciales). No se
+// recalcula aquí: `months` ya viene armado en el dato que se recibe.
+// Devuelve los tramos (start = columna de día donde empieza, 0-indexado
+// dentro del bloque de columnas de ESE parcial; span = cuántas columnas
+// ocupa) para poder fusionar celdas y así se vea como un encabezado de mes,
+// no una celda repetida por columna.
+function attendanceMonthSpans(months) {
+  const spans = []
+  let col = 0
+  ;(months || []).forEach((mo) => {
+    const span = mo.days.reduce((n, d) => n + d.records.length, 0)
+    spans.push({ label: fmtAttMonth(mo.ym), start: col, span })
+    col += span
+  })
+  return spans
+}
+
 // `enrolledFrom` ('YYYY-MM-DD', opcional): días anteriores al alta del
 // alumno se dejan en blanco en vez de 0/1 — no aplica, no es una falta.
 function attendanceRowCells(days, studentId, enrolledFrom) {
@@ -378,7 +439,7 @@ function attendanceRowCells(days, studentId, enrolledFrom) {
   return cells
 }
 
-export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial, watermark = false }) {
+export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial, escuela, watermark = false }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
@@ -387,10 +448,17 @@ export async function exportParcialAttendance({ subject, students, attendancePar
   const dayHeaders = attendanceColumnHeaders(days)
   const FIXED = 2
   const totalCols = FIXED + dayHeaders.length + 2
+  const header = officialHeaderRows(subject, escuela)
 
   const titleRow = Array(totalCols).fill('')
   const periodo = subjectPeriodLabel(subject)
   titleRow[0] = `${subjectDisplayName(subject)} — Asistencia · Parcial ${parcial}${periodo ? `   (${periodo})` : ''}`
+
+  // Fila "Mes Año" — rejilla mensual, mismo agrupamiento que ya se ve en
+  // pantalla (pedido explícito). Va sobre la fila de días.
+  const monthRow = Array(totalCols).fill('')
+  const monthSpans = attendanceMonthSpans(g?.months)
+  monthSpans.forEach(({ label, start }) => { monthRow[FIXED + start] = label })
 
   const nameRow = ['#', 'NOMBRE', ...dayHeaders, 'Asist.', 'Faltas']
 
@@ -404,29 +472,40 @@ export async function exportParcialAttendance({ subject, students, attendancePar
     return row
   })
 
-  const allRows = [titleRow, spacerRow(watermark), nameRow, ...dataRows]
+  const allRows = [...header, titleRow, spacerRow(watermark), monthRow, nameRow, ...dataRows, ...signatureFooterRows(escuela)]
+
+  const H = HEADER_ROWS
+  const monthRowNum = H + 3
+  const merges = [
+    [1, 1, 1, totalCols],
+    [2, 1, 2, totalCols],
+    [H + 1, 1, H + 1, totalCols],
+    ...monthSpans.filter((m) => m.span > 1).map((m) => [monthRowNum, FIXED + m.start + 1, monthRowNum, FIXED + m.start + m.span]),
+  ]
 
   addSheetFromRows(workbook, `Parcial ${parcial}`, allRows, {
-    merges: [[1, 1, 1, totalCols]],
+    merges,
     colWidths: [4, 42, ...Array(totalCols - FIXED).fill(9)],
-    rowHeights: [[1, 22], [3, 18]],
+    rowHeights: [[H + 1, 22], [H + 4, 18]],
   })
 
   const safeName = safeExcelName(subject)
   await finalizeWorkbook(workbook, `asistencia_parcial${parcial}_${safeName}.xlsx`, watermark)
 }
 
-export async function exportSubjectAttendance({ subject, students, attendanceParciales, watermark = false }) {
+export async function exportSubjectAttendance({ subject, students, attendanceParciales, escuela, watermark = false }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
   const FIXED = 2
   const parcialMeta = attendanceParciales.map((g) => {
     const dayHeaders = attendanceColumnHeaders(g.days)
-    return { ...g, dayHeaders, cols: dayHeaders.length + 2 }
+    const monthSpans = attendanceMonthSpans(g.months)
+    return { ...g, dayHeaders, monthSpans, cols: dayHeaders.length + 2 }
   })
 
   const totalCols = FIXED + parcialMeta.reduce((s, m) => s + m.cols, 0) + 2
+  const header = officialHeaderRows(subject, escuela)
 
   const titleRow = Array(totalCols).fill('')
   const periodo = subjectPeriodLabel(subject)
@@ -441,6 +520,19 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
     col += m.cols
   })
   sectionRow[col] = 'TOTAL'
+
+  // Fila "Mes Año" — un nivel de agrupamiento MÁS que sectionRow (que ya
+  // agrupa por parcial): dentro del bloque de columnas de cada parcial, sus
+  // meses. Mismo agrupamiento que ya se ve en pantalla (pedido explícito).
+  const monthRow = Array(totalCols).fill('')
+  const monthMerges = []
+  parcialMeta.forEach((m) => {
+    const base = parcialRanges[m.parcial].start
+    m.monthSpans.forEach(({ label, start, span }) => {
+      monthRow[base + start] = label
+      if (span > 1) monthMerges.push([base + start, base + start + span - 1])
+    })
+  })
 
   const nameRow = ['#', 'NOMBRE']
   parcialMeta.forEach((m) => { nameRow.push(...m.dayHeaders, 'Asist.', 'Faltas') })
@@ -463,17 +555,22 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
     return row
   })
 
-  const allRows = [titleRow, spacerRow(watermark), sectionRow, nameRow, ...dataRows]
+  const allRows = [...header, titleRow, spacerRow(watermark), sectionRow, monthRow, nameRow, ...dataRows, ...signatureFooterRows(escuela)]
 
+  const H = HEADER_ROWS
+  const monthRowNum = H + 4
   const merges = [
     [1, 1, 1, totalCols],
-    ...parcialMeta.map((m) => [3, parcialRanges[m.parcial].start + 1, 3, parcialRanges[m.parcial].end + 1]),
+    [2, 1, 2, totalCols],
+    [H + 1, 1, H + 1, totalCols],
+    ...parcialMeta.map((m) => [H + 3, parcialRanges[m.parcial].start + 1, H + 3, parcialRanges[m.parcial].end + 1]),
+    ...monthMerges.map(([c1, c2]) => [monthRowNum, c1 + 1, monthRowNum, c2 + 1]),
   ]
 
   addSheetFromRows(workbook, 'Asistencia', allRows, {
     merges,
     colWidths: [4, 42, ...Array(totalCols - FIXED).fill(9)],
-    rowHeights: [[1, 22], [3, 18], [4, 18]],
+    rowHeights: [[H + 1, 22], [H + 3, 18], [H + 5, 18]],
   })
 
   const safeName = safeExcelName(subject)
