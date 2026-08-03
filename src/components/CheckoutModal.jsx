@@ -85,6 +85,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   const paypalRef = useRef(null)
   const mpBrickRef = useRef(null)
   const mpBrickControllerRef = useRef(null)
+  const mpBrickGenerationRef = useRef(0)
   const selectedPlan = PLAN_INFO[selectedPlanId]
 
   useBackHandler(onClose, open)
@@ -166,16 +167,35 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
 
   useEffect(() => {
     if (!open || method !== 'mercadopago' || !config?.mercadoPago?.publicKey) return
-    let cancelled = false
+    // Contador de "intento vigente" en vez de un simple booleano `cancelled`:
+    // si este efecto se dispara dos veces seguidas (StrictMode en desarrollo,
+    // o cualquier re-render que reordene `open`/`method`/`selectedPlanId`
+    // antes de que el SDK termine de cargar) sin esto DOS Bricks intentaban
+    // crearse sobre el mismo contenedor — el segundo pisaba al primero a
+    // medio cargar y el formulario se quedaba trabado en su esqueleto de
+    // carga para siempre, sin disparar onError ni ningún log. Cada intento
+    // se marca con su propio número; solo el más reciente puede escribir en
+    // `mpBrickControllerRef` o el contenedor — cualquier intento anterior que
+    // resuelva tarde simplemente se desmonta a sí mismo.
+    mpBrickGenerationRef.current += 1
+    const myGeneration = mpBrickGenerationRef.current
 
     loadMpSdk()
       .then((MercadoPago) => {
-        if (cancelled || !mpBrickRef.current) return
+        if (myGeneration !== mpBrickGenerationRef.current || !mpBrickRef.current) return
         const mp = new MercadoPago(config.mercadoPago.publicKey, { locale: 'es-MX' })
         mpBrickRef.current.innerHTML = ''
         return mp.bricks().create('cardPayment', 'mp-card-brick-container', {
           initialization: { amount: selectedPlan.precio },
           callbacks: {
+            // El Brick exige `onReady` explícito — sin él tira un error
+            // interno ("Callbacks onReady and/or onError are required") que
+            // nunca sale de sus propias promesas, así que el formulario se
+            // queda trabado en su esqueleto de carga para siempre sin que
+            // `.catch()` de aquí abajo se entere. No hace falta que haga
+            // nada: el esqueleto ya lo reemplaza el propio Brick al quedar
+            // listo.
+            onReady: () => {},
             onSubmit: (cardFormData) =>
               new Promise((resolve, reject) => {
                 setSubmitting(true)
@@ -216,13 +236,17 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
         })
       })
       .then((controller) => {
-        if (cancelled) controller?.unmount?.()
+        if (myGeneration !== mpBrickGenerationRef.current) controller?.unmount?.()
         else mpBrickControllerRef.current = controller
       })
-      .catch(() => toast('No se pudo cargar Mercado Pago', 'error'))
+      .catch((err) => {
+        if (myGeneration !== mpBrickGenerationRef.current) return
+        console.error(err)
+        toast('No se pudo cargar Mercado Pago', 'error')
+      })
 
     return () => {
-      cancelled = true
+      mpBrickGenerationRef.current += 1
       mpBrickControllerRef.current?.unmount?.()
       mpBrickControllerRef.current = null
     }
