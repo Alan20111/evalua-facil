@@ -215,6 +215,13 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                   fontSizeExtraLarge: '15px',
                 },
               },
+              // El placeholder por default del Brick es un nombre de
+              // ejemplo real ("María Clara López Roldán") — podía dar a
+              // entender que el pago se le iba a depositar a esa persona.
+              // Se reemplaza por un placeholder genérico.
+              texts: {
+                cardholderName: { placeholder: 'Nombre del titular' },
+              },
             },
           },
           callbacks: {
