@@ -30,8 +30,8 @@ const VARIANTS = {
     title: '¡Listo! Pago automático activado',
     text: `Te cobraremos ${formatCurrency(MONTHLY_PRICE_MXN)} cada mes desde esta tarjeta, sin que tengas que volver a pagar ni esperar la aprobación de nadie. Tu suscripción ya está activa.`,
   },
-  // Llega por `pid` (create-preference.js): pago único vía Mercado Pago —
-  // hoy el plan anual (ver CheckoutModal), sin domiciliar nada. El texto se
+  // Llega por `pid`: pago único vía Mercado Pago — hoy el plan anual (ver
+  // CheckoutModal), sin domiciliar nada. El texto se
   // deja genérico (sin decir "cada mes" ni "un año") para servir a
   // cualquier pago único, sea del plan que sea.
   confirmadoUnico: {
@@ -66,8 +66,8 @@ export default function PagoResultado() {
   const navigate = useNavigate()
   const { currentUser } = useAuth()
 
-  // `pid` lo pone create-preference.js; `external_reference` lo agrega Mercado
-  // Pago. Cualquiera de los dos es el id del doc payments/{id} a vigilar.
+  // `pid` lo pone api/mp/process-payment.js; `external_reference` lo agrega
+  // Mercado Pago. Cualquiera de los dos es el id del doc payments/{id} a vigilar.
   // `sid` lo pone create-subscription.js (domiciliación, sin doc de pago
   // previo): ahí se vigila la suscripción hasta verla activa.
   const paymentId = params.get('pid') || params.get('external_reference')
