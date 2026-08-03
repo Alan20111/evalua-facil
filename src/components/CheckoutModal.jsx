@@ -594,9 +594,6 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
             {method === 'mercadopago' && (
               <div>
                 <div id="mp-card-brick-container" ref={mpBrickRef} />
-                <p className="text-sm text-slate-500 mt-2 text-center">
-                  Tu tarjeta se procesa de forma segura por Mercado Pago, sin salir de esta pantalla.
-                </p>
               </div>
             )}
 
