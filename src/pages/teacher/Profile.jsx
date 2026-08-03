@@ -5,7 +5,7 @@ import {
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth'
-import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore'
+import { collection, doc, getDocs, query, updateDoc, where, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -14,7 +14,8 @@ import ConfirmModal from '../../components/ConfirmModal'
 import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
 import { resolveSchoolSelection, normalizeName, findSimilarSchools } from '../../utils/schoolSelection'
-import { Camera, Lock, User, X, CreditCard, School, ChevronDown, Plus, Trash2 } from 'lucide-react'
+import { uploadToCloudinary } from '../../utils/cloudinary'
+import { Camera, Lock, User, X, CreditCard, School, ChevronDown, Plus, Trash2, Upload, ImagePlus } from 'lucide-react'
 import SearchInput from '../../components/SearchInput'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
@@ -23,6 +24,7 @@ import AvatarCropModal from '../../components/AvatarCropModal'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import {
   TRIAL_DURATION_DAYS,
+  MONTHLY_PLAN_ID,
   MONTHLY_PRICE_MXN,
   SUBSCRIPTION_NAME,
   calcDaysRemaining,
@@ -260,7 +262,64 @@ export default function Profile() {
   const [showEliminarCuenta, setShowEliminarCuenta] = useState(false)
   useBackHandler(() => setShowEliminarCuenta(false), showEliminarCuenta)
 
+  // Reenviar un pago por transferencia que el admin rechazó — pedido
+  // explícito: adjuntar foto del comprobante (con el folio visible) y
+  // volver a mandarlo a revisión. Las reglas de Firestore solo dejan al
+  // docente CREAR pagos, no actualizar uno existente (ver
+  // firestore.rules match /payments/{paymentId}), así que reenviar crea un
+  // documento nuevo — nunca se toca el rechazado, que queda como historial.
+  const [resendPayment, setResendPayment] = useState(null) // el pago rechazado que se está reenviando
+  const [resendFolio, setResendFolio] = useState('')
+  const [resendFile, setResendFile] = useState(null)
+  const [resendSubmitting, setResendSubmitting] = useState(false)
+  useBackHandler(() => setResendPayment(null), !!resendPayment)
+  useScrollLock(!!resendPayment)
+
   const { subscription, recentPayments, loading: subLoading, refresh: refreshSub } = useSubscription()
+
+  function openResend(payment) {
+    setResendFolio(payment.referencia || '')
+    setResendFile(null)
+    setResendPayment(payment)
+  }
+
+  async function submitResend(e) {
+    e.preventDefault()
+    if (!resendFolio.trim()) return toast('Ingresa la referencia', 'error')
+    if (!resendFile) return toast('Adjunta la foto de tu comprobante', 'error')
+    setResendSubmitting(true)
+    try {
+      const comprobanteUrl = await uploadToCloudinary(resendFile, 'evalua-facil/comprobantes')
+      const batch = writeBatch(db)
+      batch.set(doc(collection(db, 'payments')), {
+        docenteId: currentUser.uid,
+        subscriptionId: subscription?.id || resendPayment.subscriptionId || null,
+        planId: resendPayment.planId || MONTHLY_PLAN_ID,
+        escuelaId: userProfile?.escuelaId || '',
+        monto: resendPayment.monto ?? MONTHLY_PRICE_MXN,
+        metodo: 'transferencia',
+        referencia: resendFolio.trim(),
+        comprobanteUrl,
+        reenvioDePagoId: resendPayment.id,
+        status: 'pendiente',
+        createdAt: serverTimestamp(),
+      })
+      if (subscription?.id) {
+        batch.update(doc(db, 'subscriptions', subscription.id), {
+          status: 'pendiente_pago',
+          updatedAt: serverTimestamp(),
+        })
+      }
+      await batch.commit()
+      toast('Reenviado. Lo revisamos dentro de las próximas 12 horas.')
+      setResendPayment(null)
+      refreshSub()
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setResendSubmitting(false)
+    }
+  }
   const hasEmailProvider = currentUser?.providerData?.some((p) => p.providerId === 'password')
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -626,20 +685,92 @@ export default function Profile() {
               <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Últimos pagos</p>
               <ul className="space-y-2">
                 {recentPayments.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between text-sm">
-                    <span className="text-muted">{formatDate(p.createdAt)}</span>
-                    <span className="font-medium">{formatCurrency(p.monto)}</span>
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getPaymentStatusColor(p.status)}`}
-                    >
-                      {p.status}
-                    </span>
+                  <li key={p.id} className="text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted">{formatDate(p.createdAt)}</span>
+                      <span className="font-medium">{formatCurrency(p.monto)}</span>
+                      <span
+                        className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getPaymentStatusColor(p.status)}`}
+                      >
+                        {p.status}
+                      </span>
+                    </div>
+                    {/* Antes un pago rechazado quedaba mudo — ni el motivo ni
+                        forma de corregirlo. Pedido explícito: mostrar por qué
+                        y dejar adjuntar el comprobante para reenviarlo. */}
+                    {p.status === 'rechazado' && (
+                      <div className="mt-1 pl-1 border-l-2 border-red-200 space-y-1">
+                        {p.notasAdmin && <p className="text-xs text-red-600">{p.notasAdmin}</p>}
+                        <button
+                          type="button"
+                          onClick={() => openResend(p)}
+                          className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+                        >
+                          <ImagePlus size={13} /> Adjuntar comprobante y reenviar
+                        </button>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
             </div>
           )}
         </div>
+
+        {/* Reenviar pago rechazado con foto del comprobante */}
+        {resendPayment && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !resendSubmitting && setResendPayment(null)} aria-label="Cerrar" />
+            <form onSubmit={submitResend} className="relative bg-surface-card rounded-card p-5 w-full max-w-sm shadow-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-on-surface">Reenviar pago</h3>
+                <button type="button" onClick={() => setResendPayment(null)} className="text-slate-400 hover:text-muted">
+                  <X size={20} />
+                </button>
+              </div>
+              {resendPayment.notasAdmin && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2">
+                  Motivo del rechazo: {resendPayment.notasAdmin}
+                </p>
+              )}
+              <div>
+                <label htmlFor="resend-folio" className="block text-sm font-medium text-muted mb-1">Folio de operación / folio bancario</label>
+                <input
+                  id="resend-folio"
+                  type="text"
+                  value={resendFolio}
+                  onChange={(e) => setResendFolio(e.target.value)}
+                  required
+                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
+                  placeholder="Folio de operación / folio bancario"
+                />
+              </div>
+              <div>
+                <label htmlFor="resend-file" className="block text-sm font-medium text-muted mb-1">Foto de tu comprobante (donde se vea el folio)</label>
+                <input
+                  id="resend-file"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => setResendFile(e.target.files?.[0] || null)}
+                  required
+                  className="w-full text-sm text-muted file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-accent-light file:text-accent file:font-semibold file:text-sm"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={resendSubmitting}
+                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {resendSubmitting ? <Spinner size="sm" /> : <Upload size={18} />}
+                {resendSubmitting ? 'Enviando…' : 'Reenviar a revisión'}
+              </button>
+              <p className="text-xs text-slate-500 text-center">
+                Lo revisamos dentro de las 12 horas siguientes a tu reenvío.
+              </p>
+            </form>
+          </div>
+        )}
 
         <CheckoutModal
           open={showPaymentModal}

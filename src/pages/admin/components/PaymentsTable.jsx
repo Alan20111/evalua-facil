@@ -401,6 +401,14 @@ export default function PaymentsTable({ stats, onRefresh }) {
                   {payment.referencia && (
                     <p className="text-xs font-mono text-muted">Folio bancario: {payment.referencia}</p>
                   )}
+                  {payment.reenvioDePagoId && (
+                    <p className="text-xs text-amber-600">Reenvío de un pago rechazado anteriormente</p>
+                  )}
+                  {payment.comprobanteUrl && (
+                    <a href={payment.comprobanteUrl} target="_blank" rel="noreferrer" className="inline-block">
+                      <img src={payment.comprobanteUrl} alt="Comprobante" className="h-16 w-16 object-cover rounded border border-outline-variant" />
+                    </a>
+                  )}
                   <ComentarioCell key={`${payment.id}:${payment.comentarios || ''}`} payment={payment} onSaved={onRefresh} />
                   <div className="pt-1">
                     <Acciones payment={payment} />
@@ -469,7 +477,14 @@ export default function PaymentsTable({ stats, onRefresh }) {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2 font-mono text-xs text-muted truncate">{payment.referencia || '—'}</td>
+                      <td className="px-4 py-2 font-mono text-xs text-muted truncate">
+                        {payment.referencia || '—'}
+                        {payment.comprobanteUrl && (
+                          <a href={payment.comprobanteUrl} target="_blank" rel="noreferrer" className="block text-accent hover:underline mt-0.5" data-tooltip="Ver comprobante">
+                            Ver foto
+                          </a>
+                        )}
+                      </td>
                       <td className="px-4 py-2">
                         {(() => {
                           const situacion = situacionDe(subscription)
