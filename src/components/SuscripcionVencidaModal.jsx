@@ -4,6 +4,7 @@ import CheckoutModal from './CheckoutModal'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import {
+  LAUNCH_PRICE_NOTE,
   MONTHLY_PRICE_LABEL,
   SUBSCRIPTION_NAME,
   diasParaEliminacion,
@@ -77,6 +78,12 @@ export default function SuscripcionVencidaModal({ open, subscription, onSoloCons
         <div className="mt-4 rounded-card bg-accent-light px-4 py-3 text-center">
           <p className="text-xs uppercase tracking-wide text-accent font-semibold">{SUBSCRIPTION_NAME}</p>
           <p className="text-2xl font-extrabold text-accent mt-0.5">{MONTHLY_PRICE_LABEL}</p>
+          {/* Precio promocional de arranque, sin fecha de reversión fija —
+              pedido explícito: que quede claro que es un precio de
+              lanzamiento y no el precio "de siempre". */}
+          <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-accent text-white text-[11px] font-semibold">
+            {LAUNCH_PRICE_NOTE}
+          </span>
           <p className="text-xs text-muted mt-1">Se paga mes con mes. Cancelas cuando quieras.</p>
         </div>
 
