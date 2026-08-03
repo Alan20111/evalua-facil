@@ -34,7 +34,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp,
   Clock, Star, FolderOpen, BookOpen, Paperclip,
   GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone,
-  CheckCircle2, Circle, Bookmark, ChevronRight, Trash2, LogOut, MoreVertical,
+  CheckCircle2, Circle, Bookmark, ChevronRight, Trash2, LogOut, MoreVertical, RotateCcw,
 } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
@@ -979,16 +979,17 @@ export default function StudentSubjectPage() {
                         </p>
                         {a.mensaje && <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap">{a.mensaje}</p>}
                       </div>
-                      {/* En "Guardados" el ícono cambia a bote de basura —
-                          pedido explícito: reutilizar el mismo marcador ahí
-                          se leía como un filtro más, no como "esto lo
-                          elimina". En "Todos" solo llegan avisos sin guardar
-                          (ver avisosMostrados), el marcador siempre es
+                      {/* En "Guardados" el ícono cambia a una flecha de
+                          "regresar" — antes era un bote de basura y se
+                          confundía con "esto lo elimina" (el alumno no puede
+                          borrar avisos, solo quitarlos de sus guardados). En
+                          "Todos" solo llegan avisos sin guardar (ver
+                          avisosMostrados), el marcador siempre es
                           "Guardar". */}
                       {guardado ? (
-                        <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Quitar de guardados" data-tooltip="Quitar de guardados"
-                          className="p-2 -m-1 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-red-500 hover:bg-red-50">
-                          <Trash2 size={18} />
+                        <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos"
+                          className="p-2 -m-1 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                          <RotateCcw size={18} />
                         </button>
                       ) : (
                         <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Guardar" data-tooltip="Guardar"
