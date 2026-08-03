@@ -159,12 +159,15 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 body: JSON.stringify({ orderId: data.orderID }),
               })
               const d = await res.json()
+              // `d.ok` es true solo si el servidor CAPTURÓ el dinero y activó
+              // el plan. Cualquier otra cosa sigue sin confirmarse — se dice.
               if (res.ok && d.ok) {
-                toast('¡Pago completado! Tu suscripción está activa.')
+                toast('¡Pago confirmado! Tu suscripción ya está activa.')
                 onSuccess?.()
                 onClose()
               } else {
-                toast('No se pudo confirmar el pago', 'error')
+                toast('Tu pago todavía no se confirma. Se activará solo en cuanto se acredite.', 'error')
+                onSuccess?.()
               }
             },
             onError: () => toast('Error al procesar con PayPal', 'error'),
@@ -328,6 +331,20 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 </button>
               ))}
             </div>
+
+            {/* Mercado Pago paga con un solo clic (ver más abajo) — no hay un
+                segundo paso donde avisar esto, así que va aquí, visible desde
+                antes de tocar el botón. Pedido explícito: que quede claro que
+                es domiciliación automática que se activa sola en cuanto se
+                confirme el cobro, sin que el administrador tenga que aprobar
+                nada — a diferencia de la transferencia, que sí lo requiere. */}
+            {config?.mercadoPago?.enabled && (
+              <p className="text-xs text-muted -mt-1">
+                Con tarjeta (Mercado Pago) queda en <strong>Pago automático</strong>: se te cobran{' '}
+                {formatCurrency(MONTHLY_PRICE_MXN)} cada mes sin que tengas que volver a pagar. Se
+                activa sola en cuanto se confirme el cobro — no necesita aprobación del administrador.
+              </p>
+            )}
 
             {method === 'paypal' && (
               <div>

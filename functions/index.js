@@ -814,6 +814,12 @@ exports.onPagoCreado = onDocumentWritten('payments/{paymentId}', async (event) =
   if (event.data.before?.exists) return // solo al crearse, no en updates (Aprobar/Rechazar)
   const pago = after.data()
   if (pago.notificadoAdmin) return
+  // Solo lo que de verdad espera al admin. Abrir el checkout de una pasarela
+  // crea el doc como 'iniciado' (ver api/_lib/billing.js startPayment) y los
+  // cobros automáticos entran ya 'completado': ninguno de los dos necesita que
+  // nadie los revise. Avisarlos convertía cada checkout abandonado en un
+  // "Nuevo pago: registró un pago de $116" por un pago que nunca existió.
+  if (pago.status !== 'pendiente') return
 
   const [teacherSnap, adminsSnap] = await Promise.all([
     pago.docenteId ? db.collection('users').doc(pago.docenteId).get() : Promise.resolve(null),

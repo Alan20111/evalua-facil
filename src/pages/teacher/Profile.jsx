@@ -34,6 +34,7 @@ import {
   formatDate,
   getDaysLabel,
   getPaymentStatusColor,
+  getPaymentStatusLabel,
   getSubscriptionStatusColor,
   canRenew as canRenewSubscription,
   isSubscriptionExpired,
@@ -275,7 +276,14 @@ export default function Profile() {
   useBackHandler(() => setResendPayment(null), !!resendPayment)
   useScrollLock(!!resendPayment)
 
-  const { subscription, recentPayments, loading: subLoading, refresh: refreshSub } = useSubscription()
+  const {
+    subscription,
+    recentPayments,
+    transferenciaEnRevision,
+    pagoLiquidando,
+    loading: subLoading,
+    refresh: refreshSub,
+  } = useSubscription()
 
   function openResend(payment) {
     setResendFolio(payment.referencia || '')
@@ -503,7 +511,9 @@ export default function Profile() {
   const displayName = userProfile?.nombreMostrar || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
   const daysRemaining = subscription ? calcDaysRemaining(effectiveVencimiento(subscription)) : null
-  const canRenew = canRenewSubscription(subscription)
+  const canRenew = canRenewSubscription(subscription, {
+    transferenciaEnRevision: !!transferenciaEnRevision,
+  })
   // planId solo se pone al aprobar un pago de verdad (ver PaymentsTable.jsx
   // handleApprove) — createTeacherAccount crea la prueba con planId: ''. Si
   // sigue vacío, este docente NUNCA tuvo un pago aprobado, sin importar qué
@@ -579,6 +589,17 @@ export default function Profile() {
                   {expirada ? 'Suscripción cancelada' : subscription.status?.replace('_', ' ')}
                 </span>
               </div>
+              {/* Pedido explícito: que cualquiera entienda de un vistazo que
+                  con Mercado Pago no hay nada que aprobar — el cobro se repite
+                  solo cada mes. Solo aplica a la domiciliada YA activa; una
+                  transferencia o un PayPal de una sola exhibición ("Mes
+                  pagado") si requieren que el docente vuelva a pagar cada mes. */}
+              {subscription.mpPreapprovalId && subscription.status === 'activa' && !expirada && (
+                <p className="text-xs text-emerald-600 font-medium">
+                  Pago automático: se cobra solo cada mes desde tu tarjeta — no tienes que volver a
+                  pagar ni esperar aprobación de nadie.
+                </p>
+              )}
               <p className="text-xs text-slate-400">Hoy: {formatDate(new Date())}</p>
               {/* nuncaAprobado: nunca hubo un pago aprobado por el admin — el
                   status pudo cambiar (pendiente_pago, cancelada) pero
@@ -631,9 +652,23 @@ export default function Profile() {
                   “Suscripción cancelada” (conservas todo, solo no puedes seguir creando).
                 </p>
               )}
-              {subscription.status === 'pendiente_pago' && (
+              {/* Solo se anuncian estados en los que el dinero SÍ se movió.
+                  Antes bastaba con `status === 'pendiente_pago'`, que el
+                  servidor ponía nomás abrir la pasarela: con solo presionar
+                  "Pagar con Mercado Pago" —sin pagar nada— esto ya decía que
+                  el pago estaba en revisión y prometía una aprobación en 12
+                  horas que, para tarjeta, ni siquiera existe (esos cobros los
+                  confirma el webhook, no una persona). */}
+              {transferenciaEnRevision && (
                 <p className="text-sm text-amber-600">
-                  Tu pago está en revisión. Lo aprobamos dentro de las 12 horas siguientes a que lo hiciste — vuelve a checar aquí.
+                  Tu transferencia está en revisión. La aprobamos dentro de las 12 horas siguientes a
+                  que la registraste — vuelve a checar aquí.
+                </p>
+              )}
+              {pagoLiquidando && (
+                <p className="text-sm text-amber-600">
+                  Tu pago todavía no se acredita. Tu suscripción se activará sola en cuanto se
+                  confirme — no hace falta que vuelvas a pagar ni que nadie lo apruebe.
                 </p>
               )}
               {expirada && (
@@ -692,7 +727,7 @@ export default function Profile() {
                       <span
                         className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getPaymentStatusColor(p.status)}`}
                       >
-                        {p.status}
+                        {getPaymentStatusLabel(p.status)}
                       </span>
                     </div>
                     {/* Antes un pago rechazado quedaba mudo — ni el motivo ni

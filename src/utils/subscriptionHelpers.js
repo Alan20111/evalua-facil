@@ -154,14 +154,18 @@ export function canCreateContent(subscription) {
 // importar si venció por falta de pago o porque el docente la canceló y se
 // le acabaron los días que tenía cubiertos), en prueba, o un plan pagado que
 // está por vencer (7 días o menos).
-// Pendiente_pago NO se ofrece: ya hay un comprobante en revisión por el
-// administrador, reabrir el checkout solo confundiría al docente.
+// Solo se retira la oferta cuando de verdad hay un comprobante esperando al
+// administrador (`transferenciaEnRevision`): reabrir el checkout ahí sí
+// confundiría. Antes bastaba con `status === 'pendiente_pago'`, que el
+// servidor ponía con solo ABRIR la pasarela — así, un docente que presionaba
+// "Pagar con Mercado Pago" y se arrepentía se quedaba sin botón para pagar,
+// esperando una aprobación que nunca iba a llegar porque nunca hubo pago.
 // Single source of truth — antes Profile.jsx volvía a calcular esta misma
 // regla por su cuenta en vez de leerla de aquí.
-export function canRenew(subscription) {
+export function canRenew(subscription, { transferenciaEnRevision = false } = {}) {
+  if (transferenciaEnRevision) return false
   if (!subscription) return true
   if (isSubscriptionExpired(subscription)) return true
-  if (subscription.status === 'pendiente_pago') return false
   // Pedido explícito: el docente debe poder pagar en CUALQUIER momento, no
   // solo en los últimos días — a veces tiene el dinero hoy y no lo tendrá
   // más adelante. Pagar antes de tiempo no pierde nada: CheckoutModal ya
@@ -246,8 +250,42 @@ export function getSubscriptionStatusColor(status) {
   return colors[status] || 'bg-slate-100 text-slate-600'
 }
 
+// ── Ciclo de vida de un pago — espejo de api/_lib/billing.js ───────────────
+// Un pago solo se presenta como pagado cuando la pasarela confirmó el
+// depósito. Abrir un checkout ('iniciado') y una pasarela que todavía
+// liquida ('en_proceso') NO son pagos, y nunca deben redactarse como si el
+// dinero se hubiera movido o como si alguien los estuviera revisando.
+export const PAYMENT_STATUS = {
+  INICIADO: 'iniciado',
+  EN_PROCESO: 'en_proceso',
+  PENDIENTE: 'pendiente',
+  COMPLETADO: 'completado',
+  RECHAZADO: 'rechazado',
+}
+
+const PAYMENT_STATUS_LABELS = {
+  iniciado: 'sin completar',
+  en_proceso: 'en proceso',
+  pendiente: 'en revisión',
+  completado: 'pagado',
+  rechazado: 'rechazado',
+}
+
+export function getPaymentStatusLabel(status) {
+  return PAYMENT_STATUS_LABELS[status] || status || '—'
+}
+
+// Un pago que el admin de verdad tiene que verificar a mano: una
+// transferencia que el docente declara. Los cobros por pasarela se confirman
+// solos vía webhook — ahí no hay nada que revisar ni nadie a quién esperar.
+export function esTransferenciaEnRevision(payment) {
+  return payment?.status === PAYMENT_STATUS.PENDIENTE && payment?.metodo === 'transferencia'
+}
+
 export function getPaymentStatusColor(status) {
   const colors = {
+    iniciado: 'bg-slate-100 text-slate-600',
+    en_proceso: 'bg-amber-100 text-amber-700',
     pendiente: 'bg-amber-100 text-amber-700',
     completado: 'bg-emerald-100 text-emerald-700',
     rechazado: 'bg-red-100 text-red-700',

@@ -34,16 +34,20 @@ export default async function handler(req, res) {
     const paymentId =
       unit?.custom_id || unit?.payments?.captures?.[0]?.custom_id || null
 
+    // Solo una orden CAPTURADA significa que el dinero ya es nuestro. Todo lo
+    // demás (CREATED, APPROVED sin capturar, PENDING) se reporta como
+    // "todavía no pagado" para no anunciarle al docente un cobro que no ocurrió.
     if (data.status === 'COMPLETED' && paymentId) {
-      await completePayment(paymentId, {
-        provider: 'paypal',
-        orderId,
-        status: data.status,
-      })
-      return res.status(200).json({ ok: true, status: data.status })
+      const captura = unit?.payments?.captures?.[0]
+      const resultado = await completePayment(
+        paymentId,
+        { provider: 'paypal', orderId, status: data.status, captureId: captura?.id || null },
+        { paidAmount: captura?.amount?.value }
+      )
+      return res.status(200).json({ ok: resultado.completed, status: data.status, paymentId })
     }
 
-    return res.status(200).json({ ok: false, status: data.status })
+    return res.status(200).json({ ok: false, status: data.status, paymentId })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message, detail: err.detail })
   }

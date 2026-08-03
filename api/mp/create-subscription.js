@@ -33,7 +33,10 @@ export default async function handler(req, res) {
     const preapprovalBody = {
       reason: plan.nombre || 'Suscripción Evalúa Fácil',
       payer_email: decoded.email,
-      back_url: `${APP_URL}/pago-resultado?status=success`,
+      // `sid` en vez de `pid`: la domiciliación no crea un doc de pago por
+      // adelantado (el primer cobro llega después por webhook), así que la
+      // pantalla de resultado vigila la suscripción hasta verla activa.
+      back_url: `${APP_URL}/pago-resultado?sid=${subscriptionId}&status=success`,
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',
@@ -57,8 +60,14 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'Error de Mercado Pago', detail: data })
     }
 
+    // `mpPlanId` (no `planId`): domiciliarse todavía no es un cobro, así que
+    // no debe encender "planId presente = pago YA aprobado" (ver
+    // startSubscription arriba). recordRecurringCharge en billing.js lo usa
+    // solo para resolver el plan del PRIMER cobro — de ahí en adelante ya
+    // usa el `planId` real que esa misma función deja en la suscripción.
     await getDb().collection('subscriptions').doc(subscriptionId).update({
       mpPreapprovalId: data.id,
+      mpPlanId: planId,
     })
 
     return res.status(200).json({
