@@ -9,8 +9,9 @@ export const TRIAL_DURATION_DAYS = 30
 export const TRIAL_WARNING_DAYS = 6
 
 // ── Commercial model — single source of truth ──────────────────────────────
-// Exactly one paid offering exists: a monthly subscription. No tiers, no
-// plan names ("Pro"/"Básico"/"Premium"/"Enterprise") anywhere in the product.
+// Dos ofertas: mensual y anual (paga 10 meses, disfruta 12). No tiers ni
+// nombres de nivel ("Pro"/"Básico"/"Premium"/"Enterprise") en el producto —
+// solo la periodicidad cambia.
 export const CURRENCY = 'MXN'
 // Precio de lanzamiento — $99 en vez de los $116 normales, mientras dure la
 // promoción de arranque (ligada al lanzamiento de la app Android). Sin fecha
@@ -25,6 +26,18 @@ export const SUBSCRIPTION_NAME = 'Suscripción mensual'
 // the price always comes from there, never from the client. Keep that
 // document's `precio` in sync with MONTHLY_PRICE_MXN via seeds-db/seed-plans.js.
 export const MONTHLY_PLAN_ID = 'pro'
+
+// Plan anual — pago único (no domiciliación: Mercado Pago cobra $990 una vez
+// y ya, el docente decide si renueva el año que sigue). Igual que arriba,
+// `precio` en el doc `plans/anual` de Firestore es lo que de verdad cobran
+// las pasarelas; mantenerlo sincronizado con ANNUAL_PRICE_MXN.
+export const ANNUAL_PLAN_ID = 'anual'
+export const ANNUAL_PRICE_MXN = 990
+export const ANNUAL_PRICE_LABEL = '$990 MXN al año'
+export const ANNUAL_SUBSCRIPTION_NAME = 'Suscripción anual'
+// Derivado de MONTHLY_PRICE_MXN a propósito, no un número suelto — si el
+// precio mensual cambia, el ahorro que se anuncia sigue siendo cierto.
+export const ANNUAL_SAVINGS_MXN = MONTHLY_PRICE_MXN * 12 - ANNUAL_PRICE_MXN
 
 // ── Retención tras vencer ────────────────────────────────────────────────
 // Cuántos días se conserva la información de una cuenta vencida (prueba sin

@@ -24,6 +24,9 @@ import AvatarCropModal from '../../components/AvatarCropModal'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import {
   TRIAL_DURATION_DAYS,
+  ANNUAL_PLAN_ID,
+  ANNUAL_PRICE_MXN,
+  ANNUAL_SUBSCRIPTION_NAME,
   MONTHLY_PLAN_ID,
   MONTHLY_PRICE_MXN,
   SUBSCRIPTION_NAME,
@@ -568,16 +571,23 @@ export default function Profile() {
                     </>
                   ) : (
                     <>
-                      {/* Domiciliada (Mercado Pago cobra solo cada mes) sigue
-                          llamándose "Suscripción mensual"; un pago manual
-                          (transferencia o PayPal de una sola exhibición) es
-                          literal un mes ya pagado, no una suscripción en
-                          curso — mismo criterio que "Mes pagado" en el
-                          admin (ver situacionSuscripcion.js). */}
+                      {/* Anual es siempre pago único (nunca domiciliado, ver
+                          CheckoutModal). Entre los dos mensuales: domiciliada
+                          (Mercado Pago cobra solo cada mes) sigue llamándose
+                          "Suscripción mensual"; un pago manual (transferencia
+                          o PayPal de una sola exhibición) es literal un mes
+                          ya pagado, no una suscripción en curso — mismo
+                          criterio que en el admin (ver situacionSuscripcion.js). */}
                       <p className="font-bold text-on-surface">
-                        {subscription.mpPreapprovalId ? SUBSCRIPTION_NAME : 'Mes pagado'}
+                        {subscription.planId === ANNUAL_PLAN_ID
+                          ? ANNUAL_SUBSCRIPTION_NAME
+                          : subscription.mpPreapprovalId ? SUBSCRIPTION_NAME : 'Mes pagado'}
                       </p>
-                      <p className="text-sm text-muted">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
+                      <p className="text-sm text-muted">
+                        {subscription.planId === ANNUAL_PLAN_ID
+                          ? `${formatCurrency(ANNUAL_PRICE_MXN)}/año`
+                          : `${formatCurrency(MONTHLY_PRICE_MXN)}/mes`}
+                      </p>
                     </>
                   )}
                 </div>

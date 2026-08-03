@@ -30,6 +30,19 @@ export default async function handler(req, res) {
       schoolName,
     })
 
+    // Candado de seguridad — NUNCA confiar solo en que el cliente elija bien
+    // el endpoint. Esta ruta solo sabe domiciliar cobros MENSUALES: el
+    // `auto_recurring` de abajo tiene `frequency_type: 'months'` fijo,
+    // porque la API de Mercado Pago no confirma soportar 'years' como
+    // unidad. Si un plan que no es mensual llegara aquí — un bug de ruteo en
+    // el cliente, un bundle viejo en caché, o alguien llamando a esta API
+    // directamente saltándose la UI — sin este corte se domiciliaría el
+    // precio ANUAL cobrándolo cada MES: un sobrecobro real de hasta 12x que
+    // nadie debe poder disparar por accidente.
+    if (plan.periodicidad !== 'mensual') {
+      return res.status(400).json({ error: 'Este plan no admite domiciliación automática por Mercado Pago — usa un pago único.' })
+    }
+
     const preapprovalBody = {
       reason: plan.nombre || 'Suscripción Evalúa Fácil',
       payer_email: decoded.email,

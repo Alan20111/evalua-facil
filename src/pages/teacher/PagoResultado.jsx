@@ -21,10 +21,8 @@ const VARIANTS = {
     title: 'Confirmando tu pago',
     text: 'Estamos verificando tu pago con Mercado Pago. En cuanto se confirme, tu suscripción se activa sola — puedes cerrar esta página.',
   },
-  // El único camino que hoy llega aquí es la domiciliación de MP (`sid` —
-  // ver create-subscription.js): pago automático, sin aprobación de nadie.
-  // Se deja un texto de respaldo por si algún día vuelve a usarse el flujo de
-  // pago único (`pid` — ver create-preference.js), hoy sin ningún llamador.
+  // Llega por `sid` (create-subscription.js): domiciliación mensual de MP,
+  // pago automático, sin aprobación de nadie.
   confirmadaAutomatica: {
     icon: CheckCircle2,
     color: 'text-emerald-500',
@@ -32,6 +30,10 @@ const VARIANTS = {
     title: '¡Listo! Pago automático activado',
     text: `Te cobraremos ${formatCurrency(MONTHLY_PRICE_MXN)} cada mes desde esta tarjeta, sin que tengas que volver a pagar ni esperar la aprobación de nadie. Tu suscripción ya está activa.`,
   },
+  // Llega por `pid` (create-preference.js): pago único vía Mercado Pago —
+  // hoy el plan anual (ver CheckoutModal), sin domiciliar nada. El texto se
+  // deja genérico (sin decir "cada mes" ni "un año") para servir a
+  // cualquier pago único, sea del plan que sea.
   confirmadoUnico: {
     icon: CheckCircle2,
     color: 'text-emerald-500',
