@@ -375,6 +375,7 @@ export default function TeacherLayout({ children }) {
               <LogOut size={17} />
               Cerrar sesión
             </button>
+            <p className="text-center text-metadata text-white/40 pt-1">Evalúa Fácil versión 1.0.1</p>
           </div>
         </aside>
 
