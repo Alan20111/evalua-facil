@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { collection, doc, addDoc, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
-import { X, Wallet, Landmark } from 'lucide-react'
+import { X, Wallet, Landmark, CreditCard } from 'lucide-react'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
@@ -86,6 +86,9 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   const mpBrickRef = useRef(null)
   const mpBrickControllerRef = useRef(null)
   const mpBrickGenerationRef = useRef(0)
+  const mpWalletRef = useRef(null)
+  const mpWalletControllerRef = useRef(null)
+  const mpWalletGenerationRef = useRef(0)
   const selectedPlan = PLAN_INFO[selectedPlanId]
 
   useBackHandler(onClose, open)
@@ -117,6 +120,13 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
     else if (config.paypal?.enabled) setMethod('paypal')
     else if (config.transferencia?.enabled) setMethod('transferencia')
   }, [config, method])
+
+  // "Cuenta de Mercado Pago" solo existe para el plan anual (ver más abajo
+  // en `methods`) — si el docente lo tenía elegido y cambia a mensual, la
+  // pestaña desaparece; sin esto se quedaba con un método ya no seleccionable.
+  useEffect(() => {
+    if (method === 'mercadopago-wallet' && selectedPlanId !== ANNUAL_PLAN_ID) setMethod('mercadopago')
+  }, [method, selectedPlanId])
 
   async function authHeader() {
     const token = await currentUser.getIdToken()
@@ -187,6 +197,10 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
         mpBrickRef.current.innerHTML = ''
         return mp.bricks().create('cardPayment', 'mp-card-brick-container', {
           initialization: { amount: selectedPlan.precio },
+          // Sin esto, el número de tarjeta se ve con la letra tan grande en
+          // la app nativa que los 16 dígitos no caben en el campo — pedido
+          // explícito de que quepan sin esconderse.
+          customization: { visual: { style: { customVariables: { fontSizeSmall: '11px', fontSizeMedium: '13px' } } } },
           callbacks: {
             // El Brick exige `onReady` explícito — sin él tira un error
             // interno ("Callbacks onReady and/or onError are required") que
@@ -249,6 +263,70 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
       mpBrickGenerationRef.current += 1
       mpBrickControllerRef.current?.unmount?.()
       mpBrickControllerRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps
+  }, [open, method, config?.mercadoPago?.publicKey, selectedPlanId])
+
+  // ── Mercado Pago: pagar con el saldo/tarjetas guardadas de una cuenta de
+  // Mercado Pago (Wallet Brick) — a diferencia del Card Payment Brick de
+  // arriba, esto SÍ necesita que Mercado Pago autentique al docente en su
+  // propio login. No hay forma de tokenizar eso como una tarjeta. Se abre
+  // dentro de la misma pestaña/WebView (nunca un navegador externo — ver
+  // capacitor.config.json), y solo existe para el plan anual: pagar con
+  // cuenta de MP es un pago único (misma preferencia que usaba Checkout Pro),
+  // nunca domiciliación mensual.
+  useEffect(() => {
+    if (
+      !open ||
+      method !== 'mercadopago-wallet' ||
+      !config?.mercadoPago?.publicKey ||
+      selectedPlanId !== ANNUAL_PLAN_ID
+    ) {
+      return
+    }
+    mpWalletGenerationRef.current += 1
+    const myGeneration = mpWalletGenerationRef.current
+
+    ;(async () => {
+      try {
+        const res = await fetch(apiUrl('/api/mp/process-payment'), {
+          method: 'POST',
+          headers: await authHeader(),
+          body: JSON.stringify({ ...planPayload(), mode: 'wallet' }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'No se pudo iniciar el pago')
+        if (myGeneration !== mpWalletGenerationRef.current || !mpWalletRef.current) return
+
+        const MercadoPago = await loadMpSdk()
+        if (myGeneration !== mpWalletGenerationRef.current || !mpWalletRef.current) return
+        const mp = new MercadoPago(config.mercadoPago.publicKey, { locale: 'es-MX' })
+        mpWalletRef.current.innerHTML = ''
+        const controller = await mp.bricks().create('wallet', 'mp-wallet-brick-container', {
+          initialization: { preferenceId: data.preferenceId },
+          callbacks: {
+            onReady: () => {},
+            onError: (error) => {
+              console.error(error)
+              toast('No se pudo cargar el botón de Mercado Pago', 'error')
+            },
+          },
+        })
+        if (myGeneration !== mpWalletGenerationRef.current) {
+          controller?.unmount?.()
+          return
+        }
+        mpWalletControllerRef.current = controller
+      } catch (err) {
+        if (myGeneration !== mpWalletGenerationRef.current) return
+        toast('Error: ' + err.message, 'error')
+      }
+    })()
+
+    return () => {
+      mpWalletGenerationRef.current += 1
+      mpWalletControllerRef.current?.unmount?.()
+      mpWalletControllerRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps
   }, [open, method, config?.mercadoPago?.publicKey, selectedPlanId])
@@ -380,7 +458,16 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
 
   const t = config?.transferencia
   const methods = [
-    config?.mercadoPago?.enabled && { id: 'mercadopago', label: 'Tarjeta de crédito · Tarjeta de débito · Mercado pago', icon: Wallet },
+    // Sin decir "Mercado Pago" en esta etiqueta a propósito — pedido
+    // explícito de que el docente no confunda este formulario de tarjeta
+    // (que sí procesa Mercado Pago por debajo) con la opción de abajo, que
+    // SÍ es pagar con su cuenta de Mercado Pago.
+    config?.mercadoPago?.enabled && { id: 'mercadopago', label: 'Tarjeta de crédito o débito', icon: CreditCard },
+    // Solo para el plan anual: pagar con cuenta de Mercado Pago es un pago
+    // único, nunca domiciliación mensual (ver crearPreferenciaWallet en
+    // api/mp/process-payment.js).
+    config?.mercadoPago?.enabled &&
+      selectedPlanId === ANNUAL_PLAN_ID && { id: 'mercadopago-wallet', label: 'Cuenta de Mercado Pago', icon: Wallet },
     config?.paypal?.enabled && { id: 'paypal', label: 'PayPal', icon: Wallet },
     config?.transferencia?.enabled && { id: 'transferencia', label: 'Transferencia', icon: Landmark },
   ].filter(Boolean)
@@ -491,14 +578,14 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 administrador apruebe nada — a diferencia de la transferencia. */}
             {config?.mercadoPago?.enabled && selectedPlanId === MONTHLY_PLAN_ID && (
               <p className="text-xs text-muted -mt-1">
-                Con tarjeta (Mercado Pago) queda en <strong>Pago automático</strong>: se te cobran{' '}
+                Con tarjeta queda en <strong>Pago automático</strong>: se te cobran{' '}
                 {formatCurrency(MONTHLY_PRICE_MXN)} cada mes sin que tengas que volver a pagar. Se
                 activa sola en cuanto se confirme el cobro — no necesita aprobación del administrador.
               </p>
             )}
             {config?.mercadoPago?.enabled && selectedPlanId === ANNUAL_PLAN_ID && (
               <p className="text-xs text-muted -mt-1">
-                Con tarjeta (Mercado Pago) es un <strong>pago único</strong> de {formatCurrency(ANNUAL_PRICE_MXN)} por
+                Con tarjeta es un <strong>pago único</strong> de {formatCurrency(ANNUAL_PRICE_MXN)} por
                 los 12 meses — no se te vuelve a cobrar solo el año que viene, tú decides si renuevas. Se
                 activa sola en cuanto se confirme el cobro — no necesita aprobación del administrador.
               </p>
@@ -509,6 +596,15 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 <div id="mp-card-brick-container" ref={mpBrickRef} />
                 <p className="text-sm text-slate-500 mt-2 text-center">
                   Tu tarjeta se procesa de forma segura por Mercado Pago, sin salir de esta pantalla.
+                </p>
+              </div>
+            )}
+
+            {method === 'mercadopago-wallet' && (
+              <div>
+                <div id="mp-wallet-brick-container" ref={mpWalletRef} />
+                <p className="text-sm text-slate-500 mt-2 text-center">
+                  Inicia sesión con tu cuenta de Mercado Pago sin salir de esta pantalla.
                 </p>
               </div>
             )}
