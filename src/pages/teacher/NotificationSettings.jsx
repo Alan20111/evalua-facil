@@ -674,7 +674,7 @@ export default function TeacherNotificationSettings() {
                                 <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{notificacion}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-on-surface">{detalles}</td>
                                 <td className="border border-outline-variant px-2 py-1.5 text-center">
-                                  <button type="button" onClick={() => setEntryToDelete(e)} aria-label="Borrar notificación" data-tooltip="Borrar"
+                                  <button type="button" onClick={() => setEntryToDelete(e)} aria-label="Borrar notificación" data-tooltip="Borrar" data-tooltip-pos={i === 0 ? 'bottom' : undefined}
                                     className="p-1 text-muted hover:text-error rounded transition-colors">
                                     <Trash2 size={15} />
                                   </button>

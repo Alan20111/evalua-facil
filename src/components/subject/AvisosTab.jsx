@@ -392,9 +392,13 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
         // Caja con scroll propio — pedido explícito: el historial completo
         // no debe empujar el resto de la pestaña hacia abajo.
         <div className="space-y-1.5 max-h-[60vh] overflow-y-auto pr-1 border border-outline-variant rounded-card p-2 bg-surface">
-          {avisosMostrados.map((a) => {
+          {avisosMostrados.map((a, i) => {
             const leidosMap = lecturasByAviso[a.id] || {}
             const leidos = Object.keys(leidosMap).length
+            // Solo la primera tarjeta queda pegada al borde superior del
+            // contenedor con scroll — de la segunda en adelante, la tarjeta
+            // de arriba ya da suficiente colchón para el tooltip de siempre.
+            const tooltipPos = i === 0 ? 'bottom' : undefined
             return (
               <div key={a.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card px-3 py-2.5">
                 <div className="flex items-start gap-3">
@@ -422,19 +426,19 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       avisosMostrados), así que el marcador siempre significa
                       "Guardar". */}
                   {soloGuardados ? (
-                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Quitar de guardados" data-tooltip="Quitar de guardados"
+                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Quitar de guardados" data-tooltip="Quitar de guardados" data-tooltip-pos={tooltipPos}
                       className="p-2 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-red-500 hover:bg-red-50">
                       <Trash2 size={18} />
                     </button>
                   ) : (
-                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Guardar" data-tooltip="Guardar"
+                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos={tooltipPos}
                       className="p-2 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
                       <Bookmark size={18} />
                     </button>
                   )}
                   <div className="relative flex-shrink-0">
                     <button type="button" onClick={() => setOpenMenuId((id) => (id === a.id ? null : a.id))}
-                      aria-label="Más opciones" data-tooltip="Más opciones"
+                      aria-label="Más opciones" data-tooltip="Más opciones" data-tooltip-pos={tooltipPos}
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                       <MoreVertical size={18} />
                     </button>
@@ -478,11 +482,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <h3 className="text-lg font-semibold">¿Qué deseas comunicar?</h3>
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => setStep('plantillas')}
-                      data-tooltip="Editar tus plantillas"
+                      data-tooltip="Editar tus plantillas" data-tooltip-pos="bottom"
                       className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                       <Settings size={18} />
                     </button>
-                    <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
+                    <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar" data-tooltip-pos="bottom"
                       className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                       <X size={18} />
                     </button>
@@ -515,7 +519,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-2xl flex-shrink-0" aria-hidden="true">{form.emoji}</span>
                   <h3 className="text-lg font-semibold flex-1">{form.titulo || (modalMode === 'create' ? 'Nuevo aviso' : 'Editar aviso')}</h3>
-                  <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
+                  <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar" data-tooltip-pos="bottom"
                     className="p-1.5 -mr-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                     <X size={18} />
                   </button>
@@ -558,7 +562,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     className="flex items-center gap-1 px-2.5 py-1.5 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
                     <Plus size={14} /> Nueva
                   </button>
-                  <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
+                  <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar" data-tooltip-pos="bottom"
                     className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                     <X size={18} />
                   </button>
@@ -616,7 +620,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     <ArrowLeft size={18} />
                   </button>
                   <h3 className="text-lg font-semibold flex-1">{plantillaForm.id ? 'Editar plantilla' : 'Nueva plantilla'}</h3>
-                  <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
+                  <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar" data-tooltip-pos="bottom"
                     className="p-1.5 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                     <X size={18} />
                   </button>

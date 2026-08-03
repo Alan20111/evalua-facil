@@ -192,6 +192,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
                 className={`w-6 h-6 rounded-full border-2 transition-all ${form.color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
                 style={{ background: c.bg }}
                 data-tooltip={c.label}
+                data-tooltip-pos="bottom"
                 aria-label={c.label}
               />
             ))}

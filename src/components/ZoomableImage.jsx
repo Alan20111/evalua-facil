@@ -127,6 +127,7 @@ function ZoomOverlay({ src, alt, onClose }) {
         onClick={onClose}
         aria-label="Cerrar"
         data-tooltip="Cerrar"
+        data-tooltip-pos="bottom"
         className="absolute top-3 right-3 z-10 p-2 text-white/80 hover:text-white bg-black/40 rounded-full safe-top"
       >
         <X size={22} />
@@ -170,7 +171,7 @@ function ZoomOverlay({ src, alt, onClose }) {
 // concatenan con el default, para no arriesgar un choque de clases de
 // Tailwind (block vs flex, etc.) que depende del orden en la hoja de
 // estilos y no del orden en el atributo class.
-export default function ZoomableImage({ src, alt, className = 'block w-full', imgClassName = 'w-full h-auto rounded', onLoad, onError }) {
+export default function ZoomableImage({ src, alt, className = 'block w-full', imgClassName = 'w-full h-auto rounded', onLoad, onError, tooltipPos }) {
   const [open, setOpen] = useState(false)
   // Detección manual de tap en touchend, en vez de depender solo de onClick:
   // dentro de un contenedor scrollable (páginas de PDF más altas que el
@@ -202,6 +203,7 @@ export default function ZoomableImage({ src, alt, className = 'block w-full', im
         onTouchEnd={handleTouchEnd}
         className={className}
         data-tooltip="Toca para ampliar"
+        data-tooltip-pos={tooltipPos}
       >
         <img src={src} alt={alt} className={imgClassName} draggable={false} onLoad={onLoad} onError={onError} />
       </button>
