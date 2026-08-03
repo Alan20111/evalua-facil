@@ -6,7 +6,7 @@ import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical } from 'lucide-react'
+import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical, RotateCcw } from 'lucide-react'
 import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
 import { studentFullName } from '../../utils/studentSearch'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -415,16 +415,16 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       <ProgressoLectura leidos={leidos} total={totalEstudiantes} />
                     </div>
                   </button>
-                  {/* En "Guardados" el ícono cambia a bote de basura — pedido
-                      explícito: reutilizar el mismo marcador ahí se leía
-                      como un filtro más, no como "esto lo elimina". En
-                      "Todos" solo llegan avisos sin guardar (ver
-                      avisosMostrados), así que el marcador siempre significa
-                      "Guardar". */}
+                  {/* En "Guardados" el ícono cambia a una flecha de "regresar"
+                      — antes era un bote de basura y se confundía con
+                      "esto lo elimina" (el borrado real vive aparte, en el
+                      menú de los tres puntos). En "Todos" solo llegan avisos
+                      sin guardar (ver avisosMostrados), así que el marcador
+                      siempre significa "Guardar". */}
                   {soloGuardados ? (
-                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Quitar de guardados" data-tooltip="Quitar de guardados"
-                      className="p-2 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-red-500 hover:bg-red-50">
-                      <Trash2 size={18} />
+                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos"
+                      className="p-2 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                      <RotateCcw size={18} />
                     </button>
                   ) : (
                     <button type="button" onClick={() => toggleGuardado(a)} aria-label="Guardar" data-tooltip="Guardar"
