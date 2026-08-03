@@ -1040,6 +1040,7 @@ export default function Profile() {
           <Link to="/privacidad" className="text-sm text-accent font-semibold hover:underline">
             Aviso de privacidad
           </Link>
+          <p className="text-xs text-muted mt-1">v.1.0.1</p>
         </div>
 
         {/* Eliminar cuenta — hasta el fondo y en rojo, la única parte de la
@@ -1061,8 +1062,6 @@ export default function Profile() {
             Eliminar mi cuenta
           </button>
         </div>
-
-        <p className="text-center text-xs text-muted">Evalúa Fácil versión 1.0.1</p>
 
       </div>
 
