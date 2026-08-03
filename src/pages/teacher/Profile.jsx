@@ -589,6 +589,17 @@ export default function Profile() {
                   {expirada ? 'Suscripción cancelada' : subscription.status?.replace('_', ' ')}
                 </span>
               </div>
+              {/* Pedido explícito: que cualquiera entienda de un vistazo que
+                  con Mercado Pago no hay nada que aprobar — el cobro se repite
+                  solo cada mes. Solo aplica a la domiciliada YA activa; una
+                  transferencia o un PayPal de una sola exhibición ("Mes
+                  pagado") si requieren que el docente vuelva a pagar cada mes. */}
+              {subscription.mpPreapprovalId && subscription.status === 'activa' && !expirada && (
+                <p className="text-xs text-emerald-600 font-medium">
+                  Pago automático: se cobra solo cada mes desde tu tarjeta — no tienes que volver a
+                  pagar ni esperar aprobación de nadie.
+                </p>
+              )}
               <p className="text-xs text-slate-400">Hoy: {formatDate(new Date())}</p>
               {/* nuncaAprobado: nunca hubo un pago aprobado por el admin — el
                   status pudo cambiar (pendiente_pago, cancelada) pero
@@ -656,8 +667,8 @@ export default function Profile() {
               )}
               {pagoLiquidando && (
                 <p className="text-sm text-amber-600">
-                  Tu pago todavía no se acredita. Tu suscripción se activará sola en cuanto el banco
-                  confirme el depósito — no hace falta que vuelvas a pagar.
+                  Tu pago todavía no se acredita. Tu suscripción se activará sola en cuanto se
+                  confirme — no hace falta que vuelvas a pagar ni que nadie lo apruebe.
                 </p>
               )}
               {expirada && (

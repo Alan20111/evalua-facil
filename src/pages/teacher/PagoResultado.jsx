@@ -5,12 +5,12 @@ import { CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { PAYMENT_STATUS } from '../../utils/subscriptionHelpers'
+import { MONTHLY_PRICE_MXN, PAYMENT_STATUS, formatCurrency } from '../../utils/subscriptionHelpers'
 
 // Lo que diga esta pantalla lo decide dónde está el dinero, NUNCA el query
 // string. Mercado Pago regresa al docente con ?status=success apenas se cierra
-// el checkout, pero el depósito solo es nuestro cuando nuestro webhook volvió
-// a leer el pago desde la API de MP y lo marcó 'completado'. Hasta entonces lo
+// el checkout, pero el pago solo es nuestro cuando nuestro webhook volvió a
+// leer el pago desde la API de MP y lo marcó 'completado'. Hasta entonces lo
 // único honesto es decir que se está confirmando.
 const VARIANTS = {
   verifying: {
@@ -19,21 +19,32 @@ const VARIANTS = {
     color: 'text-accent',
     bg: 'bg-accent-light',
     title: 'Confirmando tu pago',
-    text: 'Estamos verificando el depósito con el banco. En cuanto se confirme, tu suscripción se activa sola — puedes cerrar esta página.',
+    text: 'Estamos verificando tu pago con Mercado Pago. En cuanto se confirme, tu suscripción se activa sola — puedes cerrar esta página.',
   },
-  confirmed: {
+  // El único camino que hoy llega aquí es la domiciliación de MP (`sid` —
+  // ver create-subscription.js): pago automático, sin aprobación de nadie.
+  // Se deja un texto de respaldo por si algún día vuelve a usarse el flujo de
+  // pago único (`pid` — ver create-preference.js), hoy sin ningún llamador.
+  confirmadaAutomatica: {
+    icon: CheckCircle2,
+    color: 'text-emerald-500',
+    bg: 'bg-emerald-100',
+    title: '¡Listo! Pago automático activado',
+    text: `Te cobraremos ${formatCurrency(MONTHLY_PRICE_MXN)} cada mes desde esta tarjeta, sin que tengas que volver a pagar ni esperar la aprobación de nadie. Tu suscripción ya está activa.`,
+  },
+  confirmadoUnico: {
     icon: CheckCircle2,
     color: 'text-emerald-500',
     bg: 'bg-emerald-100',
     title: '¡Pago confirmado!',
-    text: 'Recibimos tu depósito y tu suscripción ya está activa.',
+    text: 'Recibimos tu pago y tu suscripción ya está activa.',
   },
   settling: {
     icon: Clock,
     color: 'text-amber-500',
     bg: 'bg-amber-100',
     title: 'Pago en proceso',
-    text: 'Mercado Pago tomó tu pago pero el depósito aún no se acredita. Tu suscripción se activará automáticamente en cuanto se confirme.',
+    text: 'Mercado Pago tomó tu pago pero todavía no se confirma. Tu suscripción se activará automáticamente en cuanto se acredite — no hace falta que vuelvas a pagar.',
   },
   failure: {
     icon: XCircle,
@@ -97,8 +108,12 @@ export default function PagoResultado() {
   useBackHandler(() => navigate('/profile', { replace: true }))
 
   let key = 'verifying'
-  if (paymentStatus === PAYMENT_STATUS.COMPLETADO || subActiva) {
-    key = 'confirmed'
+  if (subActiva) {
+    // Llegó por `sid`: domiciliación de Mercado Pago, pago automático.
+    key = 'confirmadaAutomatica'
+  } else if (paymentStatus === PAYMENT_STATUS.COMPLETADO) {
+    // Llegó por `pid`: pago único (hoy sin llamador real, ver arriba).
+    key = 'confirmadoUnico'
   } else if (paymentStatus === PAYMENT_STATUS.RECHAZADO) {
     key = 'failure'
   } else if (paymentStatus === PAYMENT_STATUS.EN_PROCESO) {

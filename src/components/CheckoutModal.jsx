@@ -332,6 +332,20 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
               ))}
             </div>
 
+            {/* Mercado Pago paga con un solo clic (ver más abajo) — no hay un
+                segundo paso donde avisar esto, así que va aquí, visible desde
+                antes de tocar el botón. Pedido explícito: que quede claro que
+                es domiciliación automática que se activa sola en cuanto se
+                confirme el cobro, sin que el administrador tenga que aprobar
+                nada — a diferencia de la transferencia, que sí lo requiere. */}
+            {config?.mercadoPago?.enabled && (
+              <p className="text-xs text-muted -mt-1">
+                Con tarjeta (Mercado Pago) queda en <strong>Pago automático</strong>: se te cobran{' '}
+                {formatCurrency(MONTHLY_PRICE_MXN)} cada mes sin que tengas que volver a pagar. Se
+                activa sola en cuanto se confirme el cobro — no necesita aprobación del administrador.
+              </p>
+            )}
+
             {method === 'paypal' && (
               <div>
                 <div ref={paypalRef} />
