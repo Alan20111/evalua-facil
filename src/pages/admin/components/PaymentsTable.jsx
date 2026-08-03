@@ -17,6 +17,7 @@ import {
   formatDate,
   formatDateTime,
   getPaymentStatusColor,
+  getPaymentStatusLabel,
   toDate,
 } from '../../../utils/subscriptionHelpers'
 
@@ -43,7 +44,7 @@ const COLS = [
 function StatusBadge({ status }) {
   return (
     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getPaymentStatusColor(status)}`}>
-      {status}
+      {getPaymentStatusLabel(status)}
     </span>
   )
 }

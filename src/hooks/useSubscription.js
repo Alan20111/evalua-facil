@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { collection, query, where, getDocs, doc, setDoc, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import { calcTrialEnd } from '../utils/subscriptionHelpers'
+import { calcTrialEnd, esTransferenciaEnRevision, PAYMENT_STATUS } from '../utils/subscriptionHelpers'
 
 // Regla vigente: TODO docente tiene, como mínimo, una prueba de 30 días. La
 // única excepción es la Cortesía, que el administrador otorga a mano.
@@ -43,12 +43,18 @@ export function useSubscription() {
   const rol = userProfile?.role
   const [subscription, setSubscription] = useState(null)
   const [recentPayments, setRecentPayments] = useState([])
+  // Una transferencia que el docente declaró y el admin sí está revisando.
+  const [transferenciaEnRevision, setTransferenciaEnRevision] = useState(null)
+  // Un cobro por pasarela que ya se autorizó pero todavía no se acredita.
+  const [pagoLiquidando, setPagoLiquidando] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     if (!currentUser) {
       setSubscription(null)
       setRecentPayments([])
+      setTransferenciaEnRevision(null)
+      setPagoLiquidando(null)
       setLoading(false)
       return
     }
@@ -84,13 +90,23 @@ export function useSubscription() {
           const tb = b.createdAt?.toMillis?.() || 0
           return tb - ta
         })
-        .slice(0, 3)
-      setRecentPayments(payments)
+
+      // Un checkout que se abrió y nunca se pagó no es parte del historial:
+      // mostrarlo daría a entender que hubo un movimiento de dinero.
+      const reales = payments.filter((p) => p.status !== PAYMENT_STATUS.INICIADO)
+      setRecentPayments(reales.slice(0, 3))
+      setTransferenciaEnRevision(reales.find(esTransferenciaEnRevision) || null)
+      // Solo el intento más reciente puede estar "liquidándose". Un vale de
+      // efectivo viejo que el docente abandonó no debe seguir anunciando que
+      // hay un pago en camino.
+      setPagoLiquidando(reales[0]?.status === PAYMENT_STATUS.EN_PROCESO ? reales[0] : null)
     } catch {
       // A failed/denied read must never crash the layout that wraps every teacher page.
       // Treat it as "no subscription info" rather than letting the error propagate.
       setSubscription(null)
       setRecentPayments([])
+      setTransferenciaEnRevision(null)
+      setPagoLiquidando(null)
     } finally {
       setLoading(false)
     }
@@ -103,6 +119,8 @@ export function useSubscription() {
   return {
     subscription,
     recentPayments,
+    transferenciaEnRevision,
+    pagoLiquidando,
     loading,
     refresh: load,
   }

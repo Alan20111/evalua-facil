@@ -33,7 +33,10 @@ export default async function handler(req, res) {
     const preapprovalBody = {
       reason: plan.nombre || 'Suscripción Evalúa Fácil',
       payer_email: decoded.email,
-      back_url: `${APP_URL}/pago-resultado?status=success`,
+      // `sid` en vez de `pid`: la domiciliación no crea un doc de pago por
+      // adelantado (el primer cobro llega después por webhook), así que la
+      // pantalla de resultado vigila la suscripción hasta verla activa.
+      back_url: `${APP_URL}/pago-resultado?sid=${subscriptionId}&status=success`,
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',

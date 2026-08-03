@@ -159,12 +159,15 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 body: JSON.stringify({ orderId: data.orderID }),
               })
               const d = await res.json()
+              // `d.ok` es true solo si el servidor CAPTURÓ el dinero y activó
+              // el plan. Cualquier otra cosa sigue sin confirmarse — se dice.
               if (res.ok && d.ok) {
-                toast('¡Pago completado! Tu suscripción está activa.')
+                toast('¡Pago confirmado! Tu suscripción ya está activa.')
                 onSuccess?.()
                 onClose()
               } else {
-                toast('No se pudo confirmar el pago', 'error')
+                toast('Tu pago todavía no se confirma. Se activará solo en cuanto se acredite.', 'error')
+                onSuccess?.()
               }
             },
             onError: () => toast('Error al procesar con PayPal', 'error'),

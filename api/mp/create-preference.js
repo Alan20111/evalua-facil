@@ -37,10 +37,13 @@ export default async function handler(req, res) {
         },
       ],
       external_reference: paymentId,
+      // `pid` deja que la pantalla de resultado consulte el pago REAL en vez de
+      // creerle al `status` de la URL: quien caiga en ?status=success debe
+      // seguir viendo "confirmando" hasta que el webhook lo marque completado.
       back_urls: {
-        success: `${APP_URL}/pago-resultado?status=success`,
-        failure: `${APP_URL}/pago-resultado?status=failure`,
-        pending: `${APP_URL}/pago-resultado?status=pending`,
+        success: `${APP_URL}/pago-resultado?pid=${paymentId}&status=success`,
+        failure: `${APP_URL}/pago-resultado?pid=${paymentId}&status=failure`,
+        pending: `${APP_URL}/pago-resultado?pid=${paymentId}&status=pending`,
       },
       auto_return: 'approved',
       notification_url: `${APP_URL}/api/mp/webhook`,
