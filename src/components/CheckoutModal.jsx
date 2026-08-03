@@ -94,6 +94,18 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [])
 
+  // Respaldo para el WebView nativo de Android: ahí `pageshow`/`persisted`
+  // no siempre se dispara al volver de Mercado Pago con el botón Atrás, y el
+  // botón se queda trabado en "Redirigiendo…" aunque la pestaña sí volvió a
+  // quedar visible. `visibilitychange` sí es confiable en ese WebView.
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState === 'visible') setSubmitting(false)
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
   // Dinero de por medio: si esta pestaña se quedó con una versión vieja del
   // bundle (ver UpdateChecker.jsx — SPA que nunca vuelve a descargar el JS
   // sola), aquí no basta con un banner descartable. Se recarga sola al abrir
