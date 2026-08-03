@@ -706,7 +706,7 @@ export default function Profile() {
                           onClick={() => openResend(p)}
                           className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
                         >
-                          <ImagePlus size={13} /> Adjuntar comprobante y reenviar
+                          <ImagePlus size={13} /> Adjuntar comprobante que tenga el folio y reenviar, por favor
                         </button>
                       </div>
                     )}
