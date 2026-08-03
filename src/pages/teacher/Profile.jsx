@@ -481,7 +481,9 @@ export default function Profile() {
                     <>
                       <p className="font-bold text-on-surface">Período de prueba</p>
                       <p className="text-sm text-muted">
-                        {TRIAL_DURATION_DAYS} días gratuitos · termina el {formatDate(effectiveVencimiento(subscription))}
+                        {TRIAL_DURATION_DAYS} días gratuitos
+                        {subscription.fechaInicio && <> · empieza el {formatDate(subscription.fechaInicio)}</>}
+                        {' '}· termina el {formatDate(effectiveVencimiento(subscription))}
                       </p>
                     </>
                   ) : (
