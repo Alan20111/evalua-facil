@@ -278,37 +278,32 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
 
             {/* Method tabs — un renglón completo cada una, no repartidas
                 lado a lado, pedido explícito para que quepa la etiqueta
-                larga de Mercado Pago (tarjeta de crédito/débito). */}
+                larga de Mercado Pago (tarjeta de crédito/débito).
+                Mercado Pago es de un solo clic: lo manda directo a pagar, sin
+                pedir un segundo clic en un botón aparte más abajo — pedido
+                explícito. Transferencia (y PayPal) sí necesitan seguir
+                mostrando su propio formulario debajo, así que esas solo
+                cambian de pestaña. */}
             <div className="flex flex-col gap-2">
               {methods.map((m) => (
                 <button
                   key={m.id}
                   type="button"
-                  onClick={() => setMethod(m.id)}
-                  className={`w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded text-xs font-semibold border transition-colors ${
+                  onClick={() => (m.id === 'mercadopago' ? payWithMercadoPago() : setMethod(m.id))}
+                  disabled={m.id === 'mercadopago' && submitting}
+                  className={`w-full flex items-center justify-center gap-1.5 py-2 px-2 rounded text-xs font-semibold border transition-colors disabled:opacity-60 ${
                     method === m.id
                       ? 'bg-accent-light border-accent text-accent'
                       : 'border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
                   }`}
                 >
-                  <m.icon size={16} className="flex-shrink-0" />
-                  {m.label}
+                  {m.id === 'mercadopago' && submitting
+                    ? <Loader2 size={16} className="flex-shrink-0 animate-spin" />
+                    : <m.icon size={16} className="flex-shrink-0" />}
+                  {m.id === 'mercadopago' && submitting ? 'Redirigiendo…' : m.label}
                 </button>
               ))}
             </div>
-
-            {/* Method body */}
-            {method === 'mercadopago' && (
-              <button
-                type="button"
-                onClick={payWithMercadoPago}
-                disabled={submitting}
-                className="w-full py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {submitting ? <Loader2 size={18} className="animate-spin" /> : <Wallet size={18} />}
-                {submitting ? 'Redirigiendo…' : 'Pagar con Mercado Pago'}
-              </button>
-            )}
 
             {method === 'paypal' && (
               <div>
