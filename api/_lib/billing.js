@@ -192,7 +192,15 @@ export async function recordRecurringCharge(mpPreapprovalId, gatewayData = {}) {
     .get()
   if (!dupSnap.empty) return { alreadyDone: true }
 
-  const plan = await getPlan(subscription.planId)
+  // En el PRIMER cobro `subscription.planId` todavía está vacío — nunca lo
+  // pone startSubscription/create-subscription.js a propósito, para no
+  // adelantar el mismo "planId presente = pago YA aprobado" que se cuida en
+  // el resto del proyecto (ver nuncaAprobado en Profile.jsx). El plan que se
+  // está domiciliando vive mientras tanto en `mpPlanId` (lo guarda
+  // create-subscription.js junto con el mpPreapprovalId). Sin este fallback,
+  // getPlan('') truena ("Plan no encontrado") y el webhook le devuelve 500 a
+  // Mercado Pago: la tarjeta ya se cobró pero la suscripción nunca se activa.
+  const plan = await getPlan(subscription.planId || subscription.mpPlanId)
   // Solo aplica en el primer cobro de la preapproval (la suscripción todavía
   // podía estar en trial/pendiente_pago); en renovaciones posteriores ya está
   // 'activa' y su vencimiento previo es, en la práctica, "ahora".
@@ -202,7 +210,7 @@ export async function recordRecurringCharge(mpPreapprovalId, gatewayData = {}) {
   await db.collection('payments').add({
     docenteId: subscription.docenteId,
     subscriptionId: subDoc.id,
-    planId: subscription.planId,
+    planId: plan.id,
     escuelaId: subscription.escuelaId || '',
     monto: plan.precio || 0,
     metodo: 'mercadopago',
@@ -215,6 +223,9 @@ export async function recordRecurringCharge(mpPreapprovalId, gatewayData = {}) {
 
   await subDoc.ref.update({
     status: 'activa',
+    // Recién aquí, con el dinero ya confirmado, se pone `planId` — es la
+    // misma señal que usa completePayment() para el resto de la app.
+    planId: plan.id,
     fechaInicio: admin.firestore.Timestamp.fromDate(inicio),
     fechaVencimiento: admin.firestore.Timestamp.fromDate(vencimiento),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
