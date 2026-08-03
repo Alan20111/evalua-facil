@@ -212,15 +212,15 @@ export function FilePreviewModal({ url, nombre, onClose }) {
       <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">
           <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
-          <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva" aria-label="Abrir en pestaña nueva"
+          <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva" data-tooltip-pos="bottom" aria-label="Abrir en pestaña nueva"
             className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
             <ExternalLink size={18} />
           </a>
-          <a href={downloadHref} download={nombre} rel="noreferrer" data-tooltip="Descargar" aria-label="Descargar"
+          <a href={downloadHref} download={nombre} rel="noreferrer" data-tooltip="Descargar" data-tooltip-pos="bottom" aria-label="Descargar"
             className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
             <Download size={18} />
           </a>
-          <button type="button" onClick={onClose} data-tooltip="Cerrar" aria-label="Cerrar"
+          <button type="button" onClick={onClose} data-tooltip="Cerrar" data-tooltip-pos="bottom" aria-label="Cerrar"
             className="p-2 text-slate-400 hover:text-on-surface hover:bg-surface rounded transition-colors flex-shrink-0">
             <X size={18} />
           </button>

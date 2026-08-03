@@ -1093,7 +1093,7 @@ export default function ActivityPage() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {hasExtension && <CalendarDays size={15} className="text-orange-400" />}
                       {sub?.tarde && (
-                        <span data-tooltip="Entregó después de la fecha límite" className="text-[11px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                        <span data-tooltip="Entregó después de la fecha límite" data-tooltip-pos={i === 0 ? 'bottom' : undefined} className="text-[11px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">
                           Tarde
                         </span>
                       )}
@@ -1217,7 +1217,7 @@ export default function ActivityPage() {
                 <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
                   {selFiles.map((f, i) => (
                     isImageFile(f.nombre, f.url) ? (
-                      <ZoomableImage key={`${f.url}-${i}`} src={f.url} alt={f.nombre} className="block" imgClassName="max-w-full rounded mx-auto" />
+                      <ZoomableImage key={`${f.url}-${i}`} src={f.url} alt={f.nombre} className="block" imgClassName="max-w-full rounded mx-auto" tooltipPos={i === 0 ? 'bottom' : undefined} />
                     ) : IS_NATIVE_APP ? (
                       <AbrirConNativoButton key={`${f.url}-${i}`} url={f.url} nombre={f.nombre}
                         className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors w-full" />
@@ -1821,6 +1821,7 @@ export default function ActivityPage() {
               onClick={closeModal}
               aria-label="Regresar"
               data-tooltip="Regresar"
+              data-tooltip-pos="bottom"
               className="p-2 -ml-1 text-muted hover:text-accent rounded flex-shrink-0 transition-colors"
             >
               <ArrowLeft size={22} />
@@ -1856,7 +1857,7 @@ export default function ActivityPage() {
                   {selFiles.map((f, i) => (
                     <div key={`${f.url}-${i}`}>
                       {isImageFile(f.nombre, f.url) ? (
-                        <ZoomableImage src={f.url} alt={f.nombre} />
+                        <ZoomableImage src={f.url} alt={f.nombre} tooltipPos={i === 0 ? 'bottom' : undefined} />
                       ) : canPreviewFile(f.nombre) ? (
                         <div className="rounded overflow-hidden bg-surface-card" style={{ height: '55vh' }}>
                           <FilePreview url={f.url} nombre={f.nombre} fill />
@@ -2299,6 +2300,7 @@ export default function ActivityPage() {
                 onClick={() => setRubricaViewOpen(false)}
                 aria-label="Cerrar rúbrica"
                 data-tooltip="Cerrar rúbrica"
+                data-tooltip-pos="bottom"
                 className="p-1.5 text-slate-400 hover:text-accent rounded flex-shrink-0"
               >
                 <X size={17} />

@@ -324,26 +324,27 @@ const AttendanceTable = memo(function AttendanceTable({
                 data-tooltip={IS_NATIVE_APP
                   ? `Eliminar la asistencia del ${dia}/${mes}/${anio}`
                   : `Eliminar la asistencia del ${fmtAttDateLong(fecha)}`}
+                data-tooltip-pos="bottom"
                 className={`px-0.5 py-1 font-semibold text-center border-l border-outline-variant cursor-pointer transition-colors tabular-nums ${fecha === todayISO ? 'bg-accent text-white' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
                 {dia}
               </th>
             )
           }),
-          <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial"
+          <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial" data-tooltip-pos="bottom"
             className="px-0.5 py-1 text-center border-l-2 border-outline">
             <CheckIcon size={13} className="inline text-green-600" />
           </th>,
-          <th key={`hi-${g.parcial}`} data-tooltip="Faltas del parcial"
+          <th key={`hi-${g.parcial}`} data-tooltip="Faltas del parcial" data-tooltip-pos="bottom"
             className="px-0.5 py-1 text-center">
             <X size={13} className="inline text-red-500" />
           </th>,
         ])}
         {!IS_NATIVE_APP && (
           <>
-            <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
+            <th data-tooltip="Total de asistencias" data-tooltip-pos="bottom" className="px-0.5 py-1 text-center border-l-2 border-outline">
               <CheckIcon size={13} className="inline text-green-600" />
             </th>
-            <th data-tooltip="Total de faltas" className="px-0.5 py-1 text-center">
+            <th data-tooltip="Total de faltas" data-tooltip-pos="bottom" className="px-0.5 py-1 text-center">
               <X size={13} className="inline text-red-500" />
             </th>
           </>
@@ -4421,7 +4422,7 @@ export default function SubjectPage() {
                                 closed state at a glance. */}
                             <div className="flex items-center justify-center gap-1">
                               {subject?.parcialesCerrados?.[p] && (
-                                <Lock size={12} className="text-emerald-600 flex-shrink-0" data-tooltip="Parcial cerrado" />
+                                <Lock size={12} className="text-emerald-600 flex-shrink-0" data-tooltip="Parcial cerrado" data-tooltip-pos="bottom" />
                               )}
                               <span>
                                 Parcial {p}
@@ -4504,15 +4505,17 @@ export default function SubjectPage() {
                                   onFocus={(e) => { try { e.target.select() } catch { /* algunos navegadores */ } }}
                                   onBlur={() => savePeso(a)}
                                   data-tooltip={`Peso de la actividad ${activityLabelById[a.id] || ''}`}
+                                  data-tooltip-pos="bottom"
                                   className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400" />
                               </th>
                             )),
                             <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotalVivo(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}>
                               <div className="flex items-center justify-center gap-0.5">
-                                <span data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : 'Suma libre — para exportar este parcial deberá sumar 10'}>{pesoTotalVivo(acts)}</span>
+                                <span data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : 'Suma libre — para exportar este parcial deberá sumar 10'} data-tooltip-pos="bottom">{pesoTotalVivo(acts)}</span>
                                 <button type="button" onClick={() => toggleParcialPonderacion(p)}
                                   aria-label={`Quitar la ponderación solo del Parcial ${p}`}
                                   data-tooltip={`Quitar la ponderación solo del Parcial ${p}`}
+                                  data-tooltip-pos="bottom"
                                   className="p-0.5 text-amber-400 hover:text-amber-800 rounded transition-colors">
                                   <X size={12} />
                                 </button>
@@ -6448,6 +6451,7 @@ export default function SubjectPage() {
                             data-tooltip={item.decision === 'link'
                               ? 'Toca si es otra persona que solo comparte el nombre'
                               : 'Toca si en realidad es la misma persona'}
+                            data-tooltip-pos="bottom"
                             className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 transition-colors ${
                               item.decision === 'link'
                                 ? 'text-accent bg-accent-light hover:bg-[var(--accent-tint)]'

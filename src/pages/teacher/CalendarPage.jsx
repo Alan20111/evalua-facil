@@ -252,8 +252,9 @@ export function AgendaView({
       {/* Eventos sin hora */}
       {allDayEvs.length > 0 && (
         <div className="px-3 py-2 border-b border-outline-variant space-y-1">
-          {allDayEvs.map(ev => (
-            <div key={ev.id} data-tooltip={ev.editable ? 'Editar' : undefined}>
+          {allDayEvs.map((ev, i) => (
+            <div key={ev.id} data-tooltip={ev.editable ? 'Editar' : undefined}
+              data-tooltip-pos={i === 0 && !vacacionDia && !asuetoDia ? 'bottom' : undefined}>
               <EventPill ev={ev} onClick={onEventClick} />
             </div>
           ))}
@@ -289,6 +290,7 @@ export function AgendaView({
               className="absolute left-0 right-0 p-0 border-b border-outline-variant hover:bg-accent-tint transition-colors cursor-pointer"
               style={{ top: i * AGENDA_ROW_H, height: AGENDA_ROW_H }}
               data-tooltip="Crear evento a esta hora"
+              data-tooltip-pos={i === 0 ? 'bottom' : undefined}
               aria-label={`Crear evento a las ${formatHora12(`${String(h).padStart(2, '0')}:00`)}`}
             />
           ))}
@@ -362,6 +364,7 @@ export function AgendaView({
                   : movable ? 'Editar, o muévelo'
                   : 'Clic para editar esta actividad'
                 }
+                data-tooltip-pos={top === 0 ? 'bottom' : undefined}
               >
                 <div className="flex h-full">
                   {/* Horas a la izquierda — texto sin salto de línea (evita que
