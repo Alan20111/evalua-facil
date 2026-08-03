@@ -9,6 +9,7 @@ import { usePaymentConfig } from '../hooks/usePaymentConfig'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import {
+  LAUNCH_PRICE_NOTE,
   MONTHLY_PLAN_ID,
   MONTHLY_PRICE_MXN,
   SUBSCRIPTION_NAME,
@@ -285,7 +286,12 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
           <div className="space-y-3">
             <div>
               <p className="font-semibold text-on-surface">{SUBSCRIPTION_NAME}</p>
-              <p className="text-sm text-muted">{formatCurrency(MONTHLY_PRICE_MXN)}/mes</p>
+              <p className="text-sm text-muted">
+                {formatCurrency(MONTHLY_PRICE_MXN)}/mes{' '}
+                <span className="inline-block px-1.5 py-0.5 rounded-full bg-accent-light text-accent text-[11px] font-semibold align-middle">
+                  {LAUNCH_PRICE_NOTE}
+                </span>
+              </p>
             </div>
 
             <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-2.5">

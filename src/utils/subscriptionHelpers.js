@@ -12,8 +12,13 @@ export const TRIAL_WARNING_DAYS = 6
 // Exactly one paid offering exists: a monthly subscription. No tiers, no
 // plan names ("Pro"/"Básico"/"Premium"/"Enterprise") anywhere in the product.
 export const CURRENCY = 'MXN'
-export const MONTHLY_PRICE_MXN = 116
-export const MONTHLY_PRICE_LABEL = '$116 MXN al mes'
+// Precio de lanzamiento — $99 en vez de los $116 normales, mientras dure la
+// promoción de arranque (ligada al lanzamiento de la app Android). Sin fecha
+// de reversión automática a propósito: el docente-dueño avisa cuando quiera
+// subirlo, y ese día se edita este archivo otra vez, igual que ahora.
+export const MONTHLY_PRICE_MXN = 99
+export const MONTHLY_PRICE_LABEL = '$99 MXN al mes'
+export const LAUNCH_PRICE_NOTE = 'Precio de lanzamiento'
 export const SUBSCRIPTION_NAME = 'Suscripción mensual'
 // Must match the id of the single Firestore `plans/{id}` doc that
 // api/_lib/billing.js reads server-side to charge via Mercado Pago/PayPal —
