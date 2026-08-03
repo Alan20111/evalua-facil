@@ -199,8 +199,24 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
           initialization: { amount: selectedPlan.precio },
           // Sin esto, el número de tarjeta se ve con la letra tan grande en
           // la app nativa que los 16 dígitos no caben en el campo — pedido
-          // explícito de que quepan sin esconderse.
-          customization: { visual: { style: { customVariables: { fontSizeSmall: '11px', fontSizeMedium: '13px' } } } },
+          // explícito de que quepan sin esconderse. El número grande de la
+          // tarjeta usa fontSizeLarge/fontSizeExtraLarge (no Small/Medium,
+          // que son las de las etiquetas como "Número de tarjeta") — hay que
+          // bajar las 6 variables de tamaño, no solo las chicas.
+          customization: {
+            visual: {
+              style: {
+                customVariables: {
+                  fontSizeExtraExtraSmall: '10px',
+                  fontSizeExtraSmall: '11px',
+                  fontSizeSmall: '12px',
+                  fontSizeMedium: '13px',
+                  fontSizeLarge: '14px',
+                  fontSizeExtraLarge: '15px',
+                },
+              },
+            },
+          },
           callbacks: {
             // El Brick exige `onReady` explícito — sin él tira un error
             // interno ("Callbacks onReady and/or onError are required") que
@@ -570,20 +586,23 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
               ))}
             </div>
 
-            {/* Mercado Pago (ver más abajo el formulario embebido) — va aquí,
-                visible desde antes de llenar la tarjeta. Pedido explícito: que
-                quede claro qué
-                pasa con el cobro (domiciliación mensual vs. pago único
+            {/* Solo debajo de la pestaña de tarjeta — va aquí, visible desde
+                antes de llenar la tarjeta. Pedido explícito: que quede claro
+                qué pasa con el cobro (domiciliación mensual vs. pago único
                 anual), y que ninguno de los dos necesita que el
-                administrador apruebe nada — a diferencia de la transferencia. */}
-            {config?.mercadoPago?.enabled && selectedPlanId === MONTHLY_PLAN_ID && (
+                administrador apruebe nada — a diferencia de la transferencia.
+                Antes se mostraba con solo elegir el plan, sin importar qué
+                pestaña estuviera abierta — se veía este texto de tarjeta
+                encima del formulario de transferencia, otro pedido explícito
+                de corregirlo. */}
+            {method === 'mercadopago' && selectedPlanId === MONTHLY_PLAN_ID && (
               <p className="text-xs text-muted -mt-1">
                 Con tarjeta queda en <strong>Pago automático</strong>: se te cobran{' '}
                 {formatCurrency(MONTHLY_PRICE_MXN)} cada mes sin que tengas que volver a pagar. Se
                 activa sola en cuanto se confirme el cobro — no necesita aprobación del administrador.
               </p>
             )}
-            {config?.mercadoPago?.enabled && selectedPlanId === ANNUAL_PLAN_ID && (
+            {method === 'mercadopago' && selectedPlanId === ANNUAL_PLAN_ID && (
               <p className="text-xs text-muted -mt-1">
                 Con tarjeta es un <strong>pago único</strong> de {formatCurrency(ANNUAL_PRICE_MXN)} por
                 los 12 meses — no se te vuelve a cobrar solo el año que viene, tú decides si renuevas. Se
