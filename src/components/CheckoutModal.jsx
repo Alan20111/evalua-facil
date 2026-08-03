@@ -55,6 +55,30 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   useBackHandler(onClose, open)
   useScrollLock(open)
 
+  // Este modal nunca se desmonta — Profile.jsx lo renderiza siempre y solo
+  // alterna `open` (aquí abajo hace `if (!open) return null`), así que su
+  // estado interno sobrevive a cerrarlo y volverlo a abrir. Sin esto,
+  // cerrar el modal a medio "Redirigiendo…"/"Registrando…" y volver a
+  // abrirlo lo dejaba trabado en ese mismo estado para siempre.
+  useEffect(() => {
+    if (open) setSubmitting(false)
+  }, [open])
+
+  // payWithMercadoPago deja `submitting` en true y navega fuera con
+  // `window.location.href` (no un fetch que resuelva antes de irse). Si el
+  // docente le da "Atrás" del navegador, Chrome suele restaurar esta pestaña
+  // desde el bfcache tal cual estaba congelada — con `submitting` todavía en
+  // true — en vez de recargarla de cero, dejando el botón trabado en
+  // "Redirigiendo…" para siempre. `pageshow` con `persisted: true` es la
+  // señal de que la página volvió del bfcache, no de una carga nueva.
+  useEffect(() => {
+    function onPageShow(e) {
+      if (e.persisted) setSubmitting(false)
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [])
+
   // Dinero de por medio: si esta pestaña se quedó con una versión vieja del
   // bundle (ver UpdateChecker.jsx — SPA que nunca vuelve a descargar el JS
   // sola), aquí no basta con un banner descartable. Se recarga sola al abrir
