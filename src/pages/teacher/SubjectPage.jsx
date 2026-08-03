@@ -1550,12 +1550,16 @@ export default function SubjectPage() {
   // Con fechas de curso configuradas, todo es automático: "Agregar día" pasa
   // a ser "Restaurar día" (solo fechas que el docente borró y siguen siendo
   // válidas) — sin fechas de curso, sigue siendo el alta manual de siempre.
+  // Si aún no hay bloques de horario programados, "Restaurar día" no tiene
+  // nada que restaurar (porFecha vacío) — el botón debe seguir siendo
+  // "Agregar día" para no desaparecer por completo.
   const autoAttendanceReady = !!(subject?.fechaInicio && subject?.fechaFin)
-  const addDayLabel = !autoAttendanceReady
+  const hasHorarioBloques = !!claseDias?.diasSemana?.size
+  const addDayLabel = (!autoAttendanceReady || !hasHorarioBloques)
     ? 'Agregar día'
     : (attendanceMissingAutoDias.length > 0 ? 'Restaurar día' : null)
   function handleAddDayClick() {
-    if (!autoAttendanceReady) { setShowAddAttendance(true); return }
+    if (!autoAttendanceReady || !hasHorarioBloques) { setShowAddAttendance(true); return }
     setShowRestoreAttendance(true)
   }
   const addDayClickRef = useRef(); addDayClickRef.current = handleAddDayClick
