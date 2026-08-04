@@ -85,6 +85,7 @@ export default async function handler(req, res) {
 
     const data = await mpRes.json()
     if (!mpRes.ok) {
+      console.error('process-payment: pago rechazado', JSON.stringify(data))
       await markPaymentStatus(paymentId, PAYMENT_STATUS.RECHAZADO, { provider: 'mercadopago', error: data })
       return res.status(502).json({
         error: data.message || 'Mercado Pago rechazó el pago',

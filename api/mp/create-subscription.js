@@ -75,6 +75,10 @@ export default async function handler(req, res) {
 
     const data = await mpRes.json()
     if (!mpRes.ok) {
+      // Vercel solo guarda el status en su resumen de logs, no el cuerpo de
+      // la respuesta — sin esto no hay forma de saber DESPUÉS por qué
+      // rechazó Mercado Pago sin poder reproducirlo en el momento.
+      console.error('create-subscription: preapproval rechazada', JSON.stringify(data))
       return res.status(502).json({ error: 'Error de Mercado Pago', detail: data })
     }
 
