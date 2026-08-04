@@ -6,6 +6,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { ArrowRight, CalendarPlus, Pencil, Trash2 } from 'lucide-react'
 import { BLOQUE_COLORS } from '../../utils/horarioBloques'
 import { formatLongDate } from '../../utils/dateRange'
+import Select from '../ui/Select'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
@@ -168,16 +169,14 @@ export default function ProgramarBloquesModal({
           ) : (
             <div className="space-y-1.5">
               {label('Asignatura')}
-              <select
+              <Select
                 value={asignaturaId}
-                onChange={e => setAsignaturaId(e.target.value)}
-                className={`${inputCls} w-full`}
-              >
-                <option value="">Elige una asignatura…</option>
-                {subjectList.map(s => (
-                  <option key={s.id} value={s.id}>{subjectDisplayName(s)}</option>
-                ))}
-              </select>
+                onChange={setAsignaturaId}
+                options={[
+                  { value: '', label: 'Elige una asignatura…' },
+                  ...subjectList.map(s => ({ value: s.id, label: subjectDisplayName(s) })),
+                ]}
+              />
             </div>
           )}
 

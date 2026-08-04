@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../Toast'
 import EFDateTimePicker from '../EFDateTimePicker'
 import Spinner from '../Spinner'
+import Select from '../ui/Select'
 import { X, Trash2, Copy } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -222,17 +223,14 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             {form.tipo === 'academico' && (
               <>
                 <p className="text-xs text-muted">Los alumnos de esta materia lo verán en su Agenda.</p>
-                <select
+                <Select
                   value={form.asignaturaId}
-                  onChange={e => setForm(f => ({ ...f, asignaturaId: e.target.value }))}
-                  required
-                  className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                >
-                  <option value="">Elige una materia…</option>
-                  {subjects.map(s => (
-                    <option key={s.id} value={s.id}>{subjectDisplayName(s)}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setForm(f => ({ ...f, asignaturaId: v }))}
+                  options={[
+                    { value: '', label: 'Elige una materia…' },
+                    ...subjects.map(s => ({ value: s.id, label: subjectDisplayName(s) })),
+                  ]}
+                />
               </>
             )}
           </div>

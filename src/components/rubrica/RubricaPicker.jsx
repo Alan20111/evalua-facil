@@ -12,6 +12,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import SearchInput from '../SearchInput'
+import Select from '../ui/Select'
 
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
 // editarlas o eliminarlas. Pantalla completa sobre el editor de entregables
@@ -132,11 +133,12 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
                 <SearchInput value={search} onChange={setSearch} placeholder="Buscar por nombre…" />
               </div>
               {temas.length > 0 && (
-                <select value={temaFilter} onChange={(e) => setTemaFilter(e.target.value)}
-                  className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface">
-                  <option value="">Todos los temas</option>
-                  {temas.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <Select
+                  value={temaFilter}
+                  onChange={setTemaFilter}
+                  options={[{ value: '', label: 'Todos los temas' }, ...temas.map((t) => ({ value: t, label: t }))]}
+                  wrapperClassName="shrink-0 w-36"
+                />
               )}
             </div>
             {filtered.length === 0 && (

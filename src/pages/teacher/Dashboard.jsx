@@ -14,6 +14,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
+import Select from '../../components/ui/Select'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { Plus, BookOpen, ChevronRight, X, ArrowUp, ArrowDown, GripVertical, Camera, Archive, Globe, Smartphone, Download } from 'lucide-react'
@@ -710,15 +711,13 @@ export default function TeacherDashboard() {
               {/* Parciales — mismo control que "Editar asignatura", para que
                   crear y editar se vean y se usen igual. */}
               <div>
-                <label htmlFor="dash-parciales" className="block text-sm font-medium text-muted mb-1">Número de parciales</label>
-                <select
+                <Select
                   id="dash-parciales"
+                  label="Número de parciales"
                   value={newSubjectParciales}
-                  onChange={(e) => setNewSubjectParciales(Number(e.target.value))}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                >
-                  {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} {n === 1 ? 'parcial' : 'parciales'}</option>)}
-                </select>
+                  onChange={setNewSubjectParciales}
+                  options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: `${n} ${n === 1 ? 'parcial' : 'parciales'}` }))}
+                />
               </div>
 
               {/* Fechas por parcial (solo si ya hay fechas del curso) */}
