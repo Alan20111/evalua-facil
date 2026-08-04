@@ -60,6 +60,13 @@ export default async function handler(req, res) {
         frequency_type: 'months',
         transaction_amount: Number(plan.precio) || 0,
         currency_id: 'MXN',
+        // Sin `start_date`, Mercado Pago agenda el PRIMER cobro real para el
+        // siguiente día — el docente autoriza hoy pero su suscripción no se
+        // activa hasta que ese cobro caiga mañana (recordRecurringCharge solo
+        // corre con el cobro confirmado, ver billing.js). Fijándolo en "ahora"
+        // MP intenta el primer cargo de inmediato, así el webhook confirma el
+        // pago y activa el acceso en segundos, no al día siguiente.
+        start_date: new Date().toISOString(),
       },
       status: 'authorized',
     }
