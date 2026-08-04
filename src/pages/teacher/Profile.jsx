@@ -53,6 +53,7 @@ import EliminarCuentaModal from '../../components/EliminarCuentaModal'
 import { sendSubscriptionCancelledEmail } from '../../utils/accountEmails'
 import { apiUrl } from '../../utils/apiBase'
 import { PREFIJOS } from '../../utils/prefijos'
+import Select from '../../components/ui/Select'
 
 async function uploadAvatar(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -989,18 +990,17 @@ export default function Profile() {
           <form onSubmit={handleSaveNombre} className="space-y-2">
             <div className="flex gap-2 items-start">
               <div className="w-32 sm:w-36 flex-shrink-0">
-                <label htmlFor="prof-prefijo" className="block text-xs font-medium text-muted mb-1">
-                  Prefijo <span className="text-slate-400 font-normal hidden sm:inline">(opcional)</span>
-                </label>
-                <select id="prof-prefijo" value={prefijoOption} onChange={(e) => setPrefijoOption(e.target.value)}
-                  className={inputCls}>
-                  <option value="">Sin prefijo (predeterminado)</option>
-                  {PREFIJOS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                  <option value="__otro__">Otro… (escríbelo)</option>
-                </select>
-                <p className="text-xs text-slate-400 mt-1 sm:hidden">(opcional)</p>
+                <Select
+                  id="prof-prefijo"
+                  label="Prefijo (opcional)"
+                  value={prefijoOption}
+                  onChange={setPrefijoOption}
+                  options={[
+                    { value: '', label: 'Sin prefijo (predeterminado)' },
+                    ...PREFIJOS.map((p) => ({ value: p, label: p })),
+                    { value: '__otro__', label: 'Otro… (escríbelo)' },
+                  ]}
+                />
                 {prefijoOption === '__otro__' && (
                   <input type="text" value={prefijoCustom} onChange={(e) => setPrefijoCustom(e.target.value)}
                     className={`${inputCls} mt-2`} placeholder="Escribe el prefijo" />
