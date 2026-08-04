@@ -422,19 +422,19 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       sin guardar (ver avisosMostrados), así que el marcador
                       siempre significa "Guardar". */}
                   {soloGuardados ? (
-                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos"
+                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
                       className="p-2 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
                       <RotateCcw size={18} />
                     </button>
                   ) : (
-                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Guardar" data-tooltip="Guardar"
+                    <button type="button" onClick={() => toggleGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos="bottom"
                       className="p-2 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
                       <Bookmark size={18} />
                     </button>
                   )}
                   <div className="relative flex-shrink-0">
                     <button type="button" onClick={() => setOpenMenuId((id) => (id === a.id ? null : a.id))}
-                      aria-label="Más opciones" data-tooltip="Más opciones"
+                      aria-label="Más opciones" data-tooltip="Más opciones" data-tooltip-pos="bottom"
                       className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors">
                       <MoreVertical size={18} />
                     </button>
