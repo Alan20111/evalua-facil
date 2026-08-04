@@ -164,7 +164,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 método, así que el incentivo de "paga varios meses de una
                 vez" (antes el plan anual) vive aquí. */}
             <div>
-              <p className="text-xs font-medium text-muted mb-1.5">¿Cuántos meses pagas?</p>
+              <p className="text-xs font-medium text-muted mb-1.5">¿Cuántos meses deseas pagar?</p>
               <div className="grid grid-cols-3 gap-2">
                 {MESES_DESCUENTO.map((r) => (
                   <button
@@ -219,8 +219,9 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 className={inputCls}
                 placeholder="Folio de operación / folio bancario"
               />
-              <p className="text-xs text-slate-500 -mt-2">
-                Es el número que te muestra tu banco al confirmar la transferencia — con él lo cotejamos en nuestro estado de cuenta.
+              <p className="text-sm text-slate-600 text-center -mt-1">
+                <span className="font-semibold text-on-surface">Folio:</span> es el número que te muestra tu
+                banco al confirmar la transferencia — con él lo cotejamos en nuestro estado de cuenta.
               </p>
               <button
                 type="submit"
