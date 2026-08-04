@@ -89,18 +89,31 @@ export function calcDaysRemaining(fechaVencimiento) {
   return Math.ceil((end - now) / (1000 * 60 * 60 * 24))
 }
 
+// Date.setMonth()/setFullYear() se desbordan al mes siguiente cuando el día
+// de inicio no cabe en el mes destino: sumar 1 mes al 31 de enero da 3 de
+// marzo (el 31 "no cabe" en febrero), no el 28. Aquí se resuelve el mes/año
+// destino primero (con día 1, que siempre existe) y recién después se pone
+// el día real, recortado al último día de ESE mes si hace falta — mismo
+// criterio que cualquier billing mensual (el aniversario de quien empezó en
+// 31 "se recorta", nunca se pasa de mes).
+function addMonthsClamped(date, meses) {
+  const d = new Date(date)
+  const candidate = new Date(d.getFullYear(), d.getMonth() + meses, 1)
+  const ultimoDia = new Date(candidate.getFullYear(), candidate.getMonth() + 1, 0).getDate()
+  candidate.setDate(Math.min(d.getDate(), ultimoDia))
+  candidate.setHours(d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds())
+  return candidate
+}
+
 // `cantidad`: cuántos periodos de golpe (meses pagados por transferencia en
 // un solo folio) — default 1 para todo el resto de llamadas (prueba, pago
-// único, aprobación normal).
+// único, aprobación normal). Un año se trata como 12 meses para reusar el
+// mismo recorte de fin de mes (afecta a quien haya empezado un 29 de
+// febrero).
 export function calcVencimiento(fechaInicio, periodicidad, cantidad = 1) {
   const start = toDate(fechaInicio) || new Date()
-  const end = new Date(start)
-  if (periodicidad === 'anual') {
-    end.setFullYear(end.getFullYear() + cantidad)
-  } else {
-    end.setMonth(end.getMonth() + cantidad)
-  }
-  return end
+  const meses = periodicidad === 'anual' ? cantidad * 12 : cantidad
+  return addMonthsClamped(start, meses)
 }
 
 export function calcVencimientoTimestamp(fechaInicio, periodicidad, cantidad = 1) {
