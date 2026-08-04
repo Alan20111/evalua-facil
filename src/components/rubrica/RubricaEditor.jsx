@@ -19,26 +19,19 @@ import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 //   criterios: [{ nombre, puntos: [str], descriptores: [str] }]
 // Al guardar se normaliza a números y porcentaje (campo almacenado).
 
+// Sin nombres de ejemplo (Excelente/Bueno/…) a propósito — pedido explícito:
+// un docente que no sabe qué es una rúbrica veía la tabla ya "completa" con
+// esos nombres y los descriptores que se generaban solos al nombrarlos, y
+// pensaba que la rúbrica se armaba sola. Solo los puntos (10/8/6/5) traen un
+// punto de partida — son números, no texto que se pueda confundir con
+// contenido ya hecho. El nombre y el resumen de cada nivel los escribe el
+// docente desde cero (placeholder "Editar" — ver el <input> más abajo).
 const NIVELES_NUEVA = [
-  { nombre: 'Excelente', valor: '10' },
-  { nombre: 'Bueno', valor: '8' },
-  { nombre: 'Suficiente', valor: '6' },
-  { nombre: 'Insuficiente', valor: '5' },
+  { nombre: '', valor: '10' },
+  { nombre: '', valor: '8' },
+  { nombre: '', valor: '6' },
+  { nombre: '', valor: '5' },
 ]
-
-// Concordancia con "de forma …" (femenino): Bueno → buena, Destacado → destacada
-function adjetivoNivel(nombre) {
-  const n = (nombre || '').trim().toLowerCase()
-  if (!n) return ''
-  return n.endsWith('o') ? n.slice(0, -1) + 'a' : n
-}
-
-// Texto fijo inicial de cada cruce criterio×nivel — editable por el docente.
-// Vacío mientras el nivel no tenga nombre (se llena al nombrarlo).
-function descriptorDefault(nombreNivel) {
-  const adj = adjetivoNivel(nombreNivel)
-  return adj ? `El estudiante cumplió de forma ${adj} este criterio` : ''
-}
 
 // Anchos de columna redimensionables con el mouse — con límites para no
 // exagerarlas ni encogerlas de más
@@ -78,7 +71,8 @@ function criterioNuevo(niveles, exc) {
   return {
     nombre: '',
     puntos: filaDerivada(exc, niveles),
-    descriptores: niveles.map((nv) => descriptorDefault(nv.nombre)),
+    // Sin texto generado — pedido explícito, ver comentario en NIVELES_NUEVA.
+    descriptores: niveles.map(() => ''),
   }
 }
 
@@ -193,22 +187,15 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   }
 
   // ── Niveles (columnas) ────────────────────────────────────────────────────
-  // Renombrar un nivel también actualiza los descriptores que sigan siendo el
-  // texto fijo generado (los editados por el docente no se tocan).
+  // Renombrar un nivel SOLO renombra el nivel — ya no genera ni toca ningún
+  // descriptor solo. Antes escribía un texto fijo en cada descriptor que
+  // siguiera "vacío" para ese nivel, y eso era justo lo que hacía parecer
+  // que la rúbrica ya estaba completa sin que el docente hubiera escrito nada.
   function setNivelNombre(j, v) {
-    setR((prev) => {
-      const anterior = descriptorDefault(prev.niveles[j].nombre)
-      const nuevo = descriptorDefault(v)
-      const nvs = prev.niveles.map((n, k) => (k === j ? { ...n, nombre: v } : n))
-      const crs = prev.criterios.map((c) => {
-        const d = c.descriptores[j]
-        if (d !== anterior && d !== '') return c
-        const descriptores = [...c.descriptores]
-        descriptores[j] = nuevo
-        return { ...c, descriptores }
-      })
-      return { ...prev, niveles: nvs, criterios: crs }
-    })
+    setR((prev) => ({
+      ...prev,
+      niveles: prev.niveles.map((n, k) => (k === j ? { ...n, nombre: v } : n)),
+    }))
   }
 
   // Cambiar los puntos de un nivel recalcula sus celdas en proporción
@@ -496,7 +483,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                         <div className="flex items-center gap-1">
                           <input type="text" value={nv.nombre}
                             onChange={(e) => setNivelNombre(j, e.target.value)}
-                            placeholder={`Nivel ${j + 1}`}
+                            placeholder="Editar"
                             aria-label={`Nombre del nivel ${j + 1}`}
                             className={`w-full min-w-0 text-center text-sm font-bold text-accent ${inputCell}`} />
                           {/* Los primeros 3 niveles son el mínimo — no se pueden eliminar */}
@@ -565,7 +552,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
                             <textarea value={c.descriptores[j]}
                               onChange={(e) => setDescriptor(i, j, e.target.value)}
                               rows={4}
-                              placeholder={`¿Cómo se ve "${c.nombre || `el criterio ${i + 1}`}" en este nivel?`}
+                              placeholder="Editar"
                               aria-label={`Descriptor de ${nv.nombre || `nivel ${j + 1}`} en criterio ${i + 1}`}
                               className={`w-full flex-1 text-sm text-muted resize-none ${inputCell}`} />
                             <div className="flex items-center justify-end gap-1 mt-auto pt-1.5 flex-shrink-0">
@@ -659,6 +646,17 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
             </div>
           )}
 
+          {/* Por qué "Guardar" sigue apagado — antes se apagaba en silencio
+              (el docente cambiaba la ponderación, el botón no reaccionaba, y
+              no había ninguna pista de que el motivo real era otro campo,
+              como un criterio sin nombre). Mismo texto que ya usaba el toast
+              al intentar guardar sin poder — ahora visible todo el tiempo,
+              se actualiza solo con cada tecla. */}
+          {validationError && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-card px-3 py-2 text-center">
+              {validationError}
+            </p>
+          )}
           <button type="submit" disabled={saving || !!validationError || (!isNew && JSON.stringify(r) === editSnapshot.current)}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : <Check size={18} />}

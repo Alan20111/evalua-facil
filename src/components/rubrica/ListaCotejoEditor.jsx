@@ -257,6 +257,13 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             </div>
           </div>
 
+          {/* Mismo criterio que RubricaEditor.jsx: por qué sigue apagado
+              "Guardar", visible todo el tiempo en vez de solo al hacer clic. */}
+          {validationError && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-card px-3 py-2 text-center">
+              {validationError}
+            </p>
+          )}
           <button type="submit" disabled={saving || !!validationError || (!isNew && JSON.stringify(r) === editSnapshot.current)}
             className="w-full py-3 bg-accent text-white font-semibold rounded-card disabled:opacity-60 flex items-center justify-center gap-2">
             {saving ? <Spinner size="sm" /> : <Check size={18} />}
