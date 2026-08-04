@@ -45,7 +45,6 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
   const seedingRef = useRef(false)
 
   const [step, setStep] = useState(null) // null | 'picker' | 'form' | 'plantillas' | 'plantilla-form'
-  const [modalMode, setModalMode] = useState('create')
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
 
@@ -162,7 +161,6 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
 
   function openAdd() {
     if (!canCreate) { onBlockedCreate?.(); return }
-    setModalMode('create')
     setForm(EMPTY_FORM)
     setStep('picker')
     if (plantillasLoaded) ensurePlantillasSeed()
@@ -173,37 +171,26 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
     setStep('form')
   }
 
-  function openEdit(aviso) {
-    setOpenMenuId(null)
-    setModalMode('edit')
-    setForm({ id: aviso.id, emoji: avisoEmoji(aviso), titulo: aviso.titulo, mensaje: aviso.mensaje })
-    setStep('form')
-  }
-
+  // Publicar es la única acción — ya no se edita un aviso ya enviado (pedido
+  // explícito: no tenía sentido, quedaba un registro de lectura sobre un
+  // texto que ya no era el que los estudiantes confirmaron). Para corregir
+  // algo, se elimina y se publica uno nuevo.
   async function handleSave(e) {
     e.preventDefault()
     setSaving(true)
     try {
-      if (modalMode === 'create') {
-        await addDoc(collection(db, 'avisos'), {
-          asignaturaId: subjectId,
-          docenteId,
-          titulo: form.titulo,
-          emoji: form.emoji,
-          mensaje: form.mensaje.trim(),
-          tipo: 'OTRO',
-          activo: true,
-          fechaCreacion: serverTimestamp(),
-          fechaActualizacion: serverTimestamp(),
-        })
-        toast('Aviso publicado')
-      } else {
-        await updateDoc(doc(db, 'avisos', form.id), {
-          mensaje: form.mensaje.trim(),
-          fechaActualizacion: serverTimestamp(),
-        })
-        toast('Aviso actualizado')
-      }
+      await addDoc(collection(db, 'avisos'), {
+        asignaturaId: subjectId,
+        docenteId,
+        titulo: form.titulo,
+        emoji: form.emoji,
+        mensaje: form.mensaje.trim(),
+        tipo: 'OTRO',
+        activo: true,
+        fechaCreacion: serverTimestamp(),
+        fechaActualizacion: serverTimestamp(),
+      })
+      toast('Aviso publicado')
       setStep(null)
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -373,11 +360,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       <div className="flex gap-1 bg-surface-container p-1 rounded w-fit">
         <button type="button" onClick={() => setSoloGuardados(false)}
           className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${!soloGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
-          Todos
+          Todos ({avisos.length - avisosGuardados.length})
         </button>
         <button type="button" onClick={() => setSoloGuardados(true)}
           className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded transition-colors ${soloGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
-          <Bookmark size={13} /> Guardados{avisosGuardados.length > 0 ? ` (${avisosGuardados.length})` : ''}
+          <Bookmark size={13} /> Guardados ({avisosGuardados.length})
         </button>
       </div>
 
@@ -390,8 +377,12 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
         </div>
       ) : (
         // Caja con scroll propio — pedido explícito: el historial completo
-        // no debe empujar el resto de la pestaña hacia abajo.
-        <div className="space-y-1.5 max-h-[60vh] overflow-y-auto pr-1 border border-outline-variant rounded-card p-2 bg-surface">
+        // no debe empujar el resto de la pestaña hacia abajo. overflow-x-hidden:
+        // sin él, Chrome mostraba una barra de desplazamiento horizontal aquí
+        // por un desbordamiento fantasma de ~10px (redondeo de line-clamp +
+        // flex) que no recorta nada visible — mismo parche ya usado en los
+        // modales de Editar/Duplicar/Desarchivar asignatura.
+        <div className="space-y-1.5 max-h-[60vh] overflow-y-auto overflow-x-hidden pr-1 border border-outline-variant rounded-card p-2 bg-surface">
           {avisosMostrados.map((a) => {
             const leidosMap = lecturasByAviso[a.id] || {}
             const leidos = Object.keys(leidosMap).length
@@ -445,10 +436,6 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                           <button type="button" onClick={() => { setOpenMenuId(null); setDetailAviso(a) }}
                             className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-on-surface hover:bg-[var(--accent-tint)]">
                             <CheckCircle2 size={14} /> Ver lecturas
-                          </button>
-                          <button type="button" onClick={() => openEdit(a)}
-                            className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-on-surface hover:bg-[var(--accent-tint)]">
-                            <Pencil size={14} /> Editar
                           </button>
                           <button type="button" onClick={() => { setOpenMenuId(null); setDeleteConfirm(a) }}
                             className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50">
@@ -514,7 +501,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
               <form onSubmit={handleSave}>
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-2xl flex-shrink-0" aria-hidden="true">{form.emoji}</span>
-                  <h3 className="text-lg font-semibold flex-1">{form.titulo || (modalMode === 'create' ? 'Nuevo aviso' : 'Editar aviso')}</h3>
+                  <h3 className="text-lg font-semibold flex-1">{form.titulo || 'Nuevo aviso'}</h3>
                   <button type="button" onClick={() => setStep(null)} aria-label="Cerrar" data-tooltip="Cerrar"
                     className="p-1.5 -mr-1 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
                     <X size={18} />
@@ -533,7 +520,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   </button>
                   <button type="submit" disabled={saving}
                     className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-50">
-                    {saving ? 'Guardando…' : modalMode === 'create' ? 'Publicar' : 'Guardar'}
+                    {saving ? 'Guardando…' : 'Publicar'}
                   </button>
                 </div>
               </form>

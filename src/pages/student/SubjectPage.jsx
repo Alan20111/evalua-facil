@@ -1022,30 +1022,28 @@ export default function StudentSubjectPage() {
                         {a.mensaje && <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap">{a.mensaje}</p>}
                       </div>
                       <div className="flex items-center flex-shrink-0">
-                        {/* En "Guardados" el ícono cambia a una flecha de
-                            "regresar". En "Todos" solo llegan avisos sin
-                            guardar (ver avisosMostrados), el marcador siempre
-                            es "Guardar". Eliminar es una acción aparte (junto
-                            a esta), no un tercer estado de este mismo ícono. */}
+                        {/* Eliminar solo vive en "Guardados" — pedido
+                            explícito. En "Todos" solo se ofrece Guardar; no
+                            borra el aviso real (es del docente, y lo
+                            comparten sus compañeros), solo lo quita de la
+                            lista de este alumno (ver avisoOcultos). */}
                         {guardado ? (
-                          <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
-                            className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
-                            <RotateCcw size={18} />
-                          </button>
+                          <>
+                            <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
+                              className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                              <RotateCcw size={18} />
+                            </button>
+                            <button type="button" onClick={() => setDeleteAvisoConfirm(a)} aria-label="Eliminar" data-tooltip="Eliminar" data-tooltip-pos="bottom"
+                              className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-red-500 hover:bg-red-50">
+                              <Trash2 size={18} />
+                            </button>
+                          </>
                         ) : (
                           <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos="bottom"
                             className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
                             <Bookmark size={18} />
                           </button>
                         )}
-                        {/* Eliminar — pedido explícito: no borra el aviso real
-                            (es del docente, y lo comparten sus compañeros),
-                            solo lo quita de la lista de este alumno, en
-                            Todos y en Guardados por igual (ver avisoOcultos). */}
-                        <button type="button" onClick={() => setDeleteAvisoConfirm(a)} aria-label="Eliminar" data-tooltip="Eliminar" data-tooltip-pos="bottom"
-                          className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-red-500 hover:bg-red-50">
-                          <Trash2 size={18} />
-                        </button>
                       </div>
                     </div>
                   </div>
