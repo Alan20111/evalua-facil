@@ -39,6 +39,31 @@ export const ANNUAL_SUBSCRIPTION_NAME = 'Suscripción anual'
 // precio mensual cambia, el ahorro que se anuncia sigue siendo cierto.
 export const ANNUAL_SAVINGS_MXN = MONTHLY_PRICE_MXN * 12 - ANNUAL_PRICE_MXN
 
+// ── v1.0.1: solo transferencia ──────────────────────────────────────────────
+// Mercado Pago y PayPal implican demasiados detalles para esta primera
+// versión (validación de tarjeta, domiciliación, webhooks...) — se retoman en
+// 1.0.2. Mientras tanto el único incentivo para pagar varios meses de un
+// golpe (antes era el plan anual) es este descuento por transferencia.
+// `pagas` es la decisión de negocio (editar a mano si cambia); `pagarias` y
+// `ahorras` se derivan de MONTHLY_PRICE_MXN para que nunca queden
+// desincronizados si el precio mensual cambia.
+export const MESES_DESCUENTO = [
+  { meses: 1, pagas: MONTHLY_PRICE_MXN },
+  { meses: 2, pagas: 190 },
+  { meses: 3, pagas: 273 },
+  { meses: 4, pagas: 348 },
+  { meses: 5, pagas: 415 },
+  { meses: 6, pagas: 474 },
+].map((r) => ({
+  ...r,
+  pagarias: r.meses * MONTHLY_PRICE_MXN,
+  ahorras: r.meses * MONTHLY_PRICE_MXN - r.pagas,
+}))
+
+export function mesesDescuentoDe(meses) {
+  return MESES_DESCUENTO.find((r) => r.meses === meses) || MESES_DESCUENTO[0]
+}
+
 // ── Retención tras vencer ────────────────────────────────────────────────
 // Cuántos días se conserva la información de una cuenta vencida (prueba sin
 // convertir o suscripción sin renovar) antes de que se elimine definitiva.
@@ -64,19 +89,22 @@ export function calcDaysRemaining(fechaVencimiento) {
   return Math.ceil((end - now) / (1000 * 60 * 60 * 24))
 }
 
-export function calcVencimiento(fechaInicio, periodicidad) {
+// `cantidad`: cuántos periodos de golpe (meses pagados por transferencia en
+// un solo folio) — default 1 para todo el resto de llamadas (prueba, pago
+// único, aprobación normal).
+export function calcVencimiento(fechaInicio, periodicidad, cantidad = 1) {
   const start = toDate(fechaInicio) || new Date()
   const end = new Date(start)
   if (periodicidad === 'anual') {
-    end.setFullYear(end.getFullYear() + 1)
+    end.setFullYear(end.getFullYear() + cantidad)
   } else {
-    end.setMonth(end.getMonth() + 1)
+    end.setMonth(end.getMonth() + cantidad)
   }
   return end
 }
 
-export function calcVencimientoTimestamp(fechaInicio, periodicidad) {
-  return Timestamp.fromDate(calcVencimiento(fechaInicio, periodicidad))
+export function calcVencimientoTimestamp(fechaInicio, periodicidad, cantidad = 1) {
+  return Timestamp.fromDate(calcVencimiento(fechaInicio, periodicidad, cantidad))
 }
 
 export function calcTrialEnd(fechaInicio) {

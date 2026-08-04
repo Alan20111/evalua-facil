@@ -227,15 +227,20 @@ export default function PaymentsTable({ stats, onRefresh }) {
     const vigenteHasta = subPrevia ? toDate(effectiveVencimiento(subPrevia)) : null
     const ahora = new Date()
     const fechaInicio = vigenteHasta && vigenteHasta > ahora ? vigenteHasta : ahora
+    // Folios de transferencia de v1.0.1 en adelante declaran cuántos meses
+    // pagaron (ver selector de meses en CheckoutModal.jsx) — pagos de antes
+    // de ese cambio no traen el campo y siguen siendo de 1 mes, como siempre.
+    const meses = payment.mesesPagados || 1
+    const avisoMeses = meses > 1 ? ` (${meses} meses)` : ''
     const avisoContinuidad =
       vigenteHasta && vigenteHasta > ahora
-        ? ` Como aún le quedaban días vigentes, la nueva suscripción arranca el ${formatDate(vigenteHasta)} (no se le recortó nada) y corre un mes completo desde ahí.`
+        ? ` Como aún le quedaban días vigentes, la nueva suscripción arranca el ${formatDate(vigenteHasta)} (no se le recortó nada) y corre ${meses > 1 ? `${meses} meses completos` : 'un mes completo'} desde ahí.`
         : ''
-    if (!confirm(`¿Confirmas que este pago fue recibido y quieres activar la suscripción?${avisoContinuidad}`)) return
+    if (!confirm(`¿Confirmas que este pago${avisoMeses} fue recibido y quieres activar la suscripción?${avisoContinuidad}`)) return
     setProcessing(payment.id)
     try {
       const plan = plansMap[payment.planId]
-      const fechaVencimiento = calcVencimientoTimestamp(fechaInicio, plan?.periodicidad || 'mensual')
+      const fechaVencimiento = calcVencimientoTimestamp(fechaInicio, plan?.periodicidad || 'mensual', meses)
 
       await updateDoc(doc(db, 'payments', payment.id), {
         status: 'completado',
@@ -388,7 +393,12 @@ export default function PaymentsTable({ stats, onRefresh }) {
                     <StatusBadge status={payment.status} />
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-lg">{formatCurrency(payment.monto)}</span>
+                    <div>
+                      <span className="font-semibold text-lg">{formatCurrency(payment.monto)}</span>
+                      {payment.mesesPagados > 1 && (
+                        <span className="text-xs text-muted ml-1">({payment.mesesPagados} meses)</span>
+                      )}
+                    </div>
                     <div className="text-right">
                       <p className="text-sm">{METODO_LABELS[payment.metodo] || payment.metodo || '—'}</p>
                       {domiciliado && (
@@ -469,7 +479,12 @@ export default function PaymentsTable({ stats, onRefresh }) {
                           {teacher?.email || '—'}
                         </p>
                       </td>
-                      <td className="px-4 py-2 font-semibold truncate">{formatCurrency(payment.monto)}</td>
+                      <td className="px-4 py-2 font-semibold truncate">
+                        {formatCurrency(payment.monto)}
+                        {payment.mesesPagados > 1 && (
+                          <span className="text-xs text-muted font-normal ml-1">({payment.mesesPagados}m)</span>
+                        )}
+                      </td>
                       <td className="px-4 py-2 truncate">
                         <p className="text-sm truncate">{METODO_LABELS[payment.metodo] || payment.metodo || '—'}</p>
                         {domiciliado && (

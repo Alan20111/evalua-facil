@@ -4,14 +4,11 @@ import CheckoutModal from './CheckoutModal'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import {
-  ANNUAL_PRICE_MXN,
-  ANNUAL_SAVINGS_MXN,
   LAUNCH_PRICE_NOTE,
   MONTHLY_PRICE_LABEL,
   SUBSCRIPTION_NAME,
   diasParaEliminacion,
   fechaEliminacion,
-  formatCurrency,
   formatDate,
 } from '../utils/subscriptionHelpers'
 
@@ -89,13 +86,6 @@ export default function SuscripcionVencidaModal({ open, subscription, onSoloCons
           </span>
           <p className="text-xs text-muted mt-1">Se paga mes con mes. Cancelas cuando quieras.</p>
         </div>
-
-        {/* Solo se anuncia aquí — la elección real de plan pasa en
-            CheckoutModal al dar clic abajo, no hay que duplicar el selector. */}
-        <p className="text-xs text-muted text-center mt-2">
-          ¿Prefieres pagar una sola vez? Con el plan anual pagas {formatCurrency(ANNUAL_PRICE_MXN)} y
-          disfrutas 12 meses — ahorras {formatCurrency(ANNUAL_SAVINGS_MXN)}.
-        </p>
 
         <button
           type="button"
