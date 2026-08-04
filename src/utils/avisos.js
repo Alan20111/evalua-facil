@@ -75,3 +75,11 @@ export function lecturaDocId(avisoId, studentId) {
 export function guardadoDocId(avisoId, studentId) {
   return `${avisoId}_${studentId}`
 }
+
+// Mismo esquema de id para `avisoOcultos` — "eliminar" un aviso del lado del
+// alumno no puede borrar el doc real (es del docente, y lo comparten todos
+// sus compañeros): es una marca personal de "ya no lo quiero ver", el mismo
+// patrón que avisoGuardados pero en sentido contrario.
+export function ocultoDocId(avisoId, studentId) {
+  return `${avisoId}_${studentId}`
+}
