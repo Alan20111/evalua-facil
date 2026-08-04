@@ -25,6 +25,24 @@ export function subjectPeriodLabel(subject) {
   return formatDateRange(subject.fechaInicio, subject.fechaFin) || subject.ciclo || ''
 }
 
+// Ciclo escolar mexicano ("2025-2026") derivado de fechaInicio — no hay un
+// campo estructurado para esto (ver subject.ciclo, que es texto libre
+// heredado), así que se calcula con la convención agosto-julio: un curso
+// que arranca en la segunda mitad del año (ago-dic) pertenece al ciclo que
+// empieza ESE año; uno que arranca en la primera mitad (ene-jul) pertenece
+// al ciclo que empezó el agosto anterior. Usado en los encabezados
+// "oficiales" de los exportes (ver excel.js/pdf.js) para que un director
+// los reciba con el ciclo escolar ya puesto, sin que el docente lo escriba
+// a mano.
+export function cicloEscolarDe(subject) {
+  const fecha = subject?.fechaInicio
+  if (!fecha) return ''
+  const d = new Date(`${fecha}T00:00:00`)
+  if (isNaN(d)) return ''
+  const y = d.getFullYear()
+  return d.getMonth() >= 7 ? `${y}-${y + 1}` : `${y - 1}-${y}`
+}
+
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',

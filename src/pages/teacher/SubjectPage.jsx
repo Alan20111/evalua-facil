@@ -526,6 +526,16 @@ export default function SubjectPage() {
   // Sin suscripción activa (trial, vencida, cancelada, pendiente_pago) todas
   // las exportaciones PDF/Excel llevan marca de agua — pedido explícito.
   const exportsWatermarked = !hasCleanExports(subscription)
+  // Encabezado "oficial" (escuela + CCT + firma del docente) para los 8
+  // exportes de calificaciones/asistencia — userProfile YA trae schoolName
+  // y claveSEP (AuthContext los carga desde schools/{escuelaId} al iniciar
+  // sesión, sin fetch aparte aquí). Mismo patrón que ya usaba
+  // exportCredentialsPDF para el nombre del docente (ver handleGenerateCredentials).
+  const escuelaExport = {
+    schoolName: userProfile?.schoolName || '',
+    claveSEP: userProfile?.claveSEP || '',
+    docenteNombre: userProfile?.nombreMostrar || userProfile?.nombre || '',
+  }
   // Resuelve la promesa de confirmExportNotice() — no-null mientras el aviso
   // está en pantalla. Un solo modal reutilizado por las 8 funciones de
   // exportación de este archivo, en vez de un estado por cada una.
@@ -2990,6 +3000,7 @@ export default function SubjectPage() {
       await exportSubjectGrades({
         subject, activities, students,
         submissions: Object.values(subMap),
+        escuela: escuelaExport,
         watermark: exportsWatermarked,
       })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
@@ -3134,7 +3145,7 @@ export default function SubjectPage() {
     setExporting(true)
     try {
       const { students, submissions } = await ensureGradesData()
-      await exportParcialGrades({ subject, activities, students, submissions, parcial: p, watermark: exportsWatermarked })
+      await exportParcialGrades({ subject, activities, students, submissions, parcial: p, escuela: escuelaExport, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExporting(false) }
   }
@@ -3145,7 +3156,7 @@ export default function SubjectPage() {
     setExportingGradesPdf(true)
     try {
       const { students, submissions } = await ensureGradesData()
-      await exportParcialGradesPDF({ subject, activities, students, submissions, parcial: p, watermark: exportsWatermarked })
+      await exportParcialGradesPDF({ subject, activities, students, submissions, parcial: p, escuela: escuelaExport, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar PDF: ' + err.message, 'error') }
     finally { setExportingGradesPdf(false) }
   }
@@ -3164,7 +3175,7 @@ export default function SubjectPage() {
       // "Parcial actual / Todo el curso" (ese es solo para lo que se pinta
       // en pantalla) — por eso usa attendanceParcialesAll, no la variable
       // filtrada attendanceParciales.
-      await exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, watermark: exportsWatermarked })
+      await exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, escuela: escuelaExport, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
@@ -3174,7 +3185,7 @@ export default function SubjectPage() {
     if (!(await confirmExportNotice())) return
     setExportingAttendance(true)
     try {
-      await exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p, watermark: exportsWatermarked })
+      await exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p, escuela: escuelaExport, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
@@ -3205,7 +3216,7 @@ export default function SubjectPage() {
         subDocs.forEach((d) => { const data = { id: d.id, ...d.data() }; subMap[`${data.alumnoId}-${data.actividadId}`] = data })
         setGradeSubMap(subMap); setGradesLoaded(true)
       }
-      await exportSubjectGradesPDF({ subject, activities, students, submissions: Object.values(subMap), watermark: exportsWatermarked })
+      await exportSubjectGradesPDF({ subject, activities, students, submissions: Object.values(subMap), escuela: escuelaExport, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar PDF: ' + err.message, 'error') }
     finally { setExportingGradesPdf(false) }
   }
@@ -3648,8 +3659,8 @@ export default function SubjectPage() {
     const rows = rankingRowsFor(parcial)
     const label = parcial == null ? 'Promedio final' : `Parcial ${parcial}`
     try {
-      if (kind === 'excel') await exportRankingExcel({ subject, rows, label, watermark: exportsWatermarked })
-      else await exportRankingPDF({ subject, rows, label, watermark: exportsWatermarked })
+      if (kind === 'excel') await exportRankingExcel({ subject, rows, label, escuela: escuelaExport, watermark: exportsWatermarked })
+      else await exportRankingPDF({ subject, rows, label, escuela: escuelaExport, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
   }
 
