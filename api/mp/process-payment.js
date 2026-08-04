@@ -105,6 +105,11 @@ export default async function handler(req, res) {
     if (data.status === ACREDITADO) {
       await completePayment(paymentId, gateway, { paidAmount: data.transaction_amount })
     } else if (MUERTO.includes(data.status)) {
+      // A diferencia de la rama `!mpRes.ok` de arriba, aquí Mercado Pago SÍ
+      // aceptó la petición (200) pero marcó el pago como rechazado/cancelado
+      // dentro del cuerpo — sin este log no queda ningún rastro de por qué
+      // (status_detail trae el código real, ej. cc_rejected_high_risk).
+      console.error('process-payment: pago con status muerto', JSON.stringify(gateway))
       await markPaymentStatus(paymentId, PAYMENT_STATUS.RECHAZADO, gateway)
     } else {
       // pending / in_process / authorized — MP tiene la orden pero el
