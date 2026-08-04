@@ -220,7 +220,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 placeholder="Folio de operación / folio bancario"
               />
               <p className="text-xs text-slate-500 -mt-2 text-center">
-                <strong className="text-on-surface font-semibold">Folio:</strong> es el número que te muestra tu banco al confirmar la transferencia — con él lo cotejamos en nuestro estado de cuenta.
+                <strong className="text-on-surface font-semibold">Folio</strong> es el número que te muestra tu banco al confirmar la transferencia — con él lo cotejamos en nuestro estado de cuenta.
               </p>
               <button
                 type="submit"
