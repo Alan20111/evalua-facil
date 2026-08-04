@@ -239,6 +239,17 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // "Eliminar" un aviso del lado del alumno — mismo patrón que
+    // avisoGuardados (un doc por aviso, estudiante), pero para ocultarlo en
+    // vez de guardarlo: el alumno no puede borrar el aviso real (es del
+    // docente, y lo comparten sus compañeros), así que esto solo marca que
+    // ya no debe aparecer en SU lista.
+    match /avisoOcultos/{ocultoId} {
+      allow read, delete: if request.auth != null && ownsStudentDoc(resource.data.estudianteId);
+      allow create: if request.auth != null && ownsStudentDoc(request.resource.data.estudianteId);
+      allow update: if false;
+    }
+
     // Plantillas de avisos — el banco personal de mensajes rápidos de cada
     // docente (arranca con una copia editable de los 12 predefinidos, ver
     // PLANTILLAS_SEED en src/utils/avisos.js), para elegir de un toque al

@@ -41,7 +41,7 @@ import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { avisoEmoji, formatAvisoFecha, guardadoDocId } from '../../utils/avisos'
+import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId } from '../../utils/avisos'
 
 function ResourceCard({ resource: r }) {
   const isLink = r.tipo === 'link'
@@ -139,7 +139,10 @@ export default function StudentSubjectPage() {
   const [lecturas, setLecturas] = useState({}) // { [avisoId]: true }
   const [lecturasReady, setLecturasReady] = useState(false)
   const [avisosGuardados, setAvisosGuardados] = useState({}) // { [avisoId]: true }
+  const [avisosOcultos, setAvisosOcultos] = useState({}) // { [avisoId]: true } — "eliminados" del lado del alumno
   const [soloAvisosGuardados, setSoloAvisosGuardados] = useState(false)
+  const [deleteAvisoConfirm, setDeleteAvisoConfirm] = useState(null) // el aviso que se está por eliminar
+  const [deletingAviso, setDeletingAviso] = useState(false)
   const [attendanceSummary, setAttendanceSummary] = useState(null)
   const [teacherName, setTeacherName] = useState('')
   const [teacherPhoto, setTeacherPhoto] = useState(null)
@@ -262,6 +265,23 @@ export default function StudentSubjectPage() {
     return unsub
   }, [studentId])
 
+  // Eliminados del lado del alumno — mismo patrón que avisoGuardados, pero
+  // para ocultar en vez de guardar (ver avisoOcultos en firestore.rules). El
+  // aviso real no se toca: solo deja de aparecer en la lista de ESTE alumno.
+  useEffect(() => {
+    if (!studentId) return undefined
+    const unsub = onSnapshot(
+      query(collection(db, 'avisoOcultos'), where('estudianteId', '==', studentId)),
+      (snap) => {
+        const map = {}
+        snap.docs.forEach((d) => { map[d.data().avisoId] = true })
+        setAvisosOcultos(map)
+      },
+      () => {}
+    )
+    return unsub
+  }, [studentId])
+
   // Muestra el desvanecido/flecha solo si de verdad hay más pestañas fuera
   // de vista, y lo quita en cuanto el estudiante ya deslizó hasta el final —
   // no tiene caso seguir insistiendo una vez que ya lo descubrió.
@@ -292,6 +312,25 @@ export default function StudentSubjectPage() {
       }
     } catch (err) {
       toast('Error: ' + err.message, 'error')
+    }
+  }
+
+  // Ver avisoOcultos en firestore.rules: no borra el aviso real (es del
+  // docente, y lo comparten sus compañeros), solo marca que este alumno ya
+  // no lo quiere ver — ni en Todos ni en Guardados (ver avisosVisibles).
+  async function handleEliminarAviso() {
+    if (!deleteAvisoConfirm) return
+    setDeletingAviso(true)
+    try {
+      await setDoc(doc(db, 'avisoOcultos', ocultoDocId(deleteAvisoConfirm.id, studentId)), {
+        avisoId: deleteAvisoConfirm.id, asignaturaId: subjectId, estudianteId: studentId,
+      })
+      setDeleteAvisoConfirm(null)
+      toast('Aviso eliminado')
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setDeletingAviso(false)
     }
   }
 
@@ -928,10 +967,13 @@ export default function StudentSubjectPage() {
           docente: guardar "mueve" el aviso, deja de verse en Todos. */}
       {activeTab === 'Avisos' && (() => {
         // Solo avisos publicados a partir de que el docente dio de alta al
-        // alumno — uno anterior a su inscripción no le corresponde.
-        const avisosVisibles = enrollmentSince == null
+        // alumno — uno anterior a su inscripción no le corresponde. Los que
+        // el alumno eliminó tampoco: ni en Todos ni en Guardados (ver
+        // avisoOcultos más arriba).
+        const avisosVisibles = (enrollmentSince == null
           ? avisos
           : avisos.filter((a) => (a.fechaCreacion?.seconds ?? 0) >= enrollmentSince)
+        ).filter((a) => !avisosOcultos[a.id])
         const guardadosList = avisosVisibles.filter((a) => avisosGuardados[a.id])
         const avisosMostrados = soloAvisosGuardados ? guardadosList : avisosVisibles.filter((a) => !avisosGuardados[a.id])
         return (
@@ -979,28 +1021,59 @@ export default function StudentSubjectPage() {
                         </p>
                         {a.mensaje && <p className="text-sm text-on-surface mt-1.5 whitespace-pre-wrap">{a.mensaje}</p>}
                       </div>
-                      {/* En "Guardados" el ícono cambia a una flecha de
-                          "regresar" — antes era un bote de basura y se
-                          confundía con "esto lo elimina" (el alumno no puede
-                          borrar avisos, solo quitarlos de sus guardados). En
-                          "Todos" solo llegan avisos sin guardar (ver
-                          avisosMostrados), el marcador siempre es
-                          "Guardar". */}
-                      {guardado ? (
-                        <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
-                          className="p-2 -m-1 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
-                          <RotateCcw size={18} />
+                      <div className="flex items-center flex-shrink-0">
+                        {/* En "Guardados" el ícono cambia a una flecha de
+                            "regresar". En "Todos" solo llegan avisos sin
+                            guardar (ver avisosMostrados), el marcador siempre
+                            es "Guardar". Eliminar es una acción aparte (junto
+                            a esta), no un tercer estado de este mismo ícono. */}
+                        {guardado ? (
+                          <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
+                            className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                            <RotateCcw size={18} />
+                          </button>
+                        ) : (
+                          <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos="bottom"
+                            className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
+                            <Bookmark size={18} />
+                          </button>
+                        )}
+                        {/* Eliminar — pedido explícito: no borra el aviso real
+                            (es del docente, y lo comparten sus compañeros),
+                            solo lo quita de la lista de este alumno, en
+                            Todos y en Guardados por igual (ver avisoOcultos). */}
+                        <button type="button" onClick={() => setDeleteAvisoConfirm(a)} aria-label="Eliminar" data-tooltip="Eliminar" data-tooltip-pos="bottom"
+                          className="p-2 -m-1 rounded transition-colors text-slate-400 hover:text-red-500 hover:bg-red-50">
+                          <Trash2 size={18} />
                         </button>
-                      ) : (
-                        <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos="bottom"
-                          className="p-2 -m-1 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
-                          <Bookmark size={18} />
-                        </button>
-                      )}
+                      </div>
                     </div>
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* Eliminar aviso — deja claro que es personal: el docente y los
+              compañeros lo siguen viendo igual, solo desaparece de aquí. */}
+          {deleteAvisoConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+              <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !deletingAviso && setDeleteAvisoConfirm(null)} aria-label="Cerrar" />
+              <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+                <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar este aviso?</h3>
+                <p className="text-sm text-muted mb-4">
+                  Ya no lo verás en tu lista, ni en Todos ni en Guardados. Tu docente y tus compañeros lo siguen viendo normal — esto solo lo quita de tu vista.
+                </p>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setDeleteAvisoConfirm(null)} disabled={deletingAviso}
+                    className="flex-1 py-1.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+                  <button type="button" onClick={handleEliminarAviso} disabled={deletingAviso}
+                    className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
+                    {deletingAviso ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                    {deletingAviso ? 'Eliminando…' : 'Eliminar'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
