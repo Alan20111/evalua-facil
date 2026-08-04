@@ -81,7 +81,8 @@ export default function TeacherLogin() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           {/* Logotipo completo de la marca (icono + nombre + subtítulo) */}
-          <EFLogo className="mx-auto w-56 sm:w-64 h-auto" />
+          <EFLogo className="mx-auto w-56 sm:w-64 h-auto mb-3" />
+          <h1 className="text-2xl font-bold text-on-surface">Acceso Docentes</h1>
         </div>
 
         <div className="bg-surface-card rounded-card shadow-card p-5 space-y-3">
