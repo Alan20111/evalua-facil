@@ -274,14 +274,18 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                     resolve()
                   })
                   .catch((err) => {
-                    // Para el mensual, este catch normalmente es justo el
-                    // cargo de $10 de verificación (ver arriba) que el banco
-                    // rechazó — no un error técnico. Se explica en vez de
-                    // mostrar el mensaje crudo del servidor, pedido explícito.
+                    // Para el mensual, este catch normalmente es la
+                    // verificación de $10 (ver arriba) que no pasó — pedido
+                    // explícito de no llamarla "rechazo" (es una validación,
+                    // no un intento de cobro), no nombrar al proveedor
+                    // ("Mercado Pago" no le dice nada al docente, es "el
+                    // sistema de cobro"), y no prometer que otra tarjeta
+                    // vaya a funcionar — no hay evidencia de que eso sea
+                    // cierto, puede ser otra causa.
                     toast(
                       selectedPlanId === ANNUAL_PLAN_ID
                         ? 'Error: ' + err.message
-                        : 'Tu banco rechazó el cargo de $10 con el que Mercado Pago valida tarjetas nuevas para este negocio — no se activó el pago automático. Intenta de nuevo en unos minutos o con otra tarjeta.',
+                        : 'No se pudo completar la verificación de tu tarjeta. Tu suscripción no se activó y no se te cobró nada. Intenta de nuevo en unos minutos.',
                       'error'
                     )
                     reject(err)
@@ -630,8 +634,9 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 Con tarjeta queda en <strong>Pago automático</strong>: se te cobran{' '}
                 {formatCurrency(MONTHLY_PRICE_MXN)} cada mes sin que tengas que volver a pagar. Se
                 activa sola en cuanto se confirme el cobro — no necesita aprobación del administrador.
-                Antes de eso, Mercado Pago hace un cargo de $10 para verificar tu tarjeta — se te
-                devuelve solo en los siguientes días, no es parte del cobro de tu suscripción.
+                Antes de eso, el sistema de cobro valida tu tarjeta con un cargo de $10 que se te
+                devuelve solo en los siguientes días — es solo la validación, tu suscripción todavía
+                no se ha cobrado.
               </p>
             )}
             {method === 'mercadopago' && selectedPlanId === ANNUAL_PLAN_ID && (
