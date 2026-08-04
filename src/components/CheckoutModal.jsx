@@ -621,6 +621,8 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                 Con tarjeta queda en <strong>Pago automático</strong>: se te cobran{' '}
                 {formatCurrency(MONTHLY_PRICE_MXN)} cada mes sin que tengas que volver a pagar. Se
                 activa sola en cuanto se confirme el cobro — no necesita aprobación del administrador.
+                Antes de eso, Mercado Pago hace un cargo de $10 para verificar tu tarjeta — se te
+                devuelve solo en los siguientes días, no es parte del cobro de tu suscripción.
               </p>
             )}
             {method === 'mercadopago' && selectedPlanId === ANNUAL_PLAN_ID && (
