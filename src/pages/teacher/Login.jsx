@@ -148,6 +148,10 @@ export default function TeacherLogin() {
           ¿No tienes cuenta de docente?{' '}
           <Link to="/register" className="text-accent font-semibold hover:underline">Crear cuenta de docente</Link>
         </p>
+        <p className="text-center text-sm text-muted mt-2">
+          ¿Eres estudiante?{' '}
+          <Link to="/alumno" className="text-accent font-semibold hover:underline">Entra aquí</Link>
+        </p>
         <p className="text-center text-xs text-slate-400 mt-4">
           Para una mejor experiencia recomendamos utilizar Evalúa Fácil Docente desde una laptop o computadora de escritorio.
         </p>
