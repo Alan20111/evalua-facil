@@ -8,6 +8,7 @@ import {
   RUBRICA_TOTAL, MIN_CRITERIOS, MAX_CRITERIOS, COTEJO_NIVEL,
   pesosEquitativos, validarRubrica, round1,
 } from '../../utils/rubrica'
+import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 
@@ -16,6 +17,12 @@ import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 // será una casilla (cumple → suma sus puntos, vacío → 0). La suma de puntos no
 // puede pasar de 10. Se guarda como rúbrica con `tipo: 'cotejo'`.
 // `initial` = { id, ...cotejo } para editar, null para crear.
+
+// Un ejemplo distinto por renglón — mismo criterio que RubricaEditor.jsx.
+const EJEMPLOS_CRITERIO = [
+  'Entregó a tiempo', 'Incluye portada', 'Usa el formato solicitado',
+  'Cita sus fuentes', 'Ortografía sin errores', 'Cumple la extensión mínima',
+]
 
 function estadoInicial(initial) {
   if (!initial) {
@@ -43,6 +50,16 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
   const { criterios } = r
 
   useScrollLock(true)
+
+  // Mismo criterio que RubricaEditor.jsx: avisar antes de perder cambios sin
+  // guardar al salir (flecha de regresar, Cancelar, o el botón físico Atrás).
+  const [confirmSalir, setConfirmSalir] = useState(false)
+  const hayCambiosSinGuardar = JSON.stringify(r) !== editSnapshot.current
+  function requestClose() {
+    if (hayCambiosSinGuardar) setConfirmSalir(true)
+    else onClose()
+  }
+  useBackHandler(() => (confirmSalir ? setConfirmSalir(false) : requestClose()), true)
 
   function setCriterioNombre(i, v) {
     setR((prev) => ({ ...prev, criterios: prev.criterios.map((c, k) => (k === i ? { ...c, nombre: v } : c)) }))
@@ -128,7 +145,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
     <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={onClose} aria-label="Volver" className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
+          <button type="button" onClick={requestClose} aria-label="Volver" className="p-2 -ml-2 rounded hover:bg-white/10 transition-colors flex-shrink-0">
             <ArrowLeft size={22} />
           </button>
           <div className="flex-1 min-w-0">
@@ -193,7 +210,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                         <textarea value={c.nombre}
                           onChange={(e) => setCriterioNombre(i, e.target.value)}
                           rows={2}
-                          placeholder={`Criterio ${i + 1} — ej: Entregó a tiempo`}
+                          placeholder={`Criterio ${i + 1} — ej: ${EJEMPLOS_CRITERIO[i] || EJEMPLOS_CRITERIO[EJEMPLOS_CRITERIO.length - 1]}`}
                           aria-label={`Nombre del criterio ${i + 1}`}
                           className={`w-full min-w-0 text-base font-semibold text-on-surface resize-none ${inputCell}`} />
                         {i >= MIN_CRITERIOS && (
@@ -269,13 +286,46 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             {saving ? <Spinner size="sm" /> : <Check size={18} />}
             {saving ? 'Guardando…' : isNew ? 'Guardar lista de cotejo en mi banco' : 'Guardar cambios'}
           </button>
-          <button type="button" onClick={onClose} disabled={saving}
+          <button type="button" onClick={requestClose} disabled={saving}
             className="w-full py-2.5 border border-outline-variant text-muted font-medium rounded-card hover:bg-surface-container transition-colors disabled:opacity-60">
             Cancelar
           </button>
           <div className="h-6 safe-bottom" />
         </form>
       </div>
+
+      {/* Confirmación al salir con cambios sin guardar — mismo criterio que RubricaEditor.jsx */}
+      {confirmSalir && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
+          <button type="button" className="absolute inset-0 bg-black/40 border-none cursor-default" onClick={() => !saving && setConfirmSalir(false)} aria-label="Cerrar" />
+          <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
+            <h3 className="text-base font-semibold text-on-surface mb-1">¿Guardar los cambios?</h3>
+            <p className="text-sm text-muted mb-3">
+              Tienes cambios sin guardar en esta lista de cotejo. Si sales sin guardar, se pierden.
+            </p>
+            {validationError && (
+              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-2 mb-3">
+                Con lo que llevas todavía no se puede guardar: {validationError}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setConfirmSalir(false)} disabled={saving}
+                className="flex-1 py-2 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">
+                Seguir editando
+              </button>
+              <button type="button" onClick={handleSave} disabled={saving || !!validationError}
+                className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2">
+                {saving ? <Spinner size="sm" /> : <Check size={16} />}
+                Guardar y salir
+              </button>
+            </div>
+            <button type="button" onClick={onClose} disabled={saving}
+              className="w-full mt-2 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded transition-colors disabled:opacity-60">
+              Salir sin guardar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
