@@ -9,7 +9,7 @@ import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import SituacionBadge from './StatusBadge'
-import { situacionDe, MOTIVOS_CANCELACION } from '../../../utils/situacionSuscripcion'
+import { planDe } from '../../../utils/situacionSuscripcion'
 import {
   calcVencimientoTimestamp,
   effectiveVencimiento,
@@ -31,10 +31,10 @@ const COLS = [
   { key: 'monto', label: 'Monto', w: 100 },
   { key: 'medio', label: 'Medio', w: 130 },
   { key: 'folio', label: 'Folio bancario', w: 150 },
-  // Misma Situación que en Suscripciones (Prueba, Cancelada, Pago
-  // automático, Mes pagado, Cortesía) — no confundir con Verificación,
-  // que es del PAGO, no de la suscripción.
-  { key: 'situacion', label: 'Situación (Plan)', w: 150 },
+  // Mismo Plan que en Suscripciones (Prueba, 1 a 6 meses, Cortesía,
+  // Cancelada por fin de prueba/por el usuario/por fin de pago) — no
+  // confundir con Verificación, que es del PAGO, no de la suscripción.
+  { key: 'situacion', label: 'Plan', w: 150 },
   { key: 'verificacion', label: 'Verificación', w: 130 },
   { key: 'fecha', label: 'Fecha', w: 150 },
   { key: 'comentarios', label: 'Comentarios', w: 170 },
@@ -502,19 +502,7 @@ export default function PaymentsTable({ stats, onRefresh }) {
                         )}
                       </td>
                       <td className="px-4 py-2">
-                        {(() => {
-                          const situacion = situacionDe(subscription)
-                          return (
-                            <>
-                              <SituacionBadge situacion={situacion} />
-                              {situacion.motivo && (
-                                <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                                  {MOTIVOS_CANCELACION[situacion.motivo]}
-                                </p>
-                              )}
-                            </>
-                          )
-                        })()}
+                        <SituacionBadge situacion={planDe(subscription)} />
                       </td>
                       <td className="px-4 py-2">
                         <StatusBadge status={payment.status} />
