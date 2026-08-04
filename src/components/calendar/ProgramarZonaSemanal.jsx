@@ -8,6 +8,7 @@ import {
   BLOQUE_COLORS, bloqueColor, ALARMA_SONIDOS, reproducirSonido,
   DIAS_SEMANA, addMinutesToTime, timeToMinutes,
 } from '../../utils/horarioBloques'
+import Select from '../ui/Select'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
@@ -531,13 +532,11 @@ export default function ProgramarZonaSemanal({
             </div>
             <div className="space-y-1">
               <span className="text-xs text-muted">Día</span>
-              <select
+              <Select
                 value={placing.diaSemana}
-                onChange={e => setPlacing(p => ({ ...p, diaSemana: Number(e.target.value) }))}
-                className={`${inputCls} w-full`}
-              >
-                {DIAS_SEMANA.slice(0, numDays).map((d, i) => <option key={i} value={i}>{d}</option>)}
-              </select>
+                onChange={(v) => setPlacing(p => ({ ...p, diaSemana: Number(v) }))}
+                options={DIAS_SEMANA.slice(0, numDays).map((d, i) => ({ value: i, label: d }))}
+              />
             </div>
             <div className="space-y-1">
               <span className="text-xs text-muted">Hora de inicio</span>
@@ -612,17 +611,15 @@ export default function ProgramarZonaSemanal({
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <span className="text-xs text-muted">Día</span>
-                <select
+                <Select
                   value={editP.diaSemana}
-                  onChange={e => {
-                    const dia = Number(e.target.value)
+                  onChange={(v) => {
+                    const dia = Number(v)
                     const s = timeToMinutes(editP.horaInicio)
                     if (cabe(dia, s, 1, editP.duracionMin, editP.id)) updatePatron(editP.id, { diaSemana: dia })
                   }}
-                  className={`${inputCls} w-full`}
-                >
-                  {DIAS_SEMANA.slice(0, numDays).map((d, i) => <option key={i} value={i}>{d}</option>)}
-                </select>
+                  options={DIAS_SEMANA.slice(0, numDays).map((d, i) => ({ value: i, label: d }))}
+                />
               </div>
               <div className="space-y-1">
                 <span className="text-xs text-muted">Hora de inicio</span>
@@ -687,13 +684,12 @@ export default function ProgramarZonaSemanal({
               {editP.alarma?.activa && (
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex gap-1.5">
-                    <select
+                    <Select
                       value={editP.alarma.sonido || 'campana'}
-                      onChange={e => updatePatron(editP.id, { alarma: { ...editP.alarma, sonido: e.target.value } })}
-                      className={`${inputCls} flex-1`}
-                    >
-                      {ALARMA_SONIDOS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                    </select>
+                      onChange={(v) => updatePatron(editP.id, { alarma: { ...editP.alarma, sonido: v } })}
+                      options={ALARMA_SONIDOS.map(s => ({ value: s.id, label: s.label }))}
+                      wrapperClassName="flex-1"
+                    />
                     <button type="button" onClick={() => reproducirSonido(editP.alarma.sonido || 'campana')} className="px-2 rounded border border-outline-variant text-accent hover:bg-accent-tint" aria-label="Probar">
                       <Play size={13} />
                     </button>

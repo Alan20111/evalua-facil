@@ -11,6 +11,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
+import Select from '../../components/ui/Select'
 import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, exportSubjectAttendance, exportParcialAttendance, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
 import { importActivitiesToSubject } from '../../utils/importActivities'
 import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF } from '../../utils/pdf'
@@ -4794,12 +4795,13 @@ export default function SubjectPage() {
                 del selector de día tiene espacio para abrirse sin recortarse. */}
             <div className={IS_NATIVE_APP ? 'flex items-start gap-3' : 'space-y-3'}>
               <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
-                <label htmlFor="att-parcial" className="block text-xs font-medium text-muted mb-1">Parcial</label>
-                <select id="att-parcial" value={newAttendanceForm.parcial}
-                  onChange={(e) => setNewAttendanceForm((f) => ({ ...f, parcial: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                  {PARCIALES.map((p) => <option key={p} value={p}>Parcial {p}</option>)}
-                </select>
+                <Select
+                  id="att-parcial"
+                  label="Parcial"
+                  value={newAttendanceForm.parcial}
+                  onChange={(v) => setNewAttendanceForm((f) => ({ ...f, parcial: v }))}
+                  options={PARCIALES.map((p) => ({ value: p, label: `Parcial ${p}` }))}
+                />
               </div>
               <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
                 <label htmlFor="att-fecha" className="block text-xs font-medium text-muted mb-1">Día</label>
@@ -4809,12 +4811,13 @@ export default function SubjectPage() {
                   shortcutLabels={IS_NATIVE_APP ? ['Hoy', 'Mañana', 'Pasado mañana'] : undefined} />
               </div>
               <div className={IS_NATIVE_APP ? 'flex-1 min-w-0' : undefined}>
-                <label htmlFor="att-sesiones" className="block text-xs font-medium text-muted mb-1">Número de sesiones</label>
-                <select id="att-sesiones" value={newAttendanceForm.duracion}
-                  onChange={(e) => setNewAttendanceForm((f) => ({ ...f, duracion: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                  {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} {n !== 1 ? 'sesiones' : 'sesión'} ({n} asistencia{n !== 1 ? 's' : ''})</option>)}
-                </select>
+                <Select
+                  id="att-sesiones"
+                  label="Número de sesiones"
+                  value={newAttendanceForm.duracion}
+                  onChange={(v) => setNewAttendanceForm((f) => ({ ...f, duracion: v }))}
+                  options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: n, label: `${n} ${n !== 1 ? 'sesiones' : 'sesión'} (${n} asistencia${n !== 1 ? 's' : ''})` }))}
+                />
               </div>
             </div>
             {/* Se avisa al elegir el día, no al intentar guardar: enterarse
@@ -6586,11 +6589,13 @@ export default function SubjectPage() {
                 </div>
               </div>
               <div>
-                <label htmlFor="edit-subject-parciales" className="block text-sm font-medium text-muted mb-1">Número de parciales</label>
-                <select id="edit-subject-parciales" value={editSubjectForm.parciales} onChange={(e) => setEditSubjectForm((f) => ({ ...f, parciales: e.target.value }))}
-                  className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface">
-                  {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} {n === 1 ? 'parcial' : 'parciales'}</option>)}
-                </select>
+                <Select
+                  id="edit-subject-parciales"
+                  label="Número de parciales"
+                  value={editSubjectForm.parciales}
+                  onChange={(v) => setEditSubjectForm((f) => ({ ...f, parciales: v }))}
+                  options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `${n} ${n === 1 ? 'parcial' : 'parciales'}` }))}
+                />
               </div>
               {editSubjectForm.fechaInicio && editSubjectForm.fechaFin && (
                 <ParcialesFechas
@@ -6826,10 +6831,11 @@ export default function SubjectPage() {
                         disabled={!unarchiveEdits.fechaInicio} />
                     </div>
                   </div>
-                  <select value={unarchiveEdits.parciales} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, parciales: e.target.value }))}
-                    className="w-full px-4 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface">
-                    {[1, 2, 3, 4, 5, 6].map((n) => <option key={n} value={n}>{n} {n === 1 ? 'parcial' : 'parciales'}</option>)}
-                  </select>
+                  <Select
+                    value={unarchiveEdits.parciales}
+                    onChange={(v) => setUnarchiveEdits((f) => ({ ...f, parciales: v }))}
+                    options={[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `${n} ${n === 1 ? 'parcial' : 'parciales'}` }))}
+                  />
                   {unarchiveEdits.fechaInicio && unarchiveEdits.fechaFin && (
                     <ParcialesFechas
                       fechaInicio={unarchiveEdits.fechaInicio}

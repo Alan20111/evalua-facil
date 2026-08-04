@@ -8,6 +8,7 @@ import { db, auth } from '../firebase'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
 import VisibilitySelect from './VisibilitySelect'
+import Select from './ui/Select'
 import RichTextEditor from './RichTextEditor'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, toRichHtml, htmlToPlainText, richTextContentClass } from '../utils/sanitizeHtml'
@@ -1029,12 +1030,16 @@ export default function EvaluacionEditor({
           </div>
           <form onSubmit={handleSaveConfig} className="px-4 py-4 space-y-3">
             <div>
-              <label htmlFor="config-orden-preguntas" className="block text-sm font-medium text-muted mb-1">Orden de las preguntas</label>
-              <select id="config-orden-preguntas" value={configForm.ordenPreguntas} onChange={(e) => setConfigForm((f) => ({ ...f, ordenPreguntas: e.target.value }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                <option value="creacion">Orden de creación</option>
-                <option value="aleatorio">Aleatorio</option>
-              </select>
+              <Select
+                id="config-orden-preguntas"
+                label="Orden de las preguntas"
+                value={configForm.ordenPreguntas}
+                onChange={(v) => setConfigForm((f) => ({ ...f, ordenPreguntas: v }))}
+                options={[
+                  { value: 'creacion', label: 'Orden de creación' },
+                  { value: 'aleatorio', label: 'Aleatorio' },
+                ]}
+              />
             </div>
             <label className="flex items-center gap-2 text-sm text-muted">
               <input type="checkbox" checked={!!configForm.barajarRespuestas}
@@ -1042,12 +1047,16 @@ export default function EvaluacionEditor({
               Barajar el orden de las opciones dentro de cada pregunta
             </label>
             <div>
-              <label htmlFor="config-navegacion" className="block text-sm font-medium text-muted mb-1">Navegación</label>
-              <select id="config-navegacion" value={configForm.navegacion} onChange={(e) => setConfigForm((f) => ({ ...f, navegacion: e.target.value }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                <option value="libre">Libre — puede regresar</option>
-                <option value="secuencial">Secuencial — no puede regresar</option>
-              </select>
+              <Select
+                id="config-navegacion"
+                label="Navegación"
+                value={configForm.navegacion}
+                onChange={(v) => setConfigForm((f) => ({ ...f, navegacion: v }))}
+                options={[
+                  { value: 'libre', label: 'Libre — puede regresar' },
+                  { value: 'secuencial', label: 'Secuencial — no puede regresar' },
+                ]}
+              />
             </div>
             <div>
               <label htmlFor="config-tiempo-limite" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
@@ -1065,14 +1074,18 @@ export default function EvaluacionEditor({
                 con un único intento "conservar la mejor/última" es ruido. */}
             {configForm.intentosPermitidos !== 1 && (
               <div>
-                <label htmlFor="config-conservar" className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
-                <select id="config-conservar" value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
-                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                  <option value="primero">El primer intento</option>
-                  <option value="ultimo">El último intento</option>
-                  <option value="mejor">La calificación más alta</option>
-                  <option value="promedio">El promedio de todos los intentos</option>
-                </select>
+                <Select
+                  id="config-conservar"
+                  label="Si hay varios intentos, conservar"
+                  value={configForm.conservar}
+                  onChange={(v) => setConfigForm((f) => ({ ...f, conservar: v }))}
+                  options={[
+                    { value: 'primero', label: 'El primer intento' },
+                    { value: 'ultimo', label: 'El último intento' },
+                    { value: 'mejor', label: 'La calificación más alta' },
+                    { value: 'promedio', label: 'El promedio de todos los intentos' },
+                  ]}
+                />
               </div>
             )}
             {/* La publicación de la calificación y la de las respuestas son
@@ -1156,11 +1169,13 @@ export default function EvaluacionEditor({
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="p-4 space-y-3">
                         <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {i + 1}</p>
                         <div>
-                          <label htmlFor="preg-edit-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
-                          <select id="preg-edit-tipo" value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
-                            className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                            {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                          </select>
+                          <Select
+                            id="preg-edit-tipo"
+                            label="Tipo de pregunta"
+                            value={preguntaEditForm.tipo}
+                            onChange={(v) => setPreguntaEditForm((f) => ({ ...f, tipo: v }))}
+                            options={TIPOS_PREGUNTA}
+                          />
                         </div>
                         <div>
                           <label htmlFor="preg-edit-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
@@ -1245,11 +1260,13 @@ export default function EvaluacionEditor({
                     style={{ background: 'var(--accent-light)' }}>
                     <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando · Pregunta {preguntas.length + 1}</p>
                     <div>
-                      <label htmlFor="preg-new-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
-                      <select id="preg-new-tipo" value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
-                        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                        {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
+                      <Select
+                        id="preg-new-tipo"
+                        label="Tipo de pregunta"
+                        value={preguntaForm.tipo}
+                        onChange={(v) => setPreguntaForm((f) => ({ ...f, tipo: v }))}
+                        options={TIPOS_PREGUNTA}
+                      />
                     </div>
                     <div>
                       <label htmlFor="preg-new-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
@@ -1354,18 +1371,20 @@ export default function EvaluacionEditor({
                   <SearchInput value={bancoSearch} onChange={setBancoSearch} placeholder="Buscar…" />
                 </div>
                 {materias.length > 0 && (
-                  <select value={bancoMateriaFilter} onChange={(e) => setBancoMateriaFilter(e.target.value)}
-                    className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface">
-                    <option value="">Todas las materias</option>
-                    {materias.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <Select
+                    value={bancoMateriaFilter}
+                    onChange={setBancoMateriaFilter}
+                    options={[{ value: '', label: 'Todas las materias' }, ...materias.map((m) => ({ value: m, label: m }))]}
+                    wrapperClassName="shrink-0 w-36"
+                  />
                 )}
                 {temas.length > 0 && (
-                  <select value={bancoTemaFilter} onChange={(e) => setBancoTemaFilter(e.target.value)}
-                    className="px-2 py-2 rounded border border-outline-variant text-sm bg-surface">
-                    <option value="">Todos los temas</option>
-                    {temas.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  <Select
+                    value={bancoTemaFilter}
+                    onChange={setBancoTemaFilter}
+                    options={[{ value: '', label: 'Todos los temas' }, ...temas.map((t) => ({ value: t, label: t }))]}
+                    wrapperClassName="shrink-0 w-36"
+                  />
                 )}
               </div>
               {/* Barra de selección múltiple — pedido explícito: agregar
@@ -1408,10 +1427,11 @@ export default function EvaluacionEditor({
                       {editingBancoId === item.id ? (
                         <div className="space-y-2">
                           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
-                          <select value={bancoEditForm.tipo} onChange={(e) => setBancoEditForm((f) => ({ ...f, tipo: e.target.value }))}
-                            className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
-                            {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                          </select>
+                          <Select
+                            value={bancoEditForm.tipo}
+                            onChange={(v) => setBancoEditForm((f) => ({ ...f, tipo: v }))}
+                            options={TIPOS_PREGUNTA}
+                          />
                           <textarea value={bancoEditForm.enunciado} onChange={(e) => setBancoEditForm((f) => ({ ...f, enunciado: e.target.value }))}
                             rows={2} className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                           {bancoEditForm.tipo === 'opcion_multiple' && (

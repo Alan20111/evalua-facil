@@ -1,4 +1,5 @@
 import EFDateTimePicker from './EFDateTimePicker'
+import Select from './ui/Select'
 import { nowIsoLocal as toIsoNow } from '../utils/nowIso'
 
 // Shared publication scheduler — same three-way choice for "Publicar resultados"
@@ -12,13 +13,17 @@ import { nowIsoLocal as toIsoNow } from '../utils/nowIso'
 export default function PublicacionScheduler({ id, label, hint, mode, fecha, onModeChange, onFechaChange }) {
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-muted mb-1">{label}</label>
-      <select id={id} value={mode || 'inmediato'} onChange={(e) => onModeChange(e.target.value)}
-        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-        <option value="inmediato">Inmediatamente al terminar</option>
-        <option value="ahora">Ahora (guardar para que se publique)</option>
-        <option value="fecha">En una fecha específica</option>
-      </select>
+      <Select
+        id={id}
+        label={label}
+        value={mode || 'inmediato'}
+        onChange={onModeChange}
+        options={[
+          { value: 'inmediato', label: 'Inmediatamente al terminar' },
+          { value: 'ahora', label: 'Ahora (guardar para que se publique)' },
+          { value: 'fecha', label: 'En una fecha específica' },
+        ]}
+      />
       {hint && <p className="text-xs text-slate-400 mt-1">{hint}</p>}
       {mode === 'ahora' && (
         <p className="text-xs text-accent mt-1">Se publicará en cuanto guardes la configuración.</p>

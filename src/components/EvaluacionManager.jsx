@@ -16,6 +16,7 @@ import { IS_NATIVE_APP } from '../utils/platform'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
 import SearchInput from './SearchInput'
+import Select from './ui/Select'
 import { TEACHER_CONTAINER_NARROW } from '../config/layout'
 import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision,
@@ -991,13 +992,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="space-y-2">
                         <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {i + 1}</p>
-                        <div>
-                          <label htmlFor={`preg-edit-tipo-${p.id}`} className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
-                          <select id={`preg-edit-tipo-${p.id}`} value={preguntaEditForm.tipo} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, tipo: e.target.value }))}
-                            className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                            {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                          </select>
-                        </div>
+                        <Select
+                          id={`preg-edit-tipo-${p.id}`}
+                          label="Tipo de pregunta"
+                          value={preguntaEditForm.tipo}
+                          onChange={(v) => setPreguntaEditForm((f) => ({ ...f, tipo: v }))}
+                          options={TIPOS_PREGUNTA}
+                        />
                         <textarea value={preguntaEditForm.enunciado} onChange={(e) => setPreguntaEditForm((f) => ({ ...f, enunciado: e.target.value }))}
                           rows={2} required className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
                         {preguntaEditForm.tipo === 'opcion_multiple' && (
@@ -1097,13 +1098,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <form onSubmit={handleAddPregunta} className="rounded-card shadow-card p-3 space-y-2"
                 style={{ border: '2px solid var(--accent)', background: 'var(--accent-light)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando · Pregunta {preguntas.length + 1}</p>
-                <div>
-                  <label htmlFor="preg-nueva-tipo" className="block text-sm font-medium text-muted mb-1">Tipo de pregunta</label>
-                  <select id="preg-nueva-tipo" value={preguntaForm.tipo} onChange={(e) => setPreguntaForm((f) => ({ ...f, tipo: e.target.value }))}
-                    className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                    {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
+                <Select
+                  id="preg-nueva-tipo"
+                  label="Tipo de pregunta"
+                  value={preguntaForm.tipo}
+                  onChange={(v) => setPreguntaForm((f) => ({ ...f, tipo: v }))}
+                  options={TIPOS_PREGUNTA}
+                />
                 <div>
                   <label htmlFor="preg-nueva-enunciado" className="block text-sm font-medium text-muted mb-1">Enunciado</label>
                   <textarea id="preg-nueva-enunciado" value={preguntaForm.enunciado} onChange={(e) => setPreguntaForm((f) => ({ ...f, enunciado: e.target.value }))}
@@ -1191,18 +1192,20 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       <SearchInput value={bancoSearch} onChange={setBancoSearch} placeholder="Buscar…" />
                     </div>
                     {materias.length > 0 && (
-                      <select value={bancoMateriaFilter} onChange={(e) => setBancoMateriaFilter(e.target.value)}
-                        className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
-                        <option value="">Todas las materias</option>
-                        {materias.map((m) => <option key={m} value={m}>{m}</option>)}
-                      </select>
+                      <Select
+                        value={bancoMateriaFilter}
+                        onChange={setBancoMateriaFilter}
+                        options={[{ value: '', label: 'Todas las materias' }, ...materias.map((m) => ({ value: m, label: m }))]}
+                        wrapperClassName="shrink-0 w-36"
+                      />
                     )}
                     {temas.length > 0 && (
-                      <select value={bancoTemaFilter} onChange={(e) => setBancoTemaFilter(e.target.value)}
-                        className="px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
-                        <option value="">Todos los temas</option>
-                        {temas.map((t) => <option key={t} value={t}>{t}</option>)}
-                      </select>
+                      <Select
+                        value={bancoTemaFilter}
+                        onChange={setBancoTemaFilter}
+                        options={[{ value: '', label: 'Todos los temas' }, ...temas.map((t) => ({ value: t, label: t }))]}
+                        wrapperClassName="shrink-0 w-36"
+                      />
                     )}
                   </div>
                   {/* Barra de selección múltiple — pedido explícito, para
@@ -1239,10 +1242,11 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                           {editingBancoId === item.id ? (
                             <div className="space-y-2">
                               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando este reactivo</p>
-                              <select value={bancoEditForm.tipo} onChange={(e) => setBancoEditForm((f) => ({ ...f, tipo: e.target.value }))}
-                                className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface">
-                                {TIPOS_PREGUNTA.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                              </select>
+                              <Select
+                                value={bancoEditForm.tipo}
+                                onChange={(v) => setBancoEditForm((f) => ({ ...f, tipo: v }))}
+                                options={TIPOS_PREGUNTA}
+                              />
                               <textarea value={bancoEditForm.enunciado} onChange={(e) => setBancoEditForm((f) => ({ ...f, enunciado: e.target.value }))}
                                 rows={2} className="w-full px-2 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                               {bancoEditForm.tipo === 'opcion_multiple' && (
@@ -1322,27 +1326,31 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
         {tab === 'config' && configForm && (
           <form onSubmit={handleSaveConfig} className="bg-surface-card rounded-card shadow-card p-3 space-y-3">
-            <div>
-              <label htmlFor="config-orden" className="block text-sm font-medium text-muted mb-1">Orden de las preguntas</label>
-              <select id="config-orden" value={configForm.ordenPreguntas} onChange={(e) => setConfigForm((f) => ({ ...f, ordenPreguntas: e.target.value }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                <option value="creacion">Orden de creación</option>
-                <option value="aleatorio">Aleatorio</option>
-              </select>
-            </div>
+            <Select
+              id="config-orden"
+              label="Orden de las preguntas"
+              value={configForm.ordenPreguntas}
+              onChange={(v) => setConfigForm((f) => ({ ...f, ordenPreguntas: v }))}
+              options={[
+                { value: 'creacion', label: 'Orden de creación' },
+                { value: 'aleatorio', label: 'Aleatorio' },
+              ]}
+            />
             <label className="flex items-center gap-2 text-sm text-muted">
               <input type="checkbox" checked={!!configForm.barajarRespuestas}
                 onChange={(e) => setConfigForm((f) => ({ ...f, barajarRespuestas: e.target.checked }))} className="accent-[var(--accent)]" />
               Barajar el orden de las opciones dentro de cada pregunta
             </label>
-            <div>
-              <label htmlFor="config-navegacion" className="block text-sm font-medium text-muted mb-1">Navegación</label>
-              <select id="config-navegacion" value={configForm.navegacion} onChange={(e) => setConfigForm((f) => ({ ...f, navegacion: e.target.value }))}
-                className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                <option value="libre">Libre — puede regresar</option>
-                <option value="secuencial">Secuencial — no puede regresar</option>
-              </select>
-            </div>
+            <Select
+              id="config-navegacion"
+              label="Navegación"
+              value={configForm.navegacion}
+              onChange={(v) => setConfigForm((f) => ({ ...f, navegacion: v }))}
+              options={[
+                { value: 'libre', label: 'Libre — puede regresar' },
+                { value: 'secuencial', label: 'Secuencial — no puede regresar' },
+              ]}
+            />
             <div>
               <label htmlFor="config-tiempo" className="block text-sm font-medium text-muted mb-1">Tiempo límite (minutos)</label>
               <input id="config-tiempo" type="number" min="1" value={configForm.tiempoLimiteMin ?? ''}
@@ -1358,16 +1366,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             {/* Multi-attempt policy only matters with more than one attempt — with a
                 single attempt "conservar la mejor/última" is noise (Don't Make Me Think). */}
             {configForm.intentosPermitidos !== 1 && (
-              <div>
-                <label htmlFor="config-conservar" className="block text-sm font-medium text-muted mb-1">Si hay varios intentos, conservar</label>
-                <select id="config-conservar" value={configForm.conservar} onChange={(e) => setConfigForm((f) => ({ ...f, conservar: e.target.value }))}
-                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface">
-                  <option value="primero">El primer intento</option>
-                  <option value="ultimo">El último intento</option>
-                  <option value="mejor">La calificación más alta</option>
-                  <option value="promedio">El promedio de todos los intentos</option>
-                </select>
-              </div>
+              <Select
+                id="config-conservar"
+                label="Si hay varios intentos, conservar"
+                value={configForm.conservar}
+                onChange={(v) => setConfigForm((f) => ({ ...f, conservar: v }))}
+                options={[
+                  { value: 'primero', label: 'El primer intento' },
+                  { value: 'ultimo', label: 'El último intento' },
+                  { value: 'mejor', label: 'La calificación más alta' },
+                  { value: 'promedio', label: 'El promedio de todos los intentos' },
+                ]}
+              />
             )}
             {/* Grade publication and answer publication are independent: a teacher can
                 release the score now and the answers later (or never). */}
