@@ -333,20 +333,20 @@ export default function TeacherDashboard() {
     <>
       <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
 
-        {/* Greeting — "Bienvenido {nombre}" en un solo renglón cuando cabe (con
+        {/* Greeting — "Hola {nombre}" en un solo renglón cuando cabe (con
             la foto a la derecha del nombre si el docente dejó activado "Los
             estudiantes pueden ver mi foto de perfil" en su Perfil) — pedido
             explícito: así el docente ve tal cual lo que verían sus alumnos.
             "{prefijo} {nombre visible}" es el mismo que ven los alumnos
             (teacherDisplayName, misma fuente de verdad que en sus pantallas).
             El nombre va en un inline-block y SIN truncate: si no cabe junto a
-            "Bienvenido", baja entero al siguiente renglón en vez de cortarse a
+            "Hola", baja entero al siguiente renglón en vez de cortarse a
             media palabra. Un nombre largo nunca se recorta — que se lea
             completo importa más que dejarlo en una sola línea. */}
         <div className="mb-4">
           <div className="flex items-center gap-2 min-w-0">
             <h1 className="text-lg font-bold text-on-surface min-w-0">
-              Bienvenido <span className="inline-block">{teacherGreetingName}</span>
+              Hola <span className="inline-block">{teacherGreetingName}</span>
             </h1>
             {/* Pedido explícito: en la App se puede tocar la foto para
                 cambiarla al vuelo, sin entrar al perfil — por eso ahí se
