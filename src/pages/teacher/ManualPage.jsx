@@ -619,7 +619,7 @@ const SECTIONS = [
         subtitle: 'Tu suscripción',
         items: [
           'El contador de días de prueba vive en el menú lateral y te lleva a tu Perfil, que es donde activas.',
-          'Puedes pagar con Mercado Pago o con PayPal.',
+          'Pagas por transferencia bancaria: registras el folio y el administrador lo aprueba en menos de 12 horas. Si pagas varios meses de una vez, tienes descuento.',
           'Al vencer sigues pudiendo consultar y descargar todo lo tuyo. Lo que se pausa es capturar información nueva.',
         ],
       },
