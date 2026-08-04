@@ -242,12 +242,26 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                     : authorizeMpSubscription(cardFormData)
                 accion
                   .then((data) => {
+                    // Antes esta rama daba por buena CUALQUIER respuesta que
+                    // no fuera 'rejected' para el plan mensual — incluida una
+                    // domiciliación que Mercado Pago dejó en 'pending' sin
+                    // autorizarla de verdad. Un docente vio "¡Suscripción
+                    // activada!" con la tarjeta apenas verificada (un cargo
+                    // chico de validación, no el cobro real), la suscripción
+                    // nunca pasó a 'activa' y nadie se enteró. Ahora se exige
+                    // el status exacto que cada modo necesita para ser un
+                    // éxito real.
                     if (data.status === 'rejected') {
                       toast('Tu tarjeta fue rechazada' + (data.detail ? `: ${data.detail}` : ''), 'error')
                     } else if (selectedPlanId === ANNUAL_PLAN_ID && data.status !== 'approved') {
                       toast('Tu pago está en revisión. Se activará solo en cuanto se confirme.')
                       onSuccess?.()
                       onClose()
+                    } else if (selectedPlanId !== ANNUAL_PLAN_ID && data.status !== 'authorized') {
+                      toast(
+                        'No se pudo autorizar el pago automático con esa tarjeta. No se te cobró la suscripción — intenta con otra tarjeta.',
+                        'error'
+                      )
                     } else {
                       toast(
                         selectedPlanId === ANNUAL_PLAN_ID
