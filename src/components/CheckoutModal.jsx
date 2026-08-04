@@ -274,7 +274,16 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                     resolve()
                   })
                   .catch((err) => {
-                    toast('Error: ' + err.message, 'error')
+                    // Para el mensual, este catch normalmente es justo el
+                    // cargo de $10 de verificación (ver arriba) que el banco
+                    // rechazó — no un error técnico. Se explica en vez de
+                    // mostrar el mensaje crudo del servidor, pedido explícito.
+                    toast(
+                      selectedPlanId === ANNUAL_PLAN_ID
+                        ? 'Error: ' + err.message
+                        : 'Tu banco rechazó el cargo de $10 con el que Mercado Pago valida tarjetas nuevas para este negocio — no se activó el pago automático. Intenta de nuevo en unos minutos o con otra tarjeta.',
+                      'error'
+                    )
                     reject(err)
                   })
                   .finally(() => setSubmitting(false))
