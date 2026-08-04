@@ -3774,11 +3774,6 @@ export default function SubjectPage() {
   // sola forma de entrar, la misma en web y en app.
   const subjectHeaderLeftIcons = (
     <>
-      {/* Etiqueta explicando qué es el código — solo en la web, pedido
-          explícito de no tocar cómo se ve en la App. */}
-      {!IS_NATIVE_APP && (
-        <span className="text-sm font-medium text-muted flex-shrink-0">Código de acceso a este curso para estudiantes:</span>
-      )}
       <button type="button" onClick={copyAccessCode}
         data-tooltip={IS_NATIVE_APP ? 'Copiar código de acceso para estudiantes' : 'Copiar'}
         className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
@@ -3786,6 +3781,14 @@ export default function SubjectPage() {
           ? <><CheckIcon size={22} className="animate-bounce flex-shrink-0" /><span>Copiado</span></>
           : <span>{subject?.accessCode}</span>}
       </button>
+      {/* Etiqueta explicando qué es el código — solo en la web, pedido
+          explícito de no tocar cómo se ve en la App. Va DESPUÉS del código
+          (pedido explícito): el código es lo prominente, la etiqueta es su
+          leyenda — de ahí que ya no lleve ":" al final, que apuntaba hacia
+          algo que venía después y ahora viene antes. */}
+      {!IS_NATIVE_APP && (
+        <span className="text-sm font-medium text-muted flex-shrink-0">Código de acceso a este curso para estudiantes</span>
+      )}
     </>
   )
   // Los cuatro (editar, duplicar, archivar, eliminar) van igual en web y en
@@ -3802,25 +3805,25 @@ export default function SubjectPage() {
           el grupo simplemente queda alineado a la derecha del renglón nuevo. */}
       <button type="button" onClick={openEditSubject}
         aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-        data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
+        data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)" data-tooltip-pos="left"
         className="p-2 ml-auto text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
         <Pencil size={21} />
       </button>
       <button type="button" onClick={openCopyModal}
         aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
-        data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)"
+        data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)" data-tooltip-pos="left"
         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
         <Copy size={21} />
       </button>
       <button type="button" onClick={handleToggleArchive} disabled={archiving}
         aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
-        data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
+        data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'} data-tooltip-pos="left"
         className="p-2 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
         {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
       </button>
       <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
         aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
-        data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)"
+        data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)" data-tooltip-pos="left"
         className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
         <Trash2 size={21} />
       </button>
