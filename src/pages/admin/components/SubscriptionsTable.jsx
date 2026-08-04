@@ -19,7 +19,7 @@ import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
-import { situacionDe, SITUACIONES, MOTIVOS_CANCELACION } from '../../../utils/situacionSuscripcion'
+import { planDe, PLANES, CLAVES_CANCELADA } from '../../../utils/situacionSuscripcion'
 import {
   calcDaysRemaining,
   calcTrialEnd,
@@ -68,7 +68,7 @@ const COLS = [
     label: 'Estado',
     filtro: 'texto',
     w: 150,
-    ayuda: 'Entidad del docente (no la situación de la suscripción, que es la columna Situación). Si el docente no capturó su código postal, se toma la de su escuela.',
+    ayuda: 'Entidad del docente (no la situación de la suscripción, que es la columna Plan). Si el docente no capturó su código postal, se toma la de su escuela.',
   },
   {
     key: 'ciudad',
@@ -87,13 +87,14 @@ const COLS = [
   },
   {
     // Antes se llamaba "Estado", que ahora es la entidad federativa del
-    // docente. Esta columna es el estatus de la suscripción, de ahí el
-    // cambio a "Situación": dos columnas "Estado" no se podían distinguir.
+    // docente (columna Estado más abajo). Esta es la columna del plan de la
+    // suscripción, de ahí "Plan": dos columnas "Estado" no se podían
+    // distinguir.
     key: 'situacion',
-    label: 'Situación (Plan)',
+    label: 'Plan',
     filtro: 'lista',
     w: 155,
-    ayuda: 'CÓMO está hoy esa suscripción: en prueba, con pago automático (domiciliada), con mes pagado, en cortesía, o cancelada. Un pago en revisión se ve en Pagos → Verificación, no aquí.',
+    ayuda: 'CÓMO está hoy esa suscripción: en prueba, con un plan de pago vigente (1 a 6 meses), en cortesía, o cancelada (por fin de prueba, por el usuario, o por fin de pago). Un pago en revisión se ve en Pagos → Verificación, no aquí.',
   },
   {
     key: 'vencimiento',
@@ -353,9 +354,8 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         : sub.planId === PLAN_CORTESIA
           ? `Cortesía${sub.cortesiaIndefinida ? ' (sin vencimiento)' : sub.cortesiaDias ? ` (${sub.cortesiaDias} días)` : ''}`
           : (plan?.nombre || (sub.status === 'trial' ? 'Prueba' : '—'))
-      const situacion = situacionDe(sub)
+      const situacion = planDe(sub)
       const situacionLabel = situacion.etiqueta
-      const motivoTexto = situacion.motivo ? MOTIVOS_CANCELACION[situacion.motivo] : ''
       const altaTexto = sub ? formatDate(altaValor) : '—'
       const vencTexto = sub ? formatDate(vencValor) : '—'
       return {
@@ -377,7 +377,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         // arriba, que busca por cualquier motivo (ciudad, escuela, nombre…).
         buscarTodo: normalizeName(
           [docente, usuario, correo, codigoPostal, estadoUbicacion, ciudad, escuela,
-            altaTexto, planNombre, situacionLabel, motivoTexto, vencTexto, ultimoPago].join(' ')
+            altaTexto, planNombre, situacionLabel, vencTexto, ultimoPago].join(' ')
         ),
         alta: altaTexto,
         altaISO: alta ? isoLocal(alta) : '',
@@ -426,10 +426,10 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       })
       res[campo] = campo === 'situacion'
         // Catálogo completo y en su orden natural (de prueba a baja), no solo
-        // las situaciones que hoy existen en los datos — así se puede filtrar
-        // por "Pago automático" aunque hoy nadie esté domiciliado, en vez de
-        // que la opción simplemente no aparezca.
-        ? SITUACIONES
+        // los planes que hoy existen en los datos — así se puede filtrar por
+        // "6 meses" aunque hoy nadie tenga ese plan, en vez de que la opción
+        // simplemente no aparezca.
+        ? PLANES
         : [...set].filter((v) => v && v !== '—').sort((a, b) => a.localeCompare(b, 'es'))
     })
     return res
@@ -626,7 +626,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             )}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            Una suscripción por docente. <strong>Situación</strong> es cómo está hoy.
+            Una suscripción por docente. <strong>Plan</strong> es cómo está hoy.
           </p>
         </div>
 
@@ -744,11 +744,6 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                   <td className="px-3 py-2 text-muted truncate">{r.alta}</td>
                   <td className="px-3 py-2">
                     <StatusBadge situacion={r.situacion} />
-                    {r.situacion.motivo && (
-                      <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                        {MOTIVOS_CANCELACION[r.situacion.motivo]}
-                      </p>
-                    )}
                   </td>
                   <td className="px-3 py-2 text-muted truncate">{r.vencimiento}</td>
                   {/* Los días ya vencidos van en rojo: es lo que se busca al
@@ -773,7 +768,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       >
                         <Pencil size={16} />
                       </button>
-                      {r.situacion.clave !== 'cancelada' && (
+                      {!CLAVES_CANCELADA.includes(r.situacion.clave) && (
                         <button
                           type="button"
                           onClick={() => handleCancel(r.sub)}
@@ -876,7 +871,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Qué se le otorga</p>
                 <div>
                   <label htmlFor="sub-plan" className="block text-xs font-medium text-muted mb-1">
-                    Situación a asignar
+                    Plan a asignar
                   </label>
                   <select
                     id="sub-plan"
@@ -1021,19 +1016,20 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                 </div>
               </div>
 
-              {/* Situación: se MUESTRA, no se elige. Antes era una lista libre y
+              {/* Plan: se MUESTRA, no se elige. Antes era una lista libre y
                   permitía dejar contradicciones (marcar "Activa" algo ya vencido,
                   o "Prueba" a quien tiene plan). */}
               <div className="border-t border-outline-variant pt-3 space-y-2">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Situación</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-accent">Plan</p>
                 <div className="flex items-center gap-2">
-                  <StatusBadge situacion={situacionDe(previsualizarSuscripcion(modal))} />
-                  <span className="text-xs text-slate-400">se calcula sola</span>
+                  <StatusBadge situacion={planDe(previsualizarSuscripcion(modal))} />
+                  <span className="text-xs text-slate-400">se calcula solo</span>
                 </div>
                 <p className="text-xs text-slate-400 leading-snug">
-                  Depende del docente y del calendario: Prueba al registrarse; Pago
-                  automático o Mes pagado al tener un plan pagado (según si es domiciliada
-                  con Mercado Pago); Cortesía si se la das; Cancelada al vencer o al cancelarla.
+                  Depende del docente y del calendario: Prueba al registrarse; el número
+                  de meses pagados al tener un plan de pago vigente; Cortesía si se la das;
+                  Cancelada (por fin de prueba, por el usuario, o por fin de pago) al
+                  vencer o al cancelarla.
                 </p>
                 <label className="flex items-start gap-2 text-sm text-on-surface cursor-pointer">
                   <input
