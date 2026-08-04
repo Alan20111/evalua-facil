@@ -987,12 +987,12 @@ export default function StudentSubjectPage() {
                           avisosMostrados), el marcador siempre es
                           "Guardar". */}
                       {guardado ? (
-                        <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos"
+                        <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Regresar a Todos" data-tooltip="Regresar a Todos" data-tooltip-pos="bottom"
                           className="p-2 -m-1 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
                           <RotateCcw size={18} />
                         </button>
                       ) : (
-                        <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Guardar" data-tooltip="Guardar"
+                        <button type="button" onClick={() => toggleAvisoGuardado(a)} aria-label="Guardar" data-tooltip="Guardar" data-tooltip-pos="bottom"
                           className="p-2 -m-1 rounded transition-colors flex-shrink-0 text-slate-400 hover:text-accent hover:bg-[var(--accent-medium)]">
                           <Bookmark size={18} />
                         </button>
