@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from '../../firebase'
@@ -427,6 +427,10 @@ export default function StudentLogin() {
 
             <p className="text-center text-sm text-slate-500 mt-5 px-2">
               Tu maestro te otorgará tus datos de acceso.
+            </p>
+            <p className="text-center text-sm text-muted mt-2 px-2">
+              ¿Eres Docente?{' '}
+              <Link to="/docente" className="text-accent font-semibold hover:underline">Entra aquí</Link>
             </p>
           </>
         )}
