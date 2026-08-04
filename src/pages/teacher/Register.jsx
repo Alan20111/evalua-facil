@@ -183,7 +183,8 @@ export default function Register() {
                   <div className="w-32 sm:w-36 flex-shrink-0">
                     <Select
                       id="register-prefijo"
-                      label="Prefijo (opcional)"
+                      label="Prefijo"
+                      hint="(opcional)"
                       value={prefijoOption}
                       onChange={setPrefijoOption}
                       options={[
