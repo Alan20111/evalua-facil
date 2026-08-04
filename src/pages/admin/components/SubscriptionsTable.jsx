@@ -5,6 +5,9 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  getDocs,
+  query,
+  where,
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore'
@@ -302,6 +305,19 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
   const teachersMap = useMemo(() => Object.fromEntries(teachers.map((t) => [t.id, t])), [teachers])
   const plansMap = useMemo(() => Object.fromEntries(plans.map((p) => [p.id, p])), [plans])
 
+  // Quién ya tiene una suscripción (de cualquier status, hasta cancelada):
+  // "Nueva" es solo para el caso raro de alguien sin ninguna — a quien ya
+  // tiene se le EDITA la suya. Sin esto, elegir aquí a alguien con
+  // suscripción le duplicaba el registro (caso real, 2026-08-04).
+  const docentesConSuscripcion = useMemo(
+    () => new Set((stats?.subscriptions || []).map((s) => s.docenteId)),
+    [stats?.subscriptions]
+  )
+  const teachersSinSuscripcion = useMemo(
+    () => teachers.filter((t) => !docentesConSuscripcion.has(t.id)),
+    [teachers, docentesConSuscripcion]
+  )
+
   // Cada suscripción se "aplana" una sola vez a las columnas visibles: así el
   // filtro trabaja sobre texto ya resuelto en vez de volver a cruzar docente,
   // escuela y ubicación en cada tecla.
@@ -453,7 +469,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     setModal({
       mode: 'create',
       form: {
-        docenteId: teachers[0]?.id || '',
+        docenteId: teachersSinSuscripcion[0]?.id || '',
         // Prueba por default: un docente normal ya tiene su propia
         // suscripción de prueba creada sola al registrarse — "Nueva" aquí es
         // para el caso raro de alguien sin ninguna (fila "Sin suscripción"),
@@ -568,6 +584,16 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       }
 
       if (modal.mode === 'create') {
+        // Revalida contra Firestore (no contra `stats`, que puede llevar un
+        // rato sin refrescar) justo antes de crear: si en ese momento ya
+        // existe una suscripción para este docente, no se duplica.
+        const yaExiste = await getDocs(
+          query(collection(db, 'subscriptions'), where('docenteId', '==', modal.form.docenteId))
+        )
+        if (!yaExiste.empty) {
+          toast('Este docente ya tiene una suscripción — edítala con el lápiz de su fila', 'error')
+          return
+        }
         await addDoc(collection(db, 'subscriptions'), { ...data, createdAt: serverTimestamp() })
         toast('Suscripción creada')
       } else {
@@ -648,7 +674,13 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover"
+              disabled={teachersSinSuscripcion.length === 0}
+              title={
+                teachersSinSuscripcion.length === 0
+                  ? 'Todos los docentes ya tienen una suscripción — usa el lápiz de su fila para editarla'
+                  : undefined
+              }
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus size={16} /> Nueva
             </button>
@@ -858,7 +890,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                     required
                     className={inputCls}
                   >
-                    {teachers.map((t) => (
+                    {teachersSinSuscripcion.map((t) => (
                       <option key={t.id} value={t.id}>
                         {etiquetaDocente(t)}
                       </option>
