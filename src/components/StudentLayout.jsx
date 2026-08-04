@@ -152,7 +152,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           className="hidden md:flex flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20"
         >
           {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
-          <div className="px-3 pt-3 pb-2">
+          <div className="px-3 pt-2 pb-1">
             <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
               <EFLogo className="w-full h-auto" />
             </div>
@@ -171,11 +171,13 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           </div>
 
           {/* Identidad → clic = Mi perfil (la foto se cambia DENTRO del perfil —
-              una sola casa por función, Don't Make Me Think). */}
+              una sola casa por función, Don't Make Me Think). Pegado al logo
+              (sin mt-1), mismo criterio que el panel del docente (Layout.jsx),
+              para que el nombre y la foto suban y aprovechen mejor el espacio. */}
           <button
             type="button"
             onClick={() => navigate('/alumno/perfil')}
-            className="flex items-center gap-3 px-3 py-2 mx-2 mt-1 rounded text-left hover:bg-white/10 transition-colors focus:outline-none"
+            className="flex items-center gap-3 px-3 py-2 mx-2 rounded text-left hover:bg-white/10 transition-colors focus:outline-none"
             data-tooltip="Mi perfil"
           >
             {/* 65px pedido explícito. */}

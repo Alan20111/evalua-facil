@@ -158,7 +158,7 @@ export default function TeacherLayout({ children }) {
         {/* Sidebar — desktop only (solid accent plane) */}
         <aside className="hidden md:flex flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20">
           {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
-          <div className="px-3 pt-3 pb-2">
+          <div className="px-3 pt-2 pb-1">
             <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
               <EFLogo className="w-full h-auto" />
             </div>
@@ -174,10 +174,12 @@ export default function TeacherLayout({ children }) {
             </div>
           </div>
 
-          {/* Profile button */}
+          {/* Profile button — pegado al logo (sin mt-1) para que el nombre y
+              la foto suban y no dejen un hueco vacío arriba, pedido explícito
+              para aprovechar mejor el espacio del panel. */}
           <NavLink
             to="/profile"
-            className="flex items-center gap-3 px-3 py-2 mx-2 mt-1 rounded hover:bg-white/10 transition-colors group"
+            className="flex items-center gap-3 px-3 py-2 mx-2 rounded hover:bg-white/10 transition-colors group"
           >
             {/* 65px pedido explícito. */}
             <div className="w-[65px] h-[65px] rounded-full bg-white overflow-hidden flex items-center justify-center flex-shrink-0">
