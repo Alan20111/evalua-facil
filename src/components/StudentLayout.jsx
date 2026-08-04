@@ -156,17 +156,18 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             <div className="bg-white rounded-card px-3 py-2.5 shadow-card">
               <EFLogo className="w-full h-auto" />
             </div>
-            {/* Solo en la web — en la app la versión vive en Perfil, debajo del aviso de privacidad. */}
-            {!IS_NATIVE_APP && (
-              <p className="text-metadata text-white/50 pl-1 pt-1">v.1.0.1</p>
-            )}
-          </div>
-          {/* Etiqueta de rol alineada a la derecha de su renglón. data-role="alumno"
-              reafirma el naranja del alumno solo para esta insignia — el resto
-              del sidebar se queda en el azul institucional forzado arriba. */}
-          <div className="px-4 pt-2.5 pb-0.5 flex justify-end" data-role="alumno">
-            {/* eslint-disable-next-line jsx-a11y/aria-role -- role aquí es la prop propia de PortalBadge, no un atributo ARIA */}
-            <PortalBadge role="alumno" />
+            {/* Versión y etiqueta de rol comparten renglón: versión a la izquierda,
+                rol a la derecha. La versión es solo de la web — en la app vive en
+                Perfil, debajo del aviso de privacidad, y la etiqueta se queda sola.
+                data-role="alumno" reafirma el naranja del alumno solo para esta
+                insignia — el resto del sidebar se queda en el azul institucional. */}
+            <div className="flex items-center gap-2 pt-1" data-role="alumno">
+              {!IS_NATIVE_APP && (
+                <p className="text-metadata text-white/50 pl-1">v.1.0.1</p>
+              )}
+              {/* eslint-disable-next-line jsx-a11y/aria-role -- role aquí es la prop propia de PortalBadge, no un atributo ARIA */}
+              <PortalBadge role="alumno" className="ml-auto" />
+            </div>
           </div>
 
           {/* Identidad → clic = Mi perfil (la foto se cambia DENTRO del perfil —
