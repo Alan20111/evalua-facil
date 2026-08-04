@@ -13,6 +13,7 @@ import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
 import { PREFIJOS } from '../../utils/prefijos'
+import Select from '../../components/ui/Select'
 import ConfirmModal from '../../components/ConfirmModal'
 import { apiUrl } from '../../utils/apiBase'
 
@@ -198,22 +199,17 @@ export default function Onboarding() {
               <label className="block text-sm font-medium text-muted mb-1">¿Cómo quieres que te vean tus estudiantes?</label>
               <div className="flex gap-2 items-start">
                 <div className="w-32 sm:w-36 flex-shrink-0">
-                  <label htmlFor="onboarding-prefijo" className="block text-xs font-medium text-muted mb-1">
-                    Prefijo <span className="text-slate-400 font-normal hidden sm:inline">(opcional)</span>
-                  </label>
-                  <select
+                  <Select
                     id="onboarding-prefijo"
+                    label="Prefijo (opcional)"
                     value={prefijoOption}
-                    onChange={(e) => setPrefijoOption(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                  >
-                    <option value="">Sin prefijo</option>
-                    {PREFIJOS.map((p) => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                    <option value="__otro__">Otro… (escríbelo)</option>
-                  </select>
-                  <p className="text-xs text-slate-400 mt-1 sm:hidden">(opcional)</p>
+                    onChange={setPrefijoOption}
+                    options={[
+                      { value: '', label: 'Sin prefijo' },
+                      ...PREFIJOS.map((p) => ({ value: p, label: p })),
+                      { value: '__otro__', label: 'Otro… (escríbelo)' },
+                    ]}
+                  />
                   {prefijoOption === '__otro__' && (
                     <input
                       type="text"
