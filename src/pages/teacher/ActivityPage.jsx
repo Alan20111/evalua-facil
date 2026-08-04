@@ -1963,10 +1963,11 @@ export default function ActivityPage() {
                 )}
 
                 {/* Rúbrica — se abre hacia ARRIBA del botón (ver ventana flotante más abajo).
-                    Sin rúbrica se reserva el mismo espacio (invisible) para
-                    que la calificación no cambie de posición según la
-                    actividad tenga o no rúbrica. */}
-                {hasRubrica ? (() => {
+                    Sin rúbrica, pedido explícito: ya NO se reserva este
+                    espacio (antes quedaba invisible para que la calificación
+                    no cambiara de posición) — se omite del todo para que la
+                    entrega (arriba, flex-1) gane ese alto. */}
+                {hasRubrica && (() => {
                   const totalR = totalRubrica(activity.rubrica, rubricEval)
                   const faltan = activity.rubrica.criterios.filter((_, i) => rubricEval?.[i] == null).length
                   return (
@@ -1991,12 +1992,7 @@ export default function ActivityPage() {
                       </span>
                     </button>
                   )
-                })() : (
-                  <div aria-hidden="true" className="invisible w-full py-2.5 border border-transparent text-sm font-semibold rounded flex items-center justify-center gap-2">
-                    <ClipboardList size={17} />
-                    Ver rúbrica
-                  </div>
-                )}
+                })()}
 
                 {/* Calificación grande — sin la etiqueta de arriba (le cede
                     ese espacio a la entrega). Vacía ("—") mientras no hay
