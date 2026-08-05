@@ -18,6 +18,31 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'docente';
     }
 
+    // ── Candado de suscripción ──────────────────────────────────────────────
+    // Un docente sin suscripción vigente puede LEER y exportar todo lo suyo,
+    // pero no escribir. Hasta ahora ese candado vivía solo en el navegador
+    // (src/utils/firestoreGuard.js): bastaban las herramientas de desarrollador
+    // para seguir trabajando sin pagar. Aquí lo decide el servidor.
+    //
+    // `users/{uid}.suscripcionHasta` es un Timestamp que espeja la Cloud
+    // Function onSuscripcionEscrita cada vez que cambia la suscripción. Se
+    // compara contra request.time, así que el vencimiento ocurre solo con el
+    // paso del tiempo: nada tiene que correr ese día.
+    //
+    // Campo AUSENTE = se deja pasar. Es una cuenta que todavía no pasó por el
+    // respaldo inicial (seeds-db/backfill-suscripcion.js), y un dato faltante
+    // nunca debe dejar a un docente fuera de su propio trabajo — mismo criterio
+    // que isSubscriptionExpired en el cliente.
+    function suscripcionHasta() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('suscripcionHasta', null);
+    }
+
+    // Docente que además puede TRABAJAR: crear, editar, calificar, pasar lista,
+    // publicar. Leer y exportar nunca pasan por aquí.
+    function docenteActivo() {
+      return isDocente() && (suscripcionHasta() == null || request.time < suscripcionHasta());
+    }
+
     // ── Ownership helpers (cross-document) ──────────────────────────────────
     // Students have NO docenteId of their own; ownership is indirect via the
     // subject the enrollment belongs to. Guard every get() with exists() so a
@@ -79,8 +104,15 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth.uid == userId &&
         request.resource.data.role == 'docente';
+      // `suscripcionHasta` (el candado de escritura, ver docenteActivo) queda
+      // congelado en las ediciones del propio docente: solo lo escribe la Cloud
+      // Function con el Admin SDK, que no pasa por estas reglas. Sin esto, el
+      // candado se abriría desde la consola del navegador con un updateDoc al
+      // propio perfil.
       allow update: if isAdmin() ||
-        (request.auth.uid == userId && request.resource.data.role == resource.data.role);
+        (request.auth.uid == userId &&
+         request.resource.data.role == resource.data.role &&
+         request.resource.data.get('suscripcionHasta', null) == resource.data.get('suscripcionHasta', null));
       allow delete: if isAdmin();
     }
 
@@ -91,8 +123,8 @@ service cloud.firestore {
 
       // Only the owning teacher (docente of the target subject) creates/deletes
       // enrollments. Students never create or delete their own record.
-      allow create: if isDocente() && ownsSubject(request.resource.data.asignaturaId);
-      allow delete: if isDocente() && ownsSubject(resource.data.asignaturaId);
+      allow create: if docenteActivo() && ownsSubject(request.resource.data.asignaturaId);
+      allow delete: if docenteActivo() && ownsSubject(resource.data.asignaturaId);
 
       // Two legitimate updaters:
       //  (a) the owning teacher — may edit any field of their students.
@@ -102,7 +134,7 @@ service cloud.firestore {
       //      so a student can't move or rename an enrollment, and can't hijack a
       //      record already claimed by a different uid.
       allow update: if
-        (isDocente() && ownsSubject(resource.data.asignaturaId)) ||
+        (docenteActivo() && ownsSubject(resource.data.asignaturaId)) ||
         (
           request.auth != null &&
           request.resource.data.uid == request.auth.uid &&
@@ -116,19 +148,19 @@ service cloud.firestore {
     match /subjects/{subjectId} {
       allow read: if true;
       // Only teachers create subjects, always attributed to themselves.
-      allow create: if isDocente() &&
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
-      allow update, delete: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
 
     match /activities/{activityId} {
       allow read: if request.auth != null;
       // Create only within a subject you own, attributed to yourself.
-      allow create: if isDocente() &&
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
 
       // Evaluación questions — only the owning teacher (looked up on the
@@ -137,7 +169,7 @@ service cloud.firestore {
       // while an attempt is in progress (rules can't filter fields).
       match /preguntas/{preguntaId} {
         allow read: if request.auth != null;
-        allow write: if request.auth != null &&
+        allow write: if docenteActivo() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
       }
     }
@@ -151,10 +183,10 @@ service cloud.firestore {
       // podía listar los pases de lista de toda la plataforma. El alumno ve su
       // propio resumen vía attendanceSummaries (ver más abajo).
       allow read: if isDocente() || isAdmin();
-      allow create: if isDocente() &&
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -170,18 +202,22 @@ service cloud.firestore {
 
     // Personal question bank (Evaluaciones) — strictly owner-only.
     match /bancoReactivos/{reactivoId} {
-      allow read, update, delete: if request.auth != null &&
+      allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
     // Personal rubric bank (Entregables) — strictly owner-only. Students never
     // read this collection: the activity stores its own COPY of the rubric.
     match /bancoRubricas/{rubricaId} {
-      allow read, update, delete: if request.auth != null &&
+      allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -192,9 +228,9 @@ service cloud.firestore {
     match /resources/{resourceId} {
       allow read: if request.auth != null;
       // Only teachers create resources, always attributed to themselves.
-      allow create: if isDocente() &&
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
-      allow update, delete: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -205,10 +241,10 @@ service cloud.firestore {
     // docente dueño de la asignatura crea/edita/borra los suyos.
     match /avisos/{avisoId} {
       allow read: if request.auth != null;
-      allow create: if isDocente() &&
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -257,9 +293,11 @@ service cloud.firestore {
     // ya publicado (ese guarda su propio emoji/título, ver avisoEmoji()),
     // así que a diferencia de `avisos` esto NO es de lectura pública.
     match /avisoPlantillas/{plantillaId} {
-      allow read, update, delete: if request.auth != null &&
+      allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if isDocente() &&
+      allow update, delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -270,9 +308,9 @@ service cloud.firestore {
     match /materials/{materialId} {
       allow read: if request.auth != null;
       // Only teachers create materials, always attributed to themselves.
-      allow create: if isDocente() &&
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
-      allow update, delete: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -303,16 +341,16 @@ service cloud.firestore {
           request.resource.data.get('calificacion', null) == null &&
           request.resource.data.get('estado', '') != 'calificado'
         ) ||
-        ownsActivity(request.resource.data.actividadId)
+        (docenteActivo() && ownsActivity(request.resource.data.actividadId))
       );
       allow update: if request.auth != null && (
         (ownsStudentDoc(resource.data.alumnoId) && studentNoTocaCalificacion()) ||
-        ownsActivity(resource.data.actividadId)
+        (docenteActivo() && ownsActivity(resource.data.actividadId))
       );
       // Borrar una submission borra su nota — eso es manipulación de
       // calificaciones si lo hace el alumno (ningún flujo del alumno borra
       // submissions). Solo el docente dueño de la actividad.
-      allow delete: if request.auth != null &&
+      allow delete: if docenteActivo() &&
         ownsActivity(resource.data.actividadId);
 
       // Evaluación answers (autosave + teacher revision). Only the student who
@@ -337,6 +375,7 @@ service cloud.firestore {
         );
         allow write: if request.auth != null && (
           (
+            docenteActivo() &&
             exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
             ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId)
           ) || (
@@ -397,9 +436,11 @@ service cloud.firestore {
     // Personal calendar events created by the teacher — 100% privados, nunca
     // visibles a alumnos.
     match /events/{eventId} {
-      allow read, update, delete: if request.auth != null &&
+      allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -417,10 +458,10 @@ service cloud.firestore {
     // información sensible, el alumno filtra del lado cliente sus materias.
     match /academicEvents/{eventId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null &&
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId);
-      allow update, delete: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
 
@@ -435,9 +476,11 @@ service cloud.firestore {
 
     // Teacher's class schedule blocks (Mi Horario — legacy recurring blocks).
     match /horario/{bloqueId} {
-      allow read, update, delete: if request.auth != null &&
+      allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -450,18 +493,20 @@ service cloud.firestore {
     // del lado cliente solo lo de sus materias inscritas.
     match /horarioBloques/{bloqueId} {
       allow read: if request.auth != null;
-      allow update, delete: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if request.auth != null &&
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
     // Días de asueto del docente. Cada doc marca una fecha en la que no se
     // permiten (según su alcance) clases, eventos y/o actividades.
     match /asuetos/{asuetoId} {
-      allow read, update, delete: if request.auth != null &&
+      allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 
@@ -469,9 +514,11 @@ service cloud.firestore {
     // en el que no se permiten (según su alcance) clases, eventos y/o
     // actividades — misma estructura que asuetos, pero para un rango de días.
     match /vacaciones/{vacacionId} {
-      allow read, update, delete: if request.auth != null &&
+      allow read: if request.auth != null &&
         request.auth.uid == resource.data.docenteId;
-      allow create: if request.auth != null &&
+      allow update, delete: if docenteActivo() &&
+        request.auth.uid == resource.data.docenteId;
+      allow create: if docenteActivo() &&
         request.auth.uid == request.resource.data.docenteId;
     }
 

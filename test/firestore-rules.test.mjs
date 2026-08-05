@@ -13,7 +13,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
 
@@ -121,8 +121,15 @@ ok('foreign teacher CANNOT grade a submission')
 await assertFails(deleteDoc(doc(asMallory, 'submissions', 'SUB1')))
 ok('attacker CANNOT delete another student’s submission')
 
-await assertSucceeds(deleteDoc(doc(asJuan, 'submissions', 'SUB1')))
-ok('student deletes their OWN submission (delete-rule bug fixed)')
+// Esta prueba esperaba lo contrario y llevaba tiempo fallando: la regla se
+// endureció a propósito (borrar una entrega borra su calificación, y eso es
+// manipulación de notas si lo hace el alumno), pero la prueba se quedó con el
+// comportamiento viejo. Manda la regla, ver el comentario en firestore.rules.
+await assertFails(deleteDoc(doc(asJuan, 'submissions', 'SUB1')))
+ok('student CANNOT delete their own submission (it would erase the grade)')
+
+await assertSucceeds(deleteDoc(doc(asT1, 'submissions', 'SUB1')))
+ok('owning teacher deletes a submission')
 
 // ── respuestas subcollection ─────────────────────────────────────────────────
 await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_JUAN', 'respuestas', 'Q1'), { valor: 'a' }))
@@ -133,6 +140,101 @@ ok('attacker CANNOT write answers to another student’s attempt')
 
 await assertSucceeds(setDoc(doc(asT1, 'submissions', 'SUB_JUAN', 'respuestas', 'Q1'), { puntosObtenidos: 5 }))
 ok('owning teacher writes revision points on an answer')
+
+// ── Candado de suscripción ───────────────────────────────────────────────────
+// Un docente sin suscripción vigente puede leer y exportar lo suyo, pero no
+// escribir. La fecha vive en users/{uid}.suscripcionHasta, la espeja la Cloud
+// Function onSuscripcionEscrita y la compara docenteActivo() en las reglas.
+const T_VENCIDO = 'teacher_vencido'
+const T_SIN_CAMPO = 'teacher_sin_campo'
+const AYER = new Date(Date.now() - 86400000)
+const EN_UN_MES = new Date(Date.now() + 30 * 86400000)
+
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'users', T_VENCIDO), { role: 'docente', escuelaId: 'E3', suscripcionHasta: AYER })
+  // Cuenta que todavía no pasó por seeds-db/backfill-suscripcion.js.
+  await setDoc(doc(db, 'users', T_SIN_CAMPO), { role: 'docente', escuelaId: 'E4' })
+  // T1 sí está al corriente — las pruebas de arriba corrieron sin el campo
+  // (ausente = se deja pasar), aquí se le pone explícito.
+  await setDoc(doc(db, 'users', T1), { role: 'docente', escuelaId: 'E1', suscripcionHasta: EN_UN_MES }, { merge: true })
+  await setDoc(doc(db, 'subjects', 'S_VENC'), { docenteId: T_VENCIDO, escuelaId: 'E3', accessCode: 'ven' })
+  await setDoc(doc(db, 'activities', 'A_VENC'), { docenteId: T_VENCIDO, asignaturaId: 'S_VENC', tipo: 'archivo' })
+  await setDoc(doc(db, 'submissions', 'SUB_VENC'), { alumnoId: 'ST_JUAN', actividadId: 'A_VENC' })
+  await setDoc(doc(db, 'subscriptions', 'SUB_DEL_VENCIDO'), { docenteId: T_VENCIDO, status: 'vencida' })
+  await setDoc(doc(db, 'bancoRubricas', 'RUB_VENC'), { docenteId: T_VENCIDO, titulo: 'Suya' })
+  // Inscripción de Juan en la materia del docente vencido: sin ella no podría
+  // entregar ahí por una razón distinta a la que se quiere probar.
+  await setDoc(doc(db, 'students', 'ST_JUAN_VENC'), {
+    asignaturaId: 'S_VENC', escuelaId: 'E3', username: 'JUAN', uid: U_JUAN, activado: true,
+  })
+})
+
+const asVencido = testEnv.authenticatedContext(T_VENCIDO).firestore()
+const asSinCampo = testEnv.authenticatedContext(T_SIN_CAMPO).firestore()
+
+// No puede TRABAJAR
+await assertFails(setDoc(doc(asVencido, 'activities', 'A_NUEVA'), {
+  docenteId: T_VENCIDO, asignaturaId: 'S_VENC', tipo: 'archivo',
+})); ok('expired teacher CANNOT create an activity')
+
+await assertFails(updateDoc(doc(asVencido, 'activities', 'A_VENC'), { nombre: 'Editada' }))
+ok('expired teacher CANNOT edit their own activity')
+
+await assertFails(updateDoc(doc(asVencido, 'submissions', 'SUB_VENC'), { calificacion: 10 }))
+ok('expired teacher CANNOT grade')
+
+await assertFails(setDoc(doc(asVencido, 'attendance', 'AT_1'), {
+  docenteId: T_VENCIDO, asignaturaId: 'S_VENC', fecha: '2026-08-05',
+})); ok('expired teacher CANNOT take attendance')
+
+await assertFails(setDoc(doc(asVencido, 'avisos', 'AV_1'), {
+  docenteId: T_VENCIDO, asignaturaId: 'S_VENC', titulo: 'Hola',
+})); ok('expired teacher CANNOT publish an aviso')
+
+await assertFails(setDoc(doc(asVencido, 'students', 'ST_NUEVO'), {
+  asignaturaId: 'S_VENC', escuelaId: 'E3', username: 'NUE', uid: null,
+})); ok('expired teacher CANNOT add a student')
+
+await assertFails(setDoc(doc(asVencido, 'bancoRubricas', 'RUB_NUEVA'), { docenteId: T_VENCIDO, titulo: 'R' }))
+ok('expired teacher CANNOT create a rubric')
+
+// Y sobre todo: no puede abrirse el candado a sí mismo.
+await assertFails(updateDoc(doc(asVencido, 'users', T_VENCIDO), { suscripcionHasta: EN_UN_MES }))
+ok('expired teacher CANNOT lift their own lock from the client')
+
+// Sí puede CONSULTAR y PAGAR
+await assertSucceeds(getDoc(doc(asVencido, 'activities', 'A_VENC')))
+ok('expired teacher CAN still read their activity')
+
+await assertSucceeds(getDoc(doc(asVencido, 'bancoRubricas', 'RUB_VENC')))
+ok('expired teacher CAN still read their rubric bank')
+
+await assertSucceeds(setDoc(doc(asVencido, 'payments', 'PAY_1'), {
+  docenteId: T_VENCIDO, status: 'pendiente', monto: 99,
+})); ok('expired teacher CAN declare a payment')
+
+await assertSucceeds(updateDoc(doc(asVencido, 'subscriptions', 'SUB_DEL_VENCIDO'), {
+  docenteId: T_VENCIDO, status: 'pendiente_pago',
+})); ok('expired teacher CAN mark their subscription as paying')
+
+await assertSucceeds(updateDoc(doc(asVencido, 'users', T_VENCIDO), { nombre: 'Otro' }))
+ok('expired teacher CAN still edit their own profile')
+
+// Al corriente: todo normal
+await assertSucceeds(setDoc(doc(asT1, 'activities', 'A_OK'), {
+  docenteId: T1, asignaturaId: 'S1', tipo: 'archivo',
+})); ok('paid teacher works normally')
+
+// Sin el campo todavía (cuenta previa al respaldo): no se bloquea a nadie por
+// un dato faltante.
+await assertSucceeds(setDoc(doc(asSinCampo, 'bancoRubricas', 'RUB_SC'), { docenteId: T_SIN_CAMPO, titulo: 'R' }))
+ok('teacher without the mirrored field is NOT locked out')
+
+// El alumno no pierde nada porque su maestro no pagó.
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_ALU_VENC'), {
+  alumnoId: 'ST_JUAN_VENC', actividadId: 'A_VENC', archivoURL: 'x',
+})); ok('student of an expired teacher CAN still submit')
 
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

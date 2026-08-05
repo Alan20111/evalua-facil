@@ -31,7 +31,7 @@
 // simple usando el mismo título/cuerpo.
 
 const { initializeApp } = require('firebase-admin/app')
-const { getFirestore, FieldValue } = require('firebase-admin/firestore')
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
@@ -855,4 +855,76 @@ exports.onPagoCreado = onDocumentWritten('payments/{paymentId}', async (event) =
     )
   }))
   await after.ref.update({ notificadoAdmin: true })
+})
+
+// ─── Candado de suscripción: espejo de la vigencia en users/{uid} ─────────
+// Las reglas de Firestore no pueden consultar `subscriptions` por docenteId
+// (no hay consultas dentro de una regla, solo get() por ruta exacta), así que
+// la fecha hasta la que el docente puede TRABAJAR se copia a un campo de su
+// propio documento: `users/{docenteId}.suscripcionHasta`.
+//
+// Se guarda una FECHA y no un sí/no a propósito: la regla la compara contra
+// request.time, así que el vencimiento ocurre solo con el paso del tiempo, sin
+// que nada tenga que correr ese día ni cada noche.
+//
+// Nadie más puede escribir ese campo: las reglas congelan `suscripcionHasta`
+// en las actualizaciones que hace el propio docente sobre su perfil (ver
+// firestore.rules, match /users), y esta función usa el Admin SDK, que no pasa
+// por ellas.
+//
+// El cálculo es el mismo de src/utils/subscriptionHelpers.js
+// (effectiveVencimiento) — no se puede importar desde aquí (otro paquete), así
+// que se repite. Si cambia allá, cambia aquí: son las dos caras del MISMO
+// criterio, y discrepar significa o dejar trabajar a quien no pagó o bloquear
+// a quien sí.
+const DIAS_PRUEBA = 30
+
+function vigenciaDe(sub) {
+  if (!sub) return null
+  // Cancelada NO corta de inmediato: conserva hasta la fecha ya cubierta.
+  // 'vencida' guardada explícitamente sí corta ya.
+  if (sub.status === 'vencida') return new Date(0)
+  const inicio = sub.fechaInicio?.toDate?.() || (sub.fechaInicio ? new Date(sub.fechaInicio) : null)
+  // Sin planId nunca hubo un pago aprobado: lo único real es su prueba.
+  if (sub.status === 'trial' || !sub.planId) {
+    if (!inicio) return null
+    const fin = new Date(inicio)
+    fin.setDate(fin.getDate() + DIAS_PRUEBA)
+    return fin
+  }
+  // Cortesía indefinida: no vence nunca.
+  if (sub.planId === 'cortesia' && sub.cortesiaIndefinida === true) {
+    return new Date('2999-12-31T00:00:00Z')
+  }
+  const venc = sub.fechaVencimiento?.toDate?.() || (sub.fechaVencimiento ? new Date(sub.fechaVencimiento) : null)
+  if (venc) return venc
+  if (!inicio) return null
+  const fin = new Date(inicio)
+  fin.setMonth(fin.getMonth() + 1)
+  return fin
+}
+
+exports.onSuscripcionEscrita = onDocumentWritten('subscriptions/{subId}', async (event) => {
+  const after = event.data?.after
+  const before = event.data?.before
+  const sub = after?.exists ? after.data() : null
+  const previa = before?.exists ? before.data() : null
+  const docenteId = sub?.docenteId || previa?.docenteId
+  if (!docenteId) return
+
+  // Se borró la suscripción: se retira el permiso de trabajar dejando una
+  // fecha ya pasada, no borrando el campo (ausente = "todavía sin respaldar",
+  // que las reglas dejan pasar).
+  const hasta = sub ? vigenciaDe(sub) : new Date(0)
+  if (!hasta) return
+
+  const usuario = db.collection('users').doc(docenteId)
+  const snap = await usuario.get()
+  if (!snap.exists) return // cuenta eliminada: no hay a quién espejarle nada
+  const actual = snap.data().suscripcionHasta?.toDate?.()
+  // Sin cambio real, no se escribe: esta función se dispara con CUALQUIER
+  // escritura sobre la suscripción (updatedAt incluido).
+  if (actual && Math.abs(actual.getTime() - hasta.getTime()) < 1000) return
+  await usuario.update({ suscripcionHasta: Timestamp.fromDate(hasta) })
+  logger.info(`onSuscripcionEscrita: ${docenteId} puede trabajar hasta ${hasta.toISOString()}`)
 })
