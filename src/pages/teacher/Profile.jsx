@@ -53,6 +53,7 @@ import EliminarCuentaModal from '../../components/EliminarCuentaModal'
 import { sendSubscriptionCancelledEmail } from '../../utils/accountEmails'
 import { apiUrl } from '../../utils/apiBase'
 import { PREFIJOS } from '../../utils/prefijos'
+import { capitalizarNombre } from '../../utils/nombres'
 import Select from '../../components/ui/Select'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
 
@@ -518,7 +519,7 @@ export default function Profile() {
     }
   }
 
-  const displayName = userProfile?.nombreMostrar || 'Docente'
+  const displayName = capitalizarNombre(userProfile?.nombreMostrar) || 'Docente'
   const initials = displayName.charAt(0).toUpperCase()
   const daysRemaining = subscription ? calcDaysRemaining(effectiveVencimiento(subscription)) : null
   const canRenew = canRenewSubscription(subscription, {

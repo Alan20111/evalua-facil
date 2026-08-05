@@ -1,29 +1,36 @@
-// Los nombres de los estudiantes llegan capturados de mil formas: listas de la
-// SEP en MAYÚSCULAS, capturas a mano en minúsculas, columnas pegadas de Excel
-// tal cual venían. En pantalla todos deben verse igual — "García López Juan
-// Carlos" — así que la capitalización se aplica en los dos extremos: al
-// MOSTRAR (arregla lo que ya está guardado, sin tocar la base) y al GUARDAR
-// (deja derecho lo nuevo).
+// Cómo se ven los nombres de las personas en pantalla.
+//
+// Las listas de la SEP llegan en MAYÚSCULAS y las capturas a mano a veces en
+// minúsculas, así que un mismo grupo se leía "GARCÍA LÓPEZ JUAN" junto a
+// "hernandez maría". Eso se corrige al MOSTRAR, sin tocar lo que hay guardado.
+//
+// Pero la corrección NO se le impone a quien sí escribió con cuidado: decisión
+// de Kike (2026-08-05) — el nombre se ve como el docente lo escribió, ya sea
+// en el Excel, al agregarlo a mano o al editarlo. Por eso un texto que ya trae
+// MEZCLA de mayúsculas y minúsculas se respeta tal cual: esa mezcla solo puede
+// venir de alguien que la tecleó a propósito ("de la Cruz", "McDonald",
+// "O'Higgins"). Solo se endereza lo que no trae ninguna intención: todo en
+// mayúsculas o todo en minúsculas.
 //
 // El username NO pasa por aquí: es un identificador (garcia.juan), va siempre
 // en minúsculas y compararlo es lo que sostiene la cuenta del estudiante.
 export function capitalizarNombre(texto) {
-  return String(texto ?? '')
-    .trim()
-    .replace(/\s+/g, ' ')
+  const limpio = String(texto ?? '').trim().replace(/\s+/g, ' ')
+  if (!limpio) return ''
+  // ¿Trae mayúsculas Y minúsculas? Entonces alguien decidió cómo se escribe.
+  if (/\p{Lu}/u.test(limpio) && /\p{Ll}/u.test(limpio)) return limpio
+  return limpio
     .toLocaleLowerCase('es')
     // Después de un espacio, un guion o un apóstrofo empieza otra palabra del
-    // nombre: "ana-maría" → "Ana-María", "d'angelo" → "D'Angelo".
+    // nombre: "ANA-MARÍA" → "Ana-María", "D'ANGELO" → "D'Angelo".
     .replace(/(^|[\s\-'’])(\p{L})/gu, (_, sep, letra) => sep + letra.toLocaleUpperCase('es'))
 }
 
-// Capitaliza los tres campos de un estudiante de una vez, para las escrituras
-// (alta manual, importación de Excel, edición, copiar asignatura). Devuelve
-// solo esos campos; el resto del documento lo arma quien llama.
-export function capitalizarPersona(persona) {
-  return {
-    apellidoPaterno: capitalizarNombre(persona?.apellidoPaterno),
-    apellidoMaterno: capitalizarNombre(persona?.apellidoMaterno),
-    nombre: capitalizarNombre(persona?.nombre),
-  }
+// Para BUSCAR, no para mostrar: "maría" y "maria" tienen que ser la misma
+// palabra, igual que "Núñez" y "nunez" — nadie escribe acentos en un buscador.
+export function sinAcentos(texto) {
+  return String(texto ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
 }

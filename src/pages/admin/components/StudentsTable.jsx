@@ -4,6 +4,7 @@ import SearchInput from '../../../components/SearchInput'
 import { formatDate, toDate } from '../../../utils/subscriptionHelpers'
 import { formatHora12FromDate } from '../../../utils/formatHora'
 import { studentFullName } from '../../../utils/studentSearch'
+import { capitalizarNombre } from '../../../utils/nombres'
 import { subjectDisplayName } from '../../../utils/subjectName'
 import { normalizeName } from '../../../utils/schoolSelection'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
@@ -64,7 +65,8 @@ function fechaYHora(valor) {
 // El profesor se muestra por su nombre real; `teacherDisplayName` no sirve
 // aquí porque antepone el prefijo pensado para los alumnos ("Profe X").
 function teacherName(teacher) {
-  return teacher?.nombreMostrar || teacher?.nombre || teacher?.username || ''
+  // El username va sin capitalizar: es identificador (CBTIS255-01), no nombre.
+  return capitalizarNombre(teacher?.nombreMostrar || teacher?.nombre) || teacher?.username || ''
 }
 
 const isoLocal = (d) =>

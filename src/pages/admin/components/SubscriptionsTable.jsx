@@ -24,6 +24,7 @@ import { useBackHandler } from '../../../hooks/useBackHandler'
 import { useScrollLock } from '../../../hooks/useScrollLock'
 import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import { normalizeName } from '../../../utils/schoolSelection'
+import { capitalizarNombre } from '../../../utils/nombres'
 import { planDe, PLANES, CLAVES_CANCELADA } from '../../../utils/situacionSuscripcion'
 import {
   calcDaysRemaining,
@@ -146,7 +147,8 @@ const isoLocal = (d) =>
 // El docente se muestra por su nombre real; si todavía no completó su perfil
 // queda el usuario o el correo, que es lo único que hay.
 function teacherName(teacher) {
-  return teacher?.nombreMostrar || teacher?.nombre || teacher?.username || ''
+  // El username va sin capitalizar: es identificador (CBTIS255-01), no nombre.
+  return capitalizarNombre(teacher?.nombreMostrar || teacher?.nombre) || teacher?.username || ''
 }
 
 // Etiqueta del docente en la lista desplegable. Se arma con las partes que
@@ -154,7 +156,7 @@ function teacherName(teacher) {
 // que a quien no tiene usuario le salía el correo dos veces.
 function etiquetaDocente(t) {
   const partes = []
-  const nombre = t?.nombreMostrar || t?.nombre || ''
+  const nombre = capitalizarNombre(t?.nombreMostrar || t?.nombre)
   if (nombre) partes.push(nombre)
   if (t?.username && t.username !== nombre) partes.push(t.username)
   if (t?.email && !partes.includes(t.email)) partes.push(t.email)

@@ -66,7 +66,7 @@ import {
 import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
-import { capitalizarNombre, capitalizarPersona } from '../../utils/nombres'
+import { capitalizarNombre, sinAcentos } from '../../utils/nombres'
 import { useSubscription } from '../../hooks/useSubscription'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -1739,8 +1739,12 @@ export default function SubjectPage() {
   async function createEnrollment(person, identity, schoolDocs) {
     const username = identity ? identity.username : uniqueFrom(person, schoolDocs)
     const ref = await addDoc(collection(db, 'students'), {
-      // Nombre y apellidos se guardan ya capitalizados (Pérez, no PEREZ ni perez).
-      ...capitalizarPersona(person),
+      // Se guarda TAL CUAL lo escribió el docente — la capitalización es solo
+      // de cara a la pantalla (ver capitalizarNombre en utils/nombres.js), no
+      // se le corrige el dato a quien sí lo escribió con cuidado.
+      apellidoPaterno: person.apellidoPaterno.trim(),
+      apellidoMaterno: person.apellidoMaterno.trim(),
+      nombre: person.nombre.trim(),
       username,
       resetPassword: null,
       // Identidad ya conocida → su MISMA escuela (ver identity.escuelaId en
@@ -1915,10 +1919,9 @@ export default function SubjectPage() {
         const ref = doc(collection(db, 'students'))
         newIds.push(ref.id)
         batch.set(ref, {
+          // Tal cual venía en el Excel, igual que un alta manual: si la lista
+          // trae MAYÚSCULAS, la pantalla se encarga de mostrarlas bien.
           ...row,
-          // Las listas de Excel casi siempre vienen en MAYÚSCULAS: se guardan
-          // capitalizadas, igual que un alta manual.
-          ...capitalizarPersona(row),
           username,
           resetPassword: null,
           uid,
@@ -2012,9 +2015,12 @@ export default function SubjectPage() {
   function openEditStudent(s) {
     setStudentToEdit(s)
     // Capitalizado, para que el formulario muestre el MISMO nombre que la lista
-    // (un registro viejo guardado en MAYÚSCULAS se ve aquí ya corregido).
+    // (un registro viejo guardado en MAYÚSCULAS se ve aquí ya corregido) y para
+    // que el docente pueda dejarlo exactamente como lo quiere ver.
     setEditStudentForm({
-      ...capitalizarPersona(s),
+      apellidoPaterno: capitalizarNombre(s.apellidoPaterno),
+      apellidoMaterno: capitalizarNombre(s.apellidoMaterno),
+      nombre: capitalizarNombre(s.nombre),
       comentarios: s.comentarios || '',
     })
   }
@@ -2060,8 +2066,13 @@ export default function SubjectPage() {
     if (!studentToEdit) return
     setSavingStudent(true)
     try {
+      // Como lo deja el docente al editar: si escribe "de la Cruz", así se
+      // guarda y así se ve. El formulario ya venía lleno con lo que muestra la
+      // lista (ver openEditStudent), así que lo que quede aquí es su decisión.
       const updated = {
-        ...capitalizarPersona(editStudentForm),
+        apellidoPaterno: editStudentForm.apellidoPaterno.trim(),
+        apellidoMaterno: editStudentForm.apellidoMaterno.trim(),
+        nombre: editStudentForm.nombre.trim(),
         comentarios: editStudentForm.comentarios.trim(),
       }
       await updateDoc(doc(db, 'students', studentToEdit.id), updated)
@@ -3242,7 +3253,7 @@ export default function SubjectPage() {
       }
       if (students.length === 0) { toast('No hay estudiantes en esta asignatura', 'error'); return }
 
-      const docenteNombre = userProfile?.nombreMostrar || userProfile?.nombre || ''
+      const docenteNombre = capitalizarNombre(userProfile?.nombreMostrar || userProfile?.nombre)
       await exportCredentialsPDF({ subject, students, docenteNombre, membrete, watermark: exportsWatermarked })
       toast('Lista de acceso descargada')
       setShowCredentialsModal(false)
@@ -3671,7 +3682,9 @@ export default function SubjectPage() {
 
   const filteredAlumnos = groupStudents.filter((s) =>
     matchesStudentSearch(s, searchAlumnos) ||
-    (s.username || '').toLowerCase().includes(searchAlumnos.trim().toLowerCase())
+    // El username nunca trae acentos (generateUsername los quita), así que la
+    // búsqueda también se los quita: escribir "garcía" encuentra garcia.juan.
+    sinAcentos(s.username).includes(sinAcentos(searchAlumnos).trim())
   )
 
   // Tabla de asistencias — ver componente AttendanceTable (memo) arriba.
