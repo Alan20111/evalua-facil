@@ -1,21 +1,15 @@
 import { useEffect, useState } from 'react'
-import { collection, getDocs } from 'firebase/firestore'
-import { db } from '../firebase'
 import { ArrowLeft, PieChart as PieChartIcon, Download, Check } from 'lucide-react'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { useToast } from './Toast'
-import { IS_NATIVE_APP } from '../utils/platform'
-import { exportEvaluacionResultadosPDF } from '../utils/pdf'
+import { descargaSoloWeb } from '../utils/descargaSoloWeb'
+import { exportEvaluacionGraficasPDF } from '../utils/pdf'
+import { SLICE_COLORS, esGraficable, cargarRespuestasEvaluacion } from '../utils/evaluacionRespuestas'
 import { useSubscription } from '../hooks/useSubscription'
 import { hasCleanExports } from '../utils/subscriptionHelpers'
 import ConfirmModal from './ConfirmModal'
 import Spinner from './Spinner'
-
-// Validated categorical palette (dataviz skill, references/palette.md) — fixed
-// slot order, never reassigned/cycled. Up to 8 slices before an option would
-// need to fold into "Otras" (opción múltiple here caps at 4 opciones anyway).
-const SLICE_COLORS = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e34948', '#e87ba4', '#eb6834']
 
 function polarPoint(cx, cy, r, angleDeg) {
   const rad = ((angleDeg - 90) * Math.PI) / 180
@@ -83,21 +77,25 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
   const [counts, setCounts] = useState({}) // { [preguntaId]: { [opcionId]: number } }
   const [exportingPdf, setExportingPdf] = useState(false)
 
-  // Opción múltiple Y verdadero/falso — las dos tienen respuesta cerrada
-  // (mismo campo `opciones` + `opcionSeleccionada`, ver EvaluacionRunner.jsx),
-  // así que las dos se pueden graficar. Antes solo entraba opción múltiple:
-  // un examen todo en V/F se quedaba sin ninguna gráfica ni fila en el PDF.
-  const graficables = preguntas.filter((p) => p.tipo === 'opcion_multiple' || p.tipo === 'verdadero_falso')
+  // Opción múltiple Y verdadero/falso — las dos tienen respuesta cerrada, ver
+  // esGraficable en utils/evaluacionRespuestas.js (el mismo filtro que usan el
+  // PDF y el Excel de resultados).
+  const graficables = preguntas.filter(esGraficable)
 
   function handleExportPdfClick() {
+    if (descargaSoloWeb(toast)) return
     if (exportsWatermarked) setShowWatermarkNotice(true)
     else handleExportPdf()
   }
 
+  // El PDF de ESTA pantalla lleva las gráficas tal como se ven aquí. El de
+  // tablas (opción, respuestas, porcentaje) se descarga desde la pestaña
+  // Resultados: son dos documentos distintos a propósito, uno para proyectar
+  // y otro para archivar.
   async function handleExportPdf() {
     setExportingPdf(true)
     try {
-      await exportEvaluacionResultadosPDF({ activity, subject, preguntas: graficables, counts, watermark: exportsWatermarked })
+      await exportEvaluacionGraficasPDF({ activity, subject, preguntas: graficables, counts, watermark: exportsWatermarked })
     } catch (err) {
       toast('Error al generar el PDF: ' + err.message, 'error')
     } finally {
@@ -109,19 +107,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
     let cancelled = false
     async function load() {
       setLoading(true)
-      const preguntaIds = new Set(graficables.map((p) => p.id))
-      const acc = {}
-      graficables.forEach((p) => { acc[p.id] = {} })
-      const subs = Object.values(submissions).filter((s) => s?.id)
-      await Promise.all(subs.map(async (sub) => {
-        const snap = await getDocs(collection(db, 'submissions', sub.id, 'respuestas'))
-        snap.docs.forEach((d) => {
-          if (!preguntaIds.has(d.id)) return
-          const opcionId = d.data().opcionSeleccionada
-          if (!opcionId) return
-          acc[d.id][opcionId] = (acc[d.id][opcionId] || 0) + 1
-        })
-      }))
+      const { counts: acc } = await cargarRespuestasEvaluacion(submissions, preguntas)
       if (!cancelled) { setCounts(acc); setLoading(false) }
     }
     load()
@@ -146,17 +132,19 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
               {activityLabel && <span className="text-accent">{activityLabel} </span>}{activity.nombre}
             </h1>
           </div>
-          {!IS_NATIVE_APP && (
-            <button
-              type="button"
-              onClick={handleExportPdfClick}
-              disabled={exportingPdf}
-              className="flex items-center gap-1.5 px-3 py-1.5 mt-0.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60 flex-shrink-0"
-            >
-              {exportingPdf ? <Spinner size="sm" /> : <Download size={16} />}
-              {exportingPdf ? 'Generando…' : 'Descargar PDF'}
-            </button>
-          )}
+          {/* El botón se queda a la vista también en la app: al tocarlo
+              explica que las descargas se hacen desde la web (ver
+              descargaSoloWeb) en vez de desaparecer sin decir nada. */}
+          <button
+            type="button"
+            onClick={handleExportPdfClick}
+            disabled={exportingPdf}
+            data-tooltip="PDF con estas gráficas"
+            className="flex items-center gap-1.5 px-3 py-1.5 mt-0.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60 flex-shrink-0"
+          >
+            {exportingPdf ? <Spinner size="sm" /> : <Download size={16} />}
+            {exportingPdf ? 'Generando…' : 'Descargar gráficas'}
+          </button>
         </div>
       </div>
 

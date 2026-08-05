@@ -7,6 +7,75 @@ import { subjectPeriodLabel } from './dateRange'
 import { studentFullName as fullName } from './studentSearch'
 import { savePdfDoc } from './nativeSave'
 import { applyPdfWatermarkIfNeeded, addPdfFooter, getLogoDataUrl, drawPdfWatermarkOnPage } from './exportWatermark'
+import { filasDeReactivo, totalRespuestas } from './evaluacionRespuestas'
+
+// Palomita verde de "respuesta correcta", dibujada con dos trazos y centrada
+// en (cx, cy). Ver el comentario en didDrawCell: las fuentes estándar de jsPDF
+// no tienen el carácter '✓'.
+function drawCheckMark(doc, cx, cy, scale = 1) {
+  doc.setDrawColor(16, 128, 80)
+  doc.setLineWidth(0.6 * scale)
+  doc.setLineCap('round')
+  doc.setLineJoin('round')
+  doc.lines([[1.1 * scale, 1.3 * scale], [2.4 * scale, -2.9 * scale]], cx - 1.7 * scale, cy - 0.1 * scale)
+}
+
+// #rrggbb → [r, g, b] para las APIs de color de jsPDF.
+function hexToRgb(hex) {
+  return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+}
+
+// Dibuja la gráfica de pastel de un reactivo en un canvas y la devuelve como
+// PNG (data URL) para insertarla en el PDF. Se dibuja a mano —los mismos
+// colores, el mismo separador blanco entre rebanadas y el mismo círculo gris
+// de "Sin respuestas" que la gráfica de pantalla— en vez de capturar el DOM:
+// una captura depende de fuentes y variables CSS ya resueltas, y aquí basta
+// con la geometría. `px` alto (3x el tamaño impreso) para que no se pixelee.
+function pieDataUrl(filas, px = 540) {
+  const canvas = document.createElement('canvas')
+  canvas.width = px
+  canvas.height = px
+  const ctx = canvas.getContext('2d')
+  const cx = px / 2
+  const cy = px / 2
+  const r = px / 2 - 2
+  const conVotos = filas.filter((f) => f.count > 0)
+  const total = conVotos.reduce((sum, f) => sum + f.count, 0)
+
+  if (total === 0) {
+    ctx.fillStyle = '#eef1f5'
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#8a94a6'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.font = `${Math.round(px * 0.09)}px sans-serif`
+    ctx.fillText('Sin respuestas', cx, cy)
+    return canvas.toDataURL('image/png')
+  }
+
+  let angle = -Math.PI / 2
+  conVotos.forEach((f) => {
+    const sweep = (f.count / total) * Math.PI * 2
+    ctx.beginPath()
+    ctx.moveTo(cx, cy)
+    ctx.arc(cx, cy, r, angle, angle + sweep)
+    ctx.closePath()
+    ctx.fillStyle = f.color
+    ctx.fill()
+    // Separador del color del papel — el mismo recurso que en pantalla, donde
+    // el trazo va del color de la tarjeta.
+    if (conVotos.length > 1) {
+      ctx.strokeStyle = '#ffffff'
+      ctx.lineWidth = px * 0.015
+      ctx.lineJoin = 'round'
+      ctx.stroke()
+    }
+    angle += sweep
+  })
+  return canvas.toDataURL('image/png')
+}
 
 function safeFile(subject) {
   return (subjectDisplayName(subject) || 'asignatura')
@@ -255,7 +324,7 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
     y += enunciadoLines.length * 5
 
     const preguntaCounts = counts[p.id] || {}
-    const total = Object.values(preguntaCounts).reduce((sum, n) => sum + n, 0)
+    const total = totalRespuestas(preguntaCounts)
     // Total explícito arriba de la tabla — antes había que sumar la columna
     // "Respuestas" a mano para saber cuántos alumnos contestaron esta
     // pregunta en particular (no siempre son todos los inscritos: alguien
@@ -264,12 +333,8 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
     doc.text(`${total} ${total === 1 ? 'respuesta' : 'respuestas'} en total`, 14, y + 4)
     y += 8
 
-    const body = (p.opciones || []).map((o) => {
-      const count = preguntaCounts[o.id] || 0
-      const pct = total ? Math.round((count / total) * 100) : 0
-      const esCorrecta = p.respuestaCorrecta != null && o.id === p.respuestaCorrecta
-      return [esCorrecta ? '✓' : '', o.texto, String(count), `${pct}%`]
-    })
+    const filas = filasDeReactivo(p, preguntaCounts)
+    const body = filas.map((f) => ['', f.texto, String(f.count), `${f.pct}%`])
 
     autoTable(doc, {
       startY: y,
@@ -279,17 +344,117 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
       headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [241, 245, 249] },
       columnStyles: {
-        0: { halign: 'center', cellWidth: 8, textColor: [16, 128, 80], fontStyle: 'bold' },
+        0: { halign: 'center', cellWidth: 8 },
         2: { halign: 'center', cellWidth: 28 },
         3: { halign: 'center', cellWidth: 28 },
       },
       margin: { left: 14, right: 14 },
+      // La palomita de la respuesta correcta se DIBUJA (dos trazos), no se
+      // escribe: las fuentes estándar de jsPDF son WinAnsi y no traen el
+      // carácter '✓', que salía impreso como una comilla suelta — se veía como
+      // un error de captura en vez de como la marca de la respuesta buena.
+      didDrawCell: (data) => {
+        if (data.section !== 'body' || data.column.index !== 0) return
+        if (!filas[data.row.index]?.correcta) return
+        drawCheckMark(doc, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2)
+      },
     })
     y = doc.lastAutoTable.finalY + 10
   })
 
   if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `resultados_${safeFile(subject)}.pdf`)
+}
+
+// El MISMO reporte de arriba pero con las gráficas de pastel que el docente
+// tiene en pantalla, no con las tablas — se genera desde la pantalla de
+// Gráficas. Cada reactivo lleva su pastel y, a un lado, su leyenda con el
+// color, la opción, cuántos la eligieron y su porcentaje.
+export async function exportEvaluacionGraficasPDF({ activity, subject, preguntas, counts, watermark = false }) {
+  const { jsPDF } = await import('jspdf')
+
+  const doc = new jsPDF()
+  const logoDataUrl = watermark ? await getLogoDataUrl() : null
+  if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl)
+  const pageW = doc.internal.pageSize.getWidth()
+  const pageH = doc.internal.pageSize.getHeight()
+
+  doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
+  doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 16)
+  doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
+  doc.text(`Gráficas de resultados — ${activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}`, 14, 22)
+  doc.setFont(undefined, 'bold'); doc.setFontSize(13); doc.setTextColor(20)
+  doc.text(activity.nombre || '', 14, 30)
+
+  let y = 40
+  if (!preguntas.length) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
+    doc.text('Este cuestionario/examen no tiene reactivos de opción múltiple ni de verdadero/falso.', 14, y)
+  }
+
+  const PIE = 46            // lado de la gráfica, en mm
+  const LEGEND_X = 70       // donde empieza el texto de la leyenda
+  const VALUE_X = pageW - 14 // "n resp. (p%)", alineado a la derecha
+  const LINE_H = 4.6
+
+  preguntas.forEach((p, i) => {
+    const preguntaCounts = counts[p.id] || {}
+    const total = totalRespuestas(preguntaCounts)
+    const filas = filasDeReactivo(p, preguntaCounts)
+
+    // Se mide el bloque completo ANTES de dibujar nada: enunciado + gráfica +
+    // leyenda no se pueden partir a la mitad entre dos páginas sin que el
+    // pastel quede huérfano de su leyenda.
+    doc.setFont(undefined, 'bold'); doc.setFontSize(11)
+    const enunciadoLines = doc.splitTextToSize(`${i + 1}. ${p.enunciado}`, pageW - 28)
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9)
+    const filasLines = filas.map((f) => doc.splitTextToSize(f.texto || '—', VALUE_X - LEGEND_X - 34))
+    const legendH = filasLines.reduce((sum, lines) => sum + lines.length * LINE_H + 2.4, 0)
+    const bloqueH = enunciadoLines.length * 5 + 6 + Math.max(PIE, legendH) + 10
+
+    if (y + bloqueH > pageH - 16) {
+      doc.addPage()
+      if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl)
+      y = 20
+    }
+
+    doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.setTextColor(20)
+    doc.text(enunciadoLines, 14, y)
+    y += enunciadoLines.length * 5
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(110)
+    doc.text(`${total} ${total === 1 ? 'respuesta' : 'respuestas'} en total`, 14, y + 4)
+    y += 8
+
+    const top = y
+    try {
+      doc.addImage(pieDataUrl(filas), 'PNG', 14, top, PIE, PIE)
+    } catch {
+      // best-effort: sin la imagen, la leyenda de abajo sigue diciendo todo
+    }
+
+    // La leyenda va centrada contra el pastel (como en pantalla), no pegada
+    // arriba: con dos o tres opciones, alineada al tope quedaba flotando
+    // sobre la mitad vacía de la gráfica.
+    let ly = top + 3 + Math.max(0, (PIE - legendH) / 2)
+    filas.forEach((f, idx) => {
+      const lines = filasLines[idx]
+      doc.setFillColor(...hexToRgb(f.color))
+      doc.circle(LEGEND_X - 4, ly - 1.1, 1.4, 'F')
+      doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(30)
+      doc.text(lines, LEGEND_X, ly)
+      if (f.correcta) {
+        drawCheckMark(doc, LEGEND_X + doc.getTextWidth(lines[lines.length - 1]) + 3, ly + (lines.length - 1) * LINE_H - 1.2, 0.85)
+      }
+      doc.setTextColor(110)
+      doc.text(`${f.count} resp. (${f.pct}%)`, VALUE_X, ly, { align: 'right' })
+      ly += lines.length * LINE_H + 2.4
+    })
+
+    y = Math.max(top + PIE, ly) + 10
+  })
+
+  if (watermark) addPdfFooter(doc)
+  await savePdfDoc(doc, `graficas_resultados_${safeFile(subject)}.pdf`)
 }
 
 // Credentials list: one row per student with username + temp password (1st login).

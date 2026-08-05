@@ -7,6 +7,26 @@ import { studentFullName } from './studentSearch'
 import { isDraftActivity } from './activityVisibility'
 import { saveBlob } from './nativeSave'
 import { addExcelWatermarkIfNeeded } from './exportWatermark'
+import { estadoEvaluacionLabel } from './evaluacionGrading'
+import {
+  esGraficable, filasDeReactivo, totalRespuestas, textoRespuestaAlumno, aciertosDeAlumno,
+} from './evaluacionRespuestas'
+
+// Fecha y hora de un Timestamp de Firestore, ya como texto para una celda —
+// se escribe como texto (y no como fecha de Excel) para que se vea igual que
+// en pantalla sin depender del formato regional de quien abra el archivo.
+function fechaHoraCell(ts) {
+  if (!ts?.seconds) return ''
+  return new Date(ts.seconds * 1000).toLocaleString('es-MX', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  })
+}
+
+// Minutos entre dos Timestamps — cuánto tardó el estudiante en resolverlo.
+function minutosEntre(inicio, fin) {
+  if (!inicio?.seconds || !fin?.seconds) return ''
+  return Math.max(0, Math.round((fin.seconds - inicio.seconds) / 60))
+}
 
 // Leyenda de "Versión de evaluación" para el docente en periodo de prueba —
 // pedido explícito, ver src/utils/exportWatermark.js (que también pone la
@@ -376,6 +396,114 @@ function attendanceRowCells(days, studentId, enrolledFrom) {
     })
   })
   return cells
+}
+
+// Resultados de UN cuestionario/examen — el gemelo en Excel de
+// exportEvaluacionResultadosPDF. Cuatro hojas, porque son cuatro preguntas
+// distintas que el docente le hace a los mismos datos:
+//   Resumen        — las métricas del panel de análisis, tal cual.
+//   Calificaciones — una fila por estudiante: estado, calificación, aciertos,
+//                    a qué hora entregó y cuánto tardó.
+//   Respuestas     — la matriz completa: qué contestó cada quien en cada
+//                    reactivo (aquí se ve el patrón que ninguna gráfica
+//                    muestra: quién copió a quién, dónde se atoró el grupo).
+//   Por reactivo   — el resumen por opción, el mismo del PDF y las gráficas.
+export async function exportEvaluacionResultadosExcel({
+  activity, subject, students, submissions, preguntas, counts, porAlumno, stats, hasManual = false, watermark = false,
+}) {
+  const ExcelJS = (await import('exceljs')).default
+  const workbook = new ExcelJS.Workbook()
+
+  const maxCalif = activity.maxCalif || 10
+  const esExamen = activity.categoria === 'examen'
+  const periodo = subjectPeriodLabel(subject)
+  const tituloBase = `${subjectDisplayName(subject)} — ${esExamen ? 'Examen' : 'Cuestionario'}: ${activity.nombre || ''}`
+  const titulo = periodo ? `${tituloBase}   (${periodo})` : tituloBase
+  const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  const graficables = (preguntas || []).filter(esGraficable)
+
+  // ── Hoja 1: Resumen ──
+  const entregas = Object.values(submissions || {}).filter((s) => s?.estadoEvaluacion === 'finalizado').length
+  addSheetFromRows(workbook, 'Resumen', [
+    [titulo],
+    spacerRow(watermark),
+    ['MÉTRICA', 'VALOR'],
+    ['Promedio', stats?.promedio ?? 0],
+    ['Calificación máxima', stats?.maxima ?? 0],
+    ['Calificación mínima', stats?.minima ?? 0],
+    ['Escala', `sobre ${maxCalif}`],
+    ['% de aprobación', `${stats?.porcentajeAprobados ?? 0}%`],
+    ['Total de estudiantes', students.length],
+    ['Total de entregas', entregas],
+    ['Total pendientes', students.length - entregas],
+    ['Reactivos', (preguntas || []).length],
+  ], { merges: [[1, 1, 1, 2]], colWidths: [30, 26], rowHeights: [[1, 22], [3, 18]] })
+
+  // ── Hoja 2: Calificaciones ──
+  const califHead = ['#', 'NOMBRE', 'ESTADO', 'CALIFICACIÓN', `ACIERTOS (de ${graficables.length})`, 'ENTREGADO', 'DURACIÓN (min)', 'INTENTO']
+  const califRows = sorted.map((s) => {
+    const sub = submissions?.[s.id]
+    const done = sub?.estadoEvaluacion === 'finalizado'
+    const aciertos = aciertosDeAlumno(preguntas, porAlumno?.[s.id])
+    return [
+      s.orden,
+      studentFullName(s),
+      estadoEvaluacionLabel(sub, hasManual),
+      done && sub.calificacion != null ? sub.calificacion : '',
+      aciertos && done ? aciertos.correctas : '',
+      fechaHoraCell(sub?.fechaEntrega),
+      minutosEntre(sub?.tiempoInicio, sub?.fechaEntrega),
+      done ? (sub.intentoActual || 1) : '',
+    ]
+  })
+  addSheetFromRows(workbook, 'Calificaciones', [
+    [titulo], spacerRow(watermark), califHead, ...califRows,
+  ], {
+    merges: [[1, 1, 1, califHead.length]],
+    colWidths: [4, 42, 15, 14, 16, 20, 15, 9],
+    rowHeights: [[1, 22], [3, 18]],
+  })
+
+  // ── Hoja 3: Respuestas (matriz estudiante × reactivo) ──
+  const respHead = ['#', 'NOMBRE', ...(preguntas || []).map((p, i) => `${i + 1}. ${p.enunciado || ''}`)]
+  const respRows = sorted.map((s) => [
+    s.orden,
+    studentFullName(s),
+    ...(preguntas || []).map((p) => textoRespuestaAlumno(p, porAlumno?.[s.id]?.[p.id])),
+  ])
+  addSheetFromRows(workbook, 'Respuestas', [
+    [titulo], spacerRow(watermark), respHead, ...respRows,
+  ], {
+    merges: [[1, 1, 1, respHead.length]],
+    colWidths: [4, 42, ...(preguntas || []).map(() => 30)],
+    rowHeights: [[1, 22], [3, 18]],
+  })
+
+  // ── Hoja 4: Por reactivo ──
+  const porReactivo = [[titulo], spacerRow(watermark)]
+  if (!graficables.length) {
+    porReactivo.push(['Este cuestionario/examen no tiene reactivos de opción múltiple ni de verdadero/falso.'])
+  }
+  graficables.forEach((p, i) => {
+    const preguntaCounts = counts?.[p.id] || {}
+    const total = totalRespuestas(preguntaCounts)
+    porReactivo.push([`${i + 1}. ${p.enunciado || ''}`])
+    porReactivo.push([`${total} ${total === 1 ? 'respuesta' : 'respuestas'} en total`])
+    porReactivo.push(['OPCIÓN', 'CORRECTA', 'RESPUESTAS', 'PORCENTAJE'])
+    filasDeReactivo(p, preguntaCounts).forEach((f) => {
+      porReactivo.push([f.texto, f.correcta ? 'Sí' : '', f.count, `${f.pct}%`])
+    })
+    porReactivo.push([])
+  })
+  addSheetFromRows(workbook, 'Por reactivo', porReactivo, {
+    merges: [[1, 1, 1, 4]],
+    colWidths: [60, 11, 13, 13],
+    rowHeights: [[1, 22], [3, 18]],
+  })
+
+  const safeActivity = (activity.nombre || 'evaluacion')
+    .replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '').trim().replace(/\s+/g, '_') || 'evaluacion'
+  await finalizeWorkbook(workbook, `resultados_${safeActivity}_${safeExcelName(subject)}.xlsx`, watermark)
 }
 
 export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial, watermark = false }) {
