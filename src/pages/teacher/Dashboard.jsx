@@ -491,7 +491,9 @@ export default function TeacherDashboard() {
                             llegan asignaturas vivas, así que nunca se
                             mostraría. */}
                         <p className="font-semibold text-on-surface truncate">{subjectDisplayName(s)}</p>
-                        {subjectPeriodLabel(s) && (
+                        {/* Solo en la web — pedido explícito: en la App no deben
+                            verse las fechas de inicio y fin junto a las asignaturas. */}
+                        {!IS_NATIVE_APP && subjectPeriodLabel(s) && (
                           <p className="text-sm text-slate-500 mt-0.5">{subjectPeriodLabel(s)}</p>
                         )}
                       </div>
