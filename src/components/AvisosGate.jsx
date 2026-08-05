@@ -6,7 +6,7 @@ import { useToast } from './Toast'
 import { getEnrollments } from '../utils/studentLookup'
 import { subjectDisplayName } from '../utils/subjectName'
 import { teacherDisplayName } from '../utils/studentSearch'
-import { lecturaDocId } from '../utils/avisos'
+import { lecturaDocId, avisosDesde } from '../utils/avisos'
 import { IS_NATIVE_APP } from '../utils/platform'
 import AvisoLecturaModal from './subject/AvisoLecturaModal'
 
@@ -100,12 +100,14 @@ export default function AvisosGate() {
 
   const avisosPendientes = avisos
     .filter((a) => !lecturas[a.id])
-    // Solo avisos publicados a partir de que el docente dio de alta al
-    // alumno en esa asignatura — uno anterior a su inscripción no le
-    // corresponde, aunque siga activo.
+    // Solo avisos publicados a partir de que la asignatura quedó activa para
+    // este alumno (ver avisosDesde) — uno anterior no le corresponde, aunque
+    // siga activo. Si no fuera así, quien activa su cuenta a mitad del curso
+    // se llevaría de golpe TODOS los avisos previos, uno por uno, sin poder
+    // salir del modal hasta confirmarlos todos.
     .filter((a) => {
       const enr = enrollments.find((e) => e.asignaturaId === a.asignaturaId)
-      const since = enr?.createdAt?.seconds
+      const since = avisosDesde(enr)
       return since == null || (a.fechaCreacion?.seconds ?? 0) >= since
     })
     .sort((a, b) => (a.fechaCreacion?.seconds ?? 0) - (b.fechaCreacion?.seconds ?? 0))
