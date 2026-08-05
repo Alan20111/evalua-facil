@@ -361,10 +361,26 @@ export function getDaysLabel(days) {
 
 export const SUBSCRIPTION_STATUSES = ['activa', 'vencida', 'cancelada', 'pendiente_pago', 'trial']
 
-// Documentos "limpios" (sin marca de agua) — únicamente una suscripción
-// pagada y vigente los obtiene. Trial, vencida, cancelada y pendiente_pago
-// caen todos del lado de "marca de agua", tal cual el pedido: "si el usuario
-// NO tiene una suscripción activa". Ver src/utils/exportWatermark.js.
+// Documentos "limpios" (sin marca de agua): quien YA PAGÓ y sigue dentro de
+// lo que pagó. Dos condiciones, ninguna es el `status`:
+//   · `planId` — solo lo pone la aprobación de un pago real (ver handleApprove
+//     en PaymentsTable.jsx); la prueba nace con planId '' (createTeacherAccount).
+//   · No vencida — pasada la fecha cubierta, se acabó lo pagado.
+//
+// Antes esto era `status === 'activa'`, y castigaba a quien ya había pagado:
+//   · Canceló la renovación con 5 meses pagados por delante → `cancelada` desde
+//     ese mismo instante, y sus PDF salían con marca de agua los 5 meses.
+//   · Estando al corriente inició otro pago → `pendiente_pago`, misma pena por
+//     el pecado de volver a pagar.
+// Pagar nunca debe degradar lo que ya se pagó (pedido explícito).
+//
+// La prueba, en cambio, sí lleva marca de agua: no hay pago detrás. Y una
+// transferencia declarada pero todavía sin aprobar tampoco cuenta como pago
+// —no hay planId hasta que el administrador la verifica—, que es justo lo que
+// evita que cualquiera se quite la marca con solo decir que pagó.
+//
+// Cortesía cuenta como pagada: no hay dinero, pero es una cuenta completa que
+// el administrador otorgó a propósito. Ver src/utils/exportWatermark.js.
 export function hasCleanExports(subscription) {
-  return subscription?.status === 'activa' && !isSubscriptionExpired(subscription)
+  return !!subscription?.planId && !isSubscriptionExpired(subscription)
 }
