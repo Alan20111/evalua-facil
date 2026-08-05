@@ -4,6 +4,7 @@ import { addDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreG
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
+import InfoDisclosure from '../ui/InfoDisclosure'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical, RotateCcw } from 'lucide-react'
@@ -365,9 +366,14 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       ) : (
       <>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-muted leading-relaxed">
-          Comunicados para todo el grupo — sin respuestas ni comentarios, solo para informar.
-        </p>
+        {/* La explicación se pliega detrás de "¿Qué es esto?" — mismo patrón
+            que Recursos y las otras pantallas: el docente que ya la leyó no
+            tiene que volver a pasar por ella cada vez que entra. */}
+        <InfoDisclosure className="min-w-0">
+          <p className="text-sm text-muted leading-relaxed">
+            Comunicados para todo el grupo — sin respuestas ni comentarios, solo para informar.
+          </p>
+        </InfoDisclosure>
         <button type="button" onClick={openAdd}
           data-tooltip={canCreate ? 'Nuevo aviso' : blockedTooltip}
           className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-50">
