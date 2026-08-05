@@ -5098,10 +5098,17 @@ export default function SubjectPage() {
               onChange={toggleNotificarActivacion}
               className="mt-1"
             />
-            <label htmlFor="notificar-activacion" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
-              Notificarme cuando un estudiante se active a esta asignatura
-              <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante se active, según lo que tengas activado en Notificaciones</span>
-            </label>
+            <div className="flex-1 min-w-0">
+              <label htmlFor="notificar-activacion" className="text-sm font-medium text-on-surface cursor-pointer block">
+                Notificarme cuando un estudiante se active a esta asignatura
+              </label>
+              {/* La explicación se pliega detrás de "¿Qué es esto?" — mismo
+                  patrón que el resto de las pantallas: quien ya la leyó no
+                  tiene que volver a pasar por ella. */}
+              <InfoDisclosure className="mt-0.5">
+                <span className="text-muted text-xs block">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante se active, según lo que tengas activado en Notificaciones</span>
+              </InfoDisclosure>
+            </div>
           </div>
           </>}
 
