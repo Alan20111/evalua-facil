@@ -570,6 +570,7 @@ export default function EvaluacionEditor({
       respuestaCorrecta: p.tipo === 'opcion_multiple' ? (p.respuestaCorrecta || opciones[0]?.id || null) : 'a',
       vfRespuesta: p.tipo === 'verdadero_falso' ? (p.respuestaCorrecta || 'v') : 'v',
       ponderacion: p.ponderacion ?? 1, imagenFile: null,
+      seccionId: p.seccionId || null,
     }
     setPreguntaEditForm(base)
     setGlowId(null)
@@ -590,7 +591,16 @@ export default function EvaluacionEditor({
     try {
       let imagenUrl = preguntas.find((p) => p.id === id)?.imagenUrl || null
       if (preguntaEditForm.imagenFile) imagenUrl = await uploadToCloudinary(preguntaEditForm.imagenFile, 'evalua-facil/preguntas')
-      const data = { ...buildPreguntaData(preguntaEditForm), imagenUrl }
+      // Mover de sección: `orden` es relativo a su grupo, así que al cambiar
+      // de sección hay que darle uno nuevo — el último del grupo destino — o
+      // quedaría empatado con algún reactivo que ya estaba ahí.
+      const antes = preguntas.find((p) => p.id === id)
+      const seccionNueva = preguntaEditForm.seccionId || null
+      const cambioDeSeccion = (antes?.seccionId || null) !== seccionNueva
+      const camposSeccion = cambioDeSeccion
+        ? { ...seccionesCtl.camposDeSeccion(seccionNueva), orden: siguienteOrden(preguntas.filter((p) => p.id !== id), seccionNueva) }
+        : {}
+      const data = { ...buildPreguntaData(preguntaEditForm), imagenUrl, ...camposSeccion }
       await updateDoc(doc(db, 'activities', currentActivityId, 'preguntas', id), data)
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
       setEditingPreguntaId(null); setGlowId(id); toast('Pregunta actualizada')
@@ -1266,6 +1276,12 @@ export default function EvaluacionEditor({
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="p-4 space-y-3">
                         <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {numeroDePregunta[p.id]}</p>
+                        <SelectorSeccion
+                          id={`preg-edit-seccion-${p.id}`}
+                          secciones={seccionesCtl.secciones}
+                          valor={preguntaEditForm.seccionId}
+                          onChange={(v) => setPreguntaEditForm((f) => ({ ...f, seccionId: v }))}
+                        />
                         <div>
                           <Select
                             id="preg-edit-tipo"

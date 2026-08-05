@@ -483,6 +483,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       ponderacion: p.ponderacion ?? 1,
       retroalimentacion: p.retroalimentacion || '',
       imagenFile: null,
+      seccionId: p.seccionId || null,
     }
     setPreguntaEditForm(base)
     setGlowId(null)
@@ -500,7 +501,16 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       if (preguntaEditForm.imagenFile) {
         imagenUrl = await uploadToCloudinary(preguntaEditForm.imagenFile, 'evalua-facil/preguntas')
       }
-      const data = { ...buildPreguntaData({ ...preguntaEditForm }), imagenUrl }
+      // Mover de sección: `orden` es relativo a su grupo, así que al cambiar
+      // de sección hay que darle uno nuevo — el último del grupo destino — o
+      // quedaría empatado con algún reactivo que ya estaba ahí.
+      const antes = preguntas.find((p) => p.id === id)
+      const seccionNueva = preguntaEditForm.seccionId || null
+      const cambioDeSeccion = (antes?.seccionId || null) !== seccionNueva
+      const camposSeccion = cambioDeSeccion
+        ? { ...seccionesCtl.camposDeSeccion(seccionNueva), orden: siguienteOrden(preguntas.filter((p) => p.id !== id), seccionNueva) }
+        : {}
+      const data = { ...buildPreguntaData({ ...preguntaEditForm }), imagenUrl, ...camposSeccion }
       await updateDoc(doc(db, 'activities', activityId, 'preguntas', id), data)
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
       setEditingPreguntaId(null)
@@ -1107,6 +1117,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="space-y-2">
                         <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {numeroDePregunta[p.id]}</p>
+                        <SelectorSeccion
+                          id={`preg-edit-seccion-${p.id}`}
+                          secciones={seccionesCtl.secciones}
+                          valor={preguntaEditForm.seccionId}
+                          onChange={(v) => setPreguntaEditForm((f) => ({ ...f, seccionId: v }))}
+                        />
                         <Select
                           id={`preg-edit-tipo-${p.id}`}
                           label="Tipo de pregunta"
