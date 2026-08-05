@@ -42,7 +42,11 @@ export function useSubscription() {
   const [pagoLiquidando, setPagoLiquidando] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const load = useCallback(async () => {
+  // `silencioso` recarga sin encender `loading`: se usa al volver a la
+  // pantalla, donde un parpadeo del spinner en cada cambio de pestaña sería
+  // peor que no avisar nada.
+  const load = useCallback(async (opts) => {
+    const silencioso = opts?.silencioso === true
     if (!currentUser) {
       setSubscription(null)
       setRecentPayments([])
@@ -52,7 +56,7 @@ export function useSubscription() {
       return
     }
 
-    setLoading(true)
+    if (!silencioso) setLoading(true)
     try {
       const [subsSnap, paymentsSnap] = await Promise.all([
         getDocs(query(collection(db, 'subscriptions'), where('docenteId', '==', currentUser.uid))),
@@ -104,6 +108,25 @@ export function useSubscription() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Al volver a la pantalla se relee. El administrador aprueba el pago desde
+  // otro lado: sin esto, el docente que dejó la pestaña abierta (o que salió
+  // de la app y volvió) seguía viendo "en revisión" y el candado de escritura
+  // puesto hasta que recargara a mano, aunque su suscripción ya estuviera
+  // activa. Es también lo que mantiene sincronizadas dos pestañas o el
+  // teléfono y la computadora: la que se pone al frente se pone al día.
+  useEffect(() => {
+    if (!currentUser) return
+    const alVolver = () => {
+      if (document.visibilityState === 'visible') load({ silencioso: true })
+    }
+    document.addEventListener('visibilitychange', alVolver)
+    window.addEventListener('focus', alVolver)
+    return () => {
+      document.removeEventListener('visibilitychange', alVolver)
+      window.removeEventListener('focus', alVolver)
+    }
+  }, [currentUser, load])
 
   return {
     subscription,

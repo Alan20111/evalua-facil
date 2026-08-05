@@ -432,10 +432,65 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         isAdmin() || resource.data.docenteId == request.auth.uid
       );
+      // Un docente DECLARA una transferencia; el administrador la coteja con el
+      // estado de cuenta y la aprueba. Aprobar es lo único que activa la
+      // suscripción, y eso ya era exclusivo del admin (`update`).
+      //
+      // Lo que faltaba candar es CUÁNTO se activa. Al aprobar, el panel lee del
+      // propio pago la periodicidad del plan y los meses (ver handleApprove en
+      // PaymentsTable.jsx), así que un pago fabricado desde la consola con
+      //   { planId: 'anual', mesesPagados: 6 }
+      // convertía una transferencia de un mes en SEIS AÑOS de suscripción, sin
+      // que el diálogo de confirmación dijera nada de años. Por eso el plan y
+      // los meses se fijan aquí:
+      //   · planId 'pro' — el único plan que se vende hoy (MONTHLY_PLAN_ID en
+      //     subscriptionHelpers.js), y el único mensual. Si algún día vuelve el
+      //     anual, se agrega aquí a propósito.
+      //   · mesesPagados 1..6 — el tope real del selector (MESES_DESCUENTO).
+      //   · subscriptionId tiene que ser SUYA: sin esto, un docente podía pagar
+      //     y acreditarle el mes a la cuenta de otro.
+      //   · createdAt == request.time — el folio de transacción del panel se
+      //     numera por antigüedad; con una fecha inventada un pago nuevo podía
+      //     colarse como si fuera viejo.
+      //   · hasOnly cierra el resto: `archivado` (un pago nacía escondido de la
+      //     lista del admin), `comentarios`, `notasAdmin` (notas del admin que
+      //     el docente no escribe) y `notificadoAdmin` (el candado de
+      //     idempotencia del aviso — ponerlo en true silenciaba el push).
+      // El MONTO no se valida aquí a propósito: la tarifa cambia (hoy es precio
+      // de lanzamiento) y una regla desfasada dejaría a todos sin poder pagar.
+      // Se acota a un rango sano y el panel avisa cuando no coincide con la
+      // tarifa oficial — el admin ya coteja ese monto contra el banco.
+      // `hasAll`/`hasOnly` van PRIMERO: leer un campo que no existe no da
+      // falso, revienta la evaluación entera de la regla. Con el juego de
+      // llaves ya comprobado, todo lo de abajo se puede leer sin rodeos.
       allow create: if isAdmin() || (
         isDocente() &&
+        request.resource.data.keys().hasAll([
+          'docenteId', 'subscriptionId', 'planId', 'monto', 'metodo', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          'docenteId', 'subscriptionId', 'planId', 'escuelaId', 'monto', 'mesesPagados',
+          'metodo', 'referencia', 'status', 'createdAt', 'comprobanteUrl', 'reenvioDePagoId'
+        ]) &&
         request.resource.data.docenteId == request.auth.uid &&
-        request.resource.data.status == 'pendiente'
+        request.resource.data.status == 'pendiente' &&
+        request.resource.data.metodo == 'transferencia' &&
+        request.resource.data.planId == 'pro' &&
+        // `mesesPagados` se valida pero NO se exige: la app de Android lleva su
+        // propio paquete y tarda en actualizarse, y un pago sin el campo vale
+        // por un mes en todo el proyecto (`mesesPagados || 1` al aprobar). Sin
+        // este default, la app instalada hoy se quedaría sin poder reenviar un
+        // pago rechazado en cuanto se publiquen estas reglas.
+        request.resource.data.get('mesesPagados', 1) is int &&
+        request.resource.data.get('mesesPagados', 1) >= 1 &&
+        request.resource.data.get('mesesPagados', 1) <= 6 &&
+        request.resource.data.monto is number &&
+        request.resource.data.monto > 0 &&
+        request.resource.data.monto <= 5000 &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.subscriptionId is string &&
+        exists(/databases/$(database)/documents/subscriptions/$(request.resource.data.subscriptionId)) &&
+        get(/databases/$(database)/documents/subscriptions/$(request.resource.data.subscriptionId)).data.docenteId == request.auth.uid
       );
       allow update, delete: if isAdmin();
     }
