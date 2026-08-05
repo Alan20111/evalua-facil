@@ -17,7 +17,7 @@ import Select from '../ui/Select'
 // Banco de rúbricas del docente: elegir una para la actividad, crear nuevas,
 // editarlas o eliminarlas. Pantalla completa sobre el editor de entregables
 // (z-[60] > z-50); el editor de rúbricas va encima (z-[70]).
-export default function RubricaPicker({ docenteId, onClose, onSelect }) {
+export default function RubricaPicker({ docenteId, currentRubricaId, onClose, onSelect }) {
   const toast = useToast()
   const [rubricas, setRubricas] = useState([])
   const [loading, setLoading] = useState(true)
@@ -81,10 +81,15 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
   }
 
   const temas = [...new Set(rubricas.map((r) => r.tema).filter(Boolean))]
-  const filtered = rubricas.filter((r) =>
-    (!search.trim() || r.titulo.toLowerCase().includes(search.trim().toLowerCase())) &&
-    (!temaFilter || r.tema === temaFilter)
-  )
+  // La que ya está en uso en esta actividad va primero — .sort() es estable,
+  // así que el resto conserva su orden (el más reciente primero) tal como
+  // ya venía de load().
+  const filtered = rubricas
+    .filter((r) =>
+      (!search.trim() || r.titulo.toLowerCase().includes(search.trim().toLowerCase())) &&
+      (!temaFilter || r.tema === temaFilter)
+    )
+    .sort((a, b) => (a.id === currentRubricaId ? -1 : b.id === currentRubricaId ? 1 : 0))
 
   return (
     <div className="fixed inset-0 z-[60] bg-surface overflow-y-auto">
@@ -168,10 +173,17 @@ export default function RubricaPicker({ docenteId, onClose, onSelect }) {
                     </p>
                     {r.descripcion && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{r.descripcion}</p>}
                   </div>
-                  <button type="button" onClick={() => onSelect(r)}
-                    className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">
-                    <Check size={16} /> Usar
-                  </button>
+                  {r.id === currentRubricaId ? (
+                    <button type="button" onClick={() => onSelect(r)}
+                      className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded hover:bg-emerald-700 transition-colors">
+                      <Check size={16} /> Usando
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => onSelect(r)}
+                      className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-accent text-white text-sm font-semibold rounded hover:bg-accent-hover transition-colors">
+                      <Check size={16} /> Usar
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 mt-2">
                   <button type="button" onClick={() => setPreviewId(previewId === r.id ? null : r.id)}
