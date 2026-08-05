@@ -24,8 +24,16 @@ import {
 } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays, Star,
-  Scale, CheckSquare, Square, X,
+  Scale, CheckSquare, Square, X, FileSpreadsheet, FileText,
 } from 'lucide-react'
+import { estadoEvaluacionLabel } from '../utils/evaluacionGrading'
+import { cargarRespuestasEvaluacion, esGraficable } from '../utils/evaluacionRespuestas'
+import { exportEvaluacionResultadosExcel } from '../utils/excel'
+import { exportEvaluacionResultadosPDF } from '../utils/pdf'
+import { descargaSoloWeb } from '../utils/descargaSoloWeb'
+import { useSubscription } from '../hooks/useSubscription'
+import { hasCleanExports } from '../utils/subscriptionHelpers'
+import ConfirmModal from './ConfirmModal'
 import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 import EvaluacionGraficas from './EvaluacionGraficas'
@@ -146,6 +154,10 @@ function OpcionesEditor({ opciones, respuestaCorrecta, onChange, onChangeCorrect
 export default function EvaluacionManager({ activity, subject, activityId, activityLabel, contextLine, students, submissions, onActivityChange, onSubmissionRemoved = null, onSubmissionUpdated = null, resultadosOnly = false, backState = null, openStudentId = null, onDeleteActivity = null }) {
   const navigate = useNavigate()
   const toast = useToast()
+  // Sin suscripción activa, todo lo que se exporta lleva marca de agua —
+  // mismo criterio que las exportaciones de la asignatura.
+  const { subscription } = useSubscription()
+  const exportsWatermarked = !hasCleanExports(subscription)
   // Full-screen EvaluacionEditor — the SAME editor "editar" opens from the
   // parcial list; the header pencil opens it here too.
   const [showEvalEditor, setShowEvalEditor] = useState(false)
@@ -172,6 +184,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // Per-reactivo pie charts overlay — owns its own useBackHandler/useScrollLock
   // (same pattern as ZoomableImage's overlay), so just a flag here.
   const [showGraficas, setShowGraficas] = useState(false)
+  // Exportación de los resultados de ESTA evaluación (Excel / PDF). `null`
+  // cuando no se está generando nada; 'excel' | 'pdf' mientras corre, para
+  // desactivar solo el botón que se tocó. `pendingExport` guarda cuál se pidió
+  // mientras el aviso de marca de agua está en pantalla.
+  const [exportingResultados, setExportingResultados] = useState(null)
+  const [pendingExport, setPendingExport] = useState(null)
   const [editingPreguntaId, setEditingPreguntaId] = useState(null)
   const [preguntaEditForm, setPreguntaEditForm] = useState(null)
   const [bancoSearch, setBancoSearch] = useState('')
@@ -669,11 +687,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // aplica cuando hay reactivos que el docente debe calificar a mano.
   const hasManual = preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo))
 
+  // Misma etiqueta que sale en la columna ESTADO del Excel de resultados — la
+  // lógica vive en evaluacionGrading.js para que no puedan discrepar.
   function estadoEstudiante(sub) {
-    if (!sub) return 'No iniciado'
-    if (sub.estadoEvaluacion === 'en_progreso') return 'En proceso'
-    if (sub.pendienteRevision) return 'Por calificar'
-    return hasManual ? 'Calificado' : 'Realizado'
+    return estadoEvaluacionLabel(sub, hasManual)
   }
 
   // Filter buckets: Pendientes (not finished), Calificados/Realizados,
@@ -859,6 +876,43 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     .filter((s) => s.estadoEvaluacion === 'finalizado' && s.calificacion != null)
     .map((s) => s.calificacion)
   const stats = calcularEstadisticasGrupo(calificaciones, activity.maxCalif || 10)
+
+  // ── Exportar los resultados de ESTA evaluación ──
+  // Excel: cuatro hojas (resumen, calificaciones, matriz de respuestas y
+  // resumen por reactivo). PDF: el reporte por reactivo con la tabla de
+  // opción / respuestas / porcentaje. Las gráficas se descargan aparte, desde
+  // la pantalla de Gráficas.
+  //
+  // Las respuestas de cada estudiante viven en una subcolección por entrega:
+  // se leen aquí, al momento de exportar, y no al abrir la pestaña — abrir
+  // Resultados no tiene por qué costar una lectura por alumno.
+  async function runExportResultados(kind) {
+    setExportingResultados(kind)
+    try {
+      const { porAlumno, counts } = await cargarRespuestasEvaluacion(submissions, preguntas)
+      if (kind === 'excel') {
+        await exportEvaluacionResultadosExcel({
+          activity, subject, students, submissions, preguntas, counts, porAlumno, stats, hasManual,
+          watermark: exportsWatermarked,
+        })
+      } else {
+        await exportEvaluacionResultadosPDF({
+          activity, subject, preguntas: preguntas.filter(esGraficable), counts,
+          watermark: exportsWatermarked,
+        })
+      }
+    } catch (err) {
+      toast('Error al exportar: ' + err.message, 'error')
+    } finally {
+      setExportingResultados(null)
+    }
+  }
+
+  function handleExportResultados(kind) {
+    if (descargaSoloWeb(toast)) return
+    if (exportsWatermarked) { setPendingExport(kind); return }
+    runExportResultados(kind)
+  }
 
   // Llegando desde una celda de Calificaciones: spinner hasta que la revisión
   // del estudiante esté abierta — nunca se alcanza a ver la pantalla de resultados.
@@ -1432,6 +1486,29 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               maxCalif={activity.maxCalif || 10}
               onGraficas={() => setShowGraficas(true)}
             />
+            {/* Descargar los resultados de este cuestionario/examen. Van aquí,
+                pegados al análisis de resultados, porque es justo lo que el
+                docente acaba de ver en pantalla: el Excel para trabajarlo y el
+                PDF para archivarlo o entregarlo. Las gráficas se descargan
+                desde su propia pantalla (botón "Gráficas" de arriba). */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs text-muted flex-shrink-0">Descargar resultados:</span>
+              {[['excel', 'Excel', FileSpreadsheet], ['pdf', 'PDF', FileText]].map(([kind, label, Icon]) => (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => handleExportResultados(kind)}
+                  disabled={exportingResultados != null}
+                  data-tooltip={kind === 'excel'
+                    ? 'Calificaciones, respuestas de cada estudiante y resumen por reactivo'
+                    : 'Resumen por reactivo: opción, respuestas y porcentaje'}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-accent text-accent text-xs font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+                >
+                  {exportingResultados === kind ? <Spinner size="sm" /> : <Icon size={14} />}
+                  {exportingResultados === kind ? 'Generando…' : label}
+                </button>
+              ))}
+            </div>
             {configForm?.publicarResultados === 'manual' && !configForm.resultadosPublicados && (
               <button type="button" onClick={handlePublicarResultados} className="w-full mb-3 py-2 bg-accent text-white text-sm font-medium rounded">
                 Publicar resultados a tus estudiantes
@@ -1935,6 +2012,19 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           preguntas={preguntas}
           submissions={submissions}
           onClose={() => setShowGraficas(false)}
+        />
+      )}
+
+      {/* Mismo aviso que en el resto de las exportaciones del docente: en
+          periodo de prueba los archivos salen con marca de agua, y se le dice
+          antes de generarlos, no después. */}
+      {pendingExport && (
+        <ConfirmModal
+          title="Exportación en periodo de prueba"
+          message="Los documentos generados durante el periodo de prueba incluyen una marca de agua de Evalúa Fácil. Al activar tu suscripción, todas las exportaciones se generarán sin marca de agua."
+          confirmLabel="Continuar"
+          onConfirm={() => { const kind = pendingExport; setPendingExport(null); runExportResultados(kind) }}
+          onCancel={() => setPendingExport(null)}
         />
       )}
     </div>

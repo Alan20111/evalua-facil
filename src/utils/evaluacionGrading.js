@@ -109,6 +109,20 @@ export function repartirPonderacionParejo(n) {
 }
 
 /**
+ * Estado de UN estudiante en una evaluación, con el vocabulario correcto: un
+ * cuestionario "se realiza o no", y solo se habla de calificar cuando hay
+ * reactivos que el docente debe revisar a mano (`hasManual`). Lo comparten la
+ * lista de Entregas y las exportaciones (Excel), para que la columna ESTADO
+ * del archivo diga lo mismo que la pantalla.
+ */
+export function estadoEvaluacionLabel(sub, hasManual) {
+  if (!sub) return 'No iniciado'
+  if (sub.estadoEvaluacion === 'en_progreso') return 'En proceso'
+  if (sub.pendienteRevision) return 'Por calificar'
+  return hasManual ? 'Calificado' : 'Realizado'
+}
+
+/**
  * Group stats for the teacher view (average, max, min, pass/fail %).
  * `calificaciones` is an array of finished attempts' final scores.
  */
