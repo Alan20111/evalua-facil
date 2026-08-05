@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   collection,
   doc,
@@ -16,6 +16,8 @@ import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import SearchInput from '../../../components/SearchInput'
 import StatusBadge from './StatusBadge'
 import { db } from '../../../firebase'
+import { useAuth } from '../../../context/AuthContext'
+import { apiUrl } from '../../../utils/apiBase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import { useBackHandler } from '../../../hooks/useBackHandler'
@@ -108,6 +110,14 @@ const COLS = [
   },
   { key: 'dias', label: 'Días', w: 95, align: 'right' },
   {
+    key: 'sinAcceder',
+    label: 'Días sin accesar',
+    w: 120,
+    align: 'right',
+    wrap: true,
+    ayuda: 'Cuántos días lleva el docente sin iniciar sesión (lo que Firebase Auth registra como su último acceso, no una fecha que guardemos nosotros). En ámbar a partir de 30 días y en rojo a partir de 60. Guion: nunca ha entrado, o su cuenta ya no existe.',
+  },
+  {
     key: 'ultimoPago',
     label: 'Último pago',
     w: 165,
@@ -120,6 +130,15 @@ const CAMPOS_TEXTO = ['codigoPostal', 'estado', 'ciudad', 'escuela']
 const CAMPOS_LISTA = ['situacion']
 const CAMPOS_FILTRO = COLS.filter((c) => c.filtro).map((c) => c.key)
 const SIN_FILTROS = Object.fromEntries(CAMPOS_FILTRO.map((k) => [k, '']))
+
+// Días completos transcurridos desde el último acceso. `null` cuando no hay
+// dato (nunca entró, o la cuenta ya no existe en Auth).
+function diasSinAccesar(fechaISO) {
+  if (!fechaISO) return null
+  const d = new Date(fechaISO)
+  if (Number.isNaN(d.getTime())) return null
+  return Math.max(0, Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24)))
+}
 
 const isoLocal = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -287,6 +306,7 @@ function CeldaFiltro({ col, valor, onChange, sugerencias }) {
 
 export default function SubscriptionsTable({ stats, onRefresh }) {
   const toast = useToast()
+  const { currentUser } = useAuth()
   const [modal, setModal] = useState(null)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
@@ -300,6 +320,11 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
 
   // Memoizados aunque parezcan triviales: el `|| []` crea un arreglo nuevo en
   // cada render y eso invalidaría los useMemo que dependen de ellos.
+  // Último acceso de cada docente (Firebase Auth) — se pide una vez por carga
+  // del panel a api/admin/last-access, porque solo el Admin SDK puede leer la
+  // metadata de OTRO usuario. Si falla, la columna se queda en guion: es un
+  // dato de apoyo, no debe tumbar la tabla.
+  const [accesos, setAccesos] = useState({})
   const teachers = useMemo(() => stats?.teachers || [], [stats?.teachers])
   const plans = useMemo(() => stats?.plans || [], [stats?.plans])
   const teachersMap = useMemo(() => Object.fromEntries(teachers.map((t) => [t.id, t])), [teachers])
@@ -317,6 +342,23 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
     () => teachers.filter((t) => !docentesConSuscripcion.has(t.id)),
     [teachers, docentesConSuscripcion]
   )
+
+  // Se pide con los uid que ya están en pantalla; el endpoint responde un mapa
+  // { uid: fecha ISO del último acceso }.
+  useEffect(() => {
+    if (!currentUser || teachers.length === 0) return undefined
+    let cancelado = false
+    currentUser.getIdToken()
+      .then((token) => fetch(apiUrl('/api/admin/last-access'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ uids: teachers.map((t) => t.id) }),
+      }))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelado && data?.accesos) setAccesos(data.accesos) })
+      .catch(() => {})
+    return () => { cancelado = true }
+  }, [currentUser, teachers])
 
   // Cada suscripción se "aplana" una sola vez a las columnas visibles: así el
   // filtro trabaja sobre texto ya resuelto en vez de volver a cruzar docente,
@@ -403,6 +445,9 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         vencimiento: vencTexto,
         vencimientoISO: venc ? isoLocal(venc) : '',
         dias: sub ? calcDaysRemaining(vencValor) : null,
+        // Días completos desde el último inicio de sesión. null = nunca ha
+        // entrado o su cuenta ya no está en Auth (una baja, por ejemplo).
+        sinAcceder: diasSinAccesar(accesos[teacher?.id]),
       }
     }
 
@@ -418,7 +463,7 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
       )
     )
     return [...conSuscripcion, ...sinSuscripcion, ...bajas]
-  }, [stats, teachers, teachersMap, plansMap])
+  }, [stats, teachers, teachersMap, plansMap, accesos])
 
   // Orden fijo: la suscripción más reciente hasta arriba; dentro del mismo día
   // desempata el nombre del docente.
@@ -782,6 +827,18 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
                       barrer la tabla con la vista. */}
                   <td className={`px-3 py-2 text-right tabular-nums ${r.dias !== null && r.dias < 0 ? 'text-red-600 font-semibold' : 'text-muted'}`}>
                     {r.dias !== null ? r.dias : '—'}
+                  </td>
+                  {/* Mismo criterio de lectura rápida que la columna Días:
+                      lo que hay que cazar de un vistazo va en color. A los 60
+                      días es cuando el docente-dueño decide si elimina la
+                      cuenta o intenta traer de vuelta a esa persona. */}
+                  <td className={`px-3 py-2 text-right tabular-nums ${
+                    r.sinAcceder === null ? 'text-slate-400'
+                      : r.sinAcceder >= 60 ? 'text-red-600 font-semibold'
+                      : r.sinAcceder >= 30 ? 'text-amber-600 font-semibold'
+                      : 'text-muted'
+                  }`}>
+                    {r.sinAcceder === null ? '—' : r.sinAcceder}
                   </td>
                   <td className="px-3 py-2 text-muted truncate" title={r.ultimoPago}>{r.ultimoPago}</td>
                   {/* Sin suscripción no hay nada que editar, cancelar ni
