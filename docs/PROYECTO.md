@@ -1,13 +1,35 @@
 # Evalúa Fácil — cómo funciona todo el proyecto
 
-Mapa completo de la plataforma, escrito para que alguien (o algo) que no ha
+Documento único de referencia. Escrito para que alguien (o algo) que no ha
 visto el repo pueda razonar sobre él y revisar cambios con criterio.
 
 Actualizado: 5-ago-2026.
 
-Documentos hermanos, más específicos:
-- [`EVALUACIONES.md`](EVALUACIONES.md) — el subsistema de cuestionarios y exámenes a detalle.
-- [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) — colores, tipografía, componentes.
+Complemento: [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) para colores, tipografía y
+componentes visuales.
+
+---
+
+## Índice
+
+1. [Qué es](#1-qué-es)
+2. [Los tres roles](#2-los-tres-roles)
+3. [Colecciones de Firestore](#3-colecciones-de-firestore)
+4. [Actividades: el corazón](#4-actividades-el-corazón)
+5. [Evaluaciones: cuestionarios y exámenes](#5-evaluaciones-cuestionarios-y-exámenes)
+6. [Asistencia](#6-asistencia)
+7. [Calendario y horario](#7-calendario-y-horario)
+8. [Avisos](#8-avisos)
+9. [Notificaciones](#9-notificaciones)
+10. [Suscripciones y el candado](#10-suscripciones-y-el-candado)
+11. [Exportaciones](#11-exportaciones)
+12. [Panel de administración](#12-panel-de-administración)
+13. [La app Android](#13-la-app-android)
+14. [Seguridad: invariantes](#14-seguridad--invariantes-que-no-se-negocian)
+15. [Convenciones](#15-convenciones-del-proyecto)
+16. [Lógica duplicada a propósito](#16-lógica-duplicada-a-propósito-y-peligrosa)
+17. [Despliegue](#17-despliegue)
+18. [Por dónde empezar a leer](#18-por-dónde-empezar-a-leer)
 
 ---
 
@@ -57,6 +79,9 @@ El docente los captura (a mano o por Excel) y el estudiante **se activa** con
 el código de la asignatura: `/activate/:code` crea su cuenta de Auth y marca
 `activado: true` + `uid` en todas sus inscripciones. Si el docente le reinicia
 la contraseña, vuelve a pasar por ahí con una temporal.
+
+`activadoAt` se sella **una sola vez** por inscripción: se usa como corte para
+los avisos, y reescribirlo le borraría avisos que ya le tocaban.
 
 ---
 
@@ -122,7 +147,7 @@ Tres tipos, un solo modelo:
 |---|---|---|
 | Entregable | `archivo` | Sube archivos |
 | Observación | `observacion` | Nada; solo recibe nota |
-| Cuestionario / Examen | `evaluacion` | Contesta reactivos ([detalle](EVALUACIONES.md)) |
+| Cuestionario / Examen | `evaluacion` | Contesta reactivos (§5) |
 
 ### Visibilidad — tres estados, no dos
 
@@ -136,7 +161,8 @@ Tres tipos, un solo modelo:
   **regrese a borrador**, la única acción que lo borra.
 
 Ojo con la distinción entre *ocultar con el ojito* (temporal, conserva
-`publishedAt`) y *guardar como borrador* (la despublica de verdad).
+`publishedAt`) y *guardar como borrador* (la despublica de verdad, le quita el
+número y la saca de las exportaciones).
 
 ### Numeración y calificación
 
@@ -144,8 +170,14 @@ El número (`1.1`, `1.2`…) **no se guarda**: se calcula por posición dentro d
 parcial, y solo cuentan las actividades que van a la boleta. El predicado
 `cuentaParaCalificacion(a)` = no es borrador **y** no está marcada "sin
 calificación". Se usa en tabla de calificaciones, promedios, cierre de parcial,
-tope de ponderación, numeración y exportaciones — **no** en el calendario ni en
-la lista del alumno.
+tope de ponderación, numeración y exportaciones — **no** en el calendario, la
+agenda ni la lista del alumno.
+
+### Rúbricas y listas de cotejo
+
+Un entregable puede llevar rúbrica (varios niveles por criterio) o lista de
+cotejo (cumple / no cumple). La actividad guarda una **copia** de la rúbrica:
+editar la del banco nunca cambia actividades ya creadas ni notas ya puestas.
 
 ### Ponderación y cierre de parcial
 
@@ -155,9 +187,170 @@ Con `ponderacionParciales[p]` activa, cada actividad lleva `pesoCalificacion`
 ponderada. **Cerrar un parcial** (`parcialesCerrados`) congela sus
 calificaciones y pone 0 a quien no entregó; se puede revertir.
 
+### Fechas límite y prórrogas
+
+`fechaLimite` con hora; `recibirTarde` decide si se aceptan entregas después
+(marcadas como tardías). `extensiones{alumnoId: fecha}` da prórroga individual,
+con su motivo.
+
 ---
 
-## 5. Asistencia
+## 5. Evaluaciones: cuestionarios y exámenes
+
+Un cuestionario o un examen es una actividad con `tipo: 'evaluacion'` y
+`categoria: 'cuestionario' | 'examen'`. Comparten **todo** el motor; solo
+cambian sus valores por omisión al crearse:
+
+| | Cuestionario | Examen |
+|---|---|---|
+| Navegación | Libre | Secuencial |
+| Tiempo límite | Sin límite | 30 min |
+| Intentos | Ilimitados | 1 |
+| Con varios intentos, conservar | La mejor | El último |
+
+### 5.1 Datos
+
+```
+activities/{id}.evaluacion = { ...configuración..., secciones: [...] }
+
+activities/{id}/preguntas/{preguntaId}
+  tipo: 'opcion_multiple' | 'verdadero_falso' | 'respuesta_corta' | 'subir_archivo'
+  enunciado, imagen?, retroalimentacion
+  ponderacion                           // puntos que vale (deben sumar 10)
+  opciones: [{ id, texto, esOtra }]     // esOtra deja escribir texto libre
+  respuestaCorrecta: opcionId | null
+  seccionId, seccionNombre              // §5.6
+
+submissions/{id}
+  alumnoId (id de INSCRIPCIÓN), actividadId
+  estadoEvaluacion: 'en_progreso' | 'finalizado'
+  estado: 'entregado' | 'calificado'
+  calificacion, pendienteRevision
+  intentoActual, intentos: [{ numero, calificacion }]
+  tiempoInicio, fechaEntrega, ordenSeed
+
+submissions/{id}/respuestas/{preguntaId}
+  opcionSeleccionada, otraTexto, textoRespuesta, archivoURL, nombreArchivo
+  puntosObtenidos, comentarioDocente
+```
+
+### 5.2 Configuración (`activity.evaluacion`)
+
+| Campo | Valores | Efecto |
+|---|---|---|
+| `ordenPreguntas` | `creacion` \| `aleatorio` | Orden distinto por alumno; la semilla se fija por intento (`ordenSeed`) para que no cambie al recargar |
+| `barajarRespuestas` | bool | Baraja las opciones dentro de cada reactivo; "Otra" siempre queda al final |
+| `navegacion` | `libre` \| `secuencial` | Secuencial impide regresar |
+| `tiempoLimiteMin` | número \| null | **El cronómetro sigue corriendo aunque el alumno salga de la app** |
+| `intentosPermitidos` | número \| null | `null` = ilimitados |
+| `conservar` | `primero` \| `ultimo` \| `mejor` \| `promedio` | Qué nota queda con varios intentos |
+| `publicarResultados` | `inmediato` \| `ahora` \| `fecha` \| `nunca` | Cuándo ve su calificación |
+| `publicarRespuestas` | igual | Cuándo ve sus respuestas. **Independiente de la calificación** |
+| `mostrarRespuestasCorrectas` / `mostrarRetroalimentacion` / `mostrarPorcentaje` | bool | Qué incluye la revisión |
+| `sinCalificacion` | bool | No vale para la boleta (§5.5) |
+| `ponderarReactivos` | bool | Solo con `sinCalificacion` (§5.5) |
+| `secciones` | array | §5.6 |
+| `mostrarSecciones` | bool | Si el alumno ve los nombres de sección |
+
+`nunca` gana sobre cualquier fecha o bandera que hubiera quedado de una
+configuración anterior.
+
+### 5.3 Cómo se califica
+
+**Los puntos los pone el servidor, nunca el cliente.** `onEvaluacionFinalizada`
+(`functions/index.js`) se dispara cuando una submission queda en `finalizado`:
+
+1. Lee reactivos y respuestas.
+2. Tipos **objetivos** (opción múltiple, verdadero/falso): acierto = su
+   `ponderacion`, error = 0. Tipos de **revisión manual** (respuesta corta,
+   subir documento): `null` = pendiente del docente.
+3. `calificacion = (obtenidos / suma de ponderaciones) × maxCalif`, a un decimal.
+4. `resolverCalificacionFinal` aplica la política `conservar`.
+5. Escribe todo en una transacción. Es **idempotente**: si ese intento ya está
+   en `intentos[]`, se sale.
+
+Las reglas de Firestore impiden que el alumno se ponga nota: al crear,
+`calificacion` debe ser `null` y `estado` no puede ser `'calificado'`; al
+actualizar, un diff que toque `calificacion`, `intentos` o `pendienteRevision`
+se rechaza; y no puede escribir `puntosObtenidos` en sus respuestas.
+
+### 5.4 Los dos flujos
+
+**Estudiante** — ve la actividad si está publicada → `EvaluacionRunner`
+(pantalla completa, autoguarda cada respuesta, respeta navegación y cronómetro)
+→ al terminar el servidor califica → ve su nota si `publicarResultados` lo
+permite y sus respuestas si `publicarRespuestas` lo permite.
+
+**Docente** — dos pantallas con el mismo motor: `EvaluacionEditor` (pantalla
+completa, para armar) y `EvaluacionManager` (pestañas Preguntas ·
+Configuración · Resultados dentro de la actividad). En Resultados: panel de
+análisis (promedio, máxima, mínima, % de aprobación, entregas, pendientes),
+revisión por estudiante con calificación manual de los reactivos abiertos,
+gráficas de pastel por reactivo y descargas.
+
+### 5.5 "Sin calificación"
+
+Para un diagnóstico o una encuesta: se contesta y se revisa, pero no vale para
+la boleta.
+
+| Sí sigue | Ya no |
+|---|---|
+| Visible en Actividades, calendario y agenda | Lleva número |
+| Contestable por el estudiante | Aparece en la tabla de calificaciones |
+| Con todas sus respuestas y gráficas para el docente | Entra al promedio ni a la ponderación |
+| Exportable por reactivo | Sale en las exportaciones de calificaciones |
+
+Al marcarla se pregunta **si los reactivos tendrán ponderación**:
+*con puntos* arroja un resultado (8 de 10) para medir al grupo sin afectar la
+calificación; *sin puntos* es una encuesta y al alumno **no se le muestra
+ningún resultado** (un "0" sin aciertos que contar no significaría nada).
+
+### 5.6 Secciones (opcionales)
+
+Agrupan los reactivos por tema, competencia o aprendizaje. Un instrumento que
+no las usa se comporta exactamente igual que antes de que existieran.
+
+**Dónde viven:** en `activity.evaluacion.secciones`, un arreglo
+`[{ id, nombre, descripcion }]` dentro del documento de la actividad — **no**
+una colección aparte. Son pocas, siempre se necesitan junto con la
+configuración que ya se lee del mismo documento, reordenarlas es una sola
+escritura atómica y heredan las reglas de `activities`.
+
+**Cómo se ligan:** cada reactivo guarda `seccionId` (la verdad para agrupar) y
+`seccionNombre` (copia deliberada, para estadísticas futuras y exportaciones
+sin cruzar con la configuración, y para que una hoja de respuestas conserve el
+nombre que la sección tenía al aplicarse). Renombrar actualiza el nombre en sus
+reactivos.
+
+**El orden:** `orden` es **relativo a su sección**. Por eso la lista plana
+ordenada por ese campo ya no sirve para presentar — todo usa `preguntasEnOrden`
+(sueltas primero, luego cada sección). Al mover un reactivo de sección se le
+recalcula el orden para que entre al final del grupo destino.
+
+**El aleatorio** baraja *dentro* de cada sección, con semilla distinta por
+sección: un reactivo nunca se sale de la suya.
+
+Se puede: crear, renombrar, reordenar y eliminar secciones (al eliminar, sus
+reactivos **no** se borran: quedan sueltos); agregar reactivos dentro o fuera
+de una sección; moverlos entre secciones desde su formulario de edición;
+reordenarlos dentro de su grupo; y ocultar los nombres al estudiante dejando
+una lista continua.
+
+**Preparado, no construido:** las estadísticas por sección no existen todavía.
+Lo que está listo es el dato en cada reactivo y su presencia en Excel y PDF.
+
+### 5.7 Publicación: dos cosas distintas
+
+No confundir:
+
+1. **Publicación de la ACTIVIDAD** (`oculta` / `publishAt` / `publishedAt`): si
+   el estudiante la ve o no.
+2. **Publicación de RESULTADOS y RESPUESTAS**: si ve su calificación y qué
+   contestó. Solo aplica a evaluaciones y son independientes entre sí.
+
+---
+
+## 6. Asistencia
 
 Un documento de `attendance` es **una columna compartida por todo el grupo**:
 una fecha + una hora de clase, con `presentes{alumnoId: bool}`,
@@ -173,7 +366,7 @@ Las columnas pueden generarse solas desde el horario del docente
 
 ---
 
-## 6. Calendario y horario
+## 7. Calendario y horario
 
 - `horarioBloques` — cada clase **materializada por fecha**, para poder mover o
   cancelar una sola sin tocar el patrón.
@@ -187,7 +380,7 @@ vista (Día / 3 días / Semana / Mes) y los helpers de `calendarEvents.js`.
 
 ---
 
-## 7. Avisos
+## 8. Avisos
 
 Comunicados del docente a todo el grupo. **No es un chat**: sin respuestas,
 comentarios ni reacciones.
@@ -199,11 +392,12 @@ confirmación queda en `avisoLecturas`, que es **inmutable**: es auditoría de
 que sí se mostró.
 
 Un aviso solo le toca a quien ya estaba en la asignatura cuando se publicó: el
-corte es el más tardío entre su alta y su activación (`avisosDesde`).
+corte es el más tardío entre su alta y su activación (`avisosDesde`). El
+docente ve el avance de lectura contando solo a esos destinatarios reales.
 
 ---
 
-## 8. Notificaciones
+## 9. Notificaciones
 
 Push por FCM, con la app instalada. Todo lo enviado queda en `notificationLog`,
 que alimenta la **Bitácora** de docente y alumno (misma tabla, distinto
@@ -220,14 +414,18 @@ que alimenta la **Bitácora** de docente y alumno (misma tabla, distinto
 | `onAttendanceEscrita` | Recalcula el resumen del alumno |
 | `revisarProgramados` (30 min) | Publica lo programado y avisa fechas límite |
 | `onSuscripcionEscrita` / `sincronizarCandadoSuscripcion` (1 h) | Espejan el candado de suscripción |
+| `onPagoCreado` | Avisa al admin de un pago nuevo |
 
 **Criterio opt-out en todas**: ausente o `true` = notifica; solo se salta si el
 usuario lo apagó a propósito. Invertirlo dejó a casi todos sin notificaciones
 una vez — no volver a cambiarlo sin cambiar también el default de la pantalla.
 
+Los recordatorios de clase y evento del docente son **notificaciones locales**
+del teléfono (`localReminders.js`), no push del servidor.
+
 ---
 
-## 9. Suscripciones y el candado
+## 10. Suscripciones y el candado
 
 Un solo plan mensual. En la versión 1.0.1 el único método es **transferencia**
 (Mercado Pago y PayPal están pausados; su código vive en `api/_pausado/`).
@@ -243,6 +441,9 @@ fecha ya cubierta.
 - **No**: cualquier escritura de contenido — crear, editar, calificar, pasar
   lista, publicar.
 
+Ve una ventana que **se puede cerrar** ("Solo consultar y descargar lo mío") y
+un botón fijo para volver a abrirla; reaparece cada vez que intenta trabajar.
+
 ### El candado tiene dos capas y hay que moverlas juntas
 
 1. **Cliente** — `src/utils/firestoreGuard.js`. Las pantallas del docente
@@ -254,7 +455,8 @@ fecha ya cubierta.
    Function. Es la capa que no se puede rodear.
 
 Campo **ausente = se deja pasar**, a propósito: un dato faltante no debe dejar
-a nadie fuera de su trabajo.
+a nadie fuera de su trabajo. Una función programada cada hora vuelve a espejar
+todo, así que el respaldo inicial y cualquier desfase se corrigen solos.
 
 Los estudiantes **no se ven afectados** en nada si su maestro no paga.
 
@@ -264,9 +466,16 @@ Sin marca solo quien **ya pagó y sigue dentro de lo pagado** (`planId` +
 no vencida). La prueba lleva marca; una transferencia declarada pero sin
 aprobar, también.
 
+### Correos automáticos
+
+`api/cron/reminders.js`, una vez al día: prueba por terminar (6 días y el
+último), suscripción por vencer (7 días y el día), y retención (a los 60 y 83
+días de vencida). **El borrado automático a los 90 días no existe**: se elimina
+a mano desde el panel, apoyándose en la columna "Días sin accesar".
+
 ---
 
-## 10. Exportaciones
+## 11. Exportaciones
 
 Todo con membrete (escuela + docente + periodo) y marca de agua si aplica.
 **Solo desde la web**: en la app los botones se quedan a la vista y explican
@@ -274,16 +483,19 @@ dónde hacerlas (`descargaSoloWeb`).
 
 | Documento | Archivo |
 |---|---|
-| Calificaciones (curso / parcial), ranking, asistencia | `src/utils/excel.js` |
-| Los mismos + lista de acceso + resultados de evaluación + gráficas | `src/utils/pdf.js` |
+| Calificaciones (curso / parcial), ranking, asistencia, resultados de evaluación | `src/utils/excel.js` |
+| Los mismos + lista de acceso + resultados por reactivo + gráficas | `src/utils/pdf.js` |
 | Entregas de los alumnos en ZIP | `downloadSubmissions.js` |
+
+El Excel de resultados de una evaluación trae cuatro hojas: Resumen ·
+Calificaciones · Respuestas (matriz alumno × reactivo) · Por reactivo.
 
 En jsPDF **no existe el carácter `✓`** (las fuentes son WinAnsi): se dibuja con
 dos trazos. Ya pasó una vez que salía impreso como una comilla suelta.
 
 ---
 
-## 11. Panel de administración
+## 12. Panel de administración
 
 `/admin`, solo para `role: 'admin'`. Pestañas: **Resumen** (tarjetas y
 gráficas), **Suscripciones** (una fila por docente, con plan, vencimiento,
@@ -292,11 +504,12 @@ transferencias, que es lo que activa una suscripción), **Estudiantes** y
 **Cobros** (configuración de métodos).
 
 "Días sin accesar" sale del último inicio de sesión que ya guarda Firebase Auth
-(`api/admin/last-access`), no de un campo propio.
+(`api/admin/last-access`), no de un campo propio: así no cuesta una escritura
+por login y trae historia de todas las cuentas.
 
 ---
 
-## 12. La app Android
+## 13. La app Android
 
 Capacitor empaqueta `dist/`. **No descarga nada del servidor**: para ver un
 cambio hay que `npm run build && npx cap sync android` y volver a instalar.
@@ -310,7 +523,7 @@ elemento. Ponerlo dos veces abre dos huecos — ya pasó.
 
 ---
 
-## 13. Seguridad — invariantes que no se negocian
+## 14. Seguridad — invariantes que no se negocian
 
 1. Un docente solo escribe lo suyo (`ownsSubject`, `ownsActivity`).
 2. Un alumno solo escribe lo suyo (`ownsStudentDoc`), y **nunca** su
@@ -329,7 +542,7 @@ npm run test:rules      # 37 casos; requiere JDK 21+
 
 ---
 
-## 14. Convenciones del proyecto
+## 15. Convenciones del proyecto
 
 - **Azul** para docente y alumno; **guinda** en admin; **naranja** en las
   pantallas de autenticación. Cada asignatura puede reteñir su zona con
@@ -343,7 +556,7 @@ npm run test:rules      # 37 casos; requiere JDK 21+
 
 ---
 
-## 15. Lógica duplicada a propósito (y peligrosa)
+## 16. Lógica duplicada a propósito (y peligrosa)
 
 No se puede importar entre paquetes, así que estos cálculos viven en dos o tres
 lugares. **Si cambias uno, cambia los otros:**
@@ -358,9 +571,14 @@ lugares. **Si cambias uno, cambia los otros:**
 Discrepar significa, según el caso, calificar distinto de lo que se muestra o
 dejar trabajar a quien no pagó.
 
+Aparte, los dos editores de evaluación (`EvaluacionEditor` y
+`EvaluacionManager`) tienen **cada uno su copia del formulario de reactivos**.
+Es deuda conocida: lo nuevo (secciones) se escribió una sola vez y se comparte;
+lo viejo sigue duplicado. Un cambio al formulario hay que hacerlo en los dos.
+
 ---
 
-## 16. Despliegue
+## 17. Despliegue
 
 | Qué | Cómo | Automático |
 |---|---|---|
@@ -371,18 +589,21 @@ dejar trabajar a quien no pagó.
 | App Android | `npm run build && npx cap sync android` + Run | **no** |
 
 Después de cada merge conviene verificar que el despliegue **pasó**, no solo
-que salió: `curl -s https://evalua-facil.vercel.app/version.json` responde el
-commit desplegado.
+que salió:
+
+```bash
+curl -s https://evalua-facil.vercel.app/version.json   # responde el commit desplegado
+```
 
 ---
 
-## 17. Por dónde empezar a leer
+## 18. Por dónde empezar a leer
 
 | Si te toca… | Empieza por |
 |---|---|
 | Actividades y visibilidad | `src/utils/activityVisibility.js` |
 | Calificaciones | `src/utils/ponderacion.js` + pestaña Calificaciones de `teacher/SubjectPage.jsx` |
-| Evaluaciones | [`EVALUACIONES.md`](EVALUACIONES.md) |
+| Evaluaciones | `src/utils/evaluacionGrading.js`, `evaluacionRespuestas.js`, `secciones.js` |
 | Asistencia | `src/utils/attendance.js`, `attendanceAuto.js` |
 | Avisos | `src/utils/avisos.js`, `src/components/AvisosGate.jsx` |
 | Notificaciones | `functions/index.js`, `src/utils/pushNotifications.js` |
