@@ -28,6 +28,13 @@ export default function AvisosGate() {
   const [enrollments, setEnrollments] = useState([])
   const [avisos, setAvisos] = useState([])
   const [lecturas, setLecturas] = useState({}) // { [avisoId]: true }
+  // ¿Ya llegó la PRIMERA respuesta de avisoLecturas? Las dos suscripciones
+  // (avisos y sus lecturas) son independientes y no llegan juntas: si los
+  // avisos llegan primero, `lecturas` todavía está vacío y TODOS parecen sin
+  // confirmar, así que el modal de lectura obligatoria alcanzaba a asomarse un
+  // instante y desaparecía solo — el "flashazo" de avisos reportado en la web
+  // del estudiante. Hasta que no se sepa qué ya leyó, no se le exige nada.
+  const [lecturasReady, setLecturasReady] = useState(false)
   const [teacherNames, setTeacherNames] = useState({}) // { [docenteId]: nombre }
   const [subjectNames, setSubjectNames] = useState({}) // { [asignaturaId]: nombre }
   const [confirming, setConfirming] = useState(false)
@@ -84,7 +91,10 @@ export default function AvisosGate() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- limpia al quedarse sin inscripciones activas, antes de (no) suscribirse
-    if (enrollments.length === 0) { setLecturas({}); return undefined }
+    if (enrollments.length === 0) { setLecturas({}); setLecturasReady(false); return undefined }
+    // Al cambiar de inscripciones, lo ya leído deja de saberse hasta la
+    // primera respuesta de la nueva suscripción.
+    setLecturasReady(false)
     const enrollmentIds = enrollments.map((e) => e.id)
     const unsub = onSnapshot(
       query(collection(db, 'avisoLecturas'), where('estudianteId', 'in', enrollmentIds)),
@@ -92,13 +102,18 @@ export default function AvisosGate() {
         const map = {}
         snap.docs.forEach((d) => { map[d.data().avisoId] = true })
         setLecturas(map)
+        setLecturasReady(true)
       },
-      () => {}
+      // Si la consulta falla, se destraba igual: se vuelve al comportamiento
+      // de antes (sin lecturas conocidas, los avisos se piden de nuevo) en vez
+      // de dejar al estudiante sin ver nunca un aviso pendiente.
+      () => setLecturasReady(true)
     )
     return unsub
   }, [enrollments])
 
-  const avisosPendientes = avisos
+  // Sin la primera respuesta de lecturas no se muestra nada: ver lecturasReady.
+  const avisosPendientes = (lecturasReady ? avisos : [])
     .filter((a) => !lecturas[a.id])
     // Solo avisos publicados a partir de que la asignatura quedó activa para
     // este alumno (ver avisosDesde) — uno anterior no le corresponde, aunque
