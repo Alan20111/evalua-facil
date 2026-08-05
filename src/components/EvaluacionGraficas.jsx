@@ -6,6 +6,8 @@ import { useToast } from './Toast'
 import { descargaSoloWeb } from '../utils/descargaSoloWeb'
 import { exportEvaluacionGraficasPDF } from '../utils/pdf'
 import { SLICE_COLORS, esGraficable, cargarRespuestasEvaluacion } from '../utils/evaluacionRespuestas'
+import { membreteDe } from '../utils/membrete'
+import { useAuth } from '../context/AuthContext'
 import { useSubscription } from '../hooks/useSubscription'
 import { hasCleanExports } from '../utils/subscriptionHelpers'
 import ConfirmModal from './ConfirmModal'
@@ -72,6 +74,8 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
   const toast = useToast()
   const { subscription } = useSubscription()
   const exportsWatermarked = !hasCleanExports(subscription)
+  const { userProfile } = useAuth()
+  const membrete = membreteDe(userProfile)
   const [showWatermarkNotice, setShowWatermarkNotice] = useState(false)
   const [loading, setLoading] = useState(true)
   const [counts, setCounts] = useState({}) // { [preguntaId]: { [opcionId]: number } }
@@ -95,7 +99,7 @@ export default function EvaluacionGraficas({ activity, activityLabel, subject, p
   async function handleExportPdf() {
     setExportingPdf(true)
     try {
-      await exportEvaluacionGraficasPDF({ activity, subject, preguntas: graficables, counts, watermark: exportsWatermarked })
+      await exportEvaluacionGraficasPDF({ activity, subject, preguntas: graficables, counts, membrete, watermark: exportsWatermarked })
     } catch (err) {
       toast('Error al generar el PDF: ' + err.message, 'error')
     } finally {
