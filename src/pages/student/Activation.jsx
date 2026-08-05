@@ -489,7 +489,7 @@ export default function StudentActivation() {
 
   if (step === 'session_blocked') {
     const who = userProfile?.role === 'docente'
-      ? (userProfile.nombreMostrar || userProfile.nombre || 'docente')
+      ? (capitalizarNombre(userProfile.nombreMostrar || userProfile.nombre) || 'docente')
       : ([userProfile?.nombre, userProfile?.apellidoPaterno].map(capitalizarNombre).filter(Boolean).join(' ') || userProfile?.username || 'otra cuenta')
     const panelPath = userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'
     return (
