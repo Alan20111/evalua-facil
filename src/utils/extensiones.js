@@ -10,6 +10,8 @@
 // Vive aquí y no dentro de un editor porque lo usan los dos: entregables
 // (EntregableEditor) y evaluaciones (EvaluacionEditor).
 
+import { studentFullName } from './studentSearch'
+
 export function groupExtensions(extensiones, extensionesMotivo, students) {
   const byKey = new Map()
   Object.entries(extensiones || {}).forEach(([studentId, date]) => {
@@ -17,9 +19,7 @@ export function groupExtensions(extensiones, extensionesMotivo, students) {
     const motivo = (extensionesMotivo || {})[studentId] || ''
     const key = `${date}|${motivo}`
     const student = (students || []).find((s) => s.id === studentId)
-    const name = student
-      ? `${student.apellidoPaterno} ${student.apellidoMaterno || ''} ${student.nombre}`.replace(/\s+/g, ' ').trim()
-      : 'Estudiante'
+    const name = student ? studentFullName(student) : 'Estudiante'
     if (!byKey.has(key)) byKey.set(key, { date, motivo, names: [] })
     byKey.get(key).names.push(name)
   })

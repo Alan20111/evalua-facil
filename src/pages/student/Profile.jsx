@@ -20,6 +20,7 @@ import ConfirmModal from '../../components/ConfirmModal'
 import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { apiUrl } from '../../utils/apiBase'
+import { capitalizarNombre } from '../../utils/nombres'
 
 // El espacio para subir la foto mide distinto en la web y en la app — pedido
 // explícito, y por eso esta pantalla (que es la misma en las dos) tiene que
@@ -195,9 +196,10 @@ export default function StudentProfile() {
     }
   }
 
+  // El username va SIN capitalizar (es identificador, no nombre).
   const displayName =
-    [studentInfo?.nombre, studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].filter(Boolean).join(' ')
-    || [userProfile?.nombre, userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
+    [studentInfo?.nombre, studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].map(capitalizarNombre).filter(Boolean).join(' ')
+    || [userProfile?.nombre, userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].map(capitalizarNombre).filter(Boolean).join(' ')
     || studentInfo?.username || 'Estudiante'
   const initials = displayName.charAt(0).toUpperCase()
   const photoURL = userProfile?.photoURL || studentInfo?.photoURL

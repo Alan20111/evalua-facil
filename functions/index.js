@@ -440,8 +440,21 @@ exports.onSubmissionEntregada = onDocumentWritten('submissions/{submissionId}', 
 // y src/utils/subjectName.js) — mismas reglas, duplicadas a propósito: el
 // backend de Functions es CommonJS y no puede importar los módulos ES del
 // cliente.
+// Capitaliza igual que capitalizarNombre() (src/utils/nombres.js): en la base
+// hay nombres en MAYÚSCULAS y en minúsculas, y la notificación debe leerse
+// igual que la pantalla.
+function capitalizarNombre(texto) {
+  return String(texto ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('es')
+    .replace(/(^|[\s\-'’])(\p{L})/gu, (_, sep, letra) => sep + letra.toLocaleUpperCase('es'))
+}
 function nombreEstudianteDe(s) {
-  return `${s?.apellidoPaterno || ''} ${s?.apellidoMaterno || ''} ${s?.nombre || ''}`.replace(/\s+/g, ' ').trim() || 'Un estudiante'
+  return [s?.apellidoPaterno, s?.apellidoMaterno, s?.nombre]
+    .map(capitalizarNombre)
+    .filter(Boolean)
+    .join(' ') || 'Un estudiante'
 }
 function nombreAsignaturaDe(subj) {
   const nombre = subj?.nombre || ''

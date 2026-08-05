@@ -66,6 +66,7 @@ import {
 import { generateUsername } from '../../utils/generate'
 import { findStudentIdentity, studentNameKey } from '../../utils/studentIdentity'
 import { matchesStudentSearch, studentFullName } from '../../utils/studentSearch'
+import { capitalizarNombre, capitalizarPersona } from '../../utils/nombres'
 import { useSubscription } from '../../hooks/useSubscription'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -1738,9 +1739,8 @@ export default function SubjectPage() {
   async function createEnrollment(person, identity, schoolDocs) {
     const username = identity ? identity.username : uniqueFrom(person, schoolDocs)
     const ref = await addDoc(collection(db, 'students'), {
-      apellidoPaterno: person.apellidoPaterno.trim(),
-      apellidoMaterno: person.apellidoMaterno.trim(),
-      nombre: person.nombre.trim(),
+      // Nombre y apellidos se guardan ya capitalizados (Pérez, no PEREZ ni perez).
+      ...capitalizarPersona(person),
       username,
       resetPassword: null,
       // Identidad ya conocida → su MISMA escuela (ver identity.escuelaId en
@@ -1916,6 +1916,9 @@ export default function SubjectPage() {
         newIds.push(ref.id)
         batch.set(ref, {
           ...row,
+          // Las listas de Excel casi siempre vienen en MAYÚSCULAS: se guardan
+          // capitalizadas, igual que un alta manual.
+          ...capitalizarPersona(row),
           username,
           resetPassword: null,
           uid,
@@ -2008,10 +2011,10 @@ export default function SubjectPage() {
 
   function openEditStudent(s) {
     setStudentToEdit(s)
+    // Capitalizado, para que el formulario muestre el MISMO nombre que la lista
+    // (un registro viejo guardado en MAYÚSCULAS se ve aquí ya corregido).
     setEditStudentForm({
-      apellidoPaterno: s.apellidoPaterno || '',
-      apellidoMaterno: s.apellidoMaterno || '',
-      nombre: s.nombre || '',
+      ...capitalizarPersona(s),
       comentarios: s.comentarios || '',
     })
   }
@@ -2019,10 +2022,12 @@ export default function SubjectPage() {
   // "Guardar cambios" de Editar estudiante se apaga sin cambios — compara
   // contra studentToEdit, el mismo registro con el que openEditStudent llenó
   // el formulario.
+  // Se compara capitalizado de los dos lados: si el registro venía en
+  // MAYÚSCULAS, abrir el modal no debe encender "Guardar cambios" solo por eso.
   const editStudentChanged =
-    editStudentForm.apellidoPaterno.trim() !== (studentToEdit?.apellidoPaterno || '') ||
-    editStudentForm.apellidoMaterno.trim() !== (studentToEdit?.apellidoMaterno || '') ||
-    editStudentForm.nombre.trim() !== (studentToEdit?.nombre || '') ||
+    capitalizarNombre(editStudentForm.apellidoPaterno) !== capitalizarNombre(studentToEdit?.apellidoPaterno) ||
+    capitalizarNombre(editStudentForm.apellidoMaterno) !== capitalizarNombre(studentToEdit?.apellidoMaterno) ||
+    capitalizarNombre(editStudentForm.nombre) !== capitalizarNombre(studentToEdit?.nombre) ||
     editStudentForm.comentarios.trim() !== (studentToEdit?.comentarios || '')
 
   // Permitir reingreso a un alumno que salió por su cuenta (ocultaPorAlumno)
@@ -2056,9 +2061,7 @@ export default function SubjectPage() {
     setSavingStudent(true)
     try {
       const updated = {
-        apellidoPaterno: editStudentForm.apellidoPaterno.trim(),
-        apellidoMaterno: editStudentForm.apellidoMaterno.trim(),
-        nombre: editStudentForm.nombre.trim(),
+        ...capitalizarPersona(editStudentForm),
         comentarios: editStudentForm.comentarios.trim(),
       }
       await updateDoc(doc(db, 'students', studentToEdit.id), updated)

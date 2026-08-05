@@ -20,6 +20,8 @@ import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPeriodLabel } from '../../utils/dateRange'
+import { capitalizarNombre } from '../../utils/nombres'
+import { studentFullName } from '../../utils/studentSearch'
 import { useBackHandler } from '../../hooks/useBackHandler'
 
 export default function StudentActivation() {
@@ -488,7 +490,7 @@ export default function StudentActivation() {
   if (step === 'session_blocked') {
     const who = userProfile?.role === 'docente'
       ? (userProfile.nombreMostrar || userProfile.nombre || 'docente')
-      : ([userProfile?.nombre, userProfile?.apellidoPaterno].filter(Boolean).join(' ') || userProfile?.username || 'otra cuenta')
+      : ([userProfile?.nombre, userProfile?.apellidoPaterno].map(capitalizarNombre).filter(Boolean).join(' ') || userProfile?.username || 'otra cuenta')
     const panelPath = userProfile?.role === 'docente' ? '/dashboard' : '/alumno/dashboard'
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-surface">
@@ -630,7 +632,7 @@ export default function StudentActivation() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-on-surface break-words">
-                    {student?.apellidoPaterno} {student?.apellidoMaterno} {student?.nombre}
+                    {studentFullName(student)}
                   </p>
                   <p className="text-xs text-muted font-mono">{student?.username}</p>
                 </div>

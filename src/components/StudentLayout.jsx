@@ -18,6 +18,7 @@ import StudentBottomNav from './StudentBottomNav'
 import PushPermissionPrimer from './PushPermissionPrimer'
 import AvisosGate from './AvisosGate'
 import { IS_NATIVE_APP } from '../utils/platform'
+import { capitalizarNombre } from '../utils/nombres'
 
 // `refreshKey`: el Dashboard del alumno reordena sus asignaturas (flechas
 // subir/bajar o arrastrar) SIN desmontar este layout — a diferencia del
@@ -104,9 +105,10 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
     navigate('/alumno')
   }
 
+  // El username va SIN capitalizar (es identificador, no nombre).
   const displayName =
-    [userProfile?.nombre, userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
-    || [studentInfo?.nombre, studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].filter(Boolean).join(' ')
+    [userProfile?.nombre, userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].map(capitalizarNombre).filter(Boolean).join(' ')
+    || [studentInfo?.nombre, studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].map(capitalizarNombre).filter(Boolean).join(' ')
     || userProfile?.username
     || studentInfo?.username
     || 'Estudiante'

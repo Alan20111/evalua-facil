@@ -6,6 +6,7 @@ import {
 import { addDoc, setDoc, writeBatch } from './firestoreGuard'
 import { db } from '../firebase'
 import { nowIsoLocal } from './nowIso'
+import { capitalizarPersona } from './nombres'
 
 function generateAccessCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
@@ -150,9 +151,7 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       const s = sorted[i]
       const ref = doc(collection(db, 'students'))
       batch.set(ref, {
-        apellidoPaterno: s.apellidoPaterno || '',
-        apellidoMaterno: s.apellidoMaterno || '',
-        nombre: s.nombre || '',
+        ...capitalizarPersona(s),
         username: s.username, // keep the same identity (same Auth account / email)
         resetPassword: null,
         uid: s.uid || null, // inherit the account if the student already activated
