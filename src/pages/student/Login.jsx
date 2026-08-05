@@ -10,6 +10,7 @@ import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { apiUrl } from '../../utils/apiBase'
+import { studentFullName } from '../../utils/studentSearch'
 
 export default function StudentLogin() {
   const [username, setUsername] = useState('')
@@ -264,7 +265,7 @@ export default function StudentLogin() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-on-surface truncate">
-                      {recoverStudent?.apellidoPaterno} {recoverStudent?.apellidoMaterno} {recoverStudent?.nombre}
+                      {studentFullName(recoverStudent)}
                     </p>
                     <p className="text-xs text-muted font-mono">{recoverStudent?.username}</p>
                   </div>

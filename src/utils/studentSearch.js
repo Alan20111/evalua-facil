@@ -1,11 +1,18 @@
+import { capitalizarNombre } from './nombres'
+
 // Single source of truth for a student's full display name — Apellido Paterno,
 // Apellido Materno, Nombre(s). Must be used everywhere a student name is
 // shown to the teacher (Estudiantes, Calificaciones, confirmaciones, etc.) so
 // they never drift out of sync with each other.
+//
+// Capitaliza siempre al mostrar: en la base hay nombres en MAYÚSCULAS (listas
+// importadas de Excel) y en minúsculas (capturas a mano), y todos deben verse
+// igual sin tener que corregir uno por uno lo ya guardado.
 export function studentFullName(student) {
-  return `${student?.apellidoPaterno || ''} ${student?.apellidoMaterno || ''} ${student?.nombre || ''}`
-    .replace(/\s+/g, ' ')
-    .trim()
+  return [student?.apellidoPaterno, student?.apellidoMaterno, student?.nombre]
+    .map(capitalizarNombre)
+    .filter(Boolean)
+    .join(' ')
 }
 
 // Shared "buscar alumno" matcher: full name OR the student's list number

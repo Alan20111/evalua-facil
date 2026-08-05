@@ -32,6 +32,7 @@ import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { teacherDisplayName } from '../../utils/studentSearch'
+import { capitalizarNombre } from '../../utils/nombres'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { APP_DOWNLOAD_URL, APP_DOWNLOAD_READY } from '../../config/appDownload'
 
@@ -379,19 +380,20 @@ export default function StudentDashboard() {
     </StudentLayout>
   )
 
+  // El username va SIN capitalizar (es identificador, no nombre).
   const displayName =
-    [userProfile?.nombre, userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
-    || [studentInfo?.nombre, studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].filter(Boolean).join(' ')
+    [userProfile?.nombre, userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].map(capitalizarNombre).filter(Boolean).join(' ')
+    || [studentInfo?.nombre, studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].map(capitalizarNombre).filter(Boolean).join(' ')
     || userProfile?.username
     || studentInfo?.username
     || 'Estudiante'
   const initials = displayName.charAt(0).toUpperCase()
   const photoURL = userProfile?.photoURL || studentInfo?.photoURL
   // Solo el/los nombre(s) de pila — los apellidos van en un segundo renglón aparte.
-  const firstName = userProfile?.nombre || studentInfo?.nombre || displayName
+  const firstName = capitalizarNombre(userProfile?.nombre || studentInfo?.nombre) || displayName
   const apellidos =
-    [userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].filter(Boolean).join(' ')
-    || [studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].filter(Boolean).join(' ')
+    [userProfile?.apellidoPaterno, userProfile?.apellidoMaterno].map(capitalizarNombre).filter(Boolean).join(' ')
+    || [studentInfo?.apellidoPaterno, studentInfo?.apellidoMaterno].map(capitalizarNombre).filter(Boolean).join(' ')
 
   const activeSubjects = subjects.filter((s) => !s.archived)
   const archivedSubjects = subjects.filter((s) => s.archived)

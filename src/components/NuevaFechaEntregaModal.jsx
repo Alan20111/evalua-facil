@@ -4,7 +4,7 @@ import { db } from '../firebase'
 import { useToast } from './Toast'
 import EFDateTimePicker from './EFDateTimePicker'
 import SearchInput from './SearchInput'
-import { matchesStudentSearch } from '../utils/studentSearch'
+import { matchesStudentSearch, studentFullName } from '../utils/studentSearch'
 import { nowIsoLocal } from '../utils/nowIso'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -108,7 +108,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
                     <input type="checkbox" checked={selected.has(s.id)} onChange={() => toggleStudent(s.id)}
                       className="w-4 h-4 accent-[var(--accent)] flex-shrink-0" />
                     <span className="text-sm text-accent flex-shrink-0 whitespace-nowrap">{s.orden}.&nbsp;</span>
-                    <span className="truncate">{s.apellidoPaterno} {s.apellidoMaterno} {s.nombre}</span>
+                    <span className="truncate">{studentFullName(s)}</span>
                   </label>
                 ))}
               </div>
