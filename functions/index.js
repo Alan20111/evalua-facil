@@ -966,6 +966,17 @@ exports.sincronizarCandadoSuscripcion = onSchedule('every 60 minutes', async () 
     if (!previa || ms(sub) > ms(previa)) porDocente.set(sub.docenteId, sub)
   })
 
+  // Docentes sin ninguna suscripción: se les repone la prueba. Es la misma
+  // autorreparación que hacía el navegador al iniciar sesión (borrar una
+  // suscripción NO deja a nadie sin servicio: para eso está cancelarla), ahora
+  // del lado del servidor y sin depender de que el docente entre.
+  const docentes = await db.collection('users').where('role', '==', 'docente').get()
+  let repuestas = 0
+  for (const d of docentes.docs) {
+    if (porDocente.has(d.id)) continue
+    if (await crearPruebaSiFalta(d.id)) repuestas++
+  }
+
   let actualizados = 0
   for (const [docenteId, sub] of porDocente) {
     const hasta = vigenciaDe(sub)
@@ -978,5 +989,45 @@ exports.sincronizarCandadoSuscripcion = onSchedule('every 60 minutes', async () 
     await ref.update({ suscripcionHasta: Timestamp.fromDate(hasta) })
     actualizados++
   }
-  logger.info(`sincronizarCandadoSuscripcion: ${porDocente.size} docentes revisados, ${actualizados} actualizados`)
+  logger.info(`sincronizarCandadoSuscripcion: ${porDocente.size} docentes revisados, ${actualizados} actualizados, ${repuestas} prueba(s) repuesta(s)`)
+})
+
+// ─── La prueba inicial la crea el SERVIDOR ───────────────────────────────────
+// Antes la creaba el navegador al registrarse (y otra vez, como
+// autorreparación, si el documento se perdía). Eso obligaba a dejar abierto el
+// `create` de `subscriptions` para el docente, y por ahí se podía crear una
+// suscripción con la fecha de vencimiento que uno quisiera — o una prueba nueva
+// cada vez que la anterior se acababa. Ahora las reglas solo permiten crearlas
+// al administrador, y esta función pone la que de verdad corresponde, con
+// fechas del servidor.
+const DIAS_PRUEBA_INICIAL = 30
+
+async function crearPruebaSiFalta(docenteId) {
+  const previas = await db.collection('subscriptions').where('docenteId', '==', docenteId).limit(1).get()
+  if (!previas.empty) return false
+  const inicio = new Date()
+  const fin = new Date(inicio)
+  fin.setDate(fin.getDate() + DIAS_PRUEBA_INICIAL)
+  await db.collection('subscriptions').add({
+    docenteId,
+    planId: '',
+    status: 'trial',
+    fechaInicio: Timestamp.fromDate(inicio),
+    fechaVencimiento: Timestamp.fromDate(fin),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+  logger.info(`crearPruebaSiFalta: prueba creada para ${docenteId}`)
+  return true
+}
+
+exports.onDocenteCreado = onDocumentWritten('users/{uid}', async (event) => {
+  const after = event.data?.after
+  if (!after?.exists) return
+  const perfil = after.data()
+  if (perfil.role !== 'docente') return
+  // Esta función también se dispara cuando onSuscripcionEscrita escribe
+  // `suscripcionHasta` en este mismo documento; ahí ya hay suscripción y
+  // crearPruebaSiFalta se sale de inmediato, así que no hay ciclo.
+  await crearPruebaSiFalta(event.params.uid)
 })

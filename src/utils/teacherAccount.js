@@ -1,7 +1,6 @@
-import { Timestamp, addDoc, collection, doc, setDoc } from 'firebase/firestore'
+import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { sendWelcomeEmail } from './welcomeEmail'
-import { calcTrialEnd } from './subscriptionHelpers'
 
 // Creates the minimal Firestore profile + trial subscription for a brand-new
 // docente account (email/password or Google). Profile starts incomplete —
@@ -30,17 +29,13 @@ export async function createTeacherAccount(uid, email, photoURL = null, provider
     ...extra,
   })
 
-  const trialStart = new Date()
-  const trialEnd = calcTrialEnd(trialStart)
-  await addDoc(collection(db, 'subscriptions'), {
-    docenteId: uid,
-    planId: '',
-    status: 'trial',
-    fechaInicio: Timestamp.fromDate(trialStart),
-    fechaVencimiento: Timestamp.fromDate(trialEnd),
-    createdAt: Timestamp.fromDate(trialStart),
-    updatedAt: Timestamp.fromDate(trialStart),
-  })
+  // La suscripción de prueba NO se crea aquí: la pone la Cloud Function
+  // onDocenteCreado en cuanto existe este documento, con fechas del servidor.
+  // Dejarla en el navegador obligaba a permitirle al docente crear
+  // suscripciones, y con eso podía inventarse una con la fecha de vencimiento
+  // que quisiera, o una prueba nueva cada vez que se le acababa la anterior.
+  // Mientras la función corre (un instante), el docente no queda bloqueado:
+  // sin suscripción, ni el cliente ni las reglas lo tratan como vencido.
 
   // sendEmail=false en el camino de autorreparación (AuthContext): no es una
   // cuenta nueva, es una existente recuperándose de un doc users/{uid} perdido,

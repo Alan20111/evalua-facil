@@ -88,15 +88,17 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
         status: 'pendiente_pago',
         updatedAt: serverTimestamp(),
       }
-      let subscriptionId
-      if (subscription?.id) {
-        batch.update(doc(db, 'subscriptions', subscription.id), subData)
-        subscriptionId = subscription.id
-      } else {
-        const ref = doc(collection(db, 'subscriptions'))
-        batch.set(ref, { ...subData, createdAt: serverTimestamp() })
-        subscriptionId = ref.id
+      // Sin suscripción no se crea una desde aquí: crearlas es exclusivo del
+      // servidor (ver onDocenteCreado en functions/index.js y el `create` de
+      // subscriptions en firestore.rules). Es una ventana de segundos entre
+      // registrarse y que la prueba exista, así que basta con pedirle que lo
+      // intente de nuevo en vez de dejarlo con un error de permisos a secas.
+      if (!subscription?.id) {
+        toast('Estamos preparando tu cuenta. Intenta de nuevo en unos segundos.', 'warning')
+        return
       }
+      batch.update(doc(db, 'subscriptions', subscription.id), subData)
+      const subscriptionId = subscription.id
       batch.set(doc(collection(db, 'payments')), {
         docenteId: currentUser.uid,
         subscriptionId,

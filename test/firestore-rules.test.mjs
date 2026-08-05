@@ -236,5 +236,61 @@ await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_ALU_VENC'), {
   alumnoId: 'ST_JUAN_VENC', actividadId: 'A_VENC', archivoURL: 'x',
 })); ok('student of an expired teacher CAN still submit')
 
+// ── Suscripciones: el candado no se puede abrir desde el cliente ─────────────
+// Los dos ataques que la auditoría encontró abiertos: reescribir las fechas al
+// declarar un pago, y crearse una suscripción a modo.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'subscriptions', 'SUB_T1'), {
+    docenteId: T1, status: 'trial', planId: '', fechaInicio: AYER, fechaVencimiento: AYER,
+  })
+  await setDoc(doc(db, 'subscriptions', 'SUB_T2'), { docenteId: T2, status: 'activa', planId: 'pro' })
+})
+
+// Lo legítimo: declarar que va a pagar.
+await assertSucceeds(updateDoc(doc(asT1, 'subscriptions', 'SUB_T1'), {
+  status: 'pendiente_pago', updatedAt: new Date(),
+})); ok('teacher CAN declare a payment on their own subscription')
+
+// Ataque 1: colar fechas o plan en el mismo update que cambia el status.
+await assertFails(updateDoc(doc(asT1, 'subscriptions', 'SUB_T1'), {
+  status: 'pendiente_pago', fechaVencimiento: EN_UN_MES,
+})); ok('teacher CANNOT extend their own vencimiento while declaring a payment')
+
+await assertFails(updateDoc(doc(asT1, 'subscriptions', 'SUB_T1'), {
+  status: 'pendiente_pago', planId: 'pro',
+})); ok('teacher CANNOT grant themselves a planId')
+
+await assertFails(updateDoc(doc(asT1, 'subscriptions', 'SUB_T1'), {
+  status: 'pendiente_pago', fechaInicio: EN_UN_MES,
+})); ok('teacher CANNOT move their own fechaInicio')
+
+await assertFails(updateDoc(doc(asT1, 'subscriptions', 'SUB_T1'), { status: 'activa' }))
+ok('teacher CANNOT set their subscription to activa')
+
+// Ataque 2: crearse una suscripción, o una prueba nueva cada vez que vence.
+await assertFails(setDoc(doc(asT1, 'subscriptions', 'SUB_FORJADA'), {
+  docenteId: T1, status: 'pendiente_pago', planId: 'pro', fechaVencimiento: EN_UN_MES,
+})); ok('teacher CANNOT forge a paid subscription')
+
+await assertFails(setDoc(doc(asT1, 'subscriptions', 'SUB_TRIAL_NUEVO'), {
+  docenteId: T1, status: 'trial', planId: '', fechaInicio: new Date(),
+})); ok('teacher CANNOT mint a fresh trial')
+
+// Ni tocar la de otro, ni borrar la suya para empezar de cero.
+await assertFails(updateDoc(doc(asT1, 'subscriptions', 'SUB_T2'), { status: 'pendiente_pago' }))
+ok('teacher CANNOT touch another teacher subscription')
+
+await assertFails(deleteDoc(doc(asT1, 'subscriptions', 'SUB_T1')))
+ok('teacher CANNOT delete their subscription to start over')
+
+// Pagos: solo puede declararlos como pendientes.
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_OK'), {
+  docenteId: T1, status: 'pendiente', monto: 99,
+})); ok('teacher CAN declare a payment')
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_FALSO'), {
+  docenteId: T1, status: 'completado', monto: 99,
+})); ok('teacher CANNOT mark their own payment as completed')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

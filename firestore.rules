@@ -400,16 +400,30 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         isAdmin() || resource.data.docenteId == request.auth.uid
       );
-      allow create: if isAdmin() || (
-        isDocente() &&
-        request.resource.data.docenteId == request.auth.uid &&
-        request.resource.data.status in ['pendiente_pago', 'trial']
-      );
+      // NADIE crea suscripciones desde el cliente, solo el administrador.
+      //
+      // Antes el docente podía crear la suya "en prueba o pendiente de pago", y
+      // por ahí se colaban DOS ataques con una línea desde la consola del
+      // navegador:
+      //   · Crear una con `planId` y una `fechaVencimiento` a diez años: la
+      //     Cloud Function que espeja la vigencia la tomaba por buena y le
+      //     abría el candado de escritura (y le quitaba la marca de agua).
+      //   · Crear una prueba nueva cada vez que la anterior venciera —
+      //     `updatedAt` más reciente gana— para siempre.
+      // La prueba inicial ahora la crea el servidor (onDocenteCreado en
+      // functions/index.js), con sus propias fechas, que nadie puede inventar.
+      allow create: if isAdmin();
+
+      // El docente solo puede DECLARAR que va a pagar. `hasOnly` congela todo
+      // lo demás: sin esto podía reescribir fechas y plan en el mismo update
+      // que cambiaba el status, que era el agujero de verdad — el status por sí
+      // solo no otorga nada, las fechas sí.
       allow update: if isAdmin() || (
         isDocente() &&
         resource.data.docenteId == request.auth.uid &&
-        request.resource.data.docenteId == resource.data.docenteId &&
-        request.resource.data.status == 'pendiente_pago'
+        request.resource.data.status == 'pendiente_pago' &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'updatedAt', 'escuelaId', 'schoolName'])
       );
       allow delete: if isAdmin();
     }
