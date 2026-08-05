@@ -414,6 +414,15 @@ export default function Agenda() {
   // columnas que ya de por sí es angosta en un teléfono.
   const padClass = IS_NATIVE_APP && view === 'semana' ? 'px-1' : 'px-4'
 
+  // Botones del encabezado y de la navegación de fecha: en la WEB del
+  // estudiante van dos píxeles más grandes (pedido explícito — se veían
+  // diminutos en una pantalla de computadora). En la App se quedan como
+  // estaban: ahí el espacio es el que manda y ya estaban calibrados.
+  const btnText = IS_NATIVE_APP ? 'text-xs' : 'text-sm'
+  const btnTextLg = IS_NATIVE_APP ? 'text-sm' : 'text-base'
+  const navText = IS_NATIVE_APP ? 'text-sm' : 'text-base'
+  const navIcon = IS_NATIVE_APP ? 18 : 20
+
   return (
     <StudentLayout>
     <div className="bg-surface flex flex-col min-h-full">
@@ -455,11 +464,11 @@ export default function Agenda() {
                   key={v.id}
                   type="button"
                   onClick={() => changeView(v.id)}
-                  className={`flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-full whitespace-nowrap transition-colors ${
+                  className={`flex items-center gap-1 px-2 py-1.5 ${btnText} font-semibold rounded-full whitespace-nowrap transition-colors ${
                     view === v.id ? 'bg-white text-accent' : 'text-white/80 hover:bg-white/10'
                   }`}
                 >
-                  <v.Icon size={14} /> {v.label}
+                  <v.Icon size={IS_NATIVE_APP ? 14 : 16} /> {v.label}
                 </button>
               ))}
             </div>
@@ -471,21 +480,21 @@ export default function Agenda() {
           <button
             type="button"
             onClick={() => openNewEvent(toDateStr(currentDate))}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-sm font-medium transition-colors"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 ${btnTextLg} font-medium transition-colors`}
           >
-            <Plus size={15} /> Evento
+            <Plus size={IS_NATIVE_APP ? 15 : 17} /> Evento
           </button>
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowHoras((v) => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-xs font-medium transition-colors"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-white/15 hover:bg-white/25 ${btnText} font-medium transition-colors`}
               data-tooltip="Horas visibles de tu día (Agenda y Semana)"
               data-tooltip-pos="bottom"
             >
               {/* % 24 — dayEnd puede ser 24 (medianoche, límite exclusivo del
                   rango visible), que formatHora12 debe leer como "12:00 am". */}
-              <Clock size={13} /> {formatHora12(`${String(dayStart % 24).padStart(2, '0')}:00`)}–{formatHora12(`${String(dayEnd % 24).padStart(2, '0')}:00`)}
+              <Clock size={IS_NATIVE_APP ? 13 : 15} /> {formatHora12(`${String(dayStart % 24).padStart(2, '0')}:00`)}–{formatHora12(`${String(dayEnd % 24).padStart(2, '0')}:00`)}
             </button>
             {showHoras && (
               <>
@@ -541,18 +550,19 @@ export default function Agenda() {
       {/* Navegación de fecha — pegada justo debajo del encabezado azul, dentro
           del mismo contenedor sticky, para que no se pierda al hacer scroll
           en ninguna vista (pedido explícito). */}
-      <div className="bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-between">
-        <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
-          <ChevronLeft size={18} />
+      {/* Un solo grupo centrado: las flechas van PEGADAS a la fecha. Antes el
+          renglón era justify-between, así que en una pantalla ancha "‹" y "›"
+          terminaban en las orillas, a medio palmo de la fecha que mueven. */}
+      <div className="bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-center gap-1">
+        <button type="button" onClick={prev} aria-label="Anterior" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors flex-shrink-0">
+          <ChevronLeft size={navIcon} />
         </button>
-        <div className="flex items-center gap-2 min-w-0">
-          <p className="text-sm font-semibold text-on-surface truncate">{navLabel()}</p>
-          <button type="button" onClick={goToday} className="text-xs font-medium text-accent border border-accent rounded-full px-2 py-0.5 flex-shrink-0 hover:bg-accent-tint transition-colors">
-            Hoy
-          </button>
-        </div>
-        <button type="button" onClick={next} aria-label="Siguiente" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
-          <ChevronRight size={18} />
+        <p className={`${navText} font-semibold text-on-surface truncate`}>{navLabel()}</p>
+        <button type="button" onClick={next} aria-label="Siguiente" className="p-1.5 text-muted hover:text-accent hover:bg-accent-tint rounded transition-colors flex-shrink-0">
+          <ChevronRight size={navIcon} />
+        </button>
+        <button type="button" onClick={goToday} className={`${btnText} font-medium text-accent border border-accent rounded-full px-2.5 py-0.5 ml-1 flex-shrink-0 hover:bg-accent-tint transition-colors`}>
+          Hoy
         </button>
       </div>
       </div>
