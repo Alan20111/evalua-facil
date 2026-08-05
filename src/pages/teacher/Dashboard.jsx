@@ -407,15 +407,15 @@ export default function TeacherDashboard() {
         ) : (
           <>
             {/* ── Mis asignaturas ── */}
-            {/* Una sola fila SIEMPRE, también en el celular (pedido explícito).
-                Antes era flex-col hasta `sm`, así que en la app el conteo caía
-                a su propio renglón y el título se veía suelto. `min-w-0` +
-                `truncate` en el título para que, si el renglón se apretara, se
-                recorte el título y no el conteo — que es el dato corto. */}
-            <div className="flex flex-row items-center justify-between gap-2 mb-2">
-              <h2 className="text-lg font-semibold text-on-surface truncate min-w-0">Mis asignaturas</h2>
-              <span className="text-sm text-slate-500 flex-shrink-0">{mainList.length} asignatura{mainList.length !== 1 ? 's' : ''}</span>
-            </div>
+            {/* El conteo va entre paréntesis pegado al título, no como texto
+                aparte a la derecha: decir "Mis asignaturas … 4 asignaturas" en
+                el mismo renglón repetía la palabra dos veces para dar un solo
+                dato. Es la misma forma que ya usa "Archivadas (1)" más abajo.
+                Con cero no se pone "(0)": la tarjeta de abajo ya dice que
+                todavía no hay asignaturas. */}
+            <h2 className="text-lg font-semibold text-on-surface mb-2">
+              Mis asignaturas{mainList.length > 0 ? ` (${mainList.length})` : ''}
+            </h2>
 
             {mainList.length === 0 ? (
               <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center mb-4">
