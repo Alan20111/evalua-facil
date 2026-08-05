@@ -433,7 +433,15 @@ export default function Agenda() {
           del menú — un z-index anidado no compite fuera de su contexto de
           apilamiento. Con z-20 aquí, todo el grupo (header + fecha + menú)
           gana siempre. */}
-      <div className="sticky top-0 z-20 safe-top">
+      {/* Sin `safe-top` aquí: esta pantalla vive DENTRO de StudentLayout, cuyo
+          encabezado (el de "ESTUDIANTE") ya se comió el hueco de la barra de
+          estado. `env(safe-area-inset-top)` no se "consume": vale lo mismo en
+          cualquier elemento, así que repetirlo aquí abajo solo agregaba una
+          franja vacía del alto de la barra de estado entre ese encabezado y el
+          naranja — visible únicamente en la App, donde ese inset no es cero.
+          Las pantallas que SÍ lo llevan (EvaluacionRunner, Notificaciones) son
+          overlays fixed inset-0: ahí sí empiezan pegadas al borde del celular. */}
+      <div className="sticky top-0 z-20">
       <header className="bg-accent text-white px-4 py-3 shadow-lg">
         {/* Todo en un solo renglón cuando cabe: selector de vista (izquierda,
             junto al botón de regresar), +Evento y Horas del día (derecha) —
