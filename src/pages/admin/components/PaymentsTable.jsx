@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
-import { Bell, BellOff, Check, X, RefreshCw, Archive, ArchiveRestore, Trash2, RotateCcw } from 'lucide-react'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore'
+import { Bell, BellOff, Check, X, RefreshCw, Archive, ArchiveRestore, Trash2, RotateCcw, AlertTriangle } from 'lucide-react'
 import { db } from '../../../firebase'
 import { useAuth } from '../../../context/AuthContext'
 import { useToast } from '../../../components/Toast'
@@ -11,6 +11,7 @@ import { useColumnWidths } from '../../../hooks/useColumnWidths'
 import SituacionBadge from './StatusBadge'
 import { planDe } from '../../../utils/situacionSuscripcion'
 import {
+  calcVencimiento,
   calcVencimientoTimestamp,
   effectiveVencimiento,
   formatCurrency,
@@ -18,6 +19,8 @@ import {
   formatDateTime,
   getPaymentStatusColor,
   getPaymentStatusLabel,
+  montoCoincideConTarifa,
+  montoOficialDe,
   toDate,
 } from '../../../utils/subscriptionHelpers'
 
@@ -175,6 +178,45 @@ export default function PaymentsTable({ stats, onRefresh }) {
   })
   const numeroPorId = Object.fromEntries(porAntiguedad.map((p, i) => [p.id, i + 1]))
 
+  // Folio bancario repetido — el mismo número de operación declarado en dos
+  // transacciones distintas. Un folio solo puede corresponder a UN movimiento
+  // del banco, así que verlo dos veces significa o un doble registro por
+  // accidente, o un intento de cobrar dos meses con una sola transferencia.
+  // No se bloquea (el admin sigue mandando: puede ser un tecleo repetido de
+  // buena fe), solo se marca donde se decide.
+  //
+  // Un reenvío repite el folio del pago rechazado A PROPÓSITO — es el mismo
+  // movimiento, con la foto que faltaba —, así que no cuenta como repetición.
+  const folioDe = (p) => (p.referencia || '').trim().toLowerCase()
+  const pagosPorId = Object.fromEntries(payments.map((p) => [p.id, p]))
+  const conteoFolio = {}
+  payments.forEach((p) => {
+    const folio = folioDe(p)
+    if (!folio) return
+    const original = p.reenvioDePagoId ? pagosPorId[p.reenvioDePagoId] : null
+    if (original && folioDe(original) === folio) return
+    conteoFolio[folio] = (conteoFolio[folio] || 0) + 1
+  })
+  const folioRepetido = (p) => !!folioDe(p) && conteoFolio[folioDe(p)] > 1
+
+  // Aviso rojo, mismo texto en tarjeta y tabla.
+  function Alerta({ children }) {
+    return (
+      <span className="inline-flex items-start gap-1 text-xs font-semibold text-red-600">
+        <AlertTriangle size={12} className="mt-0.5 shrink-0" /> {children}
+      </span>
+    )
+  }
+
+  function AvisoMonto({ payment }) {
+    if (montoCoincideConTarifa(payment) !== false) return null
+    return (
+      <Alerta>
+        No coincide con la tarifa de {payment.mesesPagados} {payment.mesesPagados === 1 ? 'mes' : 'meses'} ({formatCurrency(montoOficialDe(payment.mesesPagados))})
+      </Alerta>
+    )
+  }
+
   const todas = [...payments].sort((a, b) => {
     const ta = a.createdAt?.toMillis?.() || 0
     const tb = b.createdAt?.toMillis?.() || 0
@@ -218,15 +260,47 @@ export default function PaymentsTable({ stats, onRefresh }) {
     }
   }
 
+  // Aprobar y rechazar son la única puerta por la que se activa una
+  // suscripción, así que las dos corren dentro de una TRANSACCIÓN que primero
+  // relee el pago y aborta si ya no está "en revisión".
+  //
+  // Lo que esto arregla, todo real con dos pestañas abiertas o dos
+  // administradores trabajando a la vez:
+  //   · Aprobar dos veces el mismo folio (la pantalla vieja todavía muestra el
+  //     botón) sumaba OTRO mes por un pago que ya se había cobrado una vez.
+  //   · Aprobar y rechazar el mismo pago dejaba la suscripción activa con el
+  //     pago marcado "rechazado", o al revés.
+  //   · Las fechas se calculaban con la suscripción que se cargó al abrir el
+  //     panel: aprobar dos pagos seguidos del mismo docente partía los dos del
+  //     mismo día y el segundo mes se perdía. Ahora se relee dentro de la
+  //     transacción, así que el segundo pago se apila sobre el primero.
+  //   · Las dos escrituras (pago y suscripción) eran independientes: si la
+  //     segunda fallaba, quedaba un pago cobrado sin suscripción activada.
+  async function enTransaccion(paymentId, aplicar) {
+    return runTransaction(db, async (tx) => {
+      const payRef = doc(db, 'payments', paymentId)
+      const paySnap = await tx.get(payRef)
+      if (!paySnap.exists()) throw new Error('Este pago ya no existe. Actualiza la pantalla.')
+      const pago = paySnap.data()
+      if (pago.status !== 'pendiente') {
+        throw new Error(
+          `Este pago ya está como "${getPaymentStatusLabel(pago.status)}" — alguien lo resolvió antes. Actualiza la pantalla.`
+        )
+      }
+      return aplicar(tx, payRef, pago)
+    })
+  }
+
   async function handleApprove(payment) {
     const subPrevia = payment.subscriptionId ? subscriptionsMap[payment.subscriptionId] : null
     // Lo pagado cubre desde HOY o, si todavía le quedaban días de prueba (o de
     // un plan previo vigente), desde que esos días se agoten — nunca se le
     // recortan días ya en curso. calcVencimiento suma el mes/año a partir de
-    // esa fecha efectiva.
+    // esa fecha efectiva. (Esto es solo la vista previa del diálogo: la fecha
+    // que de verdad se guarda se recalcula dentro de la transacción, con la
+    // suscripción releída.)
     const vigenteHasta = subPrevia ? toDate(effectiveVencimiento(subPrevia)) : null
     const ahora = new Date()
-    const fechaInicio = vigenteHasta && vigenteHasta > ahora ? vigenteHasta : ahora
     // Folios de transferencia de v1.0.1 en adelante declaran cuántos meses
     // pagaron (ver selector de meses en CheckoutModal.jsx) — pagos de antes
     // de ese cambio no traen el campo y siguen siendo de 1 mes, como siempre.
@@ -236,31 +310,49 @@ export default function PaymentsTable({ stats, onRefresh }) {
       vigenteHasta && vigenteHasta > ahora
         ? ` Como aún le quedaban días vigentes, la nueva suscripción arranca el ${formatDate(vigenteHasta)} (no se le recortó nada) y corre ${meses > 1 ? `${meses} meses completos` : 'un mes completo'} desde ahí.`
         : ''
-    if (!confirm(`¿Confirmas que este pago${avisoMeses} fue recibido y quieres activar la suscripción?${avisoContinuidad}`)) return
+    // El monto es el único dato del pago que el servidor no puede validar (la
+    // tarifa cambia), así que la advertencia va donde se decide.
+    const esperado = montoOficialDe(meses)
+    const avisoMonto =
+      montoCoincideConTarifa(payment) === false
+        ? `\n\nATENCIÓN: declaró ${formatCurrency(payment.monto)} pero la tarifa de ${meses} ${meses === 1 ? 'mes' : 'meses'} es ${formatCurrency(esperado)}. Verifica en el estado de cuenta antes de aprobar.`
+        : ''
+    const avisoSinSuscripcion = payment.subscriptionId
+      ? ''
+      : '\n\nATENCIÓN: este pago no está ligado a ninguna suscripción, así que solo se marcará como pagado; no activará nada.'
+    if (!confirm(`¿Confirmas que este pago${avisoMeses} fue recibido y quieres activar la suscripción?${avisoContinuidad}${avisoMonto}${avisoSinSuscripcion}`)) return
     setProcessing(payment.id)
     try {
-      const plan = plansMap[payment.planId]
-      const fechaVencimiento = calcVencimientoTimestamp(fechaInicio, plan?.periodicidad || 'mensual', meses)
-
-      await updateDoc(doc(db, 'payments', payment.id), {
-        status: 'completado',
-        updatedAt: serverTimestamp(),
-      })
-
-      if (payment.subscriptionId) {
-        await updateDoc(doc(db, 'subscriptions', payment.subscriptionId), {
+      const hasta = await enTransaccion(payment.id, async (tx, payRef, pago) => {
+        const subRef = pago.subscriptionId ? doc(db, 'subscriptions', pago.subscriptionId) : null
+        const subSnap = subRef ? await tx.get(subRef) : null
+        if (subRef && !subSnap.exists()) {
+          throw new Error('La suscripción de este pago ya no existe. Revísala antes de aprobar.')
+        }
+        // Todas las lecturas de la transacción van arriba; de aquí para abajo
+        // solo escrituras (lo exige Firestore).
+        tx.update(payRef, { status: 'completado', updatedAt: serverTimestamp() })
+        if (!subRef) return null
+        const subActual = { id: subSnap.id, ...subSnap.data() }
+        const vigente = toDate(effectiveVencimiento(subActual))
+        const desde = new Date()
+        const fechaInicio = vigente && vigente > desde ? vigente : desde
+        const mesesPagados = pago.mesesPagados || 1
+        const periodicidad = plansMap[pago.planId]?.periodicidad || 'mensual'
+        tx.update(subRef, {
           status: 'activa',
-          planId: payment.planId,
+          planId: pago.planId,
           fechaInicio: Timestamp.fromDate(fechaInicio),
-          fechaVencimiento,
+          fechaVencimiento: calcVencimientoTimestamp(fechaInicio, periodicidad, mesesPagados),
           updatedAt: serverTimestamp(),
         })
-      }
-
-      toast('Pago aprobado y suscripción activada')
+        return calcVencimiento(fechaInicio, periodicidad, mesesPagados)
+      })
+      toast(hasta ? `Pago aprobado — suscripción vigente hasta el ${formatDate(hasta)}` : 'Pago aprobado (sin suscripción ligada)')
       onRefresh?.()
     } catch (err) {
-      toast('Error: ' + err.message, 'error')
+      toast(err.message, 'error')
+      onRefresh?.()
     } finally {
       setProcessing(null)
     }
@@ -270,17 +362,20 @@ export default function PaymentsTable({ stats, onRefresh }) {
     if (!rejectModal) return
     setProcessing(rejectModal.id)
     try {
-      await updateDoc(doc(db, 'payments', rejectModal.id), {
-        status: 'rechazado',
-        notasAdmin: notasAdmin.trim(),
-        updatedAt: serverTimestamp(),
+      await enTransaccion(rejectModal.id, (tx, payRef) => {
+        tx.update(payRef, {
+          status: 'rechazado',
+          notasAdmin: notasAdmin.trim(),
+          updatedAt: serverTimestamp(),
+        })
       })
       toast('Pago rechazado')
       setRejectModal(null)
       setNotasAdmin('')
       onRefresh?.()
     } catch (err) {
-      toast('Error: ' + err.message, 'error')
+      toast(err.message, 'error')
+      onRefresh?.()
     } finally {
       setProcessing(null)
     }
@@ -408,9 +503,13 @@ export default function PaymentsTable({ stats, onRefresh }) {
                       )}
                     </div>
                   </div>
+                  <AvisoMonto payment={payment} />
                   <p className="text-xs text-muted">{formatDateTime(payment.createdAt)}</p>
                   {payment.referencia && (
                     <p className="text-xs font-mono text-muted">Folio bancario: {payment.referencia}</p>
+                  )}
+                  {folioRepetido(payment) && (
+                    <Alerta>Este folio bancario ya aparece en otra transacción</Alerta>
                   )}
                   {payment.reenvioDePagoId && (
                     <p className="text-xs text-amber-600">Reenvío de un pago rechazado anteriormente</p>
@@ -479,11 +578,14 @@ export default function PaymentsTable({ stats, onRefresh }) {
                           {teacher?.email || '—'}
                         </p>
                       </td>
-                      <td className="px-4 py-2 font-semibold truncate">
-                        {formatCurrency(payment.monto)}
-                        {payment.mesesPagados > 1 && (
-                          <span className="text-xs text-muted font-normal ml-1">({payment.mesesPagados}m)</span>
-                        )}
+                      <td className="px-4 py-2 font-semibold">
+                        <span className="block truncate">
+                          {formatCurrency(payment.monto)}
+                          {payment.mesesPagados > 1 && (
+                            <span className="text-xs text-muted font-normal ml-1">({payment.mesesPagados}m)</span>
+                          )}
+                        </span>
+                        <AvisoMonto payment={payment} />
                       </td>
                       <td className="px-4 py-2 truncate">
                         <p className="text-sm truncate">{METODO_LABELS[payment.metodo] || payment.metodo || '—'}</p>
@@ -493,13 +595,14 @@ export default function PaymentsTable({ stats, onRefresh }) {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2 font-mono text-xs text-muted truncate">
-                        {payment.referencia || '—'}
+                      <td className="px-4 py-2 font-mono text-xs text-muted">
+                        <span className="block truncate">{payment.referencia || '—'}</span>
                         {payment.comprobanteUrl && (
                           <a href={payment.comprobanteUrl} target="_blank" rel="noreferrer" className="block text-accent hover:underline mt-0.5" data-tooltip="Ver comprobante">
                             Ver foto
                           </a>
                         )}
+                        {folioRepetido(payment) && <Alerta>Folio repetido</Alerta>}
                       </td>
                       <td className="px-4 py-2">
                         <SituacionBadge situacion={planDe(subscription)} />

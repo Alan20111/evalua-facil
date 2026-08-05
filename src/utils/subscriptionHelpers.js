@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore'
+import { Timestamp, serverTimestamp } from 'firebase/firestore'
 
 // ── Trial policy — single source of truth ──────────────────────────────────
 // Any change to the trial's length or warning windows happens here, nowhere
@@ -62,6 +62,93 @@ export const MESES_DESCUENTO = [
 
 export function mesesDescuentoDe(meses) {
   return MESES_DESCUENTO.find((r) => r.meses === meses) || MESES_DESCUENTO[0]
+}
+
+// Tope de meses que se pueden pagar de un golpe. Sale de la tabla, no es un
+// número suelto: agregar un renglón de 12 meses ahí lo sube solo. Las reglas
+// de Firestore repiten este 6 a mano (no pueden importar de aquí) — si la
+// tabla crece, hay que subirlo también en firestore.rules.
+export const MESES_MAX = MESES_DESCUENTO.length
+
+// La tarifa oficial de N meses, o null si N no está en la tabla.
+export function montoOficialDe(meses) {
+  return MESES_DESCUENTO.find((r) => r.meses === meses)?.pagas ?? null
+}
+
+// ¿El monto declarado corresponde a la tarifa de los meses que dice cubrir?
+// Devuelve null cuando no hay con qué comparar (pagos viejos sin
+// `mesesPagados`, o un plan que ya no está en la tabla). El monto es el único
+// dato del pago que no se valida en el servidor —la tarifa cambia y una regla
+// desfasada dejaría a todos sin poder pagar— así que el aviso vive donde de
+// verdad se decide: la pantalla desde la que el administrador aprueba.
+export function montoCoincideConTarifa(payment) {
+  if (payment?.metodo !== 'transferencia') return null
+  const esperado = montoOficialDe(payment?.mesesPagados)
+  if (esperado === null || typeof payment?.monto !== 'number') return null
+  return payment.monto === esperado
+}
+
+// ── Comprobante de la transferencia ────────────────────────────────────────
+// Foto o captura de pantalla del movimiento bancario. Se valida ANTES de
+// subir nada: un archivo de 40 MB por una red de celular tarda minutos en
+// fallar, y fallar en Cloudinary deja un mensaje que no dice qué hacer.
+export const COMPROBANTE_MAX_MB = 10
+
+export function validarComprobante(file) {
+  if (!file) return null
+  // Formato: solo imágenes. El PDF de un estado de cuenta trae mucho más de
+  // lo que hace falta para cotejar un folio, y Cloudinary lo entrega por otra
+  // ruta (ver isImageDeliveredPdf en utils/cloudinary.js) que la vista previa
+  // del panel no usa — se vería como una liga rota.
+  if (!file.type?.startsWith('image/')) {
+    return 'El comprobante debe ser una imagen (foto o captura de pantalla).'
+  }
+  if (file.size > COMPROBANTE_MAX_MB * 1024 * 1024) {
+    return `La imagen pesa demasiado (máximo ${COMPROBANTE_MAX_MB} MB). Tómala de nuevo o recórtala.`
+  }
+  return null
+}
+
+// ── El documento de un pago por transferencia ──────────────────────────────
+// Un solo armador para los DOS lugares que crean pagos (el checkout y el
+// reenvío de uno rechazado, en Profile.jsx). Estaban duplicados y ya habían
+// divergido: el reenvío no copiaba `mesesPagados`, así que quien pagaba seis
+// meses, era rechazado por una foto borrosa y reenviaba, terminaba con UN mes
+// activado (handleApprove usa `mesesPagados || 1`) habiendo pagado seis.
+//
+// `createdAt` es siempre serverTimestamp(): las reglas exigen que valga
+// exactamente request.time, así que la fecha no se puede inventar.
+export function datosDePagoTransferencia({
+  docenteId,
+  subscriptionId,
+  escuelaId = '',
+  meses,
+  referencia,
+  comprobanteUrl = null,
+  reenvioDePagoId = null,
+  monto = null,
+}) {
+  const seguros = Math.min(Math.max(Math.round(meses || 1), 1), MESES_MAX)
+  return {
+    docenteId,
+    subscriptionId,
+    // El plan lo fijan también las reglas: es el dato del que cuelga la
+    // periodicidad al aprobar, y por eso no puede venir del cliente a placer.
+    planId: MONTHLY_PLAN_ID,
+    escuelaId,
+    // Por omisión, la tarifa de hoy. El reenvío de un pago rechazado pasa el
+    // monto ORIGINAL: es el mismo dinero que ya se transfirió, y el admin lo
+    // coteja contra el banco. Si la tarifa cambió en medio, el panel lo marca
+    // como "no coincide", que es justo lo que conviene que salte a la vista.
+    monto: typeof monto === 'number' ? monto : mesesDescuentoDe(seguros).pagas,
+    mesesPagados: seguros,
+    metodo: 'transferencia',
+    referencia: (referencia || '').trim(),
+    status: PAYMENT_STATUS.PENDIENTE,
+    createdAt: serverTimestamp(),
+    ...(comprobanteUrl ? { comprobanteUrl } : {}),
+    ...(reenvioDePagoId ? { reenvioDePagoId } : {}),
+  }
 }
 
 // ── Retención tras vencer ────────────────────────────────────────────────

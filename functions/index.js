@@ -149,6 +149,11 @@ const CANAL_POR_CATEGORIA = {
   calificaciones: 'calificaciones_v2',
   recordatorios: 'recordatorios_v2',
   pagoNuevo: 'pagos_v1',
+  // El mismo canal para las dos puntas del pago: al admin le llega el que
+  // entra, al docente el suyo ya resuelto. Un canal de Android es inmutable
+  // una vez creado, así que abrir uno nuevo solo para esto obligaría a un
+  // 'pagos_v2' y a que el admin volviera a ajustar sonido y prioridad.
+  pagoResuelto: 'pagos_v1',
 }
 
 async function enviarPushDirecto(uid, notification, data = {}, descripcion = null, logExtra = null) {
@@ -870,6 +875,53 @@ exports.onPagoCreado = onDocumentWritten('payments/{paymentId}', async (event) =
     )
   }))
   await after.ref.update({ notificadoAdmin: true })
+})
+
+// ─── 7) Pago resuelto — aviso al DOCENTE ───────────────────────────────────
+// El otro lado del anterior. Aprobar o rechazar pasa en el panel del
+// administrador, en otro momento y en otra pantalla: sin este aviso, el
+// docente que registró su transferencia no tenía forma de enterarse más que
+// volviendo al perfil a mirar. Peor todavía cuando lo aprobaban con la
+// plataforma abierta — seguía viendo "en revisión" y con el candado de
+// escritura puesto aunque su suscripción ya estuviera activa (el cliente ya
+// relee al volver a la pantalla, ver useSubscription.js; esto es lo que lo
+// hace volver).
+//
+// Sin interruptor para apagarlo, a diferencia del aviso al admin: es el acuse
+// de un movimiento de dinero del propio docente, no una notificación de
+// actividad. Idempotente por `notificadoResuelto` — y el update que pone esa
+// marca vuelve a disparar esta función, pero para entonces el status ya no
+// cambió, así que se sale por la primera puerta.
+exports.onPagoResuelto = onDocumentWritten('payments/{paymentId}', async (event) => {
+  const after = event.data?.after
+  const before = event.data?.before
+  if (!after?.exists || !before?.exists) return
+  const antes = before.data()
+  const ahora = after.data()
+  if (antes.status === ahora.status) return
+  if (antes.status !== 'pendiente') return
+  if (ahora.status !== 'completado' && ahora.status !== 'rechazado') return
+  if (ahora.notificadoResuelto) return
+
+  const aprobado = ahora.status === 'completado'
+  const notification = aprobado
+    ? {
+        title: 'Pago aprobado',
+        body: 'Tu suscripción quedó activa. Ya puedes seguir trabajando con normalidad.',
+      }
+    : {
+        title: 'No pudimos confirmar tu pago',
+        body: ahora.notasAdmin
+          ? `${ahora.notasAdmin} — entra a tu perfil para reenviarlo.`
+          : 'Entra a tu perfil para revisar el motivo y reenviarlo con tu comprobante.',
+      }
+
+  await enviarPushDirecto(
+    ahora.docenteId,
+    notification,
+    { categoria: 'pagoResuelto', paymentId: event.params.paymentId },
+  )
+  await after.ref.update({ notificadoResuelto: true })
 })
 
 // ─── Candado de suscripción: espejo de la vigencia en users/{uid} ─────────

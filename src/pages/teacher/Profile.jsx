@@ -27,12 +27,13 @@ import {
   ANNUAL_PLAN_ID,
   ANNUAL_PRICE_MXN,
   ANNUAL_SUBSCRIPTION_NAME,
-  MONTHLY_PLAN_ID,
   MONTHLY_PRICE_MXN,
   SUBSCRIPTION_NAME,
   calcDaysRemaining,
   calcTrialEnd,
+  datosDePagoTransferencia,
   effectiveVencimiento,
+  validarComprobante,
   formatCurrency,
   formatDate,
   getDaysLabel,
@@ -306,23 +307,32 @@ export default function Profile() {
     e.preventDefault()
     if (!resendFolio.trim()) return toast('Ingresa la referencia', 'error')
     if (!resendFile) return toast('Adjunta la foto de tu comprobante', 'error')
+    const problema = validarComprobante(resendFile)
+    if (problema) return toast(problema, 'error')
+    // El pago tiene que colgar de una suscripción propia — es lo que el panel
+    // extiende al aprobarlo, y las reglas ya no aceptan un pago sin ella.
+    const subscriptionId = subscription?.id || resendPayment.subscriptionId
+    if (!subscriptionId) {
+      return toast('Estamos preparando tu cuenta. Intenta de nuevo en unos segundos.', 'warning')
+    }
     setResendSubmitting(true)
     try {
       const comprobanteUrl = await uploadToCloudinary(resendFile, 'evalua-facil/comprobantes')
       const batch = writeBatch(db)
-      batch.set(doc(collection(db, 'payments')), {
+      // Mismo armador que el checkout (ver datosDePagoTransferencia): sin él,
+      // el reenvío perdía `mesesPagados` y quien pagaba seis meses terminaba
+      // con uno solo activado.
+      batch.set(doc(collection(db, 'payments')), datosDePagoTransferencia({
         docenteId: currentUser.uid,
-        subscriptionId: subscription?.id || resendPayment.subscriptionId || null,
-        planId: resendPayment.planId || MONTHLY_PLAN_ID,
+        subscriptionId,
         escuelaId: userProfile?.escuelaId || '',
-        monto: resendPayment.monto ?? MONTHLY_PRICE_MXN,
-        metodo: 'transferencia',
-        referencia: resendFolio.trim(),
+        meses: resendPayment.mesesPagados || 1,
+        referencia: resendFolio,
         comprobanteUrl,
         reenvioDePagoId: resendPayment.id,
-        status: 'pendiente',
-        createdAt: serverTimestamp(),
-      })
+        // El mismo dinero que ya se transfirió, no la tarifa de hoy.
+        monto: typeof resendPayment.monto === 'number' ? resendPayment.monto : undefined,
+      }))
       if (subscription?.id) {
         batch.update(doc(db, 'subscriptions', subscription.id), {
           status: 'pendiente_pago',

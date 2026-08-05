@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { X } from 'lucide-react'
 import { db } from '../firebase'
+import { uploadToCloudinary } from '../utils/cloudinary'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import Spinner from './Spinner'
@@ -9,14 +10,14 @@ import { usePaymentConfig } from '../hooks/usePaymentConfig'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import {
-  MONTHLY_PLAN_ID,
   MESES_DESCUENTO,
-  mesesDescuentoDe,
   calcDaysRemaining,
   calcVencimiento,
+  datosDePagoTransferencia,
   effectiveVencimiento,
   formatCurrency,
   formatDate,
+  validarComprobante,
 } from '../utils/subscriptionHelpers'
 import { isAppOutdated } from '../utils/checkAppVersion'
 
@@ -36,6 +37,7 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
 
   const [meses, setMeses] = useState(1)
   const [referencia, setReferencia] = useState('')
+  const [file, setFile] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
   useBackHandler(onClose, open)
@@ -46,8 +48,11 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
   // estado interno sobrevive a cerrarlo y volverlo a abrir. Sin esto,
   // cerrar el modal a medio "Registrando…" y volver a abrirlo lo dejaba
   // trabado en ese mismo estado para siempre.
+  // El archivo elegido tampoco debe sobrevivir: volver a abrir el modal con
+  // una foto ya cargada, sin verla en pantalla (el campo se vacía al
+  // desmontarse), la mandaría adjunta a un pago distinto del que era.
   useEffect(() => {
-    if (open) setSubmitting(false)
+    if (open) { setSubmitting(false); setFile(null) }
   }, [open])
 
   // Dinero de por medio: si esta pestaña se quedó con una versión vieja del
@@ -67,8 +72,32 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
     if (!referencia.trim()) {
       return toast('Ingresa la referencia', 'error')
     }
+    // Se revisa ANTES de subir nada: una foto de 40 MB por datos de celular
+    // tarda minutos en fallar, y el error de Cloudinary no dice qué hacer.
+    const problema = validarComprobante(file)
+    if (problema) return toast(problema, 'error')
+    // Sin suscripción no se crea una desde aquí: crearlas es exclusivo del
+    // servidor (ver onDocenteCreado en functions/index.js y el `create` de
+    // subscriptions en firestore.rules). Es una ventana de segundos entre
+    // registrarse y que la prueba exista, así que basta con pedirle que lo
+    // intente de nuevo en vez de dejarlo con un error de permisos a secas.
+    if (!subscription?.id) {
+      return toast('Estamos preparando tu cuenta. Intenta de nuevo en unos segundos.', 'warning')
+    }
     setSubmitting(true)
     try {
+      // La foto se sube primero y por fuera del lote: si falla (o si el
+      // docente se queda sin señal a media carga), no queda ni el pago ni la
+      // suscripción tocada — se le avisa y vuelve a intentar, sin residuos.
+      let comprobanteUrl = null
+      if (file) {
+        try {
+          comprobanteUrl = await uploadToCloudinary(file, 'evalua-facil/comprobantes')
+        } catch {
+          toast('No se pudo subir la foto del comprobante. Revisa tu conexión e intenta de nuevo.', 'error')
+          return
+        }
+      }
       // Un solo batch: si algo falla a medio camino, NINGUNO de los dos
       // escritos se aplica. Dos escrituras independientes dejaban al
       // docente marcado "pendiente_pago" (su pantalla decía "en revisión")
@@ -80,7 +109,8 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
       // Ponerlo antes de que el admin apruebe hacía que un intento nunca
       // aprobado se leyera como si sí lo hubiera sido (ver Profile.jsx
       // nuncaAprobado). `handleApprove` en PaymentsTable.jsx es quien pone
-      // el `planId` real, junto con las fechas reales.
+      // el `planId` real, junto con las fechas reales. (El `planId` que sí
+      // lleva el PAGO es otra cosa: de cuál plan es el folio.)
       const subData = {
         docenteId: currentUser.uid,
         escuelaId: userProfile?.escuelaId || '',
@@ -88,35 +118,22 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
         status: 'pendiente_pago',
         updatedAt: serverTimestamp(),
       }
-      // Sin suscripción no se crea una desde aquí: crearlas es exclusivo del
-      // servidor (ver onDocenteCreado en functions/index.js y el `create` de
-      // subscriptions en firestore.rules). Es una ventana de segundos entre
-      // registrarse y que la prueba exista, así que basta con pedirle que lo
-      // intente de nuevo en vez de dejarlo con un error de permisos a secas.
-      if (!subscription?.id) {
-        toast('Estamos preparando tu cuenta. Intenta de nuevo en unos segundos.', 'warning')
-        return
-      }
       batch.update(doc(db, 'subscriptions', subscription.id), subData)
-      const subscriptionId = subscription.id
-      batch.set(doc(collection(db, 'payments')), {
+      // El documento del pago se arma en un solo lugar para los dos caminos
+      // que lo crean (aquí y el reenvío de un rechazado, en Profile.jsx) —
+      // ver datosDePagoTransferencia.
+      batch.set(doc(collection(db, 'payments')), datosDePagoTransferencia({
         docenteId: currentUser.uid,
-        subscriptionId,
-        planId: MONTHLY_PLAN_ID,
+        subscriptionId: subscription.id,
         escuelaId: userProfile?.escuelaId || '',
-        monto: mesesDescuentoDe(meses).pagas,
-        // Cuántos meses cubre este folio — handleApprove en PaymentsTable.jsx
-        // lo usa para extender la suscripción esa cantidad de meses en vez
-        // de siempre 1.
-        mesesPagados: meses,
-        metodo: 'transferencia',
-        referencia: referencia.trim(),
-        status: 'pendiente',
-        createdAt: serverTimestamp(),
-      })
+        meses,
+        referencia,
+        comprobanteUrl,
+      }))
       await batch.commit()
       toast('Pago registrado. Lo aprobamos dentro de las próximas 12 horas.')
       setReferencia('')
+      setFile(null)
       onSuccess?.()
       onClose()
     } catch (err) {
@@ -231,6 +248,30 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
               <p className="text-xs text-slate-500 -mt-2 text-center">
                 <strong className="text-on-surface font-semibold">Folio</strong> es el número que te muestra tu banco al confirmar la transferencia — con él lo cotejamos en nuestro estado de cuenta.
               </p>
+              {/* Comprobante desde el primer intento — opcional. Antes solo se
+                  podía adjuntar DESPUÉS de que el pago fuera rechazado (ver
+                  "Reenviar pago" en Profile.jsx), que es exactamente al revés
+                  de lo que conviene: con la foto a la mano el admin aprueba de
+                  una y el docente se ahorra el rechazo y la espera. Se deja
+                  opcional para no ponerle un obstáculo a quien solo tiene el
+                  folio. */}
+              <div>
+                <label htmlFor="checkout-comprobante" className="block text-xs font-medium text-muted mb-1">
+                  Foto del comprobante <span className="font-normal text-slate-400">(opcional — con ella lo aprobamos más rápido)</span>
+                </label>
+                <input
+                  id="checkout-comprobante"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const elegido = e.target.files?.[0] || null
+                    const problema = validarComprobante(elegido)
+                    if (problema) { toast(problema, 'error'); e.target.value = ''; setFile(null); return }
+                    setFile(elegido)
+                  }}
+                  className="w-full text-sm text-muted file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-accent-light file:text-accent file:font-semibold file:text-sm"
+                />
+              </div>
               <button
                 type="submit"
                 disabled={submitting}

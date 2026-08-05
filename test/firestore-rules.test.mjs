@@ -13,7 +13,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
 
@@ -210,8 +210,12 @@ ok('expired teacher CAN still read their activity')
 await assertSucceeds(getDoc(doc(asVencido, 'bancoRubricas', 'RUB_VENC')))
 ok('expired teacher CAN still read their rubric bank')
 
+// Lo más importante de todo el candado: a quien se le venció la suscripción no
+// se le puede impedir PAGARLA.
 await assertSucceeds(setDoc(doc(asVencido, 'payments', 'PAY_1'), {
-  docenteId: T_VENCIDO, status: 'pendiente', monto: 99,
+  docenteId: T_VENCIDO, subscriptionId: 'SUB_DEL_VENCIDO', planId: 'pro', escuelaId: 'E3',
+  monto: 99, mesesPagados: 1, metodo: 'transferencia', referencia: '9001',
+  status: 'pendiente', createdAt: serverTimestamp(),
 })); ok('expired teacher CAN declare a payment')
 
 await assertSucceeds(updateDoc(doc(asVencido, 'subscriptions', 'SUB_DEL_VENCIDO'), {
@@ -284,13 +288,82 @@ ok('teacher CANNOT touch another teacher subscription')
 await assertFails(deleteDoc(doc(asT1, 'subscriptions', 'SUB_T1')))
 ok('teacher CANNOT delete their subscription to start over')
 
-// Pagos: solo puede declararlos como pendientes.
-await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_OK'), {
-  docenteId: T1, status: 'pendiente', monto: 99,
-})); ok('teacher CAN declare a payment')
-await assertFails(setDoc(doc(asT1, 'payments', 'PAY_FALSO'), {
-  docenteId: T1, status: 'completado', monto: 99,
-})); ok('teacher CANNOT mark their own payment as completed')
+// ── Pagos: declarar una transferencia no puede convertirse en otra cosa ─────
+// Un pago es la orden que el panel obedece al aprobar (ver handleApprove en
+// PaymentsTable.jsx): de ahí salen el plan, la periodicidad, los meses y a qué
+// suscripción se le acreditan. Todo eso tiene que quedar fijo desde el
+// servidor, o "declarar una transferencia" se vuelve "escribir mi propia
+// factura".
+const pagoValido = (extra = {}) => ({
+  docenteId: T1,
+  subscriptionId: 'SUB_T1',
+  planId: 'pro',
+  escuelaId: 'E1',
+  monto: 99,
+  mesesPagados: 1,
+  metodo: 'transferencia',
+  referencia: '123456',
+  status: 'pendiente',
+  createdAt: serverTimestamp(),
+  ...extra,
+})
+
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_OK'), pagoValido()))
+ok('teacher CAN declare a transfer payment')
+
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_6M'), pagoValido({ monto: 474, mesesPagados: 6 })))
+ok('teacher CAN declare a 6-month transfer')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_FALSO'), pagoValido({ status: 'completado' })))
+ok('teacher CANNOT mark their own payment as completed')
+
+// El ataque grande: el plan anual multiplica por 12 al aprobar.
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_ANUAL'), pagoValido({ planId: 'anual' })))
+ok('teacher CANNOT declare a payment on the annual plan')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_120M'), pagoValido({ mesesPagados: 120 })))
+ok('teacher CANNOT claim 120 months on one transfer')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_0M'), pagoValido({ mesesPagados: 0 })))
+ok('teacher CANNOT claim zero months')
+
+// La app instalada en el teléfono lleva su propio paquete: un pago suyo sin
+// `mesesPagados` tiene que seguir entrando (vale por un mes).
+const { mesesPagados: _sinMeses, ...pagoViejo } = pagoValido()
+await assertSucceeds(setDoc(doc(asT1, 'payments', 'PAY_APP_VIEJA'), pagoViejo))
+ok('older client CAN still declare a payment without mesesPagados')
+
+// Pagar y acreditárselo a la cuenta de otro.
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_AJENO'), pagoValido({ subscriptionId: 'SUB_T2' })))
+ok('teacher CANNOT point a payment at another teacher subscription')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_HUERFANO'), pagoValido({ subscriptionId: 'NO_EXISTE' })))
+ok('teacher CANNOT point a payment at a subscription that does not exist')
+
+// Campos que no son suyos: nacer archivado lo escondía de la lista del admin,
+// y `notasAdmin` es lo que el docente lee como motivo del rechazo.
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_OCULTO'), pagoValido({ archivado: true })))
+ok('teacher CANNOT create a payment already archived')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_NOTAS'), pagoValido({ notasAdmin: 'aprobado por el jefe' })))
+ok('teacher CANNOT write the admin notes')
+
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_CALLADO'), pagoValido({ notificadoAdmin: true })))
+ok('teacher CANNOT pre-silence the admin notification')
+
+// La fecha manda en el folio de transacción del panel.
+await assertFails(setDoc(doc(asT1, 'payments', 'PAY_VIEJO'), pagoValido({ createdAt: AYER })))
+ok('teacher CANNOT backdate a payment')
+
+// Y una vez creado, se acabó: resolverlo es del administrador.
+await assertFails(updateDoc(doc(asT1, 'payments', 'PAY_OK'), { status: 'completado' }))
+ok('teacher CANNOT approve their own declared payment')
+
+await assertFails(deleteDoc(doc(asT1, 'payments', 'PAY_OK')))
+ok('teacher CANNOT delete a payment')
+
+await assertFails(getDoc(doc(asT2, 'payments', 'PAY_OK')))
+ok('teacher CANNOT read another teacher payment')
 
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
