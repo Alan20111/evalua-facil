@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, Timer, CheckCircle2, LogOut, Upload, FileTex
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
+import { seccionesDe, ordenParaEstudiante, mostrarSeccionesAlEstudiante } from '../../utils/secciones'
 import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fileTypes'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -114,9 +115,18 @@ export default function EvaluacionRunner() {
       const pregSnap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
       let lista = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       let seed = subData.ordenSeed
+      // Con secciones, el aleatorio baraja DENTRO de cada una y las secciones
+      // conservan su lugar: un reactivo nunca se sale de su sección (es lo que
+      // permitirá medir por sección más adelante). Sin secciones, el resultado
+      // es exactamente el mismo barajado de siempre — un solo grupo.
+      const secciones = seccionesDe(actData.evaluacion)
       if (actData.evaluacion?.ordenPreguntas === 'aleatorio') {
         seed = seed || (subData.intentoActual || 1) * 7919 + lista.length
-        lista = shuffleWithSeed(lista, seed)
+        lista = ordenParaEstudiante(lista, secciones, {
+          aleatorio: true, semilla: seed, barajar: shuffleWithSeed, hashId: hashSeed,
+        })
+      } else if (secciones.length) {
+        lista = ordenParaEstudiante(lista, secciones, { aleatorio: false })
       }
       if (actData.evaluacion?.barajarRespuestas) {
         const baseSeed = seed || (subData.intentoActual || 1) * 7919 + lista.length
@@ -302,6 +312,7 @@ export default function EvaluacionRunner() {
 
   const navegacionLibre = activity.evaluacion?.navegacion !== 'secuencial'
   const pregunta = preguntas[idx]
+  const mostrarSecciones = mostrarSeccionesAlEstudiante(activity?.evaluacion)
   const isLast = idx === preguntas.length - 1
 
   // Toda pregunta se responde. NO es un ajuste que el docente prenda o apague
@@ -415,6 +426,13 @@ export default function EvaluacionRunner() {
         )}
 
         <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
+          {/* Nombre de la sección a la que pertenece esta pregunta. Se apaga
+              entero con "Mostrar las secciones al estudiante": ahí el
+              instrumento se ve como una lista continua, aunque por dentro los
+              reactivos sigan agrupados. */}
+          {mostrarSecciones && pregunta?.seccionNombre && (
+            <p className="text-xs font-bold uppercase tracking-wide text-accent mb-1">{pregunta.seccionNombre}</p>
+          )}
           <div className="flex items-center justify-between mb-2">
             <span className="inline-flex items-center gap-1.5 bg-accent-light text-accent text-sm font-bold px-3 py-1 rounded-full">
               Pregunta {idx + 1} <span className="font-medium text-accent/70">de {preguntas.length}</span>

@@ -515,6 +515,10 @@ export async function exportEvaluacionResultadosExcel({
     const preguntaCounts = counts?.[p.id] || {}
     const total = totalRespuestas(preguntaCounts)
     porReactivo.push([`${i + 1}. ${p.enunciado || ''}`])
+    // La sección viaja en el propio reactivo: es lo que permitirá, más
+    // adelante, agrupar resultados por sección o por aprendizaje sin cruzar
+    // con la configuración de la actividad.
+    if (p.seccionNombre) porReactivo.push([`Sección: ${p.seccionNombre}`])
     porReactivo.push([`${total} ${total === 1 ? 'respuesta' : 'respuestas'} en total`])
     porReactivo.push(['OPCIÓN', 'CORRECTA', 'RESPUESTAS', 'PORCENTAJE'])
     filasDeReactivo(p, preguntaCounts).forEach((f) => {
