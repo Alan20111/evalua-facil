@@ -449,7 +449,12 @@ export default function Agenda() {
             a un segundo renglón — mismo criterio que el calendario del
             docente en la App, que también separa el selector de vista. */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 min-w-0 flex-1">
+          {/* w-full en el celular: el selector de vista se queda con TODO el
+              primer renglón y no compite con nadie. Con `flex-1` se llevaba
+              solo lo que sobraba después de Evento + horas y se encogía hasta
+              quedar en una rebanada de un solo ícono, imposible de tocar. En
+              md+ (la web) vuelve a compartir renglón. */}
+          <div className="flex items-center gap-1 min-w-0 w-full md:w-auto md:flex-1">
             <button
               type="button"
               onClick={goBack}
