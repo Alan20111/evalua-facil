@@ -426,12 +426,21 @@ export default function Agenda() {
           gana siempre. */}
       <div className="sticky top-0 z-20 safe-top">
       <header className="bg-accent text-white px-4 py-3 shadow-lg">
-        {/* Todo en un solo renglón: selector de vista (izquierda, junto al
-            botón de regresar), +Evento (centro) y Horas del día (derecha,
-            donde antes vivía +Evento) — pedido explícito, para ganar el
-            espacio vertical que antes ocupaban 3 renglones. */}
-        <div className="grid items-center gap-2" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
-          <div className="flex items-center gap-1 min-w-0 justify-self-start">
+        {/* Todo en un solo renglón cuando cabe: selector de vista (izquierda,
+            junto al botón de regresar), +Evento y Horas del día (derecha) —
+            para ganar el espacio vertical que antes ocupaban 3 renglones.
+
+            Antes era un grid de tres columnas (1fr auto 1fr) con
+            `justify-self`, y ahí estaba el problema: `justify-self` hace que
+            cada celda se mida por su contenido en vez de encogerse a su
+            columna, así que en un celular los tres bloques se salían de su
+            columna y se encimaban unos sobre otros (el selector de vista por
+            debajo de "Evento" y de las horas). Con flex-wrap ya no compiten
+            por el mismo espacio: cuando no caben, el grupo de la derecha baja
+            a un segundo renglón — mismo criterio que el calendario del
+            docente en la App, que también separa el selector de vista. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
             <button
               type="button"
               onClick={goBack}
@@ -455,14 +464,18 @@ export default function Agenda() {
               ))}
             </div>
           </div>
+          {/* Evento + Horas viajan juntos: si no caben junto al selector de
+              vista, bajan los dos al segundo renglón, alineados a la derecha
+              (ml-auto), en vez de partirse uno de cada lado. */}
+          <div className="flex items-center gap-2 ml-auto flex-shrink-0">
           <button
             type="button"
             onClick={() => openNewEvent(toDateStr(currentDate))}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-sm font-medium transition-colors justify-self-center"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 text-sm font-medium transition-colors"
           >
             <Plus size={15} /> Evento
           </button>
-          <div className="relative justify-self-end">
+          <div className="relative">
             <button
               type="button"
               onClick={() => setShowHoras((v) => !v)}
@@ -520,6 +533,7 @@ export default function Agenda() {
                 </div>
               </>
             )}
+          </div>
           </div>
         </div>
       </header>
