@@ -54,6 +54,7 @@ import { sendSubscriptionCancelledEmail } from '../../utils/accountEmails'
 import { apiUrl } from '../../utils/apiBase'
 import { PREFIJOS } from '../../utils/prefijos'
 import Select from '../../components/ui/Select'
+import InfoDisclosure from '../../components/ui/InfoDisclosure'
 
 async function uploadAvatar(file) {
   const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
@@ -1043,7 +1044,9 @@ export default function Profile() {
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-on-surface truncate">{userProfile?.schoolName || 'Sin escuela'}</p>
-              <p className="text-sm text-slate-500 mt-0.5">Los docentes de la misma escuela comparten el mismo registro — pero cada quien da de alta a sus propios alumnos por separado.</p>
+              <InfoDisclosure className="mt-0.5">
+                <p className="text-sm text-slate-500">Los docentes de la misma escuela comparten el mismo registro — pero cada quien da de alta a sus propios alumnos por separado.</p>
+              </InfoDisclosure>
             </div>
             <button type="button" onClick={() => { setSchoolSearch(''); setAddingCustomSchool(false); setCustomSchoolStep('form'); setShowSchoolPicker(true) }}
               className="text-accent text-sm font-semibold hover:underline flex-shrink-0">Cambiar</button>
@@ -1065,10 +1068,12 @@ export default function Profile() {
           <h2 className="font-semibold text-on-surface mb-2 flex items-center gap-2">
             <Trash2 size={19} className="text-slate-400" /> Eliminar mi cuenta
           </h2>
-          <p className="text-sm text-muted mb-2">
-            Borra para siempre tu cuenta y todo tu trabajo: asignaturas, estudiantes, actividades,
-            calificaciones y asistencias. No se puede deshacer.
-          </p>
+          <InfoDisclosure className="mb-2">
+            <p className="text-sm text-muted">
+              Borra para siempre tu cuenta y todo tu trabajo: asignaturas, estudiantes, actividades,
+              calificaciones y asistencias. No se puede deshacer.
+            </p>
+          </InfoDisclosure>
           <button
             type="button"
             onClick={() => setShowEliminarCuenta(true)}

@@ -12,6 +12,7 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText, toRichHtml, richTextContentClass } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts, fileTypesInstructions } from '../config/fileTypes'
 import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight, Trash2 } from 'lucide-react'
+import InfoDisclosure from './ui/InfoDisclosure'
 import RubricaPicker from './rubrica/RubricaPicker'
 import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
@@ -281,9 +282,13 @@ export default function EntregableEditor({
                 disabled={savingNotificar}
                 className="mt-1"
               />
-              <label htmlFor="ent-notificar-docente" className="text-sm font-medium text-on-surface cursor-pointer flex-1">
-                Notificarme cuando entreguen esta actividad
-                <span className="text-muted text-xs block mt-0.5">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante la entregue</span>
+              <div className="flex-1">
+                <label htmlFor="ent-notificar-docente" className="text-sm font-medium text-on-surface cursor-pointer">
+                  Notificarme cuando entreguen esta actividad
+                </label>
+                <InfoDisclosure className="mt-0.5">
+                  <span className="text-muted text-xs block">Aviso para el celular donde tengas instalada la app Evalúa Fácil, cada vez que un estudiante la entregue</span>
+                </InfoDisclosure>
                 {/* Se guarda sola en cuanto se toca (ver handleToggleNotificar)
                     — ya no depende del botón "Guardar" de abajo. Solo al crear
                     una actividad nueva viaja junto con el resto, porque el
@@ -291,7 +296,7 @@ export default function EntregableEditor({
                 {isNew && (
                   <span className="text-muted text-xs block mt-1">Se guarda junto con el resto al crear la actividad</span>
                 )}
-              </label>
+              </div>
             </div>
 
             <div>
@@ -334,11 +339,13 @@ export default function EntregableEditor({
                   <ClipboardList size={16} className="text-accent" /> Rúbrica de evaluación
                   <span className="text-slate-400 font-normal">(opcional)</span>
                 </h2>
-                <p className="text-xs text-muted mt-0.5">
-                  Con una rúbrica calificas tocando el nivel de cada criterio y la
-                  calificación sobre 10 se calcula sola. Tus estudiantes la ven desde
-                  el inicio, para saber cómo serán evaluados.
-                </p>
+                <InfoDisclosure className="mt-0.5">
+                  <p className="text-xs text-muted">
+                    Con una rúbrica calificas tocando el nivel de cada criterio y la
+                    calificación sobre 10 se calcula sola. Tus estudiantes la ven desde
+                    el inicio, para saber cómo serán evaluados.
+                  </p>
+                </InfoDisclosure>
               </div>
               {form.rubrica ? (
                 <>
