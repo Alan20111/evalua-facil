@@ -77,6 +77,47 @@ function pieDataUrl(filas, px = 540) {
   return canvas.toDataURL('image/png')
 }
 
+// Encabezado común a TODOS los documentos del docente. El orden es el de
+// cualquier documento escolar: primero de dónde sale (escuela), luego de qué es
+// (asignatura), luego qué es (el reporte) y de quién (docente + periodo).
+// Devuelve la Y donde puede empezar el contenido, para que cada exportación no
+// vaya con sus propias coordenadas a mano.
+//
+//   CBTIS 255 PLANTEL CENTRO          ← membrete.escuela (si el docente ya eligió)
+//   Cultura Digital I — 1A            ← asignatura
+//   Resultados — Cuestionario         ← subtítulo del reporte
+//   Docente: Ing. Ana Ruiz · Ago 2025 – Ene 2026
+//   Diagnóstico                       ← destacado (nombre de la actividad, opcional)
+function drawDocHeader(doc, { membrete, subject, subtitulo = '', destacado = '' }) {
+  let y = 16
+  if (membrete?.escuela) {
+    doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(120)
+    doc.text(membrete.escuela.toUpperCase(), 14, y - 6)
+  }
+  doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(20)
+  doc.text(subjectDisplayName(subject) || 'Asignatura', 14, y)
+  if (subtitulo) {
+    y += 6
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
+    doc.text(subtitulo, 14, y)
+  }
+  // Docente y periodo comparten renglón: son las dos señas del documento que
+  // se leen al final, no el título.
+  const periodo = subjectPeriodLabel(subject)
+  const pie = [membrete?.docente ? `Docente: ${membrete.docente}` : '', periodo].filter(Boolean).join(' · ')
+  if (pie) {
+    y += 5.5
+    doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(120)
+    doc.text(pie, 14, y)
+  }
+  if (destacado) {
+    y += 8
+    doc.setFont(undefined, 'bold'); doc.setFontSize(13); doc.setTextColor(20)
+    doc.text(destacado, 14, y)
+  }
+  return y + 8
+}
+
 function safeFile(subject) {
   return (subjectDisplayName(subject) || 'asignatura')
     .replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ ]/g, '')
@@ -131,7 +172,7 @@ export async function exportAppQRPDF({ url }) {
 // Ranking report: estudiantes ordenados por promedio (mayor a menor).
 // Columnas: Lugar, No., Estudiante, Promedio. `rows` = [{ lugar, orden, nombre,
 // promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
-export async function exportRankingPDF({ subject, rows, label, watermark = false }) {
+export async function exportRankingPDF({ subject, rows, label, membrete = null, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -140,17 +181,11 @@ export async function exportRankingPDF({ subject, rows, label, watermark = false
 
   const doc = new jsPDF({ orientation: 'portrait' })
   await applyPdfWatermarkIfNeeded(doc, watermark)
-  doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
-  doc.text(`${subjectDisplayName(subject) || 'Asignatura'} — Ranking · ${label}`, 14, 16)
-  const periodo = subjectPeriodLabel(subject)
-  if (periodo) {
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-    doc.text(periodo, 14, 22)
-  }
+  const startY = drawDocHeader(doc, { membrete, subject, subtitulo: `Ranking · ${label}` })
 
   const body = rows.map((r) => [r.lugar, r.nombre, r.promedio != null ? r.promedio.toFixed(1) : '—'])
   autoTable(doc, {
-    startY: periodo ? 28 : 24,
+    startY,
     head: [['Lugar', 'Estudiante', label]],
     body,
     styles: { fontSize: 9, cellPadding: 2.5, textColor: 30 },
@@ -167,7 +202,7 @@ export async function exportRankingPDF({ subject, rows, label, watermark = false
 }
 
 // Grades report: one row per student with per-parcial average + final.
-export async function exportSubjectGradesPDF({ subject, activities, students, submissions, watermark = false }) {
+export async function exportSubjectGradesPDF({ subject, activities, students, submissions, membrete = null, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -178,16 +213,7 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
   await applyPdfWatermarkIfNeeded(doc, watermark)
   const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
 
-  // ── Header ──
-  doc.setFontSize(15)
-  doc.setFont(undefined, 'bold')
-  doc.setTextColor(20)
-  doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 16)
-  const periodo = subjectPeriodLabel(subject)
-  if (periodo) {
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-    doc.text(periodo, 14, 22)
-  }
+  const startY = drawDocHeader(doc, { membrete, subject, subtitulo: 'Calificaciones del curso' })
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const body = sorted.map((s) => {
@@ -209,7 +235,7 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
   })
 
   autoTable(doc, {
-    startY: periodo ? 28 : 24,
+    startY,
     head: [['#', 'Estudiante', ...PARCIALES.map((p) => `Prom. P${p}`), 'Final']],
     body,
     styles: { fontSize: 9, cellPadding: 2.5, textColor: 30 },
@@ -228,7 +254,7 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
 
 // Detailed grades report for a SINGLE parcial: one column per activity
 // (1.1., 1.2.…) plus the parcial average. Mirrors exportParcialGrades (Excel).
-export async function exportParcialGradesPDF({ subject, activities, students, submissions, parcial, watermark = false }) {
+export async function exportParcialGradesPDF({ subject, activities, students, submissions, parcial, membrete = null, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -242,13 +268,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
   const doc = new jsPDF({ orientation: acts.length > 6 ? 'landscape' : 'portrait' })
   await applyPdfWatermarkIfNeeded(doc, watermark)
 
-  doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
-  doc.text(`${subjectDisplayName(subject) || 'Asignatura'} — Parcial ${parcial}`, 14, 16)
-  const periodo = subjectPeriodLabel(subject)
-  if (periodo) {
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-    doc.text(periodo, 14, 22)
-  }
+  const startY = drawDocHeader(doc, { membrete, subject, subtitulo: `Calificaciones · Parcial ${parcial}` })
 
   const pondOn = ponderacionActivaEnParcial(subject, parcial)
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
@@ -265,7 +285,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
   })
 
   autoTable(doc, {
-    startY: periodo ? 28 : 24,
+    startY,
     head: [['#', 'Estudiante', ...acts.map((a, ai) => `${parcial}.${ai + 1}.`), 'Prom.']],
     body,
     styles: { fontSize: 9, cellPadding: 2, textColor: 30 },
@@ -287,7 +307,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
 // EvaluacionGraficas.jsx, mismo filtro). `counts`/`preguntas` mirror ese
 // componente exactamente (counts computed there, passed straight through —
 // no recomputation here).
-export async function exportEvaluacionResultadosPDF({ activity, subject, preguntas, counts, watermark = false }) {
+export async function exportEvaluacionResultadosPDF({ activity, subject, preguntas, counts, membrete = null, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -303,14 +323,12 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
   const pageW = doc.internal.pageSize.getWidth()
   const pageH = doc.internal.pageSize.getHeight()
 
-  doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
-  doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 16)
-  doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-  doc.text(`Resultados — ${activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}`, 14, 22)
-  doc.setFont(undefined, 'bold'); doc.setFontSize(13); doc.setTextColor(20)
-  doc.text(activity.nombre || '', 14, 30)
-
-  let y = 40
+  let y = drawDocHeader(doc, {
+    membrete,
+    subject,
+    subtitulo: `Resultados — ${activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}`,
+    destacado: activity.nombre || '',
+  })
   if (!preguntas.length) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
     doc.text('Este cuestionario/examen no tiene reactivos de opción múltiple ni de verdadero/falso.', 14, y)
@@ -370,7 +388,7 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
 // tiene en pantalla, no con las tablas — se genera desde la pantalla de
 // Gráficas. Cada reactivo lleva su pastel y, a un lado, su leyenda con el
 // color, la opción, cuántos la eligieron y su porcentaje.
-export async function exportEvaluacionGraficasPDF({ activity, subject, preguntas, counts, watermark = false }) {
+export async function exportEvaluacionGraficasPDF({ activity, subject, preguntas, counts, membrete = null, watermark = false }) {
   const { jsPDF } = await import('jspdf')
 
   const doc = new jsPDF()
@@ -379,14 +397,12 @@ export async function exportEvaluacionGraficasPDF({ activity, subject, preguntas
   const pageW = doc.internal.pageSize.getWidth()
   const pageH = doc.internal.pageSize.getHeight()
 
-  doc.setFontSize(15); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
-  doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 16)
-  doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-  doc.text(`Gráficas de resultados — ${activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}`, 14, 22)
-  doc.setFont(undefined, 'bold'); doc.setFontSize(13); doc.setTextColor(20)
-  doc.text(activity.nombre || '', 14, 30)
-
-  let y = 40
+  let y = drawDocHeader(doc, {
+    membrete,
+    subject,
+    subtitulo: `Gráficas de resultados — ${activity.categoria === 'examen' ? 'Examen' : 'Cuestionario'}`,
+    destacado: activity.nombre || '',
+  })
   if (!preguntas.length) {
     doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
     doc.text('Este cuestionario/examen no tiene reactivos de opción múltiple ni de verdadero/falso.', 14, y)
@@ -458,7 +474,7 @@ export async function exportEvaluacionGraficasPDF({ activity, subject, preguntas
 }
 
 // Credentials list: one row per student with username + temp password (1st login).
-export async function exportCredentialsPDF({ subject, students, docenteNombre, watermark = false }) {
+export async function exportCredentialsPDF({ subject, students, docenteNombre, membrete = null, watermark = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -468,19 +484,17 @@ export async function exportCredentialsPDF({ subject, students, docenteNombre, w
   const doc = new jsPDF()
   await applyPdfWatermarkIfNeeded(doc, watermark)
 
-  // ── Header ──
-  doc.setFontSize(16); doc.setFont(undefined, 'bold'); doc.setTextColor(20)
-  doc.text(subjectDisplayName(subject) || 'Asignatura', 14, 20)
-  doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-  doc.text('Lista de acceso de los estudiantes', 14, 27)
-  let y37 = 37
-  if (docenteNombre) {
-    doc.setFont(undefined, 'normal'); doc.setFontSize(10); doc.setTextColor(110)
-    doc.text(`Docente: ${docenteNombre}`, 14, 34)
-    y37 = 44
-  }
+  // Este documento ya traía "Docente:" por su cuenta desde antes que existiera
+  // el membrete; `docenteNombre` se conserva como respaldo para no perderlo si
+  // alguna llamada todavía no manda membrete.
+  const conDocente = membrete?.docente
+    ? membrete
+    : { ...(membrete || {}), docente: docenteNombre || '' }
+  const yCodigo = drawDocHeader(doc, {
+    membrete: conDocente, subject, subtitulo: 'Lista de acceso de los estudiantes',
+  }) + 4
   doc.setFontSize(13); doc.setTextColor(20); doc.setFont(undefined, 'bold')
-  doc.text(`Código de la clase: ${subject.accessCode || '—'}`, 14, y37)
+  doc.text(`Código de la clase: ${subject.accessCode || '—'}`, 14, yCodigo)
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const body = sorted.map((s) => [
@@ -490,7 +504,7 @@ export async function exportCredentialsPDF({ subject, students, docenteNombre, w
   ])
 
   autoTable(doc, {
-    startY: y37 + 25,
+    startY: yCodigo + 12,
     head: [['#', 'Nombre completo', 'Usuario']],
     body,
     styles: { fontSize: 10, cellPadding: 3, textColor: 30 },

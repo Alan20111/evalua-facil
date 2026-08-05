@@ -7,6 +7,7 @@ import { studentFullName } from './studentSearch'
 import { isDraftActivity } from './activityVisibility'
 import { saveBlob } from './nativeSave'
 import { addExcelWatermarkIfNeeded } from './exportWatermark'
+import { membreteLinea } from './membrete'
 import { estadoEvaluacionLabel } from './evaluacionGrading'
 import {
   esGraficable, filasDeReactivo, totalRespuestas, textoRespuestaAlumno, aciertosDeAlumno,
@@ -67,6 +68,29 @@ async function finalizeWorkbook(workbook, filename, watermark) {
 // fijos (título en fila 1, secciones en fila 3, etc.) se corre.
 function spacerRow(watermark) {
   return watermark ? [WATERMARK_LEGEND] : []
+}
+
+// Los tres renglones con que abre TODA hoja exportada:
+//   1  Cultura Digital I — 1A   (Ago 2025 – Ene 2026)   ← título del reporte
+//   2  CBTIS 255 · Docente: Ing. Ana Ruiz               ← membrete
+//   3  (separador; en periodo de prueba, la leyenda de marca de agua)
+// Siempre son TRES, aunque el docente no tenga escuela o el membrete venga
+// vacío: los encabezados de columna quedan en la fila 4 y los datos en la 5 en
+// todas las hojas, así que los merges y los altos de fila no tienen que
+// calcularse caso por caso.
+const HEADER_ROWS = 3
+function headerRows(titulo, membrete, watermark, totalCols) {
+  const titleRow = Array(totalCols).fill('')
+  titleRow[0] = titulo
+  const membreteRow = Array(totalCols).fill('')
+  membreteRow[0] = membreteLinea(membrete)
+  return [titleRow, membreteRow, spacerRow(watermark)]
+}
+
+// Merges de esos dos renglones de texto (título y membrete) a lo ancho de la
+// hoja — van juntos en todas las exportaciones.
+function headerMerges(totalCols) {
+  return [[1, 1, 1, totalCols], [2, 1, 2, totalCols]]
 }
 
 // Loaded dynamically (only when actually downloading the template) because
@@ -173,20 +197,20 @@ export function parseStudentExcel(file) {
 // Ranking export: estudiantes ordenados por promedio (mayor a menor).
 // Columnas: LUGAR, No., NOMBRE, PROMEDIO. `rows` = [{ lugar, orden, nombre,
 // promedio }] YA ordenado; `label` = "Parcial N" o "Promedio final".
-export async function exportRankingExcel({ subject, rows, label, watermark = false }) {
+export async function exportRankingExcel({ subject, rows, label, membrete = null, watermark = false }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
   const periodo = subjectPeriodLabel(subject)
-  const titleRow = [`${subjectDisplayName(subject)} — Ranking · ${label}${periodo ? `   (${periodo})` : ''}`]
+  const titulo = `${subjectDisplayName(subject)} — Ranking · ${label}${periodo ? `   (${periodo})` : ''}`
   const nameRow = ['LUGAR', 'NOMBRE', label]
   const dataRows = rows.map((r) => [r.lugar, r.nombre, r.promedio != null ? r.promedio : '—'])
-  const allRows = [titleRow, spacerRow(watermark), nameRow, ...dataRows]
+  const allRows = [...headerRows(titulo, membrete, watermark, 3), nameRow, ...dataRows]
 
   addSheetFromRows(workbook, 'Ranking', allRows, {
-    merges: [[1, 1, 1, 3]],
+    merges: headerMerges(3),
     colWidths: [7, 42, 14],
-    rowHeights: [[1, 22], [3, 18]],
+    rowHeights: [[1, 22], [HEADER_ROWS + 1, 18]],
   })
 
   const safeName = safeExcelName(subject)
@@ -194,7 +218,7 @@ export async function exportRankingExcel({ subject, rows, label, watermark = fal
   await finalizeWorkbook(workbook, `ranking_${safeLabel}_${safeName}.xlsx`, watermark)
 }
 
-export async function exportParcialGrades({ subject, activities, students, submissions, parcial, watermark = false }) {
+export async function exportParcialGrades({ subject, activities, students, submissions, parcial, membrete = null, watermark = false }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
@@ -204,9 +228,8 @@ export async function exportParcialGrades({ subject, activities, students, submi
 
   const totalCols = 2 + acts.length + 1
 
-  const titleRow = Array(totalCols).fill('')
   const periodo = subjectPeriodLabel(subject)
-  titleRow[0] = `${subjectDisplayName(subject)} — Parcial ${parcial}${periodo ? `   (${periodo})` : ''}`
+  const titulo = `${subjectDisplayName(subject)} — Parcial ${parcial}${periodo ? `   (${periodo})` : ''}`
 
   const nameRow = ['#', 'NOMBRE']
   acts.forEach((a, ai) => nameRow.push(`${parcial}.${ai + 1}.`))
@@ -234,14 +257,15 @@ export async function exportParcialGrades({ subject, activities, students, submi
     return row
   })
 
+  const cabecera = headerRows(titulo, membrete, watermark, totalCols)
   const allRows = pondOn
-    ? [titleRow, spacerRow(watermark), pesoRow, nameRow, ...dataRows]
-    : [titleRow, spacerRow(watermark), nameRow, ...dataRows]
+    ? [...cabecera, pesoRow, nameRow, ...dataRows]
+    : [...cabecera, nameRow, ...dataRows]
 
   addSheetFromRows(workbook, `Parcial ${parcial}`, allRows, {
-    merges: [[1, 1, 1, totalCols]],
+    merges: headerMerges(totalCols),
     colWidths: [4, 42, ...Array(totalCols - 2).fill(10)],
-    rowHeights: [[1, 22], [3, 18]],
+    rowHeights: [[1, 22], [HEADER_ROWS + 1, 18]],
   })
 
   const safeName = safeExcelName(subject)
@@ -253,6 +277,7 @@ export async function exportSubjectGrades({
   activities,
   students,
   submissions,
+  membrete = null,
   watermark = false,
 }) {
   const ExcelJS = (await import('exceljs')).default
@@ -273,11 +298,10 @@ export async function exportSubjectGrades({
   const totalCols = gradeCols
 
   // Row 1: Title
-  const titleRow = Array(totalCols).fill('')
   const periodo = subjectPeriodLabel(subject)
-  titleRow[0] = periodo ? `${subjectDisplayName(subject)}   (${periodo})` : subjectDisplayName(subject)
+  const titulo = periodo ? `${subjectDisplayName(subject)}   (${periodo})` : subjectDisplayName(subject)
 
-  // Row 3: Section headers
+  // Row 4: Section headers (después de los tres renglones de encabezado)
   const sectionRow = Array(totalCols).fill('')
   let col = FIXED
   const parcialRanges = {}
@@ -348,20 +372,23 @@ export async function exportSubjectGrades({
     return row
   })
 
+  const cabecera = headerRows(titulo, membrete, watermark, totalCols)
   const allRows = anyPond
-    ? [titleRow, spacerRow(watermark), sectionRow, pesoRowFull, nameRow, ...dataRows]
-    : [titleRow, spacerRow(watermark), sectionRow, nameRow, ...dataRows]
+    ? [...cabecera, sectionRow, pesoRowFull, nameRow, ...dataRows]
+    : [...cabecera, sectionRow, nameRow, ...dataRows]
 
-  // Merges: title spans all + each parcial header (section row is always row 3)
+  // Merges: los dos renglones de texto del encabezado + el nombre de cada
+  // parcial sobre sus columnas (la fila de secciones va justo después).
+  const SECTION_ROW = HEADER_ROWS + 1
   const merges = [
-    [1, 1, 1, totalCols],
-    ...PARCIALES.map((p) => [3, parcialRanges[p].start + 1, 3, parcialRanges[p].end + 1]),
+    ...headerMerges(totalCols),
+    ...PARCIALES.map((p) => [SECTION_ROW, parcialRanges[p].start + 1, SECTION_ROW, parcialRanges[p].end + 1]),
   ]
 
   addSheetFromRows(workbook, 'Calificaciones', allRows, {
     merges,
     colWidths: [4, 42, ...Array(gradeCols - FIXED).fill(10)],
-    rowHeights: [[1, 22], [3, 18], [4, 18]],
+    rowHeights: [[1, 22], [SECTION_ROW, 18], [SECTION_ROW + 1, 18]],
   })
 
   const safeName = safeExcelName(subject)
@@ -409,7 +436,8 @@ function attendanceRowCells(days, studentId, enrolledFrom) {
 //                    muestra: quién copió a quién, dónde se atoró el grupo).
 //   Por reactivo   — el resumen por opción, el mismo del PDF y las gráficas.
 export async function exportEvaluacionResultadosExcel({
-  activity, subject, students, submissions, preguntas, counts, porAlumno, stats, hasManual = false, watermark = false,
+  activity, subject, students, submissions, preguntas, counts, porAlumno, stats, hasManual = false,
+  membrete = null, watermark = false,
 }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
@@ -425,8 +453,7 @@ export async function exportEvaluacionResultadosExcel({
   // ── Hoja 1: Resumen ──
   const entregas = Object.values(submissions || {}).filter((s) => s?.estadoEvaluacion === 'finalizado').length
   addSheetFromRows(workbook, 'Resumen', [
-    [titulo],
-    spacerRow(watermark),
+    ...headerRows(titulo, membrete, watermark, 2),
     ['MÉTRICA', 'VALOR'],
     ['Promedio', stats?.promedio ?? 0],
     ['Calificación máxima', stats?.maxima ?? 0],
@@ -437,7 +464,7 @@ export async function exportEvaluacionResultadosExcel({
     ['Total de entregas', entregas],
     ['Total pendientes', students.length - entregas],
     ['Reactivos', (preguntas || []).length],
-  ], { merges: [[1, 1, 1, 2]], colWidths: [30, 26], rowHeights: [[1, 22], [3, 18]] })
+  ], { merges: headerMerges(2), colWidths: [30, 26], rowHeights: [[1, 22], [HEADER_ROWS + 1, 18]] })
 
   // ── Hoja 2: Calificaciones ──
   const califHead = ['#', 'NOMBRE', 'ESTADO', 'CALIFICACIÓN', `ACIERTOS (de ${graficables.length})`, 'ENTREGADO', 'DURACIÓN (min)', 'INTENTO']
@@ -457,11 +484,11 @@ export async function exportEvaluacionResultadosExcel({
     ]
   })
   addSheetFromRows(workbook, 'Calificaciones', [
-    [titulo], spacerRow(watermark), califHead, ...califRows,
+    ...headerRows(titulo, membrete, watermark, califHead.length), califHead, ...califRows,
   ], {
-    merges: [[1, 1, 1, califHead.length]],
+    merges: headerMerges(califHead.length),
     colWidths: [4, 42, 15, 14, 16, 20, 15, 9],
-    rowHeights: [[1, 22], [3, 18]],
+    rowHeights: [[1, 22], [HEADER_ROWS + 1, 18]],
   })
 
   // ── Hoja 3: Respuestas (matriz estudiante × reactivo) ──
@@ -472,15 +499,15 @@ export async function exportEvaluacionResultadosExcel({
     ...(preguntas || []).map((p) => textoRespuestaAlumno(p, porAlumno?.[s.id]?.[p.id])),
   ])
   addSheetFromRows(workbook, 'Respuestas', [
-    [titulo], spacerRow(watermark), respHead, ...respRows,
+    ...headerRows(titulo, membrete, watermark, respHead.length), respHead, ...respRows,
   ], {
-    merges: [[1, 1, 1, respHead.length]],
+    merges: headerMerges(respHead.length),
     colWidths: [4, 42, ...(preguntas || []).map(() => 30)],
-    rowHeights: [[1, 22], [3, 18]],
+    rowHeights: [[1, 22], [HEADER_ROWS + 1, 18]],
   })
 
   // ── Hoja 4: Por reactivo ──
-  const porReactivo = [[titulo], spacerRow(watermark)]
+  const porReactivo = [...headerRows(titulo, membrete, watermark, 4)]
   if (!graficables.length) {
     porReactivo.push(['Este cuestionario/examen no tiene reactivos de opción múltiple ni de verdadero/falso.'])
   }
@@ -496,9 +523,9 @@ export async function exportEvaluacionResultadosExcel({
     porReactivo.push([])
   })
   addSheetFromRows(workbook, 'Por reactivo', porReactivo, {
-    merges: [[1, 1, 1, 4]],
+    merges: headerMerges(4),
     colWidths: [60, 11, 13, 13],
-    rowHeights: [[1, 22], [3, 18]],
+    rowHeights: [[1, 22], [HEADER_ROWS + 1, 18]],
   })
 
   const safeActivity = (activity.nombre || 'evaluacion')
@@ -506,7 +533,7 @@ export async function exportEvaluacionResultadosExcel({
   await finalizeWorkbook(workbook, `resultados_${safeActivity}_${safeExcelName(subject)}.xlsx`, watermark)
 }
 
-export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial, watermark = false }) {
+export async function exportParcialAttendance({ subject, students, attendanceParciales, parcial, membrete = null, watermark = false }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
@@ -516,9 +543,8 @@ export async function exportParcialAttendance({ subject, students, attendancePar
   const FIXED = 2
   const totalCols = FIXED + dayHeaders.length + 2
 
-  const titleRow = Array(totalCols).fill('')
   const periodo = subjectPeriodLabel(subject)
-  titleRow[0] = `${subjectDisplayName(subject)} — Asistencia · Parcial ${parcial}${periodo ? `   (${periodo})` : ''}`
+  const titulo = `${subjectDisplayName(subject)} — Asistencia · Parcial ${parcial}${periodo ? `   (${periodo})` : ''}`
 
   const nameRow = ['#', 'NOMBRE', ...dayHeaders, 'Asist.', 'Faltas']
 
@@ -532,19 +558,19 @@ export async function exportParcialAttendance({ subject, students, attendancePar
     return row
   })
 
-  const allRows = [titleRow, spacerRow(watermark), nameRow, ...dataRows]
+  const allRows = [...headerRows(titulo, membrete, watermark, totalCols), nameRow, ...dataRows]
 
   addSheetFromRows(workbook, `Parcial ${parcial}`, allRows, {
-    merges: [[1, 1, 1, totalCols]],
+    merges: headerMerges(totalCols),
     colWidths: [4, 42, ...Array(totalCols - FIXED).fill(9)],
-    rowHeights: [[1, 22], [3, 18]],
+    rowHeights: [[1, 22], [HEADER_ROWS + 1, 18]],
   })
 
   const safeName = safeExcelName(subject)
   await finalizeWorkbook(workbook, `asistencia_parcial${parcial}_${safeName}.xlsx`, watermark)
 }
 
-export async function exportSubjectAttendance({ subject, students, attendanceParciales, watermark = false }) {
+export async function exportSubjectAttendance({ subject, students, attendanceParciales, membrete = null, watermark = false }) {
   const ExcelJS = (await import('exceljs')).default
   const workbook = new ExcelJS.Workbook()
 
@@ -556,9 +582,8 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
 
   const totalCols = FIXED + parcialMeta.reduce((s, m) => s + m.cols, 0) + 2
 
-  const titleRow = Array(totalCols).fill('')
   const periodo = subjectPeriodLabel(subject)
-  titleRow[0] = periodo ? `${subjectDisplayName(subject)} — Asistencia   (${periodo})` : `${subjectDisplayName(subject)} — Asistencia`
+  const titulo = periodo ? `${subjectDisplayName(subject)} — Asistencia   (${periodo})` : `${subjectDisplayName(subject)} — Asistencia`
 
   const sectionRow = Array(totalCols).fill('')
   let col = FIXED
@@ -591,17 +616,18 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
     return row
   })
 
-  const allRows = [titleRow, spacerRow(watermark), sectionRow, nameRow, ...dataRows]
+  const allRows = [...headerRows(titulo, membrete, watermark, totalCols), sectionRow, nameRow, ...dataRows]
 
+  const SECTION_ROW = HEADER_ROWS + 1
   const merges = [
-    [1, 1, 1, totalCols],
-    ...parcialMeta.map((m) => [3, parcialRanges[m.parcial].start + 1, 3, parcialRanges[m.parcial].end + 1]),
+    ...headerMerges(totalCols),
+    ...parcialMeta.map((m) => [SECTION_ROW, parcialRanges[m.parcial].start + 1, SECTION_ROW, parcialRanges[m.parcial].end + 1]),
   ]
 
   addSheetFromRows(workbook, 'Asistencia', allRows, {
     merges,
     colWidths: [4, 42, ...Array(totalCols - FIXED).fill(9)],
-    rowHeights: [[1, 22], [3, 18], [4, 18]],
+    rowHeights: [[1, 22], [SECTION_ROW, 18], [SECTION_ROW + 1, 18]],
   })
 
   const safeName = safeExcelName(subject)

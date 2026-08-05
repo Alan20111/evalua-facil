@@ -16,6 +16,7 @@ import InfoDisclosure from '../../components/ui/InfoDisclosure'
 import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, exportSubjectAttendance, exportParcialAttendance, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
 import { importActivitiesToSubject } from '../../utils/importActivities'
 import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF } from '../../utils/pdf'
+import { membreteDe } from '../../utils/membrete'
 import { buildJobsForSubject, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { deleteSubjectCascade, deleteSubjectStudents, deleteSubmissionsByStudent, deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { copySubject } from '../../utils/copySubject'
@@ -528,6 +529,8 @@ export default function SubjectPage() {
   // Sin suscripción activa (trial, vencida, cancelada, pendiente_pago) todas
   // las exportaciones PDF/Excel llevan marca de agua — pedido explícito.
   const exportsWatermarked = !hasCleanExports(subscription)
+  // Escuela + docente que encabezan cada PDF/Excel que se descarga de aquí.
+  const membrete = membreteDe(userProfile)
   // Resuelve la promesa de confirmExportNotice() — no-null mientras el aviso
   // está en pantalla. Un solo modal reutilizado por las 8 funciones de
   // exportación de este archivo, en vez de un estado por cada una.
@@ -2992,7 +2995,7 @@ export default function SubjectPage() {
       await exportSubjectGrades({
         subject, activities, students,
         submissions: Object.values(subMap),
-        watermark: exportsWatermarked,
+        membrete, watermark: exportsWatermarked,
       })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExporting(false) }
@@ -3136,7 +3139,7 @@ export default function SubjectPage() {
     setExporting(true)
     try {
       const { students, submissions } = await ensureGradesData()
-      await exportParcialGrades({ subject, activities, students, submissions, parcial: p, watermark: exportsWatermarked })
+      await exportParcialGrades({ subject, activities, students, submissions, parcial: p, membrete, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExporting(false) }
   }
@@ -3147,7 +3150,7 @@ export default function SubjectPage() {
     setExportingGradesPdf(true)
     try {
       const { students, submissions } = await ensureGradesData()
-      await exportParcialGradesPDF({ subject, activities, students, submissions, parcial: p, watermark: exportsWatermarked })
+      await exportParcialGradesPDF({ subject, activities, students, submissions, parcial: p, membrete, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar PDF: ' + err.message, 'error') }
     finally { setExportingGradesPdf(false) }
   }
@@ -3166,7 +3169,7 @@ export default function SubjectPage() {
       // "Parcial actual / Todo el curso" (ese es solo para lo que se pinta
       // en pantalla) — por eso usa attendanceParcialesAll, no la variable
       // filtrada attendanceParciales.
-      await exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, watermark: exportsWatermarked })
+      await exportSubjectAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, membrete, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
@@ -3176,7 +3179,7 @@ export default function SubjectPage() {
     if (!(await confirmExportNotice())) return
     setExportingAttendance(true)
     try {
-      await exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p, watermark: exportsWatermarked })
+      await exportParcialAttendance({ subject, students: groupStudents, attendanceParciales: attendanceParcialesAll, parcial: p, membrete, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
     finally { setExportingAttendance(false) }
   }
@@ -3207,7 +3210,7 @@ export default function SubjectPage() {
         subDocs.forEach((d) => { const data = { id: d.id, ...d.data() }; subMap[`${data.alumnoId}-${data.actividadId}`] = data })
         setGradeSubMap(subMap); setGradesLoaded(true)
       }
-      await exportSubjectGradesPDF({ subject, activities, students, submissions: Object.values(subMap), watermark: exportsWatermarked })
+      await exportSubjectGradesPDF({ subject, activities, students, submissions: Object.values(subMap), membrete, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar PDF: ' + err.message, 'error') }
     finally { setExportingGradesPdf(false) }
   }
@@ -3229,7 +3232,7 @@ export default function SubjectPage() {
       if (students.length === 0) { toast('No hay estudiantes en esta asignatura', 'error'); return }
 
       const docenteNombre = userProfile?.nombreMostrar || userProfile?.nombre || ''
-      await exportCredentialsPDF({ subject, students, docenteNombre, watermark: exportsWatermarked })
+      await exportCredentialsPDF({ subject, students, docenteNombre, membrete, watermark: exportsWatermarked })
       toast('Lista de acceso descargada')
       setShowCredentialsModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -3650,8 +3653,8 @@ export default function SubjectPage() {
     const rows = rankingRowsFor(parcial)
     const label = parcial == null ? 'Promedio final' : `Parcial ${parcial}`
     try {
-      if (kind === 'excel') await exportRankingExcel({ subject, rows, label, watermark: exportsWatermarked })
-      else await exportRankingPDF({ subject, rows, label, watermark: exportsWatermarked })
+      if (kind === 'excel') await exportRankingExcel({ subject, rows, label, membrete, watermark: exportsWatermarked })
+      else await exportRankingPDF({ subject, rows, label, membrete, watermark: exportsWatermarked })
     } catch (err) { toast('Error al exportar: ' + err.message, 'error') }
   }
 

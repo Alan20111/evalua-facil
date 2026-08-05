@@ -31,6 +31,8 @@ import { cargarRespuestasEvaluacion, esGraficable } from '../utils/evaluacionRes
 import { exportEvaluacionResultadosExcel } from '../utils/excel'
 import { exportEvaluacionResultadosPDF } from '../utils/pdf'
 import { descargaSoloWeb } from '../utils/descargaSoloWeb'
+import { membreteDe } from '../utils/membrete'
+import { useAuth } from '../context/AuthContext'
 import { useSubscription } from '../hooks/useSubscription'
 import { hasCleanExports } from '../utils/subscriptionHelpers'
 import ConfirmModal from './ConfirmModal'
@@ -158,6 +160,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // mismo criterio que las exportaciones de la asignatura.
   const { subscription } = useSubscription()
   const exportsWatermarked = !hasCleanExports(subscription)
+  // Escuela + docente para encabezar los documentos que se descargan de aquí.
+  const { userProfile } = useAuth()
+  const membrete = membreteDe(userProfile)
   // Full-screen EvaluacionEditor — the SAME editor "editar" opens from the
   // parcial list; the header pencil opens it here too.
   const [showEvalEditor, setShowEvalEditor] = useState(false)
@@ -893,12 +898,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       if (kind === 'excel') {
         await exportEvaluacionResultadosExcel({
           activity, subject, students, submissions, preguntas, counts, porAlumno, stats, hasManual,
-          watermark: exportsWatermarked,
+          membrete, watermark: exportsWatermarked,
         })
       } else {
         await exportEvaluacionResultadosPDF({
           activity, subject, preguntas: preguntas.filter(esGraficable), counts,
-          watermark: exportsWatermarked,
+          membrete, watermark: exportsWatermarked,
         })
       }
     } catch (err) {
