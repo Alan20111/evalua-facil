@@ -20,18 +20,19 @@ import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 //   criterios: [{ nombre, puntos: [str], descriptores: [str] }]
 // Al guardar se normaliza a números y porcentaje (campo almacenado).
 
-// Sin nombres de ejemplo (Excelente/Bueno/…) a propósito — pedido explícito:
-// un docente que no sabe qué es una rúbrica veía la tabla ya "completa" con
-// esos nombres y los descriptores que se generaban solos al nombrarlos, y
-// pensaba que la rúbrica se armaba sola. Solo los puntos (10/8/6/5) traen un
-// punto de partida — son números, no texto que se pueda confundir con
-// contenido ya hecho. El nombre y el resumen de cada nivel los escribe el
-// docente desde cero (placeholder "Editar" — ver el <input> más abajo).
+// Los 4 niveles SÍ nacen con el nombre estándar (Excelente/Bueno/Suficiente/
+// Insuficiente) — pedido explícito: es la escala que la mayoría ya conoce y
+// usa tal cual, así que prellenarla ahorra trabajo. Es texto normal, editable
+// de inmediato (no hay que borrar nada para cambiarlo).
+// Los CRITERIOS son harina de otro costal: no hay un "criterio estándar"
+// porque dependen de qué se está evaluando, así que esos SÍ nacen vacíos
+// (placeholder "Editar" — ver criterioNuevo más abajo), para no dar la
+// impresión de que la rúbrica completa ya viene armada sola.
 const NIVELES_NUEVA = [
-  { nombre: '', valor: '10' },
-  { nombre: '', valor: '8' },
-  { nombre: '', valor: '6' },
-  { nombre: '', valor: '5' },
+  { nombre: 'Excelente', valor: '10' },
+  { nombre: 'Bueno', valor: '8' },
+  { nombre: 'Suficiente', valor: '6' },
+  { nombre: 'Insuficiente', valor: '5' },
 ]
 
 // Un ejemplo distinto por renglón (no el mismo repetido con solo el número
