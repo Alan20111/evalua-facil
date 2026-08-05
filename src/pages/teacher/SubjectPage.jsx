@@ -27,7 +27,7 @@ import { buildAsuetoMap, esAsuetoPara } from '../../utils/asuetos'
 import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacaciones'
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
-import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity } from '../../utils/activityVisibility'
+import { activityVisibilityState, formatDeadline, formatPublishAt, withDefaultTime, isDraftActivity, cuentaParaCalificacion, sinCalificacion } from '../../utils/activityVisibility'
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { showNear, playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -1703,7 +1703,7 @@ export default function SubjectPage() {
     if (closedParciales.length === 0 || studentIds.length === 0) return
     const entries = []
     for (const p of closedParciales) {
-      const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+      const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
       if (acts.length === 0) continue
       const subDocs = await fetchSubmissionsForActivities(acts.map((a) => a.id))
       const cierreDoc = subDocs.find((d) => d.data().cierreParcial === true)
@@ -2736,7 +2736,7 @@ export default function SubjectPage() {
   // Solo en la web: el ⋮ de la actividad no existe en la app nativa.
   function activityLabelsFor(list, parcial) {
     const map = {}
-    list.filter((x) => !isDraftActivity(x)).forEach((x, i) => { map[x.id] = `${parcial}.${i + 1}.` })
+    list.filter((x) => cuentaParaCalificacion(x)).forEach((x, i) => { map[x.id] = `${parcial}.${i + 1}.` })
     return map
   }
 
@@ -2968,7 +2968,7 @@ export default function SubjectPage() {
     const PARC = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
     for (const p of PARC) {
       if (!ponderacionActivaEnParcial(subject, p)) continue
-      const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+      const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
       if (!acts.length || !acts.some((a) => pesoDe(a) > 0)) continue
       const total = parseFloat(acts.reduce((t, a) => t + pesoDe(a), 0).toFixed(2))
       if (total !== 10) return { p, total }
@@ -3016,7 +3016,7 @@ export default function SubjectPage() {
   //  · delivered-but-ungraded submissions block closing (grade them manually first)
   //  · no-entregas (no submission) are set to 0 only if the teacher proceeds
   function requestCloseParcial(p) {
-    const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+    const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
     let pondError = null
     if (ponderacionActivaEnParcial(subject, p)) {
       const total = pesoTotalVivo(acts)
@@ -3043,7 +3043,7 @@ export default function SubjectPage() {
     const p = revertParcialConfirm
     setRevertingParcial(true)
     try {
-      const acts = activities.filter((a) => a.parcial === p && !isDraftActivity(a))
+      const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
       const snaps = await fetchSubmissionsForActivities(acts.map((a) => a.id))
       const toDelete = snaps.filter((d) => d.data().cierreParcial === true)
       const removedKeys = []
@@ -3260,7 +3260,7 @@ export default function SubjectPage() {
   // deleted publication's number passes to the next thing published.
   const activityLabelById = {}
   PARCIALES.forEach((p) => {
-    activities.filter((a) => a.parcial === p && !isDraftActivity(a)).forEach((a, i) => {
+    activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a)).forEach((a, i) => {
       // Trailing dot is part of the label everywhere: "1.2." (project-wide convention)
       activityLabelById[a.id] = `${p}.${i + 1}.`
     })
@@ -3273,7 +3273,7 @@ export default function SubjectPage() {
 
   // Preview of the auto-assigned "Actividad" label shown (read-only) in the modal.
   const previewActividad = modalMode === 'create'
-    ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial && !isDraftActivity(a)).length + 1}.`
+    ? `${modalParcial}.${activities.filter((a) => a.parcial === modalParcial && cuentaParaCalificacion(a)).length + 1}.`
     : (activityLabelById[editActivityId] || '—')
 
   const filteredGradeStudents = groupStudents.filter((s) => matchesStudentSearch(s, searchGrade))
@@ -3355,7 +3355,7 @@ export default function SubjectPage() {
 
   // Drafts don't grade anything — keep them out of the Calificaciones table
   const tableParcials = PARCIALES.map((p) => ({
-    p, acts: activities.filter((a) => a.parcial === p && !isDraftActivity(a)),
+    p, acts: activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a)),
   })).filter((pd) => pd.acts.length > 0)
 
   // Sequential index per real grade column (activities + parcial averages +
@@ -3397,7 +3397,7 @@ export default function SubjectPage() {
   const ALL_PARCIALES = Array.from({ length: subject?.parciales || 3 }, (_, i) => i + 1)
   const anyPonderacionOn = ALL_PARCIALES.some(pondParcial)
   // Parciales that actually have activities — offered in the per-parcial export menus
-  const parcialesConActividades = ALL_PARCIALES.filter((p) => activities.some((a) => a.parcial === p && !isDraftActivity(a)))
+  const parcialesConActividades = ALL_PARCIALES.filter((p) => activities.some((a) => a.parcial === p && cuentaParaCalificacion(a)))
 
   // Global button: turns EVERY parcial on/off at once
   function togglePonderacion() {
@@ -3561,7 +3561,7 @@ export default function SubjectPage() {
     // Cap so the parcial total can NEVER exceed 10 (the teacher can go under —
     // exactly 10 is only required to export). No auto-fill or suggestions.
     if (num !== null) {
-      const actsParcial = activities.filter((x) => x.parcial === a.parcial && !isDraftActivity(x))
+      const actsParcial = activities.filter((x) => x.parcial === a.parcial && cuentaParaCalificacion(x))
       const restante = pesoRestante(actsParcial, a.id)
       if (num > restante) num = restante
     }
@@ -4045,6 +4045,13 @@ export default function SubjectPage() {
                                   <span className={`text-xs font-normal ${isHidden ? 'text-slate-300' : 'text-slate-400'}`}>
                                     {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : 'Entregable'})
                                   </span>
+                                  {/* Por qué esta actividad no lleva número ni
+                                      sale en la tabla de calificaciones. */}
+                                  {sinCalificacion(a) && (
+                                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-surface-container text-muted text-[10px] font-semibold align-middle">
+                                      Sin calificación
+                                    </span>
+                                  )}
                                 </p>
                                 {((!IS_NATIVE_APP && (a.publishedAt || a.fechaLimite || a.publishAt)) || visState === 'hidden') && (
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
