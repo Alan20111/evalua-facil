@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import Select from '../../components/ui/Select'
+import InfoDisclosure from '../../components/ui/InfoDisclosure'
 import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, exportSubjectAttendance, exportParcialAttendance, parseStudentExcel, downloadStudentTemplate } from '../../utils/excel'
 import { importActivitiesToSubject } from '../../utils/importActivities'
 import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF } from '../../utils/pdf'
@@ -5236,9 +5237,11 @@ export default function SubjectPage() {
       {activeTab === 'recursos' && (
         <div className={`px-4 py-2 space-y-2 ${TEACHER_CONTAINER_NARROW}`}>
           <div className="flex items-start justify-between gap-3">
-            <p className="text-sm text-muted leading-relaxed">
-              Materiales permanentes de toda la asignatura (programa, reglamento, guías, presentaciones, enlaces, videos…), disponibles para tus estudiantes durante todo el semestre. No generan entrega ni calificación.
-            </p>
+            <InfoDisclosure>
+              <p className="text-sm text-muted leading-relaxed">
+                Materiales permanentes de toda la asignatura (programa, reglamento, guías, presentaciones, enlaces, videos…), disponibles para tus estudiantes durante todo el semestre. No generan entrega ni calificación.
+              </p>
+            </InfoDisclosure>
             <button type="button" onClick={openAddResource}
               data-tooltip="Agregar recurso"
               className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">

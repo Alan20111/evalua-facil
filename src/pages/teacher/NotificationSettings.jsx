@@ -13,6 +13,7 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12, formatHora12FromDate } from '../../utils/formatHora'
+import InfoDisclosure from '../../components/ui/InfoDisclosure'
 
 // Colección `notificationSettings/{uid}` (misma colección que usan los
 // estudiantes, distinta por uid):
@@ -698,6 +699,7 @@ export default function TeacherNotificationSettings() {
                 <Settings size={16} className="text-accent flex-shrink-0" />
                 <p className="text-sm font-semibold text-on-surface">Cómo activar las notificaciones en tu celular</p>
               </div>
+              <InfoDisclosure label="Ver los pasos">
               <p className="text-xs text-muted mb-2">
                 El sonido, el volumen y si se repiten los controla tu teléfono, igual que con cualquier otra app.
                 Para asegurarte de recibirlas:
@@ -708,6 +710,7 @@ export default function TeacherNotificationSettings() {
                 <li>Entra a <strong>Notificaciones</strong> y actívalas.</li>
                 <li>Si tu teléfono te pregunta al abrir la app, elige <strong>Permitir</strong>.</li>
               </ol>
+              </InfoDisclosure>
             </div>
           </>
         )}
