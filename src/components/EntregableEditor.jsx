@@ -13,6 +13,7 @@ import { sanitizeHtml, htmlToPlainText, toRichHtml, richTextContentClass } from 
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts, fileTypesInstructions } from '../config/fileTypes'
 import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight, Trash2 } from 'lucide-react'
 import InfoDisclosure from './ui/InfoDisclosure'
+import ConfirmModal from './ConfirmModal'
 import RubricaPicker from './rubrica/RubricaPicker'
 import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
@@ -81,6 +82,9 @@ export default function EntregableEditor({
   const [rubricaEditorOpen, setRubricaEditorOpen] = useState(false)
   const [rubricaPreview, setRubricaPreview] = useState(false)
   const [preview, setPreview] = useState(false)
+  // Confirmación de "regresar a borrador" — solo se pide cuando la actividad
+  // ya estaba publicada (ver el botón "Guardar como borrador").
+  const [confirmDraft, setConfirmDraft] = useState(false)
 
   // Physical Android back button: this component is only mounted while open
   // (the parent conditionally renders it), so it mirrors the "Volver" button
@@ -216,7 +220,13 @@ export default function EntregableEditor({
       } else {
         await updateDoc(doc(db, 'activities', activityId), payload)
         onActivityUpdated?.({ id: activityId, ...payload })
-        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : wasDraft && mode === 'show' ? 'Actividad publicada para estudiantes' : 'Actividad actualizada')
+        toast(
+          asDraft
+            ? (wasAlreadyPublished
+              ? 'Actividad regresada a borrador — ya no la ven tus estudiantes'
+              : 'Borrador guardado — oculto para estudiantes')
+            : wasDraft && mode === 'show' ? 'Actividad publicada para estudiantes' : 'Actividad actualizada'
+        )
         if (!asDraft && wasAlreadyPublished) {
           toast('Esta actividad ya estaba publicada — avisa a tus estudiantes sobre estos cambios.', 'warning')
         }
@@ -565,8 +575,14 @@ export default function EntregableEditor({
                 {saving ? <Spinner size="sm" /> : isNew ? <Plus size={18} /> : <Pencil size={18} />}
                 {saving ? 'Guardando…' : isNew ? 'Crear actividad' : wasDraft ? (form.visibilidadMode === 'schedule' ? 'Guardar con la fecha programada' : 'Guardar y publicar ahora') : 'Guardar cambios'}
               </button>
-              {!form.publishedAt && !wasDraft && (
-                <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving}
+              {/* También cuando ya está publicada: una actividad se puede
+                  regresar a borrador. Ahí sí se pregunta antes, porque deja de
+                  verse para los estudiantes (ver confirmDraft). */}
+              {!wasDraft && (
+                <button
+                  type="button"
+                  onClick={(e) => { if (form.publishedAt) setConfirmDraft(true); else handleSave(e, true) }}
+                  disabled={saving}
                   className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                   Guardar como borrador
                 </button>
@@ -614,6 +630,21 @@ export default function EntregableEditor({
           onSaved={(saved) => {
             setForm((f) => ({ ...f, rubrica: snapshotRubrica(saved), rubricaId: saved.id }))
           }}
+        />
+      )}
+
+      {/* Regresar a borrador algo ya publicado no es lo mismo que esconderlo
+          con el ojito: pierde su fecha de publicación y su número, y deja de
+          existir para el estudiante. Se pregunta antes, y se dice qué NO se
+          pierde — lo que ya entregaron sigue ahí. */}
+      {confirmDraft && (
+        <ConfirmModal
+          title="¿Regresar esta actividad a borrador?"
+          message="Dejará de verse para tus estudiantes y perderá su fecha de publicación, como si nunca se hubiera publicado. Las entregas y calificaciones que ya tenga se conservan, y vuelven a verse cuando la publiques de nuevo."
+          confirmLabel="Sí, guardar como borrador"
+          busy={saving}
+          onConfirm={() => { setConfirmDraft(false); handleSave({ preventDefault: () => {} }, true) }}
+          onCancel={() => setConfirmDraft(false)}
         />
       )}
     </div>
