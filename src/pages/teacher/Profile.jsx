@@ -739,7 +739,7 @@ export default function Profile() {
                 onClick={() => setShowPayments((v) => !v)}
                 className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 uppercase mb-2"
               >
-                <span>Últimos pagos ({recentPayments.length})</span>
+                <span>Historial de pagos ({recentPayments.length})</span>
                 {showPayments ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </button>
               {showPayments && (

@@ -171,12 +171,19 @@ export default function CheckoutModal({ open, onClose, subscription, onSuccess }
                     key={r.meses}
                     type="button"
                     onClick={() => setMeses(r.meses)}
-                    className={`text-left p-2 rounded-card border transition-colors ${
+                    className={`text-left px-1.5 py-2 rounded-card border transition-colors ${
                       meses === r.meses ? 'border-accent bg-accent-light' : 'border-outline-variant hover:bg-[var(--accent-tint)]'
                     }`}
                   >
                     <p className="font-semibold text-on-surface text-sm">{r.meses} {r.meses === 1 ? 'mes' : 'meses'}</p>
-                    <p className="text-sm text-muted">{formatCurrency(r.pagas)}</p>
+                    {/* El precio es el dato que se compara entre las seis
+                        tarjetas, así que va un punto más grande que la
+                        etiqueta. `whitespace-nowrap` para que nunca se parta en
+                        dos renglones, y el relleno lateral bajó a 6px para que
+                        el importe más largo ($474.00 = 60px a 16px con Outfit)
+                        entre completo hasta en pantallas de 320px de ancho,
+                        donde la tarjeta mide 65px por dentro. */}
+                    <p className="text-base text-muted tabular-nums whitespace-nowrap">{formatCurrency(r.pagas)}</p>
                     {r.ahorras > 0 && (
                       <span className="inline-block mt-1 px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-semibold">
                         Ahorra {formatCurrency(r.ahorras)}
