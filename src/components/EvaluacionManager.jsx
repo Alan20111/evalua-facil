@@ -40,6 +40,7 @@ import EvaluacionAnswerList from './EvaluacionAnswerList'
 import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 import EvaluacionGraficas from './EvaluacionGraficas'
 import PublicacionScheduler from './PublicacionScheduler'
+import SinCalificacionConfig from './SinCalificacionConfig'
 import EvaluacionEditor from './EvaluacionEditor'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -1438,6 +1439,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 ]}
               />
             )}
+            {/* Un diagnóstico o una encuesta: se contesta y se revisa, pero no
+                vale para la boleta. Va aquí arriba porque cambia el sentido de
+                todo lo de abajo (si no hay calificación, publicarla no aplica). */}
+            <SinCalificacionConfig
+              sinCalificacion={configForm.sinCalificacion}
+              ponderarReactivos={configForm.ponderarReactivos}
+              onChange={(cambio) => setConfigForm((f) => ({ ...f, ...cambio }))}
+            />
             {/* Grade publication and answer publication are independent: a teacher can
                 release the score now and the answers later (or never). */}
             <div className="pt-1 border-t border-outline-variant space-y-3">

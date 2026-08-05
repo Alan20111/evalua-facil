@@ -24,7 +24,7 @@ import {
 import { resolveFileTypes, isFileAllowed, allowsMultipleFiles, fileTypesInstructions, MAX_IMAGES_PER_SUBMISSION } from '../../config/fileTypes'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
-import { isActivityPublished, isDraftActivity } from '../../utils/activityVisibility'
+import { isActivityPublished, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { publicacionVisible } from '../../utils/evaluacionGrading'
 import { normalizeGrade } from '../../utils/ponderacion'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
@@ -161,7 +161,7 @@ export default function StudentActivityPage() {
       try {
         const sibSnap = await getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', actData.asignaturaId)))
         const sibs = sibSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-          .filter((a) => !isDraftActivity(a))
+          .filter((a) => cuentaParaCalificacion(a))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         const countByParcial = {}
         let label = null
@@ -379,7 +379,12 @@ export default function StudentActivityPage() {
     const ahoraISO = new Date().toISOString()
     // Grade and answers publish independently (see teacher config). Both gate on the
     // attempt being finished first.
-    const resultadosVisibles = finalizado &&
+    // Sin puntos no hay resultado que mostrar: una encuesta no tiene aciertos
+    // que contar, así que no se le enseña un "0" que no significa nada. Con
+    // puntos sí se muestra, aunque la actividad no cuente para su calificación
+    // (un diagnóstico: sirve saber cómo salió).
+    const conPuntos = ev.ponderarReactivos !== false
+    const resultadosVisibles = finalizado && conPuntos &&
       publicacionVisible(ev.publicarResultados, ev.publicarResultadosFecha, ev.resultadosPublicados, ahoraISO)
     const respuestasVisibles = finalizado &&
       publicacionVisible(ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas, ahoraISO)

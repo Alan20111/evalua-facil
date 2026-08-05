@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
+import SinCalificacionConfig from './SinCalificacionConfig'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import ConfirmModal from './ConfirmModal'
 import SearchInput from './SearchInput'
@@ -1103,6 +1104,14 @@ export default function EvaluacionEditor({
                 />
               </div>
             )}
+            {/* Un diagnóstico o una encuesta: se contesta y se revisa, pero no
+                vale para la boleta. Va aquí arriba porque cambia el sentido de
+                todo lo de abajo (si no hay calificación, publicarla no aplica). */}
+            <SinCalificacionConfig
+              sinCalificacion={configForm.sinCalificacion}
+              ponderarReactivos={configForm.ponderarReactivos}
+              onChange={(cambio) => setConfigForm((f) => ({ ...f, ...cambio }))}
+            />
             {/* La publicación de la calificación y la de las respuestas son
                 independientes: se puede liberar la calificación ya y las
                 respuestas después (o nunca). */}

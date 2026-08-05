@@ -2,7 +2,7 @@
 // so these heavy libs stay out of the main bundle.
 import { subjectDisplayName } from './subjectName'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
-import { isDraftActivity } from './activityVisibility'
+import { cuentaParaCalificacion } from './activityVisibility'
 import { subjectPeriodLabel } from './dateRange'
 import { studentFullName as fullName } from './studentSearch'
 import { savePdfDoc } from './nativeSave'
@@ -262,7 +262,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
   const autoTable = autoTableMod.default
 
   const acts = activities
-    .filter((a) => a.parcial === parcial && !isDraftActivity(a))
+    .filter((a) => a.parcial === parcial && cuentaParaCalificacion(a))
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
 
   const doc = new jsPDF({ orientation: acts.length > 6 ? 'landscape' : 'portrait' })

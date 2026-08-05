@@ -33,6 +33,27 @@ export function isDraftActivity(a) {
   return !!a?.oculta && !a.publishedAt && !a.publishAt
 }
 
+// Una actividad SIN CALIFICACIÓN (un cuestionario de diagnóstico, una
+// encuesta) se trabaja igual que cualquier otra —el estudiante la ve, la
+// contesta, el docente ve sus respuestas— pero no vale para la boleta: no
+// entra en la tabla de calificaciones, no entra en el promedio del parcial, no
+// se exporta con las notas y NO LLEVA NÚMERO (el 1.1, 1.2… solo numera lo que
+// sí cuenta).
+//
+// Este predicado es el que separa "aparece en Actividades" (todo lo publicado)
+// de "cuenta para la calificación". Los borradores tampoco cuentan: todavía no
+// existen para nadie.
+// Hoy solo lo pueden marcar los cuestionarios/exámenes (vive en su
+// configuración), pero se lee también en la raíz de la actividad por si algún
+// día un entregable necesita lo mismo: quien pregunte, pregunta una sola vez.
+export function sinCalificacion(a) {
+  return a?.sinCalificacion === true || a?.evaluacion?.sinCalificacion === true
+}
+
+export function cuentaParaCalificacion(a) {
+  return !isDraftActivity(a) && !sinCalificacion(a)
+}
+
 // Human-readable label for scheduled date
 export function formatPublishAt(publishAt) {
   if (!publishAt) return ''

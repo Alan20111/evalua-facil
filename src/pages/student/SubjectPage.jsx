@@ -17,7 +17,7 @@ import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
-import { isActivityPublished, formatPublishAt, formatDeadline, isOverdue, isDraftActivity } from '../../utils/activityVisibility'
+import { isActivityPublished, formatPublishAt, formatDeadline, isOverdue, isDraftActivity, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
@@ -388,7 +388,7 @@ export default function StudentSubjectPage() {
       // activity isn't visible to the student yet.
       const labels = {}
       const countByParcial = {}
-      allActs.filter((a) => !isDraftActivity(a)).forEach((a) => {
+      allActs.filter((a) => cuentaParaCalificacion(a)).forEach((a) => {
         countByParcial[a.parcial] = (countByParcial[a.parcial] || 0) + 1
         labels[a.id] = `${a.parcial}.${countByParcial[a.parcial]}.`
       })
@@ -429,7 +429,9 @@ export default function StudentSubjectPage() {
   }
 
   function calcParcialAvg(parcial) {
-    const acts = activities.filter((a) => a.parcial === parcial)
+    // Las actividades sin calificación (un diagnóstico, una encuesta) no entran
+    // en el promedio — misma regla que la tabla del docente.
+    const acts = activities.filter((a) => a.parcial === parcial && cuentaParaCalificacion(a))
     const grades = acts.map((a) => {
       const sub = submissions[a.id]
       return normalizeGrade(sub?.calificacion, a.maxCalif)

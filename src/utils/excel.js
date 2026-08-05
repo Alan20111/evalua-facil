@@ -4,7 +4,7 @@ import { subjectPeriodLabel } from './dateRange'
 import { promedioParcial, pesoDe, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
 import { attendanceState, countPresence, fmtAttDateParts, enrolledFromDate } from './attendance'
 import { studentFullName } from './studentSearch'
-import { isDraftActivity } from './activityVisibility'
+import { cuentaParaCalificacion } from './activityVisibility'
 import { saveBlob } from './nativeSave'
 import { addExcelWatermarkIfNeeded } from './exportWatermark'
 import { membreteLinea } from './membrete'
@@ -223,7 +223,7 @@ export async function exportParcialGrades({ subject, activities, students, submi
   const workbook = new ExcelJS.Workbook()
 
   const acts = activities
-    .filter((a) => a.parcial === parcial && !isDraftActivity(a))
+    .filter((a) => a.parcial === parcial && cuentaParaCalificacion(a))
     .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
 
   const totalCols = 2 + acts.length + 1
@@ -289,7 +289,7 @@ export async function exportSubjectGrades({
   // Drafts are excluded — same as the on-screen grades table
   const parcialMeta = PARCIALES.map((p) => {
     const acts = activities
-      .filter((a) => a.parcial === p && !isDraftActivity(a))
+      .filter((a) => a.parcial === p && cuentaParaCalificacion(a))
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
     return { p, acts, cols: acts.length + 1 }
   })
