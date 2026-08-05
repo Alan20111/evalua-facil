@@ -8,6 +8,7 @@ import Spinner from '../../components/Spinner'
 import { ArrowLeft, Settings, Megaphone } from 'lucide-react'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import StudentBottomNav from '../../components/StudentBottomNav'
+import NotificationLog from '../../components/NotificationLog'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { getEnrollments } from '../../utils/studentLookup'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -58,6 +59,31 @@ const CATEGORIAS = [
   { key: 'recordatorios', label: 'Recordatorios de entrega', description: 'Antes de que cierre una fecha límite' },
   { key: 'avisos', label: 'Avisos', description: 'Cuando tu maestro publique un aviso' },
 ]
+
+// Rótulo en MAYÚSCULAS que encabeza la celda "Notificación" de la Bitácora,
+// uno por categoría — el mismo criterio que la Bitácora del docente.
+const ETIQUETA_CATEGORIA = {
+  actividadesNuevas: 'ACTIVIDAD NUEVA',
+  calificaciones: 'CALIFICACIÓN',
+  recordatorios: 'RECORDATORIO',
+  avisos: 'AVISO',
+}
+
+// Cómo se leen las columnas "Notificación" y "Detalles" de una entrada del
+// estudiante. Los avisos del servidor guardan `titulo` (el encabezado que vio
+// en la notificación) y `descripcion` (el cuerpo), así que esos dos llenan las
+// dos columnas; `categoria` solo agrega el rótulo de arriba. Las entradas
+// viejas no traen `categoria` — caen al mismo formato, sin rótulo.
+function describeEntry(e) {
+  const etiqueta = ETIQUETA_CATEGORIA[e.categoria]
+  const titulo = e.titulo || 'Notificación'
+  return {
+    notificacion: etiqueta
+      ? (<><div>{etiqueta}</div><div>{titulo}</div></>)
+      : titulo,
+    detalles: e.descripcion || '',
+  }
+}
 
 function mergeWithDefaults(data) {
   const merged = {}
@@ -242,6 +268,17 @@ export default function NotificationSettings() {
               </div>
             ))}
           </div>
+
+          {/* Bitácora — justo debajo de los interruptores, igual que en la
+              pantalla del docente: primero lo que el estudiante vino a
+              configurar, luego el historial de lo que ya le llegó. Es el
+              mismo componente (NotificationLog), solo cambia cómo se leen
+              sus categorías. */}
+          <NotificationLog
+            uid={currentUser?.uid}
+            describeEntry={describeEntry}
+            emptyLabel="Aún no has recibido notificaciones"
+          />
 
           {/* Silenciar avisos de una asignatura puntual sin apagar el
               interruptor general — pedido explícito: "quiere no recibir

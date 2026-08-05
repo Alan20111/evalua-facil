@@ -182,6 +182,12 @@ async function enviarPushDirecto(uid, notification, data = {}, descripcion = nul
   if (logExtra || enviado) {
     await db.collection('notificationLog').add({
       uid,
+      // La categoría también para las notificaciones del ALUMNO (que llegan
+      // por enviarPush, sin logExtra): su Bitácora la usa para poner el
+      // rótulo del renglón (ACTIVIDAD NUEVA / CALIFICACIÓN / …). Va antes del
+      // spread de logExtra para que las del docente, que ya traen la suya,
+      // sigan mandando.
+      ...(data.categoria ? { categoria: data.categoria } : {}),
       titulo: notification.title,
       descripcion: descripcion || notification.body,
       ...(logExtra || {}),
