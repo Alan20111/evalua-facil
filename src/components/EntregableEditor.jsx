@@ -16,7 +16,7 @@ import InfoDisclosure from './ui/InfoDisclosure'
 import RubricaPicker from './rubrica/RubricaPicker'
 import RubricaEditor from './rubrica/RubricaEditor'
 import RubricaTable from './rubrica/RubricaTable'
-import { snapshotRubrica, esCotejo } from '../utils/rubrica'
+import { snapshotRubrica, esCotejo, instrumentoColors } from '../utils/rubrica'
 import EFDateTimePicker from './EFDateTimePicker'
 import { formatDeadline, isActivityPublished, resolveVisibilidad, isDraftActivity } from '../utils/activityVisibility'
 import { minDeadline, isoLocalFromDate } from '../utils/nowIso'
@@ -349,12 +349,12 @@ export default function EntregableEditor({
               </div>
               {form.rubrica ? (
                 <>
-                  <div className={`flex items-center gap-3 rounded border px-3 py-2.5 ${esCotejo(form.rubrica) ? 'border-teal-500 bg-teal-50' : 'border-accent bg-[var(--accent-tint)]'}`}>
+                  <div className={`flex items-center gap-3 rounded border px-3 py-2.5 ${instrumentoColors(form.rubrica).border} ${instrumentoColors(form.rubrica).bg}`}>
                     {esCotejo(form.rubrica)
-                      ? <ListChecks size={20} className="text-teal-600 flex-shrink-0" />
-                      : <ClipboardList size={20} className="text-accent flex-shrink-0" />}
+                      ? <ListChecks size={20} className={`${instrumentoColors(form.rubrica).icon} flex-shrink-0`} />
+                      : <ClipboardList size={20} className={`${instrumentoColors(form.rubrica).icon} flex-shrink-0`} />}
                     <div className="flex-1 min-w-0">
-                      <p className={`text-[10px] font-bold uppercase tracking-wide ${esCotejo(form.rubrica) ? 'text-teal-700' : 'text-accent'}`}>
+                      <p className={`text-[10px] font-bold uppercase tracking-wide ${instrumentoColors(form.rubrica).text}`}>
                         {esCotejo(form.rubrica) ? 'Lista de cotejo' : 'Rúbrica'}
                       </p>
                       <p className="text-sm font-semibold text-on-surface truncate">{form.rubrica.titulo}</p>

@@ -7,7 +7,7 @@ import { ArrowLeft, Plus, Pencil, Trash2, Eye, EyeOff, ClipboardList, ListChecks
 import RubricaEditor from './RubricaEditor'
 import ListaCotejoEditor from './ListaCotejoEditor'
 import RubricaTable from './RubricaTable'
-import { esCotejo } from '../../utils/rubrica'
+import { esCotejo, instrumentoColors } from '../../utils/rubrica'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../../utils/platform'
@@ -150,13 +150,11 @@ export default function RubricaPicker({ docenteId, currentRubricaId, onClose, on
               <p className="text-center text-slate-400 text-sm py-8">Ninguna rúbrica coincide con la búsqueda</p>
             )}
             {filtered.map((r) => (
-            <div key={r.id} className={`bg-surface-card rounded-card shadow-card overflow-hidden border-l-4 ${esCotejo(r) ? 'border-teal-500' : 'border-accent'}`}>
+            <div key={r.id} className={`bg-surface-card rounded-card shadow-card overflow-hidden border-l-4 ${instrumentoColors(r).border}`}>
               <div className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 mb-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                      esCotejo(r) ? 'bg-teal-100 text-teal-700' : 'bg-[var(--accent-light)] text-accent'
-                    }`}>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 mb-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${instrumentoColors(r).badge}`}>
                       {esCotejo(r) ? <ListChecks size={11} /> : <ClipboardList size={11} />}
                       {esCotejo(r) ? 'Lista de cotejo' : 'Rúbrica'}
                     </span>
