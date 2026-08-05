@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { collection, query, where, getDocs, doc, setDoc, Timestamp } from 'firebase/firestore'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import { calcTrialEnd, esTransferenciaEnRevision, PAYMENT_STATUS } from '../utils/subscriptionHelpers'
+import { esTransferenciaEnRevision, PAYMENT_STATUS } from '../utils/subscriptionHelpers'
 
 // Regla vigente: TODO docente tiene, como mínimo, una prueba de 30 días. La
 // única excepción es la Cortesía, que el administrador otorga a mano.
@@ -19,22 +19,15 @@ import { calcTrialEnd, esTransferenciaEnRevision, PAYMENT_STATUS } from '../util
 // Consecuencia buscada: ELIMINAR una suscripción desde el panel la vuelve a
 // crear como prueba en el siguiente inicio de sesión. Para dejar sin servicio
 // a un docente hay que CANCELARLA, que sí persiste (una cancelada existe, así
-// que no dispara esta reparación).
-async function crearPruebaInicial(uid) {
-  const inicio = new Date()
-  const datos = {
-    docenteId: uid,
-    planId: '',
-    status: 'trial',
-    fechaInicio: Timestamp.fromDate(inicio),
-    fechaVencimiento: Timestamp.fromDate(calcTrialEnd(inicio)),
-    createdAt: Timestamp.fromDate(inicio),
-    updatedAt: Timestamp.fromDate(inicio),
-  }
-  const id = `trial-${uid}`
-  await setDoc(doc(db, 'subscriptions', id), datos)
-  return { id, ...datos }
-}
+// Sin suscripción no se crea nada desde aquí: la prueba la pone el servidor
+// (onDocenteCreado en functions/index.js) y, si alguna vez faltara, la repone
+// la barrida horaria. Sigue valiendo la consecuencia buscada de siempre:
+// ELIMINAR una suscripción desde el panel la vuelve a crear como prueba; para
+// dejar sin servicio a un docente hay que CANCELARLA.
+//
+// Mientras tanto, `subscription` queda en null, que en todo el proyecto
+// significa "no vencida" — un dato que falta nunca debe dejar a un docente sin
+// poder calificar ni pasar lista.
 
 export function useSubscription() {
   const { currentUser, userProfile } = useAuth()
@@ -77,11 +70,7 @@ export function useSubscription() {
       // Si la consulta falla, el catch de abajo deja `null` a propósito y se
       // conserva el fallo hacia el lado seguro: un error de red no debe dejar
       // a un docente sin poder calificar ni pasar lista.
-      let actual = subs[0] || null
-      if (!actual && rol === 'docente') {
-        actual = await crearPruebaInicial(currentUser.uid).catch(() => null)
-      }
-      setSubscription(actual)
+      setSubscription(subs[0] || null)
 
       const payments = paymentsSnap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
