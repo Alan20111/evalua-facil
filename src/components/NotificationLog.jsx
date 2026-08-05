@@ -146,16 +146,19 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
             <span className="flex-1 text-left truncate">Bitácora de notificaciones</span>
             {logOpen ? <ChevronUp size={16} className="text-muted flex-shrink-0" /> : <ChevronDown size={16} className="text-muted flex-shrink-0" />}
           </button>
+          {/* "Borrar todo" con su nombre escrito, no solo el bote de basura:
+              un ícono suelto en la esquina no se lee como "esto borra TODO
+              el historial", y era justo lo que había que encontrar. */}
           {!!logEntries?.length && (
             <button
               type="button"
               onClick={() => setConfirmDeleteAll(true)}
-              aria-label="Eliminar todas las notificaciones"
-              data-tooltip="Eliminar todas"
+              aria-label="Borrar todo el historial de notificaciones"
+              data-tooltip="Borrar todo el historial"
               data-tooltip-pos="bottom"
-              className="p-2 mr-2 text-muted hover:text-error rounded transition-colors flex-shrink-0"
+              className="flex items-center gap-1 px-2 py-1.5 mr-2 text-xs font-semibold text-muted hover:text-error rounded transition-colors flex-shrink-0"
             >
-              <Trash2 size={16} />
+              <Trash2 size={15} /> Borrar todo
             </button>
           )}
         </div>
