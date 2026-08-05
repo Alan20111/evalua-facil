@@ -15,7 +15,7 @@ import PasswordInput from '../../components/PasswordInput'
 import { usePlanteles } from '../../data/usePlanteles'
 import { resolveSchoolSelection, normalizeName, findSimilarSchools } from '../../utils/schoolSelection'
 import { uploadToCloudinary } from '../../utils/cloudinary'
-import { Camera, Lock, User, X, CreditCard, School, ChevronDown, Plus, Trash2, Upload, ImagePlus } from 'lucide-react'
+import { Camera, Lock, User, X, CreditCard, School, ChevronDown, ChevronUp, Plus, Trash2, Upload, ImagePlus } from 'lucide-react'
 import SearchInput from '../../components/SearchInput'
 import { useSubscription } from '../../hooks/useSubscription'
 import CheckoutModal from '../../components/CheckoutModal'
@@ -261,6 +261,11 @@ export default function Profile() {
   useScrollLock(!!confirm)
 
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  // Historial de pagos: oculto por default — con varios meses de pagos
+  // hacía muy larga la tarjeta "Mi plan"; ahora se despliega bajo pedido y,
+  // si es largo, se desplaza dentro de su propia ventana en vez de estirar
+  // la tarjeta.
+  const [showPayments, setShowPayments] = useState(false)
 
   // Cancelar suscripción / eliminar cuenta
   const [cancelandoSub, setCancelandoSub] = useState(false)
@@ -728,8 +733,16 @@ export default function Profile() {
           )}
           {recentPayments.length > 0 && (
             <div className="mt-2 pt-4 border-t border-outline-variant">
-              <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Últimos pagos</p>
-              <ul className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setShowPayments((v) => !v)}
+                className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 uppercase mb-2"
+              >
+                <span>Últimos pagos ({recentPayments.length})</span>
+                {showPayments ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+              {showPayments && (
+              <ul className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {recentPayments.map((p) => (
                   <li key={p.id} className="text-sm">
                     <div className="flex items-center justify-between">
@@ -759,6 +772,7 @@ export default function Profile() {
                   </li>
                 ))}
               </ul>
+              )}
             </div>
           )}
         </div>
