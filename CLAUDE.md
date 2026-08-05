@@ -15,7 +15,36 @@ npm run lint      # ESLint
 npm run preview   # preview production build locally
 ```
 
-No test suite. There are no unit or integration tests.
+No unit/integration tests for the UI. There IS a rules suite:
+
+```bash
+npm run test:rules    # emulador de Firestore + test/firestore-rules.test.mjs
+```
+
+Necesita **JDK 21+** (firebase-tools ya no acepta menos). En la máquina de Kike
+el que sirve es el de Android Studio:
+
+```bash
+export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
+export PATH="$JAVA_HOME/bin:$PATH"
+```
+
+### Candado de suscripción (servidor)
+
+Un docente sin suscripción vigente puede leer y exportar, pero no escribir. El
+candado tiene dos capas y las dos deben moverse juntas:
+
+1. **Cliente** — `src/utils/firestoreGuard.js` intercepta las escrituras de las
+   pantallas del docente y abre la ventana de pago. Es la capa amable.
+2. **Servidor** — `firestore.rules` (`docenteActivo()`) compara `request.time`
+   contra `users/{uid}.suscripcionHasta`, que espeja la Cloud Function
+   `onSuscripcionEscrita` en cada cambio de la suscripción. Es la que de verdad
+   no se puede rodear.
+
+El campo AUSENTE deja pasar a propósito (un dato faltante no debe dejar a nadie
+fuera de su trabajo), así que al instalar esto hay que correr una vez
+`seeds-db/backfill-suscripcion.js`. Orden de despliegue: **functions → backfill
+→ rules**.
 
 **Database scripts** (destructive — wipe all Firestore data):
 ```bash
