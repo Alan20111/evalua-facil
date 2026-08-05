@@ -20,6 +20,7 @@ import {
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
+import ConfirmModal from './ConfirmModal'
 import SearchInput from './SearchInput'
 import { minDeadline, nowIsoLocal, isoLocalFromDate } from '../utils/nowIso'
 import { isActivityPublished, resolveVisibilidad, isDraftActivity, formatDeadline } from '../utils/activityVisibility'
@@ -178,6 +179,8 @@ export default function EvaluacionEditor({
     notificarDocente: false, cerrarEntregasEnFecha: true,
   })
   const [savingInfo, setSavingInfo] = useState(false)
+  // Confirmación de "regresar a borrador" — solo cuando ya estaba publicada.
+  const [confirmDraft, setConfirmDraft] = useState(false)
   // Prórrogas por estudiante — se muestran igual que en un entregable. Sin
   // esto, "Nueva fecha límite → Para algunos" escribía en Firestore y en
   // pantalla no cambiaba nada, así que parecía que no se guardaba.
@@ -394,7 +397,13 @@ export default function EvaluacionEditor({
         await updateDoc(doc(db, 'activities', currentActivityId), payload)
         setAttachNew([])
         onActivityUpdated?.({ id: currentActivityId, ...payload })
-        toast(asDraft ? 'Borrador guardado — oculto para estudiantes' : wasDraft && mode === 'show' ? 'Evaluación publicada para estudiantes' : 'Cambios guardados')
+        toast(
+          asDraft
+            ? (wasAlreadyPublished
+              ? 'Evaluación regresada a borrador — ya no la ven tus estudiantes'
+              : 'Borrador guardado — oculto para estudiantes')
+            : wasDraft && mode === 'show' ? 'Evaluación publicada para estudiantes' : 'Cambios guardados'
+        )
         if (!asDraft && wasAlreadyPublished) {
           toast('Esta evaluación ya estaba publicada — avisa a tus estudiantes sobre estos cambios.', 'warning')
         }
@@ -989,9 +998,15 @@ export default function EvaluacionEditor({
                 {savingInfo ? <Spinner size="sm" /> : null}
                 {savingInfo ? 'Guardando…' : wasDraft ? (infoForm.visibilidadMode === 'schedule' ? 'Guardar con la fecha programada' : 'Guardar y publicar ahora') : 'Guardar y regresar a la asignatura'}
               </button>
-              {!infoForm.publishedAt && !wasDraft && (
+              {/* También cuando ya está publicada: una evaluación se puede
+                  regresar a borrador. Ahí sí se pregunta antes, porque deja de
+                  verse para los estudiantes (ver confirmDraft). */}
+              {!wasDraft && (
                 <button type="button" disabled={savingInfo}
-                  onClick={() => handleSaveInfo({ preventDefault: () => {} }, true, false)}
+                  onClick={() => {
+                    if (infoForm.publishedAt) setConfirmDraft(true)
+                    else handleSaveInfo({ preventDefault: () => {} }, true, false)
+                  }}
                   className="w-full py-2.5 border border-accent text-accent font-medium rounded-card hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                   Guardar como borrador
                 </button>
@@ -1553,6 +1568,21 @@ export default function EvaluacionEditor({
               onActivityUpdated?.({ id: currentActivityId, extensiones: nextExt, extensionesMotivo: nextMot })
             }
           }}
+        />
+      )}
+
+      {/* Regresar a borrador algo ya publicado no es lo mismo que esconderlo
+          con el ojito: pierde su fecha de publicación y su número, y deja de
+          existir para el estudiante. Se pregunta antes, y se dice qué NO se
+          pierde — los intentos y calificaciones siguen ahí. */}
+      {confirmDraft && (
+        <ConfirmModal
+          title="¿Regresar esta evaluación a borrador?"
+          message="Dejará de verse para tus estudiantes y perderá su fecha de publicación, como si nunca se hubiera publicado. Los intentos y calificaciones que ya tenga se conservan, y vuelven a verse cuando la publiques de nuevo."
+          confirmLabel="Sí, guardar como borrador"
+          busy={savingInfo}
+          onConfirm={() => { setConfirmDraft(false); handleSaveInfo({ preventDefault: () => {} }, true, false) }}
+          onCancel={() => setConfirmDraft(false)}
         />
       )}
     </div>

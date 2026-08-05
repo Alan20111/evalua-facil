@@ -2337,8 +2337,11 @@ export default function SubjectPage() {
         extensionesCustom: tiposArchivo.includes(CUSTOM_FILE_TYPE) ? (form.extensionesCustom || '').trim() : '',
         oculta: asDraft ? true : form.visibilidadMode !== 'show',
         publishAt: !asDraft && form.visibilidadMode === 'schedule' ? (form.publishAt || null) : null,
-        // publishedAt is permanent once set; only 'Publicar ahora' stamps it
-        publishedAt: !asDraft && form.visibilidadMode === 'show' ? nowIso : (form.publishedAt || null),
+        // publishedAt es permanente mientras siga publicada; guardarla como
+        // borrador es lo único que la borra, y es justo lo que la regresa a
+        // borrador de verdad en vez de dejarla "publicada pero oculta"
+        // (mismo criterio que resolveVisibilidad, ver utils/activityVisibility).
+        publishedAt: asDraft ? null : (form.visibilidadMode === 'show' ? nowIso : (form.publishedAt || null)),
       }
       if (modalMode === 'create') {
         // `orden` is only a sort key (Firestore gives no ordering guarantee
@@ -5509,6 +5512,9 @@ export default function SubjectPage() {
                   ? (tipoActividad === 'cuestionario' || tipoActividad === 'examen') ? 'Crear y agregar preguntas' : 'Crear actividad'
                   : 'Guardar cambios'}
               </button>
+              {/* Este modal solo CREA (openEdit manda al editor de pantalla
+                  completa, que es donde vive "regresar a borrador" de algo ya
+                  publicado), así que aquí nunca hay publishedAt. */}
               {!form.publishedAt && (
                 <button type="button" disabled={saving} onClick={(e) => handleSaveActivity(e, true)}
                   className="w-full py-2 mt-2 border border-accent text-accent font-medium rounded transition-colors hover:bg-[var(--accent-medium)] disabled:opacity-60">

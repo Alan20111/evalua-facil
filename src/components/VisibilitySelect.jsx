@@ -50,6 +50,10 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
             <p className="text-xs mt-0.5 text-muted">Actualmente oculta para estudiantes (usa el ojito para mostrarla)</p>
           )}
           <p className="text-xs mt-0.5 text-muted">Tus cambios se guardarán sin afectar la fecha de publicación original</p>
+          {/* Dónde vive la única acción que SÍ borra la publicación — sin esta
+              línea, el docente lee "publicación es un hecho consumado" y no
+              tiene por qué adivinar que el botón de abajo la deshace. */}
+          <p className="text-xs mt-0.5 text-muted">¿Quieres despublicarla? Guárdala como borrador con el botón de abajo.</p>
         </div>
       </div>
     )

@@ -115,6 +115,9 @@ export function estadoAgenda(activity, submission) {
 // forma permanente) estaba copiada casi línea por línea en
 // EntregableEditor.jsx y EvaluacionEditor.jsx — un solo punto aquí.
 //
+// `asDraft` sirve para dos cosas: guardar una actividad nueva sin publicarla y
+// REGRESAR a borrador una que ya estaba publicada (le borra publishedAt).
+//
 // @param {{visibilidadMode: string, publishedAt: string|null, publishAt: string|null, fechaLimite: string|null, asDraft: boolean}} form
 // @returns {{ok: true, mode: string, oculta: boolean, publishAt: string|null, publishedAt: string|null} | {ok: false, error: string}}
 export function resolveVisibilidad({ visibilidadMode, publishedAt, publishAt, fechaLimite, asDraft }) {
@@ -138,9 +141,14 @@ export function resolveVisibilidad({ visibilidadMode, publishedAt, publishAt, fe
     return { ok: false, error: 'La fecha límite debe ser posterior a la fecha de publicación' }
   }
 
-  // publishedAt es permanente una vez puesto — ocultar después conserva la
-  // fecha de publicación original.
-  const newPublishedAt = !asDraft && mode === 'show' ? ahora : (publishedAt || null)
+  // `publishedAt` es permanente mientras la actividad siga publicada: ocultarla
+  // con el ojito conserva su fecha de publicación original (esconder es
+  // temporal). La ÚNICA forma de borrarla es guardar como borrador, que es
+  // justo lo que distingue "borrador" de "publicada pero oculta" (ver
+  // isDraftActivity): una actividad ya publicada puede regresar a borrador, y
+  // al hacerlo deja de tener fecha de publicación — vuelve a ser algo que
+  // nunca se publicó, no una actividad publicada escondida.
+  const newPublishedAt = asDraft ? null : (mode === 'show' ? ahora : (publishedAt || null))
   return {
     ok: true,
     mode,
