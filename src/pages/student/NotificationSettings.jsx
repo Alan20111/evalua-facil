@@ -12,6 +12,7 @@ import NotificationLog from '../../components/NotificationLog'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { getEnrollments } from '../../utils/studentLookup'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { capitalizarNombre } from '../../utils/nombres'
 
 // Pantalla completa (no usa StudentLayout — mismo patrón que EvaluacionRunner:
 // un overlay fixed inset-0 con SOLO un encabezado del estudiante, sin la barra
@@ -216,7 +217,7 @@ export default function NotificationSettings() {
     }, 400)
   }
 
-  const firstName = userProfile?.nombre || 'Estudiante'
+  const firstName = capitalizarNombre(userProfile?.nombre) || 'Estudiante'
 
   return (
     <div className="fixed inset-0 z-50 bg-surface overflow-y-auto">
@@ -231,7 +232,7 @@ export default function NotificationSettings() {
         </button>
         <div className="min-w-0 flex-1">
           <h1 className="text-lg font-bold truncate">Notificaciones</h1>
-          <p className="text-xs text-white/60 truncate">{firstName}</p>
+          <p className="text-sm text-white/60 truncate">{firstName}</p>
         </div>
         {saving && <Spinner size="sm" />}
       </header>
