@@ -15,11 +15,14 @@ import { sanitizeHtml, toRichHtml, htmlToPlainText, richTextContentClass } from 
 import { repartirPonderacionParejo } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy, Scale, CheckSquare, Square,
-  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight,
+  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight, ChevronUp, ChevronDown,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
 import SinCalificacionConfig from './SinCalificacionConfig'
+import { SeccionForm, SeccionHeader, ConfirmarBorrarSeccion, BotonAgregarSeccion, SelectorSeccion } from './SeccionesEditor'
+import { useSecciones } from '../hooks/useSecciones'
+import { agruparPreguntas, preguntasEnOrden, siguienteOrden } from '../utils/secciones'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import ConfirmModal from './ConfirmModal'
 import SearchInput from './SearchInput'
@@ -501,6 +504,19 @@ export default function EvaluacionEditor({
     await updateDoc(doc(db, 'activities', currentActivityId), { 'evaluacion.numPreguntas': total })
   }
 
+  // ── Secciones (opcionales) ──────────────────────────────────────────────
+  const seccionesCtl = useSecciones({
+    activityId: currentActivityId,
+    evaluacion: configForm,
+    preguntas,
+    setPreguntas,
+    onCambio: (secciones) => setConfigForm((f) => ({ ...f, secciones })),
+  })
+  const [seccionDestino, setSeccionDestino] = useState(null)
+  const grupos = agruparPreguntas(preguntas, seccionesCtl.secciones)
+  const numeroDePregunta = {}
+  preguntasEnOrden(preguntas, seccionesCtl.secciones).forEach((p, i) => { numeroDePregunta[p.id] = i + 1 })
+
   const ponderacionUsada = preguntas.reduce((s, p) => s + (parseFloat(p.ponderacion) || 0), 0)
   const ponderacionRestante = Math.max(0, parseFloat((10 - ponderacionUsada).toFixed(2)))
 
@@ -516,8 +532,12 @@ export default function EvaluacionEditor({
     try {
       let imagenUrl = null
       if (preguntaForm.imagenFile) imagenUrl = await uploadToCloudinary(preguntaForm.imagenFile, 'evalua-facil/preguntas')
-      const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
-      const data = { ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null }
+      // El orden se cuenta DENTRO de su sección (ver utils/secciones.js).
+      const orden = siguienteOrden(preguntas, seccionDestino)
+      const data = {
+        ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null,
+        ...seccionesCtl.camposDeSeccion(seccionDestino),
+      }
       const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
       const updated = [...preguntas, { id: ref.id, ...data }]
       setPreguntas(updated)
@@ -578,6 +598,34 @@ export default function EvaluacionEditor({
     finally { setSavingPregunta(false) }
   }
 
+  // Sube o baja un reactivo DENTRO de su grupo (su sección, o el bloque
+  // suelto): con las flechas nunca cambia de sección — para eso está el
+  // selector de sección de su formulario.
+  async function handleMovePregunta(id, direction) {
+    const actual = preguntas.find((p) => p.id === id)
+    const hermanas = preguntas
+      .filter((p) => (p.seccionId || null) === (actual?.seccionId || null))
+      .sort((x, y) => (x.orden ?? 0) - (y.orden ?? 0))
+    const idx = hermanas.findIndex((p) => p.id === id)
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (idx < 0 || swapIdx < 0 || swapIdx >= hermanas.length) return
+    const a = hermanas[idx]
+    const b = hermanas[swapIdx]
+    const ordenA = b.orden ?? swapIdx
+    const ordenB = a.orden ?? idx
+    try {
+      await Promise.all([
+        updateDoc(doc(db, 'activities', currentActivityId, 'preguntas', a.id), { orden: ordenA }),
+        updateDoc(doc(db, 'activities', currentActivityId, 'preguntas', b.id), { orden: ordenB }),
+      ])
+      setPreguntas((prev) => prev
+        .map((p) => (p.id === a.id ? { ...p, orden: ordenA } : p.id === b.id ? { ...p, orden: ordenB } : p))
+        .sort((x, y) => (x.orden ?? 0) - (y.orden ?? 0)))
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    }
+  }
+
   async function handleDeletePregunta(id) {
     if (!confirm('¿Eliminar esta pregunta?')) return
     await deleteDoc(doc(db, 'activities', currentActivityId, 'preguntas', id))
@@ -588,7 +636,7 @@ export default function EvaluacionEditor({
   }
 
   async function handleDuplicatePregunta(p) {
-    const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((x) => x.orden ?? 0)) + 1
+    const orden = siguienteOrden(preguntas, p.seccionId || null)
     const data = { ...p, enunciado: `${p.enunciado} (copia)`, orden, origenBancoId: null }
     delete data.id
     const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
@@ -601,7 +649,7 @@ export default function EvaluacionEditor({
 
   async function handleAddFromBanco(item) {
     if (!currentActivityId) { toast('Guarda la información antes de agregar preguntas', 'error'); return }
-    const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
+    const orden = siguienteOrden(preguntas, seccionDestino)
     const data = { tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
       respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
       imagenUrl: null, orden, origenBancoId: item.id }
@@ -620,7 +668,7 @@ export default function EvaluacionEditor({
     setSavingPregunta(true)
     try {
       const batch = writeBatch(db)
-      let orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
+      let orden = siguienteOrden(preguntas, seccionDestino)
       const nuevas = []
       for (const item of items) {
         const ref = doc(collection(db, 'activities', currentActivityId, 'preguntas'))
@@ -1062,6 +1110,17 @@ export default function EvaluacionEditor({
                 onChange={(e) => setConfigForm((f) => ({ ...f, barajarRespuestas: e.target.checked }))} className="accent-[var(--accent)]" />
               Barajar el orden de las opciones dentro de cada pregunta
             </label>
+            {/* Solo tiene sentido cuando el instrumento usa secciones. Apagarlo
+                las oculta por completo: el estudiante ve una lista continua,
+                aunque por dentro los reactivos sigan agrupados (y el orden
+                aleatorio siga barajando dentro de cada sección). */}
+            {seccionesCtl.secciones.length > 0 && (
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input type="checkbox" checked={configForm.mostrarSecciones !== false}
+                  onChange={(e) => setConfigForm((f) => ({ ...f, mostrarSecciones: e.target.checked }))} className="accent-[var(--accent)]" />
+                Mostrar al estudiante el nombre de las secciones
+              </label>
+            )}
             <div>
               <Select
                 id="config-navegacion"
@@ -1182,7 +1241,22 @@ export default function EvaluacionEditor({
                   <p className="text-sm text-slate-400 text-center py-4">Aún no hay reactivos.</p>
                 )}
 
-                {preguntas.map((p, i) => (
+                {grupos.map((grupo) => (
+                  <div key={grupo.seccion?.id || 'sueltas'} className="space-y-3">
+                    {grupo.seccion && (
+                      <SeccionHeader
+                        seccion={grupo.seccion}
+                        total={grupo.preguntas.length}
+                        primera={seccionesCtl.secciones[0]?.id === grupo.seccion.id}
+                        ultima={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id}
+                        disabled={savingPregunta || seccionesCtl.guardando}
+                        onMover={(dir) => seccionesCtl.mover(grupo.seccion.id, dir)}
+                        onEditar={() => seccionesCtl.setEditando(grupo.seccion)}
+                        onEliminar={() => seccionesCtl.setPorBorrar(grupo.seccion)}
+                        onAgregarReactivo={() => { setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
+                      />
+                    )}
+                {grupo.preguntas.map((p) => (
                   <div key={p.id} id={`preg-item-${p.id}`} className="border rounded-card"
                     style={editingPreguntaId === p.id
                       ? { borderColor: 'var(--accent)', background: 'var(--accent-light)', borderWidth: 2 }
@@ -1191,7 +1265,7 @@ export default function EvaluacionEditor({
                         : { borderColor: 'var(--outline-variant)' }}>
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="p-4 space-y-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {i + 1}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {numeroDePregunta[p.id]}</p>
                         <div>
                           <Select
                             id="preg-edit-tipo"
@@ -1254,9 +1328,13 @@ export default function EvaluacionEditor({
                             <span className="inline-block text-xs font-semibold uppercase tracking-wide text-accent bg-accent-light px-2 py-0.5 rounded mb-2">
                               {TIPOS_PREGUNTA.find((t) => t.value === p.tipo)?.label}
                             </span>
-                            <p className="text-base font-semibold text-on-surface">{i + 1}. {p.enunciado}</p>
+                            <p className="text-base font-semibold text-on-surface">{numeroDePregunta[p.id]}. {p.enunciado}</p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
+                            <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
+                              className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-30" data-tooltip="Mover arriba"><ChevronUp size={18} /></button>
+                            <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
+                              className="p-1.5 text-slate-400 hover:text-accent rounded disabled:opacity-30" data-tooltip="Mover abajo"><ChevronDown size={18} /></button>
                             <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={18} /></button>
                             <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Editar"><Pencil size={18} /></button>
                             <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-1.5 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={18} /></button>
@@ -1278,11 +1356,19 @@ export default function EvaluacionEditor({
                     )}
                   </div>
                 ))}
+                  </div>
+                ))}
 
                 {showPreguntaForm ? (
                   <form onSubmit={handleAddPregunta} className="border-2 border-accent rounded-card p-4 space-y-3"
                     style={{ background: 'var(--accent-light)' }}>
                     <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando · Pregunta {preguntas.length + 1}</p>
+                    <SelectorSeccion
+                      id="preg-new-seccion"
+                      secciones={seccionesCtl.secciones}
+                      valor={seccionDestino}
+                      onChange={setSeccionDestino}
+                    />
                     <div>
                       <Select
                         id="preg-new-tipo"
@@ -1353,7 +1439,7 @@ export default function EvaluacionEditor({
                         className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                     )}
                     <div className="flex gap-2 pt-1">
-                      <button type="button" onClick={() => { setShowPreguntaForm(false); setPreguntaForm(emptyPregunta()) }}
+                      <button type="button" onClick={() => { setShowPreguntaForm(false); setSeccionDestino(null); setPreguntaForm(emptyPregunta()) }}
                         className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                       <button type="submit" disabled={savingPregunta} className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                         {savingPregunta ? 'Guardando…' : 'Guardar pregunta'}
@@ -1361,9 +1447,22 @@ export default function EvaluacionEditor({
                     </div>
                   </form>
                 ) : (
-                  <div className="pt-2 mt-2 border-t border-outline-variant">
+                  <div className="pt-2 mt-2 border-t border-outline-variant space-y-2">
+                    {seccionesCtl.editando ? (
+                      <SeccionForm
+                        inicial={seccionesCtl.editando === 'nueva' ? null : seccionesCtl.editando}
+                        guardando={seccionesCtl.guardando}
+                        onGuardar={seccionesCtl.guardar}
+                        onCancelar={() => seccionesCtl.setEditando(null)}
+                      />
+                    ) : (
+                      <BotonAgregarSeccion
+                        onClick={() => seccionesCtl.setEditando('nueva')}
+                        disabled={!currentActivityId}
+                      />
+                    )}
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => { setGlowId(null); setShowPreguntaForm(true) }}
+                      <button type="button" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }}
                         className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm bg-accent text-white font-medium rounded-card">
                         <Plus size={15} /> Crear reactivo nuevo
                       </button>
@@ -1545,6 +1644,16 @@ export default function EvaluacionEditor({
             </div>
           </div>
         </div>
+      )}
+
+      {seccionesCtl.porBorrar && (
+        <ConfirmarBorrarSeccion
+          seccion={seccionesCtl.porBorrar}
+          total={preguntas.filter((p) => p.seccionId === seccionesCtl.porBorrar.id).length}
+          borrando={seccionesCtl.borrando}
+          onConfirm={seccionesCtl.confirmarBorrado}
+          onCancel={() => seccionesCtl.setPorBorrar(null)}
+        />
       )}
 
       {/* "Nueva fecha de entrega" — z-[60] para quedar sobre el editor (z-50) */}

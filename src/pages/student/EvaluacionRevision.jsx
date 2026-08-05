@@ -12,6 +12,7 @@ import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import StudentLayout from '../../components/StudentLayout'
 import EvaluacionAnswerList from '../../components/EvaluacionAnswerList'
 import { publicacionVisible } from '../../utils/evaluacionGrading'
+import { mostrarSeccionesAlEstudiante, preguntasEnOrden, seccionesDe } from '../../utils/secciones'
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 
@@ -66,7 +67,10 @@ export default function EvaluacionRevision() {
       if (!answersVisible) { navigate(`/alumno/actividad/${activityId}`); return }
 
       const pregSnap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
-      const lista = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      // `orden` es relativo a la sección: se reagrupa para verlas en el mismo
+      // orden en que se presentaron.
+      const crudas = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const lista = preguntasEnOrden(crudas, seccionesDe(actData?.evaluacion))
       setPreguntas(lista)
 
       const respSnap = await getDocs(collection(db, 'submissions', subData.id, 'respuestas'))
@@ -108,6 +112,7 @@ export default function EvaluacionRevision() {
           <EvaluacionAnswerList
             preguntas={preguntas}
             respuestas={respuestas}
+            mostrarSecciones={mostrarSeccionesAlEstudiante(activity?.evaluacion)}
             mostrarCorrectas
             mostrarRetro
           />

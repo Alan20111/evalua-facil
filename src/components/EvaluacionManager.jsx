@@ -41,6 +41,9 @@ import EvaluacionStatsPanel from './EvaluacionStatsPanel'
 import EvaluacionGraficas from './EvaluacionGraficas'
 import PublicacionScheduler from './PublicacionScheduler'
 import SinCalificacionConfig from './SinCalificacionConfig'
+import { SeccionForm, SeccionHeader, ConfirmarBorrarSeccion, BotonAgregarSeccion, SelectorSeccion } from './SeccionesEditor'
+import { useSecciones } from '../hooks/useSecciones'
+import { agruparPreguntas, preguntasEnOrden, siguienteOrden } from '../utils/secciones'
 import EvaluacionEditor from './EvaluacionEditor'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -349,8 +352,13 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       if (preguntaForm.imagenFile) {
         imagenUrl = await uploadToCloudinary(preguntaForm.imagenFile, 'evalua-facil/preguntas')
       }
-      const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
-      const data = { ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null }
+      // El orden se cuenta DENTRO de su sección: reordenar en una no depende
+      // de cuántos reactivos haya en las otras.
+      const orden = siguienteOrden(preguntas, seccionDestino)
+      const data = {
+        ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null,
+        ...seccionesCtl.camposDeSeccion(seccionDestino),
+      }
       const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
       setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
       setGlowId(ref.id)
@@ -367,6 +375,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       }
       setPreguntaForm(emptyPregunta())
       setShowPreguntaForm(false)
+      setSeccionDestino(null)
       toast('Pregunta agregada')
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -378,8 +387,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   async function handleAddFromBanco(item) {
     setSaving(true)
     try {
-      const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
+      const orden = siguienteOrden(preguntas, seccionDestino)
       const data = {
+        ...seccionesCtl.camposDeSeccion(seccionDestino),
         tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
         respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
         imagenUrl: null, orden, origenBancoId: item.id,
@@ -404,7 +414,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     setSaving(true)
     try {
       const batch = writeBatch(db)
-      let orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((p) => p.orden ?? 0)) + 1
+      let orden = siguienteOrden(preguntas, seccionDestino)
       const nuevas = []
       for (const item of items) {
         const ref = doc(collection(db, 'activities', activityId, 'preguntas'))
@@ -505,8 +515,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
 
   async function handleDuplicatePregunta(p) {
     try {
-      const orden = preguntas.length === 0 ? 0 : Math.max(...preguntas.map((x) => x.orden ?? 0)) + 1
+      const orden = siguienteOrden(preguntas, p.seccionId || null)
       const data = {
+        seccionId: p.seccionId || null, seccionNombre: p.seccionNombre || null,
         tipo: p.tipo, enunciado: `${p.enunciado} (copia)`, opciones: p.opciones || null,
         respuestaCorrecta: p.respuestaCorrecta || null, ponderacion: p.ponderacion,
         retroalimentacion: p.retroalimentacion || null, imagenUrl: p.imagenUrl || null,
@@ -523,11 +534,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   }
 
   async function handleMovePregunta(id, direction) {
-    const idx = preguntas.findIndex((p) => p.id === id)
+    // Se mueve dentro de SU grupo (su sección, o el bloque suelto): un reactivo
+    // nunca cambia de sección con las flechas — para eso está el selector de
+    // sección en su formulario de edición.
+    const actual = preguntas.find((p) => p.id === id)
+    const hermanas = preguntas
+      .filter((p) => (p.seccionId || null) === (actual?.seccionId || null))
+      .sort((x, y) => (x.orden ?? 0) - (y.orden ?? 0))
+    const idx = hermanas.findIndex((p) => p.id === id)
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1
-    if (swapIdx < 0 || swapIdx >= preguntas.length) return
-    const a = preguntas[idx]
-    const b = preguntas[swapIdx]
+    if (idx < 0 || swapIdx < 0 || swapIdx >= hermanas.length) return
+    const a = hermanas[idx]
+    const b = hermanas[swapIdx]
     const newOrdenA = b.orden ?? swapIdx
     const newOrdenB = a.orden ?? idx
     try {
@@ -535,12 +553,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         updateDoc(doc(db, 'activities', activityId, 'preguntas', a.id), { orden: newOrdenA }),
         updateDoc(doc(db, 'activities', activityId, 'preguntas', b.id), { orden: newOrdenB }),
       ])
-      setPreguntas((prev) => {
-        const next = [...prev]
-        next[idx] = { ...a, orden: newOrdenA }
-        next[swapIdx] = { ...b, orden: newOrdenB }
-        return next.sort((x, y) => (x.orden ?? 0) - (y.orden ?? 0))
-      })
+      setPreguntas((prev) => prev
+        .map((p) => (p.id === a.id ? { ...p, orden: newOrdenA } : p.id === b.id ? { ...p, orden: newOrdenB } : p))
+        .sort((x, y) => (x.orden ?? 0) - (y.orden ?? 0)))
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     }
@@ -691,6 +706,31 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // ── Revisión manual (respuesta corta / subir documento) ──
   // Un cuestionario/examen "se realiza o no" — el vocabulario de calificar solo
   // aplica cuando hay reactivos que el docente debe calificar a mano.
+  // ── Secciones (opcionales) ──────────────────────────────────────────────
+  // Viven en activity.evaluacion.secciones; cada reactivo guarda su seccionId.
+  // Sin secciones, `grupos` es un solo grupo suelto y todo se ve igual que antes.
+  const seccionesCtl = useSecciones({
+    activityId,
+    evaluacion: activity.evaluacion,
+    preguntas,
+    setPreguntas,
+    onCambio: (secciones) => {
+      onActivityChange((prev) => ({ ...prev, evaluacion: { ...prev.evaluacion, secciones } }))
+      setConfigForm((f) => ({ ...f, secciones }))
+    },
+  })
+  // A qué sección se agregará el próximo reactivo (la del botón que se tocó).
+  const [seccionDestino, setSeccionDestino] = useState(null)
+  const grupos = agruparPreguntas(preguntas, seccionesCtl.secciones)
+  // El número que ve el docente es el del ORDEN FINAL (con las secciones ya
+  // aplicadas), no la posición en la lista cruda.
+  // `orden` es RELATIVO a su sección, así que la lista plana ordenada por ese
+  // campo mezclaría secciones. Esta es la lista en el orden real, la que ven la
+  // revisión, las gráficas y las exportaciones.
+  const preguntasOrdenadas = preguntasEnOrden(preguntas, seccionesCtl.secciones)
+  const numeroDePregunta = {}
+  preguntasOrdenadas.forEach((p, i) => { numeroDePregunta[p.id] = i + 1 })
+
   const hasManual = preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo))
 
   // Misma etiqueta que sale en la columna ESTADO del Excel de resultados — la
@@ -1042,7 +1082,22 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             ) : (
               <div className="space-y-2 mb-3">
                 {preguntas.length === 0 && <p className="text-sm text-slate-400 text-center py-6">Aún no hay preguntas</p>}
-                {preguntas.map((p, i) => (
+                {grupos.map((grupo) => (
+                  <div key={grupo.seccion?.id || 'sueltas'} className="space-y-3">
+                    {grupo.seccion && (
+                      <SeccionHeader
+                        seccion={grupo.seccion}
+                        total={grupo.preguntas.length}
+                        primera={seccionesCtl.secciones[0]?.id === grupo.seccion.id}
+                        ultima={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id}
+                        disabled={saving || seccionesCtl.guardando}
+                        onMover={(dir) => seccionesCtl.mover(grupo.seccion.id, dir)}
+                        onEditar={() => seccionesCtl.setEditando(grupo.seccion)}
+                        onEliminar={() => seccionesCtl.setPorBorrar(grupo.seccion)}
+                        onAgregarReactivo={() => { setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
+                      />
+                    )}
+                {grupo.preguntas.map((p) => (
                   <div key={p.id} id={`preg-item-${p.id}`} className="bg-surface-card rounded-card shadow-card p-3"
                     style={editingPreguntaId === p.id
                       ? { border: '2px solid var(--accent)', background: 'var(--accent-light)' }
@@ -1051,7 +1106,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         : undefined}>
                     {editingPreguntaId === p.id ? (
                       <form onSubmit={(e) => handleSavePreguntaEdit(e, p.id)} className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {i + 1}</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Editando · Pregunta {numeroDePregunta[p.id]}</p>
                         <Select
                           id={`preg-edit-tipo-${p.id}`}
                           label="Tipo de pregunta"
@@ -1113,12 +1168,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                             <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent bg-accent-light px-1.5 py-0.5 rounded mb-1">
                               {TIPOS_PREGUNTA.find((t) => t.value === p.tipo)?.label || p.tipo}
                             </span>
-                            <p className="text-sm font-medium text-on-surface">{i + 1}. {p.enunciado}</p>
+                            <p className="text-sm font-medium text-on-surface">{numeroDePregunta[p.id]}. {p.enunciado}</p>
                           </div>
                           <div className="flex gap-0.5 flex-shrink-0">
-                            <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={i === 0}
+                            <button type="button" aria-label="Mover arriba" onClick={() => handleMovePregunta(p.id, 'up')} disabled={grupo.preguntas[0]?.id === p.id}
                               className="p-1 text-slate-400 hover:text-accent disabled:opacity-40 rounded"><ChevronUp size={15} /></button>
-                            <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={i === preguntas.length - 1}
+                            <button type="button" aria-label="Mover abajo" onClick={() => handleMovePregunta(p.id, 'down')} disabled={grupo.preguntas[grupo.preguntas.length - 1]?.id === p.id}
                               className="p-1 text-slate-400 hover:text-accent disabled:opacity-40 rounded"><ChevronDown size={15} /></button>
                             <button type="button" aria-label="Editar pregunta" onClick={() => openEditPregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Pencil size={15} /></button>
                             <button type="button" aria-label="Duplicar pregunta" onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded"><Copy size={15} /></button>
@@ -1142,12 +1197,30 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     )}
                   </div>
                 ))}
+                  </div>
+                ))}
               </div>
             )}
 
+            {/* Alta/edición de una sección — mismo lugar que el formulario de
+                un reactivo, para que no compitan por la atención. */}
+            {seccionesCtl.editando && (
+              <SeccionForm
+                inicial={seccionesCtl.editando === 'nueva' ? null : seccionesCtl.editando}
+                guardando={seccionesCtl.guardando}
+                onGuardar={seccionesCtl.guardar}
+                onCancelar={() => seccionesCtl.setEditando(null)}
+              />
+            )}
+            {!showPreguntaForm && !seccionesCtl.editando && (
+              <BotonAgregarSeccion
+                onClick={() => seccionesCtl.setEditando('nueva')}
+                disabled={!activityId}
+              />
+            )}
             {!showPreguntaForm ? (
               <div className="flex gap-2">
-                <button type="button" onClick={() => { setGlowId(null); setShowPreguntaForm(true) }} className="flex-1 flex items-center justify-center gap-1 py-2 bg-accent text-white text-sm font-medium rounded">
+                <button type="button" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }} className="flex-1 flex items-center justify-center gap-1 py-2 bg-accent text-white text-sm font-medium rounded">
                   <Plus size={17} /> Agregar pregunta
                 </button>
                 <button type="button" onClick={() => { setShowBanco(true); setSelectedBancoIds(new Set()) }} className="flex items-center justify-center gap-1 px-3 py-2 border border-accent text-accent text-sm font-medium rounded">
@@ -1158,6 +1231,12 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <form onSubmit={handleAddPregunta} className="rounded-card shadow-card p-3 space-y-2"
                 style={{ border: '2px solid var(--accent)', background: 'var(--accent-light)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>Creando · Pregunta {preguntas.length + 1}</p>
+                <SelectorSeccion
+                  id="preg-nueva-seccion"
+                  secciones={seccionesCtl.secciones}
+                  valor={seccionDestino}
+                  onChange={setSeccionDestino}
+                />
                 <Select
                   id="preg-nueva-tipo"
                   label="Tipo de pregunta"
@@ -1401,6 +1480,17 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                 onChange={(e) => setConfigForm((f) => ({ ...f, barajarRespuestas: e.target.checked }))} className="accent-[var(--accent)]" />
               Barajar el orden de las opciones dentro de cada pregunta
             </label>
+            {/* Solo tiene sentido cuando el instrumento usa secciones. Apagarlo
+                las oculta por completo: el estudiante ve una lista continua,
+                aunque por dentro los reactivos sigan agrupados (y el orden
+                aleatorio siga barajando dentro de cada sección). */}
+            {seccionesCtl.secciones.length > 0 && (
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input type="checkbox" checked={configForm.mostrarSecciones !== false}
+                  onChange={(e) => setConfigForm((f) => ({ ...f, mostrarSecciones: e.target.checked }))} className="accent-[var(--accent)]" />
+                Mostrar al estudiante el nombre de las secciones
+              </label>
+            )}
             <Select
               id="config-navegacion"
               label="Navegación"
@@ -1743,8 +1833,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
               <div className="max-w-3xl mx-auto">
                 {done ? (
                   <EvaluacionAnswerList
-                    preguntas={preguntas}
+                    preguntas={preguntasOrdenadas}
                     respuestas={reviewing.allRespuestas}
+                    mostrarSecciones={seccionesCtl.secciones.length > 0}
                     mostrarCorrectas
                     mostrarRetro
                     renderGrading={(p, respuesta) => {
@@ -2018,12 +2109,22 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         </div>
       )}
 
+      {seccionesCtl.porBorrar && (
+        <ConfirmarBorrarSeccion
+          seccion={seccionesCtl.porBorrar}
+          total={preguntas.filter((p) => p.seccionId === seccionesCtl.porBorrar.id).length}
+          borrando={seccionesCtl.borrando}
+          onConfirm={seccionesCtl.confirmarBorrado}
+          onCancel={() => seccionesCtl.setPorBorrar(null)}
+        />
+      )}
+
       {showGraficas && (
         <EvaluacionGraficas
           activity={activity}
           activityLabel={activityLabel}
           subject={subject}
-          preguntas={preguntas}
+          preguntas={preguntasOrdenadas}
           submissions={submissions}
           onClose={() => setShowGraficas(false)}
         />

@@ -336,6 +336,12 @@ export async function exportEvaluacionResultadosPDF({ activity, subject, pregunt
 
   preguntas.forEach((p, i) => {
     if (y > pageH - 30) { doc.addPage(); if (watermark) drawPdfWatermarkOnPage(doc, logoDataUrl); y = 20 }
+    // Encabezado de sección, solo al cambiar de una a otra.
+    if (p.seccionNombre && p.seccionNombre !== preguntas[i - 1]?.seccionNombre) {
+      doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(37, 99, 235)
+      doc.text(p.seccionNombre.toUpperCase(), 14, y)
+      y += 6
+    }
     doc.setFont(undefined, 'bold'); doc.setFontSize(11); doc.setTextColor(20)
     const enunciadoLines = doc.splitTextToSize(`${i + 1}. ${p.enunciado}`, pageW - 28)
     doc.text(enunciadoLines, 14, y)

@@ -12,22 +12,35 @@ import { TIPOS_REVISION_MANUAL } from '../utils/evaluacionGrading'
 // static points/"pendiente" line for `respuesta_corta` questions, letting the
 // teacher view inject inline grading inputs. When absent (student view), the
 // stored points or "Pendiente de revisión" is shown instead.
+//
+// `mostrarSecciones` — cuando el instrumento usa secciones, pone el nombre de
+// cada una como separador antes de su primer reactivo. El nombre viaja en el
+// propio reactivo (`seccionNombre`), así que la hoja de respuestas de un
+// intento conserva el nombre que la sección tenía al aplicarse.
 export default function EvaluacionAnswerList({
   preguntas,
   respuestas,
   mostrarCorrectas = true,
   mostrarRetro = true,
+  mostrarSecciones = false,
   renderGrading = null,
 }) {
   return (
     <div className="space-y-3">
       {preguntas.map((p, i) => {
         const respuesta = respuestas[p.id] || {}
+        // Separador de sección: solo en el primer reactivo de cada una.
+        const abreSeccion = mostrarSecciones && p.seccionNombre &&
+          p.seccionNombre !== (preguntas[i - 1]?.seccionNombre || null)
         const esObjetiva = !TIPOS_REVISION_MANUAL.includes(p.tipo)
         // Whether the student's pick was right — drives the ✓/✗ on their choice.
         const acierto = esObjetiva && respuesta.opcionSeleccionada === p.respuestaCorrecta
         return (
-          <div key={p.id} className="bg-surface-card rounded-card p-4 shadow-card border border-outline-variant">
+          <div key={p.id}>
+          {abreSeccion && (
+            <p className="text-xs font-bold uppercase tracking-wide text-accent mb-1 mt-3 first:mt-0">{p.seccionNombre}</p>
+          )}
+          <div className="bg-surface-card rounded-card p-4 shadow-card border border-outline-variant">
             <p className="text-sm font-medium text-on-surface mb-2">{i + 1}. {p.enunciado}</p>
             {p.imagenUrl && <img src={p.imagenUrl} alt="" className="max-h-48 rounded border border-outline-variant mb-2" />}
 
@@ -91,6 +104,7 @@ export default function EvaluacionAnswerList({
                 <p className="text-xs text-muted italic">&quot;{respuesta.comentarioDocente}&quot;</p>
               </div>
             )}
+          </div>
           </div>
         )
       })}
