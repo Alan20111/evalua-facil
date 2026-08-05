@@ -3857,7 +3857,11 @@ export default function SubjectPage() {
               <div className="flex items-center gap-2 min-w-0">
                 <h1 className="text-xl font-bold text-on-surface truncate min-w-0">
                   {subjectDisplayName(subject)}
-                  {subject?.fechaInicio && subject?.fechaFin && (
+                  {/* Fechas solo en la web — mismo criterio que la lista de
+                      asignaturas del Dashboard: en el celular el renglón es
+                      angosto y el rango terminaba cortando el nombre de la
+                      asignatura, que es lo que sí hay que leer. */}
+                  {!IS_NATIVE_APP && subject?.fechaInicio && subject?.fechaFin && (
                     <span className="text-xs font-medium text-slate-400 ml-1.5 tabular-nums align-middle">
                       ({formatShortDateRange(subject.fechaInicio, subject.fechaFin)})
                     </span>
