@@ -677,6 +677,11 @@ export default function SubjectPage() {
   // del alumno).
   const tabsScrollRef = useRef(null)
   const [tabsOverflow, setTabsOverflow] = useState(false)
+  // Depende de `loading` (igual que la barra del alumno) y no de []: mientras
+  // la asignatura carga, esta pantalla devuelve solo el spinner y la barra de
+  // pestañas todavía no existe en el DOM. Con [] el efecto corría una única
+  // vez contra un ref vacío, se salía por el `if (!el)` y ya nunca volvía a
+  // correr — la flecha estaba programada pero no aparecía jamás.
   useEffect(() => {
     const el = tabsScrollRef.current
     if (!el) return undefined
@@ -690,7 +695,7 @@ export default function SubjectPage() {
       el.removeEventListener('scroll', check)
       window.removeEventListener('resize', check)
     }
-  }, [])
+  }, [loading])
 
   // Shared students (used by calificaciones + alumnos tab)
   const [groupStudents, setGroupStudents] = useState([])
