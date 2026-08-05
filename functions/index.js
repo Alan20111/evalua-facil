@@ -928,3 +928,40 @@ exports.onSuscripcionEscrita = onDocumentWritten('subscriptions/{subId}', async 
   await usuario.update({ suscripcionHasta: Timestamp.fromDate(hasta) })
   logger.info(`onSuscripcionEscrita: ${docenteId} puede trabajar hasta ${hasta.toISOString()}`)
 })
+
+// Re-espejo periódico del candado. onSuscripcionEscrita cubre los cambios de
+// aquí en adelante; esto cubre dos huecos:
+//   · Las cuentas que ya existían cuando se instaló el candado (las reglas
+//     dejan pasar a quien no tiene el campo, así que sin esto el candado no
+//     le aplicaría a nadie de antes).
+//   · Cualquier desfase futuro — un campo escrito a mano, una función que
+//     falló, un documento restaurado de un respaldo.
+// Solo escribe cuando la fecha cambia de verdad, así que en régimen normal no
+// hace nada: recorre las suscripciones y se va.
+exports.sincronizarCandadoSuscripcion = onSchedule('every 60 minutes', async () => {
+  const snap = await db.collection('subscriptions').get()
+  // Una suscripción por docente; si hubiera dos, manda la más reciente —
+  // mismo criterio que useSubscription en el cliente.
+  const porDocente = new Map()
+  snap.docs.forEach((d) => {
+    const sub = d.data()
+    if (!sub.docenteId) return
+    const previa = porDocente.get(sub.docenteId)
+    const ms = (s) => s.updatedAt?.toMillis?.() || 0
+    if (!previa || ms(sub) > ms(previa)) porDocente.set(sub.docenteId, sub)
+  })
+
+  let actualizados = 0
+  for (const [docenteId, sub] of porDocente) {
+    const hasta = vigenciaDe(sub)
+    if (!hasta) continue
+    const ref = db.collection('users').doc(docenteId)
+    const usuario = await ref.get()
+    if (!usuario.exists) continue
+    const actual = usuario.data().suscripcionHasta?.toDate?.()
+    if (actual && Math.abs(actual.getTime() - hasta.getTime()) < 1000) continue
+    await ref.update({ suscripcionHasta: Timestamp.fromDate(hasta) })
+    actualizados++
+  }
+  logger.info(`sincronizarCandadoSuscripcion: ${porDocente.size} docentes revisados, ${actualizados} actualizados`)
+})
