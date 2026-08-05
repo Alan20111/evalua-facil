@@ -34,6 +34,15 @@ export const round1 = (n) => Math.round(n * 10) / 10
 export const COTEJO_NIVEL = 'Nivel de desempeño'
 export const esCotejo = (r) => r?.tipo === 'cotejo'
 
+// Color FIJO por tipo de instrumento: azul = rúbrica, violeta = lista de cotejo.
+// Deliberadamente NO usa `--accent`: el acento cambia con la paleta de la
+// asignatura (azul, teal, morado…), así que la etiqueta de rúbrica se confundía
+// con la de lista de cotejo. La etiqueta identifica el TIPO, no la asignatura,
+// y por eso conserva siempre el mismo par de colores.
+export const instrumentoColors = (r) => (esCotejo(r)
+  ? { badge: 'bg-violet-100 text-violet-700', border: 'border-violet-500', bg: 'bg-violet-50', icon: 'text-violet-600', text: 'text-violet-700' }
+  : { badge: 'bg-blue-100 text-blue-700', border: 'border-blue-500', bg: 'bg-blue-50', icon: 'text-blue-600', text: 'text-blue-700' })
+
 // Reparte los 10 puntos en partes iguales entre los criterios; el último
 // absorbe el residuo de redondeo para que la suma sea exactamente 10.
 export function pesosEquitativos(numCriterios) {

@@ -45,8 +45,8 @@ import EvaluacionManager from '../../components/EvaluacionManager'
 import EntregableEditor from '../../components/EntregableEditor'
 import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import RubricaGradeTable from '../../components/rubrica/RubricaGradeTable'
-import { ClipboardList, X } from 'lucide-react'
-import { totalRubrica, RUBRICA_TOTAL, esCotejo } from '../../utils/rubrica'
+import { ClipboardList, ListChecks, X } from 'lucide-react'
+import { totalRubrica, RUBRICA_TOTAL, esCotejo, instrumentoColors } from '../../utils/rubrica'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12FromDate } from '../../utils/formatHora'
@@ -2280,10 +2280,16 @@ export default function ActivityPage() {
               ? { bottom: rubricaWinBottom, maxHeight: `calc(100vh - ${rubricaWinBottom + 60}px)` }
               : { top: rubricaWinTop, maxHeight: `calc(100vh - ${rubricaWinTop + 10}px)` }}
           >
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-outline-variant flex-shrink-0" style={{ background: 'var(--accent-light)' }}>
-              <ClipboardList size={17} className="text-accent flex-shrink-0" />
+            {/* Mismo par de colores que la etiqueta del banco: azul = rúbrica,
+                violeta = lista de cotejo (ver instrumentoColors). */}
+            <div className={`flex items-center gap-2 px-3 py-2 border-b border-outline-variant flex-shrink-0 ${instrumentoColors(activity.rubrica).bg}`}>
+              {esCotejo(activity.rubrica)
+                ? <ListChecks size={17} className={`${instrumentoColors(activity.rubrica).icon} flex-shrink-0`} />
+                : <ClipboardList size={17} className={`${instrumentoColors(activity.rubrica).icon} flex-shrink-0`} />}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-on-surface truncate">{esCotejo(activity.rubrica) ? 'Lista de cotejo' : 'Rúbrica'}: {activity.rubrica.titulo}</p>
+                <p className="text-sm font-bold text-on-surface truncate">
+                  <span className={instrumentoColors(activity.rubrica).text}>{esCotejo(activity.rubrica) ? 'Lista de cotejo' : 'Rúbrica'}</span>: {activity.rubrica.titulo}
+                </p>
                 <p className="text-[11px] text-muted truncate">
                   {esCotejo(activity.rubrica)
                     ? 'Marca los criterios que cumple — la calificación se calcula sola'
