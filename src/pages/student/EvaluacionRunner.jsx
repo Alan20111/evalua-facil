@@ -15,7 +15,7 @@ import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fil
 import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { teacherDisplayName } from '../../utils/studentSearch'
+import { teacherDisplayName, studentFullName } from '../../utils/studentSearch'
 
 // Extensiones aceptadas para preguntas de tipo "subir documento": las mismas
 // que maneja toda la app (imágenes, PDF, Word, PowerPoint, Excel, ZIP/RAR).
@@ -360,7 +360,7 @@ export default function EvaluacionRunner() {
             <div className="min-w-0 flex-1">
               {student && (
                 <p className="text-xl font-bold truncate">
-                  {[student.apellidoPaterno, student.apellidoMaterno, student.nombre].filter(Boolean).join(' ')}
+                  {studentFullName(student)}
                 </p>
               )}
               <p className="text-xs text-white/60 truncate">
