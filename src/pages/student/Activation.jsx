@@ -290,11 +290,20 @@ export default function StudentActivation() {
     // ningún lado y el panel de administración no tenía forma de mostrarlo:
     // `createdAt` es el alta que hizo el docente, que puede ser días anterior.
     // Se marca en todas las inscripciones del alumno, igual que `activado`.
-    const marcas = { activado: true, uid: authUser.uid, resetPassword: null, activadoAt: serverTimestamp() }
-    snap.forEach((d) => batch.update(doc(db, 'students', d.id), marcas))
+    const marcas = { activado: true, uid: authUser.uid, resetPassword: null }
+    // …pero UNA SOLA VEZ por inscripción: es la primera activación, no la
+    // última. Esta función vuelve a correr cada vez que el alumno se une a
+    // otra materia o rehace su contraseña tras un reinicio del docente, y
+    // pisar la fecha movería hacia adelante el corte de avisos (avisosDesde
+    // en utils/avisos.js) borrándole avisos que ya le tocaban. Se sella solo
+    // si la inscripción todavía no tiene fecha y nunca estuvo activada.
+    const sellar = (prev) => (!prev?.activadoAt && prev?.activado !== true
+      ? { ...marcas, activadoAt: serverTimestamp() }
+      : marcas)
+    snap.forEach((d) => batch.update(doc(db, 'students', d.id), sellar(d.data())))
     // Safety: ensure the matched doc is updated even if the query is momentarily stale.
     if (!snap.docs.some((d) => d.id === studentData.id)) {
-      batch.update(doc(db, 'students', studentData.id), marcas)
+      batch.update(doc(db, 'students', studentData.id), sellar(studentData))
     }
     await batch.commit()
     navigate('/alumno/dashboard')

@@ -41,7 +41,7 @@ import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../../utils/ponderacion'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId } from '../../utils/avisos'
+import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
 
 function ResourceCard({ resource: r }) {
   const isLink = r.tipo === 'link'
@@ -362,7 +362,7 @@ export default function StudentSubjectPage() {
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
       setStudentId(studData.id)
-      setEnrollmentSince(studData.createdAt?.seconds ?? null)
+      setEnrollmentSince(avisosDesde(studData))
 
       // Fetch teacher name separately — best-effort
       if (subData.docenteId) {
@@ -966,10 +966,11 @@ export default function StudentSubjectPage() {
           puede guardar los suyos, con Todos/Guardados igual que la app del
           docente: guardar "mueve" el aviso, deja de verse en Todos. */}
       {activeTab === 'Avisos' && (() => {
-        // Solo avisos publicados a partir de que el docente dio de alta al
-        // alumno — uno anterior a su inscripción no le corresponde. Los que
-        // el alumno eliminó tampoco: ni en Todos ni en Guardados (ver
-        // avisoOcultos más arriba).
+        // Solo avisos publicados a partir de que la asignatura quedó activa
+        // para este alumno (alta o activación, lo que ocurra después — ver
+        // avisosDesde): uno anterior no le corresponde. Los que el alumno
+        // eliminó tampoco: ni en Todos ni en Guardados (ver avisoOcultos más
+        // arriba).
         const avisosVisibles = (enrollmentSince == null
           ? avisos
           : avisos.filter((a) => (a.fechaCreacion?.seconds ?? 0) >= enrollmentSince)

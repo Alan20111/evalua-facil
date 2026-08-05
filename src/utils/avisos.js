@@ -61,6 +61,28 @@ export function formatAvisoFecha(ts) {
   return ts.toDate().toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+// Desde cuándo le tocan los avisos a una inscripción (en segundos epoch, o
+// null si no se puede saber). Un aviso publicado antes de este momento NO le
+// corresponde a ese estudiante: no lo ve en la pestaña Avisos ni se le exige
+// confirmarlo en el modal de lectura obligatoria (AvisosGate).
+//
+// Es el MÁXIMO de las dos marcas de tiempo porque cada camino de alta deja una
+// distinta, y la buena siempre es la más tardía:
+//   · `createdAt`  — cuándo el docente lo dio de alta en la lista.
+//   · `activadoAt` — cuándo el estudiante activó su cuenta (Activation.jsx).
+// Un alumno dado de alta en agosto que activa en octubre NO debe recibir de
+// golpe los avisos de esos dos meses: hasta que activó, la asignatura no
+// existía para él. Y al revés, un alumno que YA tenía cuenta y el docente
+// agrega a una materia nueva no trae `activadoAt` en esa inscripción (entra ya
+// activada, ver studentIdentity.js) — ahí manda `createdAt`, que es justo el
+// momento en que la materia apareció en su cuenta.
+export function avisosDesde(enrollment) {
+  const alta = enrollment?.createdAt?.seconds
+  const activacion = enrollment?.activadoAt?.seconds
+  if (alta == null && activacion == null) return null
+  return Math.max(alta ?? 0, activacion ?? 0)
+}
+
 // Id determinístico de `avisoLecturas` — un doc por (aviso, estudiante), para
 // que confirmar "Entendido" dos veces (doble tap, reintento de red) actualice
 // el mismo registro en vez de crear duplicados.

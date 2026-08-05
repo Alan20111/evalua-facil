@@ -7,7 +7,7 @@ import Spinner from '../Spinner'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { Plus, MoreVertical, Pencil, Trash2, Megaphone, Settings, ChevronUp, ChevronDown, X, CheckCircle2, Circle, ArrowLeft, Bookmark, GripVertical, RotateCcw } from 'lucide-react'
-import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
+import { PLANTILLAS_SEED, EMOJI_PALETTE, avisoEmoji, formatAvisoFecha, avisosDesde } from '../../utils/avisos'
 import { studentFullName } from '../../utils/studentSearch'
 import { IS_NATIVE_APP } from '../../utils/platform'
 
@@ -333,6 +333,26 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
   }
 
   const totalEstudiantes = students.length
+
+  // A un aviso solo le tocan los estudiantes que ya tenían la asignatura
+  // activa cuando se publicó — es el MISMO corte que aplica la app del alumno
+  // (avisosDesde en utils/avisos.js), que a los que entraron después ni
+  // siquiera se lo muestra. Contarlos aquí como "Pendiente" dejaba barras que
+  // nunca podían llegar al 100% y una lista de supuestos morosos a los que
+  // jamás se les pidió nada.
+  //
+  // Recién publicado, `fechaCreacion` todavía viene nulo en el eco local del
+  // snapshot (serverTimestamp se resuelve en el servidor). Ese instante cuenta
+  // como "acabo de publicarlo": le toca a todo el grupo inscrito, y así la
+  // barra no parpadea un "0 de 0" antes de que llegue la fecha del servidor.
+  function destinatarios(a) {
+    const publicado = a.fechaCreacion?.seconds
+    if (publicado == null) return students
+    return students.filter((s) => {
+      const since = avisosDesde(s)
+      return since == null || publicado >= since
+    })
+  }
   const avisosGuardados = avisos.filter((a) => a.guardado)
   // Guardado se comporta como "mover", no como etiqueta: en cuanto un aviso
   // se guarda, deja de aparecer en "Todos" — pedido explícito.
@@ -385,7 +405,8 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
         <div className="space-y-1.5 max-h-[60vh] overflow-y-auto overflow-x-hidden pr-1 border border-outline-variant rounded-card p-2 bg-surface">
           {avisosMostrados.map((a) => {
             const leidosMap = lecturasByAviso[a.id] || {}
-            const leidos = Object.keys(leidosMap).length
+            const alcance = destinatarios(a)
+            const leidos = alcance.filter((s) => leidosMap[s.id]).length
             return (
               <div key={a.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card px-3 py-2.5">
                 <div className="flex items-start gap-3">
@@ -403,7 +424,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                           se cae al título (ej. "No habrá clase" ya se
                           explica solo). */}
                       <p className="text-sm font-medium text-on-surface mt-0.5 whitespace-pre-wrap line-clamp-3">{a.mensaje || a.titulo}</p>
-                      <ProgressoLectura leidos={leidos} total={totalEstudiantes} />
+                      <ProgressoLectura leidos={leidos} total={alcance.length} />
                     </div>
                   </button>
                   {/* En "Guardados" el ícono cambia a una flecha de "regresar"
@@ -665,9 +686,15 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
               </button>
             </div>
             <p className="text-sm text-on-surface mb-3 line-clamp-2">{detailAviso.mensaje || detailAviso.titulo}</p>
-            <ProgressoLectura leidos={Object.keys(lecturasByAviso[detailAviso.id] || {}).length} total={totalEstudiantes} />
+            {/* Solo los destinatarios reales del aviso: quien se activó
+                después nunca lo vio, listarlo como "Pendiente" era acusarlo
+                de algo que la app no le pidió. */}
+            <ProgressoLectura
+              leidos={destinatarios(detailAviso).filter((s) => (lecturasByAviso[detailAviso.id] || {})[s.id]).length}
+              total={destinatarios(detailAviso).length}
+            />
             <div className="mt-3 space-y-1">
-              {students
+              {destinatarios(detailAviso)
                 .slice()
                 .sort((a, b) => studentFullName(a).localeCompare(studentFullName(b), 'es'))
                 .map((s) => {
@@ -687,7 +714,13 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     </div>
                   )
                 })}
-              {students.length === 0 && <p className="text-center text-sm text-muted py-6">Sin estudiantes inscritos aún.</p>}
+              {destinatarios(detailAviso).length === 0 && (
+                <p className="text-center text-sm text-muted py-6">
+                  {students.length === 0
+                    ? 'Sin estudiantes inscritos aún.'
+                    : 'Ningún estudiante estaba activo en la asignatura cuando se publicó este aviso.'}
+                </p>
+              )}
             </div>
           </div>
         </div>
