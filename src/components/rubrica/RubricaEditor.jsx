@@ -55,22 +55,28 @@ function filaDerivada(exc, niveles) {
 }
 
 // Recalcula TODAS las celdas (excepto la columna del nivel máximo) en
-// proporción a los puntos de cada criterio en ese nivel. El último renglón
-// absorbe el residuo de redondeo para que cada columna sume exacto.
+// proporción a los puntos de cada criterio en ese nivel.
+//
+// Las CUATRO celdas de un mismo renglón vienen del mismo exc_i multiplicado
+// por el valor (siempre descendente) de cada nivel, así que ANTES de
+// redondear ya bajan solas de izquierda a derecha — redondear cada una por
+// su cuenta a 0.1 nunca puede invertir ese orden (redondear es monótono).
+// Antes el último renglón no seguía esta regla: le "caía" lo que le
+// faltaba a cada columna para cuadrar, calculado por separado en cada
+// columna sin comparar con sus propias celdas vecinas — y ese residuo sí
+// podía salir mayor que la celda anterior del mismo renglón (o negativo),
+// lo que disparaba errores de validación imposibles de arreglar editando
+// cualquier otro campo (bug real, 2026-08-04). Si una columna no cuadra
+// exacto por el redondeo, se ve en rojo en el subtotal — con su propio
+// botón para repartirla — en vez de fabricar un renglón inválido.
 function recalcularCeldas(niveles, criterios) {
-  const n = criterios.length
   const excs = criterios.map((c) => parseFloat(c.puntos[0]) || 0)
   return criterios.map((c, i) => {
     const puntos = [...c.puntos]
     niveles.forEach((nv, j) => {
       if (j === 0) return
       const valor = parseFloat(nv.valor) || 0
-      if (i < n - 1) {
-        puntos[j] = String(round1((excs[i] * valor) / 10))
-      } else {
-        const otros = excs.slice(0, n - 1).reduce((s, e) => s + round1((e * valor) / 10), 0)
-        puntos[j] = String(round1(valor - otros))
-      }
+      puntos[j] = String(round1((excs[i] * valor) / 10))
     })
     return { ...c, puntos }
   })
@@ -338,16 +344,18 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved }) 
   }
 
   // Reparte SOLO una columna: los puntos de ese nivel en partes iguales entre
-  // los criterios (el último absorbe el residuo para que la suma sea exacta)
+  // los criterios. Mismo valor para todos (sin que ninguno absorba el
+  // residuo) — así ningún renglón puede terminar con una celda mayor que la
+  // de su propio nivel anterior solo por el redondeo (ver recalcularCeldas).
   function repartirColumna(j) {
     if (j === 0) { repartirPesos(); return }
     setR((prev) => {
       const n = prev.criterios.length
       const valor = round1(parseFloat(prev.niveles[j].valor) || 0)
       const base = round1(valor / n)
-      const criterios = prev.criterios.map((c, i) => {
+      const criterios = prev.criterios.map((c) => {
         const puntos = [...c.puntos]
-        puntos[j] = String(i < n - 1 ? base : round1(valor - base * (n - 1)))
+        puntos[j] = String(base)
         return { ...c, puntos }
       })
       return { ...prev, criterios }
