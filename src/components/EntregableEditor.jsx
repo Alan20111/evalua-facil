@@ -596,6 +596,7 @@ export default function EntregableEditor({
       {rubricaPickerOpen && (
         <RubricaPicker
           docenteId={docenteId}
+          currentRubricaId={form.rubricaId}
           onClose={() => setRubricaPickerOpen(false)}
           onSelect={(r) => {
             setForm((f) => ({ ...f, rubrica: snapshotRubrica(r), rubricaId: r.id }))
