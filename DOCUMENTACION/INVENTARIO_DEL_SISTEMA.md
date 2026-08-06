@@ -1949,7 +1949,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | **Completada** | 5-ago-2026 | `a4fa5fc` · [#987](https://github.com/Alan20111/evalua-facil/pull/987) |
 | A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | **Completada** | 5-ago-2026 | `631f7ec` · [#989](https://github.com/Alan20111/evalua-facil/pull/989) |
 | A05 | Cloud Functions | F1 | M25 | Crítico | **Completada** | 5-ago-2026 | `8b01f06` · [#991](https://github.com/Alan20111/evalua-facil/pull/991) |
-| A06 | API serverless | F1 | M26 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
+| A06 | API serverless | F1 | M26 | Crítico | **Completada** | 5-ago-2026 | `ccbb0bb` · [#993](https://github.com/Alan20111/evalua-facil/pull/993) |
 | A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | Pendiente | — | — |
 | A08 | Evaluaciones | F3 | M08 | Crítico | Pendiente | — | — |
 | A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | Pendiente | — | — |
@@ -1970,7 +1970,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
 **Avance: 6 de 24 auditorías (25%) · 1 de 7 fases cerradas.** Casos de prueba
-automatizados: **72**. Siguiente: **A06 · API serverless**. A04 cerró R1; R8
+automatizados: **72**. Las cuatro auditorías de la Fase 1 están cerradas y la fase cumple sus criterios; falta su cierre formal, que revisa el PO. A04 cerró R1; R8
 (lectura pública de `users`) sigue abierto y necesita el mismo escalonamiento de
 publicación que R7 — decisión del Product Owner.
 
