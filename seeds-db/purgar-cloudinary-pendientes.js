@@ -50,15 +50,19 @@ function partir(entrada) {
   return { tipo: entrada.slice(0, i), publicId: entrada.slice(i + 1) }
 }
 
+// `invalidate: true` por la misma razón que en `api/_lib/cloudinary.js`: sin él
+// el archivo sale del almacén pero el CDN lo sigue entregando un mes. La escoba
+// existe justamente para que no quede nada, así que aquí importa igual.
+// Parámetros firmados en orden alfabético.
 async function destruir({ tipo, publicId }) {
   const timestamp = Math.floor(Date.now() / 1000)
   const firma = crypto.createHash('sha1')
-    .update(`public_id=${publicId}&timestamp=${timestamp}${SECRET}`)
+    .update(`invalidate=true&public_id=${publicId}&timestamp=${timestamp}${SECRET}`)
     .digest('hex')
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/${tipo}/destroy`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ public_id: publicId, api_key: KEY, timestamp, signature: firma }),
+    body: JSON.stringify({ public_id: publicId, invalidate: true, api_key: KEY, timestamp, signature: firma }),
   })
   const data = await res.json().catch(() => ({}))
   return data.result === 'ok' || data.result === 'not found'
