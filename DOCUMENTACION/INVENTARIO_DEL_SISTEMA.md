@@ -1,0 +1,1725 @@
+# Plan Maestro de Validación — Evalúa Fácil
+
+**Documento oficial de aseguramiento de calidad** · Última actualización:
+5 de agosto de 2026 · Commit `c95d293` · Rama `main`
+
+---
+
+# 0. Qué es este documento
+
+Este es el **documento oficial que dirige todas las auditorías de Evalúa
+Fácil**. No hay otro. Contiene cuatro cosas que se sostienen entre sí:
+
+1. **El inventario** — qué existe en el sistema, agrupado en módulos, con sus
+   dependencias y su nivel de riesgo (§4).
+2. **El plan** — qué auditoría se hace, en qué orden, qué debe revisar, qué debe
+   intentar romper y cuándo se puede dar por terminada (§5).
+3. **La bitácora** — en qué va cada una (§6).
+4. **Los riesgos abiertos** — lo que se encontró y todavía no se cierra (§7).
+
+**Cómo se usa.** Se abre en la bitácora, se toma la primera auditoría que no
+esté Completada, se lee su ficha en §5, se ejecuta siguiendo las reglas de §1, y
+se cierra con el protocolo de §2 — que incluye actualizar este mismo documento y
+seguir con la siguiente.
+
+**Cómo evoluciona.** Cada auditoría lo modifica: marca su estado, anota su
+commit, agrega los riesgos residuales que no pudo cerrar y corrige el inventario
+si encontró algo que aquí no estaba. Un módulo nuevo en el proyecto es un módulo
+nuevo aquí, con su ficha y su lugar en el plan. Ver §8, *Vigencia y
+re-auditoría*: esto no se ejecuta una vez y se archiva.
+
+**Una sola verdad por dato.** El inventario dice qué existe; el plan dice qué
+hacer con ello; la bitácora dice cómo va; los riesgos dicen qué falta. Ningún
+dato se repite en dos lugares: si una ficha de auditoría necesita saber qué
+archivos toca, remite al módulo (M-xx) en vez de volver a listarlos.
+
+**Dónde vive el resto.** Este archivo es la única referencia de **calidad**.
+`docs/PROYECTO.md` es la referencia **técnica** del producto (cómo funciona cada
+cosa) y `CLAUDE.md` la guía de trabajo para agentes. Cuando algo cambie en el
+sistema, los tres se actualizan; cuando cambie una auditoría, solo este.
+
+---
+
+# 1. Reglas generales de toda auditoría
+
+Aplican a las veinticuatro. No se repiten en cada ficha.
+
+## 1.1 Sobre qué es una restricción
+
+- **Ocultar un botón no es una restricción.** Toda regla de negocio se prueba
+  contra el servidor: reglas de Firestore, Cloud Functions o endpoint. Si solo
+  vive en el navegador, no existe.
+- **El cliente nunca es fuente de verdad** para nada que otorgue acceso,
+  vigencia, dinero o calificación. Si un dato de esos viaja desde el navegador,
+  o se valida en el servidor o se calcula ahí.
+- **Toda vulnerabilidad se reproduce antes de corregirse.** Primero se prueba
+  contra el emulador que el ataque funciona; después se corrige; después queda
+  como caso permanente en `test/firestore-rules.test.mjs`. Un hallazgo sin
+  reproducir es una sospecha, no un hallazgo.
+
+## 1.2 Sobre no romper a quien ya trabaja
+
+- **Leer y exportar nunca se bloquean.** Un docente sin suscripción vigente
+  puede consultar y descargar todo lo suyo. El candado es sobre el trabajo
+  nuevo, no sobre lo que ya hizo.
+- **Un dato que falta nunca deja a nadie fuera.** Campo ausente = se deja pasar.
+  Los documentos viejos no traen los campos nuevos y sus dueños no tienen la
+  culpa.
+- **La app de Android instalada lleva su propio paquete.** Una regla nueva tiene
+  que aceptar lo que manda la versión publicada en Google Play, o esperar a que
+  se publique la actualización. Verificarlo es obligatorio antes de desplegar
+  reglas: se revisa qué manda esa versión, no la del árbol de trabajo.
+- **Compatibilidad hacia atrás en los datos.** Si un campo cambia de forma, los
+  documentos viejos siguen leyéndose. Si hace falta una migración, se escribe y
+  se corre antes, no después.
+
+## 1.3 Sobre Firestore
+
+- Solo consultas de igualdad. **Sin rangos (`<`, `>`, `!=`), sin `orderBy`.** Se
+  ordena en memoria.
+- Todo índice compuesto va en `firestore.indexes.json` y se despliega antes de
+  usarse.
+- Las reglas no pueden consultar colecciones: solo `get()`/`exists()` por ruta
+  exacta. Cuando haga falta un dato de otra colección, se espeja con una Cloud
+  Function (como `users/{uid}.suscripcionHasta`).
+- `exists()` antes de cada `get()`: leer un documento que no existe revienta la
+  evaluación completa de la regla.
+- **Las reglas de lectura se prueban también como consulta**, no solo documento
+  por documento: una regla que permite leer un documento propio puede permitir,
+  o no, listar la colección entera. Son dos permisos distintos.
+
+## 1.4 Sobre las condiciones en que se prueba
+
+Cinco condiciones que ninguna auditoría puede saltarse. Las tres primeras son
+donde aparecieron los peores hallazgos hasta hoy.
+
+- **Dos a la vez.** Dos pestañas del mismo usuario, dos personas sobre el mismo
+  documento, la web y el teléfono al mismo tiempo. Toda operación que cambie
+  algo importante se prueba concurrente, y la pregunta es siempre la misma: ¿qué
+  pasa si el segundo llega con datos viejos?
+- **Sin red y con red mala.** Cortar la conexión a media operación. Nada puede
+  quedar aplicado a medias: o entra todo o no entra nada.
+- **Con datos viejos.** Documentos creados antes del cambio, sin los campos
+  nuevos. Y con la app de Android publicada, no con la del árbol de trabajo.
+- **Con el reloj en contra.** Zonas horarias, cambio de día a medianoche, el
+  reloj del dispositivo movido a mano. Todo lo que dependa de una fecha
+  —vencimientos, límites de entrega, asistencia, tiempo de examen— se resuelve
+  en el servidor o se prueba contra un reloj mentiroso.
+- **Con volumen.** Un grupo de 50 estudiantes, un docente con 8 asignaturas, un
+  examen de 60 reactivos, un ciclo completo de asistencias. Lo que funciona con
+  tres registros puede no funcionar con los de verdad.
+
+## 1.5 Sobre los datos de prueba
+
+- Todo dato de prueba en producción lleva el prefijo **`zztest-`** y se borra al
+  terminar. Nada de nombres reales.
+- Lo destructivo se prueba **contra el emulador**, nunca contra producción.
+- Si una prueba deja residuo, limpiarlo es parte de la auditoría, no una tarea
+  aparte.
+
+## 1.6 Sobre el trabajo
+
+- **Una rama por auditoría**, nombrada `fix/auditoria-<módulo>`. Nunca se
+  trabaja directo en `main`.
+- **Estagear rutas explícitas** (`git add <archivos>`), nunca `git add .` ni
+  `git stash`: puede haber otra sesión trabajando en el mismo árbol.
+- **Orden de despliegue: Cloud Functions → reglas de Firestore → web.** Las
+  funciones tienen que existir antes de que una regla dependa de ellas.
+- **Sin `typecheck`.** El proyecto es JavaScript, sin TypeScript. Se reporta
+  como "no aplica", no como omisión.
+- **Azul para docente y administrador, nunca índigo.** Tailwind con clases de
+  utilidad; sin CSS suelto.
+
+## 1.7 Sobre el alcance de las decisiones
+
+- **Corregir, no solo diagnosticar.** Una auditoría que entrega una lista de
+  problemas sin arreglarlos no está terminada.
+- **Lo que no se pueda corregir se documenta** en §7 con su causa y una
+  propuesta concreta, no con un "queda pendiente".
+- **Ninguna decisión de producto se inventa.** Precios, políticas, textos de
+  cara al usuario, qué se cobra, qué se borra, qué se le muestra a quién: si la
+  auditoría topa con una de esas, se marca **Bloqueada**, se explica la
+  disyuntiva y se pregunta al Product Owner. Todo lo demás —lo técnico, lo
+  mecánico, lo que solo tiene una respuesta correcta— se resuelve sin preguntar.
+- **Si la corrección cambia lo que el usuario ve, paga o recibe, se pregunta
+  antes.** Aunque técnicamente sea la respuesta correcta.
+- **Se corrige lo que aparezca en el camino**, aunque sea de otro módulo, si no
+  introduce regresiones y queda documentado por qué hizo falta.
+
+## 1.8 Quién decide qué
+
+| Papel | Quién | Decide sobre |
+|---|---|---|
+| Product Owner | Kike (docente-dueño) | Precio, políticas, textos, qué se cobra y qué se borra, prioridades |
+| Firebase, Vercel, Brevo, Play | Kike | Credenciales, despliegues, cuentas |
+| Cloudinary | Alan | Llaves de API, preset de subida, cuota (ver R3) |
+| Técnico | La auditoría | Todo lo que tiene una sola respuesta correcta |
+
+---
+
+# 2. Protocolo de cierre de una auditoría
+
+Al terminar el trabajo, en este orden:
+
+1. **Corregir todo lo encontrado.** Nada queda como reporte. Lo que
+   genuinamente no se pueda cerrar, a §7 con propuesta concreta.
+2. **Verificar.** `npm run lint`, `npm run build` y `npm run test:rules` (este
+   último requiere JDK 21 — el de Android Studio sirve: `JAVA_HOME="/c/Program
+   Files/Android/Android Studio/jbr"`). El `typecheck` se reporta como no
+   aplicable.
+3. **Respaldar antes de desplegar.** Copia de `firestore.rules` y de
+   `functions/index.js` tal como están en producción, fuera del árbol de
+   trabajo. Es lo que permite volver atrás en un minuto si algo sale mal.
+4. **Commit con Conventional Commits**, en su rama, con el cuerpo explicando qué
+   se cerró y por qué importaba. Push inmediato, PR, squash-merge.
+5. **Desplegar** lo que lo necesite, en el orden de la regla 1.6.
+6. **Verificar en producción.** Que `evalua-facil.vercel.app/version.json`
+   responda el commit recién mergeado, y que las reglas desplegadas sean las del
+   PR. Vercel llega a limitar despliegues y dejar producción atrasada sin avisar.
+7. **Actualizar este documento**: estado en la bitácora, commit y PR, riesgos
+   residuales nuevos, número de casos de prueba, y cualquier corrección al
+   inventario.
+8. **Continuar automáticamente con la siguiente auditoría**, sin esperar
+   instrucción — salvo que esté Bloqueada por una decisión del Product Owner, en
+   cuyo caso se salta a la que sigue y se avisa.
+
+## Definición de Terminado
+
+Una auditoría está Completada cuando cumple **las seis**:
+
+1. Todo hallazgo está corregido, o registrado en §7 con causa y propuesta.
+2. Cada vulnerabilidad se reprodujo antes de corregirse, y quedó como caso
+   permanente de prueba.
+3. La evidencia existe y es verificable: casos nuevos en
+   `test/firestore-rules.test.mjs` para lo que sea regla; para lo que no
+   —exportaciones, correo, interfaz— **el artefacto real generado y abierto**,
+   no solo el código leído.
+4. `lint` y `build` limpios; la suite de reglas completa en verde.
+5. Desplegado y verificado en producción.
+6. Este documento actualizado.
+
+**Cobertura mínima.** Toda auditoría de un módulo Crítico deja al menos un caso
+legítimo en verde y un ataque en rojo por cada superficie que tocó. Si un módulo
+no se puede cubrir con la suite de reglas, la ficha dice con qué evidencia se
+sustituye — nunca se queda sin ninguna.
+
+## Lo que entrega toda auditoría
+
+Un informe con: resumen ejecutivo · mapa del flujo auditado · problemas
+encontrados · vulnerabilidades · riesgos de fraude · correcciones realizadas ·
+archivos modificados · justificación técnica de cada cambio · riesgos
+residuales · resultado de lint, typecheck y build · commit, hash y confirmación
+del push.
+
+---
+
+# 3. Cómo leer el inventario
+
+| Campo | Qué significa |
+|---|---|
+| **Descripción** | Qué resuelve el módulo, en una frase que se entienda sin abrir el código |
+| **Archivos** | Dónde vive. Rutas relativas a la raíz del proyecto |
+| **Depende de** | Otros módulos (M-xx) y servicios externos que necesita |
+| **Riesgo** | **Crítico**: dinero, acceso a cuentas ajenas, datos de menores o calificaciones · **Alto**: interrumpe el trabajo de un grupo o expone lo que debía quedarse en su lugar · **Medio**: molesta, pero tiene rodeo · **Bajo**: cosmético o fuera del producto |
+| **Auditoría** | Cuál del plan lo cubre |
+
+## El sistema en números
+
+| | |
+|---|---|
+| Archivos de código en `src/` | 191 (33 páginas · 71 componentes · 66 utilidades · 9 hooks) |
+| Rutas de navegación | 28 + comodín |
+| Colecciones de Firestore | 30 raíz + 2 subcolecciones |
+| Cloud Functions | 14 |
+| Endpoints serverless (Vercel) | 9 activos de 12 permitidos + 4 pausados |
+| Módulos funcionales | 33 — **11 Críticos**, 14 Altos, 5 Medios, 3 Bajos |
+| Auditorías planeadas | 24 (2 completadas) |
+| Casos de prueba automatizados | 62 (reglas de Firestore) |
+
+## Cobertura
+
+Los 33 módulos están cubiertos, salvo dos a propósito: **M29** (pruebas) es el
+instrumento de todas las demás, y **M30** (documentación) no tiene
+comportamiento que auditar. Ningún otro módulo queda huérfano.
+
+## Las cuatro capas
+
+```
+PRODUCTO      Lo que el usuario usa: asignaturas, actividades, evaluaciones,
+              calificaciones, asistencia, avisos, calendario, perfiles.
+              M05 – M13, M19, M20, M31, M32
+
+NEGOCIO       Lo que sostiene al producto como servicio: identidad,
+              suscripción, pagos, panel de administración.
+              M01 – M04
+
+PLATAFORMA    Lo que hace que todo lo anterior funcione y llegue:
+              navegación, diseño, notificaciones, correo, exportaciones,
+              archivos, catálogos, Android, Firebase, Functions, API.
+              M14 – M18, M21 – M27
+
+SOPORTE       Lo que no se despliega pero sostiene el trabajo: semillas,
+              scripts, pruebas, documentación, herramientas auxiliares.
+              M28 – M30, M33
+```
+
+---
+
+# 4. Inventario de módulos
+
+## CAPA DE NEGOCIO
+
+### M01 · Autenticación e identidad
+
+**Descripción.** Quién es cada quien y cómo entra. Tres tipos de usuario sobre
+una misma Firebase Auth: docente (correo real o Google), estudiante (correo
+falso `usuario.escuela@evalua.local`) y administrador (docente con
+`role: 'admin'`). Incluye alta de docentes, activación de estudiantes por
+código/QR, recuperación y cambio de contraseña, vinculación de cuenta de Google
+con contraseña, y la migración de nombres de usuario heredados.
+
+**Archivos.** `src/context/AuthContext.jsx` · `src/pages/teacher/Login.jsx`,
+`Register.jsx`, `ResetPassword.jsx`, `VerifyEmail.jsx`, `ProtectAccount.jsx`,
+`Onboarding.jsx` · `src/pages/student/Login.jsx`, `Activation.jsx` ·
+`src/components/LinkAccountModal.jsx`, `PasswordInput.jsx` ·
+`src/utils/authLinking.js`, `googleAuth.js`, `generate.js`, `teacherAccount.js`,
+`studentIdentity.js`, `studentLookup.js`, `accountEmails.js` ·
+`api/student/recover-password.js` · reglas `users`, `students`, `schools`
+
+**Depende de.** M24 · M26 · M15 · M18 · Firebase Auth · Google Sign-In nativo
+
+**Riesgo.** **Crítico** — es la puerta de entrada de todo lo demás.
+
+**Auditoría.** A04
+
+### M02 · Suscripciones y candado de acceso
+
+**Descripción.** Desde cuándo y hasta cuándo un docente puede trabajar. Prueba
+de 30 días que crea el servidor, planes de 1 a 6 meses, cortesías, cancelación,
+y el candado de dos capas: el cliente que abre la ventana de pago y las reglas
+de Firestore que comparan `request.time` contra `users/{uid}.suscripcionHasta`.
+Consultar y exportar nunca se bloquean; escribir sí.
+
+**Archivos.** `src/hooks/useSubscription.js` ·
+`src/utils/subscriptionHelpers.js`, `situacionSuscripcion.js`,
+`firestoreGuard.js`, `exportWatermark.js` ·
+`src/components/SuscripcionVencidaModal.jsx` ·
+`functions/index.js` (`onSuscripcionEscrita`, `sincronizarCandadoSuscripcion`,
+`onDocenteCreado`) · `firestore.rules` (`docenteActivo`, `suscripcionHasta`) ·
+`seeds-db/backfill-suscripcion.js` · `api/account/cancel-subscription.js`
+
+**Depende de.** M01 · M03 · M24 · M25 · M16
+
+**Riesgo.** **Crítico** — decide quién trabaja y quién no, y de él cuelga el cobro.
+
+**Auditoría.** A01 — Completada
+
+### M03 · Pagos
+
+**Descripción.** Cómo entra el dinero. En v1.0.1, solo transferencia bancaria
+con aprobación manual: el docente declara folio y comprobante, el administrador
+lo coteja contra el estado de cuenta y aprueba, y esa aprobación —dentro de una
+transacción— activa la suscripción. Mercado Pago y PayPal quedaron pausados con
+su código intacto.
+
+**Archivos.** `src/components/CheckoutModal.jsx` ·
+`src/pages/admin/components/PaymentsTable.jsx`, `PaymentConfig.jsx` ·
+`src/hooks/usePaymentConfig.js` · `src/pages/teacher/PagoResultado.jsx` ·
+`src/pages/teacher/Profile.jsx` (reenvío de un pago rechazado) ·
+`src/utils/subscriptionHelpers.js` (tarifas, armador del pago, validaciones) ·
+`api/mp/webhook.js`, `api/_lib/billing.js`, `api/_lib/paypal.js` ·
+`api/_pausado/` (4 endpoints) · `functions/index.js` (`onPagoCreado`,
+`onPagoResuelto`) · reglas `payments`, `plans`, `config/payments`
+
+**Depende de.** M02 · M04 · M17 · M14 · Mercado Pago y PayPal (pausados)
+
+**Riesgo.** **Crítico** — es dinero.
+
+**Auditoría.** A02 — Completada
+
+### M04 · Panel de administración
+
+**Descripción.** La consola del dueño: resumen de altas y cobros, tabla de
+suscripciones (con plan, vigencia, días sin accesar y acciones manuales), tabla
+de pagos con aprobar/rechazar/archivar, tabla de estudiantes y la configuración
+de los datos bancarios que ve el docente.
+
+**Archivos.** `src/pages/admin/Dashboard.jsx` ·
+`src/pages/admin/components/` (`StatsCards`, `SubscriptionsTable`,
+`PaymentsTable`, `StudentsTable`, `StatusBadge`, `PaymentConfig`) ·
+`src/hooks/useAdminStats.js`, `useColumnWidths.js` ·
+`src/components/AdminLayout.jsx` · `api/admin/last-access.js`
+
+**Depende de.** M01 · M02 · M03 · M06 · M24
+
+**Riesgo.** **Crítico** — desde aquí se otorga y se quita el servicio a
+cualquiera, y se ven los datos de todos.
+
+**Auditoría.** A11 (sus tablas de pagos y suscripciones ya se revisaron en A01 y A02)
+
+## CAPA DE PRODUCTO
+
+### M05 · Asignaturas
+
+**Descripción.** El contenedor de todo el trabajo del docente: grupo, ciclo,
+parciales con sus fechas, código de acceso para que entren los estudiantes,
+color e ícono, archivar, duplicar y eliminar en cascada.
+
+**Archivos.** `src/pages/teacher/SubjectPage.jsx`, `Dashboard.jsx` ·
+`src/components/Layout.jsx` (lista lateral y alta de asignatura),
+`ParcialesFechas.jsx`, `SubjectIcon.jsx`, `IconSelect.jsx`, `PaletteSelect.jsx` ·
+`src/utils/copySubject.js`, `deleteSubjectCascade.js`, `subjectIcons.js`,
+`subjectName.js`, `subjectPalette.js` · reglas `subjects`
+
+**Depende de.** M01 · M02 · M24
+
+**Riesgo.** **Alto** — de una asignatura cuelga todo; borrarla mal se lleva
+trabajo de un semestre.
+
+**Auditoría.** A12 (junto con M07)
+
+### M06 · Estudiantes e inscripciones
+
+**Descripción.** El padrón de cada asignatura: alta manual, importación desde
+Excel, código de 4 caracteres y QR de activación, contraseña temporal que
+repone el docente, edición, baja y eliminación de cuenta.
+
+**Archivos.** `src/pages/teacher/SubjectPage.jsx` (pestaña de estudiantes) ·
+`src/pages/admin/components/StudentsTable.jsx` ·
+`src/components/EliminarCuentaAlumnoModal.jsx` ·
+`src/utils/studentLookup.js`, `studentSearch.js`, `studentIdentity.js`,
+`generate.js`, `nombres.js` · `api/student/delete.js`,
+`recover-password.js`, `remove-photo.js` · reglas `students`
+
+**Depende de.** M01 · M05 · M17 · M26 · M18
+
+**Riesgo.** **Crítico** — son datos personales de menores de edad, y la
+colección se lee sin sesión iniciada para que funcione la activación por QR.
+
+**Auditoría.** A07
+
+### M07 · Actividades y entregas
+
+**Descripción.** Lo que el docente encarga y lo que el estudiante entrega:
+actividades con fecha límite, valor, parcial, visibilidad y publicación
+programada; entregas con archivos, texto o liga; descarga masiva de entregas;
+recursos y materiales de apoyo.
+
+**Archivos.** `src/pages/teacher/ActivityPage.jsx` ·
+`src/pages/student/ActivityPage.jsx`, `SubjectPage.jsx` ·
+`src/components/EntregableEditor.jsx`, `AttachmentList.jsx`, `FileDropzone.jsx`,
+`FileTypeSelect.jsx`, `PublicacionScheduler.jsx`, `NuevaFechaEntregaModal.jsx`,
+`VisibilitySelect.jsx`, `PdfCanvasPreview.jsx`, `PinchZoomImage.jsx`,
+`ZoomableImage.jsx` · `src/utils/activityVisibility.js`, `resourceTypes.js`,
+`extensiones.js`, `importActivities.js`, `downloadSubmissions.js`,
+`formatBytes.js` · `src/config/fileTypes.js` · reglas `activities`,
+`submissions`, `resources`, `materials`
+
+**Depende de.** M05 · M06 · M17 · M10 · M14 · M13
+
+**Riesgo.** **Alto** — es el trabajo diario; una entrega perdida no se recupera.
+
+**Auditoría.** A12
+
+### M08 · Evaluaciones (cuestionarios y exámenes)
+
+**Descripción.** Instrumentos con reactivos de varios tipos, agrupados en
+secciones opcionales, con orden aleatorio, tiempo límite, intentos, banco de
+reactivos, calificación automática en el servidor, revisión manual de abiertas,
+publicación de resultados configurable, opción de no calificar, estadísticas y
+gráficas.
+
+**Archivos.** `src/components/EvaluacionEditor.jsx`, `EvaluacionManager.jsx`,
+`EvaluacionAnswerList.jsx`, `EvaluacionStatsPanel.jsx`, `EvaluacionGraficas.jsx`,
+`SeccionesEditor.jsx`, `SinCalificacionConfig.jsx` ·
+`src/pages/student/EvaluacionRunner.jsx`, `EvaluacionRevision.jsx` ·
+`src/hooks/useSecciones.js` · `src/utils/secciones.js`, `evaluacionGrading.js`,
+`evaluacionRespuestas.js` · `functions/index.js` (`onEvaluacionFinalizada`) ·
+reglas `activities/{id}/preguntas`, `submissions/{id}/respuestas`,
+`bancoReactivos`
+
+**Depende de.** M07 · M10 · M09 · M16 · M25
+
+**Riesgo.** **Crítico** — califica solo. Un error cambia calificaciones sin que
+nadie lo note, y el estudiante puede ver lo que no debe.
+
+**Auditoría.** A08
+
+### M09 · Rúbricas y listas de cotejo
+
+**Descripción.** Instrumentos de evaluación cualitativa: rúbricas con niveles y
+criterios ponderados, listas de cotejo, banco reutilizable entre asignaturas y
+tabla de calificación por criterio.
+
+**Archivos.** `src/components/rubrica/` (`RubricaEditor`, `ListaCotejoEditor`,
+`RubricaPicker`, `RubricaTable`, `RubricaGradeTable`, `editorShared`) ·
+`src/utils/rubrica.js` · reglas `bancoRubricas`
+
+**Depende de.** M07 · M10 · M05
+
+**Riesgo.** **Alto** — de la rúbrica sale una calificación.
+
+**Auditoría.** A09 (junto con M10)
+
+### M10 · Calificaciones y ponderación
+
+**Descripción.** Cómo se convierte lo entregado en un número: valor por
+actividad, ponderación por parcial, promedios, tabla de calificaciones de la
+asignatura y las actividades que no cuentan para calificación.
+
+**Archivos.** `src/utils/ponderacion.js` · `src/pages/teacher/SubjectPage.jsx`
+(tabla de calificaciones) · `src/components/rubrica/RubricaGradeTable.jsx` ·
+`src/components/SinCalificacionConfig.jsx` ·
+`functions/index.js` (`onSubmissionActualizada`, `onEvaluacionFinalizada`)
+
+**Depende de.** M07 · M08 · M09 · M16
+
+**Riesgo.** **Crítico** — es el producto final del docente y lo que entrega a la
+escuela.
+
+**Auditoría.** A09
+
+### M11 · Asistencia
+
+**Descripción.** Pase de lista por fecha, con resumen acumulado por estudiante,
+llenado automático, días no laborables (asuetos) y periodos vacacionales.
+
+**Archivos.** `src/pages/teacher/SubjectPage.jsx` (pestaña de asistencias) ·
+`src/utils/attendance.js`, `attendanceAuto.js`, `asuetos.js`, `vacaciones.js` ·
+`functions/index.js` (`onAttendanceEscrita`) · reglas `attendance`,
+`attendanceSummaries`, `asuetos`, `vacaciones`
+
+**Depende de.** M05 · M06 · M13 · M25
+
+**Riesgo.** **Alto** — es un registro oficial que se entrega a la escuela.
+
+**Auditoría.** A13
+
+### M12 · Avisos (comunicados)
+
+**Descripción.** Mensajes del docente a un grupo o a toda la asignatura, con
+acuse de lectura, plantillas reutilizables, guardados y ocultos por estudiante,
+y programación de envío.
+
+**Archivos.** `src/components/subject/AvisosTab.jsx`, `AvisoLecturaModal.jsx` ·
+`src/components/AvisosGate.jsx` · `src/utils/avisos.js` ·
+`functions/index.js` (`onAvisoEscrito`, `revisarProgramados`) · reglas `avisos`,
+`avisoLecturas`, `avisoGuardados`, `avisoOcultos`, `avisoPlantillas`
+
+**Depende de.** M05 · M06 · M14 · M25
+
+**Riesgo.** **Alto** — un aviso mal dirigido llega a quien no debía.
+
+**Auditoría.** A14
+
+### M13 · Calendario y agenda
+
+**Descripción.** El tiempo del curso: eventos del docente, eventos académicos,
+eventos propios del estudiante, horario semanal por bloques, programación de
+bloques, alarmas locales y la agenda del estudiante con sus entregas y
+recordatorios.
+
+**Archivos.** `src/pages/teacher/CalendarPage.jsx` ·
+`src/pages/student/Agenda.jsx` · `src/components/calendar/` (`EventEditor`,
+`MiniSelect`, `ProgramarBloquesModal`, `ProgramarZonaSemanal`, `useAlarmas`) ·
+`src/components/agenda/StudentEventEditor.jsx` ·
+`src/components/EFDateTimePicker.jsx` · `src/utils/calendarEvents.js`,
+`calendarGrid.js`, `horarioBloques.js`, `dateRange.js`, `formatHora.js`,
+`nowIso.js`, `localReminders.js`, `asuetos.js`, `vacaciones.js` · reglas
+`events`, `academicEvents`, `studentEvents`, `horario`, `horarioBloques`
+
+**Depende de.** M05 · M07 · M11 · M14 · M23
+
+**Riesgo.** **Alto** — de aquí salen los recordatorios de entrega.
+
+**Auditoría.** A18
+
+### M19 · Perfil y cuenta del docente
+
+**Descripción.** Sus datos, foto, escuela, código postal, contraseña, plan
+contratado, historial de pagos, cancelación de suscripción y eliminación
+definitiva de la cuenta con todo su contenido.
+
+**Archivos.** `src/pages/teacher/Profile.jsx` ·
+`src/components/EliminarCuentaModal.jsx`, `AvatarCropModal.jsx`,
+`CodigoPostalField.jsx` · `src/utils/codigoPostal.js`, `schoolSelection.js` ·
+`api/account/delete.js`, `cancel-subscription.js` · `src/data/useCodigoPostal.js`
+
+**Depende de.** M01 · M02 · M03 · M17 · M18 · M26
+
+**Riesgo.** **Crítico** — eliminar la cuenta no debe dejar residuos ni cuentas
+de estudiantes huérfanas.
+
+**Auditoría.** A10
+
+### M20 · Perfil del estudiante
+
+**Descripción.** Sus datos, foto y contraseña, y la baja de su propia cuenta.
+
+**Archivos.** `src/pages/student/Profile.jsx`, `Dashboard.jsx` ·
+`src/components/EliminarCuentaAlumnoModal.jsx` · `api/student/remove-photo.js`,
+`delete.js`
+
+**Depende de.** M01 · M06 · M17 · M26
+
+**Riesgo.** **Alto** — datos personales de menores.
+
+**Auditoría.** A07 (junto con M06)
+
+### M31 · Páginas públicas y PWA
+
+**Descripción.** Lo que se ve sin sesión: portada, aviso de privacidad,
+instalación como aplicación web y los íconos y el manifiesto.
+
+**Archivos.** `src/pages/Landing.jsx`, `Privacidad.jsx` ·
+`src/components/PwaInstallPrompt.jsx`, `AppQRButton.jsx`, `EFLogo.jsx` ·
+`src/config/appDownload.js` · `public/manifest.json`, íconos, `icons.svg`
+
+**Depende de.** M21 · M23
+
+**Riesgo.** **Medio** — es la primera impresión y la puerta de la descarga.
+
+**Auditoría.** A19 (rutas y acceso) · A23 (presentación e instalación)
+
+### M32 · Manual, ayuda y onboarding
+
+**Descripción.** Lo que enseña a usar la plataforma: el manual del docente, las
+explicaciones plegables de "¿Qué es esto?" repartidas por las pantallas, y el
+alta guiada de la primera asignatura.
+
+**Archivos.** `src/pages/teacher/ManualPage.jsx`, `Onboarding.jsx` ·
+`src/components/ui/InfoDisclosure.jsx`
+
+**Depende de.** M05 · M21
+
+**Riesgo.** **Bajo** — si falla, molesta pero no rompe nada.
+
+**Auditoría.** A23
+
+## CAPA DE PLATAFORMA
+
+### M14 · Notificaciones push y bitácora
+
+**Descripción.** Los avisos que llegan al teléfono: registro y limpieza de
+tokens, permisos, canales de Android, preferencias por categoría y por
+asignatura, envío desde Cloud Functions, resolución del enlace profundo al
+tocar la notificación, y la bitácora de lo enviado.
+
+**Archivos.** `src/utils/pushNotifications.js`, `webPush.js`, `notify.js` ·
+`src/pages/teacher/NotificationSettings.jsx` ·
+`src/pages/student/NotificationSettings.jsx` ·
+`src/components/NotificationLog.jsx`, `PushPermissionPrimer.jsx` ·
+`public/firebase-messaging-sw.js` · `functions/index.js` (7 de las 14
+funciones envían push) · reglas `notificationSettings`, `notificationLog`
+
+**Depende de.** M23 · M25 · M07 · M08 · M12 · M13 · M03
+
+**Riesgo.** **Alto** — un aviso al destinatario equivocado filtra información
+de un grupo a otro.
+
+**Auditoría.** A15
+
+### M15 · Correo transaccional
+
+**Descripción.** Los correos que salen del sistema: bienvenida al registrarse,
+avisos de vencimiento y de retención de datos, y los recordatorios diarios.
+Hoy conviven dos caminos: Brevo desde el servidor y EmailJS desde el cliente.
+
+**Archivos.** `api/send-email.js`, `api/_lib/email.js`,
+`api/_lib/emailTemplates.js`, `api/cron/reminders.js` ·
+`src/utils/sendEmail.js`, `welcomeEmail.js`, `accountEmails.js`
+
+**Depende de.** M01 · M02 · M26 · Brevo · EmailJS
+
+**Riesgo.** **Alto** — es el único canal que alcanza a quien ya no entra a la
+plataforma, y lleva datos personales.
+
+**Auditoría.** A21
+
+### M16 · Exportaciones (PDF y Excel)
+
+**Descripción.** Lo que el docente entrega a la escuela: actas y listas en PDF
+con membrete de escuela y docente, reportes en Excel, resultados de
+evaluaciones, gráficas, y la marca de agua para quien todavía no ha pagado.
+
+**Archivos.** `src/utils/pdf.js`, `excel.js`, `membrete.js`,
+`exportWatermark.js`, `descargaSoloWeb.js`, `nativeSave.js`,
+`downloadSubmissions.js` · jsPDF, jspdf-autotable, ExcelJS, JSZip
+
+**Depende de.** M10 · M11 · M08 · M02 · M23
+
+**Riesgo.** **Alto** — un acta con datos equivocados se entrega y se firma.
+
+**Auditoría.** A16
+
+### M17 · Archivos y multimedia (Cloudinary)
+
+**Descripción.** Todo lo que se sube: entregas, comprobantes de pago, fotos de
+perfil, imágenes del editor de texto enriquecido. Subida sin firma con preset,
+entrega forzada como descarga, y borrado desde el servidor al eliminar cuentas.
+
+**Archivos.** `src/utils/cloudinary.js` · `api/_lib/cloudinary.js` ·
+`src/components/AvatarCropModal.jsx`, `RichTextEditor.jsx`,
+`PdfCanvasPreview.jsx` · `src/utils/sanitizeHtml.js`
+
+**Depende de.** M07 · M03 · M19 · M20 · Cloudinary
+
+**Riesgo.** **Alto** — guarda documentos y comprobantes, su borrado depende de
+llaves que todavía no están configuradas, y la cuota la paga Alan.
+
+**Auditoría.** A17
+
+### M18 · Catálogos de datos
+
+**Descripción.** Los datos de referencia que no cambian: ~1,700 planteles
+CBTIS/CETIS/CBT, el catálogo de códigos postales partido en 96 fragmentos, la
+normalización de nombres propios y los prefijos telefónicos.
+
+**Archivos.** `public/planteles.json` · `public/cp/` (97 archivos) ·
+`src/data/usePlanteles.js`, `useCodigoPostal.js` ·
+`src/utils/schoolSelection.js`, `codigoPostal.js`, `nombres.js`, `prefijos.js` ·
+`scripts/extraer-cp.cjs`
+
+**Depende de.** Nada (se cargan bajo demanda y se cachean)
+
+**Riesgo.** **Medio** — un catálogo mal cargado impide completar el registro.
+
+**Auditoría.** A04 (junto con M01)
+
+### M21 · Navegación, rutas y layouts
+
+**Descripción.** Cómo se mueve la gente por la plataforma y qué puede ver:
+las 28 rutas, los guardianes por rol (`ProtectedTeacher`, `ProtectedStudent`,
+`ProtectedAdmin`), los tres layouts, el botón físico de atrás en Android, el
+bloqueo de desplazamiento con modales abiertos y la barra inferior del
+estudiante.
+
+**Archivos.** `src/App.jsx` · `src/components/Layout.jsx`, `StudentLayout.jsx`,
+`AdminLayout.jsx`, `StudentBottomNav.jsx`, `AndroidBackButton.jsx`,
+`EscKeyHandler.jsx` · `src/hooks/useBackHandler.js`, `useScrollLock.js`,
+`useResizableSidebar.js` · `src/config/layout.js`
+
+**Depende de.** M01 · M23
+
+**Riesgo.** **Alto** — los guardianes de ruta son control de acceso.
+
+**Auditoría.** A19
+
+### M22 · Sistema de diseño y UI compartida
+
+**Descripción.** Lo que hace que todo se vea igual: componentes base, avisos
+emergentes, modales, buscadores, tabla redimensionable, íconos de rol, tema
+claro y oscuro por variables CSS, y el verificador de estándares visuales.
+
+**Archivos.** `src/components/ui/` (`Button`, `Input`, `Select`, `Modal`,
+`Table`, `InfoDisclosure`, `cn`) · `Toast.jsx`, `Spinner.jsx`,
+`ConfirmModal.jsx`, `SearchInput.jsx`, `EFLogo.jsx`, `RoleIcons.jsx`,
+`PortalBadge.jsx`, `Fireworks.jsx`, `GoogleIcon.jsx` ·
+`src/utils/followTooltip.js`, `draggableOverlays.js`, `wheelStep.js`,
+`columnWidths.js` · `src/hooks/useColumnWidths.js`, `usePointerDrag.js` ·
+`tailwind.config.js`, `src/index.css` · `docs/DESIGN_SYSTEM.md`,
+`scripts/check-ui-standards.sh`
+
+**Depende de.** Nada del negocio
+
+**Riesgo.** **Medio** — un componente base roto se ve en todas las pantallas.
+
+**Auditoría.** A23
+
+### M23 · Aplicación Android (Capacitor)
+
+**Descripción.** El envoltorio nativo: empaqueta el mismo `dist/` de la web y
+le agrega lo que solo existe en el teléfono — push de FCM, notificaciones
+locales, compartir, guardar archivos, orientación, barra de estado, área
+segura, splash, Google Sign-In nativo y el aviso de actualización disponible.
+
+**Archivos.** `capacitor.config.json` · `android/` (proyecto Gradle,
+`MainActivity.java`, `AndroidManifest.xml`, `google-services.json`) ·
+`src/utils/platform.js`, `nativeInit.js`, `nativeSave.js`, `statusBar.js`,
+`orientation.js`, `checkAppVersion.js` · `src/components/UpdateChecker.jsx` ·
+`resources/` · `scripts/generate-android-assets.cjs`
+
+**Depende de.** Todo el producto (lo empaqueta) · M14 · M16 · Firebase · Google Play
+
+**Riesgo.** **Alto** — publica una copia del código; una versión vieja
+instalada puede correr reglas que ya no existen.
+
+**Auditoría.** A20
+
+### M24 · Infraestructura Firebase y Firestore
+
+**Descripción.** El cimiento: inicialización del cliente, las 30 colecciones
+con sus reglas de seguridad, los índices compuestos y la restricción de
+consultas del proyecto (solo igualdades, sin rangos ni `orderBy`).
+
+**Archivos.** `src/firebase.js` · `firestore.rules` · `firestore.indexes.json` ·
+`firebase.json` · `.firebaserc` · `storage.rules` (presente pero **sin uso**:
+el proyecto no importa Firebase Storage en ningún archivo)
+
+**Depende de.** Todos los módulos escriben aquí
+
+**Riesgo.** **Crítico** — es la última línea de defensa de todo el sistema.
+
+**Auditoría.** A03
+
+### M25 · Cloud Functions
+
+**Descripción.** Lo que corre en el servidor sin que nadie lo pida. Catorce
+funciones, en tres familias: **avisos push** (`onActividadEscrita`,
+`onAvisoEscrito`, `onSubmissionEntregada`, `onEstudianteActivado`,
+`onPagoCreado`, `onPagoResuelto`, `onTokenPushEscrito`), **cálculo**
+(`onEvaluacionFinalizada`, `onSubmissionActualizada`, `onAttendanceEscrita`) y
+**tiempo** (`revisarProgramados`, `sincronizarCandadoSuscripcion`,
+`onSuscripcionEscrita`, `onDocenteCreado`).
+
+**Archivos.** `functions/index.js`, `functions/package.json`
+
+**Depende de.** M24 · Admin SDK (no pasa por las reglas) · FCM
+
+**Riesgo.** **Crítico** — escribe saltándose las reglas de seguridad, y de ella
+sale la calificación automática.
+
+**Auditoría.** A05
+
+### M26 · API serverless (Vercel)
+
+**Descripción.** Lo que necesita credenciales de servidor: envío de correo,
+cancelación de suscripción, borrado de cuentas de docente y estudiante,
+recuperación de contraseña de estudiante, quitar foto, último acceso para el
+panel, webhook de Mercado Pago y el cron diario de recordatorios. Comparte
+utilidades en `_lib/` (que no cuentan para el tope de 12 funciones del plan
+Hobby) y guarda 4 endpoints pausados en `_pausado/`.
+
+**Archivos.** `api/` (9 endpoints activos + 6 utilidades + 4 pausados) ·
+`vercel.json` · `src/utils/apiBase.js`
+
+**Depende de.** M24 · M17 · M15 · Vercel · Brevo · Mercado Pago
+
+**Riesgo.** **Crítico** — corre con permisos de administrador sobre toda la base.
+
+**Auditoría.** A06
+
+### M27 · Seguridad de datos y privacidad
+
+**Descripción.** Lo transversal: saneado del HTML que escriben los usuarios, el
+aviso de privacidad, la declaración de seguridad de datos de Google Play y la
+política de retención de 90 días.
+
+**Archivos.** `src/utils/sanitizeHtml.js` · `src/pages/Privacidad.jsx` ·
+`docs/play-store/03-seguridad-de-datos.md` ·
+`src/utils/subscriptionHelpers.js` (`RETENTION_DAYS`)
+
+**Depende de.** M06 · M17 · M19 · M20
+
+**Riesgo.** **Alto** — hay datos de menores de por medio y una declaración
+formal ante Google Play que debe seguir siendo cierta.
+
+**Auditoría.** A22
+
+## CAPA DE SOPORTE
+
+### M28 · Semillas y scripts de mantenimiento
+
+**Descripción.** Las herramientas de administración fuera de la aplicación:
+creación del administrador, semillas de demostración y de planes, **borrado
+completo de la base**, migración de nombres de usuario, respaldo del candado de
+suscripción y cambio de contraseñas.
+
+**Archivos.** `seeds-db/` (16 scripts) · `scripts/check-consistency.mjs`,
+`extraer-cp.cjs`, `generate-android-assets.cjs`, `check-ui-standards.sh`
+
+**Depende de.** M24 · credenciales de cuenta de servicio
+
+**Riesgo.** **Alto** (corregido desde Medio) — varios borran la base entera y
+corren con credenciales de administrador. Que solo se ejecuten a mano no los
+hace inofensivos: apuntan al proyecto que diga la configuración del momento.
+
+**Auditoría.** A24
+
+### M29 · Pruebas y control de calidad
+
+**Descripción.** Lo que verifica que nada se rompa: la suite de reglas de
+Firestore contra el emulador (62 casos), ESLint y los verificadores de
+consistencia y de estándares visuales. **No hay pruebas de interfaz ni de
+integración.**
+
+**Archivos.** `test/firestore-rules.test.mjs` · `eslint.config.js` ·
+`scripts/check-consistency.mjs`, `check-ui-standards.sh` · `package.json`
+(`test:rules`, `lint`, `check:design`)
+
+**Depende de.** M24 · emulador de Firestore · JDK 21
+
+**Riesgo.** **Medio** — su ausencia no rompe producción, pero es lo único que
+detiene una regresión antes de que llegue.
+
+**Auditoría.** Ninguna: es el instrumento de todas las demás, y cada una lo deja
+más grande. Su salud se mide en el contador de casos de §3.
+
+### M30 · Documentación
+
+**Descripción.** El contexto escrito del proyecto: la guía para agentes de IA,
+la referencia técnica del producto, el sistema de diseño, los planes históricos,
+la carpeta de Google Play y **este Plan Maestro**.
+
+**Archivos.** `CLAUDE.md` · `README.md` · `SETUP.md` · `docs/` (18 documentos +
+`play-store/`) · `DOCUMENTACION/INVENTARIO_DEL_SISTEMA.md`
+
+**Depende de.** Nada
+
+**Riesgo.** **Bajo**.
+
+**Auditoría.** Ninguna: no tiene comportamiento que romper.
+
+### M33 · Herramientas auxiliares fuera del producto
+
+**Descripción.** Trabajo paralelo que vive en el repositorio pero **no forma
+parte de lo que se despliega**: el generador del personaje ilustrado (Gemini),
+la canalización de voz con ElevenLabs y sus audios, y archivos de prueba.
+Incluye su propio `.env` con credenciales.
+
+**Archivos.** `Avatar/` (con `.env`) · `voice-pipeline.js` · `output/` ·
+`src-test/` · `resources/`
+
+**Depende de.** ElevenLabs · Gemini
+
+**Riesgo.** **Medio** (corregido desde Bajo) — no llega al usuario, pero guarda
+credenciales dentro del repositorio.
+
+**Auditoría.** A24
+
+---
+
+# 5. Plan de ejecución de auditorías
+
+Veinticuatro auditorías. El orden sigue dos criterios, en este orden: **primero
+lo que sostiene a lo demás** (reglas, identidad, los dos servidores que se
+saltan las reglas), **después lo que más cuesta que falle**. Auditar una
+pantalla antes que el servidor que la respalda obliga a repetirla.
+
+Cada ficha da por sabidas las reglas de §1 y el protocolo de §2, y remite al
+inventario para saber qué archivos toca. El estado vive en §6, no aquí.
+
+## A01 · Suscripciones y candado de acceso — COMPLETADA
+
+**Módulos.** M02 · **Objetivo.** Que nadie pueda otorgarse vigencia.
+Resultado en §6.
+
+## A02 · Pagos — COMPLETADA
+
+**Módulos.** M03 · **Objetivo.** Que un pago no pueda valer más de lo que se
+transfirió. Resultado en §6.
+
+## A03 · Reglas de Firestore y modelo de datos
+
+**Módulos.** M24, y toda colección que escriban los demás.
+
+**Objetivo.** Que ninguna de las 30 colecciones deje leer o escribir a quien no
+le corresponde, y que el candado de suscripción cubra todo lo que es trabajo.
+
+**Alcance.** `firestore.rules` completo, `firestore.indexes.json`, y las
+consultas del cliente que dependen de ellos. No entra la lógica de pantalla de
+cada módulo: eso es de su propia auditoría.
+
+**Revisar.**
+- Cada `match`, con `read`, `create`, `update` y `delete` por separado — un
+  `allow write` global esconde tres permisos distintos, y un `allow read`
+  esconde dos (documento y consulta).
+- Que cada colección de contenido exija `docenteActivo()` para escribir y no
+  para leer.
+- Las dos colecciones de lectura pública (`students`, `subjects`): exactamente
+  qué campos expone y si la activación por QR de verdad los necesita todos.
+- Los campos congelados con `hasOnly` / `affectedKeys` y los que deberían estarlo
+  (`role`, `escuelaId`, `uid`, `docenteId`, y todo campo que espeje una Cloud
+  Function).
+- `exists()` antes de cada `get()`, y qué pasa cuando un campo esperado no está
+  (una propiedad ausente revienta la regla, no da falso).
+- Coherencia entre las consultas del cliente y los índices desplegados.
+- Colecciones que existan en el código pero no tengan `match` propio.
+- `storage.rules`: declara una superficie que no se usa (ver §8-D.1).
+
+**Intentar romper.**
+- Escribir en cada colección con el `docenteId` de otro, y con el propio pero
+  sobre un documento ajeno.
+- **Listar una colección entera sin filtro**, y con el filtro de otra escuela:
+  la fuga clásica de Firestore no es leer un documento, es consultar.
+- Elevarse a `role: 'admin'` desde el propio documento de usuario.
+- Cruzar escuelas: escribir con el propio `docenteId` pero un `escuelaId` ajeno.
+- Leer el padrón o las asignaturas de otra escuela sin sesión iniciada.
+- Escribir en las 20 colecciones de contenido con la suscripción vencida.
+- Entrar a las subcolecciones (`preguntas`, `respuestas`) desde una cuenta de
+  estudiante que no es dueña del intento.
+- Borrar documentos ajenos, y borrar los propios para volver a empezar.
+- Escribir un documento con campos que ninguna pantalla manda, para ver si algo
+  río abajo los interpreta.
+
+**Corregir obligatoriamente.** Toda colección sin dueño verificado · toda
+escritura de contenido sin `docenteActivo()` · todo campo de privilegio
+escribible por su propio titular · toda consulta que devuelva documentos ajenos ·
+**R1** (`schools` abierta) y **R2** (tarifa fuera de las reglas).
+
+**Cierre.** Cada una de las 30 colecciones tiene al menos un caso legítimo en
+verde y un ataque en rojo · las de lectura pública tienen además una prueba de
+consulta sin sesión · suite completa pasando · reglas desplegadas y verificadas.
+
+## A04 · Autenticación e identidad
+
+**Módulos.** M01, M18.
+
+**Objetivo.** Que nadie pueda entrar como otro, ni darse un rol que no le toca.
+
+**Alcance.** Alta de docente (correo y Google), activación de estudiante,
+recuperación y cambio de contraseña, vinculación de cuentas, y los catálogos que
+alimentan el registro.
+
+**Revisar.** El flujo completo de `AuthContext` (incluida la autorreparación de
+perfil y la migración de nombres) · **la entropía de lo que se genera**: nombres
+de usuario de 4 caracteres y contraseñas temporales de 4, y qué tan adivinables
+son en conjunto · qué pasa cuando el correo no está verificado · el estado
+intermedio de quien entró con Google y todavía no tiene contraseña · que el
+`resetPassword` se borre al usarse.
+
+**Intentar romper.** Entrar con el correo falso de un estudiante ajeno ·
+**probar contraseñas a fuerza bruta** contra una cuenta de estudiante y medir
+cuántos intentos permite antes de frenar · activar un código de acceso que no es
+suyo · reusar una contraseña temporal ya consumida · registrarse escribiendo
+`role: 'admin'` · vincular Google a una cuenta que no es propia · recuperar la
+contraseña de un estudiante de otra escuela · enumerar usuarios existentes desde
+las pantallas públicas · dos activaciones simultáneas del mismo código.
+
+**Corregir obligatoriamente.** Cualquier camino que permita tomar una cuenta
+ajena · cualquier forma de auto-asignarse un rol · contraseñas temporales
+predecibles o que sobrevivan a su uso · la ausencia de freno ante intentos
+repetidos, si resulta que no lo hay.
+
+**Cierre.** Casos de reglas para `users`, `students` y `schools` · recorrido
+manual completo de alta, activación, reset y vinculación, en web y en Android ·
+medición documentada del freno ante fuerza bruta.
+
+## A05 · Cloud Functions
+
+**Módulos.** M25.
+
+**Objetivo.** Que lo que corre con Admin SDK —sin pasar por las reglas— no
+escriba de más ni avise a quien no debe. **Va antes que evaluaciones y
+calificaciones porque la calificación automática vive aquí.**
+
+**Alcance.** Las 14 funciones.
+
+**Revisar.** Idempotencia de cada una (todas se disparan con `onDocumentWritten`
+y su propia escritura las vuelve a disparar) · cómo resuelve cada una a quién
+avisar · qué pasa con un documento malformado o incompleto · las dos programadas
+y su ventana de tiempo · los reintentos y qué ocurre si una falla a la mitad ·
+el costo de las que recorren colecciones completas.
+
+**Intentar romper.** Provocar un bucle de escrituras · disparar una función con
+campos faltantes o de otro tipo · hacer que un push salga hacia un destinatario
+de otro grupo · que una función escriba sobre un documento de otro docente ·
+disparar dos escrituras casi simultáneas sobre el mismo documento y ver si la
+función se ejecuta dos veces con efecto doble.
+
+**Corregir obligatoriamente.** Toda función sin candado de idempotencia · todo
+destinatario mal resuelto · toda escritura que no verifique a quién pertenece el
+documento que va a tocar · toda función que reviente con un documento
+incompleto en lugar de salirse sin hacer nada.
+
+**Cierre.** Cada función con su condición de salida temprana documentada, su
+marca de idempotencia verificada y su comportamiento ante un documento
+incompleto probado en el emulador.
+
+## A06 · API serverless
+
+**Módulos.** M26.
+
+**Objetivo.** Que ningún endpoint con credenciales de servidor haga algo por
+quien no tiene derecho a pedirlo.
+
+**Alcance.** Los 9 endpoints activos, las 6 utilidades de `_lib/` y los 4
+pausados.
+
+**Revisar.** Que cada endpoint verifique el token **y** la propiedad del
+recurso · la configuración de CORS · el secreto del cron · la verificación de
+firma del webhook · qué información devuelven los errores · si los 4 pausados
+siguen siendo accesibles · el tamaño máximo del cuerpo aceptado.
+
+**Intentar romper.** Llamar cada endpoint sin token, con un token de otro rol y
+con el id de un recurso ajeno · disparar el cron desde fuera · falsificar el
+webhook · pedir el borrado de una cuenta que no es propia · usar el envío de
+correo como retransmisor abierto · **repetir la misma petición dos veces** y ver
+si el efecto se duplica · mandar un cuerpo enorme · llamar cien veces seguidas y
+ver si algo frena.
+
+**Corregir obligatoriamente.** Todo endpoint sin verificación de identidad ·
+todo endpoint que acepte un id sin comprobar propiedad · todo mensaje de error
+que revele si una cuenta existe · toda operación destructiva que no sea
+idempotente.
+
+**Cierre.** Cada endpoint probado con las cuatro identidades (sin token, token
+de estudiante, token de docente ajeno, token legítimo) y el resultado de cada
+celda anotado en el informe.
+
+## A07 · Estudiantes e inscripciones
+
+**Módulos.** M06, M20.
+
+**Objetivo.** Que los datos personales de menores no salgan de donde deben
+estar, y que un estudiante no pueda tocar el expediente de otro.
+
+**Alcance.** Padrón, importación desde Excel, QR y códigos de acceso, edición y
+baja, y el perfil del propio estudiante.
+
+**Revisar.** Qué campos de `students` viajan realmente al cliente sin sesión ·
+la importación desde Excel (validación, duplicados, tamaño, celdas con fórmula) ·
+el borrado de una inscripción y qué pasa con sus entregas y calificaciones · la
+baja de cuenta desde el propio perfil del estudiante.
+
+**Intentar romper.** Descargar el padrón completo de otra escuela sin sesión ·
+activar a un estudiante ajeno · cambiar el `uid` de una inscripción ya activada ·
+inscribirse a una asignatura ajena con un código de acceso adivinado · importar
+un archivo que sobrescriba inscripciones existentes · importar 500 renglones ·
+borrar la cuenta de otro estudiante.
+
+**Corregir obligatoriamente.** Toda exposición de datos personales que la
+activación no necesite · toda escritura de un estudiante sobre la inscripción de
+otro · entregas y calificaciones huérfanas tras una baja.
+
+**Cierre.** La lectura pública de `students` acotada a lo mínimo, con caso de
+prueba que lo demuestre · recorrido de alta, importación, activación y baja, con
+verificación de que no quedan residuos.
+
+## A08 · Evaluaciones
+
+**Módulos.** M08.
+
+**Objetivo.** Que un estudiante no pueda ver lo que no debe ni influir en su
+propia calificación.
+
+**Alcance.** Editor y gestor de reactivos, secciones, el runner del estudiante,
+la revisión, la calificación automática y la publicación de resultados.
+
+**Revisar.** Qué se manda al cliente cuando se abre un intento (¿viaja la
+respuesta correcta?) · dónde se controla el tiempo límite, en el cliente o en el
+servidor · el conteo de intentos · la configuración de "no publicar resultados"
+y de "sin calificación" · el orden aleatorio con secciones · qué puede escribir
+el estudiante en `respuestas` y hasta cuándo.
+
+**Intentar romper.** Leer las respuestas correctas desde el navegador antes de
+contestar · escribir la calificación del propio intento · **mover el reloj del
+dispositivo** para ganar tiempo · seguir contestando después del cierre · abrir
+**dos intentos a la vez desde dos dispositivos** · abrir el intento de otro
+estudiante · ver resultados cuando la configuración dice que no se publican ·
+leer las preguntas de una evaluación que todavía no se publica · terminar un
+intento dos veces y ver si se recalifica.
+
+**Corregir obligatoriamente.** Cualquier filtración de la respuesta correcta ·
+cualquier campo de calificación escribible por el estudiante · cualquier lectura
+de un intento ajeno · todo control de tiempo que dependa del reloj del
+dispositivo.
+
+**Cierre.** Casos de reglas para `preguntas` y `respuestas` desde las tres
+identidades (dueño, compañero, docente ajeno) · una evaluación completa recorrida
+de punta a punta, incluidos los casos de tiempo agotado y doble intento.
+
+## A09 · Calificaciones, ponderación y rúbricas
+
+**Módulos.** M10, M09.
+
+**Objetivo.** Que el número que ve la escuela sea el correcto, siempre.
+
+**Alcance.** Valor por actividad, ponderación por parcial, promedios, tabla de
+calificaciones, rúbricas y listas de cotejo.
+
+**Revisar.** La aritmética completa (redondeo, actividades sin calificar, sin
+valor, parciales vacíos) · qué pasa cuando las ponderaciones no suman 100 · el
+máximo alcanzable de una rúbrica contra el `maxCalif` de la actividad · la
+coherencia entre la tabla en pantalla, el PDF y el Excel.
+
+**Intentar romper.** Escribir una calificación desde la cuenta del estudiante ·
+ponderaciones que sumen más de 100 o menos · una rúbrica que dé más puntos que
+el máximo · una actividad "sin calificación" que se cuele al promedio · **dos
+docentes calificando la misma entrega a la vez** · **borrar una entrega ya
+calificada** y ver si la calificación sobrevive · cambiar el valor de una
+actividad después de calificada.
+
+**Corregir obligatoriamente.** Toda diferencia entre lo que muestra la pantalla
+y lo que sale exportado · toda escritura de calificación desde el estudiante ·
+todo promedio que dependa del orden en que se calificó · toda calificación
+huérfana.
+
+**Cierre.** Una asignatura de prueba con casos límite (sin entregas, sin valor,
+con rúbrica, sin calificación, 50 estudiantes) que dé el mismo número en
+pantalla, PDF y Excel.
+
+## A10 · Perfil y cuenta del docente
+
+**Módulos.** M19.
+
+**Objetivo.** Que eliminar una cuenta no deje nada atrás, y que nadie pueda
+tocar la cuenta de otro.
+
+**Alcance.** Perfil, cambio de contraseña, foto, cancelación de suscripción y
+borrado definitivo.
+
+**Revisar.** El inventario completo de lo que cuelga de un docente
+(subcolecciones, archivos en Cloudinary, cuentas de estudiantes, entregas) · qué
+borra hoy `api/account/delete.js` y qué no · la reautenticación antes de las
+acciones sensibles · qué ve el estudiante cuando su docente desaparece.
+
+**Intentar romper.** Borrar la cuenta de otro docente · cancelar la suscripción
+de otro · cambiar la contraseña sin reautenticar · dejar estudiantes activos
+apuntando a un docente que ya no existe · interrumpir el borrado a la mitad.
+
+**Corregir obligatoriamente.** Todo residuo del borrado, y que un borrado
+interrumpido se pueda reanudar en vez de quedar a medias. Si el borrado de
+Cloudinary sigue sin llaves configuradas, esa parte se marca **Bloqueada** y se
+escala (R3).
+
+**Cierre.** Un docente de prueba creado, poblado y eliminado, con verificación
+documento por documento y archivo por archivo de que no queda nada suyo.
+
+## A11 · Panel de administración
+
+**Módulos.** M04.
+
+**Objetivo.** Que solo el administrador entre, y que ninguna acción manual deje
+un estado imposible.
+
+**Alcance.** Todo el panel salvo las tablas de pagos y suscripciones, ya
+revisadas en A01 y A02.
+
+**Revisar.** El guardián `ProtectedAdmin` y la regla `isAdmin()` · qué lee
+`useAdminStats` y cuánto crece esa lectura con los años · las acciones manuales
+sobre suscripciones (cortesías, fechas a mano) · el endpoint de último acceso.
+
+**Intentar romper.** Entrar a `/Admin` con sesión de docente o de estudiante ·
+leer las estadísticas sin el rol · dejar una suscripción con fechas
+contradictorias desde el modal manual · actuar sobre un docente ya eliminado ·
+cargar el panel con mil docentes y ver qué tarda.
+
+**Corregir obligatoriamente.** Toda pantalla o consulta del panel accesible sin
+rol de administrador · toda acción que no valide el estado previo · toda lectura
+que traiga la base completa sin necesidad.
+
+**Cierre.** Cada acción del panel probada con sesión de docente y de estudiante,
+todas denegadas en cliente y servidor.
+
+## A12 · Actividades, entregas y asignaturas
+
+**Módulos.** M07, M05.
+
+**Objetivo.** Que una entrega llegue completa a su destino y solo su dueño y su
+docente la vean.
+
+**Alcance.** Ciclo de vida de una actividad y de una entrega, recursos y
+materiales, publicación programada, y el borrado en cascada de una asignatura.
+
+**Revisar.** La visibilidad de una actividad (parcial oculto, no publicada,
+programada) · qué pasa al vencer la fecha límite · la descarga masiva · el
+duplicado de asignatura · el borrado en cascada, colección por colección.
+
+**Intentar romper.** Entregar en una actividad de otra asignatura · entregar
+después del cierre · leer la entrega de un compañero · descargar el paquete de
+entregas siendo estudiante · adelantar una publicación programada · borrar una
+asignatura y dejar actividades, entregas o archivos huérfanos · **dos entregas
+simultáneas del mismo estudiante** · duplicar una asignatura con 50 estudiantes
+y 40 actividades.
+
+**Corregir obligatoriamente.** Todo acceso a entregas ajenas · toda cascada
+incompleta · toda actividad visible antes de su publicación.
+
+**Cierre.** Una asignatura de prueba creada, duplicada y borrada sin dejar
+residuos · casos de reglas para `submissions` desde las tres identidades.
+
+## A13 · Asistencia
+
+**Módulos.** M11.
+
+**Objetivo.** Que el registro oficial de asistencia sea fiel y solo lo escriba
+su docente.
+
+**Alcance.** Pase de lista, resumen acumulado, llenado automático, asuetos y
+vacaciones.
+
+**Revisar.** La coherencia entre `attendance` y `attendanceSummaries` (los
+calcula una Cloud Function) · el llenado automático y qué asume · el trato de
+días no laborables · la zona horaria de las fechas.
+
+**Intentar romper.** Pasar lista en una asignatura ajena · escribir el resumen
+directamente · pasar lista en una fecha marcada como asueto · registrar dos veces
+el mismo día · pasar lista desde dos dispositivos a la vez · un ciclo completo de
+asistencias y ver si el resumen sigue cuadrando.
+
+**Corregir obligatoriamente.** Todo desfase entre detalle y resumen · toda
+escritura de asistencia por quien no es el docente de la asignatura · toda fecha
+que cambie de día según el dispositivo.
+
+**Cierre.** Un mes de asistencias de prueba con asuetos y vacaciones, con
+resumen y exportación coincidiendo hasta el último número.
+
+## A14 · Avisos
+
+**Módulos.** M12.
+
+**Objetivo.** Que un aviso llegue exactamente a quien iba dirigido, y a nadie
+más.
+
+**Alcance.** Publicación, programación, acuse de lectura, plantillas, guardados
+y ocultos.
+
+**Revisar.** Cómo se resuelve el destinatario (asignatura, grupo, estudiante) ·
+el corte por fecha de activación del estudiante · la programación en
+`revisarProgramados` · quién puede marcar una lectura.
+
+**Intentar romper.** Leer avisos de otra asignatura · marcar la lectura de otro
+estudiante · publicar un aviso en una asignatura ajena · recibir avisos
+anteriores a la propia activación · adelantar un aviso programado · publicar HTML
+con guion dentro de un aviso.
+
+**Corregir obligatoriamente.** Todo aviso legible fuera de su asignatura · todo
+acuse escribible por un tercero · todo HTML no saneado.
+
+**Cierre.** Casos de reglas para las cinco colecciones de avisos · recorrido de
+publicación inmediata y programada, con un estudiante activado después del
+primer aviso.
+
+## A15 · Notificaciones push
+
+**Módulos.** M14.
+
+**Objetivo.** Que ninguna notificación lleve información de un grupo a otro
+teléfono.
+
+**Alcance.** Tokens, permisos, canales, preferencias, envío y enlaces profundos.
+
+**Revisar.** El ciclo de vida del token (alta, baja, limpieza de los inválidos, y
+**qué pasa al cerrar sesión**) · las preferencias por categoría y por asignatura,
+y si el servidor las respeta · qué datos viajan en el cuerpo de la notificación ·
+a dónde lleva cada enlace profundo · la bitácora.
+
+**Intentar romper.** Escribir un token en el documento de preferencias de otro ·
+recibir una notificación de una asignatura en la que no se está inscrito ·
+**cerrar sesión y seguir recibiendo** notificaciones de la cuenta anterior ·
+prestar el teléfono, entrar con otra cuenta y ver qué llega · que un enlace
+profundo abra contenido ajeno · que un opt-out sea ignorado.
+
+**Corregir obligatoriamente.** Todo dato sensible en el cuerpo de la
+notificación · todo envío que ignore la preferencia del destinatario · todo
+enlace profundo que no verifique acceso al abrirse · todo token que sobreviva al
+cierre de sesión.
+
+**Cierre.** Cada categoría probada con destinatario correcto e incorrecto ·
+reglas de `notificationSettings` verificadas · cierre de sesión probado en el
+teléfono.
+
+## A16 · Exportaciones
+
+**Módulos.** M16.
+
+**Objetivo.** Que lo que se entrega a la escuela sea correcto, y que solo salga
+sin marca de agua para quien pagó.
+
+**Alcance.** PDF, Excel, descarga de entregas, membrete y marca de agua.
+
+**Revisar.** Que el membrete tome la escuela y el docente correctos · el
+comportamiento de la marca de agua en los cuatro estados de suscripción · los
+caracteres que las fuentes de jsPDF no tienen · el guardado en Android · los
+nombres de archivo.
+
+**Intentar romper.** Exportar sin marca de agua estando en prueba · exportar
+datos de otra asignatura · un nombre con acentos o emoji que rompa el archivo ·
+**una celda de Excel que empiece con `=` y se ejecute al abrirse** (inyección de
+fórmula, con datos que escribió un estudiante) · una tabla tan larga que se
+corte · exportar un grupo de 50 con 40 actividades y ver si el navegador
+aguanta.
+
+**Corregir obligatoriamente.** Toda exportación sin marca de agua que debiera
+llevarla · toda inyección de fórmula en Excel · todo dato de un docente en el
+documento de otro · todo reporte que se corte en silencio.
+
+**Cierre.** Los reportes principales **generados y abiertos de verdad** (no solo
+generados) en los cuatro estados de suscripción, en web y en Android.
+
+## A17 · Archivos y multimedia
+
+**Módulos.** M17.
+
+**Objetivo.** Que el almacenamiento no se convierta en un depósito abierto, en
+una fuga de documentos, ni en una factura sorpresa.
+
+**Alcance.** Subida sin firma con preset, entrega, previsualización y borrado.
+
+**Revisar.** Qué permite el preset de subida sin firma (tipos, tamaños,
+carpetas) · si las URL de entrega son adivinables · el saneado del HTML del
+editor · el borrado desde el servidor · la cuota contratada y quién la paga.
+
+**Intentar romper.** Subir un archivo enorme o de un tipo no previsto · subir a
+una carpeta que no corresponde · **usar el preset desde fuera de la aplicación**,
+sin sesión, para llenar la cuenta de Alan · adivinar la URL del comprobante de
+pago de otro docente · inyectar HTML o script por el editor de texto
+enriquecido · subir un archivo con el nombre de otro para sobrescribirlo.
+
+**Corregir obligatoriamente.** Toda subida sin límite de tipo y tamaño · todo
+HTML no saneado que llegue a otra pantalla · los comprobantes de pago accesibles
+por URL sin autenticación · la falta de tope de cuota si el preset resulta
+utilizable desde fuera.
+
+**Cierre.** Límites verificados contra el preset real (no contra el código que
+lo llama) · una prueba de XSS por el editor que no pase · postura documentada
+sobre la cuota, acordada con Alan.
+
+## A18 · Calendario y agenda
+
+**Módulos.** M13.
+
+**Objetivo.** Que las fechas que ve cada quien sean las suyas y estén bien
+calculadas.
+
+**Alcance.** Eventos del docente, académicos y del estudiante, horario por
+bloques, alarmas locales y la agenda.
+
+**Revisar.** Zonas horarias y cambios de día · el solapamiento de bloques · la
+programación por zona semanal · las alarmas locales de Android · qué eventos ve
+un estudiante inscrito en varias asignaturas.
+
+**Intentar romper.** Leer o editar eventos de otro docente · crear un evento en
+una asignatura ajena · un evento a caballo entre dos días · una entrega que vence
+a las 23:59 vista desde otra zona horaria · alarmas duplicadas · un bloque de
+horario que pise a otro · un ciclo entero de eventos y ver qué tarda la agenda.
+
+**Corregir obligatoriamente.** Todo evento visible o editable fuera de su dueño ·
+todo cálculo de fecha que dependa de la zona horaria del dispositivo.
+
+**Cierre.** Casos de reglas para las cinco colecciones de calendario · una
+semana de prueba con eventos, bloques y asuetos, coherente en web y Android, con
+el dispositivo en otra zona horaria.
+
+## A19 · Navegación y guardianes de ruta
+
+**Módulos.** M21, M31 (acceso).
+
+**Objetivo.** Que escribir una dirección a mano no lleve a donde no se debe.
+
+**Alcance.** Las 28 rutas, los tres guardianes, los layouts y el botón de atrás.
+
+**Revisar.** Cada ruta contra los tres roles y contra la sesión cerrada · el
+estado intermedio mientras carga el perfil · las redirecciones · el botón físico
+de atrás con modales abiertos · el bloqueo de desplazamiento.
+
+**Intentar romper.** Entrar a cada ruta protegida con el rol equivocado y sin
+sesión · quedarse dentro después de cerrar sesión · **volver atrás con el botón
+del navegador tras cerrar sesión** y ver si la pantalla anterior sigue con datos ·
+atrapar la aplicación entre dos redirecciones · salir de un modal con el botón de
+atrás dejando el fondo bloqueado.
+
+**Corregir obligatoriamente.** Toda ruta accesible con el rol equivocado · toda
+pantalla que muestre datos mientras decide si puede mostrarlos · todo dato que
+sobreviva en pantalla al cierre de sesión.
+
+**Cierre.** Matriz completa de 28 rutas × 4 identidades, con el resultado de
+cada celda en el informe.
+
+## A20 · Aplicación Android
+
+**Módulos.** M23.
+
+**Objetivo.** Que la app haga exactamente lo mismo que la web, y que una versión
+vieja instalada no se vuelva un problema.
+
+**Alcance.** Empaquetado, permisos, plugins nativos, actualización y paridad.
+
+**Revisar.** Qué diferencias intencionales hay hoy entre app y web, y si siguen
+teniendo sentido · los permisos del manifiesto · el aviso de actualización · qué
+queda dentro del paquete (¿secretos?) · los enlaces profundos · qué versión está
+publicada en Google Play y qué manda al servidor.
+
+**Intentar romper.** Usar la versión publicada contra las reglas actuales · un
+enlace profundo hacia contenido ajeno · quedarse sin la actualización y con una
+pantalla que ya no existe · abrir la app sin red y ver qué queda a medias.
+
+**Corregir obligatoriamente.** Toda diferencia no intencional entre app y web ·
+todo permiso que la app no use · todo secreto dentro del paquete.
+
+**Cierre.** Lista de diferencias app/web documentada y justificada una por una ·
+compilación e instalación verificadas · la versión publicada probada contra las
+reglas en producción.
+
+## A21 · Correo transaccional
+
+**Módulos.** M15.
+
+**Objetivo.** Que el correo llegue a quien debe, con lo que debe, y que nadie
+pueda usarlo para mandar lo suyo.
+
+**Alcance.** Los dos caminos vivos (Brevo desde el servidor, EmailJS desde el
+cliente), las plantillas y el cron diario.
+
+**Revisar.** Quién puede disparar cada envío · qué datos personales llevan las
+plantillas · el escapado del HTML · el destinatario del cron · si EmailJS sigue
+haciendo falta.
+
+**Intentar romper.** Enviar un correo a una dirección arbitraria desde el
+endpoint · inyectar HTML por el nombre del docente o de la escuela · disparar el
+cron desde fuera · provocar un envío masivo · mandar mil peticiones y ver si
+algo frena.
+
+**Corregir obligatoriamente.** Todo envío a una dirección que no salga de la
+base · toda inyección en la plantilla · el endpoint abierto si lo está.
+
+**Cierre.** Cada plantilla revisada con datos hostiles · decisión tomada sobre
+mantener o retirar EmailJS (**es decisión de producto: escalar**).
+
+## A22 · Seguridad de datos y privacidad
+
+**Módulos.** M27.
+
+**Objetivo.** Que lo que se declaró ante Google Play y en el aviso de privacidad
+siga siendo verdad.
+
+**Alcance.** Saneado de HTML, aviso de privacidad, declaración de seguridad de
+datos, política de retención y consentimiento.
+
+**Revisar.** Qué datos se recogen de verdad hoy contra lo declarado · la
+retención de 90 días (declarada pero **sin borrado automático**) · el saneado del
+editor · dónde salen datos hacia terceros (Cloudinary, Brevo, FCM) · **el
+tratamiento de menores de edad**: quién consiente, qué se les pide y qué exige
+Google Play para una app dirigida a estudiantes.
+
+**Intentar romper.** Un guion en el HTML del editor que sobreviva al saneado ·
+recuperar datos de una cuenta ya eliminada · encontrar un dato recogido que no
+esté declarado · encontrar un dato que sale hacia un tercero sin estar declarado.
+
+**Corregir obligatoriamente.** Toda diferencia entre lo declarado y lo real ·
+todo XSS que sobreviva · **R4** (o se implementa el borrado a los 90 días o se
+corrige la declaración: **decisión de producto**) · la postura sobre
+consentimiento de menores, si resulta que falta (**decisión de producto**).
+
+**Cierre.** Tabla de datos recogidos, para qué, a dónde salen y cuánto se
+conservan, coincidiendo con lo declarado en Play y en el aviso de privacidad.
+
+## A23 · Interfaz, accesibilidad y consistencia
+
+**Módulos.** M22, M32, M31 (presentación).
+
+**Objetivo.** Que la plataforma se pueda usar completa, en cualquier pantalla y
+por cualquiera, sin que ninguna función quede fuera de alcance.
+
+**Alcance.** Componentes base, tema claro y oscuro, comportamiento responsivo,
+accesibilidad, el manual y el onboarding.
+
+**Revisar.** Las pantallas principales a 320, 375, 768 y 1280 píxeles · tema
+claro y oscuro · contraste de texto · navegación con teclado y foco visible ·
+etiquetas de los campos y de los botones de solo ícono · tamaño mínimo de las
+zonas tocables · qué se ve mientras algo carga y qué se ve cuando algo falla ·
+que el manual siga describiendo lo que la plataforma hace hoy.
+
+**Intentar romper.** Una pantalla de 320 píxeles donde un botón quede fuera o no
+se pueda tocar · un modal que no se cierre con teclado · un texto ilegible en
+tema oscuro · un formulario que no diga qué salió mal · un nombre larguísimo o un
+grupo de 50 que descuadre una tabla.
+
+**Corregir obligatoriamente.** Toda función inalcanzable en alguna pantalla ·
+todo control sin nombre accesible · todo estado de error mudo · toda
+instrucción del manual que ya no corresponda.
+
+**Cierre.** Las pantallas principales medidas en los cuatro anchos, en ambos
+temas, con evidencia · `npm run check:design` en verde.
+
+## A24 · Operación, secretos y despliegue
+
+**Módulos.** M28, M33, y la configuración de despliegue.
+
+**Objetivo.** Que nadie pueda borrar la base por accidente, que ninguna
+credencial viaje donde no debe, y que un despliegue se pueda deshacer.
+
+**Alcance.** Los 16 scripts de `seeds-db/`, los de `scripts/`, la configuración
+(`vercel.json`, `firebase.json`, `.firebaserc`, `capacitor.config.json`), las
+variables de entorno y las herramientas fuera del producto.
+
+**Revisar.** Qué scripts siguen sirviendo y cuáles son basura · a qué proyecto
+apunta cada uno y si eso se ve antes de correrlo · qué hay en `.gitignore` y qué
+se coló al repositorio (`Avatar/.env`, `google-services.json`, `.env`) · qué
+variables son públicas (`VITE_`) y cuáles no deberían serlo · el tope de 12
+funciones de Vercel y cuánto margen queda · cómo se vuelve atrás de un
+despliegue de reglas o de funciones.
+
+**Intentar romper.** Correr un script destructivo creyendo que apunta al
+emulador · encontrar una credencial en el historial de git · encontrar un secreto
+servido al navegador · agregar un endpoint y pasarse del tope de Vercel sin
+enterarse (ya pasó: producción se quedó cuatro commits atrás).
+
+**Corregir obligatoriamente.** Todo script destructivo sin confirmación explícita
+del proyecto al que apunta · toda credencial versionada · todo secreto expuesto
+al cliente · la ausencia de un procedimiento escrito de reversa.
+
+**Cierre.** Inventario de scripts con su destino (conservar, mover, borrar) ·
+inventario de secretos con dónde vive cada uno · procedimiento de reversa escrito
+y probado una vez.
+
+---
+
+# 6. Bitácora de ejecución
+
+**Estados.** `Pendiente` · `En proceso` · `Completada` · `Bloqueada` (esperando
+una decisión del Product Owner; se anota qué se preguntó).
+
+| # | Auditoría | Módulos | Riesgo | Estado | Fecha | Commit / PR |
+|---|---|---|---|---|---|---|
+| A01 | Suscripciones y candado | M02 | Crítico | **Completada** | 5-ago-2026 | `bad52d8` · [#983](https://github.com/Alan20111/evalua-facil/pull/983) |
+| A02 | Pagos | M03 | Crítico | **Completada** | 5-ago-2026 | `c95d293` · [#984](https://github.com/Alan20111/evalua-facil/pull/984) |
+| A03 | Reglas de Firestore y modelo de datos | M24 | Crítico | Pendiente | — | — |
+| A04 | Autenticación e identidad | M01, M18 | Crítico | Pendiente | — | — |
+| A05 | Cloud Functions | M25 | Crítico | Pendiente | — | — |
+| A06 | API serverless | M26 | Crítico | Pendiente | — | — |
+| A07 | Estudiantes e inscripciones | M06, M20 | Crítico | Pendiente | — | — |
+| A08 | Evaluaciones | M08 | Crítico | Pendiente | — | — |
+| A09 | Calificaciones, ponderación y rúbricas | M10, M09 | Crítico | Pendiente | — | — |
+| A10 | Perfil y cuenta del docente | M19 | Crítico | Pendiente | — | — |
+| A11 | Panel de administración | M04 | Crítico | Pendiente | — | — |
+| A12 | Actividades, entregas y asignaturas | M07, M05 | Alto | Pendiente | — | — |
+| A13 | Asistencia | M11 | Alto | Pendiente | — | — |
+| A14 | Avisos | M12 | Alto | Pendiente | — | — |
+| A15 | Notificaciones push | M14 | Alto | Pendiente | — | — |
+| A16 | Exportaciones | M16 | Alto | Pendiente | — | — |
+| A17 | Archivos y multimedia | M17 | Alto | Pendiente | — | — |
+| A18 | Calendario y agenda | M13 | Alto | Pendiente | — | — |
+| A19 | Navegación y guardianes de ruta | M21, M31 | Alto | Pendiente | — | — |
+| A20 | Aplicación Android | M23 | Alto | Pendiente | — | — |
+| A21 | Correo transaccional | M15 | Alto | Pendiente | — | — |
+| A22 | Seguridad de datos y privacidad | M27 | Alto | Pendiente | — | — |
+| A23 | Interfaz, accesibilidad y consistencia | M22, M32, M31 | Medio | Pendiente | — | — |
+| A24 | Operación, secretos y despliegue | M28, M33 | Alto | Pendiente | — | — |
+
+**Avance: 2 de 24 (8%).** Casos de prueba automatizados: **62**.
+Siguiente en la fila: **A03 · Reglas de Firestore y modelo de datos**.
+
+## Resultados de las auditorías completadas
+
+**A01 · Suscripciones** (5-ago-2026). Dos vías críticas cerradas: el docente
+podía reescribir las fechas y el plan de su propia suscripción en el mismo
+cambio que declaraba un pago, y podía crearse una suscripción a modo —incluida
+una prueba nueva cada vez que la anterior venciera—. La prueba inicial pasó a
+crearla el servidor (`onDocenteCreado`), y la barrida horaria repone la que
+falte. Suite: 37 → 48 casos.
+
+**A02 · Pagos** (5-ago-2026). Una vía de fraude crítica: un pago fabricado con
+`planId: 'anual'` y 6 meses convertía una transferencia de un mes en seis años.
+Además, acreditar un pago a la suscripción de otro y crear pagos con campos que
+no le tocan al docente. Aprobar y rechazar pasaron a ser transaccionales, lo que
+cerró cuatro formas de dejar pago y suscripción en desacuerdo. Se corrigió que
+el reenvío de un pago rechazado perdiera los meses pagados, y el comprobante
+ahora se puede adjuntar desde el primer intento. Suite: 48 → 62 casos.
+
+---
+
+# 7. Riesgos residuales abiertos
+
+Lo que una auditoría encontró y no pudo cerrar, con su causa y la propuesta
+concreta. Cada uno se cierra en la auditoría que le corresponde. **Un riesgo
+solo sale de esta tabla cuando está cerrado, no cuando se explica.**
+
+| # | Riesgo | Causa | Propuesta | Cierra en |
+|---|---|---|---|---|
+| R1 | Cualquier docente puede crear y **editar cualquier escuela** — incluida la de otro | La regla de `schools` quedó abierta desde el registro, cuando la escuela se crea sola | `create` para cualquier docente; `update` solo para el admin o para quien la creó (`creadaPor == uid`), con migración que rellene el campo | A03 |
+| R2 | El **monto** de un pago lo elige el cliente | La tarifa cambia; una regla con el precio dentro se desfasa y deja a todos sin poder pagar | Mover la tarifa a `config/payments` (ya existe, admin-only) y validarla en reglas con `get()`. Mientras tanto, el panel avisa cuando no coincide | A03 |
+| R3 | El borrado de cuenta **no borra los archivos de Cloudinary** | Faltan las llaves de API, que son de Alan | Pedir las llaves y configurarlas en Vercel; el código de borrado ya existe (`api/_lib/cloudinary.js`) | A10 — **decisión del PO** |
+| R4 | La **retención de 90 días está declarada pero no se ejecuta** | Solo existe el aviso por correo; el borrado se hace a mano | Implementar el borrado automático, o corregir la declaración para que diga lo que de verdad pasa | A22 — **decisión del PO** |
+| R5 | **No hay pruebas de interfaz ni de integración** | Nunca se construyeron | Cada auditoría deja casos de reglas; evaluar una suite de interfaz cuando el resto esté cubierto | Al cerrar A24 |
+| R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
+
+---
+
+# 8. Vigencia y re-auditoría
+
+Esto no se ejecuta una vez y se archiva. Una auditoría **caduca** cuando pasa
+cualquiera de estas cosas, y su módulo vuelve a Pendiente:
+
+- **Cambia el módulo.** Un PR que toca un módulo Crítico obliga a revisar sus
+  casos de prueba en el mismo PR. Si el cambio altera quién puede hacer qué, la
+  auditoría se repite.
+- **Cambia el modelo comercial.** Precios, planes, métodos de pago o reglas de
+  vigencia devuelven A01 y A02 a la fila.
+- **Se reactiva algo pausado.** Mercado Pago o PayPal devuelven A02 y A06.
+- **Cambia la plataforma.** Una versión mayor de Firebase, React o Capacitor
+  devuelve A03, A05 y A20.
+- **Pasa un año** desde la última ejecución de una auditoría Crítica.
+
+**Regla permanente.** Ningún PR que toque un módulo Crítico se mergea sin al
+menos un caso de prueba nuevo o actualizado, o sin una línea que explique por
+qué no hacía falta.
+
+---
+
+# 9. Anexos
+
+## A. Colecciones de Firestore
+
+| Colección | Contenido | Módulo |
+|---|---|---|
+| `schools` | Planteles registrados | M01 |
+| `users` | Docentes y administradores (+ `suscripcionHasta`) | M01, M02 |
+| `students` | Inscripciones — **lectura pública** por el QR de activación | M06 |
+| `subjects` | Asignaturas — **lectura pública** por el QR | M05 |
+| `activities` | Actividades y evaluaciones | M07, M08 |
+| `activities/{id}/preguntas` | Reactivos de una evaluación | M08 |
+| `submissions` | Entregas e intentos | M07, M08 |
+| `submissions/{id}/respuestas` | Respuestas de un intento | M08 |
+| `attendance` | Pase de lista por fecha | M11 |
+| `attendanceSummaries` | Resumen acumulado por estudiante | M11 |
+| `bancoReactivos` | Reactivos reutilizables | M08 |
+| `bancoRubricas` | Rúbricas y listas de cotejo reutilizables | M09 |
+| `resources` / `materials` | Recursos y materiales de apoyo | M07 |
+| `avisos` | Comunicados | M12 |
+| `avisoLecturas` / `avisoGuardados` / `avisoOcultos` / `avisoPlantillas` | Estado por estudiante y plantillas | M12 |
+| `plans` | Catálogo de planes (precio real del lado del servidor) | M03 |
+| `subscriptions` | Estado y vigencia de cada docente | M02 |
+| `payments` | Pagos declarados y resueltos | M03 |
+| `config` | Configuración global (datos bancarios) | M03 |
+| `events` / `academicEvents` / `studentEvents` | Calendario | M13 |
+| `horario` / `horarioBloques` | Horario semanal | M13 |
+| `asuetos` / `vacaciones` | Días no laborables | M11, M13 |
+| `notificationSettings` | Tokens de push y preferencias | M14 |
+| `notificationLog` | Bitácora de envíos | M14 |
+
+**Índices compuestos desplegados:** `activities`, `payments`, `students`,
+`submissions`, `subscriptions`.
+
+## B. Rutas
+
+| Ruta | Acceso | Módulo |
+|---|---|---|
+| `/`, `/docente` | Público / redirige según sesión | M31, M21 |
+| `/register`, `/reset-password`, `/verify-email` | Público | M01 |
+| `/alumno`, `/activate/:accessCode` | Público | M01, M06 |
+| `/privacidad`, `/privacy` | Público | M27 |
+| `/pago-resultado` | Público (retorno de pasarela) | M03 |
+| `/onboarding`, `/protect-account` | Docente autenticado | M01, M05 |
+| `/dashboard`, `/subject/:id`, `/activity/:id`, `/profile`, `/calendario`, `/notificaciones`, `/manual` | Docente (`ProtectedTeacher`) | M05–M19 |
+| `/alumno/dashboard`, `/materia/:id`, `/actividad/:id`, `/evaluacion/:id`, `/evaluacion/:id/revision`, `/notificaciones`, `/agenda`, `/perfil` | Estudiante (`ProtectedStudent`) | M07, M08, M13, M20 |
+| `/Admin` | Administrador (`ProtectedAdmin`) | M04 |
+| `*` | Redirige a `/` | M21 |
+
+## C. Servicios externos
+
+| Servicio | Para qué | Módulos | Dueño |
+|---|---|---|---|
+| Firebase (Auth, Firestore, Functions, FCM) | Cimiento completo | M24, M25, M14 | Kike |
+| Cloudinary | Todos los archivos subidos | M17 | Alan |
+| Vercel | Web y endpoints serverless (plan Hobby: tope de 12) | M26 | Kike |
+| Brevo | Correo transaccional desde el servidor | M15 | Kike |
+| EmailJS | Correo desde el cliente (camino heredado) | M15 | Kike |
+| Google Play | Distribución de la app Android | M23 | Kike |
+| Mercado Pago / PayPal | Pasarelas **pausadas** en v1.0.1 | M03 | Kike |
+| ElevenLabs / Gemini | Herramientas auxiliares, fuera del producto | M33 | Kike |
+
+## D. Observaciones del inventario
+
+Hechos anotados al levantar el censo. No son hallazgos; son cosas que conviene
+tener presentes, cada una con la auditoría que la resuelve:
+
+1. **`storage.rules` existe pero Firebase Storage no se usa** — ningún archivo
+   lo importa; todo vive en Cloudinary → **A03**.
+2. **Dos caminos vivos para el correo**, Brevo y EmailJS → **A21**.
+3. **`api/_pausado/` guarda cuatro endpoints** completos y no desplegados →
+   **A06**.
+4. **`Avatar/`, `voice-pipeline.js` y `output/` no son parte del producto** pero
+   viven en el repositorio, y `Avatar/` trae su propio `.env` → **A24**.
+5. **`docs/` acumula 18 documentos**, varios de planes ya cumplidos → **A24**.
