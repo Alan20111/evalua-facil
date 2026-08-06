@@ -1931,7 +1931,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | Fase | Auditorías (en orden) | Estado |
 |---|---|---|
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
-| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **En proceso** — A03, A04 y A05 cerradas; A06 es la siguiente |
+| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **En proceso** — las cuatro auditorías cerradas; pendiente el cierre formal de fase |
 | **F2** · Personas y su información | A07 → A17 → A10 → A11 | Pendiente |
 | **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | Pendiente |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
@@ -1949,7 +1949,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | **Completada** | 5-ago-2026 | `a4fa5fc` · [#987](https://github.com/Alan20111/evalua-facil/pull/987) |
 | A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | **Completada** | 5-ago-2026 | `631f7ec` · [#989](https://github.com/Alan20111/evalua-facil/pull/989) |
 | A05 | Cloud Functions | F1 | M25 | Crítico | **Completada** | 5-ago-2026 | `8b01f06` · [#991](https://github.com/Alan20111/evalua-facil/pull/991) |
-| A06 | API serverless | F1 | M26 | Crítico | Pendiente | — | — |
+| A06 | API serverless | F1 | M26 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
 | A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | Pendiente | — | — |
 | A08 | Evaluaciones | F3 | M08 | Crítico | Pendiente | — | — |
 | A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | Pendiente | — | — |
@@ -1969,12 +1969,31 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 5 de 24 auditorías (21%) · 1 de 7 fases cerradas.** Casos de prueba
+**Avance: 6 de 24 auditorías (25%) · 1 de 7 fases cerradas.** Casos de prueba
 automatizados: **72**. Siguiente: **A06 · API serverless**. A04 cerró R1; R8
 (lectura pública de `users`) sigue abierto y necesita el mismo escalonamiento de
 publicación que R7 — decisión del Product Owner.
 
 ## Resultados de las auditorías completadas
+
+**A06 · API serverless** (5-ago-2026, unas horas). Los 9 endpoints activos
+revisados con las cuatro identidades. Una vulnerabilidad **crítica**:
+`/api/send-email` era un **retransmisor de correo abierto**. Sin autenticación
+de ninguna clase, aceptaba destinatario, asunto y HTML libres, y los mandaba
+desde `soporte@evaluafacil.mx` — un dominio autenticado con DKIM/DMARC. O sea:
+phishing que pasa todas las comprobaciones de autenticidad, con la reputación
+del dominio de por medio y, detrás, el bloqueo de todo el correo legítimo.
+
+El CORS no protegía nada: es cosa del navegador y un script lo ignora.
+
+Ahora exige sesión **y** que el destinatario sea el correo del propio titular,
+que es la invariante real de sus dos únicos usos. El cron de recordatorios no
+pasa por ahí (usa la librería del servidor), así que no le afecta.
+
+El resto quedó en verde: `admin/last-access` comprueba el rol contra Firestore
+—no basta con traer un token—, los endpoints de cuenta y de estudiante
+verifican propiedad además de identidad, y el webhook de Mercado Pago
+revalida contra la API de MP. R12 recoge lo único que quedó pendiente.
 
 **A05 · Cloud Functions** (5-ago-2026, unas horas). Las 14 funciones revisadas
 una por una: idempotencia, resolución de destinatario, documentos incompletos y
@@ -2074,8 +2093,9 @@ solo sale de esta tabla cuando está cerrado, no cuando se explica.**
 | R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
 | R7 | **`students` se puede listar sin sesión**: nombres completos, escuela y grupo de todos los estudiantes de la plataforma — datos personales de menores. Además vuelve enumerable la recuperación de contraseña: un atacante puede buscar a quién le habilitaron el rescate y tomarle la cuenta | La activación por QR necesita leer inscripciones antes de que exista la cuenta, y las tres consultas sin sesión (login, recuperación, activación) van directas a Firestore | Mover esas tres consultas a un endpoint que resuelva con Admin SDK y devuelva solo lo indispensable; después cerrar la lectura pública. **No se puede desplegar de golpe**: la app publicada en Google Play consulta directo, y cerrar las reglas antes de que se actualice deja a los estudiantes sin poder entrar | A07 — **decisión del PO** (requiere escalonar la publicación) |
 | R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña consulta `users` por correo **antes** de iniciar sesión, así que es un `list` sin sesión | **CIERRE CONDICIONADO — aprobado por el PO el 5-ago-2026.** Se mantiene abierto a propósito y **no debe cerrarse antes** de que exista una versión del cliente —Web **y** Android— que ya no consulte `users` directamente para la recuperación de contraseña. Cerrar la regla antes rompe a todo cliente ya publicado: la app de Google Play trae esa pantalla y consulta directo. Orden obligatorio: (1) endpoint que resuelva la búsqueda por correo con Admin SDK; (2) cliente Web y Android publicados usándolo; (3) adopción confirmada; (4) recién entonces separar `get` de `list` en las reglas — el `get` lo necesita el alumno para ver a su docente, el `list` solo el panel | Cuando (1)-(3) estén hechos |
-| R10 | **Un recordatorio de entrega que cae en una corrida fallida se pierde para siempre** | `revisarProgramados` solo avisa dentro de una ventana de 35 min alrededor de la anticipación elegida; pasada esa ventana, no vuelve a intentarlo. La otra mitad de la misma función (publicar actividades) sí se autorrepara porque vuelve a barrer todo | Quitar el límite inferior: avisar en cuanto falte menos que la anticipación y el recordatorio no se haya mandado. `recordatoriosEnviados` ya impide duplicados, así que es seguro. **Cambia lo que la gente recibe** —también avisaría de actividades creadas ya dentro de la ventana, que hoy no avisan— así que es **decisión del PO** | A18 — **decisión del PO** |
-| R11 | **Las Cloud Functions no tienen forma automatizada de probarse** | La suite del proyecto solo cubre reglas de Firestore; las funciones se verifican leyendo el código | Levantar el emulador de Functions junto al de Firestore y escribir pruebas de las tres críticas: la que califica, la que espeja la vigencia y la que repone la prueba | A24 |
+| R10 | **Un recordatorio de entrega que cae en una corrida fallida se pierde para siempre** | `revisarProgramados` solo avisa dentro de una ventana de 35 min alrededor de la anticipación elegida; pasada esa ventana, no vuelve a intentarlo. La otra mitad de la misma función (publicar actividades) sí se autorrepara porque vuelve a barrer todo | **ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** El comportamiento actual **no se modifica**. Cualquier cambio en esta lógica es una **decisión funcional del Product Owner** —altera qué avisos recibe la gente, incluidos los de actividades creadas ya dentro de la ventana, que hoy no avisan— y **se evalúa después de liberar la v1.0**, no antes. La corrección técnica, cuando se autorice, es quitar el límite inferior de la ventana: `recordatoriosEnviados` ya impide duplicados | Después de la v1.0 — **decisión funcional del PO** |
+| R12 | **El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado** | `api/cron/reminders.js` comprueba la cabecera **solo si** la variable existe; si no está puesta en Vercel, cualquiera puede dispararlo y provocar un envío masivo de correo | Verificar en Vercel que `CRON_SECRET` esté configurada (Vercel la manda sola en sus crons cuando existe). No se puede comprobar desde el código, y ponerlo a fallar en cerrado rompería el cron si resulta que falta: es una **acción de operación** | A24 |
+| R11 | **Las Cloud Functions no tienen forma automatizada de probarse** | La suite del proyecto solo cubre reglas de Firestore; las 14 funciones se verifican leyendo el código | **ABIERTO — mejora prioritaria para la v1.1, decisión del PO, 5-ago-2026.** No se construye todavía: levantar el emulador de Functions es trabajo de infraestructura que no cabe en la v1.0. Cuando se haga, empezar por las tres críticas —la que califica (`onEvaluacionFinalizada`), la que espeja la vigencia (`onSuscripcionEscrita`) y la que repone la prueba (`onDocenteCreado`) | **v1.1 — prioritaria** |
 | R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | A12 |
 
 ---
