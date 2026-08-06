@@ -630,6 +630,18 @@ export default function SubscriptionsTable({ stats, onRefresh }) {
         if (tsVencimiento) data.fechaVencimiento = tsVencimiento
       }
 
+      // Una vigencia que termina antes de empezar no es un dato raro: es un
+      // candado mal puesto. `onSuscripcionEscrita` espeja `fechaVencimiento` a
+      // users/{uid}.suscripcionHasta, y las reglas comparan ese campo contra
+      // request.time — así que un año mal tecleado aquí deja al docente sin
+      // poder calificar ni pasar lista, en silencio y desde el propio panel.
+      // El modal no avisaba de nada: guardaba el rango invertido tal cual.
+      if (data.fechaInicio && data.fechaVencimiento &&
+          data.fechaVencimiento.toMillis() < data.fechaInicio.toMillis()) {
+        toast('El vencimiento no puede ser anterior al inicio — revisa las fechas', 'error')
+        return
+      }
+
       if (modal.mode === 'create') {
         // Revalida contra Firestore (no contra `stats`, que puede llevar un
         // rato sin refrescar) justo antes de crear: si en ese momento ya
