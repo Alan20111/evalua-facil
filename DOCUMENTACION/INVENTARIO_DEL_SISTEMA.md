@@ -1930,7 +1930,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | Fase | Auditorías (en orden) | Estado |
 |---|---|---|
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
-| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | Pendiente — **siguiente** |
+| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **En proceso** — A03 cerrada; A04 es la siguiente |
 | **F2** · Personas y su información | A07 → A17 → A10 → A11 | Pendiente |
 | **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | Pendiente |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
@@ -1945,7 +1945,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 |---|---|---|---|---|---|---|---|
 | A01 | Suscripciones y candado | F0 | M02 | Crítico | **Completada** | 5-ago-2026 | `bad52d8` · [#983](https://github.com/Alan20111/evalua-facil/pull/983) |
 | A02 | Pagos | F0 | M03 | Crítico | **Completada** | 5-ago-2026 | `c95d293` · [#984](https://github.com/Alan20111/evalua-facil/pull/984) |
-| A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
+| A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | **Completada** | 5-ago-2026 | `a4fa5fc` · [#987](https://github.com/Alan20111/evalua-facil/pull/987) |
 | A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | Pendiente | — | — |
 | A05 | Cloud Functions | F1 | M25 | Crítico | Pendiente | — | — |
 | A06 | API serverless | F1 | M26 | Crítico | Pendiente | — | — |
@@ -1968,10 +1968,11 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 2 de 24 auditorías (8%) · 1 de 7 fases.** Casos de prueba
-automatizados: **62**. Siguiente: **Fase 1 · Cimientos del servidor**, que
-arranca con **A03 · Reglas de Firestore y modelo de datos** y corre de largo
-hasta A06.
+**Avance: 3 de 24 auditorías (13%) · 1 de 7 fases cerradas.** Casos de prueba
+automatizados: **66**. Siguiente: **A04 · Autenticación e identidad**, que
+además arrastra dos pendientes que A03 le dejó — **R1** (`schools`, colisiona
+con el flujo de registro) y **R8** (lectura pública de `users`, colisiona con la
+pantalla de recuperar contraseña).
 
 ## Resultados de las auditorías completadas
 
