@@ -1730,12 +1730,31 @@ documento de otro · todo reporte que se corte en silencio.
 **Cierre.** Los reportes principales **generados y abiertos de verdad** (no solo
 generados) en los cuatro estados de suscripción, en web y en Android.
 
-## A17 · Archivos y multimedia — BLOQUEADA
+## A17 · Archivos y multimedia — SUSPENDIDA, CON VÍA DE EJECUCIÓN APROBADA
 
-> **Bloqueada el 5-ago-2026 por decisión del PO.** Motivo: **faltan las
-> credenciales de Cloudinary** (`CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET`)
-> para verificar el borrado real de archivos. Se reanuda **exactamente desde
-> este punto** cuando estén disponibles. No se intenta antes.
+> **Desbloqueada el 6-ago-2026 por decisión del PO.** No se espera a tener las
+> llaves en la máquina local: **A17 se ejecuta contra producción, usando las
+> credenciales que ya viven en Vercel** (opción A). Es una prueba irreversible
+> sobre datos reales, así que **no se ejecuta en cualquier sesión**: se corre en
+> una **sesión dedicada exclusivamente a A17**, con el contexto completo
+> cargado. Sigue **suspendida** hasta que esa sesión ocurra.
+>
+> **Limitación aceptada y declarada, no descubierta a medias.** Sin llaves
+> locales no se puede *enumerar* la cuenta de Cloudinary, así que **de los
+> recursos derivados de un PDF** (las miniaturas y páginas que Cloudinary genera
+> por su cuenta a partir del original) la evidencia será **indirecta**: se
+> comprueba que la URL deja de resolver, no que el derivado desapareció del
+> inventario de la cuenta. El PO aceptó esta limitación el 6-ago-2026 **a
+> condición de que quede escrita en el expediente**, que es lo que hace este
+> párrafo. Todo lo demás —originales, documentos, huérfanos, referencias— se
+> verifica de forma directa y sin excepción.
+>
+> **Qué debe hacer la sesión dedicada, en este orden:** reanudar A17 desde este
+> punto con el plan de ejecución ya definido → completar la prueba de extremo a
+> extremo → cerrar A17 → cerrar R3 y R14 si la evidencia lo permite → verificar
+> en definitiva el criterio *"sin residuos"* de A07 y A10 → actualizar este Plan
+> Maestro y la bitácora → commit y push → **y solo entonces** determinar si la
+> Fase 2 queda oficialmente cerrada. **No se empieza la Fase 3** en esa sesión.
 >
 > **Investigación ya hecha, para no repetirla al reanudar:**
 > - Las dos variables están **declaradas en `.env.example` pero ausentes de
@@ -1750,10 +1769,11 @@ generados) en los cuatro estados de suscripción, en web y en Android.
 >   regular en vez de una lista de campos — a propósito, para que un campo nuevo
 >   no se quede sin limpiar. Los `raw` conservan la extensión en el `public_id`;
 >   imagen y vídeo no.
-> - **Tener las llaves en Vercel no basta para cerrar esta auditoría**: hace
->   falta poder ejecutar el borrado y comprobar que la URL deja de resolver. Dos
->   caminos al reanudar — llaves en el entorno local, o una cuenta de prueba en
->   producción que se cree, se pueble con archivos, se borre y se verifique.
+> - **Tener las llaves solo en Vercel obliga a probar por el camino largo**:
+>   hace falta ejecutar el borrado y comprobar que la URL deja de resolver. De
+>   los dos caminos posibles —llaves en el entorno local, o una cuenta de prueba
+>   en producción que se cree, se pueble con archivos, se borre y se
+>   verifique— el PO eligió el segundo el 6-ago-2026. Es el que se ejecuta.
 > **Al reanudar, A17 cierra también R14 — es obligatorio.** Decisión del PO
 > (5-ago-2026): la verificación del ciclo de vida de los archivos y la del
 > borrado integral del docente **no son dos pruebas, son una sola de extremo a
@@ -2005,7 +2025,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 |---|---|---|
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
 | **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **Cerrada** · 5-ago-2026 — aprobada por el PO |
-| **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **En proceso** — tres cerradas; solo falta A17, Bloqueada por credenciales |
+| **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **Lista para cierre** · 5-ago-2026 — A07, A10 y A11 cerradas. Queda **pendiente únicamente la reanudación de A17**, en sesión dedicada y por la vía aprobada el 6-ago-2026 (credenciales de Vercel); con ella se cierran también R3 y R14 y el criterio de "sin residuos" de A07 y A10 |
 | **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | Pendiente |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
 | **F5** · Superficie y entorno | A19 → A20 → A23 | Pendiente |
@@ -2033,7 +2053,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A14 | Avisos | F4 | M12 | Alto | Pendiente | — | — |
 | A15 | Notificaciones push | F4 | M14 | Alto | Pendiente | — | — |
 | A16 | Exportaciones | F4 | M16 | Alto | Pendiente | — | — |
-| A17 | Archivos y multimedia | F2 | M17 | Alto | **Bloqueada** | 5-ago-2026 | Faltan credenciales de Cloudinary — ver §7 |
+| A17 | Archivos y multimedia | F2 | M17 | Alto | **Suspendida** | 6-ago-2026 | Vía aprobada (opción A: credenciales de Vercel, prueba en producción). Se ejecuta en sesión dedicada — ver su ficha |
 | A18 | Calendario y agenda | F3 | M13 | Alto | Pendiente | — | — |
 | A19 | Navegación y guardianes de ruta | F5 | M21, M31 | Alto | Pendiente | — | — |
 | A20 | Aplicación Android | F5 | M23 | Alto | Pendiente | — | — |
@@ -2044,7 +2064,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 
 **Avance: 9 de 24 auditorías (38%) · 2 de 7 fases cerradas (F0 y F1).** Casos de
 prueba automatizados: **80** (37 antes de la primera auditoría). Siguiente:
-reanudar **A17**, la única que queda de la Fase 2, en cuanto lleguen las credenciales de Cloudinary. Con ella se cierra también R14.
+reanudar **A17**, la única que queda de la Fase 2, en una **sesión dedicada** y por la vía aprobada el 6-ago-2026 (opción A: credenciales de Vercel, prueba de extremo a extremo en producción). Con ella se cierran también R3 y R14, y se verifica en definitiva el *"sin residuos"* de A07 y A10. **La Fase 2 no se declara cerrada hasta entonces.**
 
 **Dos criterios de cierre de la Fase 1 no se cumplieron al pie de la letra** y
 se cierran igual, a la vista, en vez de darlos por buenos:
@@ -2247,8 +2267,8 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | # | Riesgo | Causa | Propuesta | Cierra en |
 |---|---|---|---|---|
 | ~~R1~~ | ~~Cualquier docente puede editar cualquier escuela~~ | — | **CERRADO en A04**: se congelaron `nombre` y `shortName` para quien no pertenece a esa escuela; completar los datos que faltan, que es lo que el alta necesita, sigue permitido | ✔ |
-| R2 | El **monto** de un pago lo elige el cliente | La tarifa cambia; una regla con el precio dentro se desfasa y deja a todos sin poder pagar | Mover la tarifa a `config/payments` (ya existe, admin-only) y validarla en reglas con `get()`. Mientras tanto, las reglas la acotan a un rango sano y el panel avisa cuando no coincide. **Diferido dos veces** (A03 y A11). A11 lo revisó y no lo cerró: mover la tarifa a Firestore obliga a una pantalla nueva en el panel, a que el checkout la lea y a cambiar las reglas — y sobre todo **cambia quién controla el precio y cómo se cambia**, que es una decisión de producto, no técnica. Mientras tanto sigue acotado a un rango sano y el panel avisa cuando no coincide | **Decisión del PO**: o se acepta la mitigación actual como definitiva para la v1.0, o se agenda el movimiento de la tarifa |
-| R3 | El borrado de cuenta **no borra los archivos de Cloudinary** | Faltan las llaves de API, que son de Alan | Pedir las llaves y configurarlas. **Bloquea A17 por completo** (ver su ficha) y deja a A07 y A10 sin poder verificar "sin residuos" | A17, y con ella A07 y A10 |
+| ~~R2~~ | ~~El **monto** de un pago lo elige el cliente~~ · **MITIGADO Y ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** La tarifa **no se mueve a Firestore**: se queda definida en el código. La verificación manual del administrador contra el estado de cuenta, antes de aprobar cada pago, **se considera control suficiente** para la v1.0 — es un control humano real sobre cada peso que entra. Sale de la lista de pendientes. **Reabrir únicamente si la aprobación de pagos pasa a ser automática**, porque ahí desaparece el humano que hoy lo sostiene | ✔ |
+| R3 | El borrado de cuenta **no borra los archivos de Cloudinary** | Faltan las llaves de API en local; son de Alan | **Ya no se espera a las llaves locales**: decisión del PO del 6-ago-2026, la prueba se hace contra producción con las credenciales que ya están en Vercel (opción A), en una sesión dedicada a A17. Hasta ejecutarla, A07 y A10 siguen sin poder verificar "sin residuos" | A17, y con ella A07 y A10 |
 | R4 | La **retención de 90 días está declarada pero no se ejecuta** | Solo existe el aviso por correo; el borrado se hace a mano | Implementar el borrado automático, o corregir la declaración para que diga lo que de verdad pasa | A22 — **decisión del PO** |
 | R5 | **No hay pruebas de interfaz ni de integración** | Nunca se construyeron | Cada auditoría deja casos de reglas; evaluar una suite de interfaz cuando el resto esté cubierto | Al cerrar A24 |
 | R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
