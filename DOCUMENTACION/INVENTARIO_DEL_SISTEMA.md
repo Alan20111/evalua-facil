@@ -1,7 +1,7 @@
 # Plan Maestro de Validación — Evalúa Fácil
 
 **Documento oficial de aseguramiento de calidad** · Última actualización:
-5 de agosto de 2026 · Commit `c95d293` · Rama `main`
+6 de agosto de 2026 · Commit `fc13c4e` · Rama `main`
 
 ---
 
@@ -1730,33 +1730,67 @@ documento de otro · todo reporte que se corte en silencio.
 **Cierre.** Los reportes principales **generados y abiertos de verdad** (no solo
 generados) en los cuatro estados de suscripción, en web y en Android.
 
-## A17 · Archivos y multimedia — SUSPENDIDA, CON VÍA DE EJECUCIÓN APROBADA
+## A17 · Archivos y multimedia — EJECUTADA, EN PROCESO
 
-> **Desbloqueada el 6-ago-2026 por decisión del PO.** No se espera a tener las
-> llaves en la máquina local: **A17 se ejecuta contra producción, usando las
-> credenciales que ya viven en Vercel** (opción A). Es una prueba irreversible
-> sobre datos reales, así que **no se ejecuta en cualquier sesión**: se corre en
-> una **sesión dedicada exclusivamente a A17**, con el contexto completo
-> cargado. Sigue **suspendida** hasta que esa sesión ocurra.
+> **Ejecutada el 6-ago-2026** contra producción, por la vía que aprobó el PO
+> (opción A). La prueba de extremo a extremo se corrió completa: un docente de
+> prueba con 34 documentos en 26 colecciones, 2 subcolecciones, 12 archivos
+> reales y un alumno inscrito con dos docentes distintos, creado, poblado,
+> borrado y verificado documento por documento y archivo por archivo.
+> Commit `fc13c4e` · [PR #1002](https://github.com/Alan20111/evalua-facil/pull/1002).
 >
-> **Limitación aceptada y declarada, no descubierta a medias.** Sin llaves
-> locales no se puede *enumerar* la cuenta de Cloudinary, así que **de los
-> recursos derivados de un PDF** (las miniaturas y páginas que Cloudinary genera
-> por su cuenta a partir del original) la evidencia será **indirecta**: se
-> comprueba que la URL deja de resolver, no que el derivado desapareció del
-> inventario de la cuenta. El PO aceptó esta limitación el 6-ago-2026 **a
-> condición de que quede escrita en el expediente**, que es lo que hace este
-> párrafo. Todo lo demás —originales, documentos, huérfanos, referencias— se
-> verifica de forma directa y sin excepción.
+> **NO se marca Completada**, y la razón es una sola: **las llaves de Cloudinary
+> no están puestas en producción**. No era una suposición — el endpoint real lo
+> dijo: `{"archivos":{"total":12,"borrados":0,"configurado":false}}`, y once de
+> las doce URLs seguían entregando el archivo después de que la cuenta dejó de
+> existir. Producción corría el commit correcto, así que no es un despliegue
+> atrasado: la variable simplemente no está.
 >
-> **Qué debe hacer la sesión dedicada, en este orden:** reanudar A17 desde este
-> punto con el plan de ejecución ya definido → completar la prueba de extremo a
-> extremo → cerrar A17 → cerrar R3 y R14 si la evidencia lo permite → verificar
-> en definitiva el criterio *"sin residuos"* de A07 y A10 → actualizar este Plan
-> Maestro y la bitácora → commit y push → **y solo entonces** determinar si la
-> Fase 2 queda oficialmente cerrada. **No se empieza la Fase 3** en esa sesión.
+> Su propia ficha exige, para cerrar, que **todos los archivos desaparezcan de
+> verdad**. No desaparecieron. Con eso, dos de los cinco puntos de R14 quedan sin
+> demostrar y A17 se queda **En proceso** hasta que las llaves existan y la
+> prueba se repita. Es exactamente lo que manda §3.5: no hay estado intermedio
+> para "la hice pero no puedo demostrarlo".
 >
-> **Investigación ya hecha, para no repetirla al reanudar:**
+> **Lo que sí quedó demostrado, y no hay que repetir:**
+> - **Firestore no deja un solo residuo.** Un barrido *ciego* de las 31
+>   colecciones raíz (1 824 documentos), buscando el uid, el prefijo y cada
+>   `public_id` uno por uno, encontró **cero** huérfanos tras el borrado — solo
+>   la constancia de baja, que es intencional. Las dos subcolecciones, vacías.
+> - **La recolección de archivos es correcta y completa: 12 de 12**, incluidos
+>   los tres casos que se rompen solos — una URL dentro del HTML de las
+>   instrucciones, otra dentro de un arreglo anidado, y dos dentro de
+>   subcolecciones. Lo que falla es el borrado, no el inventario.
+> - **RO-2 se cumple.** De los dos alumnos, se eliminó la cuenta de uno: la del
+>   que se quedó sin ninguna inscripción. El que seguía con otro docente
+>   conservó la suya, y su inscripción con el otro docente quedó intacta.
+> - **El editor de texto enriquecido no es una vía de XSS.** 18 payloads contra
+>   la configuración real del saneador; **0 sobrevivieron**.
+> - **El preset sin firmar está más acotado de lo que se temía**: tope real de
+>   10 MB, los `.exe` rechazados, y Cloudinary no permite sobrescribir el
+>   archivo de nadie sin firma. Un `.html` con `<script>` sí se sube, pero se
+>   entrega con `Content-Disposition: attachment` y no ejecuta.
+>
+> **Lo que falta para cerrarla** (nada de esto necesita rediseño, solo la
+> credencial): poner `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` en Vercel
+> —son de Alan, ver §1.8—, correr
+> `seeds-db/purgar-cloudinary-pendientes.js` para vaciar los **28 archivos** que
+> ya están anotados esperando escoba, y repetir esta misma prueba comprobando
+> que las URLs dejan de resolver.
+>
+> **La limitación de evidencia que el PO aceptó el 6-ago-2026 resultó menos
+> grave de lo previsto.** Se temía no poder decir nada sobre los recursos que
+> Cloudinary deriva de un PDF, por no poder enumerar la cuenta. En la práctica
+> se resolvió por otro camino: las páginas rasterizadas se **materializaron a
+> propósito antes del borrado** (`pg_1`, `pg_2`) y quedaron como URLs
+> concretas que se pueden interrogar una por una. La evidencia sigue siendo
+> indirecta —se comprueba que la URL deja de entregar, no que el derivado salió
+> del inventario— pero deja de ser un hueco: hay un hecho reproducible en su
+> lugar. Dato del camino: el PDF **original** ya devolvía 401 antes de borrar
+> nada, porque la cuenta tiene desactivada la entrega de PDF; el contenido del
+> documento viaja al alumno por esas páginas derivadas, no por el `.pdf`.
+>
+> **Investigación previa, ya confirmada en la ejecución:**
 > - Las dos variables están **declaradas en `.env.example` pero ausentes de
 >   `.env`**. Las públicas (`VITE_CLOUDINARY_CLOUD_NAME`,
 >   `VITE_CLOUDINARY_UPLOAD_PRESET`) sí están.
@@ -1769,30 +1803,22 @@ generados) en los cuatro estados de suscripción, en web y en Android.
 >   regular en vez de una lista de campos — a propósito, para que un campo nuevo
 >   no se quede sin limpiar. Los `raw` conservan la extensión en el `public_id`;
 >   imagen y vídeo no.
-> - **Tener las llaves solo en Vercel obliga a probar por el camino largo**:
->   hace falta ejecutar el borrado y comprobar que la URL deja de resolver. De
->   los dos caminos posibles —llaves en el entorno local, o una cuenta de prueba
->   en producción que se cree, se pueble con archivos, se borre y se
->   verifique— el PO eligió el segundo el 6-ago-2026. Es el que se ejecuta.
-> **Al reanudar, A17 cierra también R14 — es obligatorio.** Decisión del PO
-> (5-ago-2026): la verificación del ciclo de vida de los archivos y la del
-> borrado integral del docente **no son dos pruebas, son una sola de extremo a
-> extremo**. Se crea un docente de prueba, se le puebla con asignaturas,
-> alumnos, entregas, evaluaciones y archivos, se borra, y esa única prueba
-> debe demostrar **a la vez**:
-> 1. que **todos los archivos** desaparecen de verdad;
-> 2. que **no quedan documentos huérfanos** en ninguna de las 15 colecciones;
-> 3. que **no quedan referencias rotas** desde lo que sobrevive;
-> 4. que **no permanece ningún recurso accesible** por URL;
-> 5. que **RO-2 sigue cumpliéndose** — el alumno compartido con otro docente
->    conserva su cuenta.
+> **A17 cierra también R14 — es obligatorio.** Decisión del PO (5-ago-2026): la
+> verificación del ciclo de vida de los archivos y la del borrado integral del
+> docente **no son dos pruebas, son una sola de extremo a extremo**. Esa prueba
+> ya se corrió el 6-ago-2026 y este es su resultado, punto por punto:
 >
-> A17 no puede marcarse Completada sin esa prueba.
+> | # | Debe demostrar | 6-ago-2026 |
+> |---|---|---|
+> | 1 | Que **todos los archivos** desaparecen de verdad | ❌ **0 de 12 borrados** — faltan las llaves |
+> | 2 | Que **no quedan documentos huérfanos** | ✔ 0 en las 31 colecciones, por barrido ciego |
+> | 3 | Que **no quedan referencias rotas** desde lo que sobrevive | ✔ nada sobrevive que apunte al docente |
+> | 4 | Que **no permanece ningún recurso accesible** por URL | ❌ 11 de 12 URLs siguen entregando |
+> | 5 | Que **RO-2 sigue cumpliéndose** | ✔ el alumno compartido conservó cuenta e inscripción |
 >
-> - **Lo que sí se puede auditar sin las llaves** (por si se decide partirla):
->   los límites reales del preset sin firma —cualquiera con su nombre, que viaja
->   en el bundle, puede subir a la cuenta—, la adivinabilidad de las URL de
->   comprobantes, y el XSS por el editor de texto enriquecido.
+> Tres de cinco. Los dos que faltan son el mismo hecho —los archivos siguen
+> ahí— y dependen de una credencial, no de una corrección. **A17 no puede
+> marcarse Completada, y R14 no puede cerrarse, hasta que esos dos pasen.**
 
 **Módulos.** M17.
 
@@ -2025,7 +2051,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 |---|---|---|
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
 | **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **Cerrada** · 5-ago-2026 — aprobada por el PO |
-| **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **Lista para cierre** · 5-ago-2026 — A07, A10 y A11 cerradas. Queda **pendiente únicamente la reanudación de A17**, en sesión dedicada y por la vía aprobada el 6-ago-2026 (credenciales de Vercel); con ella se cierran también R3 y R14 y el criterio de "sin residuos" de A07 y A10 |
+| **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **En proceso** — A07, A10 y A11 cerradas; **A17 ejecutada el 6-ago-2026 pero no cerrada**: faltan las llaves de Cloudinary en producción (R3). La fase **no se declara cerrada** hasta que A17 pase sus cinco puntos |
 | **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | Pendiente |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
 | **F5** · Superficie y entorno | A19 → A20 → A23 | Pendiente |
@@ -2053,7 +2079,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A14 | Avisos | F4 | M12 | Alto | Pendiente | — | — |
 | A15 | Notificaciones push | F4 | M14 | Alto | Pendiente | — | — |
 | A16 | Exportaciones | F4 | M16 | Alto | Pendiente | — | — |
-| A17 | Archivos y multimedia | F2 | M17 | Alto | **Suspendida** | 6-ago-2026 | Vía aprobada (opción A: credenciales de Vercel, prueba en producción). Se ejecuta en sesión dedicada — ver su ficha |
+| A17 | Archivos y multimedia | F2 | M17 | Alto | **En proceso** | 6-ago-2026 | `fc13c4e` · [#1002](https://github.com/Alan20111/evalua-facil/pull/1002) — ejecutada de extremo a extremo; no cierra porque las llaves de Cloudinary no están en producción (R3) |
 | A18 | Calendario y agenda | F3 | M13 | Alto | Pendiente | — | — |
 | A19 | Navegación y guardianes de ruta | F5 | M21, M31 | Alto | Pendiente | — | — |
 | A20 | Aplicación Android | F5 | M23 | Alto | Pendiente | — | — |
@@ -2064,7 +2090,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 
 **Avance: 9 de 24 auditorías (38%) · 2 de 7 fases cerradas (F0 y F1).** Casos de
 prueba automatizados: **80** (37 antes de la primera auditoría). Siguiente:
-reanudar **A17**, la única que queda de la Fase 2, en una **sesión dedicada** y por la vía aprobada el 6-ago-2026 (opción A: credenciales de Vercel, prueba de extremo a extremo en producción). Con ella se cierran también R3 y R14, y se verifica en definitiva el *"sin residuos"* de A07 y A10. **La Fase 2 no se declara cerrada hasta entonces.**
+**A17 quedó ejecutada el 6-ago-2026 pero no cerrada.** Su prueba de extremo a extremo se corrió completa y pasó 3 de sus 5 puntos; los 2 que faltan son el mismo hecho —los archivos siguen en Cloudinary— y dependen de una credencial que no está en Vercel (R3), no de una corrección pendiente. **La Fase 2 no se declara cerrada.** Lo único que falta para cerrarla cabe en una frase: poner las dos llaves de Cloudinary, correr la escoba y repetir la prueba.
 
 **Dos criterios de cierre de la Fase 1 no se cumplieron al pie de la letra** y
 se cierran igual, a la vista, en vez de darlos por buenos:
@@ -2079,6 +2105,50 @@ se cierran igual, a la vista, en vez de darlos por buenos:
   tendría que administrar esa tarifa.
 
 ## Resultados de las auditorías completadas
+
+**A17 · Archivos y multimedia** (6-ago-2026, unas horas). Ejecutada contra
+producción con un docente de prueba real, y **no cerrada**.
+
+El hallazgo es el que nadie quería: **las llaves de Cloudinary no están puestas
+en Vercel**. Se venía trabajando sobre el supuesto contrario. No hubo que
+deducirlo — el endpoint lo dijo con todas sus letras
+(`"configurado":false`, 12 archivos sin borrar), y once de esas doce URLs
+seguían entregando el archivo después de que la cuenta dejó de existir.
+Producción corría el commit correcto, así que tampoco era un despliegue viejo.
+
+Lo que sí se corrigió es más interesante que la credencial que falta, porque
+convertía un problema temporal en uno permanente: **la lista de archivos que no
+se pudieron borrar solo se escribía en el log de Vercel**. Ese log se rota en
+horas, y los documentos de Firestore que guardaban esas URLs ya no existen —son
+justamente los que se acaban de borrar—. Pasado ese rato, un archivo huérfano
+se vuelve *imposible de encontrar*: nadie puede saber que existe, de quién era,
+ni cuál es su `public_id` para borrarlo. Ocupa cuota, que paga Alan, para
+siempre y sin que nadie sepa cuánta. Ahora la constancia se escribe en
+`archivosPendientes` **antes** de que esa información deje de existir, y
+`seeds-db/purgar-cloudinary-pendientes.js` es la escoba que la vacía. La fuga
+tenía la misma forma en los tres endpoints que borran archivos, no solo en el
+de la cuenta del docente.
+
+Lo que quedó demostrado y no hay que repetir: **Firestore no deja un solo
+residuo**. Un barrido *ciego* de las 31 colecciones raíz —sin preguntarle al
+endpoint qué colecciones creía tocar, que es la única forma de encontrar lo que
+nadie anticipó— no halló ningún huérfano. La recolección de archivos fue de
+**12 de 12**, incluidas una URL dentro de HTML, otra dentro de un arreglo
+anidado y dos dentro de subcolecciones. **RO-2 se cumple**: de dos alumnos se
+eliminó la cuenta de uno, la del que se quedó sin ninguna inscripción. Y el
+editor de texto enriquecido resistió **18 payloads de XSS sin que sobreviviera
+ninguno**.
+
+De paso, dos cosas menores: un token corrupto devolvía HTTP 500 con el mensaje
+interno de la librería de Firebase (ahora 401), y los enlaces del editor con
+`target="_blank"` salían sin `rel="noopener"`.
+
+Dos riesgos nuevos, ninguno corregible desde el código sin decisión ajena:
+**R16** (el preset sin firmar deja subir a cualquiera, sin sesión y a la carpeta
+que quiera — es de Alan) y **R17** (el atributo `style` permite un pixel de
+rastreo; quitarlo cambiaría lo que ya escribieron los docentes, así que se
+pregunta antes). Suite: 80 casos, sin cambios — la corrección vive en un
+endpoint, no en las reglas, y su evidencia es la ejecución en producción.
 
 **A11 · Panel de administración** (5-ago-2026, unas horas). Última auditoría
 ejecutable de la Fase 2.
@@ -2123,11 +2193,19 @@ tenía regla, así que Firestore la denegaba por omisión, y el panel la lee con
 `.catch` que se tragaba el error. Todo el trabajo de dejar rastro no servía de
 nada, y en silencio.
 
-**Lo que no se pudo verificar** queda en R14: el borrado completo no se ejecutó
-de punta a punta. Se revisó por inspección y con casos de reglas, pero la prueba
-que pide su ficha —crear un docente, poblarlo, borrarlo y comprobar documento
-por documento— necesita lo mismo que A17: poder ejecutar un borrado real.
-Suite: 77 → 80 casos.
+**Lo que no se pudo verificar** quedó en R14: el borrado completo no se había
+ejecutado de punta a punta. Se revisó por inspección y con casos de reglas, pero
+la prueba que pide su ficha —crear un docente, poblarlo, borrarlo y comprobar
+documento por documento— necesitaba lo mismo que A17: poder ejecutar un borrado
+real. Suite: 77 → 80 casos.
+
+> **Actualización del 6-ago-2026 (A17).** Esa prueba ya se corrió. **La mitad de
+> Firestore del criterio "sin residuos" queda verificada en definitiva**, y no
+> por inspección: un barrido ciego de las 31 colecciones raíz, tras borrar un
+> docente de prueba poblado, encontró **cero** documentos huérfanos y cero
+> referencias rotas, y RO-2 se cumplió. **La mitad de los archivos sigue sin
+> verificar**: los de Cloudinary no se borraron porque faltan las llaves (R3).
+> Lo mismo vale para A07.
 
 **A07 · Estudiantes e inscripciones** (5-ago-2026, unas horas). Dos defectos
 corregidos, uno de ellos con datos que **volvían solos**.
@@ -2268,7 +2346,7 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 |---|---|---|---|---|
 | ~~R1~~ | ~~Cualquier docente puede editar cualquier escuela~~ | — | **CERRADO en A04**: se congelaron `nombre` y `shortName` para quien no pertenece a esa escuela; completar los datos que faltan, que es lo que el alta necesita, sigue permitido | ✔ |
 | ~~R2~~ | ~~El **monto** de un pago lo elige el cliente~~ · **MITIGADO Y ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** La tarifa **no se mueve a Firestore**: se queda definida en el código. La verificación manual del administrador contra el estado de cuenta, antes de aprobar cada pago, **se considera control suficiente** para la v1.0 — es un control humano real sobre cada peso que entra. Sale de la lista de pendientes. **Reabrir únicamente si la aprobación de pagos pasa a ser automática**, porque ahí desaparece el humano que hoy lo sostiene | ✔ |
-| R3 | El borrado de cuenta **no borra los archivos de Cloudinary** | Faltan las llaves de API en local; son de Alan | **Ya no se espera a las llaves locales**: decisión del PO del 6-ago-2026, la prueba se hace contra producción con las credenciales que ya están en Vercel (opción A), en una sesión dedicada a A17. Hasta ejecutarla, A07 y A10 siguen sin poder verificar "sin residuos" | A17, y con ella A07 y A10 |
+| R3 | El borrado de cuenta **no borra los archivos de Cloudinary** · **CONFIRMADO EN PRODUCCIÓN, 6-ago-2026** | Las llaves **no están puestas en Vercel**. Ya no es una sospecha: el endpoint real respondió `configurado:false` y dejó los 12 archivos de la prueba, 11 de ellos todavía descargables por URL después de que la cuenta dejó de existir | **Poner `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` en Vercel** (son de Alan, §1.8), correr `seeds-db/purgar-cloudinary-pendientes.js` para vaciar los 28 archivos ya anotados, y repetir la prueba de A17 comprobando que las URLs dejan de resolver. Mientras tanto la fuga ya no es invisible: A17 hizo que cada archivo no borrado quede anotado en `archivosPendientes` | A17, y con ella R14, A07 y A10 |
 | R4 | La **retención de 90 días está declarada pero no se ejecuta** | Solo existe el aviso por correo; el borrado se hace a mano | Implementar el borrado automático, o corregir la declaración para que diga lo que de verdad pasa | A22 — **decisión del PO** |
 | R5 | **No hay pruebas de interfaz ni de integración** | Nunca se construyeron | Cada auditoría deja casos de reglas; evaluar una suite de interfaz cuando el resto esté cubierto | Al cerrar A24 |
 | R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
@@ -2276,11 +2354,13 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña consulta `users` por correo **antes** de iniciar sesión, así que es un `list` sin sesión | **CIERRE CONDICIONADO — aprobado por el PO el 5-ago-2026.** Se mantiene abierto a propósito y **no debe cerrarse antes** de que exista una versión del cliente —Web **y** Android— que ya no consulte `users` directamente para la recuperación de contraseña. Cerrar la regla antes rompe a todo cliente ya publicado: la app de Google Play trae esa pantalla y consulta directo. Orden obligatorio: (1) endpoint que resuelva la búsqueda por correo con Admin SDK; (2) cliente Web y Android publicados usándolo; (3) adopción confirmada; (4) recién entonces separar `get` de `list` en las reglas — el `get` lo necesita el alumno para ver a su docente, el `list` solo el panel | Cuando (1)-(3) estén hechos |
 | R10 | **Un recordatorio de entrega que cae en una corrida fallida se pierde para siempre** | `revisarProgramados` solo avisa dentro de una ventana de 35 min alrededor de la anticipación elegida; pasada esa ventana, no vuelve a intentarlo. La otra mitad de la misma función (publicar actividades) sí se autorrepara porque vuelve a barrer todo | **ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** El comportamiento actual **no se modifica**. Cualquier cambio en esta lógica es una **decisión funcional del Product Owner** —altera qué avisos recibe la gente, incluidos los de actividades creadas ya dentro de la ventana, que hoy no avisan— y **se evalúa después de liberar la v1.0**, no antes. La corrección técnica, cuando se autorice, es quitar el límite inferior de la ventana: `recordatoriosEnviados` ya impide duplicados | Después de la v1.0 — **decisión funcional del PO** |
 | R15 | **El panel lee ocho colecciones completas en cada carga** | `useAdminStats` trae `users`, `students`, `subscriptions`, `payments`, `plans`, `schools`, `subjects` y `bajas` enteras. Hoy funciona; crece linealmente con la plataforma y `students` es la que más crece. No es un problema de seguridad sino de costo y de tiempo de carga | Contadores agregados que una Cloud Function mantenga, y traer el detalle solo de la tabla que se está mirando. Descubierto en A11 | A24 |
-| R14 | **El borrado de cuenta de un docente nunca se ha ejecutado de punta a punta** | A10 lo revisó por inspección y corrigió lo que encontró, pero la verificación que pide su ficha necesita poder correr un borrado real — la misma llave que bloquea A17 | **CIERRE OBLIGATORIO EN A17 — decisión del PO, 5-ago-2026.** No es solo un riesgo abierto: A17 **no puede darse por Completada** sin cerrarlo. La verificación del ciclo de vida de los archivos y la del borrado integral del docente se hacen en **una única prueba de extremo a extremo** (ver la ficha de A17 para los cinco puntos que debe demostrar a la vez). Hasta entonces, las 15 colecciones que toca el endpoint están respaldadas por lectura de código, no por ejecución | **A17 — obligatorio** |
+| R14 | **El borrado de cuenta de un docente nunca se ha ejecutado de punta a punta** · **YA SE EJECUTÓ (6-ago-2026); cierra al 60 %** | Se corrió la prueba única de extremo a extremo que pedía la ficha de A17. **Pasan 3 de sus 5 puntos**: cero documentos huérfanos (barrido ciego de las 31 colecciones), cero referencias rotas y RO-2 cumplido. **Fallan los otros 2**, que son el mismo hecho: los archivos siguen en Cloudinary y 11 de 12 URLs todavía entregan | Ya no hace falta diseñar nada ni volver a poblar de cero: el guion, los scripts y el barrido están descritos en la ficha de A17. Falta **solo la credencial de R3** y repetir la prueba. Las 15 colecciones que toca el endpoint ya **no** están respaldadas por lectura de código: están respaldadas por una ejecución real | **A17 — obligatorio** |
 | R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** · **Se corrige en el módulo dueño de cada dato, no en la baja.** Decisión del PO (5-ago-2026): A07 **no** debe parchearlo desde su lado. Un remiendo en la baja del estudiante trataría el síntoma —limpiar de paso datos de avisos y de calendario— y dejaría intacta la causa: colecciones cuya regla de borrado depende de un documento que ya no existe. Se arregla donde viven esos datos, con su modelo de propiedad revisado | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). Y los mapas `presentes` de cada columna de asistencia conservan la llave del alumno, igual que pasaba con `activities.extensiones` antes de corregirse. Además, la baja de cuenta del propio estudiante no borra sus `studentEvents` | Limpiar en la baja lo que todavía tiene dueño (mapas de asistencia y `studentEvents`), y para los avisos huérfanos decidir entre darle al docente permiso de borrarlos o una limpieza programada. Descubierto en A07; toca colecciones de avisos y calendario | A14 (avisos) y A18 (calendario) |
 | R12 | **El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado** | `api/cron/reminders.js` comprueba la cabecera **solo si** la variable existe; si no está puesta en Vercel, cualquiera puede dispararlo y provocar un envío masivo de correo | Verificar en Vercel que `CRON_SECRET` esté configurada (Vercel la manda sola en sus crons cuando existe). No se puede comprobar desde el código, y ponerlo a fallar en cerrado rompería el cron si resulta que falta: es una **acción de operación** | A24 |
 | R11 | **Las Cloud Functions no tienen forma automatizada de probarse** | La suite del proyecto solo cubre reglas de Firestore; las 14 funciones se verifican leyendo el código | **ABIERTO — mejora prioritaria para la v1.1, decisión del PO, 5-ago-2026.** No se construye todavía: levantar el emulador de Functions es trabajo de infraestructura que no cabe en la v1.0. Cuando se haga, empezar por las tres críticas —la que califica (`onEvaluacionFinalizada`), la que espeja la vigencia (`onSuscripcionEscrita`) y la que repone la prueba (`onDocenteCreado`) | **v1.1 — prioritaria** |
 | R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | A12 |
+| R16 | **Cualquiera puede subir archivos a la cuenta de Cloudinary de Alan, sin sesión y a la carpeta que quiera** | El preset sin firmar es, por definición, público: su nombre viaja en el bundle del navegador. Comprobado desde fuera de la aplicación el 6-ago-2026 — se subió sin ninguna sesión, y eligiendo carpeta libremente, incluida `evalua-facil/comprobantes`, donde viven los comprobantes de pago. Lo que **sí** está acotado: tope de 10 MB, extensiones peligrosas rechazadas (`.exe`), y no se puede sobrescribir el archivo de nadie | Cloudinary no permite cerrar esto sin pasar a subida firmada, que es un cambio de arquitectura (un endpoint que firme cada subida). Alternativas más baratas: acotar el preset a las carpetas reales y poner alerta de cuota. **Decisión de Alan** (§1.8), que es quien paga la cuota y controla el preset | A17, con postura escrita de Alan |
+| R17 | **El editor de texto enriquecido permite un pixel de rastreo** | El atributo `style` está en la lista blanca del saneador, y `background:url(https://…)` sobrevive. No ejecuta código —18 payloads de XSS, 0 sobrevivieron— pero hace que el navegador de cada alumno llame a un servidor externo al abrir la actividad, revelando su IP y el momento en que la leyó | Quitar `style` de `ALLOWED_ATTR`, o filtrar las `url()` dentro del estilo. **Se dejó sin corregir a propósito**: quitar `style` cambia cómo se ve lo que los docentes ya escribieron (color, tamaño, resaltados), y eso es visible para el usuario — regla 1.7, se pregunta antes | **Decisión del PO** |
 
 ---
 
