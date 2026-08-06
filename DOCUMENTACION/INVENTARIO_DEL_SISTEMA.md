@@ -1739,12 +1739,26 @@ generados) en los cuatro estados de suscripción, en web y en Android.
 > borrado y verificado documento por documento y archivo por archivo.
 > Commit `fc13c4e` · [PR #1002](https://github.com/Alan20111/evalua-facil/pull/1002).
 >
-> **NO se marca Completada**, y la razón es una sola: **las llaves de Cloudinary
-> no están puestas en producción**. No era una suposición — el endpoint real lo
+> **NO se marcó Completada**, y la razón fue una sola: **las llaves de Cloudinary
+> no estaban puestas en producción**. No era una suposición — el endpoint real lo
 > dijo: `{"archivos":{"total":12,"borrados":0,"configurado":false}}`, y once de
 > las doce URLs seguían entregando el archivo después de que la cuenta dejó de
-> existir. Producción corría el commit correcto, así que no es un despliegue
-> atrasado: la variable simplemente no está.
+> existir. Producción corría el commit correcto, así que no fue un despliegue
+> atrasado: la variable simplemente no estaba.
+>
+> **Las llaves se pusieron el 6-ago-2026 por la tarde** (commits `20ec1a4` y
+> `034cf19`). Estado verificado ese mismo día:
+> - `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` están en el entorno
+>   **Production** de Vercel, marcadas *Sensitive* y **sin prefijo `VITE_`** —
+>   con ese prefijo el secreto viajaría dentro del bundle público.
+> - Las mismas llaves están en el `.env` local, así que la vía barata de
+>   verificación (sin ensuciar producción) ya está disponible.
+> - **Son válidas**: `GET /v1_1/dkjakg4hc/ping` con esas credenciales responde
+>   `{"status":"ok"}`. Lo que faltaba era la variable, no la llave.
+>
+> **Sigue sin marcarse Completada**: tener la llave no es haber repetido la
+> prueba. Falta correr la purga y volver a ejecutar el borrado comprobando que
+> las URLs dejan de resolver.
 >
 > Su propia ficha exige, para cerrar, que **todos los archivos desaparezcan de
 > verdad**. No desaparecieron. Con eso, dos de los cinco puntos de R14 quedan sin
@@ -1771,12 +1785,20 @@ generados) en los cuatro estados de suscripción, en web y en Android.
 >   archivo de nadie sin firma. Un `.html` con `<script>` sí se sube, pero se
 >   entrega con `Content-Disposition: attachment` y no ejecuta.
 >
-> **Lo que falta para cerrarla** (nada de esto necesita rediseño, solo la
-> credencial): poner `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` en Vercel
-> —son de Alan, ver §1.8—, correr
-> `seeds-db/purgar-cloudinary-pendientes.js` para vaciar los **28 archivos** que
-> ya están anotados esperando escoba, y repetir esta misma prueba comprobando
-> que las URLs dejan de resolver.
+> **Lo que falta para cerrarla** (nada de esto necesita rediseño; la credencial,
+> que era el bloqueo, ya está desde el 6-ago-2026): correr
+> `seeds-db/purgar-cloudinary-pendientes.js` para vaciar los archivos que ya
+> están anotados esperando escoba, y repetir esta misma prueba comprobando que
+> las URLs dejan de resolver.
+>
+> **Foto de la cuenta el 6-ago-2026, ya con las llaves** (enumeración por la
+> Admin API, que antes no se podía hacer): **344 archivos · 302 MB**. De esos,
+> **57 (~164 MB) son los `samples/`** que Cloudinary regala con cada cuenta y no
+> los subió la app — la factura real de Evalúa Fácil es bastante menor de lo que
+> sugiere el bruto. El grueso propio está en `submissions` (147), `profiles`
+> (30) y `avatars` (24). Quedan además **5 archivos `zztest*`**, restos de las
+> pruebas de esta auditoría, que la purga por `archivosPendientes` no recoge
+> porque nunca se anotaron ahí: hay que borrarlos a mano al cerrar.
 >
 > **La limitación de evidencia que el PO aceptó el 6-ago-2026 resultó menos
 > grave de lo previsto.** Se temía no poder decir nada sobre los recursos que
@@ -1791,9 +1813,10 @@ generados) en los cuatro estados de suscripción, en web y en Android.
 > documento viaja al alumno por esas páginas derivadas, no por el `.pdf`.
 >
 > **Investigación previa, ya confirmada en la ejecución:**
-> - Las dos variables están **declaradas en `.env.example` pero ausentes de
->   `.env`**. Las públicas (`VITE_CLOUDINARY_CLOUD_NAME`,
->   `VITE_CLOUDINARY_UPLOAD_PRESET`) sí están.
+> - Las dos variables estaban **declaradas en `.env.example` pero ausentes de
+>   `.env`**; desde el 6-ago-2026 están en `.env` y en Vercel. Las públicas
+>   (`VITE_CLOUDINARY_CLOUD_NAME`, `VITE_CLOUDINARY_UPLOAD_PRESET`) siempre
+>   estuvieron.
 > - `api/_lib/cloudinary.js` ya está escrito para no mentir: sin las llaves,
 >   `borrarAssets` devuelve `configurado: false` y la lista de `pendientes` en
 >   vez de fingir que limpió. El borrado firma con SHA-1
@@ -1810,7 +1833,7 @@ generados) en los cuatro estados de suscripción, en web y en Android.
 >
 > | # | Debe demostrar | 6-ago-2026 |
 > |---|---|---|
-> | 1 | Que **todos los archivos** desaparecen de verdad | ❌ **0 de 12 borrados** — faltan las llaves |
+> | 1 | Que **todos los archivos** desaparecen de verdad | ❌ **0 de 12 borrados** — faltaban las llaves |
 > | 2 | Que **no quedan documentos huérfanos** | ✔ 0 en las 31 colecciones, por barrido ciego |
 > | 3 | Que **no quedan referencias rotas** desde lo que sobrevive | ✔ nada sobrevive que apunte al docente |
 > | 4 | Que **no permanece ningún recurso accesible** por URL | ❌ 11 de 12 URLs siguen entregando |
@@ -2051,7 +2074,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 |---|---|---|
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
 | **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **Cerrada** · 5-ago-2026 — aprobada por el PO |
-| **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **En proceso** — A07, A10 y A11 cerradas; **A17 ejecutada el 6-ago-2026 pero no cerrada**: faltan las llaves de Cloudinary en producción (R3). La fase **no se declara cerrada** hasta que A17 pase sus cinco puntos |
+| **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **En proceso** — A07, A10 y A11 cerradas; **A17 ejecutada el 6-ago-2026 pero no cerrada**: faltaban las llaves de Cloudinary (R3), ya puestas y verificadas ese mismo día. Falta purgar y repetir la prueba. La fase **no se declara cerrada** hasta que A17 pase sus cinco puntos |
 | **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | Pendiente |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
 | **F5** · Superficie y entorno | A19 → A20 → A23 | Pendiente |
@@ -2079,7 +2102,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A14 | Avisos | F4 | M12 | Alto | Pendiente | — | — |
 | A15 | Notificaciones push | F4 | M14 | Alto | Pendiente | — | — |
 | A16 | Exportaciones | F4 | M16 | Alto | Pendiente | — | — |
-| A17 | Archivos y multimedia | F2 | M17 | Alto | **En proceso** | 6-ago-2026 | `fc13c4e` · [#1002](https://github.com/Alan20111/evalua-facil/pull/1002) — ejecutada de extremo a extremo; no cierra porque las llaves de Cloudinary no están en producción (R3) |
+| A17 | Archivos y multimedia | F2 | M17 | Alto | **En proceso** | 6-ago-2026 | `fc13c4e` · [#1002](https://github.com/Alan20111/evalua-facil/pull/1002) — ejecutada de extremo a extremo; no cerró porque faltaban las llaves de Cloudinary (R3). **Llaves puestas y verificadas el 6-ago-2026**: falta purgar y repetir la prueba |
 | A18 | Calendario y agenda | F3 | M13 | Alto | Pendiente | — | — |
 | A19 | Navegación y guardianes de ruta | F5 | M21, M31 | Alto | Pendiente | — | — |
 | A20 | Aplicación Android | F5 | M23 | Alto | Pendiente | — | — |
@@ -2090,7 +2113,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 
 **Avance: 9 de 24 auditorías (38%) · 2 de 7 fases cerradas (F0 y F1).** Casos de
 prueba automatizados: **80** (37 antes de la primera auditoría). Siguiente:
-**A17 quedó ejecutada el 6-ago-2026 pero no cerrada.** Su prueba de extremo a extremo se corrió completa y pasó 3 de sus 5 puntos; los 2 que faltan son el mismo hecho —los archivos siguen en Cloudinary— y dependen de una credencial que no está en Vercel (R3), no de una corrección pendiente. **La Fase 2 no se declara cerrada.** Lo único que falta para cerrarla cabe en una frase: poner las dos llaves de Cloudinary, correr la escoba y repetir la prueba.
+**A17 quedó ejecutada el 6-ago-2026 pero no cerrada.** Su prueba de extremo a extremo se corrió completa y pasó 3 de sus 5 puntos; los 2 que faltan son el mismo hecho —los archivos siguen en Cloudinary— y dependían de una credencial que no estaba en Vercel (R3), no de una corrección pendiente. **Esa credencial ya está puesta y verificada** (6-ago-2026). **La Fase 2 no se declara cerrada.** Lo que falta cabe en una frase: correr la escoba y repetir la prueba.
 
 **Dos criterios de cierre de la Fase 1 no se cumplieron al pie de la letra** y
 se cierran igual, a la vista, en vez de darlos por buenos:
@@ -2109,12 +2132,17 @@ se cierran igual, a la vista, en vez de darlos por buenos:
 **A17 · Archivos y multimedia** (6-ago-2026, unas horas). Ejecutada contra
 producción con un docente de prueba real, y **no cerrada**.
 
-El hallazgo es el que nadie quería: **las llaves de Cloudinary no están puestas
+El hallazgo es el que nadie quería: **las llaves de Cloudinary no estaban puestas
 en Vercel**. Se venía trabajando sobre el supuesto contrario. No hubo que
 deducirlo — el endpoint lo dijo con todas sus letras
 (`"configurado":false`, 12 archivos sin borrar), y once de esas doce URLs
 seguían entregando el archivo después de que la cuenta dejó de existir.
 Producción corría el commit correcto, así que tampoco era un despliegue viejo.
+
+**Se pusieron esa misma tarde** (`20ec1a4`, `034cf19`): las dos variables están
+ya en Production, marcadas *Sensitive* y sin prefijo `VITE_`, y se comprobó
+contra la Admin API de Cloudinary que son válidas. Queda repetir la prueba: la
+llave habilita el cierre, no lo sustituye.
 
 Lo que sí se corrigió es más interesante que la credencial que falta, porque
 convertía un problema temporal en uno permanente: **la lista de archivos que no
@@ -2204,7 +2232,8 @@ real. Suite: 77 → 80 casos.
 > por inspección: un barrido ciego de las 31 colecciones raíz, tras borrar un
 > docente de prueba poblado, encontró **cero** documentos huérfanos y cero
 > referencias rotas, y RO-2 se cumplió. **La mitad de los archivos sigue sin
-> verificar**: los de Cloudinary no se borraron porque faltan las llaves (R3).
+> verificar**: los de Cloudinary no se borraron porque faltaban las llaves (R3),
+> puestas y verificadas esa misma tarde — falta repetir la prueba con ellas.
 > Lo mismo vale para A07.
 
 **A07 · Estudiantes e inscripciones** (5-ago-2026, unas horas). Dos defectos
@@ -2346,7 +2375,7 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 |---|---|---|---|---|
 | ~~R1~~ | ~~Cualquier docente puede editar cualquier escuela~~ | — | **CERRADO en A04**: se congelaron `nombre` y `shortName` para quien no pertenece a esa escuela; completar los datos que faltan, que es lo que el alta necesita, sigue permitido | ✔ |
 | ~~R2~~ | ~~El **monto** de un pago lo elige el cliente~~ · **MITIGADO Y ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** La tarifa **no se mueve a Firestore**: se queda definida en el código. La verificación manual del administrador contra el estado de cuenta, antes de aprobar cada pago, **se considera control suficiente** para la v1.0 — es un control humano real sobre cada peso que entra. Sale de la lista de pendientes. **Reabrir únicamente si la aprobación de pagos pasa a ser automática**, porque ahí desaparece el humano que hoy lo sostiene | ✔ |
-| R3 | El borrado de cuenta **no borra los archivos de Cloudinary** · **CONFIRMADO EN PRODUCCIÓN, 6-ago-2026** | Las llaves **no están puestas en Vercel**. Ya no es una sospecha: el endpoint real respondió `configurado:false` y dejó los 12 archivos de la prueba, 11 de ellos todavía descargables por URL después de que la cuenta dejó de existir | **Poner `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` en Vercel** (son de Alan, §1.8), correr `seeds-db/purgar-cloudinary-pendientes.js` para vaciar los 28 archivos ya anotados, y repetir la prueba de A17 comprobando que las URLs dejan de resolver. Mientras tanto la fuga ya no es invisible: A17 hizo que cada archivo no borrado quede anotado en `archivosPendientes` | A17, y con ella R14, A07 y A10 |
+| R3 | El borrado de cuenta **no borraba los archivos de Cloudinary** · **CONFIRMADO EN PRODUCCIÓN, 6-ago-2026** · **causa corregida el mismo día** | Las llaves **no estaban puestas en Vercel**. No fue una sospecha: el endpoint real respondió `configurado:false` y dejó los 12 archivos de la prueba, 11 de ellos todavía descargables por URL después de que la cuenta dejó de existir. **Ya están puestas** (Production, *Sensitive*, sin prefijo `VITE_`) y verificadas contra la API (`/ping` → `ok`) | Hecho: llaves en Vercel y en `.env`. **Falta**: correr `seeds-db/purgar-cloudinary-pendientes.js` para vaciar los archivos ya anotados, borrar a mano los 5 `zztest*` que no pasaron por `archivosPendientes`, y repetir la prueba de A17 comprobando que las URLs dejan de resolver. Mientras tanto la fuga no es invisible: A17 hizo que cada archivo no borrado quede anotado en `archivosPendientes` | A17, y con ella R14, A07 y A10 |
 | R4 | La **retención de 90 días está declarada pero no se ejecuta** | Solo existe el aviso por correo; el borrado se hace a mano | Implementar el borrado automático, o corregir la declaración para que diga lo que de verdad pasa | A22 — **decisión del PO** |
 | R5 | **No hay pruebas de interfaz ni de integración** | Nunca se construyeron | Cada auditoría deja casos de reglas; evaluar una suite de interfaz cuando el resto esté cubierto | Al cerrar A24 |
 | R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
