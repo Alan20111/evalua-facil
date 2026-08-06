@@ -190,7 +190,15 @@ service cloud.firestore {
             resource.data.username.lower() + '.' + resource.data.escuelaId + '@evalua.local' &&
           request.resource.data.username == resource.data.username &&
           request.resource.data.escuelaId == resource.data.escuelaId &&
-          request.resource.data.asignaturaId == resource.data.asignaturaId
+          request.resource.data.asignaturaId == resource.data.asignaturaId &&
+          // El padrón es del docente. El estudiante solo toca lo suyo: los
+          // cuatro campos de su activación (ver finishActivation en
+          // Activation.jsx) y su foto (ver updateAllEnrollments). Sin esto
+          // podía reescribir su propio nombre en la lista del maestro —y con
+          // él, el de las actas y exportaciones—, cambiar su `orden`, o
+          // agregar campos que ninguna pantalla espera.
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['activado', 'uid', 'resetPassword', 'activadoAt', 'photoURL'])
         );
     }
 
