@@ -1332,11 +1332,12 @@ recuperación y cambio de contraseña, vinculación de cuentas, y los catálogos
 alimentan el registro.
 
 **Revisar.** El flujo completo de `AuthContext` (incluida la autorreparación de
-perfil y la migración de nombres) · **la entropía de lo que se genera**: nombres
-de usuario de 4 caracteres y contraseñas temporales de 4, y qué tan adivinables
-son en conjunto · qué pasa cuando el correo no está verificado · el estado
-intermedio de quien entró con Google y todavía no tiene contraseña · que el
-`resetPassword` se borre al usarse.
+perfil y la migración de nombres) · **la entropía de lo que se genera**: el
+usuario del estudiante es `apellido.nombre` (no un código corto, corregido en
+A04) y hoy nadie dicta contraseñas temporales — el propio alumno elige la suya ·
+qué pasa cuando el correo no está verificado · el estado intermedio de quien
+entró con Google y todavía no tiene contraseña · que el `resetPassword` se borre
+al usarse.
 
 **Intentar romper.** Entrar con el correo falso de un estudiante ajeno ·
 **probar contraseñas a fuerza bruta** contra una cuenta de estudiante y medir
@@ -1946,7 +1947,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A01 | Suscripciones y candado | F0 | M02 | Crítico | **Completada** | 5-ago-2026 | `bad52d8` · [#983](https://github.com/Alan20111/evalua-facil/pull/983) |
 | A02 | Pagos | F0 | M03 | Crítico | **Completada** | 5-ago-2026 | `c95d293` · [#984](https://github.com/Alan20111/evalua-facil/pull/984) |
 | A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | **Completada** | 5-ago-2026 | `a4fa5fc` · [#987](https://github.com/Alan20111/evalua-facil/pull/987) |
-| A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | Pendiente | — | — |
+| A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
 | A05 | Cloud Functions | F1 | M25 | Crítico | Pendiente | — | — |
 | A06 | API serverless | F1 | M26 | Crítico | Pendiente | — | — |
 | A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | Pendiente | — | — |
@@ -1975,6 +1976,27 @@ con el flujo de registro) y **R8** (lectura pública de `users`, colisiona con l
 pantalla de recuperar contraseña).
 
 ## Resultados de las auditorías completadas
+
+**A04 · Autenticación e identidad** (5-ago-2026, unas horas). Una vulnerabilidad
+crítica: **cualquiera con sesión podía quedarse con la inscripción de otro
+estudiante**. La regla pedía que nadie la hubiera reclamado antes y que
+estamparas tu propio uid, pero no que fueras esa persona — y con `students` de
+lectura pública, listar las inscripciones sin activar era trivial. Se cierra
+comprobando el correo de Auth, que para un estudiante es determinista.
+
+De paso apareció un **error de funcionamiento**: leer un campo ausente revienta
+la evaluación de una regla en vez de dar falso, así que las inscripciones dadas
+de alta por Excel —que no traen `uid`— no podían activarse nunca. Corregido con
+`get('uid', null)`.
+
+**R1 cerrado** (escuelas ajenas) y retirado código muerto de la superficie de
+credenciales: un generador de contraseñas con `Math.random()` y una máscara de
+correo, ninguno con uso. Suite: 66 → 72 casos.
+
+**Corrección al propio Plan.** La ficha de A04 decía que los usuarios de
+estudiante eran "de 4 caracteres". No lo son desde hace tiempo: son
+`apellido.nombre` (ver `generateUsername`). La entropía del usuario ya no es el
+riesgo; el riesgo era la regla de reclamo, que ya se cerró.
 
 **A03 · Reglas de Firestore y modelo de datos** (5-ago-2026, unas horas). Una
 vulnerabilidad crítica cerrada: `users` congelaba `suscripcionHasta` en las
@@ -2021,7 +2043,7 @@ solo sale de esta tabla cuando está cerrado, no cuando se explica.**
 
 | # | Riesgo | Causa | Propuesta | Cierra en |
 |---|---|---|---|---|
-| R1 | Cualquier docente puede crear y **editar cualquier escuela** — incluida la de otro | La regla de `schools` quedó abierta desde el registro, cuando la escuela se crea sola | `create` para cualquier docente; `update` solo para el admin o para quien pertenece a esa escuela. **A03 lo intentó y lo movió**: `schoolSelection.js` completa datos de escuelas ajenas durante el alta, así que cerrarlo exige tocar el flujo de registro — que es el módulo de A04 | A04 |
+| ~~R1~~ | ~~Cualquier docente puede editar cualquier escuela~~ | — | **CERRADO en A04**: se congelaron `nombre` y `shortName` para quien no pertenece a esa escuela; completar los datos que faltan, que es lo que el alta necesita, sigue permitido | ✔ |
 | R2 | El **monto** de un pago lo elige el cliente | La tarifa cambia; una regla con el precio dentro se desfasa y deja a todos sin poder pagar | Mover la tarifa a `config/payments` (ya existe, admin-only) y validarla en reglas con `get()`. Mientras tanto, el panel avisa cuando no coincide | A03 |
 | R3 | El borrado de cuenta **no borra los archivos de Cloudinary** | Faltan las llaves de API, que son de Alan | Pedir las llaves y configurarlas en Vercel; el código de borrado ya existe (`api/_lib/cloudinary.js`) | A10 — **decisión del PO** |
 | R4 | La **retención de 90 días está declarada pero no se ejecuta** | Solo existe el aviso por correo; el borrado se hace a mano | Implementar el borrado automático, o corregir la declaración para que diga lo que de verdad pasa | A22 — **decisión del PO** |

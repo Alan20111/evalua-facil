@@ -97,7 +97,26 @@ service cloud.firestore {
       // run AFTER the users/{uid} doc exists, Profile is teacher-only), so
       // student accounts never need write access here.
       allow create: if isAdmin() || isDocente();
-      allow update: if isAdmin() || isDocente();
+      // R1: cualquier docente podía renombrar la escuela de cualquier otro.
+      //
+      // No se puede exigir "solo la tuya" a secas: al registrarse, quien se une
+      // a una escuela que ya existe le COMPLETA los datos que le faltaban —
+      // clave, municipio, estado (ver resolveSchoolSelection en
+      // utils/schoolSelection.js)— y eso pasa antes de que su propio perfil
+      // tenga `escuelaId`. Ese camino nunca escribe el nombre.
+      //
+      // Así que se congela lo que da identidad: el nombre y el nombre corto
+      // solo los cambia el administrador o quien pertenece a esa escuela. Todo
+      // lo demás se puede seguir completando, que es lo que el alta necesita.
+      allow update: if isAdmin() || (
+        isDocente() && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('escuelaId', '') == schoolId ||
+          (
+            request.resource.data.get('nombre', '') == resource.data.get('nombre', '') &&
+            request.resource.data.get('shortName', '') == resource.data.get('shortName', '')
+          )
+        )
+      );
     }
 
     match /users/{userId} {
@@ -145,12 +164,30 @@ service cloud.firestore {
       //      afterwards. Identity fields (username/escuela/subject) are frozen
       //      so a student can't move or rename an enrollment, and can't hijack a
       //      record already claimed by a different uid.
+      // El segundo camino pedía dos cosas —que nadie la hubiera reclamado antes
+      // y que estamparas TU uid— pero no la que importaba: **que fueras esa
+      // persona**. Con `students` de lectura pública, cualquiera con sesión
+      // podía listar las inscripciones sin activar y quedarse con la de otro:
+      // sus calificaciones, sus entregas, y entregar en su nombre.
+      //
+      // La prueba de identidad es el correo de Auth, que para un estudiante es
+      // determinista: usuario.escuela@evalua.local (ver studentEmail en
+      // src/utils/generate.js). Nadie puede iniciar sesión con el correo de
+      // otro, así que reclamar la inscripción de otro deja de ser posible sin
+      // cambiar nada del flujo real de activación.
+      //
+      // `get('uid', null)` en vez de `resource.data.uid`: un campo AUSENTE no
+      // da falso, revienta la evaluación de la regla entera. Las inscripciones
+      // dadas de alta por Excel no traen el campo, y así ninguna se quedaba sin
+      // poder activarse.
       allow update: if
         (docenteActivo() && ownsSubject(resource.data.asignaturaId)) ||
         (
           request.auth != null &&
           request.resource.data.uid == request.auth.uid &&
-          (resource.data.uid == null || resource.data.uid == request.auth.uid) &&
+          (resource.data.get('uid', null) == null || resource.data.uid == request.auth.uid) &&
+          request.auth.token.get('email', '') ==
+            resource.data.username.lower() + '.' + resource.data.escuelaId + '@evalua.local' &&
           request.resource.data.username == resource.data.username &&
           request.resource.data.escuelaId == resource.data.escuelaId &&
           request.resource.data.asignaturaId == resource.data.asignaturaId

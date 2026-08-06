@@ -47,6 +47,10 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'students', 'ST_UNACT'), {
     asignaturaId: 'S1', escuelaId: 'E1', username: 'JUAN', uid: null, activado: false,
   })
+  // Inscripción dada de alta por Excel: sin el campo `uid` siquiera.
+  await setDoc(doc(db, 'students', 'ST_SIN_UID'), {
+    asignaturaId: 'S1', escuelaId: 'E1', username: 'SINUID', activado: false,
+  })
   // Already-activated enrollment owned by U_JUAN — for submission tests.
   await setDoc(doc(db, 'students', 'ST_JUAN'), {
     asignaturaId: 'S1', escuelaId: 'E1', username: 'JUAN', uid: U_JUAN, activado: true,
@@ -56,7 +60,15 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
 
 const asT1 = testEnv.authenticatedContext(T1).firestore()
 const asT2 = testEnv.authenticatedContext(T2).firestore()
-const asJuan = testEnv.authenticatedContext(U_JUAN).firestore()
+// El correo de Auth de un estudiante es determinista: usuario.escuela@evalua.local
+// (ver studentEmail en src/utils/generate.js). Es lo que prueba que quien
+// reclama una inscripción es de verdad esa persona, así que los contextos de
+// prueba lo llevan.
+const asJuan = testEnv.authenticatedContext(U_JUAN, { email: 'juan.E1@evalua.local' }).firestore()
+const U_INTRUSO = 'authuid_intruso'
+const asIntruso = testEnv.authenticatedContext(U_INTRUSO, { email: 'otro.E1@evalua.local' }).firestore()
+const U_SIN_UID = 'authuid_sin_uid'
+const asSinUid = testEnv.authenticatedContext(U_SIN_UID, { email: 'sinuid.E1@evalua.local' }).firestore()
 const asMallory = testEnv.authenticatedContext(U_MALLORY).firestore()
 
 // ── students ────────────────────────────────────────────────────────────────
@@ -77,10 +89,25 @@ ok('foreign teacher CANNOT update another teacher’s student')
 await assertFails(deleteDoc(doc(asMallory, 'students', 'ST_UNACT')))
 ok('non-owner CANNOT delete a student')
 
+// ── A04 · Reclamar una inscripción ajena ────────────────────────────────────
+// La regla solo pedía "que nadie la haya reclamado antes" y "que estampes TU
+// uid". No pedía que fueras esa persona. Con `students` de lectura pública,
+// cualquiera con sesión podía listar las inscripciones sin activar y quedarse
+// con la de otro: sus calificaciones, sus entregas, y entregar en su nombre.
+await assertFails(updateDoc(doc(asIntruso, 'students', 'ST_UNACT'), {
+  uid: U_INTRUSO, activado: true,
+})); ok('outsider CANNOT claim an un-activated enrollment')
+
 // student activation: claims an un-owned record with own uid, identity frozen
 await assertSucceeds(updateDoc(doc(asJuan, 'students', 'ST_UNACT'), {
   uid: U_JUAN, activado: true, resetPassword: null,
 })); ok('student activates (claims un-owned record with own uid)')
+
+// Una inscripción SIN el campo `uid` (alta por Excel) también debe poder
+// activarse: leer un campo ausente revienta la regla en vez de dar falso.
+await assertSucceeds(updateDoc(doc(asSinUid, 'students', 'ST_SIN_UID'), {
+  uid: U_SIN_UID, activado: true,
+})); ok('student CAN activate an enrollment that has no uid field at all')
 
 // mallory tries to hijack an already-claimed record
 await assertFails(updateDoc(doc(asMallory, 'students', 'ST_JUAN'), {
@@ -391,6 +418,27 @@ await assertSucceeds(setDoc(doc(asNuevo, 'users', T_NUEVO), {
 // Y el candado tampoco se abre borrando el perfil para volver a crearlo.
 await assertFails(deleteDoc(doc(asNuevo, 'users', T_NUEVO)))
 ok('teacher CANNOT delete their own profile to re-create it')
+
+// ── A04 · Las escuelas ajenas no se renombran (R1) ──────────────────────────
+// El alta completa datos que le faltaban a una escuela que ya existía, y eso
+// tiene que seguir funcionando; lo que no puede es cambiarle el nombre.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'schools', 'E1'), { nombre: 'Escuela de T1', shortName: 'CBTIS1' })
+  await setDoc(doc(db, 'schools', 'E2'), { nombre: 'Escuela de T2', shortName: 'CBTIS2' })
+})
+
+await assertSucceeds(setDoc(doc(asT1, 'schools', 'E1'), { shortName: 'CBTIS255' }, { merge: true }))
+ok('teacher CAN rename their OWN school')
+
+await assertFails(setDoc(doc(asT1, 'schools', 'E2'), { nombre: 'Secuestrada' }, { merge: true }))
+ok('teacher CANNOT rename another school')
+
+await assertFails(setDoc(doc(asT1, 'schools', 'E2'), { shortName: 'MIA' }, { merge: true }))
+ok('teacher CANNOT change another school short name')
+
+await assertSucceeds(setDoc(doc(asT1, 'schools', 'E2'), { claveSEP: '29DCT0001X', estado: 'Tlaxcala' }, { merge: true }))
+ok('teacher CAN still enrich another school while registering')
 
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
