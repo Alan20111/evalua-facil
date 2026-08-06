@@ -1931,7 +1931,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | Fase | Auditorías (en orden) | Estado |
 |---|---|---|
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
-| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **En proceso** — A03 cerrada; A04 es la siguiente |
+| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **En proceso** — A03 y A04 cerradas; A05 es la siguiente |
 | **F2** · Personas y su información | A07 → A17 → A10 → A11 | Pendiente |
 | **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | Pendiente |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
@@ -1947,7 +1947,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A01 | Suscripciones y candado | F0 | M02 | Crítico | **Completada** | 5-ago-2026 | `bad52d8` · [#983](https://github.com/Alan20111/evalua-facil/pull/983) |
 | A02 | Pagos | F0 | M03 | Crítico | **Completada** | 5-ago-2026 | `c95d293` · [#984](https://github.com/Alan20111/evalua-facil/pull/984) |
 | A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | **Completada** | 5-ago-2026 | `a4fa5fc` · [#987](https://github.com/Alan20111/evalua-facil/pull/987) |
-| A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
+| A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | **Completada** | 5-ago-2026 | `631f7ec` · [#989](https://github.com/Alan20111/evalua-facil/pull/989) |
 | A05 | Cloud Functions | F1 | M25 | Crítico | Pendiente | — | — |
 | A06 | API serverless | F1 | M26 | Crítico | Pendiente | — | — |
 | A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | Pendiente | — | — |
@@ -1969,11 +1969,10 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 3 de 24 auditorías (13%) · 1 de 7 fases cerradas.** Casos de prueba
-automatizados: **66**. Siguiente: **A04 · Autenticación e identidad**, que
-además arrastra dos pendientes que A03 le dejó — **R1** (`schools`, colisiona
-con el flujo de registro) y **R8** (lectura pública de `users`, colisiona con la
-pantalla de recuperar contraseña).
+**Avance: 4 de 24 auditorías (17%) · 1 de 7 fases cerradas.** Casos de prueba
+automatizados: **72**. Siguiente: **A05 · Cloud Functions**. A04 cerró R1; R8
+(lectura pública de `users`) sigue abierto y necesita el mismo escalonamiento de
+publicación que R7 — decisión del Product Owner.
 
 ## Resultados de las auditorías completadas
 
@@ -2050,7 +2049,7 @@ solo sale de esta tabla cuando está cerrado, no cuando se explica.**
 | R5 | **No hay pruebas de interfaz ni de integración** | Nunca se construyeron | Cada auditoría deja casos de reglas; evaluar una suite de interfaz cuando el resto esté cubierto | Al cerrar A24 |
 | R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
 | R7 | **`students` se puede listar sin sesión**: nombres completos, escuela y grupo de todos los estudiantes de la plataforma — datos personales de menores. Además vuelve enumerable la recuperación de contraseña: un atacante puede buscar a quién le habilitaron el rescate y tomarle la cuenta | La activación por QR necesita leer inscripciones antes de que exista la cuenta, y las tres consultas sin sesión (login, recuperación, activación) van directas a Firestore | Mover esas tres consultas a un endpoint que resuelva con Admin SDK y devuelva solo lo indispensable; después cerrar la lectura pública. **No se puede desplegar de golpe**: la app publicada en Google Play consulta directo, y cerrar las reglas antes de que se actualice deja a los estudiantes sin poder entrar | A07 — **decisión del PO** (requiere escalonar la publicación) |
-| R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña del docente consulta por correo antes de iniciar sesión | Separar `get` de `list` (el `get` lo necesita el alumno para ver a su docente; el `list`, solo el panel) y resolver la búsqueda por correo en el servidor | A04 |
+| R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña consulta `users` por correo **antes** de iniciar sesión, así que es un `list` sin sesión | Separar `get` de `list` (el `get` lo necesita el alumno para ver a su docente; el `list`, solo el panel) y resolver la búsqueda por correo en un endpoint. **A04 lo verificó y no lo pudo cerrar**: la app publicada en Google Play trae esa pantalla y consulta directo, igual que R7 | A04 → **decisión del PO**: mismo escalonamiento que R7 |
 | R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | A12 |
 
 ---
