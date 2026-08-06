@@ -161,6 +161,30 @@ donde aparecieron los peores hallazgos hasta hoy.
 | Cloudinary | Alan | Llaves de API, preset de subida, cuota (ver R3) |
 | Técnico | La auditoría | Todo lo que tiene una sola respuesta correcta |
 
+## 1.9 Reglas oficiales del proyecto
+
+Decisiones del Product Owner que ya no se discuten en cada auditoría: son parte
+del sistema. Toda auditoría que toque estos terrenos las da por dadas.
+
+**RO-1 · La migración del alcance de lectura es un solo proyecto.**
+`R7` (lectura pública de `students`), `R8` (lectura pública de `users`) y `R9`
+(un docente lee entregas y asistencias de toda la plataforma) **no son tres
+arreglos: son uno**. Comparten causa —reglas escritas para un documento mientras
+el cliente consulta colecciones— y comparten remedio. Su **cierre definitivo
+depende de que el cliente Web y el de Android migren por completo sus consultas
+a endpoints del servidor**; hasta entonces ninguna auditoría intenta cerrarlos
+por su cuenta, y quien los encuentre los documenta y sigue. *(PO, 5-ago-2026.)*
+
+**RO-2 · Eliminar un docente nunca borra la cuenta de un estudiante que sigue
+con otro docente.**
+Un estudiante tiene UNA cuenta que cubre todas sus inscripciones (ver
+`finishActivation`), así que borrar a un docente no puede arrastrarla. Al
+eliminar un docente se borra **solo lo exclusivamente suyo**: sus relaciones,
+sus asignaturas y actividades, sus archivos y sus datos. Si a raíz de eso un
+estudiante queda sin relación con ningún docente, podrá aplicársele después la
+política de eliminación del sistema, pero **nunca como consecuencia inmediata**
+de borrar al docente. *(PO, 5-ago-2026. La implementa y verifica A10.)*
+
 ---
 
 # 2. Protocolo de cierre de una auditoría
@@ -1100,7 +1124,12 @@ servidor alineados, 25 casos de prueba nuevos.
 
 **Cerrada** el 5 de agosto de 2026. Detalle en §8.
 
-## Fase 1 · Cimientos del servidor
+## Fase 1 · Cimientos del servidor — CERRADA
+
+**Cerrada** el 5 de agosto de 2026, aprobada por el Product Owner. Cuatro
+auditorías, cuatro vulnerabilidades críticas cerradas, 62 → 72 casos de prueba.
+Resultados en §8; los dos criterios que no se cumplieron al pie de la letra
+están anotados ahí mismo.
 
 **Objetivo general.** Cerrar las cuatro superficies donde se decide **quién
 puede hacer qué**, antes de auditar una sola pantalla. Todo lo que viene después
@@ -1530,9 +1559,11 @@ de otro · cambiar la contraseña sin reautenticar · dejar estudiantes activos
 apuntando a un docente que ya no existe · interrumpir el borrado a la mitad.
 
 **Corregir obligatoriamente.** Todo residuo del borrado, y que un borrado
-interrumpido se pueda reanudar en vez de quedar a medias. Si el borrado de
-Cloudinary sigue sin llaves configuradas, esa parte se marca **Bloqueada** y se
-escala (R3).
+interrumpido se pueda reanudar en vez de quedar a medias. **El borrado debe
+cumplir RO-2** (§1.9): nunca puede llevarse por delante la cuenta de un
+estudiante que sigue con otro docente — solo lo exclusivamente suyo. Si el
+borrado de Cloudinary sigue sin llaves configuradas, esa parte se marca
+**Bloqueada** y se escala (R3).
 
 **Cierre.** Un docente de prueba creado, poblado y eliminado, con verificación
 documento por documento y archivo por archivo de que no queda nada suyo.
@@ -1699,7 +1730,34 @@ documento de otro · todo reporte que se corte en silencio.
 **Cierre.** Los reportes principales **generados y abiertos de verdad** (no solo
 generados) en los cuatro estados de suscripción, en web y en Android.
 
-## A17 · Archivos y multimedia
+## A17 · Archivos y multimedia — BLOQUEADA
+
+> **Bloqueada el 5-ago-2026 por decisión del PO.** Motivo: **faltan las
+> credenciales de Cloudinary** (`CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET`)
+> para verificar el borrado real de archivos. Se reanuda **exactamente desde
+> este punto** cuando estén disponibles. No se intenta antes.
+>
+> **Investigación ya hecha, para no repetirla al reanudar:**
+> - Las dos variables están **declaradas en `.env.example` pero ausentes de
+>   `.env`**. Las públicas (`VITE_CLOUDINARY_CLOUD_NAME`,
+>   `VITE_CLOUDINARY_UPLOAD_PRESET`) sí están.
+> - `api/_lib/cloudinary.js` ya está escrito para no mentir: sin las llaves,
+>   `borrarAssets` devuelve `configurado: false` y la lista de `pendientes` en
+>   vez de fingir que limpió. El borrado firma con SHA-1
+>   (`public_id`+`timestamp`+secreto) y trata `not found` como éxito, que es lo
+>   correcto para reintentos.
+> - `extraerAssets` recorre el JSON completo del documento con una expresión
+>   regular en vez de una lista de campos — a propósito, para que un campo nuevo
+>   no se quede sin limpiar. Los `raw` conservan la extensión en el `public_id`;
+>   imagen y vídeo no.
+> - **Tener las llaves en Vercel no basta para cerrar esta auditoría**: hace
+>   falta poder ejecutar el borrado y comprobar que la URL deja de resolver. Dos
+>   caminos al reanudar — llaves en el entorno local, o una cuenta de prueba en
+>   producción que se cree, se pueble con archivos, se borre y se verifique.
+> - **Lo que sí se puede auditar sin las llaves** (por si se decide partirla):
+>   los límites reales del preset sin firma —cualquiera con su nombre, que viaja
+>   en el bundle, puede subir a la cuenta—, la adivinabilidad de las URL de
+>   comprobantes, y el XSS por el editor de texto enriquecido.
 
 **Módulos.** M17.
 
@@ -1931,8 +1989,8 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | Fase | Auditorías (en orden) | Estado |
 |---|---|---|
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
-| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **En proceso** — las cuatro auditorías cerradas; pendiente el cierre formal de fase |
-| **F2** · Personas y su información | A07 → A17 → A10 → A11 | Pendiente |
+| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **Cerrada** · 5-ago-2026 — aprobada por el PO |
+| **F2** · Personas y su información | ~~A17~~ → A07 → A10 → A11 | **En proceso** — A17 Bloqueada (credenciales), se reanuda al llegar; sigue A07 |
 | **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | Pendiente |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
 | **F5** · Superficie y entorno | A19 → A20 → A23 | Pendiente |
@@ -1950,7 +2008,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | **Completada** | 5-ago-2026 | `631f7ec` · [#989](https://github.com/Alan20111/evalua-facil/pull/989) |
 | A05 | Cloud Functions | F1 | M25 | Crítico | **Completada** | 5-ago-2026 | `8b01f06` · [#991](https://github.com/Alan20111/evalua-facil/pull/991) |
 | A06 | API serverless | F1 | M26 | Crítico | **Completada** | 5-ago-2026 | `ccbb0bb` · [#993](https://github.com/Alan20111/evalua-facil/pull/993) |
-| A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | Pendiente | — | — |
+| A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
 | A08 | Evaluaciones | F3 | M08 | Crítico | Pendiente | — | — |
 | A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | Pendiente | — | — |
 | A10 | Perfil y cuenta del docente | F2 | M19 | Crítico | Pendiente | — | — |
@@ -1960,7 +2018,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A14 | Avisos | F4 | M12 | Alto | Pendiente | — | — |
 | A15 | Notificaciones push | F4 | M14 | Alto | Pendiente | — | — |
 | A16 | Exportaciones | F4 | M16 | Alto | Pendiente | — | — |
-| A17 | Archivos y multimedia | F2 | M17 | Alto | Pendiente | — | — |
+| A17 | Archivos y multimedia | F2 | M17 | Alto | **Bloqueada** | 5-ago-2026 | Faltan credenciales de Cloudinary — ver §7 |
 | A18 | Calendario y agenda | F3 | M13 | Alto | Pendiente | — | — |
 | A19 | Navegación y guardianes de ruta | F5 | M21, M31 | Alto | Pendiente | — | — |
 | A20 | Aplicación Android | F5 | M23 | Alto | Pendiente | — | — |
@@ -1969,12 +2027,47 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 6 de 24 auditorías (25%) · 1 de 7 fases cerradas.** Casos de prueba
-automatizados: **72**. Las cuatro auditorías de la Fase 1 están cerradas y la fase cumple sus criterios; falta su cierre formal, que revisa el PO. A04 cerró R1; R8
-(lectura pública de `users`) sigue abierto y necesita el mismo escalonamiento de
-publicación que R7 — decisión del Product Owner.
+**Avance: 7 de 24 auditorías (29%) · 2 de 7 fases cerradas (F0 y F1).** Casos de
+prueba automatizados: **77** (37 antes de la primera auditoría). Siguiente:
+**A10 · Perfil y cuenta del docente**. A17 quedó Bloqueada por credenciales y se reanuda cuando lleguen.
+
+**Dos criterios de cierre de la Fase 1 no se cumplieron al pie de la letra** y
+se cierran igual, a la vista, en vez de darlos por buenos:
+
+- La cobertura pedida era *"cada una de las 30 colecciones con un caso legítimo
+  y un ataque"*. Las 30 se recorrieron y se corrigió lo que apareció, pero la
+  suite cubre las de mayor riesgo, no las 30 una por una. Lo que falta es
+  cobertura de prueba, no revisión.
+- **R2 seguía asignado a esta fase y no se cerró.** Las reglas acotan el monto a
+  un rango sano, pero la tarifa exacta sigue sin validarse en el servidor. Se
+  reasigna a A11 (panel de administración), que es donde vive la pantalla que
+  tendría que administrar esa tarifa.
 
 ## Resultados de las auditorías completadas
+
+**A07 · Estudiantes e inscripciones** (5-ago-2026, unas horas). Dos defectos
+corregidos, uno de ellos con datos que **volvían solos**.
+
+*El resumen de asistencia de un alumno dado de baja resucitaba, y resucitaba
+mal.* La baja no limpia la llave del alumno de los mapas `presentes` de cada
+columna de asistencia, así que `idsAfectados` lo seguía incluyendo en cada
+edición del pase de lista y la Cloud Function volvía a escribirle el resumen. Y
+como `presentes?.[id] !== false` da verdadero para una llave ausente, el resumen
+resucitado lo marcaba **presente en todas las clases**. Ahora, si la inscripción
+ya no existe, el resumen se borra en vez de recalcularse — y eso limpia solo los
+que ya estaban regados.
+
+*El padrón es del docente.* La regla dejaba al estudiante escribir cualquier
+campo de su propia inscripción mientras no tocara su identidad. Podía
+reescribir su nombre en la lista del maestro —y con él, el de las actas y las
+exportaciones—, cambiar su orden o agregar campos que ninguna pantalla espera.
+Ahora solo toca los cuatro campos de su activación y su foto.
+
+Lo que quedó en verde: `api/student/delete.js` verifica identidad, exige
+confirmación y **se niega si el alumno sigue inscrito** —el registro académico
+es del maestro, no del alumno—, y la baja que hace el docente sí limpia entregas
+y prórrogas. Por RO-1, la lectura pública de `students` (R7) no se intentó
+cerrar. Suite: 72 → 77 casos.
 
 **A06 · API serverless** (5-ago-2026, unas horas). Los 9 endpoints activos
 revisados con las cuatro identidades. Una vulnerabilidad **crítica**:
@@ -2083,17 +2176,22 @@ Lo que una auditoría encontró y no pudo cerrar, con su causa y la propuesta
 concreta. Cada uno se cierra en la auditoría que le corresponde. **Un riesgo
 solo sale de esta tabla cuando está cerrado, no cuando se explica.**
 
+**R7, R8 y R9 son un solo proyecto de migración** y su cierre depende de que el
+cliente Web y el de Android dejen de consultar directo — ver **RO-1** en §1.9.
+Ninguna auditoría intenta cerrarlos por su cuenta.
+
 | # | Riesgo | Causa | Propuesta | Cierra en |
 |---|---|---|---|---|
 | ~~R1~~ | ~~Cualquier docente puede editar cualquier escuela~~ | — | **CERRADO en A04**: se congelaron `nombre` y `shortName` para quien no pertenece a esa escuela; completar los datos que faltan, que es lo que el alta necesita, sigue permitido | ✔ |
-| R2 | El **monto** de un pago lo elige el cliente | La tarifa cambia; una regla con el precio dentro se desfasa y deja a todos sin poder pagar | Mover la tarifa a `config/payments` (ya existe, admin-only) y validarla en reglas con `get()`. Mientras tanto, el panel avisa cuando no coincide | A03 |
-| R3 | El borrado de cuenta **no borra los archivos de Cloudinary** | Faltan las llaves de API, que son de Alan | Pedir las llaves y configurarlas en Vercel; el código de borrado ya existe (`api/_lib/cloudinary.js`) | A10 — **decisión del PO** |
+| R2 | El **monto** de un pago lo elige el cliente | La tarifa cambia; una regla con el precio dentro se desfasa y deja a todos sin poder pagar | Mover la tarifa a `config/payments` (ya existe, admin-only) y validarla en reglas con `get()`. Mientras tanto, las reglas la acotan a un rango sano y el panel avisa cuando no coincide. **Reasignado**: estaba en A03 y la Fase 1 cerró sin él; se mueve a donde vive la pantalla que administraría esa tarifa | A11 |
+| R3 | El borrado de cuenta **no borra los archivos de Cloudinary** | Faltan las llaves de API, que son de Alan | Pedir las llaves y configurarlas. **Bloquea A17 por completo** (ver su ficha) y deja a A07 y A10 sin poder verificar "sin residuos" | A17, y con ella A07 y A10 |
 | R4 | La **retención de 90 días está declarada pero no se ejecuta** | Solo existe el aviso por correo; el borrado se hace a mano | Implementar el borrado automático, o corregir la declaración para que diga lo que de verdad pasa | A22 — **decisión del PO** |
 | R5 | **No hay pruebas de interfaz ni de integración** | Nunca se construyeron | Cada auditoría deja casos de reglas; evaluar una suite de interfaz cuando el resto esté cubierto | Al cerrar A24 |
 | R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
 | R7 | **`students` se puede listar sin sesión**: nombres completos, escuela y grupo de todos los estudiantes de la plataforma — datos personales de menores. Además vuelve enumerable la recuperación de contraseña: un atacante puede buscar a quién le habilitaron el rescate y tomarle la cuenta | La activación por QR necesita leer inscripciones antes de que exista la cuenta, y las tres consultas sin sesión (login, recuperación, activación) van directas a Firestore | Mover esas tres consultas a un endpoint que resuelva con Admin SDK y devuelva solo lo indispensable; después cerrar la lectura pública. **No se puede desplegar de golpe**: la app publicada en Google Play consulta directo, y cerrar las reglas antes de que se actualice deja a los estudiantes sin poder entrar | A07 — **decisión del PO** (requiere escalonar la publicación) |
 | R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña consulta `users` por correo **antes** de iniciar sesión, así que es un `list` sin sesión | **CIERRE CONDICIONADO — aprobado por el PO el 5-ago-2026.** Se mantiene abierto a propósito y **no debe cerrarse antes** de que exista una versión del cliente —Web **y** Android— que ya no consulte `users` directamente para la recuperación de contraseña. Cerrar la regla antes rompe a todo cliente ya publicado: la app de Google Play trae esa pantalla y consulta directo. Orden obligatorio: (1) endpoint que resuelva la búsqueda por correo con Admin SDK; (2) cliente Web y Android publicados usándolo; (3) adopción confirmada; (4) recién entonces separar `get` de `list` en las reglas — el `get` lo necesita el alumno para ver a su docente, el `list` solo el panel | Cuando (1)-(3) estén hechos |
 | R10 | **Un recordatorio de entrega que cae en una corrida fallida se pierde para siempre** | `revisarProgramados` solo avisa dentro de una ventana de 35 min alrededor de la anticipación elegida; pasada esa ventana, no vuelve a intentarlo. La otra mitad de la misma función (publicar actividades) sí se autorrepara porque vuelve a barrer todo | **ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** El comportamiento actual **no se modifica**. Cualquier cambio en esta lógica es una **decisión funcional del Product Owner** —altera qué avisos recibe la gente, incluidos los de actividades creadas ya dentro de la ventana, que hoy no avisan— y **se evalúa después de liberar la v1.0**, no antes. La corrección técnica, cuando se autorice, es quitar el límite inferior de la ventana: `recordatoriosEnviados` ya impide duplicados | Después de la v1.0 — **decisión funcional del PO** |
+| R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). Y los mapas `presentes` de cada columna de asistencia conservan la llave del alumno, igual que pasaba con `activities.extensiones` antes de corregirse. Además, la baja de cuenta del propio estudiante no borra sus `studentEvents` | Limpiar en la baja lo que todavía tiene dueño (mapas de asistencia y `studentEvents`), y para los avisos huérfanos decidir entre darle al docente permiso de borrarlos o una limpieza programada. Descubierto en A07; toca colecciones de avisos y calendario | A14 (avisos) y A18 (calendario) |
 | R12 | **El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado** | `api/cron/reminders.js` comprueba la cabecera **solo si** la variable existe; si no está puesta en Vercel, cualquiera puede dispararlo y provocar un envío masivo de correo | Verificar en Vercel que `CRON_SECRET` esté configurada (Vercel la manda sola en sus crons cuando existe). No se puede comprobar desde el código, y ponerlo a fallar en cerrado rompería el cron si resulta que falta: es una **acción de operación** | A24 |
 | R11 | **Las Cloud Functions no tienen forma automatizada de probarse** | La suite del proyecto solo cubre reglas de Firestore; las 14 funciones se verifican leyendo el código | **ABIERTO — mejora prioritaria para la v1.1, decisión del PO, 5-ago-2026.** No se construye todavía: levantar el emulador de Functions es trabajo de infraestructura que no cabe en la v1.0. Cuando se haga, empezar por las tres críticas —la que califica (`onEvaluacionFinalizada`), la que espeja la vigencia (`onSuscripcionEscrita`) y la que repone la prueba (`onDocenteCreado`) | **v1.1 — prioritaria** |
 | R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | A12 |

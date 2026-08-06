@@ -118,6 +118,26 @@ await assertFails(updateDoc(doc(asMallory, 'students', 'ST_JUAN'), {
 await assertFails(updateDoc(doc(asJuan, 'students', 'ST_JUAN'), { asignaturaId: 'S2' }))
 ok('student CANNOT move their enrollment to another subject')
 
+// ── A07 · El padrón es del docente ──────────────────────────────────────────
+// El estudiante solo toca los campos de su activación y su foto. Antes podía
+// reescribir su propio nombre en la lista del maestro — y con él, el de las
+// actas y las exportaciones.
+await assertSucceeds(updateDoc(doc(asJuan, 'students', 'ST_JUAN'), { photoURL: 'https://x/f.jpg' }))
+ok('student CAN set their own photo')
+
+await assertFails(updateDoc(doc(asJuan, 'students', 'ST_JUAN'), { nombre: 'Otro Nombre' }))
+ok('student CANNOT rename themselves in the teacher roster')
+
+await assertFails(updateDoc(doc(asJuan, 'students', 'ST_JUAN'), { orden: 1 }))
+ok('student CANNOT reorder themselves in the roster')
+
+await assertFails(updateDoc(doc(asJuan, 'students', 'ST_JUAN'), { calificacionFinal: 10 }))
+ok('student CANNOT inject fields no screen expects')
+
+// El docente dueño sí puede todo lo anterior — es su padrón.
+await assertSucceeds(updateDoc(doc(asT1, 'students', 'ST_JUAN'), { nombre: 'Juan Corregido', orden: 3 }))
+ok('owning teacher CAN still edit any field of their roster')
+
 // ── activities ───────────────────────────────────────────────────────────────
 await assertSucceeds(setDoc(doc(asT1, 'activities', 'A_NEW'), {
   docenteId: T1, asignaturaId: 'S1', tipo: 'archivo',

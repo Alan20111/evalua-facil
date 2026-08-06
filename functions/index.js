@@ -696,7 +696,22 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
   // que hacía countPresence() del docente antes de corregirse (ver
   // src/utils/attendance.js).
   const studentSnap = await db.doc(`students/${studentId}`).get()
-  const createdAt = studentSnap.exists ? studentSnap.data().createdAt : null
+  // La inscripción ya no existe: el docente dio de baja al estudiante. Su
+  // resumen se BORRA, no se recalcula.
+  //
+  // Sin esto revivía, y revivía mal. La baja no limpia la llave del alumno de
+  // los mapas `presentes` de cada columna de asistencia (igual que pasaba con
+  // `activities.extensiones` antes de corregirse), así que `idsAfectados` lo
+  // seguía incluyendo en cada edición del pase de lista y esta función volvía
+  // a escribirle el resumen. Y como `presentes?.[id] !== false` da verdadero
+  // para una llave ausente, el resumen resucitado lo marcaba **presente en
+  // todas las clases**. Un alumno borrado, con asistencia perfecta, visible
+  // para quien conservara su uid.
+  if (!studentSnap.exists) {
+    await db.doc(`attendanceSummaries/${studentId}`).delete()
+    return
+  }
+  const createdAt = studentSnap.data().createdAt
   const enrolledFrom = createdAt?.toDate ? (() => {
     const d = createdAt.toDate()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
