@@ -652,6 +652,19 @@ service cloud.firestore {
     // doc ES su uid de Auth, global entre todas sus inscripciones). Solo el
     // propio estudiante la lee/escribe; Cloud Functions usa el Admin SDK y
     // no pasa por estas reglas.
+    // Constancia de baja de un docente: nombre, correo y fecha, nada más. La
+    // escribe api/account/delete.js con el Admin SDK (por eso no hay `write`)
+    // para que el panel pueda mostrar "Cuenta eliminada" en vez de que el
+    // renglón desaparezca sin dejar rastro.
+    //
+    // No tenía regla, así que Firestore la denegaba por omisión: el panel la
+    // lee con un .catch que se tragaba el error, y la constancia se escribía
+    // sin que NADIE pudiera leerla jamás. Todo el trabajo de dejar rastro no
+    // servía de nada, y en silencio.
+    match /bajas/{docenteId} {
+      allow read: if isAdmin();
+    }
+
     match /notificationSettings/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }

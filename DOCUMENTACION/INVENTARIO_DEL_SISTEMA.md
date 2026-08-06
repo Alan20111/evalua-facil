@@ -2011,7 +2011,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | **Completada** | 5-ago-2026 | `e3e7fd9` · [#995](https://github.com/Alan20111/evalua-facil/pull/995) |
 | A08 | Evaluaciones | F3 | M08 | Crítico | Pendiente | — | — |
 | A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | Pendiente | — | — |
-| A10 | Perfil y cuenta del docente | F2 | M19 | Crítico | Pendiente | — | — |
+| A10 | Perfil y cuenta del docente | F2 | M19 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
 | A11 | Panel de administración | F2 | M04 | Crítico | Pendiente | — | — |
 | A12 | Actividades, entregas y asignaturas | F3 | M07, M05 | Alto | Pendiente | — | — |
 | A13 | Asistencia | F3 | M11 | Alto | Pendiente | — | — |
@@ -2027,9 +2027,9 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 7 de 24 auditorías (29%) · 2 de 7 fases cerradas (F0 y F1).** Casos de
-prueba automatizados: **77** (37 antes de la primera auditoría). Siguiente:
-**A10 · Perfil y cuenta del docente**. A17 quedó Bloqueada por credenciales y se reanuda cuando lleguen.
+**Avance: 8 de 24 auditorías (33%) · 2 de 7 fases cerradas (F0 y F1).** Casos de
+prueba automatizados: **80** (37 antes de la primera auditoría). Siguiente:
+**A11 · Panel de administración**, la última de la Fase 2. A17 sigue Bloqueada por credenciales.
 
 **Dos criterios de cierre de la Fase 1 no se cumplieron al pie de la letra** y
 se cierran igual, a la vista, en vez de darlos por buenos:
@@ -2044,6 +2044,34 @@ se cierran igual, a la vista, en vez de darlos por buenos:
   tendría que administrar esa tarifa.
 
 ## Resultados de las auditorías completadas
+
+**A10 · Perfil y cuenta del docente** (5-ago-2026, unas horas).
+
+**RO-2 sí se puede cumplir, y el diseño ya la cumplía.** Se verificó el orden
+real: el endpoint borra primero las inscripciones de las asignaturas del
+docente y **después** pregunta, por cada alumno, si le queda alguna otra. Solo
+borra la cuenta de Auth de quien se quedó sin ninguna. Un alumno compartido con
+otro maestro conserva su cuenta — que es una sola para todas sus materias.
+
+Dos defectos corregidos:
+
+*Cuatro colecciones del docente no se borraban nunca*: `avisos`,
+`avisoPlantillas`, `academicEvents` y `horario`. Los avisos eran lo grave —
+quedaban legibles para cualquier cuenta autenticada y **sin nadie que pudiera
+borrarlos jamás**, porque su regla de borrado exige ser el docente dueño, un uid
+que ya no existe. Comunicados de un maestro que se fue, huérfanos y permanentes.
+Se agregan, junto con el estado por-estudiante de los avisos.
+
+*La constancia de baja se escribía sin que nadie pudiera leerla.* `bajas` no
+tenía regla, así que Firestore la denegaba por omisión, y el panel la lee con un
+`.catch` que se tragaba el error. Todo el trabajo de dejar rastro no servía de
+nada, y en silencio.
+
+**Lo que no se pudo verificar** queda en R14: el borrado completo no se ejecutó
+de punta a punta. Se revisó por inspección y con casos de reglas, pero la prueba
+que pide su ficha —crear un docente, poblarlo, borrarlo y comprobar documento
+por documento— necesita lo mismo que A17: poder ejecutar un borrado real.
+Suite: 77 → 80 casos.
 
 **A07 · Estudiantes e inscripciones** (5-ago-2026, unas horas). Dos defectos
 corregidos, uno de ellos con datos que **volvían solos**.
@@ -2191,7 +2219,8 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | R7 | **`students` se puede listar sin sesión**: nombres completos, escuela y grupo de todos los estudiantes de la plataforma — datos personales de menores. Además vuelve enumerable la recuperación de contraseña: un atacante puede buscar a quién le habilitaron el rescate y tomarle la cuenta | La activación por QR necesita leer inscripciones antes de que exista la cuenta, y las tres consultas sin sesión (login, recuperación, activación) van directas a Firestore | Mover esas tres consultas a un endpoint que resuelva con Admin SDK y devuelva solo lo indispensable; después cerrar la lectura pública. **No se puede desplegar de golpe**: la app publicada en Google Play consulta directo, y cerrar las reglas antes de que se actualice deja a los estudiantes sin poder entrar | A07 — **decisión del PO** (requiere escalonar la publicación) |
 | R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña consulta `users` por correo **antes** de iniciar sesión, así que es un `list` sin sesión | **CIERRE CONDICIONADO — aprobado por el PO el 5-ago-2026.** Se mantiene abierto a propósito y **no debe cerrarse antes** de que exista una versión del cliente —Web **y** Android— que ya no consulte `users` directamente para la recuperación de contraseña. Cerrar la regla antes rompe a todo cliente ya publicado: la app de Google Play trae esa pantalla y consulta directo. Orden obligatorio: (1) endpoint que resuelva la búsqueda por correo con Admin SDK; (2) cliente Web y Android publicados usándolo; (3) adopción confirmada; (4) recién entonces separar `get` de `list` en las reglas — el `get` lo necesita el alumno para ver a su docente, el `list` solo el panel | Cuando (1)-(3) estén hechos |
 | R10 | **Un recordatorio de entrega que cae en una corrida fallida se pierde para siempre** | `revisarProgramados` solo avisa dentro de una ventana de 35 min alrededor de la anticipación elegida; pasada esa ventana, no vuelve a intentarlo. La otra mitad de la misma función (publicar actividades) sí se autorrepara porque vuelve a barrer todo | **ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** El comportamiento actual **no se modifica**. Cualquier cambio en esta lógica es una **decisión funcional del Product Owner** —altera qué avisos recibe la gente, incluidos los de actividades creadas ya dentro de la ventana, que hoy no avisan— y **se evalúa después de liberar la v1.0**, no antes. La corrección técnica, cuando se autorice, es quitar el límite inferior de la ventana: `recordatoriosEnviados` ya impide duplicados | Después de la v1.0 — **decisión funcional del PO** |
-| R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). Y los mapas `presentes` de cada columna de asistencia conservan la llave del alumno, igual que pasaba con `activities.extensiones` antes de corregirse. Además, la baja de cuenta del propio estudiante no borra sus `studentEvents` | Limpiar en la baja lo que todavía tiene dueño (mapas de asistencia y `studentEvents`), y para los avisos huérfanos decidir entre darle al docente permiso de borrarlos o una limpieza programada. Descubierto en A07; toca colecciones de avisos y calendario | A14 (avisos) y A18 (calendario) |
+| R14 | **El borrado de cuenta de un docente nunca se ha ejecutado de punta a punta** | A10 lo revisó por inspección y corrigió lo que encontró, pero la verificación que pide su ficha —crear un docente, poblarlo con asignaturas, alumnos, entregas y archivos, borrarlo, y comprobar documento por documento y archivo por archivo— necesita poder correr un borrado real. Es la misma llave que bloquea A17 | Al desbloquear A17, ejecutar **una sola** prueba que sirve para las dos: un docente de prueba completo, borrado, verificado. Hasta entonces, las 15 colecciones que toca el endpoint están respaldadas por lectura de código, no por ejecución | Al reanudar A17 |
+| R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** · **Se corrige en el módulo dueño de cada dato, no en la baja.** Decisión del PO (5-ago-2026): A07 **no** debe parchearlo desde su lado. Un remiendo en la baja del estudiante trataría el síntoma —limpiar de paso datos de avisos y de calendario— y dejaría intacta la causa: colecciones cuya regla de borrado depende de un documento que ya no existe. Se arregla donde viven esos datos, con su modelo de propiedad revisado | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). Y los mapas `presentes` de cada columna de asistencia conservan la llave del alumno, igual que pasaba con `activities.extensiones` antes de corregirse. Además, la baja de cuenta del propio estudiante no borra sus `studentEvents` | Limpiar en la baja lo que todavía tiene dueño (mapas de asistencia y `studentEvents`), y para los avisos huérfanos decidir entre darle al docente permiso de borrarlos o una limpieza programada. Descubierto en A07; toca colecciones de avisos y calendario | A14 (avisos) y A18 (calendario) |
 | R12 | **El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado** | `api/cron/reminders.js` comprueba la cabecera **solo si** la variable existe; si no está puesta en Vercel, cualquiera puede dispararlo y provocar un envío masivo de correo | Verificar en Vercel que `CRON_SECRET` esté configurada (Vercel la manda sola en sus crons cuando existe). No se puede comprobar desde el código, y ponerlo a fallar en cerrado rompería el cron si resulta que falta: es una **acción de operación** | A24 |
 | R11 | **Las Cloud Functions no tienen forma automatizada de probarse** | La suite del proyecto solo cubre reglas de Firestore; las 14 funciones se verifican leyendo el código | **ABIERTO — mejora prioritaria para la v1.1, decisión del PO, 5-ago-2026.** No se construye todavía: levantar el emulador de Functions es trabajo de infraestructura que no cabe en la v1.0. Cuando se haga, empezar por las tres críticas —la que califica (`onEvaluacionFinalizada`), la que espeja la vigencia (`onSuscripcionEscrita`) y la que repone la prueba (`onDocenteCreado`) | **v1.1 — prioritaria** |
 | R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | A12 |
