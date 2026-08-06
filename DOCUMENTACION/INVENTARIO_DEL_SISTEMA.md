@@ -2027,7 +2027,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A08 | Evaluaciones | F3 | M08 | Crítico | Pendiente | — | — |
 | A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | Pendiente | — | — |
 | A10 | Perfil y cuenta del docente | F2 | M19 | Crítico | **Completada** | 5-ago-2026 | `229da17` · [#997](https://github.com/Alan20111/evalua-facil/pull/997) |
-| A11 | Panel de administración | F2 | M04 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
+| A11 | Panel de administración | F2 | M04 | Crítico | **Completada** | 5-ago-2026 | `832b492` · [#999](https://github.com/Alan20111/evalua-facil/pull/999) |
 | A12 | Actividades, entregas y asignaturas | F3 | M07, M05 | Alto | Pendiente | — | — |
 | A13 | Asistencia | F3 | M11 | Alto | Pendiente | — | — |
 | A14 | Avisos | F4 | M12 | Alto | Pendiente | — | — |
