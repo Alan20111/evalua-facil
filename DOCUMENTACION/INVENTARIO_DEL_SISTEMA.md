@@ -1948,7 +1948,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A02 | Pagos | F0 | M03 | Crítico | **Completada** | 5-ago-2026 | `c95d293` · [#984](https://github.com/Alan20111/evalua-facil/pull/984) |
 | A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | **Completada** | 5-ago-2026 | `a4fa5fc` · [#987](https://github.com/Alan20111/evalua-facil/pull/987) |
 | A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | **Completada** | 5-ago-2026 | `631f7ec` · [#989](https://github.com/Alan20111/evalua-facil/pull/989) |
-| A05 | Cloud Functions | F1 | M25 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
+| A05 | Cloud Functions | F1 | M25 | Crítico | **Completada** | 5-ago-2026 | `8b01f06` · [#991](https://github.com/Alan20111/evalua-facil/pull/991) |
 | A06 | API serverless | F1 | M26 | Crítico | Pendiente | — | — |
 | A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | Pendiente | — | — |
 | A08 | Evaluaciones | F3 | M08 | Crítico | Pendiente | — | — |
