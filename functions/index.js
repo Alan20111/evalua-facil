@@ -612,6 +612,19 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
 
   const calificacionIntento = calcularCalificacion(preguntas, respuestasPorPregunta, act.maxCalif || 10)
   const pendienteRevision = resolverPendienteRevision(preguntas, respuestasPorPregunta)
+  // Un instrumento "Sin calificación" (diagnóstico) no produce nota. El
+  // servidor no lo sabía y calificaba igual, con dos consecuencias visibles
+  // para el estudiante:
+  //   · Le aparecía una nota donde el docente dijo que no habría ninguna. Y si
+  //     además eligió que los reactivos NO se ponderen, la ponderación total da
+  //     cero y la nota calculada es 0 — un cero de aspecto reprobatorio en un
+  //     diagnóstico.
+  //   · Escribir `calificacion` dispara onSubmissionActualizada, así que le
+  //     llegaba un push "Ya tienes una calificación nueva".
+  // Misma lectura que el cliente (ver sinCalificacion en
+  // src/utils/activityVisibility.js): el campo puede venir en la actividad o
+  // dentro de su configuración de evaluación.
+  const noLleveNota = act.sinCalificacion === true || act.evaluacion?.sinCalificacion === true
 
   await db.runTransaction(async (tx) => {
     const freshSnap = await tx.get(after.ref)
@@ -621,12 +634,18 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
     const num = fresh.intentoActual || ((fresh.intentos?.length || 0) + 1)
     const previos = fresh.intentos || []
     if (previos.some((i) => i.numero === num)) return
-    tx.update(after.ref, {
-      calificacion: resolverCalificacionFinal(previos, calificacionIntento, act.evaluacion?.conservar),
+    // El intento se registra siempre —es lo que hace idempotente a esta
+    // función, y de paso deja el puntaje disponible para las estadísticas del
+    // diagnóstico—; lo que no se escribe sin nota es el campo `calificacion`.
+    const marcas = {
       pendienteRevision,
-      estado: pendienteRevision ? 'entregado' : 'calificado',
+      estado: noLleveNota || pendienteRevision ? 'entregado' : 'calificado',
       intentos: [...previos, { numero: num, calificacion: calificacionIntento }],
-    })
+    }
+    if (!noLleveNota) {
+      marcas.calificacion = resolverCalificacionFinal(previos, calificacionIntento, act.evaluacion?.conservar)
+    }
+    tx.update(after.ref, marcas)
   })
 })
 

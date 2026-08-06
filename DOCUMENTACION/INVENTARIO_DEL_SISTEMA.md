@@ -1931,7 +1931,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | Fase | Auditorías (en orden) | Estado |
 |---|---|---|
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
-| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **En proceso** — A03 y A04 cerradas; A05 es la siguiente |
+| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **En proceso** — A03, A04 y A05 cerradas; A06 es la siguiente |
 | **F2** · Personas y su información | A07 → A17 → A10 → A11 | Pendiente |
 | **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | Pendiente |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
@@ -1948,7 +1948,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A02 | Pagos | F0 | M03 | Crítico | **Completada** | 5-ago-2026 | `c95d293` · [#984](https://github.com/Alan20111/evalua-facil/pull/984) |
 | A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | **Completada** | 5-ago-2026 | `a4fa5fc` · [#987](https://github.com/Alan20111/evalua-facil/pull/987) |
 | A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | **Completada** | 5-ago-2026 | `631f7ec` · [#989](https://github.com/Alan20111/evalua-facil/pull/989) |
-| A05 | Cloud Functions | F1 | M25 | Crítico | Pendiente | — | — |
+| A05 | Cloud Functions | F1 | M25 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
 | A06 | API serverless | F1 | M26 | Crítico | Pendiente | — | — |
 | A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | Pendiente | — | — |
 | A08 | Evaluaciones | F3 | M08 | Crítico | Pendiente | — | — |
@@ -1969,12 +1969,36 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 4 de 24 auditorías (17%) · 1 de 7 fases cerradas.** Casos de prueba
-automatizados: **72**. Siguiente: **A05 · Cloud Functions**. A04 cerró R1; R8
+**Avance: 5 de 24 auditorías (21%) · 1 de 7 fases cerradas.** Casos de prueba
+automatizados: **72**. Siguiente: **A06 · API serverless**. A04 cerró R1; R8
 (lectura pública de `users`) sigue abierto y necesita el mismo escalonamiento de
 publicación que R7 — decisión del Product Owner.
 
 ## Resultados de las auditorías completadas
+
+**A05 · Cloud Functions** (5-ago-2026, unas horas). Las 14 funciones revisadas
+una por una: idempotencia, resolución de destinatario, documentos incompletos y
+las dos programadas.
+
+Un defecto real corregido en la que califica: **`onEvaluacionFinalizada` no
+sabía que existen los instrumentos "Sin calificación"**. A un diagnóstico le
+escribía nota igual, y si además el docente eligió que los reactivos no se
+ponderen, la ponderación total da cero y la nota calculada es **0** — un cero de
+aspecto reprobatorio donde se había dicho que no habría nota. Peor: escribir
+`calificacion` dispara `onSubmissionActualizada`, así que al estudiante le
+llegaba un push *"Ya tienes una calificación nueva"*. Ahora el intento se sigue
+registrando (idempotencia y estadísticas del diagnóstico intactas) pero el campo
+`calificacion` no se escribe y el estado queda en `entregado`.
+
+Lo demás quedó en verde: las 14 tienen salida temprana ante documento borrado o
+incompleto, las que pueden dispararse en ráfaga (`onSubmissionEntregada`,
+`onEvaluacionFinalizada`) reclaman su turno dentro de una transacción que relee
+el documento en vivo, y la programada que publica actividades se autorrepara
+sola porque vuelve a barrer todo en cada corrida.
+
+Dos hallazgos que **no** se corrigieron por decisión de alcance: R10 (los
+recordatorios sí se pierden si una corrida falla) y R11 (no hay forma
+automatizada de probar estas funciones).
 
 **A04 · Autenticación e identidad** (5-ago-2026, unas horas). Una vulnerabilidad
 crítica: **cualquiera con sesión podía quedarse con la inscripción de otro
@@ -2049,7 +2073,9 @@ solo sale de esta tabla cuando está cerrado, no cuando se explica.**
 | R5 | **No hay pruebas de interfaz ni de integración** | Nunca se construyeron | Cada auditoría deja casos de reglas; evaluar una suite de interfaz cuando el resto esté cubierto | Al cerrar A24 |
 | R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
 | R7 | **`students` se puede listar sin sesión**: nombres completos, escuela y grupo de todos los estudiantes de la plataforma — datos personales de menores. Además vuelve enumerable la recuperación de contraseña: un atacante puede buscar a quién le habilitaron el rescate y tomarle la cuenta | La activación por QR necesita leer inscripciones antes de que exista la cuenta, y las tres consultas sin sesión (login, recuperación, activación) van directas a Firestore | Mover esas tres consultas a un endpoint que resuelva con Admin SDK y devuelva solo lo indispensable; después cerrar la lectura pública. **No se puede desplegar de golpe**: la app publicada en Google Play consulta directo, y cerrar las reglas antes de que se actualice deja a los estudiantes sin poder entrar | A07 — **decisión del PO** (requiere escalonar la publicación) |
-| R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña consulta `users` por correo **antes** de iniciar sesión, así que es un `list` sin sesión | Separar `get` de `list` (el `get` lo necesita el alumno para ver a su docente; el `list`, solo el panel) y resolver la búsqueda por correo en un endpoint. **A04 lo verificó y no lo pudo cerrar**: la app publicada en Google Play trae esa pantalla y consulta directo, igual que R7 | A04 → **decisión del PO**: mismo escalonamiento que R7 |
+| R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña consulta `users` por correo **antes** de iniciar sesión, así que es un `list` sin sesión | **CIERRE CONDICIONADO — aprobado por el PO el 5-ago-2026.** Se mantiene abierto a propósito y **no debe cerrarse antes** de que exista una versión del cliente —Web **y** Android— que ya no consulte `users` directamente para la recuperación de contraseña. Cerrar la regla antes rompe a todo cliente ya publicado: la app de Google Play trae esa pantalla y consulta directo. Orden obligatorio: (1) endpoint que resuelva la búsqueda por correo con Admin SDK; (2) cliente Web y Android publicados usándolo; (3) adopción confirmada; (4) recién entonces separar `get` de `list` en las reglas — el `get` lo necesita el alumno para ver a su docente, el `list` solo el panel | Cuando (1)-(3) estén hechos |
+| R10 | **Un recordatorio de entrega que cae en una corrida fallida se pierde para siempre** | `revisarProgramados` solo avisa dentro de una ventana de 35 min alrededor de la anticipación elegida; pasada esa ventana, no vuelve a intentarlo. La otra mitad de la misma función (publicar actividades) sí se autorrepara porque vuelve a barrer todo | Quitar el límite inferior: avisar en cuanto falte menos que la anticipación y el recordatorio no se haya mandado. `recordatoriosEnviados` ya impide duplicados, así que es seguro. **Cambia lo que la gente recibe** —también avisaría de actividades creadas ya dentro de la ventana, que hoy no avisan— así que es **decisión del PO** | A18 — **decisión del PO** |
+| R11 | **Las Cloud Functions no tienen forma automatizada de probarse** | La suite del proyecto solo cubre reglas de Firestore; las funciones se verifican leyendo el código | Levantar el emulador de Functions junto al de Firestore y escribir pruebas de las tres críticas: la que califica, la que espeja la vigencia y la que repone la prueba | A24 |
 | R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | A12 |
 
 ---
