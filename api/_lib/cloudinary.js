@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { getDb } from './firebaseAdmin.js'
 
 // Borrado de archivos en Cloudinary.
 //
@@ -68,21 +69,50 @@ async function destruir({ cloud, tipo, publicId }, apiKey, apiSecret) {
   return data.result === 'ok' || data.result === 'not found'
 }
 
+// Deja constancia EN FIRESTORE de los archivos que no se pudieron borrar.
+//
+// Antes esto solo se escribía con console.warn, y ahí se pierde: los registros
+// de Vercel se rotan en horas, y para entonces los documentos que guardaban
+// esas URLs ya no existen — eran justamente lo que se acababa de borrar. Sin
+// este apunte, un archivo que se queda en Cloudinary se vuelve **imposible de
+// encontrar para siempre**: nadie puede saber que existe, a quién fue, ni
+// cuál era su public_id. Ocupa cuota (que paga Alan) hasta el fin de los
+// tiempos y ni siquiera se sabe cuánta.
+//
+// La colección no la lee ni la escribe ningún cliente: solo el Admin SDK desde
+// estos endpoints, y `seeds-db/purgar-cloudinary-pendientes.js`, que es la
+// escoba que la vacía cuando las llaves existen.
+async function anotarPendientes(pendientes, motivo, contexto) {
+  try {
+    await getDb().collection('archivosPendientes').add({
+      pendientes,
+      motivo,          // 'sin-credenciales' | 'cloudinary-rechazo'
+      ...contexto,     // origen del borrado y de quién era la cuenta
+      creado: new Date(),
+      purgado: false,
+    })
+  } catch (err) {
+    // Si ni esto se puede escribir, al menos que quede en el log: es el
+    // último cartucho, no una razón para tumbar el borrado de la cuenta.
+    console.error(`[archivos-pendientes] no se pudo anotar la constancia: ${err.message}`)
+  }
+}
+
 // Borra los assets recolectados. Nunca lanza: el borrado de la cuenta no se
 // puede quedar a medias porque Cloudinary tuvo un mal día.
-export async function borrarAssets(mapa) {
+//
+// `contexto` identifica de dónde vino el borrado ({ origen, uid }) y solo se
+// usa para la constancia de arriba.
+export async function borrarAssets(mapa, contexto = {}) {
   const assets = [...mapa.values()]
   if (!assets.length) return { total: 0, borrados: 0, pendientes: [] }
 
   const apiKey = process.env.CLOUDINARY_API_KEY
   const apiSecret = process.env.CLOUDINARY_API_SECRET
   if (!apiKey || !apiSecret) {
-    return {
-      total: assets.length,
-      borrados: 0,
-      configurado: false,
-      pendientes: assets.map((a) => `${a.tipo}/${a.publicId}`),
-    }
+    const pendientes = assets.map((a) => `${a.tipo}/${a.publicId}`)
+    await anotarPendientes(pendientes, 'sin-credenciales', contexto)
+    return { total: assets.length, borrados: 0, configurado: false, anotados: true, pendientes }
   }
 
   const pendientes = []
@@ -96,10 +126,16 @@ export async function borrarAssets(mapa) {
     resultados.forEach((ok, j) => { if (!ok) pendientes.push(`${lote[j].tipo}/${lote[j].publicId}`) })
   }
 
+  // Con llaves puestas también puede quedar algo sin borrar (Cloudinary caído,
+  // límite de peticiones, un public_id que no cuadra). Ese caso es más grave
+  // todavía, porque nadie lo espera: también se anota.
+  if (pendientes.length) await anotarPendientes(pendientes, 'cloudinary-rechazo', contexto)
+
   return {
     total: assets.length,
     borrados: assets.length - pendientes.length,
     configurado: true,
+    anotados: pendientes.length > 0,
     pendientes,
   }
 }

@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     refs.forEach((r) => batch.delete(r))
     await batch.commit()
 
-    const archivos = await borrarAssets(assets)
+    const archivos = await borrarAssets(assets, { origen: 'student/delete', uid })
     if (archivos.pendientes?.length) {
       console.warn(
         `[eliminar-alumno ${uid}] ${archivos.pendientes.length} archivos NO borrados de Cloudinary` +

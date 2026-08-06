@@ -43,5 +43,15 @@ export async function verifyRequest(req) {
     err.status = 401
     throw err
   }
-  return getAuth().verifyIdToken(token)
+  // Un token corrupto, caducado o de otro proyecto es exactamente lo mismo que
+  // no traer token: 401. Sin este catch, el error de Firebase salía tal cual
+  // con status 500 — que además de ser el código equivocado, le devolvía a
+  // quien lo intentara el mensaje interno de la librería.
+  try {
+    return await getAuth().verifyIdToken(token)
+  } catch {
+    const err = new Error('Sesión no válida')
+    err.status = 401
+    throw err
+  }
 }

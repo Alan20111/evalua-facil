@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     snap.docs.forEach((d) => batch.update(d.ref, { photoURL: null }))
     await batch.commit()
 
-    const archivos = await borrarAssets(assets)
+    const archivos = await borrarAssets(assets, { origen: 'student/remove-photo', uid })
     if (archivos.pendientes?.length) {
       console.warn(
         `[quitar-foto ${uid}] ${archivos.pendientes.length} archivos NO borrados de Cloudinary` +

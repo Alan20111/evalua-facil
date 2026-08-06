@@ -7,6 +7,17 @@ import DOMPurify from 'dompurify'
 const ALLOWED_TAGS = ['p', 'br', 'strong', 'em', 'u', 'span', 'ul', 'ol', 'li', 'a', 'img']
 const ALLOWED_ATTR = ['style', 'href', 'target', 'rel', 'src', 'alt']
 
+// Un enlace con target="_blank" le entrega a la página destino una referencia
+// a la pestaña que lo abrió (`window.opener`), con la que puede reemplazarla
+// por una copia falsa del sitio mientras el alumno mira la otra. Los
+// navegadores actuales ya lo ponen solo, pero eso no se hereda a un WebView
+// viejo, y el atributo cuesta nada.
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A' && node.hasAttribute('target')) {
+    node.setAttribute('rel', 'noopener noreferrer')
+  }
+})
+
 export function sanitizeHtml(html) {
   return DOMPurify.sanitize(html || '', { ALLOWED_TAGS, ALLOWED_ATTR })
 }

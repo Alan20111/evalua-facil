@@ -214,10 +214,11 @@ export default async function handler(req, res) {
     const { huerfanos } = await borrarAlumnosHuerfanos(db, auth, uidsAlumnos)
 
     // ── 8. Archivos en Cloudinary ───────────────────────────────────────
-    const archivos = await borrarAssets(assets)
-    // Lo que no se pudo borrar se anota en el log de Vercel: es la única
-    // forma de enterarse de que quedaron archivos ocupando espacio, porque
-    // el docente ya se fue y nadie va a ver esta respuesta.
+    const archivos = await borrarAssets(assets, { origen: 'account/delete', uid })
+    // Lo que no se pudo borrar queda anotado en `archivosPendientes` (ver
+    // borrarAssets) y además en el log de Vercel. El log solo por comodidad:
+    // el docente ya se fue y nadie va a ver esta respuesta, así que la
+    // constancia que importa es la de Firestore, que no se rota.
     if (archivos.pendientes?.length) {
       console.warn(
         `[eliminar-cuenta ${uid}] ${archivos.pendientes.length} archivos NO borrados de Cloudinary` +
