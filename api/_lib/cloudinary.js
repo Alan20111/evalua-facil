@@ -51,17 +51,31 @@ export function extraerAssets(objeto, acumulador = new Map()) {
   return acumulador
 }
 
+// `invalidate: true` no es un extra: sin él, borrar deja el archivo descargable
+// durante un mes. `destroy` saca el archivo del almacén, pero la URL de entrega
+// la sirve el CDN, y Cloudinary la manda con `cache-control: public, immutable,
+// max-age=2592000`. Comprobado el 6-ago-2026 contra la cuenta real: tras un
+// `destroy` con resultado `ok`, la URL canónica seguía devolviendo HTTP 200 con
+// el contenido íntegro, mientras que la misma URL con una transformación nueva
+// —que obliga a ir al original— ya respondía 404. El archivo estaba borrado y
+// se seguía entregando igual. Para una foto de perfil de un menor o la entrega
+// de un alumno, eso es la diferencia entre borrar y aparentar que se borró.
+//
+// La firma cubre todos los parámetros menos `file`, `cloud_name`,
+// `resource_type` y `api_key`, en orden alfabético: `invalidate` va antes que
+// `public_id`. Si se agrega otro parámetro, tiene que entrar aquí en su lugar
+// alfabético o Cloudinary rechaza la petición por firma inválida.
 async function destruir({ cloud, tipo, publicId }, apiKey, apiSecret) {
   const timestamp = Math.floor(Date.now() / 1000)
   const firma = crypto
     .createHash('sha1')
-    .update(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
+    .update(`invalidate=true&public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
     .digest('hex')
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/${tipo}/destroy`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ public_id: publicId, api_key: apiKey, timestamp, signature: firma }),
+    body: JSON.stringify({ public_id: publicId, invalidate: true, api_key: apiKey, timestamp, signature: firma }),
   })
   const data = await res.json().catch(() => ({}))
   // 'not found' cuenta como éxito: el archivo ya no ocupa espacio, que es de
