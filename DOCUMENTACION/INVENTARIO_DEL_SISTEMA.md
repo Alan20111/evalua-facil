@@ -8,24 +8,30 @@
 # 0. Qué es este documento
 
 Este es el **documento oficial que dirige todas las auditorías de Evalúa
-Fácil**. No hay otro. Contiene cuatro cosas que se sostienen entre sí:
+Fácil**. No hay otro. Contiene seis cosas que se sostienen entre sí:
 
-1. **El inventario** — qué existe en el sistema, agrupado en módulos, con sus
-   dependencias y su nivel de riesgo (§4).
-2. **El plan** — qué auditoría se hace, en qué orden, qué debe revisar, qué debe
-   intentar romper y cuándo se puede dar por terminada (§5).
-3. **La bitácora** — en qué va cada una (§6).
-4. **Los riesgos abiertos** — lo que se encontró y todavía no se cierra (§7).
+1. **Las evidencias** — qué prueba que una auditoría de verdad se ejecutó, y sin
+   lo cual no puede darse por terminada (§3).
+2. **El inventario** — qué existe en el sistema, agrupado en módulos, con sus
+   dependencias y su nivel de riesgo (§5).
+3. **Las fases** — en qué bloques se ejecuta el trabajo, qué hace falta para
+   empezar cada uno y cuándo se puede dar por cerrado (§6).
+4. **El plan** — qué auditoría se hace, qué debe revisar, qué debe intentar
+   romper y cuándo se puede dar por terminada (§7).
+5. **La bitácora** — en qué va cada una (§8).
+6. **Los riesgos abiertos** — lo que se encontró y todavía no se cierra (§9).
 
-**Cómo se usa.** Se abre en la bitácora, se toma la primera auditoría que no
-esté Completada, se lee su ficha en §5, se ejecuta siguiendo las reglas de §1, y
-se cierra con el protocolo de §2 — que incluye actualizar este mismo documento y
-seguir con la siguiente.
+**Cómo se usa.** Se abre en las fases, se toma la primera que no esté cerrada y
+se ejecutan sus auditorías **en el orden en que están listadas, sin detenerse
+entre una y otra**: la ficha de cada una está en §7, las reglas en §1, el
+protocolo de cierre en §2 y el expediente que hay que dejar en §3. Al terminar
+la fase se entrega su informe y se sigue con la siguiente. Las cuatro únicas
+razones para detenerse antes están en §6, *Cuándo detenerse*.
 
 **Cómo evoluciona.** Cada auditoría lo modifica: marca su estado, anota su
 commit, agrega los riesgos residuales que no pudo cerrar y corrige el inventario
 si encontró algo que aquí no estaba. Un módulo nuevo en el proyecto es un módulo
-nuevo aquí, con su ficha y su lugar en el plan. Ver §8, *Vigencia y
+nuevo aquí, con su ficha y su lugar en una fase. Ver §10, *Vigencia y
 re-auditoría*: esto no se ejecuta una vez y se archiva.
 
 **Una sola verdad por dato.** El inventario dice qué existe; el plan dice qué
@@ -134,7 +140,7 @@ donde aparecieron los peores hallazgos hasta hoy.
 
 - **Corregir, no solo diagnosticar.** Una auditoría que entrega una lista de
   problemas sin arreglarlos no está terminada.
-- **Lo que no se pueda corregir se documenta** en §7 con su causa y una
+- **Lo que no se pueda corregir se documenta** en §9 con su causa y una
   propuesta concreta, no con un "queda pendiente".
 - **Ninguna decisión de producto se inventa.** Precios, políticas, textos de
   cara al usuario, qué se cobra, qué se borra, qué se le muestra a quién: si la
@@ -162,7 +168,7 @@ donde aparecieron los peores hallazgos hasta hoy.
 Al terminar el trabajo, en este orden:
 
 1. **Corregir todo lo encontrado.** Nada queda como reporte. Lo que
-   genuinamente no se pueda cerrar, a §7 con propuesta concreta.
+   genuinamente no se pueda cerrar, a §9 con propuesta concreta.
 2. **Verificar.** `npm run lint`, `npm run build` y `npm run test:rules` (este
    último requiere JDK 21 — el de Android Studio sirve: `JAVA_HOME="/c/Program
    Files/Android/Android Studio/jbr"`). El `typecheck` se reporta como no
@@ -179,21 +185,21 @@ Al terminar el trabajo, en este orden:
 7. **Actualizar este documento**: estado en la bitácora, commit y PR, riesgos
    residuales nuevos, número de casos de prueba, y cualquier corrección al
    inventario.
-8. **Continuar automáticamente con la siguiente auditoría**, sin esperar
-   instrucción — salvo que esté Bloqueada por una decisión del Product Owner, en
-   cuyo caso se salta a la que sigue y se avisa.
+8. **Continuar automáticamente con la siguiente auditoría de la fase**, sin
+   esperar instrucción — salvo que esté Bloqueada por una decisión del Product
+   Owner, en cuyo caso se salta a la que sigue y se avisa. Si era la última de
+   la fase, se cierra la fase (§6).
 
 ## Definición de Terminado
 
 Una auditoría está Completada cuando cumple **las seis**:
 
-1. Todo hallazgo está corregido, o registrado en §7 con causa y propuesta.
+1. Todo hallazgo está corregido, o registrado en §9 con causa y propuesta.
 2. Cada vulnerabilidad se reprodujo antes de corregirse, y quedó como caso
    permanente de prueba.
-3. La evidencia existe y es verificable: casos nuevos en
-   `test/firestore-rules.test.mjs` para lo que sea regla; para lo que no
-   —exportaciones, correo, interfaz— **el artefacto real generado y abierto**,
-   no solo el código leído.
+3. **El expediente de evidencias está completo** — las doce piezas de §3, con
+   hechos reproducibles en las tres que no admiten palabra: el agujero, su
+   cierre y la ausencia de regresiones.
 4. `lint` y `build` limpios; la suite de reglas completa en verde.
 5. Desplegado y verificado en producción.
 6. Este documento actualizado.
@@ -203,17 +209,145 @@ legítimo en verde y un ataque en rojo por cada superficie que tocó. Si un mód
 no se puede cubrir con la suite de reglas, la ficha dice con qué evidencia se
 sustituye — nunca se queda sin ninguna.
 
-## Lo que entrega toda auditoría
+---
 
-Un informe con: resumen ejecutivo · mapa del flujo auditado · problemas
-encontrados · vulnerabilidades · riesgos de fraude · correcciones realizadas ·
-archivos modificados · justificación técnica de cada cambio · riesgos
-residuales · resultado de lint, typecheck y build · commit, hash y confirmación
-del push.
+# 3. Evidencias de auditoría
+
+Una auditoría que no se puede verificar después es indistinguible de una que
+nunca se hizo. Esta sección define qué prueba que el trabajo fue real.
+
+No es papeleo. Es lo que permite que otra persona —o uno mismo dentro de seis
+meses— confirme tres cosas: que el agujero existía, que quedó cerrado, y que al
+cerrarlo no se rompió nada más. Sin eso, "Completada" es solo una palabra que
+alguien escribió en una tabla.
+
+## 3.1 Qué cuenta y qué no
+
+Una sola regla: **evidencia es lo que otra persona puede volver a producir, o lo
+que quedó guardado.** Lo demás es narración.
+
+| No es evidencia | Sí es evidencia |
+|---|---|
+| "Revisé las reglas y están bien" | El caso que falla con las reglas viejas y pasa con las nuevas |
+| "El endpoint valida el token" | La llamada sin token y la respuesta exacta que devolvió |
+| "El PDF sale correcto" | El PDF generado y abierto, con el dato concreto que se cotejó |
+| "No hay regresiones" | La suite completa en verde, con el conteo antes y después |
+| "Lo probé en móvil" | El ancho medido, la pantalla y lo que se vio |
+| "Es seguro" | El ataque intentado y el error que devolvió |
+
+Lo de la izquierda puede ser perfectamente cierto. El problema es que **no se
+distingue de lo falso**, y una auditoría existe justamente para quitar esa duda.
+
+## 3.2 El expediente
+
+Doce piezas. Lo que no aplique se declara como no aplicable **con su motivo**;
+nunca se omite en silencio.
+
+| # | Evidencia | Qué debe contener | Qué la invalida |
+|---|---|---|---|
+| 1 | **La vulnerabilidad antes de corregirla** (cuando exista) | La prueba de que el agujero era real, obtenida **antes** de tocarlo: la salida del emulador, la respuesta del servidor, el dato que no debió aparecer | Describir el ataque sin haberlo corrido. O intentarlo después de la corrección: que hoy falle no demuestra que ayer funcionara |
+| 2 | **Explicación técnica del problema** | Por qué era posible, en términos del código: qué regla faltaba, qué campo no se validaba, qué se dio por sentado. Quien no estuvo debe entender el mecanismo | "Había un problema de seguridad en el módulo X" |
+| 3 | **Explicación de la solución** | Qué se cambió y **por qué así y no de otra forma**. Si se descartó una alternativa, por qué se descartó | Contar el diff en prosa |
+| 4 | **Archivos modificados** | La lista, con una línea por archivo diciendo qué cambió en él y para qué | La lista sola — eso ya lo da `git` |
+| 5 | **Pruebas ejecutadas** | Qué se corrió y con qué resultado: `lint`, `build`, la suite con su conteo, y cada verificación manual con sus pasos | "Todo pasó", sin números ni comandos |
+| 6 | **Que la corrección funciona** | El mismo ataque de (1), ahora fallando. **Y el caso legítimo, todavía pasando**: una corrección que también bloquea a quien sí tenía derecho no está corregida | Probar solo que el ataque falla |
+| 7 | **Que no hubo regresiones** | Suite completa en verde con el conteo antes y después, `build` limpio, y el recorrido del flujo principal del módulo tocado. Si el cambio alcanza a otros módulos, se nombran y se dice cómo se comprobaron | Correr únicamente los casos nuevos |
+| 8 | **Commit asociado** | El mensaje completo, en Conventional Commits, explicando qué se cerró y por qué importaba | Un mensaje de una línea sin cuerpo |
+| 9 | **Hash del commit** | El de la rama, el de `main` tras el squash y el número de PR. Los tres: el de la rama desaparece del historial | Solo uno de los tres |
+| 10 | **Fecha** | La de ejecución, no la de redacción del informe | — |
+| 11 | **Tiempo aproximado invertido** | En rangos: menos de una hora · unas horas · un día · varios días. Sirve para planear las fases que siguen y para saber lo que cuesta de verdad la calidad | Tomarlo como meta. Una auditoría que terminó rápido porque se saltó cosas es peor que una lenta |
+| 12 | **Riesgos residuales** | Lo que quedó abierto, con causa y propuesta, ya registrado en §9. **Si no hay ninguno, se dice** — "no quedó nada abierto" es un hallazgo; el silencio no dice nada | Dejar el apartado vacío |
+
+## 3.3 Dónde vive cada cosa
+
+| Qué | Dónde | Cuánto dura |
+|---|---|---|
+| El informe completo | Cuerpo del PR | Permanente |
+| El razonamiento de cada cambio | Mensaje del commit y comentarios en el código | Permanente |
+| Los casos de prueba | `test/firestore-rules.test.mjs` | Permanente — **no se borran nunca** |
+| Artefactos: PDF, Excel, capturas, mediciones | Scratchpad de la sesión | **Se pierde al cerrarla** |
+| El resumen de una línea y el estado | Bitácora, §8 | Permanente |
+
+El scratchpad desaparece. Por eso todo artefacto que sostenga una conclusión se
+**transcribe al informe**: el dato exacto que se verificó y los pasos para
+volver a generarlo. Un PDF que ya no existe y del que solo queda "se veía bien"
+no prueba nada.
+
+## 3.4 Cuando la evidencia no puede existir
+
+Hay cosas que ninguna prueba automatizada alcanza: que un manual siga
+describiendo lo que la plataforma hace, que un texto se entienda, que una
+declaración ante Google Play sea cierta. Ahí la evidencia es la **comparación
+documentada**: qué dice el documento, qué hace el sistema, y el cotejo lado a
+lado de los dos.
+
+Lo que **no** es una salida es bajar la exigencia sin decirlo. Si una
+verificación no se pudo hacer —falta un acceso, una credencial, un dispositivo—
+se nombra, se explica por qué, y ese punto se va a riesgos residuales (§9). Una
+auditoría puede cerrar con partes sin verificar; lo que no puede es cerrar
+fingiendo que las verificó.
+
+## 3.5 La regla
+
+> **Ninguna auditoría se marca «Completada» si no existe evidencia suficiente
+> para demostrar que realmente fue ejecutada.**
+
+*Suficiente* quiere decir: las doce piezas presentes o declaradas como no
+aplicables, y las tres que no admiten palabra —**la 1, la 6 y la 7**: el
+agujero, su cierre y la ausencia de regresiones— sostenidas con hechos
+reproducibles.
+
+Una auditoría sin esa evidencia no está Completada: está **En proceso**, y así
+se queda en la bitácora hasta que la evidencia exista. No hay estado intermedio
+para "la hice pero no puedo demostrarlo".
+
+Vale también hacia atrás: si al revisar una auditoría vieja se ve que su
+expediente no alcanza, vuelve a **Pendiente**. Repetirla cuesta menos que
+confiar en que se hizo.
+
+## 3.6 Plantilla del expediente
+
+Se llena en el cuerpo del PR de cada auditoría.
+
+```markdown
+## Auditoría A-- · <nombre>            Fase F- · <fecha> · <tiempo aproximado>
+
+### 1. El agujero, antes de tocarlo
+<salida real: emulador, respuesta del servidor, dato que no debía aparecer>
+<si no hubo vulnerabilidades: "Ninguna. Lo que se intentó romper y falló: ...">
+
+### 2. Por qué era posible
+<mecanismo, en términos del código>
+
+### 3. Qué se cambió y por qué así
+<solución, y las alternativas descartadas con su motivo>
+
+### 4. Archivos modificados
+- `ruta/archivo` — qué cambió y para qué
+
+### 5. Pruebas ejecutadas
+- `npm run lint` → <resultado>
+- `npm run build` → <resultado>
+- `npm run test:rules` → <n> casos (<antes> → <después>)
+- Verificaciones manuales: <pasos y resultado>
+
+### 6. Que la corrección funciona
+- El ataque de (1), ahora: <resultado>
+- El caso legítimo, todavía: <resultado>
+
+### 7. Que no hay regresiones
+<suite completa, build, recorrido del flujo principal, módulos vecinos>
+
+### 8-9. Commit
+<mensaje> · rama `<hash>` · main `<hash>` · PR #<n>
+
+### 10-12. Cierre
+Fecha: <fecha> · Tiempo: <rango> · Riesgos residuales: <R-- o "ninguno">
+```
 
 ---
 
-# 3. Cómo leer el inventario
+# 4. Cómo leer el inventario
 
 | Campo | Qué significa |
 |---|---|
@@ -234,6 +368,7 @@ del push.
 | Endpoints serverless (Vercel) | 9 activos de 12 permitidos + 4 pausados |
 | Módulos funcionales | 33 — **11 Críticos**, 14 Altos, 5 Medios, 3 Bajos |
 | Auditorías planeadas | 24 (2 completadas) |
+| Fases de ejecución | 7 (una cerrada) |
 | Casos de prueba automatizados | 62 (reglas de Firestore) |
 
 ## Cobertura
@@ -265,7 +400,7 @@ SOPORTE       Lo que no se despliega pero sostiene el trabajo: semillas,
 
 ---
 
-# 4. Inventario de módulos
+# 5. Inventario de módulos
 
 ## CAPA DE NEGOCIO
 
@@ -853,7 +988,7 @@ integración.**
 detiene una regresión antes de que llegue.
 
 **Auditoría.** Ninguna: es el instrumento de todas las demás, y cada una lo deja
-más grande. Su salud se mide en el contador de casos de §3.
+más grande. Su salud se mide en el contador de casos de §4.
 
 ### M30 · Documentación
 
@@ -889,7 +1024,231 @@ credenciales dentro del repositorio.
 
 ---
 
-# 5. Plan de ejecución de auditorías
+# 6. Fases de ejecución
+
+Las veinticuatro auditorías se agrupan en **siete fases**, cada una con todo lo
+que se puede cerrar sin depender de lo que viene después. Existen para que una
+fase entera se pueda ejecutar de corrido, sin pedir instrucciones entre una
+auditoría y la siguiente.
+
+**El número identifica; la fase ordena.** `A07` se llama así para siempre —está
+citado en commits, PR e informes—, y por eso las fases no siempre agrupan
+números seguidos. Cuando haya duda sobre qué sigue, manda la fase.
+
+## Cómo se ejecuta una fase
+
+- Las auditorías de la fase se hacen **en el orden en que están listadas**, que
+  es el de sus dependencias.
+- **Cada auditoría cierra por su cuenta** con el protocolo de §2: su propia
+  rama, su propio commit, su propio despliegue. No se acumula el trabajo de una
+  fase en un solo commit — si algo sale mal, se revierte una auditoría, no
+  cuatro.
+- **Una auditoría bloqueada no detiene la fase.** Se marca Bloqueada con la
+  pregunta que la detuvo, se sigue con la siguiente, y la pregunta se entrega al
+  cerrar la fase. Lo único que sí detiene todo es que la parte bloqueada sea
+  requisito de las demás; entonces se dice y se espera.
+- Lo que una fase descubre y no le toca resolver se anota como riesgo (§9) con
+  la auditoría que lo cerrará, y ahí se queda hasta que se cierre.
+
+## Cierre de fase
+
+Vale para las siete; no se repite en cada ficha. Una fase termina cuando:
+
+1. Todas sus auditorías están **Completada** o **Bloqueada**. Ninguna a medias.
+2. `lint`, `build` y la suite de reglas completa, en verde, con todo integrado
+   en `main`.
+3. La bitácora (§8) está al día: estado, fecha, commit y PR de cada una, y el
+   contador de casos de prueba actualizado.
+4. Los riesgos nuevos están en §9 con su propuesta y su auditoría asignada.
+5. Un **commit de cierre de fase** sobre este documento:
+   `docs(calidad): cierra la Fase N — <nombre>`, con el resumen de lo corregido,
+   lo bloqueado y los casos de prueba ganados.
+6. Un **informe de fase** al Product Owner: qué se cerró, qué quedó bloqueado y
+   con qué pregunta exacta, y qué sigue.
+7. **Se continúa con la siguiente fase automáticamente**, sin esperar respuesta,
+   salvo que todas sus auditorías dependan de una decisión pendiente.
+
+## Cuándo detenerse
+
+Solo hay cuatro razones para dejar de trabajar:
+
+- **Terminó una fase.** Se entrega el informe y se sigue con la siguiente.
+- **Hace falta una decisión exclusiva del Product Owner** (§1.7). Se marca
+  Bloqueada, se salta y se sigue; la pregunta va en el informe de fase. Si es
+  urgente porque bloquea todo lo demás, se pregunta de inmediato.
+- **Una corrección cambiaría lo que el usuario ve, paga o recibe.** Se pregunta
+  antes de hacerla, aunque técnicamente sea la respuesta correcta.
+- **Algo rompió producción.** Se revierte con el respaldo del paso 3 de §2, se
+  avisa de inmediato y no se sigue hasta que producción esté sana.
+
+Ninguna otra cosa justifica detenerse a preguntar.
+
+---
+
+## Fase 0 · Dinero y acceso comercial — COMPLETADA
+
+**Objetivo general.** Que nadie pueda otorgarse vigencia ni pagar menos de lo
+que debe. Se ejecutó primero, fuera de este orden, porque era lo único que
+costaba dinero desde el día uno.
+
+**Auditorías.** A01 (suscripciones) → A02 (pagos).
+
+**Para iniciar.** —
+
+**Para concluir.** Cumplida: dos vías críticas de fraude cerradas, cliente y
+servidor alineados, 25 casos de prueba nuevos.
+
+**Cerrada** el 5 de agosto de 2026. Detalle en §8.
+
+## Fase 1 · Cimientos del servidor
+
+**Objetivo general.** Cerrar las cuatro superficies donde se decide **quién
+puede hacer qué**, antes de auditar una sola pantalla. Todo lo que viene después
+se apoya en que estas cuatro estén bien: auditar una pantalla sobre un servidor
+sin revisar obliga a repetir la pantalla.
+
+**Auditorías.** A03 (reglas de Firestore) → A04 (autenticación e identidad) →
+A05 (Cloud Functions) → A06 (API serverless).
+
+**Para iniciar.** Fase 0 cerrada. ✔ Cumplido.
+
+**Para concluir.**
+- Las 30 colecciones con al menos un caso legítimo en verde y un ataque en rojo;
+  las de lectura pública, además, con una prueba de consulta sin sesión.
+- Las 14 Cloud Functions con su salida temprana documentada, su idempotencia
+  verificada y su comportamiento probado ante un documento incompleto.
+- Matriz completa de endpoints × cuatro identidades, con cada celda en el
+  informe.
+- **R1** (`schools` abierta) y **R2** (tarifa fuera de las reglas) cerrados.
+- La entropía de usuarios y contraseñas de estudiante medida y documentada, con
+  su corrección si resultó insuficiente.
+
+## Fase 2 · Personas y su información
+
+**Objetivo general.** Que los datos de una persona —sobre todo los de menores de
+edad— solo los vea quien debe, y que dar de baja una cuenta no deje nada atrás.
+Incluye el almacenamiento porque ahí viven sus archivos, y porque cerrarlo aquí
+permite auditar las entregas en la fase siguiente sin un hueco debajo.
+
+**Auditorías.** A07 (estudiantes y perfil del estudiante) → A17 (archivos y
+multimedia) → A10 (perfil y cuenta del docente) → A11 (panel de administración).
+
+**Para iniciar.** Fase 1 cerrada. El borrado de cuentas depende de la API y de
+las funciones, y no se puede juzgar antes que ellas.
+
+**Para concluir.**
+- La lectura pública de `students` acotada a lo mínimo que la activación
+  necesita, demostrado con un caso de prueba.
+- Un docente de prueba creado, poblado y eliminado, con verificación documento
+  por documento y archivo por archivo de que no queda nada suyo.
+- Los límites reales del preset de Cloudinary verificados contra el servicio, no
+  contra el código que lo llama, y una postura escrita sobre la cuota.
+- Cada acción del panel denegada, en cliente y en servidor, con sesión de
+  docente y de estudiante.
+- **R3** (llaves de Cloudinary) cerrado o formalmente Bloqueado con la pregunta
+  al Product Owner.
+
+## Fase 3 · El trabajo académico
+
+**Objetivo general.** Que el número que llega a la escuela sea el correcto, y
+que ningún estudiante vea ni toque el trabajo de otro. Es el corazón del
+producto: lo que el docente no puede rehacer si se pierde.
+
+**Auditorías.** A08 (evaluaciones) → A09 (calificaciones, ponderación y
+rúbricas) → A12 (actividades, entregas y asignaturas) → A13 (asistencia) →
+A18 (calendario y agenda).
+
+**Para iniciar.** Fase 1 cerrada — la calificación automática vive en una Cloud
+Function y las respuestas viven en subcolecciones, así que sin A05 y A03 esto no
+se puede juzgar. Fase 2 conviene cerrada, pero no es requisito: si quedó
+bloqueada por R3, esta fase puede arrancar igual.
+
+**Para concluir.**
+- Ninguna respuesta correcta alcanzable desde el navegador antes de contestar, y
+  ningún campo de calificación escribible por el estudiante, demostrado con
+  casos de prueba desde las tres identidades.
+- Una asignatura de prueba con casos límite y 50 estudiantes que dé **el mismo
+  número** en pantalla, en PDF y en Excel.
+- Una asignatura creada, duplicada y borrada sin dejar residuos.
+- Un mes de asistencias con asuetos y vacaciones, cuadrando detalle, resumen y
+  exportación.
+- Todo cálculo de fecha resuelto en el servidor o probado contra un reloj
+  mentiroso y otra zona horaria.
+
+## Fase 4 · Lo que sale del sistema
+
+**Objetivo general.** Que nada salga hacia el destinatario equivocado. Son los
+cuatro canales por los que la información abandona la plataforma: un aviso, una
+notificación, un archivo exportado y un correo.
+
+**Auditorías.** A14 (avisos) → A15 (notificaciones push) → A16 (exportaciones) →
+A21 (correo transaccional).
+
+**Para iniciar.** Fase 3 cerrada. Una exportación no se puede validar antes que
+los números que exporta.
+
+**Para concluir.**
+- Ningún aviso legible fuera de su asignatura y ningún acuse escribible por un
+  tercero.
+- Ningún token de push sobreviviendo al cierre de sesión, probado en el
+  teléfono.
+- Los reportes principales **generados y abiertos de verdad** en los cuatro
+  estados de suscripción, en web y en Android.
+- Ninguna inyección de fórmula posible en Excel con datos escritos por un
+  estudiante.
+- Ningún envío de correo a una dirección que no salga de la base.
+- Decisión tomada sobre EmailJS (**es de producto**: si no hay respuesta, queda
+  Bloqueada y la fase cierra igual).
+
+## Fase 5 · Superficie y entorno
+
+**Objetivo general.** Que la plataforma se pueda usar completa —todas sus
+funciones, por cualquier persona, en cualquier pantalla y en los dos medios— y
+que llegar a ella por una dirección escrita a mano no abra lo que no debe.
+
+**Auditorías.** A19 (navegación y guardianes) → A20 (aplicación Android) →
+A23 (interfaz, accesibilidad y consistencia).
+
+**Para iniciar.** Fase 4 cerrada. La paridad entre app y web se juzga sobre
+funciones ya validadas; si no, se estarían comparando dos cosas rotas.
+
+**Para concluir.**
+- Matriz completa de 28 rutas × 4 identidades, con el resultado de cada celda.
+- Ningún dato en pantalla sobreviviendo al cierre de sesión, ni con el botón de
+  atrás.
+- Lista de diferencias entre app y web, justificada una por una, y la versión
+  publicada en Google Play probada contra las reglas en producción.
+- Las pantallas principales medidas a 320, 375, 768 y 1280 píxeles, en tema
+  claro y oscuro, con evidencia.
+- `npm run check:design` en verde.
+
+## Fase 6 · Cumplimiento y operación
+
+**Objetivo general.** Que lo que se declaró ante Google Play y en el aviso de
+privacidad siga siendo verdad, y que nadie pueda borrar la base por accidente ni
+filtrar una credencial. Va al final a propósito: solo después de las seis fases
+anteriores se sabe **qué datos se recogen de verdad** y por dónde salen.
+
+**Auditorías.** A22 (seguridad de datos y privacidad) → A24 (operación, secretos
+y despliegue).
+
+**Para iniciar.** Fase 5 cerrada.
+
+**Para concluir.**
+- Tabla de datos recogidos —para qué, a dónde salen, cuánto se conservan—
+  coincidiendo con lo declarado en Play y en el aviso de privacidad.
+- **R4** (retención de 90 días) resuelto en un sentido o en el otro, o Bloqueado
+  con la pregunta hecha.
+- Postura escrita sobre el consentimiento de menores.
+- Inventario de scripts con su destino, inventario de secretos con dónde vive
+  cada uno, y ninguna credencial versionada.
+- Procedimiento de reversa escrito y probado una vez.
+- **R5** (ausencia de pruebas de interfaz) evaluado con una recomendación
+  concreta ahora que todo lo demás está cubierto.
+
+---
+
+# 7. Plan de ejecución de auditorías
 
 Veinticuatro auditorías. El orden sigue dos criterios, en este orden: **primero
 lo que sostiene a lo demás** (reglas, identidad, los dos servidores que se
@@ -897,17 +1256,18 @@ saltan las reglas), **después lo que más cuesta que falle**. Auditar una
 pantalla antes que el servidor que la respalda obliga a repetirla.
 
 Cada ficha da por sabidas las reglas de §1 y el protocolo de §2, y remite al
-inventario para saber qué archivos toca. El estado vive en §6, no aquí.
+inventario para saber qué archivos toca. El estado vive en §8 y el orden de
+ejecución en §6, no aquí.
 
 ## A01 · Suscripciones y candado de acceso — COMPLETADA
 
 **Módulos.** M02 · **Objetivo.** Que nadie pueda otorgarse vigencia.
-Resultado en §6.
+Resultado en §8.
 
 ## A02 · Pagos — COMPLETADA
 
 **Módulos.** M03 · **Objetivo.** Que un pago no pueda valer más de lo que se
-transfirió. Resultado en §6.
+transfirió. Resultado en §8.
 
 ## A03 · Reglas de Firestore y modelo de datos
 
@@ -935,7 +1295,7 @@ cada módulo: eso es de su propia auditoría.
   (una propiedad ausente revienta la regla, no da falso).
 - Coherencia entre las consultas del cliente y los índices desplegados.
 - Colecciones que existan en el código pero no tengan `match` propio.
-- `storage.rules`: declara una superficie que no se usa (ver §8-D.1).
+- `storage.rules`: declara una superficie que no se usa (ver §11-D.1).
 
 **Intentar romper.**
 - Escribir en cada colección con el `docenteId` de otro, y con el propio pero
@@ -1556,42 +1916,71 @@ y probado una vez.
 
 ---
 
-# 6. Bitácora de ejecución
+# 8. Bitácora de ejecución
 
 **Estados.** `Pendiente` · `En proceso` · `Completada` · `Bloqueada` (esperando
 una decisión del Product Owner; se anota qué se preguntó).
 
-| # | Auditoría | Módulos | Riesgo | Estado | Fecha | Commit / PR |
-|---|---|---|---|---|---|---|
-| A01 | Suscripciones y candado | M02 | Crítico | **Completada** | 5-ago-2026 | `bad52d8` · [#983](https://github.com/Alan20111/evalua-facil/pull/983) |
-| A02 | Pagos | M03 | Crítico | **Completada** | 5-ago-2026 | `c95d293` · [#984](https://github.com/Alan20111/evalua-facil/pull/984) |
-| A03 | Reglas de Firestore y modelo de datos | M24 | Crítico | Pendiente | — | — |
-| A04 | Autenticación e identidad | M01, M18 | Crítico | Pendiente | — | — |
-| A05 | Cloud Functions | M25 | Crítico | Pendiente | — | — |
-| A06 | API serverless | M26 | Crítico | Pendiente | — | — |
-| A07 | Estudiantes e inscripciones | M06, M20 | Crítico | Pendiente | — | — |
-| A08 | Evaluaciones | M08 | Crítico | Pendiente | — | — |
-| A09 | Calificaciones, ponderación y rúbricas | M10, M09 | Crítico | Pendiente | — | — |
-| A10 | Perfil y cuenta del docente | M19 | Crítico | Pendiente | — | — |
-| A11 | Panel de administración | M04 | Crítico | Pendiente | — | — |
-| A12 | Actividades, entregas y asignaturas | M07, M05 | Alto | Pendiente | — | — |
-| A13 | Asistencia | M11 | Alto | Pendiente | — | — |
-| A14 | Avisos | M12 | Alto | Pendiente | — | — |
-| A15 | Notificaciones push | M14 | Alto | Pendiente | — | — |
-| A16 | Exportaciones | M16 | Alto | Pendiente | — | — |
-| A17 | Archivos y multimedia | M17 | Alto | Pendiente | — | — |
-| A18 | Calendario y agenda | M13 | Alto | Pendiente | — | — |
-| A19 | Navegación y guardianes de ruta | M21, M31 | Alto | Pendiente | — | — |
-| A20 | Aplicación Android | M23 | Alto | Pendiente | — | — |
-| A21 | Correo transaccional | M15 | Alto | Pendiente | — | — |
-| A22 | Seguridad de datos y privacidad | M27 | Alto | Pendiente | — | — |
-| A23 | Interfaz, accesibilidad y consistencia | M22, M32, M31 | Medio | Pendiente | — | — |
-| A24 | Operación, secretos y despliegue | M28, M33 | Alto | Pendiente | — | — |
+**`Completada` no se escribe sin expediente.** Una auditoría hecha pero no
+demostrable se queda en `En proceso` hasta que la evidencia de §3 exista. Marcar
+lo contrario convierte esta tabla en una lista de buenas intenciones.
 
-**Avance: 2 de 24 (8%).** Casos de prueba automatizados: **62**.
-Siguiente en la fila: **A03 · Reglas de Firestore y modelo de datos**.
+## Por fase
+
+| Fase | Auditorías (en orden) | Estado |
+|---|---|---|
+| **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
+| **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | Pendiente — **siguiente** |
+| **F2** · Personas y su información | A07 → A17 → A10 → A11 | Pendiente |
+| **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | Pendiente |
+| **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
+| **F5** · Superficie y entorno | A19 → A20 → A23 | Pendiente |
+| **F6** · Cumplimiento y operación | A22 → A24 | Pendiente |
+
+## Por auditoría
+
+Ordenada por número para poder buscarla; el orden de ejecución es el de arriba.
+
+| # | Auditoría | Fase | Módulos | Riesgo | Estado | Fecha | Commit / PR |
+|---|---|---|---|---|---|---|---|
+| A01 | Suscripciones y candado | F0 | M02 | Crítico | **Completada** | 5-ago-2026 | `bad52d8` · [#983](https://github.com/Alan20111/evalua-facil/pull/983) |
+| A02 | Pagos | F0 | M03 | Crítico | **Completada** | 5-ago-2026 | `c95d293` · [#984](https://github.com/Alan20111/evalua-facil/pull/984) |
+| A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | Pendiente | — | — |
+| A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | Pendiente | — | — |
+| A05 | Cloud Functions | F1 | M25 | Crítico | Pendiente | — | — |
+| A06 | API serverless | F1 | M26 | Crítico | Pendiente | — | — |
+| A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | Pendiente | — | — |
+| A08 | Evaluaciones | F3 | M08 | Crítico | Pendiente | — | — |
+| A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | Pendiente | — | — |
+| A10 | Perfil y cuenta del docente | F2 | M19 | Crítico | Pendiente | — | — |
+| A11 | Panel de administración | F2 | M04 | Crítico | Pendiente | — | — |
+| A12 | Actividades, entregas y asignaturas | F3 | M07, M05 | Alto | Pendiente | — | — |
+| A13 | Asistencia | F3 | M11 | Alto | Pendiente | — | — |
+| A14 | Avisos | F4 | M12 | Alto | Pendiente | — | — |
+| A15 | Notificaciones push | F4 | M14 | Alto | Pendiente | — | — |
+| A16 | Exportaciones | F4 | M16 | Alto | Pendiente | — | — |
+| A17 | Archivos y multimedia | F2 | M17 | Alto | Pendiente | — | — |
+| A18 | Calendario y agenda | F3 | M13 | Alto | Pendiente | — | — |
+| A19 | Navegación y guardianes de ruta | F5 | M21, M31 | Alto | Pendiente | — | — |
+| A20 | Aplicación Android | F5 | M23 | Alto | Pendiente | — | — |
+| A21 | Correo transaccional | F4 | M15 | Alto | Pendiente | — | — |
+| A22 | Seguridad de datos y privacidad | F6 | M27 | Alto | Pendiente | — | — |
+| A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
+| A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
+
+**Avance: 2 de 24 auditorías (8%) · 1 de 7 fases.** Casos de prueba
+automatizados: **62**. Siguiente: **Fase 1 · Cimientos del servidor**, que
+arranca con **A03 · Reglas de Firestore y modelo de datos** y corre de largo
+hasta A06.
 
 ## Resultados de las auditorías completadas
+
+*Nota de honestidad.* A01 y A02 se ejecutaron antes de que existiera §3. Su
+expediente cumple con once de las doce piezas —incluida la salida del emulador
+que probó cada agujero antes de cerrarlo, en los cuerpos de sus PR— y le falta
+solo la 11, el tiempo invertido, que entonces no se registraba. Como el tiempo
+no demuestra ejecución sino que sirve para planear, las dos siguen válidas como
+Completadas. De A03 en adelante se registran las doce.
 
 **A01 · Suscripciones** (5-ago-2026). Dos vías críticas cerradas: el docente
 podía reescribir las fechas y el plan de su propia suscripción en el mismo
@@ -1610,7 +1999,7 @@ ahora se puede adjuntar desde el primer intento. Suite: 48 → 62 casos.
 
 ---
 
-# 7. Riesgos residuales abiertos
+# 9. Riesgos residuales abiertos
 
 Lo que una auditoría encontró y no pudo cerrar, con su causa y la propuesta
 concreta. Cada uno se cierra en la auditoría que le corresponde. **Un riesgo
@@ -1627,7 +2016,7 @@ solo sale de esta tabla cuando está cerrado, no cuando se explica.**
 
 ---
 
-# 8. Vigencia y re-auditoría
+# 10. Vigencia y re-auditoría
 
 Esto no se ejecuta una vez y se archiva. Una auditoría **caduca** cuando pasa
 cualquiera de estas cosas, y su módulo vuelve a Pendiente:
@@ -1642,13 +2031,18 @@ cualquiera de estas cosas, y su módulo vuelve a Pendiente:
   devuelve A03, A05 y A20.
 - **Pasa un año** desde la última ejecución de una auditoría Crítica.
 
+**Una auditoría que caduca no reabre su fase entera.** Vuelve a Pendiente ella
+sola y se ejecuta suelta, con su propio cierre. La fase solo se reabre completa
+cuando caducan todas sus auditorías a la vez — por ejemplo, un cambio de versión
+mayor de Firebase que devuelva la Fase 1.
+
 **Regla permanente.** Ningún PR que toque un módulo Crítico se mergea sin al
 menos un caso de prueba nuevo o actualizado, o sin una línea que explique por
 qué no hacía falta.
 
 ---
 
-# 9. Anexos
+# 11. Anexos
 
 ## A. Colecciones de Firestore
 
