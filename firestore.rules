@@ -102,8 +102,20 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if true;
+      // El perfil se crea UNA sola vez y lo escribe su propio dueño, así que es
+      // la única escritura donde nadie estaba mirando: el `update` de abajo
+      // congela `suscripcionHasta`, pero al crear se podía traer puesto. Un
+      // docente recién registrado escribía su perfil con el candado abierto a
+      // diez años y trabajaba sin vencimiento posible.
+      //
+      // Que la Cloud Function del espejo lo corrija al crear la prueba no es
+      // una defensa, es una carrera: si tarda o falla, el valor inventado se
+      // queda. Aquí el campo simplemente no puede venir — el cliente nunca lo
+      // manda (ver createTeacherAccount), solo lo escribe el Admin SDK, que no
+      // pasa por estas reglas.
       allow create: if request.auth.uid == userId &&
-        request.resource.data.role == 'docente';
+        request.resource.data.role == 'docente' &&
+        !request.resource.data.keys().hasAny(['suscripcionHasta']);
       // `suscripcionHasta` (el candado de escritura, ver docenteActivo) queda
       // congelado en las ediciones del propio docente: solo lo escribe la Cloud
       // Function con el Admin SDK, que no pasa por estas reglas. Sin esto, el
