@@ -439,6 +439,31 @@ await assertSucceeds(setDoc(doc(asNuevo, 'users', T_NUEVO), {
 await assertFails(deleteDoc(doc(asNuevo, 'users', T_NUEVO)))
 ok('teacher CANNOT delete their own profile to re-create it')
 
+// ── A10 · La constancia de baja se tiene que poder leer ─────────────────────
+// `bajas` no tenía regla, así que Firestore la denegaba por omisión: el panel
+// la lee con un .catch que se tragaba el error y la constancia se escribía sin
+// que nadie pudiera leerla nunca. La escribe solo el Admin SDK.
+const ADMIN = 'admin_1'
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'users', ADMIN), { role: 'admin', email: 'admin@evaluafacil.mx' })
+  await setDoc(doc(db, 'bajas', 'T_BAJA'), {
+    docenteId: 'T_BAJA', nombre: 'Quien se fue', email: 'x@y.mx', cuentaEliminada: true,
+  })
+})
+const asAdmin = testEnv.authenticatedContext(ADMIN).firestore()
+
+// Lo que de verdad importa: que el panel SÍ pueda leerla. Una regla que niega
+// a todos habría dejado el defecto igual de roto, solo que en verde.
+await assertSucceeds(getDoc(doc(asAdmin, 'bajas', 'T_BAJA')))
+ok('admin CAN read the deregistration record (the panel needs it)')
+
+await assertFails(getDoc(doc(asT1, 'bajas', 'T_BAJA')))
+ok('teacher CANNOT read the deregistration record of another')
+
+await assertFails(setDoc(doc(asT1, 'bajas', 'T_FALSA'), { docenteId: 'T1' }))
+ok('nobody can forge a deregistration record from the client')
+
 // ── A04 · Las escuelas ajenas no se renombran (R1) ──────────────────────────
 // El alta completa datos que le faltaban a una escuela que ya existía, y eso
 // tiene que seguir funcionando; lo que no puede es cambiarle el nombre.

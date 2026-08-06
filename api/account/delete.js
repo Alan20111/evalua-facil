@@ -24,8 +24,14 @@ const PALABRA_CONFIRMACION = 'ELIMINAR'
 const LIMITE_LOTE = 400 // el tope duro de Firestore es 500 operaciones
 
 // Colecciones que cuelgan del docente directamente.
+// `avisos`, `avisoPlantillas`, `academicEvents` y `horario` faltaban. Los
+// avisos eran lo grave: se quedaban legibles para cualquier cuenta autenticada
+// (`allow read: if request.auth != null`) y sin nadie que pudiera borrarlos
+// nunca, porque su regla de borrado exige ser el docente dueño — un uid que ya
+// no existe. Comunicados de un maestro que se fue, huérfanos y permanentes.
 const POR_DOCENTE = ['subjects', 'activities', 'attendance', 'events', 'horarioBloques',
-  'asuetos', 'vacaciones', 'bancoReactivos', 'bancoRubricas', 'subscriptions', 'payments']
+  'horario', 'asuetos', 'vacaciones', 'bancoReactivos', 'bancoRubricas',
+  'avisos', 'avisoPlantillas', 'academicEvents', 'subscriptions', 'payments']
 
 // Colecciones cuyos documentos tienen subcolecciones. Borrar un documento en
 // Firestore NO borra lo que cuelga de él: los hijos quedan huérfanos,
@@ -129,11 +135,19 @@ export default async function handler(req, res) {
     // ── 2. Lo que cuelga de sus asignaturas ─────────────────────────────
     // `attendance` se consulta por las dos vías (docenteId arriba, y aquí por
     // asignatura) porque los registros viejos pueden no traer docenteId.
-    const [alumnos, materiales, recursos, asistenciaPorAsignatura] = await Promise.all([
+    // El estado por-estudiante de los avisos (leído / guardado / oculto) cuelga
+    // de la asignatura igual que los materiales. Se borra aquí porque una vez
+    // que la inscripción desaparece ya nadie puede: su regla exige
+    // `ownsStudentDoc`, y eso falla en cuanto el documento del alumno no está.
+    const [alumnos, materiales, recursos, asistenciaPorAsignatura,
+      avisoLecturas, avisoGuardados, avisoOcultos] = await Promise.all([
       docsPorCampoEnLista(db, 'students', 'asignaturaId', subjectIds),
       docsPorCampoEnLista(db, 'materials', 'asignaturaId', subjectIds),
       docsPorCampoEnLista(db, 'resources', 'asignaturaId', subjectIds),
       docsPorCampoEnLista(db, 'attendance', 'asignaturaId', subjectIds),
+      docsPorCampoEnLista(db, 'avisoLecturas', 'asignaturaId', subjectIds),
+      docsPorCampoEnLista(db, 'avisoGuardados', 'asignaturaId', subjectIds),
+      docsPorCampoEnLista(db, 'avisoOcultos', 'asignaturaId', subjectIds),
     ])
 
     // ── 3. Entregas: por actividad y por alumno ─────────────────────────
@@ -151,6 +165,7 @@ export default async function handler(req, res) {
     const todosLosDocs = [
       ...Object.values(porColeccion).flat(),
       ...alumnos, ...materiales, ...recursos, ...asistenciaPorAsignatura,
+      ...avisoLecturas, ...avisoGuardados, ...avisoOcultos,
       ...entregasPorActividad, ...entregasPorAlumno, ...bitacora,
     ]
     todosLosDocs.forEach((d) => extraerAssets(d.data(), assets))
@@ -176,9 +191,11 @@ export default async function handler(req, res) {
     const conSubcolecciones = new Set(padresConHijos.map(({ d }) => d.ref.path))
     const planos = [
       ...alumnos, ...materiales, ...recursos, ...asistenciaPorAsignatura,
+      ...avisoLecturas, ...avisoGuardados, ...avisoOcultos,
       ...porColeccion.attendance, ...porColeccion.events, ...porColeccion.horarioBloques,
-      ...porColeccion.asuetos, ...porColeccion.vacaciones,
+      ...porColeccion.horario, ...porColeccion.asuetos, ...porColeccion.vacaciones,
       ...porColeccion.bancoReactivos, ...porColeccion.bancoRubricas,
+      ...porColeccion.avisos, ...porColeccion.avisoPlantillas, ...porColeccion.academicEvents,
       ...porColeccion.subjects, ...porColeccion.subscriptions, ...porColeccion.payments,
       ...bitacora,
     ].map((d) => d.ref).filter((r) => !conSubcolecciones.has(r.path))
