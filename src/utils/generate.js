@@ -24,24 +24,20 @@ export function usernameCandidates(input) {
   return [...new Set([raw.toLowerCase(), raw.toUpperCase()])].filter(Boolean)
 }
 
-export function generateResetPassword() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let pw = ''
-  for (let i = 0; i < 6; i++) {
-    pw += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return pw
-}
-
+// El correo de Auth de un estudiante, derivado de su usuario y su escuela. Es
+// determinista a propósito: los estudiantes no tienen correo real, y esto es
+// lo que las reglas de Firestore usan para comprobar que quien reclama una
+// inscripción es de verdad esa persona (ver match /students en
+// firestore.rules). Cambiar la forma de este correo rompe esa comprobación.
 export function studentEmail(username, escuelaId) {
   return `${username.toLowerCase()}.${escuelaId}@evalua.local`
 }
 
-// Máscara pública de un correo real: 'gabriel@gmail.com' → 'g•••@gmail.com'.
-// Es lo ÚNICO del correo de recuperación que se guarda en `students` (colección
-// de lectura pública) — el correo completo vive solo en Firebase Auth.
-export function maskEmail(email) {
-  const [local, domain] = String(email || '').split('@')
-  if (!domain || !local) return ''
-  return `${local.slice(0, 1)}•••@${domain}`
-}
+// Aquí vivían `generateResetPassword` y `maskEmail`, las dos sin un solo uso:
+//   · La primera armaba contraseñas temporales con Math.random(), que no sirve
+//     para credenciales — es predecible. Hoy el docente no dicta ninguna
+//     contraseña: solo habilita el rescate y el propio alumno elige la suya
+//     (ver confirmResetStudentPassword y api/student/recover-password.js).
+//   · La segunda enmascaraba un correo de recuperación que ya no existe.
+// Se retiran en A04: código muerto en la superficie de credenciales es una
+// invitación a que alguien lo reutilice creyendo que está probado.
