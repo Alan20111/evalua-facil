@@ -1945,7 +1945,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 |---|---|---|---|---|---|---|---|
 | A01 | Suscripciones y candado | F0 | M02 | Crítico | **Completada** | 5-ago-2026 | `bad52d8` · [#983](https://github.com/Alan20111/evalua-facil/pull/983) |
 | A02 | Pagos | F0 | M03 | Crítico | **Completada** | 5-ago-2026 | `c95d293` · [#984](https://github.com/Alan20111/evalua-facil/pull/984) |
-| A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | Pendiente | — | — |
+| A03 | Reglas de Firestore y modelo de datos | F1 | M24 | Crítico | **Completada** | 5-ago-2026 | pendiente de merge |
 | A04 | Autenticación e identidad | F1 | M01, M18 | Crítico | Pendiente | — | — |
 | A05 | Cloud Functions | F1 | M25 | Crítico | Pendiente | — | — |
 | A06 | API serverless | F1 | M26 | Crítico | Pendiente | — | — |
@@ -1974,6 +1974,19 @@ arranca con **A03 · Reglas de Firestore y modelo de datos** y corre de largo
 hasta A06.
 
 ## Resultados de las auditorías completadas
+
+**A03 · Reglas de Firestore y modelo de datos** (5-ago-2026, unas horas). Una
+vulnerabilidad crítica cerrada: `users` congelaba `suscripcionHasta` en las
+actualizaciones, pero **no en la creación**, y el perfil lo escribe su propio
+dueño. Un docente recién registrado podía crearse el perfil con el candado
+abierto a diez años y trabajar sin vencimiento posible; que la Cloud Function
+del espejo lo corrigiera al crear la prueba no es una defensa, es una carrera.
+Reproducida contra el emulador antes de corregirla. Suite: 62 → 66 casos.
+
+Las 30 colecciones quedaron recorridas una por una. Lo que **no** se pudo
+cerrar, con su causa y su plan, en R1 y R7-R9: la lectura pública de `students`
+y `users`, las lecturas entre docentes, y `schools`, que colisiona con el flujo
+de registro y se pasa a A04.
 
 *Nota de honestidad.* A01 y A02 se ejecutaron antes de que existiera §3. Su
 expediente cumple con once de las doce piezas —incluida la salida del emulador
@@ -2007,12 +2020,15 @@ solo sale de esta tabla cuando está cerrado, no cuando se explica.**
 
 | # | Riesgo | Causa | Propuesta | Cierra en |
 |---|---|---|---|---|
-| R1 | Cualquier docente puede crear y **editar cualquier escuela** — incluida la de otro | La regla de `schools` quedó abierta desde el registro, cuando la escuela se crea sola | `create` para cualquier docente; `update` solo para el admin o para quien la creó (`creadaPor == uid`), con migración que rellene el campo | A03 |
+| R1 | Cualquier docente puede crear y **editar cualquier escuela** — incluida la de otro | La regla de `schools` quedó abierta desde el registro, cuando la escuela se crea sola | `create` para cualquier docente; `update` solo para el admin o para quien pertenece a esa escuela. **A03 lo intentó y lo movió**: `schoolSelection.js` completa datos de escuelas ajenas durante el alta, así que cerrarlo exige tocar el flujo de registro — que es el módulo de A04 | A04 |
 | R2 | El **monto** de un pago lo elige el cliente | La tarifa cambia; una regla con el precio dentro se desfasa y deja a todos sin poder pagar | Mover la tarifa a `config/payments` (ya existe, admin-only) y validarla en reglas con `get()`. Mientras tanto, el panel avisa cuando no coincide | A03 |
 | R3 | El borrado de cuenta **no borra los archivos de Cloudinary** | Faltan las llaves de API, que son de Alan | Pedir las llaves y configurarlas en Vercel; el código de borrado ya existe (`api/_lib/cloudinary.js`) | A10 — **decisión del PO** |
 | R4 | La **retención de 90 días está declarada pero no se ejecuta** | Solo existe el aviso por correo; el borrado se hace a mano | Implementar el borrado automático, o corregir la declaración para que diga lo que de verdad pasa | A22 — **decisión del PO** |
 | R5 | **No hay pruebas de interfaz ni de integración** | Nunca se construyeron | Cada auditoría deja casos de reglas; evaluar una suite de interfaz cuando el resto esté cubierto | Al cerrar A24 |
 | R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
+| R7 | **`students` se puede listar sin sesión**: nombres completos, escuela y grupo de todos los estudiantes de la plataforma — datos personales de menores. Además vuelve enumerable la recuperación de contraseña: un atacante puede buscar a quién le habilitaron el rescate y tomarle la cuenta | La activación por QR necesita leer inscripciones antes de que exista la cuenta, y las tres consultas sin sesión (login, recuperación, activación) van directas a Firestore | Mover esas tres consultas a un endpoint que resuelva con Admin SDK y devuelva solo lo indispensable; después cerrar la lectura pública. **No se puede desplegar de golpe**: la app publicada en Google Play consulta directo, y cerrar las reglas antes de que se actualice deja a los estudiantes sin poder entrar | A07 — **decisión del PO** (requiere escalonar la publicación) |
+| R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña del docente consulta por correo antes de iniciar sesión | Separar `get` de `list` (el `get` lo necesita el alumno para ver a su docente; el `list`, solo el panel) y resolver la búsqueda por correo en el servidor | A04 |
+| R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | A12 |
 
 ---
 

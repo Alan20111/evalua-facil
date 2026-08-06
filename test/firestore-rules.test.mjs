@@ -365,5 +365,32 @@ ok('teacher CANNOT delete a payment')
 await assertFails(getDoc(doc(asT2, 'payments', 'PAY_OK')))
 ok('teacher CANNOT read another teacher payment')
 
+// ── A03 · El candado no se puede traer puesto de fábrica ────────────────────
+// `users` congela `suscripcionHasta` en las ACTUALIZACIONES, pero el documento
+// se crea una sola vez y ahí no se validaba nada: quien se registra escribe su
+// propio perfil, y podía traer el candado ya abierto a diez años. La Cloud
+// Function que espeja la vigencia lo corrige al crear la prueba, pero eso es
+// una carrera, no una defensa: si la función falla o tarda, el docente trabaja
+// sin vencimiento posible.
+const T_NUEVO = 'teacher_recien_llegado'
+const EN_DIEZ_ANIOS = new Date(Date.now() + 3650 * 86400000)
+const asNuevo = testEnv.authenticatedContext(T_NUEVO).firestore()
+
+await assertFails(setDoc(doc(asNuevo, 'users', T_NUEVO), {
+  role: 'docente', email: 'nuevo@x.mx', suscripcionHasta: EN_DIEZ_ANIOS,
+})); ok('new teacher CANNOT create their profile with the lock already open')
+
+await assertFails(setDoc(doc(asNuevo, 'users', T_NUEVO), {
+  role: 'admin', email: 'nuevo@x.mx',
+})); ok('new teacher CANNOT create themselves as admin')
+
+await assertSucceeds(setDoc(doc(asNuevo, 'users', T_NUEVO), {
+  role: 'docente', email: 'nuevo@x.mx', profileComplete: false,
+})); ok('new teacher CAN create their own normal profile')
+
+// Y el candado tampoco se abre borrando el perfil para volver a crearlo.
+await assertFails(deleteDoc(doc(asNuevo, 'users', T_NUEVO)))
+ok('teacher CANNOT delete their own profile to re-create it')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
