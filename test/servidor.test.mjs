@@ -472,6 +472,24 @@ await caso('un alumno de alta tardía no arrastra las clases anteriores a su ins
   assert.strictEqual(r.total.total, 1, 'solo debía contar la clase posterior a su alta')
 })
 
+await caso('A13 · H1 — registros viejos sin parcial cuentan en Parcial 1, igual que la vista del docente', async () => {
+  // Antes se filtraban con `.filter(r => r.parcial != null)`, lo que excluía
+  // estos registros del resumen del alumno aunque el cliente del docente SÍ
+  // los incluye (usando `parcial ?? 1`). El desfase era real y silencioso.
+  await limpiar()
+  await db.doc('students/i3').set({ asignaturaId: SUBJ, uid: 'a3', createdAt: new Date('2026-01-01') })
+  await db.collection('attendance').add({ asignaturaId: SUBJ, fecha: '2026-02-10', presentes: { i3: true } }) // sin parcial
+  await db.collection('attendance').add({ asignaturaId: SUBJ, fecha: '2026-03-01', parcial: 1, presentes: { i3: false } })
+  await F.recalcularResumenAsistencia(SUBJ, 'i3')
+
+  const r = (await db.doc('attendanceSummaries/i3').get()).data()
+  assert.strictEqual(r.total.total, 2, 'el registro sin parcial debe incluirse en el total')
+  assert.strictEqual(r.total.asist, 1)
+  assert.strictEqual(r.total.inasist, 1)
+  assert.ok(r.porParcial['1'], 'debe quedar en Parcial 1, igual que en la tabla del docente')
+  assert.strictEqual(r.porParcial['1'].total, 2)
+})
+
 await caso('la prueba gratuita se crea una vez y no se duplica', async () => {
   await limpiar()
   assert.strictEqual(await F.crearPruebaSiFalta(DOCENTE), true)

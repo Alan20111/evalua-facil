@@ -756,14 +756,13 @@ async function recalcularResumenAsistencia(asignaturaId, studentId) {
 
   const snap = await db.collection('attendance').where('asignaturaId', '==', asignaturaId).get()
   const records = snap.docs.map((d) => d.data())
-    // Columnas viejas de antes de que existiera el campo `parcial` (confirmado
-    // en producción: 4 de 27 documentos reales) no tienen a qué parcial
-    // agruparse — el propio docente ya las excluye de su tabla de Asistencias
-    // (agrupa por parcial === p), así que aquí se ignoran igual por
-    // consistencia. Sin este filtro, `parcial: undefined` tronaba el .set()
-    // de Firestore entero y NINGÚN alumno de esa asignatura recibía su
-    // resumen actualizado — el bug real reportado ("no se refleja").
-    .filter((r) => r.parcial != null)
+    // A13 · H1 · Registros viejos sin `parcial`: antes se filtraban para
+    // evitar que String(undefined) → 'undefined' generara una clave inválida
+    // en porParcial y tronara el .set(). El comentario anterior decía "el
+    // docente ya los excluye de su tabla", pero el cliente usa `?? 1` y SÍ
+    // los muestra en Parcial 1 — quedaba un desfase real entre la vista del
+    // docente y el resumen del alumno. Se corrige asignando el mismo fallback.
+    .map((r) => r.parcial != null ? r : { ...r, parcial: 1 })
     .filter((r) => !enrolledFrom || r.fecha >= enrolledFrom)
     .sort((a, b) => (a.fecha === b.fecha ? a.slot - b.slot : a.fecha.localeCompare(b.fecha)))
 
