@@ -485,5 +485,87 @@ ok('teacher CANNOT change another school short name')
 await assertSucceeds(setDoc(doc(asT1, 'schools', 'E2'), { claveSEP: '29DCT0001X', estado: 'Tlaxcala' }, { merge: true }))
 ok('teacher CAN still enrich another school while registering')
 
+// ── A08 · El alumno no maneja la máquina de estados de su examen ────────────
+//
+// Blindar `calificacion` no bastaba: sin escribirla nunca, el alumno podía
+// hacer que el servidor se la recalculara a su gusto moviendo tres campos que
+// nadie vigilaba. Cada caso de aquí abajo PASABA antes de la corrección.
+const A_EX = 'A_EXAMEN'
+const SUB_EX = 'SUB_EXAMEN'
+
+async function prepararExamen(sub) {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'activities', A_EX), {
+      docenteId: T1, asignaturaId: 'S1', tipo: 'evaluacion', maxCalif: 10,
+      evaluacion: { tiempoLimiteMin: 30, intentosPermitidos: 2, conservar: 'mejor' },
+    })
+    await setDoc(doc(db, 'submissions', SUB_EX), { actividadId: A_EX, alumnoId: 'ST_JUAN', ...sub })
+  })
+}
+
+// Empezado hace 45 minutos, con un límite de 30: el tiempo YA se acabó.
+const HACE_45_MIN = new Date(Date.now() - 45 * 60 * 1000)
+await prepararExamen({
+  estadoEvaluacion: 'en_progreso', intentoActual: 1, intentos: [], tiempoInicio: HACE_45_MIN,
+})
+
+await assertFails(setDoc(doc(asJuan, 'submissions', SUB_EX, 'respuestas', 'Q1'), { opcionSeleccionada: 'b' }))
+ok('student CANNOT answer after the time limit (server clock, not the phone’s)')
+
+await assertFails(updateDoc(doc(asJuan, 'submissions', SUB_EX), { tiempoInicio: serverTimestamp() }))
+ok('student CANNOT restart their own countdown')
+
+await assertSucceeds(updateDoc(doc(asJuan, 'submissions', SUB_EX), { estadoEvaluacion: 'finalizado' }))
+ok('student CAN finish the attempt in progress')
+
+// Ya calificado el intento 1: el servidor lo anotó en intentos[].
+await prepararExamen({
+  estadoEvaluacion: 'finalizado', intentoActual: 1,
+  intentos: [{ numero: 1, calificacion: 4 }], tiempoInicio: HACE_45_MIN, calificacion: 4,
+})
+
+await assertFails(updateDoc(doc(asJuan, 'submissions', SUB_EX), { estadoEvaluacion: 'en_progreso' }))
+ok('student CANNOT reopen a graded attempt to change their answers')
+
+await assertFails(updateDoc(doc(asJuan, 'submissions', SUB_EX), { intentoActual: 7 }))
+ok('student CANNOT invent an attempt number to dodge the grading lock')
+
+await assertFails(updateDoc(doc(asJuan, 'submissions', SUB_EX), {
+  estadoEvaluacion: 'en_progreso', intentoActual: 1, tiempoInicio: serverTimestamp(),
+})); ok('student CANNOT replay the SAME attempt number')
+
+// El reintento legítimo: el número avanza al siguiente real y quedan intentos.
+await assertSucceeds(updateDoc(doc(asJuan, 'submissions', SUB_EX), {
+  estadoEvaluacion: 'en_progreso', intentoActual: 2, tiempoInicio: serverTimestamp(), ordenSeed: null,
+})); ok('student CAN open a legitimate second attempt')
+
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', SUB_EX, 'respuestas', 'Q1'), { opcionSeleccionada: 'b' }))
+ok('and CAN answer again — the clock restarted with the new attempt')
+
+// Agotados los 2 intentos permitidos.
+await prepararExamen({
+  estadoEvaluacion: 'finalizado', intentoActual: 2,
+  intentos: [{ numero: 1, calificacion: 4 }, { numero: 2, calificacion: 6 }], tiempoInicio: HACE_45_MIN,
+})
+
+await assertFails(updateDoc(doc(asJuan, 'submissions', SUB_EX), {
+  estadoEvaluacion: 'en_progreso', intentoActual: 3, tiempoInicio: serverTimestamp(),
+})); ok('student CANNOT open a third attempt when only two are allowed')
+
+// Sin límite de tiempo configurado, un campo ausente no deja a nadie fuera.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'activities', 'A_SIN_LIMITE'), {
+    docenteId: T1, asignaturaId: 'S1', tipo: 'evaluacion', evaluacion: { conservar: 'ultimo' },
+  })
+  await setDoc(doc(db, 'submissions', 'SUB_SIN_LIMITE'), {
+    actividadId: 'A_SIN_LIMITE', alumnoId: 'ST_JUAN',
+    estadoEvaluacion: 'en_progreso', intentoActual: 1, intentos: [], tiempoInicio: HACE_45_MIN,
+  })
+})
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_SIN_LIMITE', 'respuestas', 'Q1'), { opcionSeleccionada: 'a' }))
+ok('an evaluation with NO time limit still accepts answers (absent field lets you through)')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
