@@ -6,7 +6,7 @@ import {
 } from 'firebase/firestore'
 // Las escrituras pasan por el candado de suscripción vencida (mismos nombres y
 // firmas que 'firebase/firestore'); leer sigue siendo directo.
-import { addDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
+import { setDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -954,8 +954,8 @@ export default function SubjectPage() {
           sinEntrega: true,
           fechaEntrega: serverTimestamp(),
         }
-        const ref = await addDoc(collection(db, 'submissions'), data)
-        setGradeSubMap((prev) => ({ ...prev, [key]: { id: ref.id, ...data } }))
+        await setDoc(doc(db, 'submissions', `${activityId}_${studentId}`), data)
+        setGradeSubMap((prev) => ({ ...prev, [key]: { id: `${activityId}_${studentId}`, ...data } }))
       }
       toast('Calificación guardada')
       setGradeQuickEdit(null)
