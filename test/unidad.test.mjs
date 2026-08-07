@@ -15,6 +15,8 @@
 import assert from 'node:assert'
 import { createRequire } from 'node:module'
 import { extraerAssets } from '../api/_lib/cloudinary.js'
+import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from '../src/utils/ponderacion.js'
+import { totalRubrica, validarCotejo, validarRubrica, RUBRICA_TOTAL } from '../src/utils/rubrica.js'
 
 process.env.GCLOUD_PROJECT ||= 'demo-test'
 const require = createRequire(import.meta.url)
@@ -219,6 +221,217 @@ caso('`_pruebas` es un objeto plano y no una función desplegable', () => {
   assert.strictEqual(typeof F, 'object')
   assert.strictEqual(F.__endpoint, undefined)
   assert.strictEqual(typeof F.calcularCalificacion, 'function')
+})
+
+// ═══ A09 · Mismo número en las cinco pantallas ══════════════════════════════
+grupo('A09 — pantalla, panel del alumno, PDF (curso y parcial) y Excel: el mismo número')
+
+// `cuentaParaCalificacion` vive en src/utils/activityVisibility.js, que no es
+// importable en Node plano (importa './formatHora' sin extensión — Vite lo
+// resuelve, Node no). Copia LITERAL de activityVisibility.js:32-55 — no se
+// reimplementa, se transcribe tal cual para no divergir del original.
+const isDraftActivity = (a) => !!a?.oculta && !a.publishedAt && !a.publishAt
+const sinCalificacion = (a) => a?.sinCalificacion === true || a?.evaluacion?.sinCalificacion === true
+const cuentaParaCalificacion = (a) => !isDraftActivity(a) && !sinCalificacion(a)
+
+// Las cinco composiciones, cada una transcrita del archivo real que la usa —
+// el comentario de cada una es su dirección. Si algún día una vuelve a
+// divergir (alguien la edita sin tocar las otras cuatro), estos casos se
+// ponen en rojo.
+
+// 1 · SubjectPage.jsx (docente) — tableParcials (L3371) + gradeRows (L3599-3617)
+function pantallaDocente(subject, activities, notaDe) {
+  const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
+  const tableParcials = PARCIALES
+    .map((p) => ({ p, acts: activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a)) }))
+    .filter((pd) => pd.acts.length > 0)
+  const parcialData = tableParcials.map(({ p, acts }) => {
+    const grades = acts.map((a) => normalizeGrade(notaDe(a.id), a.maxCalif, { decimals: 1 }))
+    const rawAvg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, p))
+    return rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : null
+  })
+  const validAvgs = parcialData.filter((a) => a !== null)
+  return {
+    parciales: parcialData,
+    final: validAvgs.length ? parseFloat((validAvgs.reduce((a, b) => a + b, 0) / validAvgs.length).toFixed(1)) : null,
+  }
+}
+
+// 2 · excel.js exportSubjectGrades (L275-373) — course-wide Excel
+function excelCurso(subject, activities, notaDe) {
+  const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
+  const finalGrades = []
+  const parciales = []
+  PARCIALES.forEach((p) => {
+    const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
+    const grades = acts.map((a) => normalizeGrade(notaDe(a.id), a.maxCalif, { decimals: 1 }))
+    const rawAvg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, p))
+    const parAvg = rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : ''
+    parciales.push(parAvg === '' ? null : parAvg)
+    if (parAvg !== '') finalGrades.push(parAvg)
+  })
+  const final = finalGrades.length ? parseFloat((finalGrades.reduce((a, b) => a + b, 0) / finalGrades.length).toFixed(1)) : null
+  return { parciales, final }
+}
+
+// 3 · pdf.js exportSubjectGradesPDF (L218-241) — course-wide PDF
+function pdfCurso(subject, activities, notaDe) {
+  const PARCIALES = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
+  const finals = []
+  const parciales = []
+  PARCIALES.forEach((p) => {
+    const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
+    const grades = acts.map((a) => normalizeGrade(notaDe(a.id), a.maxCalif, { decimals: 1 }))
+    const rawAvg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, p))
+    const avg = rawAvg != null ? parseFloat(rawAvg.toFixed(1)) : null
+    parciales.push(avg)
+    if (avg != null) finals.push(avg)
+  })
+  const final = finals.length ? finals.reduce((x, y) => x + y, 0) / finals.length : null
+  return { parciales, final: final != null ? parseFloat(final.toFixed(1)) : null }
+}
+
+// 4 · pdf.js exportParcialGradesPDF (L281-294) y excel.js exportParcialGrades
+// (L248-257) — comparten exactamente la misma composición por parcial.
+function porParcial(subject, activities, notaDe, parcial) {
+  const acts = activities.filter((a) => a.parcial === parcial && cuentaParaCalificacion(a))
+  const grades = acts.map((a) => normalizeGrade(notaDe(a.id), a.maxCalif, { decimals: 1 }))
+  const rawAvg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, parcial))
+  return rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : null
+}
+
+// 5 · student/Dashboard.jsx (panel del alumno) — enriched (L330-349)
+function panelAlumno(subject, activities, notaDe) {
+  const PARC = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
+  const parcAvgs = PARC.map((p) => {
+    const pacts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
+    const grades = pacts.map((a) => normalizeGrade(notaDe(a.id), a.maxCalif, { decimals: 1 }))
+    const raw = promedioParcial(pacts, grades, ponderacionActivaEnParcial(subject, p))
+    return raw !== null ? parseFloat(raw.toFixed(1)) : null
+  }).filter((v) => v !== null)
+  return parcAvgs.length ? parseFloat((parcAvgs.reduce((x, y) => x + y, 0) / parcAvgs.length).toFixed(1)) : null
+}
+
+const act09 = (id, parcial, extra = {}) => ({ id, parcial, maxCalif: 10, orden: 1, ...extra })
+
+caso('H2-b · el redondeo por decimal ya no depende de la pantalla (8.4,8.5,8.5 · 9.0 → 8.8 en las cinco)', () => {
+  const subject = { parciales: 2 }
+  const activities = [act09('a1', 1), act09('a2', 1), act09('a3', 1), act09('a4', 2)]
+  const notaDe = (id) => ({ a1: 8.4, a2: 8.5, a3: 8.5, a4: 9 }[id])
+
+  const pant = pantallaDocente(subject, activities, notaDe)
+  const exc = excelCurso(subject, activities, notaDe)
+  const pdfC = pdfCurso(subject, activities, notaDe)
+  const panel = panelAlumno(subject, activities, notaDe)
+
+  assert.strictEqual(pant.final, 8.8, 'pantalla del docente')
+  assert.strictEqual(exc.final, pant.final, 'Excel del curso debe coincidir con la pantalla')
+  assert.strictEqual(pdfC.final, pant.final, 'PDF del curso debe coincidir con la pantalla')
+  assert.strictEqual(panel, pant.final, 'panel del alumno debe coincidir con la pantalla')
+  assert.strictEqual(porParcial(subject, activities, notaDe, 1), pant.parciales[0], 'PDF/Excel por parcial P1')
+  assert.strictEqual(porParcial(subject, activities, notaDe, 2), pant.parciales[1], 'PDF/Excel por parcial P2')
+})
+
+caso('H2-a/H3-a · una actividad calificada regresada a borrador desaparece del promedio en las cinco', () => {
+  const subject = { parciales: 1 }
+  const activities = [act09('b1', 1), act09('b2', 1, { oculta: true, publishedAt: null, publishAt: null })]
+  const notaDe = (id) => ({ b1: 10, b2: 2 }[id])
+
+  const pant = pantallaDocente(subject, activities, notaDe)
+  assert.strictEqual(pant.final, 10, 'la actividad en borrador no debe contar en la pantalla')
+  assert.strictEqual(excelCurso(subject, activities, notaDe).final, 10)
+  assert.strictEqual(pdfCurso(subject, activities, notaDe).final, 10)
+  assert.strictEqual(panelAlumno(subject, activities, notaDe), 10)
+  assert.strictEqual(porParcial(subject, activities, notaDe, 1), 10)
+})
+
+caso('H3-a · un diagnóstico marcado "sin calificación" DESPUÉS de tener nota no cuenta en ninguna', () => {
+  const subject = { parciales: 1 }
+  const activities = [act09('c1', 1), act09('c2', 1, { evaluacion: { sinCalificacion: true } })]
+  const notaDe = (id) => ({ c1: 10, c2: 4 }[id])
+
+  const esperado = 10 // solo c1 cuenta
+  assert.strictEqual(pantallaDocente(subject, activities, notaDe).final, esperado)
+  assert.strictEqual(excelCurso(subject, activities, notaDe).final, esperado)
+  assert.strictEqual(pdfCurso(subject, activities, notaDe).final, esperado)
+  assert.strictEqual(panelAlumno(subject, activities, notaDe), esperado)
+})
+
+caso('parcial vacío (sin actividades que cuenten) no rompe el Final — se omite, no cuenta como 0', () => {
+  const subject = { parciales: 2 }
+  const activities = [act09('d1', 1)] // Parcial 2 sin actividades
+  const notaDe = () => 8
+  assert.strictEqual(pantallaDocente(subject, activities, notaDe).final, 8)
+  assert.strictEqual(excelCurso(subject, activities, notaDe).final, 8)
+  assert.strictEqual(pdfCurso(subject, activities, notaDe).final, 8)
+  assert.strictEqual(panelAlumno(subject, activities, notaDe), 8)
+})
+
+caso('ponderación: una actividad "sin valor" (peso null) no distorsiona el promedio ponderado', () => {
+  const subject = { parciales: 1, ponderacionActivada: true, ponderacionParciales: { 1: true } }
+  const activities = [
+    act09('e1', 1, { pesoCalificacion: 6 }),
+    act09('e2', 1, { pesoCalificacion: null }), // sin valor — no debe contar aunque tenga nota
+    act09('e3', 1, { pesoCalificacion: 4 }),
+  ]
+  // e2 en 0 arrastraría el promedio si se contara con peso 0 en el denominador
+  // — promedioParcial ya excluye peso<=0 del denominador; esto fija que siga así.
+  const notaDe = (id) => ({ e1: 10, e2: 0, e3: 10 }[id])
+  assert.strictEqual(pantallaDocente(subject, activities, notaDe).final, 10)
+  assert.strictEqual(panelAlumno(subject, activities, notaDe), 10)
+})
+
+// ═══ A09 · H5 — la lista de cotejo suma EXACTAMENTE 10, igual que la rúbrica ═
+grupo('A09 — H5: lista de cotejo, misma regla que la rúbrica (decisión del PO)')
+
+caso('una lista de cotejo que suma MENOS de 10 ya no se acepta', () => {
+  const cotejo8 = {
+    tipo: 'cotejo', titulo: 'Revisar documento',
+    niveles: [{ nombre: 'Nivel de desempeño', porcentaje: 100 }],
+    criterios: [
+      { nombre: 'Portada', puntos: [3], descriptores: [''] },
+      { nombre: 'Ortografía', puntos: [3], descriptores: [''] },
+      { nombre: 'Fuentes', puntos: [2], descriptores: [''] },
+    ],
+  }
+  const error = validarCotejo(cotejo8)
+  assert.notStrictEqual(error, null, 'debe rechazarse: suma 8, no 10')
+  assert.match(error, /exactamente 10/)
+})
+
+caso('una lista de cotejo que suma MÁS de 10 sigue rechazada (sin cambios)', () => {
+  const cotejo11 = {
+    tipo: 'cotejo', titulo: 'X',
+    niveles: [{ nombre: 'Nivel de desempeño', porcentaje: 100 }],
+    criterios: [{ nombre: 'a', puntos: [6], descriptores: [''] }, { nombre: 'b', puntos: [5], descriptores: [''] }],
+  }
+  assert.notStrictEqual(validarCotejo(cotejo11), null)
+})
+
+caso('una lista de cotejo que suma EXACTO 10 se acepta, y cumplir todo da 10/10', () => {
+  const cotejo10 = {
+    tipo: 'cotejo', titulo: 'Revisar documento',
+    niveles: [{ nombre: 'Nivel de desempeño', porcentaje: 100 }],
+    criterios: [
+      { nombre: 'Portada', puntos: [4], descriptores: [''] },
+      { nombre: 'Ortografía', puntos: [3], descriptores: [''] },
+      { nombre: 'Fuentes', puntos: [3], descriptores: [''] },
+    ],
+  }
+  assert.strictEqual(validarCotejo(cotejo10), null)
+  assert.strictEqual(totalRubrica(cotejo10, [0, 0, 0]), RUBRICA_TOTAL)
+})
+
+caso('control — una rúbrica normal sigue exigiendo exactamente 10 en su nivel máximo (sin cambios)', () => {
+  const rubrica8 = {
+    tipo: 'rubrica', titulo: 'R',
+    niveles: [{ nombre: 'A', porcentaje: 100 }, { nombre: 'B', porcentaje: 50 }, { nombre: 'C', porcentaje: 10 }],
+    criterios: [
+      { nombre: 'c1', puntos: [4, 2, 0.4], descriptores: ['', '', ''] },
+      { nombre: 'c2', puntos: [4, 2, 0.4], descriptores: ['', '', ''] },
+    ],
+  }
+  assert.notStrictEqual(validarRubrica(rubrica8), null)
 })
 
 // ═══ Resumen ═════════════════════════════════════════════════════════════════

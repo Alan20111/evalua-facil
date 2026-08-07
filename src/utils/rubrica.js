@@ -99,7 +99,12 @@ export function valorNivel(nivel) {
 //  - Cada COLUMNA debe sumar exactamente los puntos de su nivel (la primera
 //    suma 10 forzosamente — así todo-en-el-máximo da calificación de 10).
 // Valida una lista de cotejo NORMALIZADA. Cada criterio vale unos puntos; la
-// suma NO puede pasar de 10 (puede ser menor).
+// suma debe dar EXACTAMENTE 10 — mismo criterio que la rúbrica (A09, decisión
+// del PO): antes se aceptaba una suma menor (p.ej. 8), y como la interfaz
+// rotula el total fijo como "/ 10" (RubricaGradeTable.jsx), un alumno que
+// cumplía TODOS los criterios de un cotejo de 8 sacaba 8 sobre una actividad
+// de 10 sin que nadie se lo dijera. Dos instrumentos que persiguen el mismo
+// objetivo no deben tener dos comportamientos distintos.
 export function validarCotejo(r) {
   if (!r.titulo) return 'Escribe el nombre de la lista de cotejo'
   const cr = r.criterios || []
@@ -112,7 +117,7 @@ export function validarCotejo(r) {
     if (!(c.puntos?.[0] > 0)) return `Los puntos del criterio "${c.nombre || ci + 1}" deben ser mayores a 0`
   }
   const suma = round1(cr.reduce((s, c) => s + (c.puntos[0] || 0), 0))
-  if (suma > RUBRICA_TOTAL) return `Los puntos suman ${suma} — no pueden pasar de ${RUBRICA_TOTAL}`
+  if (suma !== RUBRICA_TOTAL) return `Los puntos suman ${suma} — deben sumar exactamente ${RUBRICA_TOTAL}`
   return null
 }
 

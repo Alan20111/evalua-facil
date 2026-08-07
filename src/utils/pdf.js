@@ -215,17 +215,24 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
 
   const startY = drawDocHeader(doc, { membrete, subject, subtitulo: 'Calificaciones del curso' })
 
+  // A09 · MISMO criterio que la pantalla del docente (SubjectPage.jsx), número
+  // por número: antes este PDF no excluía lo que no cuenta para calificación
+  // (`cuentaParaCalificacion` — un borrador o un "sin calificación" con nota
+  // ya puesta se colaba) y promediaba las notas SIN redondear cada actividad
+  // primero, así que el Final podía salir distinto al de la pantalla y al del
+  // Excel por el orden del redondeo.
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const body = sorted.map((s) => {
     const row = [s.orden ?? '', fullName(s)]
     const finals = []
     PARCIALES.forEach((p) => {
-      const acts = activities.filter((a) => a.parcial === p)
+      const acts = activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
       const grades = acts.map((a) => {
         const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
-        return normalizeGrade(sub?.calificacion, a.maxCalif)
+        return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
       })
-      const avg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, p))
+      const rawAvg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, p))
+      const avg = rawAvg != null ? parseFloat(rawAvg.toFixed(1)) : null
       row.push(avg != null ? avg.toFixed(1) : '—')
       if (avg != null) finals.push(avg)
     })
@@ -271,12 +278,15 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
   const startY = drawDocHeader(doc, { membrete, subject, subtitulo: `Calificaciones · Parcial ${parcial}` })
 
   const pondOn = ponderacionActivaEnParcial(subject, parcial)
+  // A09 · MISMO redondeo que la pantalla del docente y el Excel: cada
+  // actividad a 1 decimal ANTES de promediar (antes usaba el número crudo sin
+  // redondear, calculado a mano en vez de con normalizeGrade).
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
   const body = sorted.map((s) => {
     const row = [s.orden ?? '', fullName(s)]
     const grades = acts.map((a) => {
       const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
-      return sub?.calificacion != null ? (sub.calificacion / (a.maxCalif || 10)) * 10 : null
+      return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
     })
     grades.forEach((g) => row.push(g != null ? g.toFixed(1) : '—'))
     const avg = promedioParcial(acts, grades, pondOn)

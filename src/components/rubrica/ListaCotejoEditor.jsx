@@ -90,7 +90,9 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
   }
 
   const suma = round1(criterios.reduce((s, c) => s + (parseFloat(c.puntos) || 0), 0))
-  const sumaOk = suma > 0 && suma <= RUBRICA_TOTAL
+  // A09 · mismo criterio que la rúbrica: la suma debe dar EXACTAMENTE 10, no
+  // "como máximo 10" — ver el comentario en validarCotejo (utils/rubrica.js).
+  const sumaOk = suma === RUBRICA_TOTAL
 
   // El botón de guardar nunca revisaba esto — se podía enviar con la suma en
   // rojo o con cualquier otro hueco (nombre vacío, un criterio sin nombre o
@@ -250,7 +252,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                 <tr>
                   <td colSpan={2} className="border-0 px-2 py-2 text-right text-xs font-bold text-on-surface align-middle">SUMA DE PUNTOS</td>
                   <td className="border-0 px-2 py-2 text-center align-middle">
-                    <p data-tooltip={`La suma no puede pasar de ${RUBRICA_TOTAL}`}
+                    <p data-tooltip={`La suma debe ser exactamente ${RUBRICA_TOTAL}`}
                       className={`text-sm font-bold ${sumaOk ? 'text-emerald-600' : 'text-red-600'}`}>
                       {suma} / {RUBRICA_TOTAL}
                     </p>
@@ -263,8 +265,8 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
               sumaOk ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'
             }`}>
               <p className={`text-xs font-medium ${sumaOk ? 'text-emerald-700' : 'text-amber-800'}`}>
-                {suma > RUBRICA_TOTAL
-                  ? `Los puntos suman ${suma} — no pueden pasar de ${RUBRICA_TOTAL}.`
+                {suma !== RUBRICA_TOTAL
+                  ? `Los puntos suman ${suma} — deben sumar exactamente ${RUBRICA_TOTAL}.`
                   : `Al calificar marcarás cada criterio cumplido; su suma es la calificación (sobre ${RUBRICA_TOTAL}).`}
               </p>
               <button type="button" onClick={repartir}
