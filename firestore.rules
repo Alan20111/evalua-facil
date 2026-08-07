@@ -432,9 +432,11 @@ service cloud.firestore {
     // enrolled student) can read; only the owning teacher can write/delete.
     match /resources/{resourceId} {
       allow read: if request.auth != null;
-      // Only teachers create resources, always attributed to themselves.
+      // Only teachers create resources, always attributed to themselves,
+      // and only within a subject they own.
       allow create: if docenteActivo() &&
-        request.auth.uid == request.resource.data.docenteId;
+        request.auth.uid == request.resource.data.docenteId &&
+        ownsSubject(request.resource.data.asignaturaId);
       allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
@@ -512,9 +514,11 @@ service cloud.firestore {
     // Same read/write shape as resources/activities.
     match /materials/{materialId} {
       allow read: if request.auth != null;
-      // Only teachers create materials, always attributed to themselves.
+      // Only teachers create materials, always attributed to themselves,
+      // and only within a subject they own.
       allow create: if docenteActivo() &&
-        request.auth.uid == request.resource.data.docenteId;
+        request.auth.uid == request.resource.data.docenteId &&
+        ownsSubject(request.resource.data.asignaturaId);
       allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
     }
