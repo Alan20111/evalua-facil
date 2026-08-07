@@ -978,5 +978,126 @@ ok('A18 · teacher CANNOT create horario block attributed to another teacher')
 await assertFails(updateDoc(doc(asT2, 'horario', 'HOR_T1'), { titulo: 'Alterado' }))
 ok('A18 · foreign teacher CANNOT update another teacher\'s horario block')
 
+// ── A14 · Avisos ─────────────────────────────────────────────────────────────
+// Reglas: avisos (lectura amplia, escritura del dueño activo con ownsSubject) ·
+// avisoLecturas (docente o alumno dueño lee; alumno crea; nadie edita/borra) ·
+// avisoGuardados/avisoOcultos (solo el alumno dueño por ownsStudentDoc) ·
+// avisoPlantillas (solo el docente dueño).
+
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'avisos', 'AV_T1'), { docenteId: T1, asignaturaId: 'S1', titulo: 'Examen', activo: true })
+  await setDoc(doc(db, 'avisos', 'AV_T2'), { docenteId: T2, asignaturaId: 'S2', titulo: 'Proyecto', activo: true })
+  await setDoc(doc(db, 'avisoLecturas', 'AL_JUAN'), { estudianteId: 'ST_JUAN', avisoId: 'AV_T1', asignaturaId: 'S1' })
+  await setDoc(doc(db, 'avisoGuardados', 'AG_JUAN'), { estudianteId: 'ST_JUAN', avisoId: 'AV_T1' })
+  await setDoc(doc(db, 'avisoOcultos', 'AO_JUAN'), { estudianteId: 'ST_JUAN', avisoId: 'AV_T1' })
+  await setDoc(doc(db, 'avisoPlantillas', 'AP_T1'), { docenteId: T1, emoji: '📢', label: 'Aviso rápido' })
+  await setDoc(doc(db, 'avisoPlantillas', 'AP_T2'), { docenteId: T2, emoji: '📢', label: 'Aviso ajena' })
+})
+
+// avisos — lectura amplia; escritura solo al dueño activo con ownsSubject
+await assertSucceeds(getDoc(doc(asT1, 'avisos', 'AV_T1')))
+ok('A14 · teacher CAN read own aviso')
+
+await assertSucceeds(getDoc(doc(asJuan, 'avisos', 'AV_T1')))
+ok('A14 · student CAN read aviso (public for enrolled students)')
+
+await assertSucceeds(setDoc(doc(asT1, 'avisos', 'AV_NEW'), { docenteId: T1, asignaturaId: 'S1', titulo: 'Nuevo', activo: true }))
+ok('A14 · teacher CAN create aviso for own subject')
+
+await assertFails(setDoc(doc(asT1, 'avisos', 'AV_EVIL1'), { docenteId: T1, asignaturaId: 'S2', titulo: 'Invasión', activo: true }))
+ok('A14 · teacher CANNOT create aviso for a subject they do not own')
+
+await assertFails(setDoc(doc(asT1, 'avisos', 'AV_EVIL2'), { docenteId: T2, asignaturaId: 'S2', titulo: 'Usurpado', activo: true }))
+ok('A14 · teacher CANNOT create aviso attributed to another teacher')
+
+await assertFails(updateDoc(doc(asT2, 'avisos', 'AV_T1'), { titulo: 'Hackeado' }))
+ok('A14 · foreign teacher CANNOT update another teacher\'s aviso')
+
+await assertFails(deleteDoc(doc(asT2, 'avisos', 'AV_T1')))
+ok('A14 · foreign teacher CANNOT delete another teacher\'s aviso')
+
+// avisoLecturas — docente o alumno-dueño lee; alumno-dueño crea; nadie edita/borra
+await assertSucceeds(getDoc(doc(asT1, 'avisoLecturas', 'AL_JUAN')))
+ok('A14 · teacher CAN read avisoLectura (needed for progress bar)')
+
+await assertSucceeds(getDoc(doc(asJuan, 'avisoLecturas', 'AL_JUAN')))
+ok('A14 · student CAN read own avisoLectura')
+
+await assertFails(getDoc(doc(asIntruso, 'avisoLecturas', 'AL_JUAN')))
+ok('A14 · stranger CANNOT read another student\'s avisoLectura')
+
+await assertSucceeds(setDoc(doc(asJuan, 'avisoLecturas', 'AL_NEW'), { estudianteId: 'ST_JUAN', avisoId: 'AV_T1', asignaturaId: 'S1' }))
+ok('A14 · student CAN create own avisoLectura ("Entendido")')
+
+await assertFails(setDoc(doc(asIntruso, 'avisoLecturas', 'AL_EVIL'), { estudianteId: 'ST_JUAN', avisoId: 'AV_T1', asignaturaId: 'S1' }))
+ok('A14 · stranger CANNOT create avisoLectura for another student')
+
+await assertFails(updateDoc(doc(asJuan, 'avisoLecturas', 'AL_JUAN'), { notas: 'modificado' }))
+ok('A14 · student CANNOT update avisoLectura (immutable audit record)')
+
+await assertFails(deleteDoc(doc(asJuan, 'avisoLecturas', 'AL_JUAN')))
+ok('A14 · student CANNOT delete avisoLectura (immutable audit record)')
+
+// avisoGuardados — solo el alumno dueño por ownsStudentDoc
+await assertSucceeds(getDoc(doc(asJuan, 'avisoGuardados', 'AG_JUAN')))
+ok('A14 · student CAN read own avisoGuardado')
+
+await assertFails(getDoc(doc(asT1, 'avisoGuardados', 'AG_JUAN')))
+ok('A14 · teacher CANNOT read a student\'s avisoGuardado (personal bookmark)')
+
+await assertSucceeds(setDoc(doc(asJuan, 'avisoGuardados', 'AG_NEW'), { estudianteId: 'ST_JUAN', avisoId: 'AV_T1' }))
+ok('A14 · student CAN save own aviso')
+
+await assertFails(setDoc(doc(asIntruso, 'avisoGuardados', 'AG_EVIL'), { estudianteId: 'ST_JUAN', avisoId: 'AV_T1' }))
+ok('A14 · stranger CANNOT save aviso attributed to another student')
+
+await assertFails(updateDoc(doc(asJuan, 'avisoGuardados', 'AG_JUAN'), { extra: true }))
+ok('A14 · student CANNOT update avisoGuardado (create/delete only)')
+
+await assertSucceeds(deleteDoc(doc(asJuan, 'avisoGuardados', 'AG_JUAN')))
+ok('A14 · student CAN unsave own aviso')
+
+await assertFails(deleteDoc(doc(asIntruso, 'avisoGuardados', 'AG_NEW')))
+ok('A14 · stranger CANNOT delete another student\'s avisoGuardado')
+
+// avisoOcultos — mismo patrón que avisoGuardados
+await assertSucceeds(getDoc(doc(asJuan, 'avisoOcultos', 'AO_JUAN')))
+ok('A14 · student CAN read own avisoOculto')
+
+await assertFails(getDoc(doc(asT1, 'avisoOcultos', 'AO_JUAN')))
+ok('A14 · teacher CANNOT read a student\'s avisoOculto')
+
+await assertSucceeds(setDoc(doc(asJuan, 'avisoOcultos', 'AO_NEW'), { estudianteId: 'ST_JUAN', avisoId: 'AV_T1' }))
+ok('A14 · student CAN hide own aviso')
+
+await assertFails(setDoc(doc(asIntruso, 'avisoOcultos', 'AO_EVIL'), { estudianteId: 'ST_JUAN', avisoId: 'AV_T1' }))
+ok('A14 · stranger CANNOT hide aviso attributed to another student')
+
+await assertFails(deleteDoc(doc(asT1, 'avisoOcultos', 'AO_JUAN')))
+ok('A14 · teacher CANNOT delete a student\'s avisoOculto')
+
+// avisoPlantillas — solo el docente dueño (no lectura pública)
+await assertSucceeds(getDoc(doc(asT1, 'avisoPlantillas', 'AP_T1')))
+ok('A14 · teacher CAN read own avisoPlantilla')
+
+await assertFails(getDoc(doc(asT2, 'avisoPlantillas', 'AP_T1')))
+ok('A14 · foreign teacher CANNOT read another teacher\'s avisoPlantilla')
+
+await assertFails(getDoc(doc(asJuan, 'avisoPlantillas', 'AP_T1')))
+ok('A14 · student CANNOT read any avisoPlantilla')
+
+await assertSucceeds(setDoc(doc(asT1, 'avisoPlantillas', 'AP_NEW'), { docenteId: T1, emoji: '🔔', label: 'Nueva plantilla' }))
+ok('A14 · teacher CAN create own avisoPlantilla')
+
+await assertFails(setDoc(doc(asT1, 'avisoPlantillas', 'AP_EVIL'), { docenteId: T2, emoji: '🔔', label: 'Usurpada' }))
+ok('A14 · teacher CANNOT create avisoPlantilla attributed to another teacher')
+
+await assertFails(updateDoc(doc(asT2, 'avisoPlantillas', 'AP_T1'), { label: 'Alterada' }))
+ok('A14 · foreign teacher CANNOT update another teacher\'s avisoPlantilla')
+
+await assertFails(deleteDoc(doc(asT2, 'avisoPlantillas', 'AP_T1')))
+ok('A14 · foreign teacher CANNOT delete another teacher\'s avisoPlantilla')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

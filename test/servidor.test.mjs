@@ -155,7 +155,8 @@ const FORMATO_VIEJO = {
 // Residuo que HOY se sabe que queda, con su riesgo anotado. No es una excusa:
 // es un contrato en las dos direcciones — si el residuo crece, la prueba se
 // pone roja; y si alguien lo arregla, también, y tiene que quitarlo de aquí.
-const RESIDUO_CONOCIDO = ['avisoGuardados', 'avisoLecturas', 'avisoOcultos'] // R19
+// A14 H2 cerró R19: la segunda vía por `avisoId` recoge los tres. Residuo = [].
+const RESIDUO_CONOCIDO = []
 
 // Las que NO son del docente, cada una con su motivo. Añadir algo aquí es una
 // decisión consciente, que es justo lo que se quiere.
@@ -164,7 +165,7 @@ const EXENTAS = {
   plans: 'catálogo global de planes',
   schools: 'la escuela es compartida entre docentes — borrarla sería el defecto',
   bajas: 'la constancia de baja es intencional: sobrevive a propósito',
-  studentEvents: 'agenda del propio estudiante (R13, se resuelve en A18)',
+  studentEvents: 'agenda del propio estudiante — correctamente fuera del borrado de cuenta del docente; limpieza al dar de baja una inscripción pendiente (R13)',
   attendanceSummaries: 'la limpia la Cloud Function recalcularResumenAsistencia, no el endpoint — verificado contra producción en A17; aquí no corre porque el emulador de Functions queda fuera de alcance',
 }
 
