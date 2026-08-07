@@ -44,6 +44,7 @@ import VisibilitySelect from '../../components/VisibilitySelect'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import ParcialesFechas, { normalizeParcialesFechas, addOneDay } from '../../components/ParcialesFechas'
 import { minDeadline } from '../../utils/nowIso'
+import { fechaLimiteTimestamp } from '../../utils/deadline'
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
@@ -1986,6 +1987,7 @@ export default function SubjectPage() {
         conExtension.forEach((a) => {
           extBatch.update(doc(db, 'activities', a.id), {
             [`extensiones.${studentToDelete.id}`]: deleteField(),
+            [`extensionesTS.${studentToDelete.id}`]: deleteField(),
             [`extensionesMotivo.${studentToDelete.id}`]: deleteField(),
           })
         })
@@ -2345,6 +2347,10 @@ export default function SubjectPage() {
         instrucciones: sanitizeHtml(form.instrucciones),
         archivosAdjuntos: [...activityExistingFiles, ...uploaded],
         fechaLimite: form.fechaLimite || null,
+        // Timestamp mirror of fechaLimite — see src/utils/deadline.js. This is
+        // what firestore.rules actually enforces (A12 H3); the string above is
+        // display-only from here on.
+        fechaLimiteTS: fechaLimiteTimestamp(form.fechaLimite),
         // Keep receiving submissions after the deadline (marked as "tarde")
         recibirTarde: form.fechaLimite ? !!form.recibirTarde : false,
         tiposArchivo,

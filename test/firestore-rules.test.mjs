@@ -13,7 +13,7 @@ import {
   assertFails,
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':')
 
@@ -56,6 +56,29 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
     asignaturaId: 'S1', escuelaId: 'E1', username: 'JUAN', uid: U_JUAN, activado: true,
   })
   await setDoc(doc(db, 'submissions', 'SUB1'), { alumnoId: 'ST_JUAN', actividadId: 'A1' })
+
+  // ── A12 · H3 · fixtures de plazo (fechaLimiteTS / extensionesTS) ──────────
+  const HACE_1_DIA = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000))
+  const EN_1_DIA = Timestamp.fromDate(new Date(Date.now() + 24 * 60 * 60 * 1000))
+  await setDoc(doc(db, 'activities', 'A_VENCIDA'), {
+    docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', fechaLimiteTS: HACE_1_DIA,
+  })
+  await setDoc(doc(db, 'activities', 'A_TARDE_OK'), {
+    docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', fechaLimiteTS: HACE_1_DIA, recibirTarde: true,
+  })
+  await setDoc(doc(db, 'activities', 'A_FUTURA'), {
+    docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', fechaLimiteTS: EN_1_DIA,
+  })
+  await setDoc(doc(db, 'activities', 'A_CERRADA_MANUAL'), {
+    docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', cerradaManual: true,
+  })
+  await setDoc(doc(db, 'activities', 'A_SIN_TS'), {
+    docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', fechaLimite: '2020-01-01',
+  })
+  await setDoc(doc(db, 'activities', 'A_EXTENSION'), {
+    docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', fechaLimiteTS: HACE_1_DIA,
+    extensionesTS: { ST_JUAN: EN_1_DIA },
+  })
 })
 
 const asT1 = testEnv.authenticatedContext(T1).firestore()
@@ -197,6 +220,37 @@ ok('student CANNOT delete their own submission (it would erase the grade)')
 
 await assertSucceeds(deleteDoc(doc(asT1, 'submissions', 'SUB1')))
 ok('owning teacher deletes a submission')
+
+// ── A12 · H3 · el servidor cierra el plazo, no solo la pantalla ────────────
+await assertFails(setDoc(doc(asJuan, 'submissions', 'SUB_VENCIDA'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_VENCIDA', archivoURL: 'x',
+})); ok('student CANNOT create a submission after fechaLimite')
+
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_TARDE_OK'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_TARDE_OK', archivoURL: 'x',
+})); ok('student CAN submit late when recibirTarde is enabled')
+
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_FUTURA'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_FUTURA', archivoURL: 'x',
+})); ok('student CAN submit before fechaLimite')
+
+await assertFails(setDoc(doc(asJuan, 'submissions', 'SUB_CERRADA_MANUAL'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_CERRADA_MANUAL', archivoURL: 'x',
+})); ok('student CANNOT submit once the teacher closed it manually')
+
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_SIN_TS'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_SIN_TS', archivoURL: 'x',
+})); ok('student CAN still submit to a legacy activity with no fechaLimiteTS yet (absent field never blocks)')
+
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_EXTENSION'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_EXTENSION', archivoURL: 'x',
+})); ok('student WITH a personal extension CAN submit past the group fechaLimite')
+
+// El docente dueño sigue pudiendo marcar/crear entregas de una actividad
+// vencida — el candado es solo para el alumno, no para su propio trabajo.
+await assertSucceeds(setDoc(doc(asT1, 'submissions', 'SUB_DOCENTE_VENCIDA'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_VENCIDA', docenteId: T1, completadoSinArchivo: true,
+})); ok('owning teacher CAN still create a submission on an expired activity')
 
 // ── respuestas subcollection ─────────────────────────────────────────────────
 await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_JUAN', 'respuestas', 'Q1'), { valor: 'a' }))
