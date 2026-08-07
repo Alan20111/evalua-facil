@@ -459,7 +459,7 @@ Fecha: <fecha> · Tiempo: <rango> · Riesgos residuales: <R-- o "ninguno">
 | Módulos funcionales | 33 — **11 Críticos**, 14 Altos, 5 Medios, 3 Bajos |
 | Auditorías planeadas | 24 (2 completadas) |
 | Fases de ejecución | 7 (una cerrada) |
-| Casos de prueba automatizados | **146** — 30 de unidad · 90 de reglas · 26 de servidor |
+| Casos de prueba automatizados | **153** — 30 de unidad · 97 de reglas · 26 de servidor |
 
 ## Cobertura
 
@@ -1606,10 +1606,31 @@ verificación de que no quedan residuos.
 > camino legítimo —empezar, contestar, finalizar, reintentar— intacto. Suite de
 > reglas **80 → 90**.
 >
-> **Sin corregir, esperando decisión: la clave de respuestas viaja al
-> navegador** — ver **R20**. Es el hallazgo más grave de la auditoría y su
-> corrección cambia lo que ven los clientes ya publicados, así que §1.7 y §6
-> mandan preguntar antes.
+> **Corregido: la clave de respuestas ya no viaja al navegador** (R20). Era el
+> hallazgo más grave, y no hacía falta un cliente modificado: el runner del
+> alumno **ya descargaba los documentos completos** de las preguntas y después
+> no usaba `respuestaCorrecta` ni una vez. La causa es que **las reglas no
+> pueden filtrar campos** — la regla que había lo admitía por escrito, diciendo
+> que la interfaz era la responsable de no pedir ese campo.
+>
+> El PO eligió **A + C**, y **descartó a propósito la B**: se corrige la causa,
+> no se agrega un proceso automático que repare después.
+> - **A** — la clave se muda a `activities/{id}/clave/{preguntaId}`, solo para
+>   el docente dueño. Es lo que las reglas sí saben hacer: no filtran campos,
+>   pero sí documentos.
+> - **C** — al calificar, el servidor escribe el veredicto **en la propia
+>   respuesta del alumno**: `correcta` siempre, y `respuestaCorrecta` solo si el
+>   docente publicó las respuestas.
+>
+> Commit `264148d` · [PR #1019](https://github.com/Alan20111/evalua-facil/pull/1019).
+> Migración: 112 claves mudadas, **0 reactivos conservan el campo**, 12 entregas
+> históricas rellenadas. Verificado contra producción sobre una evaluación real.
+>
+> **Sigue En proceso.** Falta el recorrido de punta a punta que pide su Cierre
+> —una evaluación completa aplicada, calificada y revisada, con los casos de
+> tiempo agotado y doble intento— y los vectores que aún no se han probado: dos
+> intentos a la vez desde dos dispositivos, y abrir el intento de otro. Queda
+> además **R21**, que comparte causa con R20 y se resuelve con RO-1.
 
 **Módulos.** M08.
 
@@ -2270,7 +2291,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A05 | Cloud Functions | F1 | M25 | Crítico | **Completada** | 5-ago-2026 | `8b01f06` · [#991](https://github.com/Alan20111/evalua-facil/pull/991) |
 | A06 | API serverless | F1 | M26 | Crítico | **Completada** | 5-ago-2026 | `ccbb0bb` · [#993](https://github.com/Alan20111/evalua-facil/pull/993) |
 | A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | **Completada** | 5-ago-2026 | `e3e7fd9` · [#995](https://github.com/Alan20111/evalua-facil/pull/995) |
-| A08 | Evaluaciones | F3 | M08 | Crítico | **En proceso** | 6-ago-2026 | `b4c7f41` · [#1017](https://github.com/Alan20111/evalua-facil/pull/1017) — corregida la manipulación de la calificación; **R20** (la clave de respuestas) espera decisión del PO |
+| A08 | Evaluaciones | F3 | M08 | Crítico | **En proceso** | 6-ago-2026 | `b4c7f41` · [#1017](https://github.com/Alan20111/evalua-facil/pull/1017) — corregidas la manipulación de la calificación y la fuga de la clave (R20); falta el recorrido de punta a punta |
 | A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | Pendiente | — | — |
 | A10 | Perfil y cuenta del docente | F2 | M19 | Crítico | **Completada** | 5-ago-2026 | `229da17` · [#997](https://github.com/Alan20111/evalua-facil/pull/997) |
 | A11 | Panel de administración | F2 | M04 | Crítico | **Completada** | 5-ago-2026 | `832b492` · [#999](https://github.com/Alan20111/evalua-facil/pull/999) |
@@ -2289,7 +2310,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
 **Avance: 10 de 24 auditorías (42%) · 3 de 7 fases cerradas (F0, F1 y F2).**
-Casos de prueba automatizados: **146** — 30 de unidad, 90 de reglas, 26 de
+Casos de prueba automatizados: **153** — 30 de unidad, 97 de reglas, 26 de
 servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
 **Fase 3 · El trabajo académico** — A08 (evaluaciones) → A09 (calificaciones,
 ponderación y rúbricas) → A12 (actividades, entregas y asignaturas) →
@@ -2740,7 +2761,7 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | R10 | **Un recordatorio de entrega que cae en una corrida fallida se pierde para siempre** | `revisarProgramados` solo avisa dentro de una ventana de 35 min alrededor de la anticipación elegida; pasada esa ventana, no vuelve a intentarlo. La otra mitad de la misma función (publicar actividades) sí se autorrepara porque vuelve a barrer todo | **ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** El comportamiento actual **no se modifica**. Cualquier cambio en esta lógica es una **decisión funcional del Product Owner** —altera qué avisos recibe la gente, incluidos los de actividades creadas ya dentro de la ventana, que hoy no avisan— y **se evalúa después de liberar la v1.0**, no antes. La corrección técnica, cuando se autorice, es quitar el límite inferior de la ventana: `recordatoriosEnviados` ya impide duplicados | Después de la v1.0 — **decisión funcional del PO** |
 | R15 | **El panel lee ocho colecciones completas en cada carga** | `useAdminStats` trae `users`, `students`, `subscriptions`, `payments`, `plans`, `schools`, `subjects` y `bajas` enteras. Hoy funciona; crece linealmente con la plataforma y `students` es la que más crece. No es un problema de seguridad sino de costo y de tiempo de carga | Contadores agregados que una Cloud Function mantenga, y traer el detalle solo de la tabla que se está mirando. Descubierto en A11 | A24 |
 | ~~R14~~ | ~~**El borrado de cuenta de un docente nunca se ha ejecutado de punta a punta**~~ | — | **CERRADO en A17 (6-ago-2026): los cinco puntos, en verde.** 12 de 12 archivos borrados · 0 documentos huérfanos por barrido ciego de las colecciones raíz · 0 referencias rotas · 0 recursos accesibles por URL, derivados del PDF incluidos · RO-2 cumplido. Las 15 colecciones que toca el endpoint ya no están respaldadas por lectura de código sino por una ejecución real contra producción | ✔ |
-| R20 | **La clave de respuestas viaja al navegador de cualquiera con sesión, incluido el alumno que va a contestar** | Las reglas **no pueden filtrar campos**: `activities/{id}/preguntas` es legible por cualquier cuenta autenticada y cada documento lleva dentro `respuestaCorrecta`. Y no hace falta un cliente modificado — `EvaluacionRunner.jsx:115` **ya descarga los documentos completos** y después no usa ese campo ni una vez: basta con abrir las herramientas del navegador. Reproducido el 6-ago-2026 contra el emulador: el alumno que va a contestar lista los reactivos de una evaluación **todavía oculta** con su clave, y un alumno de **otra escuela**, sin relación con la clase, lee exactamente lo mismo | **Sacar la clave del documento que el alumno lee**: `activities/{id}/clave/{preguntaId}`, con lectura solo del docente dueño. La calificación (`onEvaluacionFinalizada`, Admin SDK) la lee de ahí sin problema. La revisión posterior del alumno se alimenta de `submissions/{id}/respuestas` —donde el servidor ya escribe `puntosObtenidos`— en vez de recalcular contra la clave. Pide migrar los reactivos existentes y tocar el editor y la pantalla de revisión. **DECISIÓN DEL PO**: la app publicada en Google Play lee `respuestaCorrecta` desde `preguntas` para pintar cuál era la correcta al revisar, así que mover el campo **cambia lo que ven los clientes ya instalados** hasta que se publique la actualización (§1.2, §1.7) | A08, en cuanto el PO decida |
+| ~~R20~~ | ~~**La clave de respuestas viaja al navegador de cualquiera con sesión**~~ | — | **CERRADO en A08 (6-ago-2026)**, opciones **A + C** por decisión del PO. **A**: la clave se mudó a `activities/{id}/clave/{preguntaId}`, que las reglas solo le abren al docente dueño — es lo que las reglas sí saben hacer, porque no filtran campos pero sí documentos. El reparto vive en un solo sitio (`src/utils/evaluacionClave.js`), porque hay **nueve** lugares que crean o editan reactivos y con la lógica repetida basta olvidarla una vez para reabrir el agujero. **C**: al calificar, el servidor escribe el veredicto **en la propia respuesta del alumno** — `correcta` siempre, y `respuestaCorrecta` **solo si el docente publicó las respuestas**, lo que mueve al servidor una decisión que tomaba el navegador. **La opción B —un disparador que barriera la clave si alguien la reescribiera— se descartó a propósito**: se corrige la causa, no se agrega un proceso automático que repare después. Migración: **112 claves mudadas, 0 reactivos conservan el campo**, y 12 entregas históricas rellenadas (113 respuestas) para que docente y alumno conserven la misma experiencia al revisar evaluaciones anteriores. Verificado contra producción con una sesión de alumno real sobre una evaluación real: lista los reactivos —los necesita para contestar— con **0 claves dentro**, y la subcolección `clave` le responde denegado | ✔ |
 | R21 | **Lo que el alumno puede ver lo decide el navegador, no el servidor** | Misma causa que R20: las reglas no filtran campos. Una actividad marcada `oculta: true` la lee cualquiera con sesión (comprobado el 6-ago-2026), y un alumno lee su propia entrega entera —`calificacion` incluida— aunque la evaluación tenga `publicarResultados` distinto de inmediato. La interfaz lo esconde; el dato viaja igual | Se resuelve con el mismo movimiento que R20 —sacar de los documentos que el alumno lee lo que no debe ver— o sirviendo esas pantallas desde un endpoint. No se acomete por separado: es el mismo proyecto | A08 / A12, junto con R20 |
 | R19 | **El borrado de cuenta no alcanza los documentos de avisos escritos en FORMATO VIEJO** — sobreviven para siempre, con datos personales de un menor dentro | Las tres colecciones de avisos (`avisoLecturas`, `avisoGuardados`, `avisoOcultos`) se borran **solo** por `asignaturaId in subjectIds`. Un documento escrito antes de que ese campo existiera no tiene segunda vía, y cuando su aviso y su asignatura desaparecen ya nadie puede reclamarlo. **Comprobado en producción el 6-ago-2026**: hay **4 `avisoLecturas` reales sin `asignaturaId`**, las cuatro apuntando a avisos que ya no existen, y cada una lleva `estudianteId`, la fecha y hora de lectura y la huella del dispositivo (navegador y sistema operativo). Descubierto **auditando el propio banco de pruebas**: su primera versión sembraba solo formato actual, así que confirmaba que el endpoint encuentra lo que ya sabe buscar — justo el punto ciego que §1.4 manda cubrir | Segunda vía de borrado en `api/account/delete.js`: recogerlas también por el `avisoId` de los avisos del docente, o por los ids de los alumnos que se están borrando. Y limpiar los 4 documentos que ya están huérfanos. **El banco ya lo vigila**: `RESIDUO_CONOCIDO` en `test/servidor.test.mjs` fija el residuo actual y se pone rojo tanto si crece como si alguien lo arregla y no lo anota | A14 (avisos), junto con R13, que es el mismo problema por el otro lado |
 | R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** · **Se corrige en el módulo dueño de cada dato, no en la baja.** Decisión del PO (5-ago-2026): A07 **no** debe parchearlo desde su lado. Un remiendo en la baja del estudiante trataría el síntoma —limpiar de paso datos de avisos y de calendario— y dejaría intacta la causa: colecciones cuya regla de borrado depende de un documento que ya no existe. Se arregla donde viven esos datos, con su modelo de propiedad revisado | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). Y los mapas `presentes` de cada columna de asistencia conservan la llave del alumno, igual que pasaba con `activities.extensiones` antes de corregirse. Además, la baja de cuenta del propio estudiante no borra sus `studentEvents` | Limpiar en la baja lo que todavía tiene dueño (mapas de asistencia y `studentEvents`), y para los avisos huérfanos decidir entre darle al docente permiso de borrarlos o una limpieza programada. Descubierto en A07; toca colecciones de avisos y calendario | A14 (avisos) y A18 (calendario) |
