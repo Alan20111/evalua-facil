@@ -211,10 +211,15 @@ Al terminar el trabajo, en este orden:
 
 1. **Corregir todo lo encontrado.** Nada queda como reporte. Lo que
    genuinamente no se pueda cerrar, a §9 con propuesta concreta.
-2. **Verificar.** `npm run lint`, `npm run build` y `npm run test:rules` (este
-   último requiere JDK 21 — el de Android Studio sirve: `JAVA_HOME="/c/Program
-   Files/Android/Android Studio/jbr"`). El `typecheck` se reporta como no
-   aplicable.
+2. **Verificar.** `npm run lint`, `npm run build` y **`npm test`** — que desde el
+   6-ago-2026 corre los tres bancos: `test:unit` (funciones puras, sin
+   emulador), `test:rules` (reglas) y `test:server` (endpoints y lógica de las
+   Cloud Functions). Los dos últimos requieren JDK 21 — el de Android Studio
+   sirve: `JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"`. El
+   `typecheck` se reporta como no aplicable.
+   **Toda auditoría deja casos en el banco que le toca**, no solo en el de
+   reglas: si su defecto vivía en un endpoint, el caso va en `test:server`. Fue
+   lo que faltó en A11 y A17 (ver la nota de estrategia al final de §8).
 3. **Respaldar antes de desplegar.** Copia de `firestore.rules` y de
    `functions/index.js` tal como están en producción, fuera del árbol de
    trabajo. Es lo que permite volver atrás en un minuto si algo sale mal.
@@ -370,7 +375,8 @@ Se llena en el cuerpo del PR de cada auditoría.
 ### 5. Pruebas ejecutadas
 - `npm run lint` → <resultado>
 - `npm run build` → <resultado>
-- `npm run test:rules` → <n> casos (<antes> → <después>)
+- `npm test` → <n> casos en total (unidad <n> · reglas <n> · servidor <n>), con
+  el conteo antes → después del banco que se tocó
 - Verificaciones manuales: <pasos y resultado>
 
 ### 6. Que la corrección funciona
@@ -411,7 +417,7 @@ Fecha: <fecha> · Tiempo: <rango> · Riesgos residuales: <R-- o "ninguno">
 | Módulos funcionales | 33 — **11 Críticos**, 14 Altos, 5 Medios, 3 Bajos |
 | Auditorías planeadas | 24 (2 completadas) |
 | Fases de ejecución | 7 (una cerrada) |
-| Casos de prueba automatizados | 62 (reglas de Firestore) |
+| Casos de prueba automatizados | **135** — 30 de unidad · 80 de reglas · 25 de servidor |
 
 ## Cobertura
 
@@ -1015,16 +1021,41 @@ hace inofensivos: apuntan al proyecto que diga la configuración del momento.
 
 ### M29 · Pruebas y control de calidad
 
-**Descripción.** Lo que verifica que nada se rompa: la suite de reglas de
-Firestore contra el emulador (62 casos), ESLint y los verificadores de
-consistencia y de estándares visuales. **No hay pruebas de interfaz ni de
-integración.**
+**Descripción.** Lo que verifica que nada se rompa. Desde el **6-ago-2026** son
+**tres bancos**, no uno, y se corren juntos con `npm test`:
 
-**Archivos.** `test/firestore-rules.test.mjs` · `eslint.config.js` ·
-`scripts/check-consistency.mjs`, `check-ui-standards.sh` · `package.json`
-(`test:rules`, `lint`, `check:design`)
+| Guion | Qué prueba | Necesita |
+|---|---|---|
+| `test:unit` | **Nivel 0** — funciones puras: la aritmética de calificación y `extraerAssets`, que decide qué archivos se borran | nada |
+| `test:rules` | Reglas de Firestore | emulador de Firestore |
+| `test:server` | **Nivel 1** — endpoints llamados de verdad · **Nivel 2** — la lógica de las Cloud Functions | emuladores de Firestore y Auth |
 
-**Depende de.** M24 · emulador de Firestore · JDK 21
+Más ESLint y los verificadores de consistencia y de estándares visuales.
+**Sigue sin haber pruebas de interfaz** (R5).
+
+**Por qué los endpoints salen baratos.** Ya tienen la forma correcta:
+`handler(req, res)`. Se importan y se llaman — sin servidor HTTP, sin
+`vercel dev`, sin supertest. Y su único acoplamiento externo es
+`api/_lib/firebaseAdmin.js`, que el Admin SDK redirige solo al ver
+`FIRESTORE_EMULATOR_HOST`. Cloudinary no se emula: se intercepta `fetch`, y eso
+no es una concesión sino lo que permite **afirmar qué se le pidió borrar y con
+qué parámetros** — justo donde estuvo el defecto de A17.
+
+**La prueba que vale por todas.** `test/servidor.test.mjs` deriva la lista de
+colecciones **de `firestore.rules`**, no de una copia a mano, siembra un
+documento del docente en cada una y exige que el borrado no deje ninguno. Si
+alguien declara una colección nueva y no la enlaza ni la exime con un motivo, la
+prueba falla. Es la invariante que faltaba cuando `avisos`, `avisoPlantillas`,
+`academicEvents` y `horario` se quedaron sin borrar (A10).
+
+**Archivos.** `test/unidad.test.mjs` · `test/servidor.test.mjs` ·
+`test/helpers/entorno.mjs` · `test/firestore-rules.test.mjs` ·
+`eslint.config.js` · `scripts/check-consistency.mjs`, `check-ui-standards.sh` ·
+`package.json` (`test`, `test:unit`, `test:rules`, `test:server`, `lint`,
+`check:design`) · `firebase.json` (bloque `emulators`) ·
+`functions/index.js` (`exports._pruebas`)
+
+**Depende de.** M24 · M25 · M26 · emuladores de Firestore y Auth · JDK 21
 
 **Riesgo.** **Medio** — su ausencia no rompe producción, pero es lo único que
 detiene una regresión antes de que llegue.
@@ -2186,10 +2217,12 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
 **Avance: 10 de 24 auditorías (42%) · 3 de 7 fases cerradas (F0, F1 y F2).**
-Casos de prueba automatizados: **80** (37 antes de la primera auditoría).
-Siguiente: **Fase 3 · El trabajo académico** — A08 (evaluaciones) → A09
-(calificaciones, ponderación y rúbricas) → A12 (actividades, entregas y
-asignaturas) → A13 (asistencia) → A18 (calendario y agenda).
+Casos de prueba automatizados: **135** — 30 de unidad, 80 de reglas, 25 de
+servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
+**Fase 3 · El trabajo académico** — A08 (evaluaciones) → A09 (calificaciones,
+ponderación y rúbricas) → A12 (actividades, entregas y asignaturas) →
+A13 (asistencia) → A18 (calendario y agenda). Entre la Fase 2 y la 3 se
+construyó la **infraestructura mínima de pruebas** (ficha al final de §8).
 
 **La Fase 2 cierra con dos asuntos abiertos que no son suyos.** Decisión del
 Product Owner, 6-ago-2026, tras revisión crítica de la fase completa:
@@ -2515,11 +2548,15 @@ Y ningún caso comprueba lo que la Fase 2 falló dos veces: **que la lista
 `POR_DOCENTE` de `api/account/delete.js` esté completa**. Se corrigió añadiendo
 cuatro nombres a un arreglo literal; nada impide la quinta omisión.
 
-Esto ya está en la tabla de riesgos —**R5** (sin pruebas de integración, asignado
-a A24) y **R11** (Cloud Functions sin forma automatizada de probarse, asignada a
-la v1.1)—, pero **con el orden al revés**: la Fase 3 es entera Cloud Functions y
-endpoints (la calificación automática es `onEvaluacionFinalizada`), o sea la capa
-sin cobertura. Pendiente de decisión del PO si se adelanta.
+Esto ya estaba en la tabla de riesgos —**R5** y **R11**— pero **con el orden al
+revés**: la Fase 3 es entera Cloud Functions y endpoints (la calificación
+automática es `onEvaluacionFinalizada`), o sea la capa sin cobertura.
+
+> **Resuelto el 6-ago-2026.** El PO autorizó construir la **rebanada mínima**
+> antes de la Fase 3: niveles 0, 1 y 2, **sin** el nivel 3 (emulador de
+> Functions). Resultado: **80 → 135 casos**, en tres bancos que corren con
+> `npm test`. Ver **M29** y la ficha de la infraestructura al final de esta
+> sección.
 
 Dos mediciones más de esa revisión, que ninguna auditoría había hecho:
 
@@ -2532,6 +2569,55 @@ Dos mediciones más de esa revisión, que ninguna auditoría había hecho:
   archivos en memoria → borrar documentos → borrar archivos. Si el proceso muere
   entre el segundo paso y el tercero, la constancia **no se escribe**, porque
   quien la escribe es el paso que no llegó a correr.
+
+## Infraestructura mínima de pruebas (6-ago-2026)
+
+Construida **entre la Fase 2 y la Fase 3**, por decisión del PO, con un objetivo
+acotado: *lo mínimo para acelerar y fortalecer las auditorías que faltan, sin
+convertirse en un proyecto paralelo.* Un día de trabajo.
+
+**Autorizado:** niveles 0, 1 y 2. **Excluido a propósito:** el nivel 3 —levantar
+el emulador de Functions para probar el **cableado** de los disparadores—, que es
+caro y lento y solo verificaría una línea por función. La lógica, que es donde
+han estado todos los defectos, sí queda cubierta.
+
+**Resultado: 80 → 135 casos**, en tres bancos que corren juntos con `npm test`.
+Detalle del instrumento en **M29**.
+
+**Que las pruebas de verdad muerden** no se da por supuesto: se comprobó
+rompiendo el código a propósito y confirmando que se ponen rojas.
+
+| Regresión introducida | Qué pasó |
+|---|---|
+| Quitar `'avisos'` de `POR_DOCENTE` — el defecto exacto de A10 | 7 casos en rojo, salida distinta de cero |
+| Quitar `invalidate: true` — el defecto exacto de A17 | detectado, con la firma esperada al lado |
+
+Restaurado el código, los 135 vuelven a verde.
+
+**Lo que se dejó fuera y por qué** (condición del PO: lo que no sea la rebanada
+mínima se documenta y se pospone):
+
+- **Los otros 6 endpoints** — `send-email`, `cancel-subscription`,
+  `admin/last-access`, `admin/cloudinary-status`, `cron/reminders`, `mp/webhook`.
+  Se cubrieron los **tres del borrado**, que son los que la Fase 2 encontró
+  rotos. Los demás los irá cubriendo la auditoría que los toque, que es la que
+  sabe qué afirmar.
+- **Nada corre solo.** No hay integración continua: `npm test` se lanza a mano.
+  Mientras el proyecto lo mueva una persona no es grave; en cuanto haya dos, sí.
+- **Los `.mjs` no se lintan.** `eslint.config.js` solo mira `**/*.{js,jsx}`, así
+  que ni los bancos nuevos ni el de reglas pasan por ESLint. Es anterior a esto.
+- **Un caso depende del anterior**: *"deja constancia de baja"* lee el estado que
+  dejó la prueba de RO-2. Es a propósito —comprueba el efecto de aquel borrado—
+  pero significa que si el primero falla, el segundo falla en cascada.
+- **`attendanceSummaries` figura como exenta** en la prueba de completitud,
+  porque quien la limpia es una Cloud Function y el emulador de Functions queda
+  fuera. Que sí se limpia está comprobado **contra producción** (revisión de la
+  Fase 2), no aquí.
+- **Cloudinary sigue sin emularse.** Se intercepta `fetch`, lo que permite
+  afirmar qué se pidió borrar y con qué firma — pero **no** cómo se comporta
+  Cloudinary de verdad. El peor hallazgo de A17 (la copia del CDN) **era
+  invisible para un emulador** y lo seguirá siendo: eso se verifica contra
+  producción o no se verifica.
 
 ---
 
@@ -2551,7 +2637,7 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | ~~R2~~ | ~~El **monto** de un pago lo elige el cliente~~ · **MITIGADO Y ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** La tarifa **no se mueve a Firestore**: se queda definida en el código. La verificación manual del administrador contra el estado de cuenta, antes de aprobar cada pago, **se considera control suficiente** para la v1.0 — es un control humano real sobre cada peso que entra. Sale de la lista de pendientes. **Reabrir únicamente si la aprobación de pagos pasa a ser automática**, porque ahí desaparece el humano que hoy lo sostiene | ✔ |
 | ~~R3~~ | ~~El borrado de cuenta **no borraba los archivos de Cloudinary**~~ | — | **CERRADO en A17 (6-ago-2026).** Eran dos cosas, no una: faltaban las llaves en Vercel (puestas ese día, *Sensitive*, sin prefijo `VITE_`) **y**, una vez puestas, el borrado dejaba el archivo descargable treinta días desde el CDN — corregido con `invalidate`. Verificado: **12 de 12 borrados, 0 URLs entregando, 0 originales en el almacén**, y **52 huérfanos previos barridos** y comprobados uno por uno | ✔ |
 | R4 | La **retención de 90 días está declarada pero no se ejecuta** | Solo existe el aviso por correo; el borrado se hace a mano | Implementar el borrado automático, o corregir la declaración para que diga lo que de verdad pasa | A22 — **decisión del PO** |
-| R5 | **No hay pruebas de interfaz ni de integración** | Nunca se construyeron | Cada auditoría deja casos de reglas; evaluar una suite de interfaz cuando el resto esté cubierto | Al cerrar A24 |
+| R5 | **No hay pruebas de interfaz** · **la mitad de integración quedó cubierta el 6-ago-2026** | Nunca se construyeron. La rebanada mínima de pruebas cubrió ya los **endpoints** (`test:server`) y las **funciones puras** (`test:unit`); lo que sigue sin nada es la **interfaz**, y que **nada corre solo** — no hay integración continua, `npm test` se lanza a mano | Evaluar una suite de interfaz cuando el resto esté cubierto, y montar integración continua en cuanto el proyecto lo mueva más de una persona | A24 |
 | R6 | **Producción puede quedarse atrasada sin avisar** | Vercel limita despliegues en el plan gratuito; ya dejó producción cuatro commits atrás | Verificar `version.json` después de cada merge (ya es el paso 6 del protocolo); evaluar plan de pago si se repite | A24 |
 | R7 | **`students` se puede listar sin sesión**: nombres completos, escuela y grupo de todos los estudiantes de la plataforma — datos personales de menores. Además vuelve enumerable la recuperación de contraseña: un atacante puede buscar a quién le habilitaron el rescate y tomarle la cuenta | La activación por QR necesita leer inscripciones antes de que exista la cuenta, y las tres consultas sin sesión (login, recuperación, activación) van directas a Firestore | Mover esas tres consultas a un endpoint que resuelva con Admin SDK y devuelva solo lo indispensable; después cerrar la lectura pública. **No se puede desplegar de golpe**: la app publicada en Google Play consulta directo, y cerrar las reglas antes de que se actualice deja a los estudiantes sin poder entrar | A07 — **decisión del PO** (requiere escalonar la publicación) |
 | R8 | **`users` se puede listar sin sesión**: correo, teléfono y código postal de todos los docentes | La pantalla de recuperar contraseña consulta `users` por correo **antes** de iniciar sesión, así que es un `list` sin sesión | **CIERRE CONDICIONADO — aprobado por el PO el 5-ago-2026.** Se mantiene abierto a propósito y **no debe cerrarse antes** de que exista una versión del cliente —Web **y** Android— que ya no consulte `users` directamente para la recuperación de contraseña. Cerrar la regla antes rompe a todo cliente ya publicado: la app de Google Play trae esa pantalla y consulta directo. Orden obligatorio: (1) endpoint que resuelva la búsqueda por correo con Admin SDK; (2) cliente Web y Android publicados usándolo; (3) adopción confirmada; (4) recién entonces separar `get` de `list` en las reglas — el `get` lo necesita el alumno para ver a su docente, el `list` solo el panel | Cuando (1)-(3) estén hechos |
@@ -2560,7 +2646,7 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | ~~R14~~ | ~~**El borrado de cuenta de un docente nunca se ha ejecutado de punta a punta**~~ | — | **CERRADO en A17 (6-ago-2026): los cinco puntos, en verde.** 12 de 12 archivos borrados · 0 documentos huérfanos por barrido ciego de las colecciones raíz · 0 referencias rotas · 0 recursos accesibles por URL, derivados del PDF incluidos · RO-2 cumplido. Las 15 colecciones que toca el endpoint ya no están respaldadas por lectura de código sino por una ejecución real contra producción | ✔ |
 | R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** · **Se corrige en el módulo dueño de cada dato, no en la baja.** Decisión del PO (5-ago-2026): A07 **no** debe parchearlo desde su lado. Un remiendo en la baja del estudiante trataría el síntoma —limpiar de paso datos de avisos y de calendario— y dejaría intacta la causa: colecciones cuya regla de borrado depende de un documento que ya no existe. Se arregla donde viven esos datos, con su modelo de propiedad revisado | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). Y los mapas `presentes` de cada columna de asistencia conservan la llave del alumno, igual que pasaba con `activities.extensiones` antes de corregirse. Además, la baja de cuenta del propio estudiante no borra sus `studentEvents` | Limpiar en la baja lo que todavía tiene dueño (mapas de asistencia y `studentEvents`), y para los avisos huérfanos decidir entre darle al docente permiso de borrarlos o una limpieza programada. Descubierto en A07; toca colecciones de avisos y calendario | A14 (avisos) y A18 (calendario) |
 | R12 | **El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado** | `api/cron/reminders.js` comprueba la cabecera **solo si** la variable existe; si no está puesta en Vercel, cualquiera puede dispararlo y provocar un envío masivo de correo | Verificar en Vercel que `CRON_SECRET` esté configurada (Vercel la manda sola en sus crons cuando existe). No se puede comprobar desde el código, y ponerlo a fallar en cerrado rompería el cron si resulta que falta: es una **acción de operación** | A24 |
-| R11 | **Las Cloud Functions no tienen forma automatizada de probarse** | La suite del proyecto solo cubre reglas de Firestore; las 14 funciones se verifican leyendo el código | **ABIERTO — mejora prioritaria para la v1.1, decisión del PO, 5-ago-2026.** No se construye todavía: levantar el emulador de Functions es trabajo de infraestructura que no cabe en la v1.0. Cuando se haga, empezar por las tres críticas —la que califica (`onEvaluacionFinalizada`), la que espeja la vigencia (`onSuscripcionEscrita`) y la que repone la prueba (`onDocenteCreado`) | **v1.1 — prioritaria** |
+| R11 | **De las Cloud Functions solo falta por probar el CABLEADO de sus disparadores** · **su lógica ya se prueba desde el 6-ago-2026** | Queda descubierto únicamente que cada `onDocumentWritten` apunte a la ruta correcta y filtre bien el evento — una línea por función. La **lógica** sí tiene casos (`test:server`, nivel 2), llamada directamente contra el emulador de Firestore. La decisión del PO del 5-ago-2026 —*"levantar el emulador de Functions no cabe en la v1.0"*— **sigue en pie y no se contradice**: eso es justo lo que se excluyó, y resultó que no hacía falta para probar la lógica | Cuando se levante el emulador de Functions (nivel 3), empezar por las tres críticas: la que califica (`onEvaluacionFinalizada`), la que espeja la vigencia (`onSuscripcionEscrita`) y la que repone la prueba (`onDocenteCreado`) | **v1.1** |
 | R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | A12 |
 | R16 | **Cualquiera puede subir archivos a la cuenta de Cloudinary de Alan, sin sesión y a la carpeta que quiera** | El preset sin firmar es, por definición, público: su nombre viaja en el bundle del navegador. Comprobado desde fuera de la aplicación el 6-ago-2026 — se subió sin ninguna sesión, y eligiendo carpeta libremente, incluida `evalua-facil/comprobantes`, donde viven los comprobantes de pago. Lo que **sí** está acotado: tope de 10 MB, extensiones peligrosas rechazadas (`.exe`), y no se puede sobrescribir el archivo de nadie | Cloudinary no permite cerrar esto sin pasar a subida firmada, que es un cambio de arquitectura (un endpoint que firme cada subida). Alternativas más baratas: acotar el preset a las carpetas reales y poner alerta de cuota. **Decisión de Alan** (§1.8), que es quien paga la cuota y controla el preset | **Alan** (RO-3: registrado, no detiene ninguna auditoría). Se revisa en A24 |
 | ~~R18~~ | ~~**`borrados` puede contar de más: un archivo que nunca se encontró se apunta como borrado**~~ | — | **CERRADO el 6-ago-2026 en un PR suelto ([#1010](https://github.com/Alan20111/evalua-facil/pull/1010), commit `dc7da39`).** El comportamiento **no cambió**, que era la condición: `not found` sigue sin reintentarse y la escoba sigue pudiendo cerrar un apunte ya barrido. Lo que cambió es que ahora se puede ver: `destruir()` devuelve `'ok' \| 'not found' \| 'fallo'`, `borrarAssets` cuenta `noEncontrados` aparte y **fuera** de `borrados` (los tres suman `total`), y anota constancia **aunque no haya ningún fallo**, con `motivo: 'no-encontrado'` y `purgado: true` — no hay nada que reintentar, y para la escoba `purgado: false` sigue queriendo decir "hay algo que borrar". **Verificado contra producción**, no leyendo el código: un docente `zztest-` con la foto apuntando a un archivo inexistente, borrado por `POST /api/account/delete` con las llaves reales puestas, devolvió `{total:1, borrados:0, noEncontrados:1, configurado:true, anotados:true, pendientes:[]}` y dejó **1 constancia** con el `public_id` completo. El mismo caso contra el código anterior (`abb7345`), alimentado con la respuesta literal que Cloudinary acababa de dar, devolvía `{total:1, borrados:1, anotados:false}` y **0 constancias**. Residuo `zztest-` barrido y comprobado: 0 en las 8 colecciones y en las 43 cuentas de Auth | ✔ |
