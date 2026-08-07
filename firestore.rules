@@ -580,20 +580,29 @@ service cloud.firestore {
       // estado no puede ser 'calificado'; al actualizar aplica
       // studentNoTocaCalificacion(). La nota real la pone la Cloud Function
       // onEvaluacionFinalizada (Admin SDK) o el docente (ownsActivity).
-      allow create: if request.auth != null && (
+      //
+      // R22 — ID determinista: el id del documento DEBE ser actividadId + '_' +
+      // alumnoId. Esto hace que la unicidad sea estructural: Firestore solo
+      // acepta un documento por par (actividad, inscripción), sin importar
+      // quién intente crear una segunda entrega. Un addDoc (id aleatorio) falla
+      // aquí porque su id nunca cumple el patrón. Se aplica a los dos paths de
+      // create (alumno y docente) para que no quede ninguna vía sin candado.
+      allow create: if request.auth != null &&
+        submissionId == request.resource.data.actividadId + '_' + request.resource.data.alumnoId &&
         (
-          ownsStudentDoc(request.resource.data.alumnoId) &&
-          enrollmentMatchesActivity(request.resource.data.alumnoId, request.resource.data.actividadId) &&
-          request.resource.data.get('calificacion', null) == null &&
-          request.resource.data.get('estado', '') != 'calificado' &&
-          !actividadVencidaParaAlumno(request.resource.data.actividadId, request.resource.data.alumnoId)
-        ) ||
-        (
-          docenteActivo() &&
-          ownsActivity(request.resource.data.actividadId) &&
-          calificacionEnRango(request.resource.data.actividadId)
-        )
-      );
+          (
+            ownsStudentDoc(request.resource.data.alumnoId) &&
+            enrollmentMatchesActivity(request.resource.data.alumnoId, request.resource.data.actividadId) &&
+            request.resource.data.get('calificacion', null) == null &&
+            request.resource.data.get('estado', '') != 'calificado' &&
+            !actividadVencidaParaAlumno(request.resource.data.actividadId, request.resource.data.alumnoId)
+          ) ||
+          (
+            docenteActivo() &&
+            ownsActivity(request.resource.data.actividadId) &&
+            calificacionEnRango(request.resource.data.actividadId)
+          )
+        );
       allow update: if request.auth != null && (
         (
           ownsStudentDoc(resource.data.alumnoId) &&

@@ -10,7 +10,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
-import { updateDoc, addDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
+import { updateDoc, setDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -505,8 +505,8 @@ export default function ActivityPage() {
         fechaEntrega: serverTimestamp(),
         ...rubricaEvalPayload,
       }
-      const ref = await addDoc(collection(db, 'submissions'), data)
-      updated = { id: ref.id, ...data }
+      await setDoc(doc(db, 'submissions', `${activityId}_${selected.student.id}`), data)
+      updated = { id: `${activityId}_${selected.student.id}`, ...data }
     }
     setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
     setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
@@ -618,8 +618,8 @@ export default function ActivityPage() {
         sinEntrega: true,
         fechaEntrega: serverTimestamp(),
       }
-      const ref = await addDoc(collection(db, 'submissions'), data)
-      const updated = { id: ref.id, ...data }
+      await setDoc(doc(db, 'submissions', `${activityId}_${selected.student.id}`), data)
+      const updated = { id: `${activityId}_${selected.student.id}`, ...data }
       setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
       setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
       setGradeForm({ calificacion: String(cal), comentario: '' })

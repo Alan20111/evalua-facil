@@ -6,12 +6,12 @@ import {
   where,
   getDocs,
   getDoc,
-  addDoc,
   updateDoc,
   doc,
   onSnapshot,
   serverTimestamp,
   writeBatch,
+  setDoc,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
@@ -253,7 +253,7 @@ export default function StudentActivityPage() {
       // `archivoURL`/`nombreArchivo` stay as the FIRST file so every existing
       // reader (teacher list, previews, ZIP export) keeps working; `archivos`
       // carries the full set when there is more than one.
-      await addDoc(collection(db, 'submissions'), {
+      await setDoc(doc(db, 'submissions', `${activityId}_${student.id}`), {
         alumnoId: student.id,
         actividadId: activityId,
         archivoURL: uploaded[0].url,
@@ -327,7 +327,7 @@ export default function StudentActivityPage() {
           notificadoEntregaDocente: false,
         })
       } else {
-        await addDoc(collection(db, 'submissions'), {
+        await setDoc(doc(db, 'submissions', `${activityId}_${student.id}`), {
           alumnoId: student.id,
           alumnoUid: currentUser.uid,
           actividadId: activityId,
