@@ -2444,7 +2444,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
 | **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **Cerrada** · 5-ago-2026 — aprobada por el PO |
 | **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **Cerrada** · 6-ago-2026 — las cuatro Completadas; A17 pasó sus cinco puntos. Dos criterios de cierre dependen de terceros y quedan a la vista como riesgos (R7 por RO-1, R16 por Alan) |
-| **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | **En proceso** — A08, A09, A12 y A13 Completadas, sigue A18 |
+| **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | **Cerrada** · 7-ago-2026 — las cinco Completadas |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
 | **F5** · Superficie y entorno | A19 → A20 → A23 | Pendiente |
 | **F6** · Cumplimiento y operación | A22 → A24 | Pendiente |
@@ -2472,7 +2472,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A15 | Notificaciones push | F4 | M14 | Alto | Pendiente | — | — |
 | A16 | Exportaciones | F4 | M16 | Alto | Pendiente | — | — |
 | A17 | Archivos y multimedia | F2 | M17 | Alto | **Completada** | 6-ago-2026 | `6b7f026` · [#1007](https://github.com/Alan20111/evalua-facil/pull/1007) — cierra R3 y R14; antes `fc13c4e` · [#1002](https://github.com/Alan20111/evalua-facil/pull/1002) |
-| A18 | Calendario y agenda | F3 | M13 | Alto | Pendiente | — | — |
+| A18 | Calendario y agenda | F3 | M13 | Alto | **Completada** | 7-ago-2026 | H1: `f4e356a` · [#1035](https://github.com/Alan20111/evalua-facil/pull/1035) · H2: `d5224d8` · [#1036](https://github.com/Alan20111/evalua-facil/pull/1036) · H3: `a10c65f` · [#1037](https://github.com/Alan20111/evalua-facil/pull/1037) |
 | A19 | Navegación y guardianes de ruta | F5 | M21, M31 | Alto | Pendiente | — | — |
 | A20 | Aplicación Android | F5 | M23 | Alto | Pendiente | — | — |
 | A21 | Correo transaccional | F4 | M15 | Alto | Pendiente | — | — |
@@ -2480,11 +2480,11 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 14 de 24 auditorías (58%) · 3 de 7 fases cerradas (F0, F1 y F2).**
-Casos de prueba automatizados: **207** — 39 de unidad, 138 de reglas, 30 de
+**Avance: 15 de 24 auditorías (62.5%) · 4 de 7 fases cerradas (F0, F1, F2 y F3).**
+Casos de prueba automatizados: **234** — 39 de unidad, 168 de reglas, 31 de
 servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
-**A18 · Calendario y agenda**, dentro de la Fase 3 — A08, A09, A12 y A13
-cerradas (6, 7 y 7-ago-2026). Sigue A18 (calendario) → A14 (avisos). Entre la
+**A14 · Avisos**, dentro de la Fase 4 — F3 cerrada 7-ago-2026. Sigue
+A14 (avisos) → A15 (push) → A16 (exportaciones) → A21 (correo). Entre la
 Fase 2 y la 3 se construyó la **infraestructura mínima de pruebas** (ficha al
 final de §8).
 
