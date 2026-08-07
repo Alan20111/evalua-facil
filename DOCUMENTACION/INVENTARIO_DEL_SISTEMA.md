@@ -2445,7 +2445,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **Cerrada** · 5-ago-2026 — aprobada por el PO |
 | **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **Cerrada** · 6-ago-2026 — las cuatro Completadas; A17 pasó sus cinco puntos. Dos criterios de cierre dependen de terceros y quedan a la vista como riesgos (R7 por RO-1, R16 por Alan) |
 | **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | **Cerrada** · 7-ago-2026 — las cinco Completadas |
-| **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
+| **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | **En proceso** — A14 Completada, siguen A15, A16, A21 |
 | **F5** · Superficie y entorno | A19 → A20 → A23 | Pendiente |
 | **F6** · Cumplimiento y operación | A22 → A24 | Pendiente |
 
@@ -2468,7 +2468,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A11 | Panel de administración | F2 | M04 | Crítico | **Completada** | 5-ago-2026 | `832b492` · [#999](https://github.com/Alan20111/evalua-facil/pull/999) |
 | A12 | Actividades, entregas y asignaturas | F3 | M07, M05 | Alto | **Completada** | 7-ago-2026 | H1–H4: [#1026](https://github.com/Alan20111/evalua-facil/pull/1026)–[#1029](https://github.com/Alan20111/evalua-facil/pull/1029) · H5: `e6e50f1` · [#1031](https://github.com/Alan20111/evalua-facil/pull/1031) — cierra R22 |
 | A13 | Asistencia | F3 | M11 | Alto | **Completada** | 7-ago-2026 | H1–H2: `eedabd4` · [#1033](https://github.com/Alan20111/evalua-facil/pull/1033) — cierra desfase legado + 15 reglas |
-| A14 | Avisos | F4 | M12 | Alto | Pendiente | — | — |
+| A14 | Avisos | F4 | M12 | Alto | **Completada** | 7-ago-2026 | H1+H2: `c7eafe7` · [#1039](https://github.com/Alan20111/evalua-facil/pull/1039) |
 | A15 | Notificaciones push | F4 | M14 | Alto | Pendiente | — | — |
 | A16 | Exportaciones | F4 | M16 | Alto | Pendiente | — | — |
 | A17 | Archivos y multimedia | F2 | M17 | Alto | **Completada** | 6-ago-2026 | `6b7f026` · [#1007](https://github.com/Alan20111/evalua-facil/pull/1007) — cierra R3 y R14; antes `fc13c4e` · [#1002](https://github.com/Alan20111/evalua-facil/pull/1002) |
@@ -2480,13 +2480,12 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 15 de 24 auditorías (62.5%) · 4 de 7 fases cerradas (F0, F1, F2 y F3).**
-Casos de prueba automatizados: **234** — 39 de unidad, 168 de reglas, 31 de
+**Avance: 16 de 24 auditorías (66.7%) · 4 de 7 fases cerradas (F0, F1, F2 y F3).**
+Casos de prueba automatizados: **234** — 39 de unidad, 201 de reglas, 31 de
 servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
-**A14 · Avisos**, dentro de la Fase 4 — F3 cerrada 7-ago-2026. Sigue
-A14 (avisos) → A15 (push) → A16 (exportaciones) → A21 (correo). Entre la
-Fase 2 y la 3 se construyó la **infraestructura mínima de pruebas** (ficha al
-final de §8).
+**A15 · Notificaciones push**, dentro de la Fase 4 — A14 cerrada 7-ago-2026.
+Sigue A15 (push) → A16 (exportaciones) → A21 (correo). Entre la Fase 2 y la 3
+se construyó la **infraestructura mínima de pruebas** (ficha al final de §8).
 
 **La Fase 2 cierra con dos asuntos abiertos que no son suyos.** Decisión del
 Product Owner, 6-ago-2026, tras revisión crítica de la fase completa:
