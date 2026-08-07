@@ -417,7 +417,7 @@ Fecha: <fecha> · Tiempo: <rango> · Riesgos residuales: <R-- o "ninguno">
 | Módulos funcionales | 33 — **11 Críticos**, 14 Altos, 5 Medios, 3 Bajos |
 | Auditorías planeadas | 24 (2 completadas) |
 | Fases de ejecución | 7 (una cerrada) |
-| Casos de prueba automatizados | **135** — 30 de unidad · 80 de reglas · 25 de servidor |
+| Casos de prueba automatizados | **136** — 30 de unidad · 80 de reglas · 26 de servidor |
 
 ## Cobertura
 
@@ -2217,7 +2217,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
 **Avance: 10 de 24 auditorías (42%) · 3 de 7 fases cerradas (F0, F1 y F2).**
-Casos de prueba automatizados: **135** — 30 de unidad, 80 de reglas, 25 de
+Casos de prueba automatizados: **136** — 30 de unidad, 80 de reglas, 26 de
 servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
 **Fase 3 · El trabajo académico** — A08 (evaluaciones) → A09 (calificaciones,
 ponderación y rúbricas) → A12 (actividades, entregas y asignaturas) →
@@ -2554,7 +2554,7 @@ automática es `onEvaluacionFinalizada`), o sea la capa sin cobertura.
 
 > **Resuelto el 6-ago-2026.** El PO autorizó construir la **rebanada mínima**
 > antes de la Fase 3: niveles 0, 1 y 2, **sin** el nivel 3 (emulador de
-> Functions). Resultado: **80 → 135 casos**, en tres bancos que corren con
+> Functions). Resultado: **80 → 136 casos**, en tres bancos que corren con
 > `npm test`. Ver **M29** y la ficha de la infraestructura al final de esta
 > sección.
 
@@ -2581,7 +2581,7 @@ el emulador de Functions para probar el **cableado** de los disparadores—, que
 caro y lento y solo verificaría una línea por función. La lógica, que es donde
 han estado todos los defectos, sí queda cubierta.
 
-**Resultado: 80 → 135 casos**, en tres bancos que corren juntos con `npm test`.
+**Resultado: 80 → 136 casos**, en tres bancos que corren juntos con `npm test`.
 Detalle del instrumento en **M29**.
 
 **Que las pruebas de verdad muerden** no se da por supuesto: se comprobó
@@ -2592,7 +2592,31 @@ rompiendo el código a propósito y confirmando que se ponen rojas.
 | Quitar `'avisos'` de `POR_DOCENTE` — el defecto exacto de A10 | 7 casos en rojo, salida distinta de cero |
 | Quitar `invalidate: true` — el defecto exacto de A17 | detectado, con la firma esperada al lado |
 
-Restaurado el código, los 135 vuelven a verde.
+Restaurado el código, los 136 vuelven a verde.
+
+**Lo que encontró su propia revisión crítica** (6-ago-2026, aprobada
+provisionalmente y revisada acto seguido). Tres defectos del andamio, corregidos
+ahí mismo, y un defecto de producción que salió gracias al tercero:
+
+- **Los stubs de `fetch` se anidaban.** Cada pinchazo guardaba *el fetch que
+  hubiera en ese momento*: si una prueba fallaba antes de restaurar, la
+  siguiente pinchaba encima y al restaurarse dejaba el stub de la primera puesto
+  **para el resto de la corrida**. Comprobado que pasaba. Ahora el `fetch` de
+  verdad se guarda una sola vez y `caso()` lo repone en un `finally`.
+- **La llave de Cloudinary se reponía fuera de un `finally`.** Si una aserción
+  fallaba a medias, todas las pruebas de archivos siguientes corrían en modo
+  "sin credenciales", pasando o fallando por el motivo equivocado.
+- **El banco sembraba solo formato actual**, así que confirmaba que el endpoint
+  encuentra lo que ya sabe buscar. §1.4 exige probar *con datos viejos*, y no se
+  hacía. Se añadió una siembra en formato antiguo — y ahí apareció **R19**: los
+  documentos de avisos sin `asignaturaId` sobreviven al borrado de la cuenta,
+  con datos personales de un menor dentro. Hay 4 reales en producción.
+
+De ahí sale un patrón que conviene repetir: **`RESIDUO_CONOCIDO`**, una lista del
+residuo que hoy se sabe que queda. No es una excusa, es un contrato en las dos
+direcciones — la prueba se pone roja si el residuo **crece** (fuga nueva) y
+también si **se reduce** (alguien lo arregló y tiene que anotarlo). Un hueco
+conocido y vigilado no es lo mismo que un hueco.
 
 **Lo que se dejó fuera y por qué** (condición del PO: lo que no sea la rebanada
 mínima se documenta y se pospone):
@@ -2644,6 +2668,7 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | R10 | **Un recordatorio de entrega que cae en una corrida fallida se pierde para siempre** | `revisarProgramados` solo avisa dentro de una ventana de 35 min alrededor de la anticipación elegida; pasada esa ventana, no vuelve a intentarlo. La otra mitad de la misma función (publicar actividades) sí se autorrepara porque vuelve a barrer todo | **ACEPTADO PARA LA v1.0 — decisión del PO, 5-ago-2026.** El comportamiento actual **no se modifica**. Cualquier cambio en esta lógica es una **decisión funcional del Product Owner** —altera qué avisos recibe la gente, incluidos los de actividades creadas ya dentro de la ventana, que hoy no avisan— y **se evalúa después de liberar la v1.0**, no antes. La corrección técnica, cuando se autorice, es quitar el límite inferior de la ventana: `recordatoriosEnviados` ya impide duplicados | Después de la v1.0 — **decisión funcional del PO** |
 | R15 | **El panel lee ocho colecciones completas en cada carga** | `useAdminStats` trae `users`, `students`, `subscriptions`, `payments`, `plans`, `schools`, `subjects` y `bajas` enteras. Hoy funciona; crece linealmente con la plataforma y `students` es la que más crece. No es un problema de seguridad sino de costo y de tiempo de carga | Contadores agregados que una Cloud Function mantenga, y traer el detalle solo de la tabla que se está mirando. Descubierto en A11 | A24 |
 | ~~R14~~ | ~~**El borrado de cuenta de un docente nunca se ha ejecutado de punta a punta**~~ | — | **CERRADO en A17 (6-ago-2026): los cinco puntos, en verde.** 12 de 12 archivos borrados · 0 documentos huérfanos por barrido ciego de las colecciones raíz · 0 referencias rotas · 0 recursos accesibles por URL, derivados del PDF incluidos · RO-2 cumplido. Las 15 colecciones que toca el endpoint ya no están respaldadas por lectura de código sino por una ejecución real contra producción | ✔ |
+| R19 | **El borrado de cuenta no alcanza los documentos de avisos escritos en FORMATO VIEJO** — sobreviven para siempre, con datos personales de un menor dentro | Las tres colecciones de avisos (`avisoLecturas`, `avisoGuardados`, `avisoOcultos`) se borran **solo** por `asignaturaId in subjectIds`. Un documento escrito antes de que ese campo existiera no tiene segunda vía, y cuando su aviso y su asignatura desaparecen ya nadie puede reclamarlo. **Comprobado en producción el 6-ago-2026**: hay **4 `avisoLecturas` reales sin `asignaturaId`**, las cuatro apuntando a avisos que ya no existen, y cada una lleva `estudianteId`, la fecha y hora de lectura y la huella del dispositivo (navegador y sistema operativo). Descubierto **auditando el propio banco de pruebas**: su primera versión sembraba solo formato actual, así que confirmaba que el endpoint encuentra lo que ya sabe buscar — justo el punto ciego que §1.4 manda cubrir | Segunda vía de borrado en `api/account/delete.js`: recogerlas también por el `avisoId` de los avisos del docente, o por los ids de los alumnos que se están borrando. Y limpiar los 4 documentos que ya están huérfanos. **El banco ya lo vigila**: `RESIDUO_CONOCIDO` en `test/servidor.test.mjs` fija el residuo actual y se pone rojo tanto si crece como si alguien lo arregla y no lo anota | A14 (avisos), junto con R13, que es el mismo problema por el otro lado |
 | R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** · **Se corrige en el módulo dueño de cada dato, no en la baja.** Decisión del PO (5-ago-2026): A07 **no** debe parchearlo desde su lado. Un remiendo en la baja del estudiante trataría el síntoma —limpiar de paso datos de avisos y de calendario— y dejaría intacta la causa: colecciones cuya regla de borrado depende de un documento que ya no existe. Se arregla donde viven esos datos, con su modelo de propiedad revisado | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). Y los mapas `presentes` de cada columna de asistencia conservan la llave del alumno, igual que pasaba con `activities.extensiones` antes de corregirse. Además, la baja de cuenta del propio estudiante no borra sus `studentEvents` | Limpiar en la baja lo que todavía tiene dueño (mapas de asistencia y `studentEvents`), y para los avisos huérfanos decidir entre darle al docente permiso de borrarlos o una limpieza programada. Descubierto en A07; toca colecciones de avisos y calendario | A14 (avisos) y A18 (calendario) |
 | R12 | **El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado** | `api/cron/reminders.js` comprueba la cabecera **solo si** la variable existe; si no está puesta en Vercel, cualquiera puede dispararlo y provocar un envío masivo de correo | Verificar en Vercel que `CRON_SECRET` esté configurada (Vercel la manda sola en sus crons cuando existe). No se puede comprobar desde el código, y ponerlo a fallar en cerrado rompería el cron si resulta que falta: es una **acción de operación** | A24 |
 | R11 | **De las Cloud Functions solo falta por probar el CABLEADO de sus disparadores** · **su lógica ya se prueba desde el 6-ago-2026** | Queda descubierto únicamente que cada `onDocumentWritten` apunte a la ruta correcta y filtre bien el evento — una línea por función. La **lógica** sí tiene casos (`test:server`, nivel 2), llamada directamente contra el emulador de Firestore. La decisión del PO del 5-ago-2026 —*"levantar el emulador de Functions no cabe en la v1.0"*— **sigue en pie y no se contradice**: eso es justo lo que se excluyó, y resultó que no hacía falta para probar la lógica | Cuando se levante el emulador de Functions (nivel 3), empezar por las tres críticas: la que califica (`onEvaluacionFinalizada`), la que espeja la vigencia (`onSuscripcionEscrita`) y la que repone la prueba (`onDocenteCreado`) | **v1.1** |
