@@ -132,6 +132,27 @@ const ENLACE = {
   users: { id: DOCENTE, datos: { role: 'docente', nombre: 'Uno', escuelaId: 'E1' } },
 }
 
+// Segunda siembra: los MISMOS documentos como los escribía una versión vieja
+// del cliente, sin el campo por el que hoy se enlazan. §1.4 lo exige —"con
+// datos viejos, documentos creados antes del cambio, sin los campos nuevos"— y
+// la primera versión de este banco no lo hacía: sembraba solo formato actual,
+// así que confirmaba que el endpoint encuentra lo que el endpoint ya sabe
+// buscar. Comprobado contra producción el 6-ago-2026: hay 4 `avisoLecturas`
+// reales sin `asignaturaId`.
+const FORMATO_VIEJO = {
+  attendance: { asignaturaId: SUBJ, fecha: '2026-02-01' }, // sin docenteId: la vía vieja
+  // Las tres de avisos se borran SOLO por `asignaturaId`. Sin ese campo no hay
+  // segunda vía, y el documento no vuelve a tener dueño nunca.
+  avisoLecturas: { avisoId: 'aviso_uno', estudianteId: ALUMNO },
+  avisoGuardados: { avisoId: 'aviso_uno', alumnoId: ALUMNO },
+  avisoOcultos: { avisoId: 'aviso_uno', alumnoId: ALUMNO },
+}
+
+// Residuo que HOY se sabe que queda, con su riesgo anotado. No es una excusa:
+// es un contrato en las dos direcciones — si el residuo crece, la prueba se
+// pone roja; y si alguien lo arregla, también, y tiene que quitarlo de aquí.
+const RESIDUO_CONOCIDO = ['avisoGuardados', 'avisoLecturas', 'avisoOcultos'] // R19
+
 // Las que NO son del docente, cada una con su motivo. Añadir algo aquí es una
 // decisión consciente, que es justo lo que se quiere.
 const EXENTAS = {
@@ -175,6 +196,33 @@ await caso('un docente con un documento en CADA una de sus colecciones no deja n
   if ((await act.ref.collection('preguntas').get()).size) quedan.push('activities/*/preguntas')
   if ((await sub.ref.collection('respuestas').get()).size) quedan.push('submissions/*/respuestas')
   assert.deepStrictEqual(quedan, [], `quedó residuo en: ${quedan.join(', ')}`)
+})
+
+await caso('tampoco deja residuo con documentos en FORMATO VIEJO (§1.4)', async () => {
+  await limpiar()
+  await db.doc(`users/${DOCENTE}`).set({ role: 'docente', escuelaId: 'E1' })
+  await db.doc(`subjects/${SUBJ}`).set({ docenteId: DOCENTE })
+  await db.doc(`students/${ALUMNO}`).set({ asignaturaId: SUBJ, uid: 'alumno_uid' })
+  await db.doc('avisos/aviso_uno').set({ docenteId: DOCENTE, asignaturaId: SUBJ })
+
+  const viejos = []
+  for (const [col, datos] of Object.entries(FORMATO_VIEJO)) {
+    const ref = db.collection(col).doc()
+    await ref.set(datos)
+    viejos.push(ref)
+  }
+
+  const cloud = pincharCloudinary()
+  const r = await llamar(borrarCuenta, { token: await sesion(DOCENTE), cuerpo: { confirmacion: 'ELIMINAR' } })
+  cloud.restaurar()
+  assert.strictEqual(r.statusCode, 200, JSON.stringify(r.cuerpo))
+
+  const quedan = []
+  for (const ref of viejos) if ((await ref.get()).exists) quedan.push(ref.parent.id)
+  assert.deepStrictEqual(quedan.sort(), RESIDUO_CONOCIDO,
+    `el residuo con datos viejos cambió. Si CRECIÓ, hay una fuga nueva. Si se ` +
+    `REDUJO, alguien lo arregló: quítalo de RESIDUO_CONOCIDO y cierra su riesgo. ` +
+    `Ahora quedan: [${quedan.join(', ')}]`)
 })
 
 // ── Los archivos ────────────────────────────────────────────────────────────
@@ -242,13 +290,19 @@ await caso('sin llaves configuradas NO finge que limpió', async () => {
   await limpiar()
   const key = process.env.CLOUDINARY_API_KEY
   delete process.env.CLOUDINARY_API_KEY
-  await db.doc(`users/${DOCENTE}`).set({ role: 'docente', photoURL: urlCloudinary('image', 'x/sinllaves') })
-  const r = await llamar(borrarCuenta, { token: await sesion(DOCENTE), cuerpo: { confirmacion: 'ELIMINAR' } })
-  process.env.CLOUDINARY_API_KEY = key
-
-  assert.strictEqual(r.cuerpo.archivos.configurado, false)
-  assert.strictEqual(r.cuerpo.archivos.borrados, 0)
-  assert.strictEqual((await db.collection('archivosPendientes').get()).size, 1)
+  try {
+    await db.doc(`users/${DOCENTE}`).set({ role: 'docente', photoURL: urlCloudinary('image', 'x/sinllaves') })
+    const r = await llamar(borrarCuenta, { token: await sesion(DOCENTE), cuerpo: { confirmacion: 'ELIMINAR' } })
+    assert.strictEqual(r.cuerpo.archivos.configurado, false)
+    assert.strictEqual(r.cuerpo.archivos.borrados, 0)
+    assert.strictEqual((await db.collection('archivosPendientes').get()).size, 1)
+  } finally {
+    // En `finally` a propósito: si una aserción falla a medias, la llave tiene
+    // que volver igual. Si no, todas las pruebas de archivos que vengan detrás
+    // corren en modo "sin credenciales" y pasan o fallan por el motivo
+    // equivocado.
+    process.env.CLOUDINARY_API_KEY = key
+  }
 })
 
 // ── RO-2 ────────────────────────────────────────────────────────────────────

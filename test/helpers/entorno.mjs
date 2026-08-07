@@ -96,12 +96,21 @@ export async function sesion(uid, extra = {}) {
 // concesión: es lo que permite AFIRMAR qué se le pidió borrar y con qué
 // parámetros — que es justo donde estuvo el defecto de A17 (`invalidate`).
 // Todo lo que no vaya a api.cloudinary.com pasa de largo.
+// El `fetch` de verdad se guarda UNA vez, al cargar el módulo, y siempre se
+// vuelve a él. Antes cada pinchazo guardaba «el fetch que hubiera en ese
+// momento», y eso se anida: si una prueba pincha y falla antes de restaurar, la
+// siguiente pincha encima, y al restaurarse deja puesto el stub de la primera
+// **para el resto de la corrida**. Comprobado que pasaba. Un banco de pruebas
+// que se contamina a sí mismo es peor que no tenerlo: sigue en verde.
+const FETCH_ORIGINAL = globalThis.fetch
+
+export function restaurarFetch() { globalThis.fetch = FETCH_ORIGINAL }
+
 export function pincharCloudinary({ resultado = 'ok' } = {}) {
-  const original = globalThis.fetch
   const llamadas = []
   globalThis.fetch = async (url, opciones = {}) => {
     const u = String(url)
-    if (!u.includes('api.cloudinary.com')) return original(url, opciones)
+    if (!u.includes('api.cloudinary.com')) return FETCH_ORIGINAL(url, opciones)
     const cuerpo = opciones.body ? JSON.parse(opciones.body) : {}
     llamadas.push({ url: u, cuerpo })
     const r = typeof resultado === 'function' ? resultado(cuerpo) : resultado
@@ -113,7 +122,7 @@ export function pincharCloudinary({ resultado = 'ok' } = {}) {
     llamadas,
     // public_ids que se pidió destruir, en orden
     destruidos: () => llamadas.map((l) => l.cuerpo.public_id),
-    restaurar() { globalThis.fetch = original },
+    restaurar: restaurarFetch,
   }
 }
 
@@ -151,6 +160,11 @@ export async function caso(nombre, fn) {
     console.log('  ✗', nombre)
     console.log('     ', e.message.split('\n')[0])
     fallos.push({ nombre, error: e })
+  } finally {
+    // Pase lo que pase, el caso siguiente arranca con el `fetch` de verdad.
+    // Sin esto, una prueba que falla a media faena deja su stub puesto y
+    // contamina todas las demás sin que nadie se entere.
+    restaurarFetch()
   }
 }
 
