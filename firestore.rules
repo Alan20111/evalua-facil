@@ -91,6 +91,87 @@ service cloud.firestore {
         );
     }
 
+    // ── A08 · El alumno no maneja la máquina de estados de su examen ────────
+    //
+    // Blindar `calificacion` no basta, y esto no era evidente: el alumno no
+    // necesitaba escribir su nota para elegirla. Le bastaba con mover tres
+    // campos que nadie vigilaba —`estadoEvaluacion`, `intentoActual` y
+    // `tiempoInicio`— para hacer que el SERVIDOR se la recalculara cuantas
+    // veces quisiera:
+    //
+    //   contestar → finalizar → leer la nota que puso el servidor →
+    //   volver a "en_progreso" → cambiar las respuestas → subir el número de
+    //   intento para esquivar el candado de idempotencia → finalizar otra vez
+    //
+    // Con `conservar: 'mejor'` eso es quedarse con el 10 a base de repetir, y
+    // con 'ultimo' es contestar con el examen delante. Reproducido contra el
+    // emulador antes de corregirse: los cuatro pasos pasaban.
+    //
+    // La clave del arreglo es que `intentos[]` SOLO lo escribe el servidor (ya
+    // estaba blindado arriba), así que sirve de ancla honesta: el número de
+    // intento en curso tiene que ser exactamente los ya calificados + 1. Eso
+    // permite el reintento legítimo (ver handleStartOrContinueEvaluacion en
+    // ActivityPage.jsx, que manda justamente `intentos.length + 1`) y hace
+    // imposible inventarse un número.
+    function evalConfig(actId) {
+      return get(/databases/$(database)/documents/activities/$(actId)).data
+        .get('evaluacion', {});
+    }
+
+    // Un intento nuevo: el número avanza al siguiente real y quedan intentos.
+    // `intentosPermitidos` ausente o null = ilimitados (regla 1.2: un dato que
+    // falta no deja a nadie fuera).
+    function intentoNuevoValido() {
+      return request.resource.data.get('intentoActual', 0) == resource.data.get('intentos', []).size() + 1 &&
+        (
+          evalConfig(resource.data.actividadId).get('intentosPermitidos', null) == null ||
+          resource.data.get('intentos', []).size() < evalConfig(resource.data.actividadId).get('intentosPermitidos', 0)
+        );
+    }
+
+    function studentNoManipulaIntento() {
+      // Si no toca ninguno de los tres campos, no hay nada que revisar: es un
+      // autoguardado normal (ordenSeed, notificadoEntregaDocente, etc.).
+      return !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['estadoEvaluacion', 'intentoActual', 'tiempoInicio']) ||
+        (
+          // Abrir un intento nuevo. Es la ÚNICA vía por la que el alumno puede
+          // mover estos tres campos, y los mueve los tres a la vez.
+          //
+          // El número TIENE que avanzar. Sin esa condición, un documento que ya
+          // estaba en curso cumplía esta rama sin cambiar nada, y por ahí se
+          // colaba el reinicio del cronómetro a secas — que era justo uno de
+          // los ataques. El primer intento no pasa por aquí: se crea con
+          // addDoc, no con update.
+          request.resource.data.get('estadoEvaluacion', '') == 'en_progreso' &&
+          request.resource.data.get('intentoActual', 0) != resource.data.get('intentoActual', 0) &&
+          intentoNuevoValido()
+        ) ||
+        (
+          // Cerrar el intento en curso. Ni el número ni el reloj se tocan: el
+          // reloj congelado es lo que sostiene el plazo de las respuestas.
+          request.resource.data.get('estadoEvaluacion', '') == 'finalizado' &&
+          resource.data.get('estadoEvaluacion', '') == 'en_progreso' &&
+          request.resource.data.get('intentoActual', 0) == resource.data.get('intentoActual', 0) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['tiempoInicio'])
+        );
+    }
+
+    // El plazo se mide contra `request.time` —el reloj del SERVIDOR— y contra
+    // `tiempoInicio`, que ya no se puede mover (arriba). Antes el único control
+    // era `Date.now()` en el navegador (EvaluacionRunner.jsx): atrasar el reloj
+    // del teléfono daba tiempo infinito, y contestar 15 minutos después de que
+    // se acabara pasaba sin más. Reproducido antes de corregirse.
+    //
+    // El margen de un minuto es para no castigar a quien contesta en el último
+    // segundo con la red lenta: a un tramposo no le sirve de nada.
+    function dentroDelPlazo(submissionId) {
+      let sub = get(/databases/$(database)/documents/submissions/$(submissionId)).data;
+      let limite = evalConfig(sub.actividadId).get('tiempoLimiteMin', null);
+      return limite == null || sub.get('tiempoInicio', null) == null ||
+        request.time < sub.tiempoInicio + duration.value(limite, 'm') + duration.value(1, 'm');
+    }
+
     match /schools/{schoolId} {
       allow read: if request.auth != null;
       // Schools are created/edited only from teacher flows (Register/Onboarding
@@ -401,7 +482,11 @@ service cloud.firestore {
         (docenteActivo() && ownsActivity(request.resource.data.actividadId))
       );
       allow update: if request.auth != null && (
-        (ownsStudentDoc(resource.data.alumnoId) && studentNoTocaCalificacion()) ||
+        (
+          ownsStudentDoc(resource.data.alumnoId) &&
+          studentNoTocaCalificacion() &&
+          studentNoManipulaIntento()
+        ) ||
         (docenteActivo() && ownsActivity(resource.data.actividadId))
       );
       // Borrar una submission borra su nota — eso es manipulación de
@@ -442,7 +527,9 @@ service cloud.firestore {
               resource == null
                 ? !request.resource.data.keys().hasAny(['puntosObtenidos'])
                 : !request.resource.data.diff(resource.data).affectedKeys().hasAny(['puntosObtenidos'])
-            )
+            ) &&
+            // El tiempo se acabó de verdad, no según el reloj del teléfono.
+            dentroDelPlazo(submissionId)
           )
         );
       }
