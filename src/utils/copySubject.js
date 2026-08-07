@@ -88,6 +88,17 @@ export async function copySubject({ sourceSubjectId, nombre, grupo = '', fechaIn
       tiposArchivo: a.tiposArchivo || 'imagenes',
       extensionesCustom: a.extensionesCustom || '',
       tipo: a.tipo || 'archivo',
+      // La rúbrica vive como COPIA embebida en la actividad (rubrica.js:
+      // snapshotRubrica), no como referencia — sin esto la actividad copiada
+      // llegaba "sin rúbrica asignada" y el docente tenía que rehacerla.
+      // rubricaId solo apunta al origen en bancoRubricas para que el picker
+      // marque "Usando ✓"; se conserva igual, sigue siendo el mismo docente.
+      rubrica: a.rubrica || null,
+      rubricaId: a.rubricaId || null,
+      // La ponderación es configuración del docente sobre ESTA actividad, no
+      // estado del ciclo anterior — perderla resetea el parcial a promedio
+      // simple en el grupo nuevo (ver pesoDe en ponderacion.js).
+      pesoCalificacion: a.pesoCalificacion ?? null,
       // Un examen/cuestionario SIN su config ni su banco de preguntas llega al
       // grupo nuevo como una evaluación vacía (0 preguntas, sin tiempo límite ni
       // reglas de intentos). `resultadosPublicados`/`respuestasPublicadas` son

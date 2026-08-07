@@ -2711,8 +2711,9 @@ export default function SubjectPage() {
   }
 
   // Duplicate an activity as a DRAFT copy: same instructions, file types,
-  // attachments and evaluación config/preguntas — but hidden, unpublished,
-  // unnumbered and without deadline, ready to rename and publish later.
+  // attachments, rubric, grading weight and evaluación config/preguntas — but
+  // hidden, unpublished, unnumbered and without deadline, ready to rename and
+  // publish later.
   async function handleDuplicateActivity() {
     if (!duplicateConfirm) return
     setDuplicating(true)
@@ -2729,6 +2730,9 @@ export default function SubjectPage() {
         tiposArchivo: src.tiposArchivo || [],
         extensionesCustom: src.extensionesCustom || '',
         tipo: src.tipo || 'archivo',
+        rubrica: src.rubrica || null,
+        rubricaId: src.rubricaId || null,
+        pesoCalificacion: src.pesoCalificacion ?? null,
         ...(src.evaluacion ? { evaluacion: src.evaluacion } : {}),
         oculta: true, publishAt: null, publishedAt: null,
         parcial: src.parcial, orden,
