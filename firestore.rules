@@ -82,13 +82,58 @@ service cloud.firestore {
     // Function onEvaluacionFinalizada, vía Admin SDK — no pasa por estas
     // reglas) o el docente. Un alumno nunca toca los campos de nota en sus
     // propias escrituras: ni en updates (diff) ni marcándose 'calificado'.
+    // A09 · `rubricaEval` entra a esta lista, y no es un detalle. Es la
+    // evaluación por criterio con la que se calificó: el instrumento que
+    // justifica el número ante la escuela, y lo escribía el propio calificado.
+    // Reproducido contra el emulador: un alumno con un 4.7 reescribía su
+    // rúbrica a "todo excelente" sin tocar la calificación.
+    //
+    // Y no se queda en la apariencia. El panel del docente se PRELLENA desde
+    // este campo (ActivityPage.jsx:349), así que al reabrir una entrega ya
+    // calificada el docente ve la rúbrica falsificada; si ajusta un solo
+    // criterio, selectRubricaNivel recalcula el total sobre esa base y el
+    // número falsificado se vuelve la calificación.
+    //
+    // Ningún flujo del alumno escribe aquí: su pantalla solo lo lee.
     function studentNoTocaCalificacion() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['calificacion', 'intentos', 'pendienteRevision']) &&
+          .hasAny(['calificacion', 'intentos', 'pendienteRevision', 'rubricaEval']) &&
         (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['estado']) ||
           request.resource.data.estado != 'calificado'
         );
+    }
+
+    // ── A09 · La calificación no puede salirse de su escala ─────────────────
+    //
+    // Todos los caminos del cliente topan contra `maxCalif` menos uno: el
+    // cierre de parcial, que acota por abajo y no por arriba y escribe EN
+    // BLOQUE a todo el que no entregó (SubjectPage.jsx). Un 50 en una escala
+    // de 10 envenena el promedio del parcial, el final y lo exportado.
+    // Comprobado contra el emulador: el servidor aceptaba 50 y también −5.
+    //
+    // Campo AUSENTE en la actividad = escala 10, que es lo que crean hoy los
+    // tres editores. Y solo se revisa cuando la calificación CAMBIA: sin eso,
+    // un documento viejo fuera de rango se volvería imposible de editar,
+    // aunque solo se le tocara el comentario (§1.2). Comprobado en producción
+    // el 7-ago-2026: 0 de 46 calificaciones están fuera de rango.
+    function maxCalifDe(actId) {
+      return exists(/databases/$(database)/documents/activities/$(actId))
+        ? get(/databases/$(database)/documents/activities/$(actId)).data.get('maxCalif', 10)
+        : 10;
+    }
+
+    function calificacionEnRango(actId) {
+      return request.resource.data.get('calificacion', null) == null ||
+        (
+          request.resource.data.calificacion >= 0 &&
+          request.resource.data.calificacion <= maxCalifDe(actId)
+        );
+    }
+
+    function calificacionEnRangoSiCambia(actId) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['calificacion']) ||
+        calificacionEnRango(actId);
     }
 
     // ── A08 · El alumno no maneja la máquina de estados de su examen ────────
@@ -501,7 +546,11 @@ service cloud.firestore {
           request.resource.data.get('calificacion', null) == null &&
           request.resource.data.get('estado', '') != 'calificado'
         ) ||
-        (docenteActivo() && ownsActivity(request.resource.data.actividadId))
+        (
+          docenteActivo() &&
+          ownsActivity(request.resource.data.actividadId) &&
+          calificacionEnRango(request.resource.data.actividadId)
+        )
       );
       allow update: if request.auth != null && (
         (
@@ -509,7 +558,11 @@ service cloud.firestore {
           studentNoTocaCalificacion() &&
           studentNoManipulaIntento()
         ) ||
-        (docenteActivo() && ownsActivity(resource.data.actividadId))
+        (
+          docenteActivo() &&
+          ownsActivity(resource.data.actividadId) &&
+          calificacionEnRangoSiCambia(resource.data.actividadId)
+        )
       );
       // Borrar una submission borra su nota — eso es manipulación de
       // calificaciones si lo hace el alumno (ningún flujo del alumno borra

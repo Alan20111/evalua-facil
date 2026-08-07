@@ -601,5 +601,92 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
 await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_SIN_LIMITE', 'respuestas', 'Q1'), { opcionSeleccionada: 'a' }))
 ok('an evaluation with NO time limit still accepts answers (absent field lets you through)')
 
+// ── A09 · Calificaciones, ponderación y rúbricas ────────────────────────────
+//
+// H1 — El alumno reescribía la rúbrica con la que lo calificaron.
+// `studentNoTocaCalificacion()` blindaba `calificacion`, `intentos` y
+// `pendienteRevision`, pero no `rubricaEval` — el arreglo con la evaluación
+// por criterio que justifica el número ante la escuela. Ningún flujo del
+// alumno escribe ahí: solo lo lee. Y no se queda en la apariencia: el panel
+// del docente se PRELLENA desde este campo (ActivityPage.jsx), así que si el
+// alumno lo reescribe a "todo excelente" y el docente ajusta después un solo
+// criterio, el total se recalcula sobre la base falsificada.
+//
+// H4 — Cerrar un parcial era el único camino que escribía calificaciones SIN
+// tope por arriba, y en bloque a todo el que no entregó (SubjectPage.jsx,
+// confirmCloseParcial). Los demás caminos —calificar uno por uno, el editor
+// rápido de la tabla, el panel de la actividad— topan contra `maxCalif`.
+//
+// Antes de poner el candado se midió producción: 0 de 46 calificaciones
+// reales están fuera de rango y 0 son huérfanas — un candado nuevo no deja a
+// nadie fuera (§1.2).
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'activities', 'A_RUB09'), {
+    docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', maxCalif: 10,
+    rubrica: {
+      tipo: 'rubrica', titulo: 'R',
+      niveles: [{ nombre: 'Excelente', porcentaje: 100 }, { nombre: 'Regular', porcentaje: 50 }],
+      criterios: [
+        { nombre: 'c1', puntos: [6, 3], descriptores: ['', ''] },
+        { nombre: 'c2', puntos: [4, 2], descriptores: ['', ''] },
+      ],
+    },
+  })
+  // Actividad LEGADA sin `maxCalif`: campo ausente = escala 10 (§1.2).
+  await setDoc(doc(db, 'activities', 'A_LEGADO09'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo' })
+  await setDoc(doc(db, 'submissions', 'SUB_RUB09'), {
+    alumnoId: 'ST_JUAN', actividadId: 'A_RUB09',
+    calificacion: 4.7, estado: 'calificado', rubricaEval: [1, 1],
+  })
+  await setDoc(doc(db, 'submissions', 'SUB_RUB09_SIN'), {
+    alumnoId: 'ST_JUAN', actividadId: 'A_RUB09', estado: 'entregado',
+  })
+  // Documento LEGADO fuera de rango: no existe hoy en producción (medido:
+  // 0 de 46), pero si existiera su dueño debe poder seguir editándolo sin
+  // que el candado nuevo lo deje congelado para siempre (§1.2).
+  await setDoc(doc(db, 'submissions', 'SUB_LEGADO09'), {
+    alumnoId: 'ST_JUAN', actividadId: 'A_RUB09', calificacion: 50, estado: 'calificado',
+  })
+})
+
+await assertFails(updateDoc(doc(asJuan, 'submissions', 'SUB_RUB09'), { rubricaEval: [0, 0] }))
+ok('A09 · student CANNOT rewrite the rubricaEval they were graded with')
+
+await assertFails(updateDoc(doc(asJuan, 'submissions', 'SUB_RUB09_SIN'), { rubricaEval: [0, 0] }))
+ok('A09 · student CANNOT pre-fill rubricaEval before being graded (teacher panel reads it back)')
+
+await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'SUB_RUB09'), { rubricaEval: [1, 0], calificacion: 7 }))
+ok('A09 · owning teacher CAN still grade with a rubric')
+
+await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'SUB_RUB09'), { calificacion: 10 }))
+ok('A09 · teacher CAN grade at the exact top of the scale (10 of 10)')
+
+await assertFails(updateDoc(doc(asT1, 'submissions', 'SUB_RUB09'), { calificacion: 50 }))
+ok('A09 · teacher CANNOT write 50 on a scale of 10 (was the parcial-close hole)')
+
+await assertFails(updateDoc(doc(asT1, 'submissions', 'SUB_RUB09'), { calificacion: -5 }))
+ok('A09 · teacher CANNOT write a negative grade')
+
+await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'SUB_RUB09'), { comentario: 'sigue igual' }))
+ok('A09 · unrelated field still saves without touching the grade')
+
+await assertSucceeds(setDoc(doc(asT1, 'submissions', 'SUB_LEGADO09_B'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_LEGADO09', calificacion: 9, estado: 'calificado', sinEntrega: true,
+})); ok('A09 · activity with NO maxCalif uses scale 10 and accepts 9')
+
+await assertFails(setDoc(doc(asT1, 'submissions', 'SUB_LEGADO09_C'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_LEGADO09', calificacion: 50, estado: 'calificado', sinEntrega: true,
+})); ok('A09 · activity with NO maxCalif still rejects 50')
+
+await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'SUB_LEGADO09'), { comentario: 'revisado' }))
+ok('A09 · a LEGACY out-of-range grade can still be edited without touching the grade itself')
+
+await assertFails(updateDoc(doc(asT1, 'submissions', 'SUB_LEGADO09'), { calificacion: 60 }))
+ok('A09 · …but correcting its grade requires landing back in range')
+
+await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'SUB_LEGADO09'), { calificacion: 9.5 }))
+ok('A09 · …and bringing it down into range works')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

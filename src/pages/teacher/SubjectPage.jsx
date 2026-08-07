@@ -3045,9 +3045,17 @@ export default function SubjectPage() {
         else if (sub.calificacion == null) ungraded++
       })
     })
+    // A09 · Tope de la calificación del cierre. Es el único camino que escribía
+    // notas SIN límite por arriba —y en bloque, a todo el que no entregó—,
+    // mientras que calificar una por una, el arreglo rápido de la tabla y el
+    // panel de la actividad topan todos contra `maxCalif`. Un 50 en escala de
+    // 10 envenenaba el promedio del parcial, el final y lo exportado.
+    // Se toma la escala MÁS BAJA del parcial para que el mismo número sirva
+    // para todas; al escribir se vuelve a acotar contra la de cada actividad.
+    const topeCalif = acts.length ? Math.min(...acts.map((a) => a.maxCalif ?? 10)) : 10
     playAlertSound()
-    setCloseParcialGrade('5')
-    setCloseParcialConfirm({ p, missing, ungraded, pondError })
+    setCloseParcialGrade(String(Math.min(5, topeCalif)))
+    setCloseParcialConfirm({ p, missing, ungraded, pondError, topeCalif })
   }
 
   // Revert a close: delete the 0-grades created by the close (cierreParcial=true)
@@ -3090,9 +3098,10 @@ export default function SubjectPage() {
 
   async function confirmCloseParcial() {
     if (!closeParcialConfirm) return
-    const { p, missing } = closeParcialConfirm
-    // Grade to assign to every no-entrega (default 0 if the field is left blank)
-    const grade = Math.max(0, parseFloat(closeParcialGrade) || 0)
+    const { p, missing, topeCalif = 10 } = closeParcialConfirm
+    // Grade to assign to every no-entrega (default 0 if the field is left
+    // blank), acotada contra la escala del parcial — ver topeCalif arriba.
+    const grade = Math.min(Math.max(0, parseFloat(closeParcialGrade) || 0), topeCalif)
     setClosingParcial(true)
     try {
       // Batched creates (Firestore caps batches at 500 writes)
@@ -3104,7 +3113,10 @@ export default function SubjectPage() {
           const data = {
             alumnoId: s.id,
             actividadId: a.id,
-            calificacion: grade,
+            // Segundo acotado, contra la escala de ESTA actividad: `grade` ya
+            // viene topado por la más baja del parcial, pero si algún día
+            // conviven escalas distintas cada nota respeta la suya.
+            calificacion: Math.min(grade, a.maxCalif ?? 10),
             comentario: '',
             estado: 'calificado',
             sinEntrega: true,
@@ -6338,12 +6350,14 @@ export default function SubjectPage() {
                         id="close-parcial-grade"
                         type="number"
                         min="0"
+                        max={closeParcialConfirm.topeCalif ?? 10}
                         step="0.1"
                         value={closeParcialGrade}
                         onChange={(e) => setCloseParcialGrade(e.target.value)}
                         disabled={closingParcial}
                         className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       />
+                      <span className="text-sm text-muted">/ {closeParcialConfirm.topeCalif ?? 10}</span>
                     </div>
                   </>
                 ) : (
@@ -6356,7 +6370,7 @@ export default function SubjectPage() {
                   </button>
                   <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
                     className="flex-1 py-2 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
-                    {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? `Cerrar y poner ${Math.max(0, parseFloat(closeParcialGrade) || 0)}` : 'Cerrar parcial')}
+                    {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? `Cerrar y poner ${Math.min(Math.max(0, parseFloat(closeParcialGrade) || 0), closeParcialConfirm.topeCalif ?? 10)}` : 'Cerrar parcial')}
                   </button>
                 </div>
               </>
