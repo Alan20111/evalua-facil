@@ -78,9 +78,17 @@ async function destruir({ cloud, tipo, publicId }, apiKey, apiSecret) {
     body: JSON.stringify({ public_id: publicId, invalidate: true, api_key: apiKey, timestamp, signature: firma }),
   })
   const data = await res.json().catch(() => ({}))
-  // 'not found' cuenta como éxito: el archivo ya no ocupa espacio, que es de
-  // lo que se trata (pasa cuando se reintenta un borrado a medias).
-  return data.result === 'ok' || data.result === 'not found'
+  // 'not found' cuenta como éxito —el archivo ya no ocupa espacio, que es de lo
+  // que se trata— pero se devuelve aparte de 'ok' en vez de sumarlo al mismo
+  // booleano, porque las dos respuestas no significan lo mismo. Casi siempre es
+  // un reintento sobre algo ya barrido; pero es EXACTAMENTE lo que contestaría
+  // Cloudinary si `publicIdDesdeRuta` calculara mal un public_id ante una forma
+  // de URL no prevista: el archivo seguiría ahí, con otro nombre, y el endpoint
+  // lo habría contado como borrado. Quien lo llama decide qué hacer; aquí solo
+  // se deja de esconder la diferencia.
+  if (data.result === 'ok') return 'ok'
+  if (data.result === 'not found') return 'not found'
+  return 'fallo'
 }
 
 // Deja constancia EN FIRESTORE de los archivos que no se pudieron borrar.
@@ -96,14 +104,19 @@ async function destruir({ cloud, tipo, publicId }, apiKey, apiSecret) {
 // La colección no la lee ni la escribe ningún cliente: solo el Admin SDK desde
 // estos endpoints, y `seeds-db/purgar-cloudinary-pendientes.js`, que es la
 // escoba que la vacía cuando las llaves existen.
-async function anotarPendientes(pendientes, motivo, contexto) {
+async function anotarPendientes(pendientes, motivo, contexto, noEncontrados = []) {
   try {
     await getDb().collection('archivosPendientes').add({
       pendientes,
-      motivo,          // 'sin-credenciales' | 'cloudinary-rechazo'
+      motivo,          // 'sin-credenciales' | 'cloudinary-rechazo' | 'no-encontrado'
+      ...(noEncontrados.length ? { noEncontrados } : {}),
       ...contexto,     // origen del borrado y de quién era la cuenta
       creado: new Date(),
-      purgado: false,
+      // Sin nada que reintentar, el apunte nace cerrado: `not found` significa
+      // que Cloudinary ya no lo tiene, así que la escoba no tendría a qué
+      // volver. `purgado: false` sigue queriendo decir "hay algo que borrar",
+      // que es lo único que ella consulta.
+      purgado: pendientes.length === 0,
     })
   } catch (err) {
     // Si ni esto se puede escribir, al menos que quede en el log: es el
@@ -119,37 +132,63 @@ async function anotarPendientes(pendientes, motivo, contexto) {
 // usa para la constancia de arriba.
 export async function borrarAssets(mapa, contexto = {}) {
   const assets = [...mapa.values()]
-  if (!assets.length) return { total: 0, borrados: 0, pendientes: [] }
+  if (!assets.length) return { total: 0, borrados: 0, noEncontrados: 0, pendientes: [] }
 
   const apiKey = process.env.CLOUDINARY_API_KEY
   const apiSecret = process.env.CLOUDINARY_API_SECRET
   if (!apiKey || !apiSecret) {
     const pendientes = assets.map((a) => `${a.tipo}/${a.publicId}`)
     await anotarPendientes(pendientes, 'sin-credenciales', contexto)
-    return { total: assets.length, borrados: 0, configurado: false, anotados: true, pendientes }
+    return { total: assets.length, borrados: 0, noEncontrados: 0, configurado: false, anotados: true, pendientes }
   }
 
   const pendientes = []
+  const noEncontrados = []
   // De 20 en 20: son cientos de archivos y abrirlos todos a la vez hace que
   // Cloudinary empiece a rechazar por límite de peticiones.
   for (let i = 0; i < assets.length; i += 20) {
     const lote = assets.slice(i, i + 20)
     const resultados = await Promise.all(
-      lote.map((a) => destruir(a, apiKey, apiSecret).catch(() => false))
+      lote.map((a) => destruir(a, apiKey, apiSecret).catch(() => 'fallo'))
     )
-    resultados.forEach((ok, j) => { if (!ok) pendientes.push(`${lote[j].tipo}/${lote[j].publicId}`) })
+    resultados.forEach((resultado, j) => {
+      if (resultado === 'ok') return
+      const etiqueta = `${lote[j].tipo}/${lote[j].publicId}`
+      if (resultado === 'fallo') pendientes.push(etiqueta)
+      else noEncontrados.push(etiqueta) // 'not found'
+    })
   }
 
   // Con llaves puestas también puede quedar algo sin borrar (Cloudinary caído,
   // límite de peticiones, un public_id que no cuadra). Ese caso es más grave
   // todavía, porque nadie lo espera: también se anota.
-  if (pendientes.length) await anotarPendientes(pendientes, 'cloudinary-rechazo', contexto)
+  //
+  // Y los `not found` se anotan AUNQUE no haya fallos, que es lo que este
+  // apunte tiene de nuevo. Si `publicIdDesdeRuta` se equivocara, todo saldría
+  // 'not found', `pendientes` quedaría vacío y no habría constancia de nada —
+  // justo el caso que esta colección existe para atrapar. El archivo se
+  // quedaría ocupando cuota sin que nadie pudiera saber que existe.
+  if (pendientes.length || noEncontrados.length) {
+    const motivo = pendientes.length ? 'cloudinary-rechazo' : 'no-encontrado'
+    await anotarPendientes(pendientes, motivo, contexto, noEncontrados)
+  }
+  if (noEncontrados.length) {
+    console.warn(
+      `[archivos-pendientes] ${noEncontrados.length} archivo(s) que Cloudinary dice no tener` +
+      ` (${contexto.origen || 'origen desconocido'}${contexto.uid ? ` · uid ${contexto.uid}` : ''}): ` +
+      noEncontrados.join(', ')
+    )
+  }
 
   return {
     total: assets.length,
-    borrados: assets.length - pendientes.length,
+    // `borrados` ya no incluye los que nunca se encontraron: eran los que
+    // hacían que la cuenta cuadrara aparentando una limpieza que no se puede
+    // afirmar. Los tres números suman `total`.
+    borrados: assets.length - pendientes.length - noEncontrados.length,
+    noEncontrados: noEncontrados.length,
     configurado: true,
-    anotados: pendientes.length > 0,
+    anotados: pendientes.length > 0 || noEncontrados.length > 0,
     pendientes,
   }
 }
