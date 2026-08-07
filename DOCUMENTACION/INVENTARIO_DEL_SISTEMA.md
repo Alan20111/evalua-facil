@@ -175,6 +175,24 @@ depende de que el cliente Web y el de Android migren por completo sus consultas
 a endpoints del servidor**; hasta entonces ninguna auditoría intenta cerrarlos
 por su cuenta, y quien los encuentre los documenta y sigue. *(PO, 5-ago-2026.)*
 
+**RO-3 · Una dependencia de otra persona se registra y no detiene la auditoría.**
+*(PO, 6-ago-2026.)* Cuando una auditoría topa con algo que solo puede resolver
+un tercero —Alan con Cloudinary, o cualquier credencial, Vercel, Firebase, DNS o
+cuenta externa—, se **anota como riesgo en §9 y se sigue con todo lo demás**.
+Cuatro consecuencias, que no se discuten en cada auditoría:
+
+- **Lo que un tercero ya entregó y marcó como resuelto está cerrado.** No se
+  vuelve a pedir su comprobación administrativa. Si el trabajo tiene efecto sobre
+  el sistema, se valida por su efecto —con una prueba técnica— no preguntando si
+  lo hizo.
+- **Una comprobación administrativa nunca es motivo para detenerse** si existe
+  una forma objetiva de validar el resultado desde el sistema. Si se puede medir,
+  se mide.
+- **Solo se detiene la auditoría cuando la dependencia hace técnicamente
+  imposible continuar**, no cuando la vuelve incómoda.
+- La dependencia registrada **no impide cerrar** la auditoría ni la fase: vive en
+  §9 con su dueño hasta que su dueño la resuelva.
+
 **RO-2 · Eliminar un docente nunca borra la cuenta de un estudiante que sigue
 con otro docente.**
 Un estudiante tiene UNA cuenta que cubre todas sus inscripciones (ver
@@ -1154,12 +1172,15 @@ A05 (Cloud Functions) → A06 (API serverless).
 
 ## Fase 2 · Personas y su información — CERRADA
 
-**Cerrada** el 6 de agosto de 2026. Cuatro auditorías, las cuatro Completadas.
+**Cerrada** el 6 de agosto de 2026, **ratificada por el Product Owner** tras una
+revisión crítica de la fase completa. Cuatro auditorías, las cuatro Completadas.
 El criterio que le daba nombre —*que dar de baja una cuenta no deje nada
 atrás*— quedó demostrado de punta a punta contra producción, no por inspección.
-Dos criterios de cierre dependen de terceros y quedan a la vista como riesgos
-abiertos, no disimulados: **R7** (por RO-1, decisión del PO) y **R16** (decisión
-de Alan). Detalle en §8.
+
+**No se reabre.** R7, R8 y R9 siguen abiertos porque pertenecen al proyecto de
+migración de **RO-1**, que es una línea de trabajo aparte y queda **fuera del
+alcance de A17**; R16 es una dependencia de Alan y se rige por **RO-3**. Detalle
+en §8.
 
 **Objetivo general.** Que los datos de una persona —sobre todo los de menores de
 edad— solo los vea quien debe, y que dar de baja una cuenta no deje nada atrás.
@@ -2168,21 +2189,26 @@ Siguiente: **Fase 3 · El trabajo académico** — A08 (evaluaciones) → A09
 (calificaciones, ponderación y rúbricas) → A12 (actividades, entregas y
 asignaturas) → A13 (asistencia) → A18 (calendario y agenda).
 
-**Dos criterios de cierre de la Fase 2 no se cumplieron al pie de la letra** y
-se cierran igual, a la vista, porque **ninguno de los dos depende de la
-auditoría** — los dos son de terceros:
+**La Fase 2 cierra con dos asuntos abiertos que no son suyos.** Decisión del
+Product Owner, 6-ago-2026, tras revisión crítica de la fase completa:
 
-- *"La lectura pública de `students` acotada a lo mínimo"*: es **R7**, y por
-  **RO-1** ninguna auditoría lo cierra por su cuenta — depende de que el cliente
-  Web y el de Android dejen de consultar Firestore directo. Decisión del PO.
-- *"Postura escrita sobre la cuota, acordada con Alan"*: es **R16**. El preset
-  sin firmar se comprobó utilizable desde fuera de la app; cerrarlo es un cambio
-  de arquitectura que decide y paga Alan (§1.8).
+- **R7 (y con él R8 y R9) no es un criterio incumplido de la Fase 2**: pertenece
+  al **proyecto de migración del alcance de lectura** aprobado en **RO-1**, que
+  es una línea de trabajo propia y explícitamente **fuera del alcance de A17**.
+  Sigue abierto en §9, con su dueño y su orden de despliegue.
+- **R16** (el preset sin firmar) es una dependencia de Alan y se rige por
+  **RO-3**: queda registrada y no detiene nada.
 
-Lo que sí se cumplió, entero: el docente de prueba creado, poblado y eliminado
-con verificación documento por documento y archivo por archivo; los límites del
-preset medidos contra el servicio real; cada acción del panel denegada en
-cliente y en servidor; y **R3 cerrado**.
+Lo que la fase sí cumplió, entero: el docente de prueba creado, poblado y
+eliminado con verificación documento por documento y archivo por archivo; los
+límites del preset medidos contra el servicio real; cada acción del panel
+denegada en cliente y en servidor; y **R3 cerrado**.
+
+**Lo que la revisión crítica de la fase sí dejó como deuda propia** —y no cambia
+el cierre, pero manda sobre las fases que vienen— es que **la suite no cubre
+endpoints ni Cloud Functions**. De las cuatro auditorías, las dos cuyos defectos
+vivían solo en un endpoint o en la interfaz (A11 y A17) **no dejaron un solo caso
+permanente**. Ver la nota de estrategia al final de §8.
 
 **Dos criterios de cierre de la Fase 1 no se cumplieron al pie de la letra** y
 se cierran igual, a la vista, en vez de darlos por buenos:
@@ -2466,6 +2492,43 @@ cerró cuatro formas de dejar pago y suscripción en desacuerdo. Se corrigió qu
 el reenvío de un pago rechazado perdiera los meses pagados, y el comprobante
 ahora se puede adjuntar desde el primer intento. Suite: 48 → 62 casos.
 
+## Nota de estrategia — lo que enseñó la revisión de la Fase 2
+
+Revisión crítica del 6-ago-2026, hecha sobre el código y midiendo, no sobre esta
+bitácora. El hallazgo que manda sobre las fases que vienen:
+
+**La suite protege reglas de Firestore y nada más.** 489 líneas, 80 casos, todos
+de reglas. Pero los defectos de la Fase 2 no vivían ahí:
+
+| Auditoría | Dónde estaba el defecto | Casos permanentes que dejó |
+|---|---|---|
+| A07 | Cloud Function + reglas | 20 líneas (lado reglas) |
+| A10 | **endpoint** + reglas | 25 líneas (lado reglas) |
+| A11 | **interfaz** | **0** |
+| A17 | **endpoint** | **0** |
+
+Y ningún caso comprueba lo que la Fase 2 falló dos veces: **que la lista
+`POR_DOCENTE` de `api/account/delete.js` esté completa**. Se corrigió añadiendo
+cuatro nombres a un arreglo literal; nada impide la quinta omisión.
+
+Esto ya está en la tabla de riesgos —**R5** (sin pruebas de integración, asignado
+a A24) y **R11** (Cloud Functions sin forma automatizada de probarse, asignada a
+la v1.1)—, pero **con el orden al revés**: la Fase 3 es entera Cloud Functions y
+endpoints (la calificación automática es `onEvaluacionFinalizada`), o sea la capa
+sin cobertura. Pendiente de decisión del PO si se adelanta.
+
+Dos mediciones más de esa revisión, que ninguna auditoría había hecho:
+
+- **Volumen** (§1.4 lo exige y A17 lo saltó): el borrado de un docente de
+  **3 225 documentos** completa en **47,1 s**, con 0 huérfanos y 0 subdocumentos
+  sueltos. Contra 2,8 s de los 34 documentos de A17. Escala aproximadamente
+  lineal. `vercel.json` **no fija `maxDuration`**, así que el techo de una
+  operación destructiva y no reanudable es el valor por defecto del proveedor.
+- **El punto ciego de `archivosPendientes`**: el orden del endpoint es recolectar
+  archivos en memoria → borrar documentos → borrar archivos. Si el proceso muere
+  entre el segundo paso y el tercero, la constancia **no se escribe**, porque
+  quien la escribe es el paso que no llegó a correr.
+
 ---
 
 # 9. Riesgos residuales abiertos
@@ -2495,7 +2558,7 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | R12 | **El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado** | `api/cron/reminders.js` comprueba la cabecera **solo si** la variable existe; si no está puesta en Vercel, cualquiera puede dispararlo y provocar un envío masivo de correo | Verificar en Vercel que `CRON_SECRET` esté configurada (Vercel la manda sola en sus crons cuando existe). No se puede comprobar desde el código, y ponerlo a fallar en cerrado rompería el cron si resulta que falta: es una **acción de operación** | A24 |
 | R11 | **Las Cloud Functions no tienen forma automatizada de probarse** | La suite del proyecto solo cubre reglas de Firestore; las 14 funciones se verifican leyendo el código | **ABIERTO — mejora prioritaria para la v1.1, decisión del PO, 5-ago-2026.** No se construye todavía: levantar el emulador de Functions es trabajo de infraestructura que no cabe en la v1.0. Cuando se haga, empezar por las tres críticas —la que califica (`onEvaluacionFinalizada`), la que espeja la vigencia (`onSuscripcionEscrita`) y la que repone la prueba (`onDocenteCreado`) | **v1.1 — prioritaria** |
 | R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | A12 |
-| R16 | **Cualquiera puede subir archivos a la cuenta de Cloudinary de Alan, sin sesión y a la carpeta que quiera** | El preset sin firmar es, por definición, público: su nombre viaja en el bundle del navegador. Comprobado desde fuera de la aplicación el 6-ago-2026 — se subió sin ninguna sesión, y eligiendo carpeta libremente, incluida `evalua-facil/comprobantes`, donde viven los comprobantes de pago. Lo que **sí** está acotado: tope de 10 MB, extensiones peligrosas rechazadas (`.exe`), y no se puede sobrescribir el archivo de nadie | Cloudinary no permite cerrar esto sin pasar a subida firmada, que es un cambio de arquitectura (un endpoint que firme cada subida). Alternativas más baratas: acotar el preset a las carpetas reales y poner alerta de cuota. **Decisión de Alan** (§1.8), que es quien paga la cuota y controla el preset | **Alan** — A17 ya cerró y no puede cerrar esto: hoy es lo único de la Fase 2 que sigue abierto por decisión ajena. Se revisa en A24 (operación y secretos) |
+| R16 | **Cualquiera puede subir archivos a la cuenta de Cloudinary de Alan, sin sesión y a la carpeta que quiera** | El preset sin firmar es, por definición, público: su nombre viaja en el bundle del navegador. Comprobado desde fuera de la aplicación el 6-ago-2026 — se subió sin ninguna sesión, y eligiendo carpeta libremente, incluida `evalua-facil/comprobantes`, donde viven los comprobantes de pago. Lo que **sí** está acotado: tope de 10 MB, extensiones peligrosas rechazadas (`.exe`), y no se puede sobrescribir el archivo de nadie | Cloudinary no permite cerrar esto sin pasar a subida firmada, que es un cambio de arquitectura (un endpoint que firme cada subida). Alternativas más baratas: acotar el preset a las carpetas reales y poner alerta de cuota. **Decisión de Alan** (§1.8), que es quien paga la cuota y controla el preset | **Alan** (RO-3: registrado, no detiene ninguna auditoría). Se revisa en A24 |
 | R18 | **`borrados` puede contar de más: un archivo que nunca se encontró se apunta como borrado** | `destruir()` trata `not found` como éxito, y eso es **correcto** para reintentos —la escoba tiene que poder cerrar un apunte ya barrido—. El costo es que si algún día `publicIdDesdeRuta` calcula mal un `public_id` (una forma de URL no prevista), Cloudinary responderá `not found`, el endpoint lo contará como borrado y **no** quedará anotado en `archivosPendientes` — que es justo el caso que esa colección existe para atrapar. Hoy no ocurre: A17 comprobó las 12 URLs una por una, por fuera del endpoint, y las 12 dejaron de existir de verdad | Devolver `noEncontrados` aparte de `borrados` en la respuesta de `borrarAssets` y anotarlo en la constancia. Es informativo y no cambia el comportamiento: **son unas diez líneas**. Se dejó fuera de A17 a propósito, por no tocar al cierre un código recién verificado en verde en producción; cabe en un PR suelto o en A24 | A24, o antes si el PO lo prefiere |
 | R17 | **El editor de texto enriquecido permite un pixel de rastreo** | El atributo `style` está en la lista blanca del saneador, y `background:url(https://…)` sobrevive. No ejecuta código —18 payloads de XSS, 0 sobrevivieron— pero hace que el navegador de cada alumno llame a un servidor externo al abrir la actividad, revelando su IP y el momento en que la leyó | Quitar `style` de `ALLOWED_ATTR`, o filtrar las `url()` dentro del estilo. **Se dejó sin corregir a propósito**: quitar `style` cambia cómo se ve lo que los docentes ya escribieron (color, tamaño, resaltados), y eso es visible para el usuario — regla 1.7, se pregunta antes | **Decisión del PO** |
 
