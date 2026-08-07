@@ -1579,7 +1579,7 @@ otro · entregas y calificaciones huérfanas tras una baja.
 prueba que lo demuestre · recorrido de alta, importación, activación y baja, con
 verificación de que no quedan residuos.
 
-## A08 · Evaluaciones — EN PROCESO
+## A08 · Evaluaciones — COMPLETADA
 
 > **Ejecutada el 6-ago-2026.** Una vulnerabilidad crítica **corregida y
 > verificada contra producción**, y otra que **necesita una decisión del PO**
@@ -1626,11 +1626,35 @@ verificación de que no quedan residuos.
 > Migración: 112 claves mudadas, **0 reactivos conservan el campo**, 12 entregas
 > históricas rellenadas. Verificado contra producción sobre una evaluación real.
 >
-> **Sigue En proceso.** Falta el recorrido de punta a punta que pide su Cierre
-> —una evaluación completa aplicada, calificada y revisada, con los casos de
-> tiempo agotado y doble intento— y los vectores que aún no se han probado: dos
-> intentos a la vez desde dos dispositivos, y abrir el intento de otro. Queda
-> además **R21**, que comparte causa con R20 y se resuelve con RO-1.
+> **El recorrido de punta a punta, contra producción.** Lo pide su Cierre y no
+> se puede hacer en otro sitio: la calificación vive en una Cloud Function y el
+> emulador de Functions quedó fuera de alcance. Un examen de 3 reactivos —dos
+> objetivos y uno abierto—, un alumno con sesión real sujeto a las reglas, y
+> otro alumno de la misma clase haciendo de intruso. **29 puntos, todos en
+> verde**:
+>
+> - Al abrir el examen recibe los 3 reactivos y **ninguno trae la clave**; pedir
+>   la subcolección `clave` le responde denegado.
+> - Contesta una bien, una mal y deja la abierta: el servidor califica **3,3** —
+>   que es la ponderación real, 5 de 15 puntos— y lo deja `pendienteRevision`,
+>   en estado `entregado` y no `calificado`, porque la abierta la revisa el
+>   docente.
+> - Al revisar ve **Q1 acertada, Q2 fallada**, la abierta sin veredicto, y cuál
+>   era la correcta **porque esa evaluación publica las respuestas**.
+> - Segundo intento legítimo: corrige y saca 6,7. La política `mejor` conserva
+>   la más alta y quedan los dos intentos anotados (`1:3.3`, `2:6.7`).
+> - **Tercer intento denegado** — solo había dos permitidos.
+> - **Tiempo agotado**: no contesta 15 minutos después del cierre ni reinicia su
+>   cronómetro.
+> - **El intento de otro**: un compañero no lo lee, no lo escribe y no lo
+>   finaliza.
+>
+> **Lo que quedó abierto**, ninguno corregible dentro de A08:
+> - **R22** — un alumno puede abrir **varias entregas** de la misma evaluación,
+>   lo que salta el límite de intentos, y el docente solo ve una porque su mapa
+>   se indexa por alumno. Encontrado en este recorrido. La corrección pide ids
+>   deterministas para las entregas: cambio de modelo de datos, va a A12.
+> - **R21** — comparte causa con R20 y se resuelve con RO-1.
 
 **Módulos.** M08.
 
@@ -2291,7 +2315,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A05 | Cloud Functions | F1 | M25 | Crítico | **Completada** | 5-ago-2026 | `8b01f06` · [#991](https://github.com/Alan20111/evalua-facil/pull/991) |
 | A06 | API serverless | F1 | M26 | Crítico | **Completada** | 5-ago-2026 | `ccbb0bb` · [#993](https://github.com/Alan20111/evalua-facil/pull/993) |
 | A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | **Completada** | 5-ago-2026 | `e3e7fd9` · [#995](https://github.com/Alan20111/evalua-facil/pull/995) |
-| A08 | Evaluaciones | F3 | M08 | Crítico | **En proceso** | 6-ago-2026 | `b4c7f41` · [#1017](https://github.com/Alan20111/evalua-facil/pull/1017) — corregidas la manipulación de la calificación y la fuga de la clave (R20); falta el recorrido de punta a punta |
+| A08 | Evaluaciones | F3 | M08 | Crítico | **Completada** | 6-ago-2026 | `264148d` · [#1019](https://github.com/Alan20111/evalua-facil/pull/1019) — cierra R20; antes `b4c7f41` · [#1017](https://github.com/Alan20111/evalua-facil/pull/1017) |
 | A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | Pendiente | — | — |
 | A10 | Perfil y cuenta del docente | F2 | M19 | Crítico | **Completada** | 5-ago-2026 | `229da17` · [#997](https://github.com/Alan20111/evalua-facil/pull/997) |
 | A11 | Panel de administración | F2 | M04 | Crítico | **Completada** | 5-ago-2026 | `832b492` · [#999](https://github.com/Alan20111/evalua-facil/pull/999) |
@@ -2309,10 +2333,10 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 10 de 24 auditorías (42%) · 3 de 7 fases cerradas (F0, F1 y F2).**
+**Avance: 11 de 24 auditorías (46%) · 3 de 7 fases cerradas (F0, F1 y F2).**
 Casos de prueba automatizados: **153** — 30 de unidad, 97 de reglas, 26 de
 servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
-**Fase 3 · El trabajo académico** — A08 (evaluaciones) → A09 (calificaciones,
+**A09 · Calificaciones, ponderación y rúbricas**, dentro de la Fase 3 — A08 cerrada el 6-ago-2026. Sigue A09 (calificaciones,
 ponderación y rúbricas) → A12 (actividades, entregas y asignaturas) →
 A13 (asistencia) → A18 (calendario y agenda). Entre la Fase 2 y la 3 se
 construyó la **infraestructura mínima de pruebas** (ficha al final de §8).
@@ -2435,6 +2459,49 @@ ocurriendo dentro de una prueba etiquetada como negativa. Los números eran
 correctos; la procedencia, no. Se repitió entera con cada caso destructivo
 apuntando a su propio docente desechable. Un expediente donde la evidencia sale
 de donde no dice es tan malo como uno sin evidencia.
+
+**A08 · Evaluaciones** (6-ago-2026, un día). Primera de la Fase 3, y la que
+más enseñó sobre dónde se esconden las cosas.
+
+**Dos vulnerabilidades críticas, y las dos tenían la misma forma**: una
+restricción que solo existía en el navegador.
+
+La primera: **el alumno podía elegir su propia calificación sin escribirla
+nunca**. Blindar el campo `calificacion` no bastaba, porque la máquina de
+estados del examen vivía en otros tres campos que nadie vigilaba —
+`estadoEvaluacion`, `intentoActual` y `tiempoInicio`. Con ellos hacía que el
+*servidor* le recalculara la nota: contestar, finalizar, **leer la nota**,
+volver a "en progreso", cambiar respuestas, subirse el número de intento para
+esquivar el candado de idempotencia, y finalizar otra vez. Con `conservar:
+'mejor'`, eso es quedarse con el 10 a base de repetir. El arreglo se apoya en
+que `intentos[]` solo lo escribe el servidor: el número del intento en curso
+tiene que ser los ya calificados + 1, y tiene que avanzar. De paso, el tiempo
+límite solo existía como `Date.now()` en el navegador — atrasar el reloj del
+teléfono daba tiempo infinito.
+
+La segunda: **la clave de respuestas viajaba al navegador de cualquiera con
+sesión**, incluido el alumno a punto de contestar. Y no hacía falta un cliente
+modificado — el runner **ya descargaba los documentos completos** y después no
+usaba ese campo ni una vez. La regla que había lo admitía por escrito: decía
+que la interfaz era la responsable de no pedirlo. Se corrigió moviendo el dato,
+que es lo único que funciona cuando las reglas no pueden filtrar campos: la
+clave a `activities/{id}/clave/{pid}`, solo para el docente, y el veredicto
+—si acertó, y la correcta solo si el docente publicó las respuestas— escrito
+por el servidor **dentro de la propia respuesta del alumno**. Eso último movió
+al servidor una decisión que tomaba el navegador.
+
+El PO descartó a propósito un disparador que barriera la clave si alguien la
+reescribiera: se corrige la causa, no se agrega un proceso automático que
+repare después.
+
+Suite: **90 → 97** casos de reglas. Y el banco se ganó el sueldo solo: al
+declarar `clave` en las reglas, la prueba de completitud se puso roja hasta que
+quedó clasificada.
+
+Un hallazgo nuevo que no cabía aquí: **R22**, que un alumno puede abrir varias
+entregas de la misma evaluación —saltándose el límite de intentos— y que el
+docente solo ve una, porque su mapa se indexa por alumno y la última gana. Pide
+ids deterministas para las entregas; va a A12.
 
 **A11 · Panel de administración** (5-ago-2026, unas horas). Última auditoría
 ejecutable de la Fase 2.
@@ -2763,6 +2830,7 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | ~~R14~~ | ~~**El borrado de cuenta de un docente nunca se ha ejecutado de punta a punta**~~ | — | **CERRADO en A17 (6-ago-2026): los cinco puntos, en verde.** 12 de 12 archivos borrados · 0 documentos huérfanos por barrido ciego de las colecciones raíz · 0 referencias rotas · 0 recursos accesibles por URL, derivados del PDF incluidos · RO-2 cumplido. Las 15 colecciones que toca el endpoint ya no están respaldadas por lectura de código sino por una ejecución real contra producción | ✔ |
 | ~~R20~~ | ~~**La clave de respuestas viaja al navegador de cualquiera con sesión**~~ | — | **CERRADO en A08 (6-ago-2026)**, opciones **A + C** por decisión del PO. **A**: la clave se mudó a `activities/{id}/clave/{preguntaId}`, que las reglas solo le abren al docente dueño — es lo que las reglas sí saben hacer, porque no filtran campos pero sí documentos. El reparto vive en un solo sitio (`src/utils/evaluacionClave.js`), porque hay **nueve** lugares que crean o editan reactivos y con la lógica repetida basta olvidarla una vez para reabrir el agujero. **C**: al calificar, el servidor escribe el veredicto **en la propia respuesta del alumno** — `correcta` siempre, y `respuestaCorrecta` **solo si el docente publicó las respuestas**, lo que mueve al servidor una decisión que tomaba el navegador. **La opción B —un disparador que barriera la clave si alguien la reescribiera— se descartó a propósito**: se corrige la causa, no se agrega un proceso automático que repare después. Migración: **112 claves mudadas, 0 reactivos conservan el campo**, y 12 entregas históricas rellenadas (113 respuestas) para que docente y alumno conserven la misma experiencia al revisar evaluaciones anteriores. Verificado contra producción con una sesión de alumno real sobre una evaluación real: lista los reactivos —los necesita para contestar— con **0 claves dentro**, y la subcolección `clave` le responde denegado | ✔ |
 | R21 | **Lo que el alumno puede ver lo decide el navegador, no el servidor** | Misma causa que R20: las reglas no filtran campos. Una actividad marcada `oculta: true` la lee cualquiera con sesión (comprobado el 6-ago-2026), y un alumno lee su propia entrega entera —`calificacion` incluida— aunque la evaluación tenga `publicarResultados` distinto de inmediato. La interfaz lo esconde; el dato viaja igual | Se resuelve con el mismo movimiento que R20 —sacar de los documentos que el alumno lee lo que no debe ver— o sirviendo esas pantallas desde un endpoint. No se acomete por separado: es el mismo proyecto | A08 / A12, junto con R20 |
+| R22 | **Un alumno puede abrir VARIAS entregas de la misma evaluación, y el docente solo ve una** | `submissions` usa ids aleatorios (`addDoc`) y las reglas no pueden consultar, así que no hay forma de exigir "una por alumno y actividad" desde la regla. La interfaz reutiliza la que ya existe, pero un cliente modificado crea otra. Cada entrega lleva su propio `intentos[]`, así que **el límite de `intentosPermitidos` se salta por completo**. Y no se nota: `src/pages/teacher/ActivityPage.jsx:312` arma el mapa con `subsMap[alumnoId] = …`, o sea **la última gana** — la otra queda invisible para el docente, y las estadísticas del grupo cuentan una sola. Comprobado contra producción el 6-ago-2026, durante el recorrido de punta a punta de A08 | Id determinista para la entrega: `submissions/{actividadId}_{alumnoId}`. La unicidad se vuelve estructural y, además, comprobable desde la regla (`submissionId == actividadId + '_' + alumnoId`), que es lo que hoy no se puede. Es un cambio de modelo de datos: toca la creación en el cliente, la migración de las entregas existentes y todo lo que las lea por id — por eso no se acomete dentro de A08 | A12 (actividades y entregas), que es la dueña de `submissions` |
 | R19 | **El borrado de cuenta no alcanza los documentos de avisos escritos en FORMATO VIEJO** — sobreviven para siempre, con datos personales de un menor dentro | Las tres colecciones de avisos (`avisoLecturas`, `avisoGuardados`, `avisoOcultos`) se borran **solo** por `asignaturaId in subjectIds`. Un documento escrito antes de que ese campo existiera no tiene segunda vía, y cuando su aviso y su asignatura desaparecen ya nadie puede reclamarlo. **Comprobado en producción el 6-ago-2026**: hay **4 `avisoLecturas` reales sin `asignaturaId`**, las cuatro apuntando a avisos que ya no existen, y cada una lleva `estudianteId`, la fecha y hora de lectura y la huella del dispositivo (navegador y sistema operativo). Descubierto **auditando el propio banco de pruebas**: su primera versión sembraba solo formato actual, así que confirmaba que el endpoint encuentra lo que ya sabe buscar — justo el punto ciego que §1.4 manda cubrir | Segunda vía de borrado en `api/account/delete.js`: recogerlas también por el `avisoId` de los avisos del docente, o por los ids de los alumnos que se están borrando. Y limpiar los 4 documentos que ya están huérfanos. **El banco ya lo vigila**: `RESIDUO_CONOCIDO` en `test/servidor.test.mjs` fija el residuo actual y se pone rojo tanto si crece como si alguien lo arregla y no lo anota | A14 (avisos), junto con R13, que es el mismo problema por el otro lado |
 | R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** · **Se corrige en el módulo dueño de cada dato, no en la baja.** Decisión del PO (5-ago-2026): A07 **no** debe parchearlo desde su lado. Un remiendo en la baja del estudiante trataría el síntoma —limpiar de paso datos de avisos y de calendario— y dejaría intacta la causa: colecciones cuya regla de borrado depende de un documento que ya no existe. Se arregla donde viven esos datos, con su modelo de propiedad revisado | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). Y los mapas `presentes` de cada columna de asistencia conservan la llave del alumno, igual que pasaba con `activities.extensiones` antes de corregirse. Además, la baja de cuenta del propio estudiante no borra sus `studentEvents` | Limpiar en la baja lo que todavía tiene dueño (mapas de asistencia y `studentEvents`), y para los avisos huérfanos decidir entre darle al docente permiso de borrarlos o una limpieza programada. Descubierto en A07; toca colecciones de avisos y calendario | A14 (avisos) y A18 (calendario) |
 | R12 | **El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado** | `api/cron/reminders.js` comprueba la cabecera **solo si** la variable existe; si no está puesta en Vercel, cualquiera puede dispararlo y provocar un envío masivo de correo | Verificar en Vercel que `CRON_SECRET` esté configurada (Vercel la manda sola en sus crons cuando existe). No se puede comprobar desde el código, y ponerlo a fallar en cerrado rompería el cron si resulta que falta: es una **acción de operación** | A24 |
