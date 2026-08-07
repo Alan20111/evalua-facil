@@ -175,6 +175,20 @@ depende de que el cliente Web y el de Android migren por completo sus consultas
 a endpoints del servidor**; hasta entonces ninguna auditoría intenta cerrarlos
 por su cuenta, y quien los encuentre los documenta y sigue. *(PO, 5-ago-2026.)*
 
+**RO-4 · El banco de pruebas está congelado.** *(PO, 6-ago-2026, tras aprobar su
+revisión arquitectónica.)* La infraestructura mínima —`test/unidad.test.mjs`,
+`test/servidor.test.mjs`, `test/helpers/entorno.mjs` y los guiones de
+`package.json`— **no se modifica**, y **no se abren trabajos de mejora preventiva
+ni de refactorización sobre ella**. Las deudas que su propia revisión dejó
+anotadas se consideran **suficientes para la v1.0** y esperan a la v1.1.
+
+Se toca en dos casos, y solo en dos:
+
+- Una auditoría descubre en el propio banco un **defecto real que impide validar
+  correctamente el sistema** — no una incomodidad ni una mejora.
+- Una auditoría **agrega sus casos**, que es para lo que existe: eso no es
+  modificar la infraestructura, es usarla (§2, paso 2).
+
 **RO-3 · Una dependencia de otra persona se registra y no detiene la auditoría.**
 *(PO, 6-ago-2026.)* Cuando una auditoría topa con algo que solo puede resolver
 un tercero —Alan con Cloudinary, o cualquier credencial, Vercel, Firebase, DNS o
