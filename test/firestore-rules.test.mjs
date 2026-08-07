@@ -147,6 +147,26 @@ await assertFails(setDoc(doc(asT2, 'activities', 'A_EVIL'), {
   docenteId: T2, asignaturaId: 'S1', tipo: 'archivo',
 })); ok('foreign teacher CANNOT create activity in another subject')
 
+// ── A12 · H2 · resources/materials deben comprobar dueño de la asignatura ──
+// Antes solo pedían docenteId == auth.uid (que el docente se atribuya el
+// documento a sí mismo), sin exigir ownsSubject(asignaturaId) — un docente
+// activo cualquiera podía crear un recurso/material en la asignatura de otro.
+await assertSucceeds(setDoc(doc(asT1, 'resources', 'R_NEW'), {
+  docenteId: T1, asignaturaId: 'S1', tipo: 'link', nombre: 'x', url: 'https://x',
+})); ok('teacher creates resource in OWN subject')
+
+await assertFails(setDoc(doc(asT2, 'resources', 'R_EVIL'), {
+  docenteId: T2, asignaturaId: 'S1', tipo: 'link', nombre: 'x', url: 'https://x',
+})); ok('foreign teacher CANNOT create resource in another subject')
+
+await assertSucceeds(setDoc(doc(asT1, 'materials', 'M_NEW'), {
+  docenteId: T1, asignaturaId: 'S1', nombre: 'x', parcial: 1, orden: 0,
+})); ok('teacher creates material in OWN subject')
+
+await assertFails(setDoc(doc(asT2, 'materials', 'M_EVIL'), {
+  docenteId: T2, asignaturaId: 'S1', nombre: 'x', parcial: 1, orden: 0,
+})); ok('foreign teacher CANNOT create material in another subject')
+
 // ── submissions ──────────────────────────────────────────────────────────────
 await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A1', archivoURL: 'x',
