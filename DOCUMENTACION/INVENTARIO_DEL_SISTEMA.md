@@ -1,7 +1,7 @@
 # Plan Maestro de Validación — Evalúa Fácil
 
 **Documento oficial de aseguramiento de calidad** · Última actualización:
-7 de agosto de 2026 · Commit `233ecba` · Rama `main`
+7 de agosto de 2026 · Commit `e6e50f1` · Rama `main`
 
 ---
 
@@ -1852,7 +1852,57 @@ que traiga la base completa sin necesidad.
 **Cierre.** Cada acción del panel probada con sesión de docente y de estudiante,
 todas denegadas en cliente y servidor.
 
-## A12 · Actividades, entregas y asignaturas
+## A12 · Actividades, entregas y asignaturas — COMPLETADA
+
+> **Ejecutada el 7-ago-2026.** Cinco hitos, los cinco reproducidos en el
+> emulador antes de corregirse. Commits H1–H4: `3b90e05` [#1029](https://github.com/Alan20111/evalua-facil/pull/1029),
+> `3c9620f` [#1028](https://github.com/Alan20111/evalua-facil/pull/1028),
+> `4a4c319` [#1027](https://github.com/Alan20111/evalua-facil/pull/1027),
+> `f4d28d8` [#1026](https://github.com/Alan20111/evalua-facil/pull/1026).
+> H5: `e6e50f1` · [PR #1031](https://github.com/Alan20111/evalua-facil/pull/1031) — cierra R22.
+>
+> **H1 — Cascada al borrar asignatura.** Borrar una asignatura no limpiaba
+> `resources` ni `materials` ni sus archivos de Cloudinary. Los documentos
+> de esas colecciones y sus URLs quedaban accesibles indefinidamente. Corregido
+> en `deleteSubjectCascade.js`: ahora el borrado cubre las dos colecciones y
+> llama al endpoint de archivo con `invalidate: true` por cada activo.
+>
+> **H2 — Resources y materials exigen dueño.** Las reglas de Firestore para
+> `resources` y `materials` no verificaban que el docente fuera dueño de la
+> asignatura — cualquier docente autenticado podía escribir en colecciones
+> ajenas. Cerrado añadiendo `ownsSubject()` a los `allow create/update` de
+> ambas colecciones.
+>
+> **H3 — Fecha límite la hace valer el servidor.** El cierre por fecha solo
+> vivía en el navegador (`new Date()`). Ahora `activities.fechaLimiteTS` es
+> un `Timestamp` que escribe el servidor al crear o editar, y las reglas
+> comparan `request.time >= fechaLimiteTS`. Un campo ausente no cierra nada
+> (documentos anteriores a H3 no bloquean a nadie). Backfill ejecutado contra
+> producción: `seeds-db/backfill-fecha-limite-ts.js`.
+>
+> **H4 — Duplicar / importar conserva rúbrica y ponderación.** Al duplicar
+> o importar una actividad, `rubricaId` y `ponderacion` se perdían silenciosamente.
+> Un docente que importaba una tarea con rúbrica recibía una sin ella, y el
+> peso quedaba en cero. Corregido propagando ambos campos en todas las rutas de
+> copia.
+>
+> **H5 — Id determinista para submissions — cierra R22.** `submissions` usaba
+> `addDoc` (id aleatorio): doble clic, dos pestañas o un reintento de red
+> creaban una segunda entrega para la misma pareja `(alumnoId, actividadId)`.
+> El docente veía una al azar y en evaluaciones se saltaba el límite de
+> intentos. Ahora el id es `{actividadId}_{alumnoId}`: la unicidad es
+> estructural y la regla puede verificarla (`submissionId == actividadId + '_'
+> + alumnoId`). Un segundo intento sobre la misma pareja cae en el mismo path
+> → Firestore lo trata como `update`, no como fila nueva. Backfill ejecutado:
+> **58 documentos migrados, 0 duplicados, subcolecciones `respuestas` incluidas**.
+>
+> Reglas **109 → 123** (+14, distribuidos en H2/H3/H5) · `test:unit` intacto
+> en 39 · `test:server` intacto en 26. Suite completa: **174 → 188**.
+>
+> **R22 cerrado.** Ningún otro hallazgo de A12 quedó abierto en §9.
+> Los criterios de cierre de la ficha se cumplen: cascada sin residuos (H1),
+> duplicado sin pérdida (H4), 14 casos nuevos de reglas para `submissions`
+> desde las tres identidades.
 
 **Módulos.** M07, M05.
 
@@ -2375,7 +2425,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
 | **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **Cerrada** · 5-ago-2026 — aprobada por el PO |
 | **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **Cerrada** · 6-ago-2026 — las cuatro Completadas; A17 pasó sus cinco puntos. Dos criterios de cierre dependen de terceros y quedan a la vista como riesgos (R7 por RO-1, R16 por Alan) |
-| **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | **En proceso** — A08 y A09 Completadas, sigue A12 |
+| **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | **En proceso** — A08, A09 y A12 Completadas, sigue A13 |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
 | **F5** · Superficie y entorno | A19 → A20 → A23 | Pendiente |
 | **F6** · Cumplimiento y operación | A22 → A24 | Pendiente |
@@ -2397,7 +2447,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | **Completada** | 7-ago-2026 | `233ecba` · [#1023](https://github.com/Alan20111/evalua-facil/pull/1023) |
 | A10 | Perfil y cuenta del docente | F2 | M19 | Crítico | **Completada** | 5-ago-2026 | `229da17` · [#997](https://github.com/Alan20111/evalua-facil/pull/997) |
 | A11 | Panel de administración | F2 | M04 | Crítico | **Completada** | 5-ago-2026 | `832b492` · [#999](https://github.com/Alan20111/evalua-facil/pull/999) |
-| A12 | Actividades, entregas y asignaturas | F3 | M07, M05 | Alto | Pendiente | — | — |
+| A12 | Actividades, entregas y asignaturas | F3 | M07, M05 | Alto | **Completada** | 7-ago-2026 | H1–H4: [#1026](https://github.com/Alan20111/evalua-facil/pull/1026)–[#1029](https://github.com/Alan20111/evalua-facil/pull/1029) · H5: `e6e50f1` · [#1031](https://github.com/Alan20111/evalua-facil/pull/1031) — cierra R22 |
 | A13 | Asistencia | F3 | M11 | Alto | Pendiente | — | — |
 | A14 | Avisos | F4 | M12 | Alto | Pendiente | — | — |
 | A15 | Notificaciones push | F4 | M14 | Alto | Pendiente | — | — |
@@ -2411,14 +2461,13 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 12 de 24 auditorías (50%) · 3 de 7 fases cerradas (F0, F1 y F2).**
-Casos de prueba automatizados: **174** — 39 de unidad, 109 de reglas, 26 de
+**Avance: 13 de 24 auditorías (54%) · 3 de 7 fases cerradas (F0, F1 y F2).**
+Casos de prueba automatizados: **188** — 39 de unidad, 123 de reglas, 26 de
 servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
-**A12 · Actividades, entregas y asignaturas**, dentro de la Fase 3 — A08 y
-A09 cerradas (6 y 7-ago-2026). Sigue A12 (actividades, entregas y
-asignaturas) → A13 (asistencia) → A18 (calendario y agenda). Entre la Fase 2
-y la 3 se construyó la **infraestructura mínima de pruebas** (ficha al final
-de §8).
+**A13 · Asistencia**, dentro de la Fase 3 — A08, A09 y A12 cerradas (6, 7 y
+7-ago-2026). Sigue A13 (asistencia) → A18 (calendario y agenda). Entre la
+Fase 2 y la 3 se construyó la **infraestructura mínima de pruebas** (ficha al
+final de §8).
 
 **La Fase 2 cierra con dos asuntos abiertos que no son suyos.** Decisión del
 Product Owner, 6-ago-2026, tras revisión crítica de la fase completa:
@@ -2909,12 +2958,12 @@ Ninguna auditoría intenta cerrarlos por su cuenta.
 | ~~R14~~ | ~~**El borrado de cuenta de un docente nunca se ha ejecutado de punta a punta**~~ | — | **CERRADO en A17 (6-ago-2026): los cinco puntos, en verde.** 12 de 12 archivos borrados · 0 documentos huérfanos por barrido ciego de las colecciones raíz · 0 referencias rotas · 0 recursos accesibles por URL, derivados del PDF incluidos · RO-2 cumplido. Las 15 colecciones que toca el endpoint ya no están respaldadas por lectura de código sino por una ejecución real contra producción | ✔ |
 | ~~R20~~ | ~~**La clave de respuestas viaja al navegador de cualquiera con sesión**~~ | — | **CERRADO en A08 (6-ago-2026)**, opciones **A + C** por decisión del PO. **A**: la clave se mudó a `activities/{id}/clave/{preguntaId}`, que las reglas solo le abren al docente dueño — es lo que las reglas sí saben hacer, porque no filtran campos pero sí documentos. El reparto vive en un solo sitio (`src/utils/evaluacionClave.js`), porque hay **nueve** lugares que crean o editan reactivos y con la lógica repetida basta olvidarla una vez para reabrir el agujero. **C**: al calificar, el servidor escribe el veredicto **en la propia respuesta del alumno** — `correcta` siempre, y `respuestaCorrecta` **solo si el docente publicó las respuestas**, lo que mueve al servidor una decisión que tomaba el navegador. **La opción B —un disparador que barriera la clave si alguien la reescribiera— se descartó a propósito**: se corrige la causa, no se agrega un proceso automático que repare después. Migración: **112 claves mudadas, 0 reactivos conservan el campo**, y 12 entregas históricas rellenadas (113 respuestas) para que docente y alumno conserven la misma experiencia al revisar evaluaciones anteriores. Verificado contra producción con una sesión de alumno real sobre una evaluación real: lista los reactivos —los necesita para contestar— con **0 claves dentro**, y la subcolección `clave` le responde denegado | ✔ |
 | R21 | **Lo que el alumno puede ver lo decide el navegador, no el servidor** | Misma causa que R20: las reglas no filtran campos. Una actividad marcada `oculta: true` la lee cualquiera con sesión (comprobado el 6-ago-2026), y un alumno lee su propia entrega entera —`calificacion` incluida— aunque la evaluación tenga `publicarResultados` distinto de inmediato. La interfaz lo esconde; el dato viaja igual | Se resuelve con el mismo movimiento que R20 —sacar de los documentos que el alumno lee lo que no debe ver— o sirviendo esas pantallas desde un endpoint. No se acomete por separado: es el mismo proyecto | A08 / A12, junto con R20 |
-| R22 | **Un alumno puede abrir VARIAS entregas de la misma evaluación, y el docente solo ve una** | `submissions` usa ids aleatorios (`addDoc`) y las reglas no pueden consultar, así que no hay forma de exigir "una por alumno y actividad" desde la regla. La interfaz reutiliza la que ya existe, pero un cliente modificado crea otra. Cada entrega lleva su propio `intentos[]`, así que **el límite de `intentosPermitidos` se salta por completo**. Y no se nota: `src/pages/teacher/ActivityPage.jsx:312` arma el mapa con `subsMap[alumnoId] = …`, o sea **la última gana** — la otra queda invisible para el docente, y las estadísticas del grupo cuentan una sola. Comprobado contra producción el 6-ago-2026, durante el recorrido de punta a punta de A08 | Id determinista para la entrega: `submissions/{actividadId}_{alumnoId}`. La unicidad se vuelve estructural y, además, comprobable desde la regla (`submissionId == actividadId + '_' + alumnoId`), que es lo que hoy no se puede. Es un cambio de modelo de datos: toca la creación en el cliente, la migración de las entregas existentes y todo lo que las lea por id — por eso no se acomete dentro de A08 | **A12 — asignación oficial del PO, 6-ago-2026.** No reabre A08, y **no se corrige nada de R22 antes de empezar A12** |
+| ~~R22~~ | ~~**Un alumno puede abrir VARIAS entregas de la misma evaluación, y el docente solo ve una**~~ | — | **CERRADO en A12 (7-ago-2026), H5.** Id determinista `{actividadId}_{alumnoId}`: la unicidad es estructural y comprobable desde la regla (`submissionId == actividadId + '_' + alumnoId`). `addDoc` reemplazado por `setDoc` con `merge: true` en los cuatro puntos de escritura del cliente. Backfill ejecutado contra producción: 58 documentos migrados con sus subcolecciones `respuestas`, 0 duplicados, 0 colisiones. Suite: 3 casos nuevos de reglas (alumno no puede usar id libre · docente tampoco · segundo intento cae en update, no en fila nueva). Commit `e6e50f1` · [#1031](https://github.com/Alan20111/evalua-facil/pull/1031) | ✔ |
 | R19 | **El borrado de cuenta no alcanza los documentos de avisos escritos en FORMATO VIEJO** — sobreviven para siempre, con datos personales de un menor dentro | Las tres colecciones de avisos (`avisoLecturas`, `avisoGuardados`, `avisoOcultos`) se borran **solo** por `asignaturaId in subjectIds`. Un documento escrito antes de que ese campo existiera no tiene segunda vía, y cuando su aviso y su asignatura desaparecen ya nadie puede reclamarlo. **Comprobado en producción el 6-ago-2026**: hay **4 `avisoLecturas` reales sin `asignaturaId`**, las cuatro apuntando a avisos que ya no existen, y cada una lleva `estudianteId`, la fecha y hora de lectura y la huella del dispositivo (navegador y sistema operativo). Descubierto **auditando el propio banco de pruebas**: su primera versión sembraba solo formato actual, así que confirmaba que el endpoint encuentra lo que ya sabe buscar — justo el punto ciego que §1.4 manda cubrir | Segunda vía de borrado en `api/account/delete.js`: recogerlas también por el `avisoId` de los avisos del docente, o por los ids de los alumnos que se están borrando. Y limpiar los 4 documentos que ya están huérfanos. **El banco ya lo vigila**: `RESIDUO_CONOCIDO` en `test/servidor.test.mjs` fija el residuo actual y se pone rojo tanto si crece como si alguien lo arregla y no lo anota | A14 (avisos), junto con R13, que es el mismo problema por el otro lado |
 | R13 | **La baja de un estudiante deja rastros que ya nadie puede borrar** · **Se corrige en el módulo dueño de cada dato, no en la baja.** Decisión del PO (5-ago-2026): A07 **no** debe parchearlo desde su lado. Un remiendo en la baja del estudiante trataría el síntoma —limpiar de paso datos de avisos y de calendario— y dejaría intacta la causa: colecciones cuya regla de borrado depende de un documento que ya no existe. Se arregla donde viven esos datos, con su modelo de propiedad revisado | Al eliminar la inscripción, `avisoGuardados` y `avisoOcultos` quedan huérfanos y **sin dueño posible**: su regla exige `ownsStudentDoc`, que falla en cuanto el documento desaparece. `avisoLecturas` es inmutable a propósito (registro de auditoría). Y los mapas `presentes` de cada columna de asistencia conservan la llave del alumno, igual que pasaba con `activities.extensiones` antes de corregirse. Además, la baja de cuenta del propio estudiante no borra sus `studentEvents` | Limpiar en la baja lo que todavía tiene dueño (mapas de asistencia y `studentEvents`), y para los avisos huérfanos decidir entre darle al docente permiso de borrarlos o una limpieza programada. Descubierto en A07; toca colecciones de avisos y calendario | A14 (avisos) y A18 (calendario) |
 | R12 | **El cron diario de recordatorios solo se protege si `CRON_SECRET` está configurado** | `api/cron/reminders.js` comprueba la cabecera **solo si** la variable existe; si no está puesta en Vercel, cualquiera puede dispararlo y provocar un envío masivo de correo | Verificar en Vercel que `CRON_SECRET` esté configurada (Vercel la manda sola en sus crons cuando existe). No se puede comprobar desde el código, y ponerlo a fallar en cerrado rompería el cron si resulta que falta: es una **acción de operación** | A24 |
 | R11 | **De las Cloud Functions solo falta por probar el CABLEADO de sus disparadores** · **su lógica ya se prueba desde el 6-ago-2026** | Queda descubierto únicamente que cada `onDocumentWritten` apunte a la ruta correcta y filtre bien el evento — una línea por función. La **lógica** sí tiene casos (`test:server`, nivel 2), llamada directamente contra el emulador de Firestore. La decisión del PO del 5-ago-2026 —*"levantar el emulador de Functions no cabe en la v1.0"*— **sigue en pie y no se contradice**: eso es justo lo que se excluyó, y resultó que no hacía falta para probar la lógica | Cuando se levante el emulador de Functions (nivel 3), empezar por las tres críticas: la que califica (`onEvaluacionFinalizada`), la que espeja la vigencia (`onSuscripcionEscrita`) y la que repone la prueba (`onDocenteCreado`) | **v1.1** |
-| R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | A12 |
+| R9 | **Un docente puede leer entregas, asistencias y actividades de toda la plataforma**, no solo las suyas | Firestore solo autoriza un `list` si la regla se prueba con los filtros de la consulta, y las consultas actuales no filtran por docente | Agregar el filtro de dueño a cada consulta y sus índices, y luego ajustar la regla. Es un cambio amplio en pantallas ya auditadas por otras fases | **RO-1** — decisión del PO (mismo proyecto que R7/R8; A12 cerró sin tocar lectura de alcance) |
 | R16 | **Cualquiera puede subir archivos a la cuenta de Cloudinary de Alan, sin sesión y a la carpeta que quiera** | El preset sin firmar es, por definición, público: su nombre viaja en el bundle del navegador. Comprobado desde fuera de la aplicación el 6-ago-2026 — se subió sin ninguna sesión, y eligiendo carpeta libremente, incluida `evalua-facil/comprobantes`, donde viven los comprobantes de pago. Lo que **sí** está acotado: tope de 10 MB, extensiones peligrosas rechazadas (`.exe`), y no se puede sobrescribir el archivo de nadie | Cloudinary no permite cerrar esto sin pasar a subida firmada, que es un cambio de arquitectura (un endpoint que firme cada subida). Alternativas más baratas: acotar el preset a las carpetas reales y poner alerta de cuota. **Decisión de Alan** (§1.8), que es quien paga la cuota y controla el preset | **Alan** (RO-3: registrado, no detiene ninguna auditoría). Se revisa en A24 |
 | ~~R18~~ | ~~**`borrados` puede contar de más: un archivo que nunca se encontró se apunta como borrado**~~ | — | **CERRADO el 6-ago-2026 en un PR suelto ([#1010](https://github.com/Alan20111/evalua-facil/pull/1010), commit `dc7da39`).** El comportamiento **no cambió**, que era la condición: `not found` sigue sin reintentarse y la escoba sigue pudiendo cerrar un apunte ya barrido. Lo que cambió es que ahora se puede ver: `destruir()` devuelve `'ok' \| 'not found' \| 'fallo'`, `borrarAssets` cuenta `noEncontrados` aparte y **fuera** de `borrados` (los tres suman `total`), y anota constancia **aunque no haya ningún fallo**, con `motivo: 'no-encontrado'` y `purgado: true` — no hay nada que reintentar, y para la escoba `purgado: false` sigue queriendo decir "hay algo que borrar". **Verificado contra producción**, no leyendo el código: un docente `zztest-` con la foto apuntando a un archivo inexistente, borrado por `POST /api/account/delete` con las llaves reales puestas, devolvió `{total:1, borrados:0, noEncontrados:1, configurado:true, anotados:true, pendientes:[]}` y dejó **1 constancia** con el `public_id` completo. El mismo caso contra el código anterior (`abb7345`), alimentado con la respuesta literal que Cloudinary acababa de dar, devolvía `{total:1, borrados:1, anotados:false}` y **0 constancias**. Residuo `zztest-` barrido y comprobado: 0 en las 8 colecciones y en las 43 cuentas de Auth | ✔ |
 | R17 | **El editor de texto enriquecido permite un pixel de rastreo** | El atributo `style` está en la lista blanca del saneador, y `background:url(https://…)` sobrevive. No ejecuta código —18 payloads de XSS, 0 sobrevivieron— pero hace que el navegador de cada alumno llame a un servidor externo al abrir la actividad, revelando su IP y el momento en que la leyó | Quitar `style` de `ALLOWED_ATTR`, o filtrar las `url()` dentro del estilo. **Se dejó sin corregir a propósito**: quitar `style` cambia cómo se ve lo que los docentes ya escribieron (color, tamaño, resaltados), y eso es visible para el usuario — regla 1.7, se pregunta antes | **Decisión del PO** |
