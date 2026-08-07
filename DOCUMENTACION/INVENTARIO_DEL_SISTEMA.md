@@ -1,7 +1,7 @@
 # Plan Maestro de Validación — Evalúa Fácil
 
 **Documento oficial de aseguramiento de calidad** · Última actualización:
-6 de agosto de 2026 · Commit `6b7f026` · Rama `main`
+7 de agosto de 2026 · Commit `233ecba` · Rama `main`
 
 ---
 
@@ -1756,10 +1756,10 @@ de punta a punta, incluidos los casos de tiempo agotado y doble intento.
 > propia asignatura coincidieron con la pantalla del docente. Datos de
 > prueba borrados: **cero residuo verificado** (Firestore y Auth).
 >
-> Reglas **109 → tras A09**, con 11 casos nuevos (H1/H4) más el resto de la
-> suite intacta; `test:unit` sumó 24 casos (H2/H3/H5, con la aritmética real
-> de `ponderacion.js` y `rubrica.js`, no una reimplementación). Suite
-> completa: **153 → 174**.
+> Reglas **97 → 109** (12 casos nuevos, H1/H4) · `test:unit` **30 → 39** (9
+> casos nuevos, H2/H3/H5, con la aritmética real de `ponderacion.js` y
+> `rubrica.js`, no una reimplementación) · `test:server` intacto en 26 — A09
+> no tocó ningún endpoint. Suite completa: **153 → 174**.
 >
 > **Nada quedó abierto.** Las cinco hipótesis se confirmaron y las cinco se
 > cerraron: no hay hallazgo de A09 pendiente en §9. Lo único que apareció en
