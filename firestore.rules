@@ -301,13 +301,35 @@ service cloud.firestore {
       allow update, delete: if docenteActivo() &&
         request.auth.uid == resource.data.docenteId;
 
-      // Evaluación questions — only the owning teacher (looked up on the
-      // parent activity) may write; any authenticated user may read. The
-      // student-facing UI is responsible for not requesting `respuestaCorrecta`
-      // while an attempt is in progress (rules can't filter fields).
+      // Reactivos de una evaluación. Los lee cualquier cuenta autenticada
+      // porque el alumno los necesita para contestar; los escribe solo el
+      // docente dueño (se resuelve en la actividad padre).
+      //
+      // Aquí YA NO vive `respuestaCorrecta`. Vivía, y era el peor agujero que
+      // encontró A08: las reglas no pueden filtrar campos, así que la clave
+      // viajaba al navegador de cualquiera con sesión —incluido el alumno a
+      // punto de contestar—, y ni siquiera hacía falta un cliente modificado
+      // porque el runner ya descargaba los documentos enteros. El comentario
+      // que había aquí lo admitía: decía que la interfaz era la responsable de
+      // no pedir ese campo. Una restricción que solo vive en el navegador no
+      // existe (§1.1).
       match /preguntas/{preguntaId} {
         allow read: if request.auth != null;
         allow write: if docenteActivo() &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+      }
+
+      // La clave de respuestas, aparte y SOLO para el docente dueño. Es lo que
+      // las reglas sí pueden hacer: no filtran campos, pero sí documentos.
+      //
+      // El alumno nunca lee aquí. Se entera de si acertó por su propia
+      // respuesta (`submissions/{id}/respuestas/{pid}`), donde el servidor
+      // escribe el veredicto al calificar — y la respuesta correcta solo si el
+      // docente publicó las respuestas. Ver `onEvaluacionFinalizada`.
+      //
+      // La califica el Admin SDK, que no pasa por estas reglas.
+      match /clave/{preguntaId} {
+        allow read, write: if docenteActivo() &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
       }
     }

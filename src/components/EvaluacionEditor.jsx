@@ -23,6 +23,10 @@ import SinCalificacionConfig from './SinCalificacionConfig'
 import { SeccionForm, SeccionHeader, ConfirmarBorrarSeccion, BotonAgregarSeccion, SelectorSeccion } from './SeccionesEditor'
 import { useSecciones } from '../hooks/useSecciones'
 import { agruparPreguntas, preguntasEnOrden, siguienteOrden } from '../utils/secciones'
+import {
+  crearPregunta, actualizarPregunta, borrarPregunta, crearPreguntasEnLote,
+  cargarPreguntasConClave,
+} from '../utils/evaluacionClave'
 import NuevaFechaEntregaModal from './NuevaFechaEntregaModal'
 import ConfirmModal from './ConfirmModal'
 import SearchInput from './SearchInput'
@@ -298,8 +302,9 @@ export default function EvaluacionEditor({
   async function loadPreguntas(aId) {
     setLoadingPreguntas(true)
     try {
-      const snap = await getDocs(collection(db, 'activities', aId, 'preguntas'))
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      // Con su clave: la lee de `activities/{id}/clave`, que solo abre el
+      // docente dueño. El alumno no tiene forma de pedirla (A08).
+      const list = (await cargarPreguntasConClave(aId)).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       setPreguntas(list)
       // Punto de partida para saber si el docente tocó los reactivos (ver
       // `preguntasTocadas` abajo). Se toma aquí, con la lista recién cargada,
@@ -538,10 +543,10 @@ export default function EvaluacionEditor({
         ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null,
         ...seccionesCtl.camposDeSeccion(seccionDestino),
       }
-      const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
-      const updated = [...preguntas, { id: ref.id, ...data }]
+      const nuevoId = await crearPregunta(currentActivityId, data)
+      const updated = [...preguntas, { id: nuevoId, ...data }]
       setPreguntas(updated)
-      setGlowId(ref.id)
+      setGlowId(nuevoId)
       await syncNumPreguntas(updated.length)
       if (preguntaForm.guardarEnBanco) {
         // already imported at top
@@ -601,7 +606,7 @@ export default function EvaluacionEditor({
         ? { ...seccionesCtl.camposDeSeccion(seccionNueva), orden: siguienteOrden(preguntas.filter((p) => p.id !== id), seccionNueva) }
         : {}
       const data = { ...buildPreguntaData(preguntaEditForm), imagenUrl, ...camposSeccion }
-      await updateDoc(doc(db, 'activities', currentActivityId, 'preguntas', id), data)
+      await actualizarPregunta(currentActivityId, id, data)
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
       setEditingPreguntaId(null); setGlowId(id); toast('Pregunta actualizada')
     } catch (err) { toast('Error: ' + err.message, 'error') }
@@ -638,7 +643,8 @@ export default function EvaluacionEditor({
 
   async function handleDeletePregunta(id) {
     if (!confirm('¿Eliminar esta pregunta?')) return
-    await deleteDoc(doc(db, 'activities', currentActivityId, 'preguntas', id))
+    // Se lleva también su clave: si se quedara, sería un huérfano invisible.
+    await borrarPregunta(currentActivityId, id)
     const updated = preguntas.filter((p) => p.id !== id)
     setPreguntas(updated)
     await syncNumPreguntas(updated.length)
@@ -649,10 +655,10 @@ export default function EvaluacionEditor({
     const orden = siguienteOrden(preguntas, p.seccionId || null)
     const data = { ...p, enunciado: `${p.enunciado} (copia)`, orden, origenBancoId: null }
     delete data.id
-    const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
-    const updated = [...preguntas, { id: ref.id, ...data }]
+    const nuevoId = await crearPregunta(currentActivityId, data)
+    const updated = [...preguntas, { id: nuevoId, ...data }]
     setPreguntas(updated)
-    setGlowId(ref.id)
+    setGlowId(nuevoId)
     await syncNumPreguntas(updated.length)
     toast('Pregunta duplicada')
   }
@@ -663,10 +669,10 @@ export default function EvaluacionEditor({
     const data = { tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
       respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
       imagenUrl: null, orden, origenBancoId: item.id }
-    const ref = await addDoc(collection(db, 'activities', currentActivityId, 'preguntas'), data)
-    const updated = [...preguntas, { id: ref.id, ...data }]
+    const nuevoId = await crearPregunta(currentActivityId, data)
+    const updated = [...preguntas, { id: nuevoId, ...data }]
     setPreguntas(updated)
-    setGlowId(ref.id)
+    setGlowId(nuevoId)
     await syncNumPreguntas(updated.length)
     toast('Pregunta agregada desde tu banco')
   }
@@ -677,18 +683,15 @@ export default function EvaluacionEditor({
     if (!currentActivityId || !items.length) return
     setSavingPregunta(true)
     try {
-      const batch = writeBatch(db)
       let orden = siguienteOrden(preguntas, seccionDestino)
-      const nuevas = []
-      for (const item of items) {
-        const ref = doc(collection(db, 'activities', currentActivityId, 'preguntas'))
-        const data = { tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
-          respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
-          imagenUrl: null, orden: orden++, origenBancoId: item.id }
-        batch.set(ref, data)
-        nuevas.push({ id: ref.id, ...data })
-      }
-      await batch.commit()
+      const lista = items.map((item) => ({
+        tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
+        respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
+        imagenUrl: null, orden: orden++, origenBancoId: item.id,
+      }))
+      // Sigue siendo un solo writeBatch (reactivo y clave van juntos dentro).
+      const ids = await crearPreguntasEnLote(currentActivityId, lista)
+      const nuevas = lista.map((data, i) => ({ id: ids[i], ...data }))
       const updated = [...preguntas, ...nuevas]
       setPreguntas(updated)
       await syncNumPreguntas(updated.length)

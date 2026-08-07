@@ -485,6 +485,40 @@ ok('teacher CANNOT change another school short name')
 await assertSucceeds(setDoc(doc(asT1, 'schools', 'E2'), { claveSEP: '29DCT0001X', estado: 'Tlaxcala' }, { merge: true }))
 ok('teacher CAN still enrich another school while registering')
 
+// ── A08 · La clave de respuestas no la ve el alumno ────────────────────────
+//
+// Las reglas no filtran campos, así que mientras `respuestaCorrecta` vivió
+// dentro del reactivo, cualquiera con sesión la leía — y el runner del alumno
+// ya descargaba los documentos enteros. La clave se mudó a una subcolección
+// propia; esto fija que ahí no entra nadie más que su docente.
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'activities', 'A_EVAL_CLAVE'), { docenteId: T1, asignaturaId: 'S1', tipo: 'evaluacion' })
+  await setDoc(doc(db, 'activities', 'A_EVAL_CLAVE', 'preguntas', 'Q1'), { enunciado: '¿Capital?', tipo: 'opcion_multiple' })
+  await setDoc(doc(db, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1'), { respuestaCorrecta: 'b' })
+})
+
+await assertSucceeds(getDoc(doc(asJuan, 'activities', 'A_EVAL_CLAVE', 'preguntas', 'Q1')))
+ok('student CAN still read the question itself — they need it to answer')
+
+await assertFails(getDoc(doc(asJuan, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1')))
+ok('student CANNOT read the answer key of the exam they are taking')
+
+await assertFails(getDoc(doc(asMallory, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1')))
+ok('a student from another school CANNOT read the answer key either')
+
+await assertFails(setDoc(doc(asJuan, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1'), { respuestaCorrecta: 'a' }))
+ok('student CANNOT rewrite the answer key to match their answer')
+
+await assertSucceeds(getDoc(doc(asT1, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1')))
+ok('the owning teacher CAN read the answer key')
+
+await assertSucceeds(setDoc(doc(asT1, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1'), { respuestaCorrecta: 'c' }))
+ok('the owning teacher CAN write the answer key')
+
+await assertFails(getDoc(doc(asT2, 'activities', 'A_EVAL_CLAVE', 'clave', 'Q1')))
+ok('another teacher CANNOT read someone else’s answer key')
+
 // ── A08 · El alumno no maneja la máquina de estados de su examen ────────────
 //
 // Blindar `calificacion` no bastaba: sin escribirla nunca, el alumno podía
