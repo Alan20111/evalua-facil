@@ -78,6 +78,43 @@ service cloud.firestore {
           get(/databases/$(database)/documents/activities/$(actId)).data.asignaturaId;
     }
 
+    // ── A12 · H3 · El servidor, no el navegador, decide si el plazo cerró ──
+    //
+    // "Entregar después del cierre" pasaba sin más: el cliente calculaba
+    // `isPastDeadline` con el reloj del teléfono (ActivityPage.jsx) y solo
+    // ESCONDÍA el formulario — un `addDoc` directo, o simplemente atrasar el
+    // reloj, creaba la entrega igual. Reproducido contra el emulador antes de
+    // corregirse.
+    //
+    // `fechaLimite`/`extensiones` se guardan como STRING (para mostrarse tal
+    // cual), así que la regla no las lee: compara contra `fechaLimiteTS` /
+    // `extensionesTS`, el mismo instante ya resuelto a Timestamp por el
+    // CLIENTE con un Date real (ver src/utils/deadline.js) — parsear el string
+    // aquí, con los helpers de timestamp.date(), asumiría UTC y desfasaría el
+    // corte varias horas contra la hora local de México. Ambos campos son
+    // opcionales (actividad sin plazo, alumno sin prórroga) y su ausencia dice
+    // "sin plazo", igual que el resto del archivo: un dato faltante nunca
+    // cierra el trabajo de nadie.
+    //
+    // La prórroga de un alumno, si existe, REEMPLAZA la fecha límite del
+    // grupo para él — mismo criterio que `displayDate` en el cliente, no se
+    // suman ambos plazos.
+    //
+    // Actividades sembradas antes de este candado no tienen `fechaLimiteTS`
+    // hasta que el docente edite la fecha o corra
+    // seeds-db/backfill-fecha-limite-ts.js — hasta entonces, para ellas, el
+    // candado no aplica (mismo criterio de "campo ausente" de arriba).
+    function actividadVencidaParaAlumno(actId, alumnoId) {
+      let act = exists(/databases/$(database)/documents/activities/$(actId))
+        ? get(/databases/$(database)/documents/activities/$(actId)).data
+        : null;
+      let limite = act == null ? null : act.get('extensionesTS', {}).get(alumnoId, act.get('fechaLimiteTS', null));
+      return act != null && (
+        act.get('cerradaManual', false) == true ||
+        (limite != null && request.time >= limite && act.get('recibirTarde', false) != true)
+      );
+    }
+
     // La calificación de una evaluación la escribe SOLO el servidor (Cloud
     // Function onEvaluacionFinalizada, vía Admin SDK — no pasa por estas
     // reglas) o el docente. Un alumno nunca toca los campos de nota en sus
@@ -548,7 +585,8 @@ service cloud.firestore {
           ownsStudentDoc(request.resource.data.alumnoId) &&
           enrollmentMatchesActivity(request.resource.data.alumnoId, request.resource.data.actividadId) &&
           request.resource.data.get('calificacion', null) == null &&
-          request.resource.data.get('estado', '') != 'calificado'
+          request.resource.data.get('estado', '') != 'calificado' &&
+          !actividadVencidaParaAlumno(request.resource.data.actividadId, request.resource.data.alumnoId)
         ) ||
         (
           docenteActivo() &&
