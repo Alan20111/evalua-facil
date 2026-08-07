@@ -490,6 +490,16 @@ await caso('A13 · H1 — registros viejos sin parcial cuentan en Parcial 1, igu
   assert.strictEqual(r.porParcial['1'].total, 2)
 })
 
+await caso('A18 · H1 — fechaLimite sin hora → fin del día (23:59:59), igual que parseFechaLimite del cliente; con hora → se respeta intacta', () => {
+  const tsSolo = F.parsearFechaLimiteMs('2026-09-15')
+  assert.strictEqual(tsSolo, new Date('2026-09-15T23:59:59').getTime(),
+    'fecha-solo debe quedar en 23:59:59, no en 00:00:00')
+
+  const tsConHora = F.parsearFechaLimiteMs('2026-09-15T10:30')
+  assert.strictEqual(tsConHora, new Date('2026-09-15T10:30').getTime(),
+    'fecha con hora explícita debe respetarse intacta')
+})
+
 await caso('la prueba gratuita se crea una vez y no se duplica', async () => {
   await limpiar()
   assert.strictEqual(await F.crearPruebaSiFalta(DOCENTE), true)
