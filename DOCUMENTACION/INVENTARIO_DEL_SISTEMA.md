@@ -1,7 +1,7 @@
 # Plan Maestro de Validación — Evalúa Fácil
 
 **Documento oficial de aseguramiento de calidad** · Última actualización:
-7 de agosto de 2026 · Commit `e6e50f1` · Rama `main`
+7 de agosto de 2026 · Commit `eedabd4` · Rama `main`
 
 ---
 
@@ -1929,7 +1929,26 @@ incompleta · toda actividad visible antes de su publicación.
 **Cierre.** Una asignatura de prueba creada, duplicada y borrada sin dejar
 residuos · casos de reglas para `submissions` desde las tres identidades.
 
-## A13 · Asistencia
+## A13 · Asistencia — COMPLETADA
+
+> **H1** · `recalcularResumenAsistencia` excluía registros de asistencia
+> sin campo `parcial` (datos legados anteriores a que existiera el campo),
+> pero el cliente del docente los incluía en Parcial 1 vía `?? 1`. El
+> resumen del alumno mostraba menos clases que la tabla del docente.
+> Corregido usando el mismo fallback en la Cloud Function. Test en
+> `servidor.test.mjs`. Requiere `firebase deploy --only functions`.
+>
+> **H2** · 15 nuevos casos en `firestore-rules.test.mjs`: docente ajeno no
+> puede crear/actualizar/borrar asistencia en asignatura ajena;
+> `attendanceSummaries` inescribible desde el cliente; solo el propio
+> alumno lee su resumen; `asuetos` y `vacaciones` aislados por dueño.
+> Suite completa: 138 de reglas + 30 de servidor — todos pasan.
+>
+> **Fuera de alcance documentado**: (a) cualquier docente puede leer
+> `attendance` de cualquier asignatura por diseño de la regla
+> (`isDocente()`); (b) creación duplicada de mismo día en el formulario
+> manual no tiene candado a nivel Firestore, solo validación de UI; ambos
+> se delegan a RO-1 para decisión futura.
 
 **Módulos.** M11.
 
@@ -2425,7 +2444,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
 | **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **Cerrada** · 5-ago-2026 — aprobada por el PO |
 | **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **Cerrada** · 6-ago-2026 — las cuatro Completadas; A17 pasó sus cinco puntos. Dos criterios de cierre dependen de terceros y quedan a la vista como riesgos (R7 por RO-1, R16 por Alan) |
-| **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | **En proceso** — A08, A09 y A12 Completadas, sigue A13 |
+| **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | **En proceso** — A08, A09, A12 y A13 Completadas, sigue A18 |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
 | **F5** · Superficie y entorno | A19 → A20 → A23 | Pendiente |
 | **F6** · Cumplimiento y operación | A22 → A24 | Pendiente |
@@ -2448,7 +2467,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A10 | Perfil y cuenta del docente | F2 | M19 | Crítico | **Completada** | 5-ago-2026 | `229da17` · [#997](https://github.com/Alan20111/evalua-facil/pull/997) |
 | A11 | Panel de administración | F2 | M04 | Crítico | **Completada** | 5-ago-2026 | `832b492` · [#999](https://github.com/Alan20111/evalua-facil/pull/999) |
 | A12 | Actividades, entregas y asignaturas | F3 | M07, M05 | Alto | **Completada** | 7-ago-2026 | H1–H4: [#1026](https://github.com/Alan20111/evalua-facil/pull/1026)–[#1029](https://github.com/Alan20111/evalua-facil/pull/1029) · H5: `e6e50f1` · [#1031](https://github.com/Alan20111/evalua-facil/pull/1031) — cierra R22 |
-| A13 | Asistencia | F3 | M11 | Alto | Pendiente | — | — |
+| A13 | Asistencia | F3 | M11 | Alto | **Completada** | 7-ago-2026 | H1–H2: `eedabd4` · [#1033](https://github.com/Alan20111/evalua-facil/pull/1033) — cierra desfase legado + 15 reglas |
 | A14 | Avisos | F4 | M12 | Alto | Pendiente | — | — |
 | A15 | Notificaciones push | F4 | M14 | Alto | Pendiente | — | — |
 | A16 | Exportaciones | F4 | M16 | Alto | Pendiente | — | — |
@@ -2461,11 +2480,11 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 13 de 24 auditorías (54%) · 3 de 7 fases cerradas (F0, F1 y F2).**
-Casos de prueba automatizados: **188** — 39 de unidad, 123 de reglas, 26 de
+**Avance: 14 de 24 auditorías (58%) · 3 de 7 fases cerradas (F0, F1 y F2).**
+Casos de prueba automatizados: **207** — 39 de unidad, 138 de reglas, 30 de
 servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
-**A13 · Asistencia**, dentro de la Fase 3 — A08, A09 y A12 cerradas (6, 7 y
-7-ago-2026). Sigue A13 (asistencia) → A18 (calendario y agenda). Entre la
+**A18 · Calendario y agenda**, dentro de la Fase 3 — A08, A09, A12 y A13
+cerradas (6, 7 y 7-ago-2026). Sigue A18 (calendario) → A14 (avisos). Entre la
 Fase 2 y la 3 se construyó la **infraestructura mínima de pruebas** (ficha al
 final de §8).
 
