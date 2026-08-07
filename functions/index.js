@@ -555,6 +555,18 @@ function resolverPendienteRevision(preguntas, respuestasPorPregunta) {
   return preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo) && (respuestasPorPregunta[p.id]?.puntosObtenidos ?? null) == null)
 }
 
+// Copia deliberada de `publicacionVisible` (src/utils/evaluacionGrading.js).
+// `functions/` es otro paquete y no puede importar de `src/`, y esta regla
+// —cuándo se publican las respuestas— tiene que evaluarse en el servidor:
+// desde A08 es él quien decide si el alumno ve cuál era la correcta, no el
+// navegador. Si cambia una, cambia la otra; hay casos de prueba en las dos.
+function publicacionVisible(modo, fecha, flag) {
+  if (modo === 'nunca') return false
+  if (modo === 'inmediato') return true
+  if (modo === 'fecha') return !!fecha && new Date().toISOString() >= fecha
+  return !!flag
+}
+
 function resolverCalificacionFinal(intentosPrevios, calificacionNueva, conservar) {
   if (intentosPrevios.length === 0) return calificacionNueva
   const previas = intentosPrevios.map((i) => i.calificacion)
@@ -588,11 +600,20 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   if (!actSnap.exists || actSnap.data().tipo !== 'evaluacion') return
   const act = actSnap.data()
 
-  const [pregSnap, respSnap] = await Promise.all([
+  // La clave de respuestas vive APARTE del reactivo desde A08: el alumno lee
+  // `preguntas` para contestar, y `clave` solo la abre el docente dueño (las
+  // reglas no pueden filtrar campos, así que lo hace el modelo de datos). Aquí
+  // se juntan otra vez porque el Admin SDK no pasa por las reglas.
+  const [pregSnap, claveSnap, respSnap] = await Promise.all([
     actSnap.ref.collection('preguntas').get(),
+    actSnap.ref.collection('clave').get(),
     after.ref.collection('respuestas').get(),
   ])
-  const preguntas = pregSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  const claves = {}
+  claveSnap.docs.forEach((d) => { claves[d.id] = d.data().respuestaCorrecta ?? null })
+  const preguntas = pregSnap.docs.map((d) => ({
+    id: d.id, ...d.data(), respuestaCorrecta: claves[d.id] ?? null,
+  }))
   const respuestasGuardadas = {}
   respSnap.docs.forEach((d) => { respuestasGuardadas[d.id] = d.data() })
 
@@ -603,12 +624,28 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   preguntas.forEach((p) => {
     respuestasPorPregunta[p.id] = { puntosObtenidos: calcularPuntosPregunta(p, respuestasGuardadas[p.id] || {}) }
   })
-  await Promise.all(preguntas.map((p) =>
-    after.ref.collection('respuestas').doc(p.id).set(
-      { puntosObtenidos: respuestasPorPregunta[p.id].puntosObtenidos },
-      { merge: true }
-    )
-  ))
+
+  // El veredicto se escribe EN LA RESPUESTA DEL ALUMNO, que es suya y que ya
+  // carga su pantalla de revisión. Antes esa pantalla comparaba contra
+  // `respuestaCorrecta` del reactivo — por eso la clave tenía que viajarle.
+  //
+  // `correcta` va siempre: saber si acertaste no revela cuál era la buena.
+  // `respuestaCorrecta` va SOLO si el docente publicó las respuestas, que es
+  // exactamente la regla de negocio que hasta hoy decidía el navegador.
+  const ev = act.evaluacion || {}
+  const revelarCorrectas = publicacionVisible(
+    ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas
+  )
+  await Promise.all(preguntas.map((p) => {
+    const puntos = respuestasPorPregunta[p.id].puntosObtenidos
+    const marcas = { puntosObtenidos: puntos }
+    // Las abiertas quedan pendientes de revisión: ahí no hay veredicto todavía.
+    if (puntos != null) marcas.correcta = puntos > 0
+    // Se escribe también cuando NO se revela, para borrar lo que hubiera
+    // quedado de una configuración anterior más permisiva.
+    marcas.respuestaCorrecta = revelarCorrectas ? (p.respuestaCorrecta ?? null) : null
+    return after.ref.collection('respuestas').doc(p.id).set(marcas, { merge: true })
+  }))
 
   const calificacionIntento = calcularCalificacion(preguntas, respuestasPorPregunta, act.maxCalif || 10)
   const pendienteRevision = resolverPendienteRevision(preguntas, respuestasPorPregunta)

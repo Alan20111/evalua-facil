@@ -44,6 +44,10 @@ import SinCalificacionConfig from './SinCalificacionConfig'
 import { SeccionForm, SeccionHeader, ConfirmarBorrarSeccion, BotonAgregarSeccion, SelectorSeccion } from './SeccionesEditor'
 import { useSecciones } from '../hooks/useSecciones'
 import { agruparPreguntas, preguntasEnOrden, siguienteOrden } from '../utils/secciones'
+import {
+  crearPregunta, actualizarPregunta, borrarPregunta, crearPreguntasEnLote,
+  cargarPreguntasConClave,
+} from '../utils/evaluacionClave'
 import EvaluacionEditor from './EvaluacionEditor'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -270,8 +274,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   async function loadPreguntas() {
     setLoadingPreguntas(true)
     try {
-      const snap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+      // Con su clave, que solo el docente dueño puede leer (A08).
+      const list = (await cargarPreguntasConClave(activityId)).sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       setPreguntas(list)
     } catch (err) {
       toast('Error al cargar preguntas: ' + err.message, 'error')
@@ -359,9 +363,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         ...buildPreguntaData(preguntaForm), imagenUrl, orden, origenBancoId: null,
         ...seccionesCtl.camposDeSeccion(seccionDestino),
       }
-      const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
-      setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
-      setGlowId(ref.id)
+      const nuevoId = await crearPregunta(activityId, data)
+      setPreguntas((prev) => [...prev, { id: nuevoId, ...data }])
+      setGlowId(nuevoId)
       await syncNumPreguntas(preguntas.length + 1)
       if (preguntaForm.guardarEnBanco) {
         await addDoc(collection(db, 'bancoReactivos'), {
@@ -394,9 +398,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
         imagenUrl: null, orden, origenBancoId: item.id,
       }
-      const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
-      setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
-      setGlowId(ref.id)
+      const nuevoId = await crearPregunta(activityId, data)
+      setPreguntas((prev) => [...prev, { id: nuevoId, ...data }])
+      setGlowId(nuevoId)
       await syncNumPreguntas(preguntas.length + 1)
       toast('Pregunta agregada desde tu banco')
     } catch (err) {
@@ -413,20 +417,15 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     if (!items.length) return
     setSaving(true)
     try {
-      const batch = writeBatch(db)
       let orden = siguienteOrden(preguntas, seccionDestino)
-      const nuevas = []
-      for (const item of items) {
-        const ref = doc(collection(db, 'activities', activityId, 'preguntas'))
-        const data = {
-          tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
-          respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
-          imagenUrl: null, orden: orden++, origenBancoId: item.id,
-        }
-        batch.set(ref, data)
-        nuevas.push({ id: ref.id, ...data })
-      }
-      await batch.commit()
+      const lista = items.map((item) => ({
+        tipo: item.tipo, enunciado: item.enunciado, opciones: item.opciones || null,
+        respuestaCorrecta: item.respuestaCorrecta || null, ponderacion: 1, retroalimentacion: null,
+        imagenUrl: null, orden: orden++, origenBancoId: item.id,
+      }))
+      // Sigue siendo un solo writeBatch (reactivo y clave van juntos dentro).
+      const ids = await crearPreguntasEnLote(activityId, lista)
+      const nuevas = lista.map((data, i) => ({ id: ids[i], ...data }))
       setPreguntas((prev) => [...prev, ...nuevas])
       await syncNumPreguntas(preguntas.length + nuevas.length)
       setSelectedBancoIds(new Set())
@@ -461,7 +460,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   async function handleDeletePregunta(id) {
     if (!confirm('¿Eliminar esta pregunta?')) return
     try {
-      await deleteDoc(doc(db, 'activities', activityId, 'preguntas', id))
+      await borrarPregunta(activityId, id)
       setPreguntas((prev) => prev.filter((p) => p.id !== id))
       await syncNumPreguntas(Math.max(0, preguntas.length - 1))
       toast('Pregunta eliminada')
@@ -511,7 +510,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         ? { ...seccionesCtl.camposDeSeccion(seccionNueva), orden: siguienteOrden(preguntas.filter((p) => p.id !== id), seccionNueva) }
         : {}
       const data = { ...buildPreguntaData({ ...preguntaEditForm }), imagenUrl, ...camposSeccion }
-      await updateDoc(doc(db, 'activities', activityId, 'preguntas', id), data)
+      await actualizarPregunta(activityId, id, data)
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
       setEditingPreguntaId(null)
       setGlowId(id)
@@ -533,9 +532,9 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         retroalimentacion: p.retroalimentacion || null, imagenUrl: p.imagenUrl || null,
         orden, origenBancoId: null,
       }
-      const ref = await addDoc(collection(db, 'activities', activityId, 'preguntas'), data)
-      setPreguntas((prev) => [...prev, { id: ref.id, ...data }])
-      setGlowId(ref.id)
+      const nuevoId = await crearPregunta(activityId, data)
+      setPreguntas((prev) => [...prev, { id: nuevoId, ...data }])
+      setGlowId(nuevoId)
       await syncNumPreguntas(preguntas.length + 1)
       toast('Pregunta duplicada')
     } catch (err) {

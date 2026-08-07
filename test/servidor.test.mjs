@@ -98,7 +98,10 @@ grupo('account/delete — que la lista de colecciones esté COMPLETA')
 const { readFileSync } = await import('node:fs')
 const REGLAS = readFileSync('firestore.rules', 'utf8')
 const DECLARADAS = [...new Set([...REGLAS.matchAll(/match \/([a-zA-Z]+)\/\{/g)].map((m) => m[1]))]
-  .filter((c) => !['databases', 'preguntas', 'respuestas'].includes(c)) // el envoltorio y dos subcolecciones
+  // El envoltorio `databases` y las subcolecciones, que no son raíz: las tres
+  // se las lleva `recursiveDelete` sobre su documento padre. `clave` se sumó
+  // en A08 — y esta prueba fue la que avisó de que faltaba decidir sobre ella.
+  .filter((c) => !['databases', 'preguntas', 'clave', 'respuestas'].includes(c))
 
 const SUBJ = 'subject_uno'
 const ALUMNO = 'student_uno'
