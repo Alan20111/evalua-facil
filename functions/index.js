@@ -827,6 +827,14 @@ exports.onAttendanceEscrita = onDocumentWritten('attendance/{attendanceId}', asy
 // Corre cada 30 min. Ventana de 35 min (> intervalo del scheduler) para no
 // perder ninguna actividad entre corridas.
 const SCHEDULE_INTERVAL = 'every 30 minutes'
+
+// A18 · H1 — fecha-solo sin hora se ancla al FIN del día (23:59:59), igual
+// que parseFechaLimite en el cliente (activityVisibility.js). Antes usaba
+// T00:00:00 (inicio del día), lo que hacía que el recordatorio se disparara
+// ~24 h antes de lo que el alumno esperaba para actividades sin hora explícita.
+function parsearFechaLimiteMs(fechaLimite) {
+  return new Date(fechaLimite.includes('T') ? fechaLimite : `${fechaLimite}T23:59:59`).getTime()
+}
 const WINDOW_MS = 35 * 60 * 1000
 
 exports.revisarProgramados = onSchedule(SCHEDULE_INTERVAL, async () => {
@@ -860,7 +868,7 @@ exports.revisarProgramados = onSchedule(SCHEDULE_INTERVAL, async () => {
   for (const doc of todasSnap.docs) {
     const a = doc.data()
     if (!a.fechaLimite) continue
-    const deadline = new Date(a.fechaLimite.includes('T') ? a.fechaLimite : `${a.fechaLimite}T00:00:00`).getTime()
+    const deadline = parsearFechaLimiteMs(a.fechaLimite)
     const msLeft = deadline - now
     if (msLeft <= 0) continue
 
@@ -1171,6 +1179,7 @@ exports._pruebas = {
   resolverCalificacionFinal,
   idsAfectados,
   actividadVisible,
+  parsearFechaLimiteMs,
   vigenciaDe,
   recalcularResumenAsistencia,
   crearPruebaSiFalta,
