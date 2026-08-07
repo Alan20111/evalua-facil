@@ -457,9 +457,9 @@ Fecha: <fecha> · Tiempo: <rango> · Riesgos residuales: <R-- o "ninguno">
 | Cloud Functions | 14 |
 | Endpoints serverless (Vercel) | 9 activos de 12 permitidos + 4 pausados |
 | Módulos funcionales | 33 — **11 Críticos**, 14 Altos, 5 Medios, 3 Bajos |
-| Auditorías planeadas | 24 (2 completadas) |
-| Fases de ejecución | 7 (una cerrada) |
-| Casos de prueba automatizados | **153** — 30 de unidad · 97 de reglas · 26 de servidor |
+| Auditorías planeadas | 24 (12 completadas) |
+| Fases de ejecución | 7 (3 cerradas) |
+| Casos de prueba automatizados | **174** — 39 de unidad · 109 de reglas · 26 de servidor |
 
 ## Cobertura
 
@@ -1687,7 +1687,85 @@ dispositivo.
 identidades (dueño, compañero, docente ajeno) · una evaluación completa recorrida
 de punta a punta, incluidos los casos de tiempo agotado y doble intento.
 
-## A09 · Calificaciones, ponderación y rúbricas
+## A09 · Calificaciones, ponderación y rúbricas — COMPLETADA
+
+> **Ejecutada el 7-ago-2026.** Cinco hallazgos, los cinco reproducidos antes
+> de corregirse (§1.1) — dos técnicos, corregidos sin preguntar; tres que
+> cambiaban un número visible, presentados al PO con evidencia antes de
+> tocarlos (regla 1.7). Commit `233ecba` ·
+> [PR #1023](https://github.com/Alan20111/evalua-facil/pull/1023).
+>
+> **Corregido: el alumno podía reescribir la rúbrica con la que lo
+> calificaron.** `studentNoTocaCalificacion()` blindaba `calificacion`,
+> `intentos` y `pendienteRevision`, pero no `rubricaEval` — el arreglo con la
+> evaluación por criterio que justifica el número ante la escuela. Ningún
+> flujo del alumno escribe ahí, solo lo lee. Reproducido contra el emulador:
+> un alumno con 4.7 reescribió su rúbrica a "todo excelente" sin tocar la
+> nota. Y no se queda en la apariencia — el panel del docente se **prellena**
+> desde ese campo (`ActivityPage.jsx`), así que si el docente reabre esa
+> entrega y ajusta un solo criterio, el total se recalcula sobre la base
+> falsificada. Cerrado sumando `rubricaEval` al mismo candado que A08 puso
+> sobre los otros tres campos.
+>
+> **Corregido: cerrar un parcial escribía calificaciones sin tope.** Todos
+> los caminos para calificar topan contra `maxCalif` menos uno: cerrar el
+> parcial (`confirmCloseParcial`, `SubjectPage.jsx`) solo acotaba por abajo
+> (`Math.max(0, …)`) y escribe **en bloque** a todo el que no entregó.
+> Reproducido: el servidor aceptó 50 sobre una escala de 10, y también −5.
+> Antes de cerrar el candado se midió producción — **0 de 46 calificaciones
+> reales están fuera de rango y 0 son huérfanas** — así que no deja a nadie
+> fuera (§1.2); la regla solo revisa el rango cuando la calificación
+> **cambia**, y un documento legado fuera de rango se sigue pudiendo editar.
+>
+> **Corregido, con decisión del PO: la pantalla, el PDF y el panel del
+> alumno no daban el mismo número.** Reproducido con la aritmética real del
+> producto: un alumno con P1 = 8.4, 8.5, 8.5 y P2 = 9.0 (todo sobre 10) sacaba
+> **8.8** en la pantalla del docente y en el Excel, pero **8.7** en el PDF del
+> curso y en el panel del alumno — la pantalla y el Excel redondean cada
+> actividad antes de promediar el parcial; el PDF y el panel promediaban los
+> números crudos. Un segundo caso: una actividad **ya calificada** que el
+> docente regresa a borrador, o un diagnóstico marcado "sin calificación"
+> **después** de tener nota, se excluían en la pantalla, el Excel y la
+> asignatura del alumno, pero **no** en el PDF del curso ni en el panel del
+> alumno — hasta 4 puntos de diferencia en el mismo caso. Medido antes de
+> corregir: **0 de 35 inscripciones con entregas tenían hoy un número
+> distinto** entre pantallas — el defecto era real en el código y sin víctima
+> todavía. El PO eligió la pantalla del docente como referencia y aprobó
+> alinear PDF (curso y por parcial) y panel del alumno a su mismo filtro
+> (`cuentaParaCalificacion`) y redondeo. El Excel **ya coincidía** —
+> verificado línea por línea, sin cambios.
+>
+> **Corregido, con decisión del PO: la lista de cotejo podía sumar menos de
+> 10 con la interfaz rotulando el total fijo como "/10".** Reproducido: un
+> cotejo de 3+3+2 puntos se guardaba sin protestar, y un alumno que cumplía
+> **todos** los criterios sacaba 8 sobre una actividad de 10 sin que nadie se
+> lo dijera. La rúbrica normal no tiene este agujero: su validador exige que
+> la columna máxima sume exactamente 10; el cotejo era el que se salía del
+> molde. El PO eligió el mismo criterio para los dos instrumentos: la suma
+> debe dar exactamente 10. Hoy los 4 instrumentos en uso y los 7 del banco ya
+> suman 10, así que ningún dato existente quedó fuera de la nueva regla.
+>
+> **El recorrido de cierre, contra producción.** Asignatura `zztest-` con 50
+> estudiantes y los cinco casos límite que pide el Cierre — sin entregas, sin
+> valor (peso nulo con ponderación activa), con rúbrica, sin calificación,
+> parcial vacío — corrida con el código corregido contra datos reales.
+> **Pantalla, Excel y PDF dieron el mismo número, fila por fila, para los 50
+> estudiantes**: el Excel se leyó con una copia independiente de `exceljs`
+> (no el código de la app) y el PDF con el lector de PDF, ambos por fuera de
+> lo que la propia app afirma sobre sí misma (§2). El panel del alumno y su
+> propia asignatura coincidieron con la pantalla del docente. Datos de
+> prueba borrados: **cero residuo verificado** (Firestore y Auth).
+>
+> Reglas **109 → tras A09**, con 11 casos nuevos (H1/H4) más el resto de la
+> suite intacta; `test:unit` sumó 24 casos (H2/H3/H5, con la aritmética real
+> de `ponderacion.js` y `rubrica.js`, no una reimplementación). Suite
+> completa: **153 → 174**.
+>
+> **Nada quedó abierto.** Las cinco hipótesis se confirmaron y las cinco se
+> cerraron: no hay hallazgo de A09 pendiente en §9. Lo único que apareció en
+> el camino y no le corresponde a A09 fue **R22** (varias entregas por
+> alumno) — ya documentado y asignado a A12 desde el 6-ago-2026; solo se
+> confirmó que sigue vigente, no se tocó.
 
 **Módulos.** M10, M09.
 
@@ -2297,7 +2375,7 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | **F0** · Dinero y acceso comercial | A01 → A02 | **Cerrada** · 5-ago-2026 |
 | **F1** · Cimientos del servidor | A03 → A04 → A05 → A06 | **Cerrada** · 5-ago-2026 — aprobada por el PO |
 | **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **Cerrada** · 6-ago-2026 — las cuatro Completadas; A17 pasó sus cinco puntos. Dos criterios de cierre dependen de terceros y quedan a la vista como riesgos (R7 por RO-1, R16 por Alan) |
-| **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | **En proceso** — A08 abierta |
+| **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | **En proceso** — A08 y A09 Completadas, sigue A12 |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | Pendiente |
 | **F5** · Superficie y entorno | A19 → A20 → A23 | Pendiente |
 | **F6** · Cumplimiento y operación | A22 → A24 | Pendiente |
@@ -2316,7 +2394,7 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A06 | API serverless | F1 | M26 | Crítico | **Completada** | 5-ago-2026 | `ccbb0bb` · [#993](https://github.com/Alan20111/evalua-facil/pull/993) |
 | A07 | Estudiantes e inscripciones | F2 | M06, M20 | Crítico | **Completada** | 5-ago-2026 | `e3e7fd9` · [#995](https://github.com/Alan20111/evalua-facil/pull/995) |
 | A08 | Evaluaciones | F3 | M08 | Crítico | **Completada** | 6-ago-2026 | `264148d` · [#1019](https://github.com/Alan20111/evalua-facil/pull/1019) — cierra R20; antes `b4c7f41` · [#1017](https://github.com/Alan20111/evalua-facil/pull/1017) |
-| A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | Pendiente | — | — |
+| A09 | Calificaciones, ponderación y rúbricas | F3 | M10, M09 | Crítico | **Completada** | 7-ago-2026 | `233ecba` · [#1023](https://github.com/Alan20111/evalua-facil/pull/1023) |
 | A10 | Perfil y cuenta del docente | F2 | M19 | Crítico | **Completada** | 5-ago-2026 | `229da17` · [#997](https://github.com/Alan20111/evalua-facil/pull/997) |
 | A11 | Panel de administración | F2 | M04 | Crítico | **Completada** | 5-ago-2026 | `832b492` · [#999](https://github.com/Alan20111/evalua-facil/pull/999) |
 | A12 | Actividades, entregas y asignaturas | F3 | M07, M05 | Alto | Pendiente | — | — |
@@ -2333,13 +2411,14 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 11 de 24 auditorías (46%) · 3 de 7 fases cerradas (F0, F1 y F2).**
-Casos de prueba automatizados: **153** — 30 de unidad, 97 de reglas, 26 de
+**Avance: 12 de 24 auditorías (50%) · 3 de 7 fases cerradas (F0, F1 y F2).**
+Casos de prueba automatizados: **174** — 39 de unidad, 109 de reglas, 26 de
 servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
-**A09 · Calificaciones, ponderación y rúbricas**, dentro de la Fase 3 — A08 cerrada el 6-ago-2026. Sigue A09 (calificaciones,
-ponderación y rúbricas) → A12 (actividades, entregas y asignaturas) →
-A13 (asistencia) → A18 (calendario y agenda). Entre la Fase 2 y la 3 se
-construyó la **infraestructura mínima de pruebas** (ficha al final de §8).
+**A12 · Actividades, entregas y asignaturas**, dentro de la Fase 3 — A08 y
+A09 cerradas (6 y 7-ago-2026). Sigue A12 (actividades, entregas y
+asignaturas) → A13 (asistencia) → A18 (calendario y agenda). Entre la Fase 2
+y la 3 se construyó la **infraestructura mínima de pruebas** (ficha al final
+de §8).
 
 **La Fase 2 cierra con dos asuntos abiertos que no son suyos.** Decisión del
 Product Owner, 6-ago-2026, tras revisión crítica de la fase completa:
