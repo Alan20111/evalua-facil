@@ -22,6 +22,7 @@ process.env.CLOUDINARY_API_SECRET = 'secreto-de-prueba'
 const { default: borrarCuenta } = await import('../api/account/delete.js')
 const { default: borrarAlumno } = await import('../api/student/delete.js')
 const { default: quitarFoto } = await import('../api/student/remove-photo.js')
+const { default: borrarRecursosAsignatura } = await import('../api/subject/delete-resources.js')
 
 const F = funciones._pruebas
 const DOCENTE = 'docente_uno'
@@ -382,6 +383,54 @@ await caso('quitar la foto la borra de Cloudinary y limpia el campo', async () =
   assert.deepStrictEqual(cloud.destruidos(), ['perfiles/quitar'], 'la misma foto, una sola vez')
   assert.strictEqual((await db.doc('students/i1').get()).data().photoURL, null)
   assert.strictEqual((await db.doc('students/i2').get()).data().photoURL, null)
+})
+
+// ── A12 · H1 · resources/materials huérfanos al borrar una asignatura ──────
+grupo('subject/delete-resources — lo que le faltaba a la cascada de borrado')
+
+await caso('sin subjectId → 400', async () => {
+  await limpiar()
+  const r = await llamar(borrarRecursosAsignatura, { token: await sesion(DOCENTE), cuerpo: {} })
+  assert.strictEqual(r.statusCode, 400)
+})
+
+await caso('una asignatura ajena → 403, no borra nada', async () => {
+  await limpiar()
+  await db.doc(`subjects/${SUBJ}`).set({ docenteId: OTRO })
+  await db.collection('resources').add({ asignaturaId: SUBJ, docenteId: OTRO, url: urlCloudinary('image', 'recursos/ajeno') })
+  const r = await llamar(borrarRecursosAsignatura, {
+    token: await sesion(DOCENTE), cuerpo: { subjectId: SUBJ },
+  })
+  assert.strictEqual(r.statusCode, 403)
+  assert.strictEqual((await db.collection('resources').where('asignaturaId', '==', SUBJ).get()).size, 1)
+})
+
+await caso('borra resources y materials, y sus archivos de Cloudinary', async () => {
+  await limpiar()
+  await db.doc(`subjects/${SUBJ}`).set({ docenteId: DOCENTE })
+  await db.collection('resources').add({
+    asignaturaId: SUBJ, docenteId: DOCENTE, tipo: 'archivo', url: urlCloudinary('image', 'recursos/uno'),
+  })
+  await db.collection('materials').add({
+    asignaturaId: SUBJ, docenteId: DOCENTE,
+    archivos: [{ url: urlCloudinary('raw', 'materiales/dos'), nombre: 'x.pdf' }],
+  })
+  // Un recurso de OTRA asignatura del mismo docente no debe tocarse.
+  await db.collection('resources').add({ asignaturaId: 'otra-asig', docenteId: DOCENTE, url: urlCloudinary('image', 'recursos/otra') })
+
+  const cloud = pincharCloudinary()
+  const r = await llamar(borrarRecursosAsignatura, {
+    token: await sesion(DOCENTE), cuerpo: { subjectId: SUBJ },
+  })
+  cloud.restaurar()
+
+  assert.strictEqual(r.statusCode, 200)
+  assert.strictEqual(r.cuerpo.recursos, 1)
+  assert.strictEqual(r.cuerpo.materiales, 1)
+  assert.deepStrictEqual(cloud.destruidos().sort(), ['materiales/dos', 'recursos/uno'])
+  assert.strictEqual((await db.collection('resources').where('asignaturaId', '==', SUBJ).get()).size, 0)
+  assert.strictEqual((await db.collection('materials').where('asignaturaId', '==', SUBJ).get()).size, 0)
+  assert.strictEqual((await db.collection('resources').where('asignaturaId', '==', 'otra-asig').get()).size, 1)
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
