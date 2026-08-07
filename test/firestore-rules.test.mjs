@@ -1099,5 +1099,53 @@ ok('A14 · foreign teacher CANNOT update another teacher\'s avisoPlantilla')
 await assertFails(deleteDoc(doc(asT2, 'avisoPlantillas', 'AP_T1')))
 ok('A14 · foreign teacher CANNOT delete another teacher\'s avisoPlantilla')
 
+// ── A15 · Notificaciones push ─────────────────────────────────────────────────
+// Reglas: notificationSettings (owner-only read+write por uid de Auth) ·
+// notificationLog (owner-only read+delete por resource.data.uid; create
+// requiere que request.resource.data.uid coincida con el uid de Auth).
+
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'notificationSettings', T1), { fcmTokens: ['tok_t1'], avisos: { habilitado: true } })
+  await setDoc(doc(db, 'notificationSettings', T2), { fcmTokens: ['tok_t2'], avisos: { habilitado: true } })
+  await setDoc(doc(db, 'notificationLog', 'NL_T1'), { uid: T1, titulo: 'Aviso', categoria: 'avisos' })
+  await setDoc(doc(db, 'notificationLog', 'NL_T2'), { uid: T2, titulo: 'Entrega', categoria: 'nuevasEntregas' })
+})
+
+// notificationSettings — owner-only: solo el propio uid puede leer y escribir
+await assertSucceeds(getDoc(doc(asT1, 'notificationSettings', T1)))
+ok('A15 · user CAN read own notificationSettings')
+
+await assertSucceeds(setDoc(doc(asT1, 'notificationSettings', T1), { avisos: { habilitado: false } }, { merge: true }))
+ok('A15 · user CAN write own notificationSettings (toggle preference)')
+
+await assertFails(getDoc(doc(asT2, 'notificationSettings', T1)))
+ok('A15 · foreign user CANNOT read another user\'s notificationSettings')
+
+await assertFails(setDoc(doc(asT2, 'notificationSettings', T1), { fcmTokens: ['evil_token'] }))
+ok('A15 · foreign user CANNOT write another user\'s notificationSettings (no token injection)')
+
+await assertFails(setDoc(doc(asJuan, 'notificationSettings', T1), { fcmTokens: ['evil_token'] }))
+ok('A15 · student CANNOT inject a token into a teacher\'s notificationSettings')
+
+// notificationLog — owner-only: solo el uid del campo uid puede leer/borrar; al crear, uid debe coincidir
+await assertSucceeds(getDoc(doc(asT1, 'notificationLog', 'NL_T1')))
+ok('A15 · user CAN read own notificationLog entry')
+
+await assertFails(getDoc(doc(asT2, 'notificationLog', 'NL_T1')))
+ok('A15 · foreign user CANNOT read another user\'s notificationLog entry')
+
+await assertSucceeds(setDoc(doc(asT1, 'notificationLog', 'NL_T1_NEW'), { uid: T1, titulo: 'local', categoria: 'recordatorios' }))
+ok('A15 · user CAN create own notificationLog entry (local reminders)')
+
+await assertFails(setDoc(doc(asT1, 'notificationLog', 'NL_EVIL'), { uid: T2, titulo: 'Hack', categoria: 'avisos' }))
+ok('A15 · user CANNOT create notificationLog entry attributed to another user')
+
+await assertSucceeds(deleteDoc(doc(asT1, 'notificationLog', 'NL_T1')))
+ok('A15 · user CAN delete own notificationLog entry')
+
+await assertFails(deleteDoc(doc(asT2, 'notificationLog', 'NL_T1_NEW')))
+ok('A15 · foreign user CANNOT delete another user\'s notificationLog entry')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
