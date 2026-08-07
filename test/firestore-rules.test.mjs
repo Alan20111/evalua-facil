@@ -862,5 +862,121 @@ await assertFails(setDoc(doc(asT1, 'vacaciones', 'VAC_EVIL'), {
 await assertFails(getDoc(doc(asT1, 'vacaciones', 'VAC_T2_OWN')))
 ok('A13 · teacher CANNOT read another teacher\'s vacaciones')
 
+// ── A18 · Calendario y agenda ────────────────────────────────────────────────
+// Reglas: events/horario (dueño-privado) · academicEvents/horarioBloques
+// (lectura amplia a cualquier autenticado, escritura solo al dueño activo) ·
+// studentEvents (lectura/escritura solo al alumno dueño por uid de Auth).
+
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'events', 'EV_T1'), { docenteId: T1, titulo: 'Reunión', fecha: '2026-09-01' })
+  await setDoc(doc(db, 'events', 'EV_T2'), { docenteId: T2, titulo: 'Reunión ajena', fecha: '2026-09-02' })
+  await setDoc(doc(db, 'academicEvents', 'AEV_T1'), { docenteId: T1, asignaturaId: 'S1', titulo: 'Examen parcial', fecha: '2026-09-10' })
+  await setDoc(doc(db, 'studentEvents', 'SEV_JUAN'), { alumnoId: U_JUAN, titulo: 'Estudiar', fecha: '2026-09-05' })
+  await setDoc(doc(db, 'horarioBloques', 'HB_T1'), { docenteId: T1, asignaturaId: 'S1', dia: 'lunes', hora: '08:00' })
+  await setDoc(doc(db, 'horarioBloques', 'HB_T2'), { docenteId: T2, asignaturaId: 'S2', dia: 'martes', hora: '10:00' })
+  await setDoc(doc(db, 'horario', 'HOR_T1'), { docenteId: T1, titulo: 'Matemáticas', dia: 'lunes' })
+  await setDoc(doc(db, 'horario', 'HOR_T2'), { docenteId: T2, titulo: 'Física', dia: 'miércoles' })
+})
+
+// events — eventos personales del docente (solo el dueño los ve)
+await assertSucceeds(getDoc(doc(asT1, 'events', 'EV_T1')))
+ok('A18 · teacher CAN read own event')
+
+await assertFails(getDoc(doc(asT2, 'events', 'EV_T1')))
+ok('A18 · foreign teacher CANNOT read another teacher\'s event')
+
+await assertFails(getDoc(doc(asJuan, 'events', 'EV_T1')))
+ok('A18 · student CANNOT read a teacher\'s event')
+
+await assertSucceeds(setDoc(doc(asT1, 'events', 'EV_NEW'), { docenteId: T1, titulo: 'Nuevo', fecha: '2026-10-01' }))
+ok('A18 · teacher CAN create own event')
+
+await assertFails(setDoc(doc(asT1, 'events', 'EV_EVIL'), { docenteId: T2, titulo: 'Usurpado', fecha: '2026-10-01' }))
+ok('A18 · teacher CANNOT create event attributed to another teacher')
+
+await assertFails(updateDoc(doc(asT2, 'events', 'EV_T1'), { titulo: 'Hackeado' }))
+ok('A18 · foreign teacher CANNOT update another teacher\'s event')
+
+await assertFails(deleteDoc(doc(asT2, 'events', 'EV_T1')))
+ok('A18 · foreign teacher CANNOT delete another teacher\'s event')
+
+// academicEvents — compartidos con alumnos de la asignatura (lectura amplia)
+await assertSucceeds(getDoc(doc(asT1, 'academicEvents', 'AEV_T1')))
+ok('A18 · teacher CAN read academicEvent (any authenticated)')
+
+await assertSucceeds(getDoc(doc(asJuan, 'academicEvents', 'AEV_T1')))
+ok('A18 · student CAN read academicEvent (public for enrolled students)')
+
+await assertSucceeds(setDoc(doc(asT1, 'academicEvents', 'AEV_NEW'), {
+  docenteId: T1, asignaturaId: 'S1', titulo: 'Nuevo académico', fecha: '2026-10-05',
+}))
+ok('A18 · teacher CAN create academicEvent for own subject')
+
+await assertFails(setDoc(doc(asT1, 'academicEvents', 'AEV_EVIL'), {
+  docenteId: T1, asignaturaId: 'S2', titulo: 'Invasión', fecha: '2026-10-05',
+}))
+ok('A18 · teacher CANNOT create academicEvent for a subject they do not own')
+
+await assertFails(updateDoc(doc(asT2, 'academicEvents', 'AEV_T1'), { titulo: 'Alterado' }))
+ok('A18 · foreign teacher CANNOT update another teacher\'s academicEvent')
+
+await assertFails(deleteDoc(doc(asT2, 'academicEvents', 'AEV_T1')))
+ok('A18 · foreign teacher CANNOT delete another teacher\'s academicEvent')
+
+// studentEvents — agenda personal del alumno (solo el dueño por uid de Auth)
+await assertSucceeds(getDoc(doc(asJuan, 'studentEvents', 'SEV_JUAN')))
+ok('A18 · student CAN read own studentEvent')
+
+await assertFails(getDoc(doc(asT1, 'studentEvents', 'SEV_JUAN')))
+ok('A18 · teacher CANNOT read a student\'s personal event')
+
+await assertSucceeds(setDoc(doc(asJuan, 'studentEvents', 'SEV_NEW'), { alumnoId: U_JUAN, titulo: 'Tarea', fecha: '2026-10-10' }))
+ok('A18 · student CAN create own studentEvent')
+
+await assertFails(setDoc(doc(asJuan, 'studentEvents', 'SEV_EVIL'), { alumnoId: T1, titulo: 'Usurpado', fecha: '2026-10-10' }))
+ok('A18 · student CANNOT create studentEvent attributed to another user')
+
+await assertFails(updateDoc(doc(asT1, 'studentEvents', 'SEV_JUAN'), { titulo: 'Alterado por docente' }))
+ok('A18 · teacher CANNOT update a student\'s personal event')
+
+// horarioBloques — lectura amplia (alumno necesita "Próxima clase"), escritura del dueño
+await assertSucceeds(getDoc(doc(asJuan, 'horarioBloques', 'HB_T1')))
+ok('A18 · student CAN read horarioBloque (needed for "Próxima clase" in agenda)')
+
+await assertSucceeds(getDoc(doc(asT1, 'horarioBloques', 'HB_T1')))
+ok('A18 · teacher CAN read any horarioBloque (any authenticated)')
+
+await assertSucceeds(setDoc(doc(asT1, 'horarioBloques', 'HB_NEW'), { docenteId: T1, asignaturaId: 'S1', dia: 'viernes', hora: '09:00' }))
+ok('A18 · teacher CAN create own horarioBloque')
+
+await assertFails(setDoc(doc(asT1, 'horarioBloques', 'HB_EVIL'), { docenteId: T2, asignaturaId: 'S2', dia: 'viernes', hora: '09:00' }))
+ok('A18 · teacher CANNOT create horarioBloque attributed to another teacher')
+
+await assertFails(updateDoc(doc(asT2, 'horarioBloques', 'HB_T1'), { dia: 'jueves' }))
+ok('A18 · foreign teacher CANNOT update another teacher\'s horarioBloque')
+
+await assertFails(deleteDoc(doc(asT2, 'horarioBloques', 'HB_T1')))
+ok('A18 · foreign teacher CANNOT delete another teacher\'s horarioBloque')
+
+// horario — bloques recurrentes legacy (mismo patrón privado que events)
+await assertSucceeds(getDoc(doc(asT1, 'horario', 'HOR_T1')))
+ok('A18 · teacher CAN read own horario block')
+
+await assertFails(getDoc(doc(asT2, 'horario', 'HOR_T1')))
+ok('A18 · foreign teacher CANNOT read another teacher\'s horario block')
+
+await assertFails(getDoc(doc(asJuan, 'horario', 'HOR_T1')))
+ok('A18 · student CANNOT read a teacher\'s horario block (legacy, owner-private)')
+
+await assertSucceeds(setDoc(doc(asT1, 'horario', 'HOR_NEW'), { docenteId: T1, titulo: 'Quím', dia: 'jueves' }))
+ok('A18 · teacher CAN create own horario block')
+
+await assertFails(setDoc(doc(asT1, 'horario', 'HOR_EVIL'), { docenteId: T2, titulo: 'Usurpado', dia: 'jueves' }))
+ok('A18 · teacher CANNOT create horario block attributed to another teacher')
+
+await assertFails(updateDoc(doc(asT2, 'horario', 'HOR_T1'), { titulo: 'Alterado' }))
+ok('A18 · foreign teacher CANNOT update another teacher\'s horario block')
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
