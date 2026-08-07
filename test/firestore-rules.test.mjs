@@ -191,11 +191,13 @@ await assertFails(setDoc(doc(asT2, 'materials', 'M_EVIL'), {
 })); ok('foreign teacher CANNOT create material in another subject')
 
 // ── submissions ──────────────────────────────────────────────────────────────
-await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_JUAN'), {
+// Id determinista (A12 · H5 · R22): {actividadId}_{alumnoId}, exigido por la
+// regla — ver 'A12 · H5' más abajo para los casos que prueban ESE candado.
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A1_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A1', archivoURL: 'x',
 })); ok('student submits their OWN work')
 
-await assertFails(setDoc(doc(asMallory, 'submissions', 'SUB_EVIL'), {
+await assertFails(setDoc(doc(asMallory, 'submissions', 'A1_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A1', archivoURL: 'x',
 })); ok('attacker CANNOT create a submission as another student')
 
@@ -222,44 +224,64 @@ await assertSucceeds(deleteDoc(doc(asT1, 'submissions', 'SUB1')))
 ok('owning teacher deletes a submission')
 
 // ── A12 · H3 · el servidor cierra el plazo, no solo la pantalla ────────────
-await assertFails(setDoc(doc(asJuan, 'submissions', 'SUB_VENCIDA'), {
+await assertFails(setDoc(doc(asJuan, 'submissions', 'A_VENCIDA_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A_VENCIDA', archivoURL: 'x',
 })); ok('student CANNOT create a submission after fechaLimite')
 
-await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_TARDE_OK'), {
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_TARDE_OK_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A_TARDE_OK', archivoURL: 'x',
 })); ok('student CAN submit late when recibirTarde is enabled')
 
-await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_FUTURA'), {
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_FUTURA_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A_FUTURA', archivoURL: 'x',
 })); ok('student CAN submit before fechaLimite')
 
-await assertFails(setDoc(doc(asJuan, 'submissions', 'SUB_CERRADA_MANUAL'), {
+await assertFails(setDoc(doc(asJuan, 'submissions', 'A_CERRADA_MANUAL_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A_CERRADA_MANUAL', archivoURL: 'x',
 })); ok('student CANNOT submit once the teacher closed it manually')
 
-await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_SIN_TS'), {
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_SIN_TS_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A_SIN_TS', archivoURL: 'x',
 })); ok('student CAN still submit to a legacy activity with no fechaLimiteTS yet (absent field never blocks)')
 
-await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_EXTENSION'), {
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_EXTENSION_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A_EXTENSION', archivoURL: 'x',
 })); ok('student WITH a personal extension CAN submit past the group fechaLimite')
 
 // El docente dueño sigue pudiendo marcar/crear entregas de una actividad
 // vencida — el candado es solo para el alumno, no para su propio trabajo.
-await assertSucceeds(setDoc(doc(asT1, 'submissions', 'SUB_DOCENTE_VENCIDA'), {
+// Mismo id que usaría el alumno para esa pareja (arriba, denegado): el
+// docente SÍ puede crearlo, confirmando que el candado de vencimiento es
+// solo del lado del alumno, no del formato del id.
+await assertSucceeds(setDoc(doc(asT1, 'submissions', 'A_VENCIDA_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A_VENCIDA', docenteId: T1, completadoSinArchivo: true,
 })); ok('owning teacher CAN still create a submission on an expired activity')
 
+// ── A12 · H5 · R22 · id determinista — nada más se puede crear ─────────────
+await assertFails(setDoc(doc(asJuan, 'submissions', 'SUB_ID_LIBRE'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_FUTURA', archivoURL: 'x',
+})); ok('student CANNOT create a submission with a random id — must be {actividadId}_{alumnoId}')
+
+await assertFails(setDoc(doc(asT1, 'submissions', 'SUB_ID_LIBRE_DOCENTE'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_FUTURA', docenteId: T1, sinEntrega: true,
+})); ok('teacher CANNOT create a submission with a random id either')
+
+// Segundo intento sobre la MISMA pareja (doble clic, dos pestañas): con el id
+// determinista cae en el mismo path que la entrega que ya existe — para
+// Firestore eso es un UPDATE, no una fila nueva, así que lo bloquea
+// studentNoTocaCalificacion() en vez de crear un duplicado.
+await assertFails(setDoc(doc(asJuan, 'submissions', 'A_FUTURA_ST_JUAN'), {
+  alumnoId: 'ST_JUAN', actividadId: 'A_FUTURA', archivoURL: 'y', estado: 'calificado',
+})); ok('a second "create" attempt on the SAME pair lands on update rules, not a duplicate row')
+
 // ── respuestas subcollection ─────────────────────────────────────────────────
-await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_JUAN', 'respuestas', 'Q1'), { valor: 'a' }))
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A1_ST_JUAN', 'respuestas', 'Q1'), { valor: 'a' }))
 ok('student writes an answer to their OWN attempt')
 
-await assertFails(setDoc(doc(asMallory, 'submissions', 'SUB_JUAN', 'respuestas', 'Q1'), { valor: 'x' }))
+await assertFails(setDoc(doc(asMallory, 'submissions', 'A1_ST_JUAN', 'respuestas', 'Q1'), { valor: 'x' }))
 ok('attacker CANNOT write answers to another student’s attempt')
 
-await assertSucceeds(setDoc(doc(asT1, 'submissions', 'SUB_JUAN', 'respuestas', 'Q1'), { puntosObtenidos: 5 }))
+await assertSucceeds(setDoc(doc(asT1, 'submissions', 'A1_ST_JUAN', 'respuestas', 'Q1'), { puntosObtenidos: 5 }))
 ok('owning teacher writes revision points on an answer')
 
 // ── Candado de suscripción ───────────────────────────────────────────────────
@@ -357,7 +379,7 @@ await assertSucceeds(setDoc(doc(asSinCampo, 'bancoRubricas', 'RUB_SC'), { docent
 ok('teacher without the mirrored field is NOT locked out')
 
 // El alumno no pierde nada porque su maestro no pagó.
-await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'SUB_ALU_VENC'), {
+await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'A_VENC_ST_JUAN_VENC'), {
   alumnoId: 'ST_JUAN_VENC', actividadId: 'A_VENC', archivoURL: 'x',
 })); ok('student of an expired teacher CAN still submit')
 
@@ -745,11 +767,14 @@ ok('A09 · teacher CANNOT write a negative grade')
 await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'SUB_RUB09'), { comentario: 'sigue igual' }))
 ok('A09 · unrelated field still saves without touching the grade')
 
-await assertSucceeds(setDoc(doc(asT1, 'submissions', 'SUB_LEGADO09_B'), {
+await assertSucceeds(setDoc(doc(asT1, 'submissions', 'A_LEGADO09_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A_LEGADO09', calificacion: 9, estado: 'calificado', sinEntrega: true,
 })); ok('A09 · activity with NO maxCalif uses scale 10 and accepts 9')
 
-await assertFails(setDoc(doc(asT1, 'submissions', 'SUB_LEGADO09_C'), {
+// Misma pareja que arriba: ya existe, así que esto es un update — sigue
+// probando lo mismo (rechaza 50 fuera de escala), ahora por
+// calificacionEnRangoSiCambia() en vez de calificacionEnRango().
+await assertFails(setDoc(doc(asT1, 'submissions', 'A_LEGADO09_ST_JUAN'), {
   alumnoId: 'ST_JUAN', actividadId: 'A_LEGADO09', calificacion: 50, estado: 'calificado', sinEntrega: true,
 })); ok('A09 · activity with NO maxCalif still rejects 50')
 

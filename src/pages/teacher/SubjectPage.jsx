@@ -6,7 +6,7 @@ import {
 } from 'firebase/firestore'
 // Las escrituras pasan por el candado de suscripción vencida (mismos nombres y
 // firmas que 'firebase/firestore'); leer sigue siendo directo.
-import { addDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
+import { addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -45,6 +45,7 @@ import EFDateTimePicker from '../../components/EFDateTimePicker'
 import ParcialesFechas, { normalizeParcialesFechas, addOneDay } from '../../components/ParcialesFechas'
 import { minDeadline } from '../../utils/nowIso'
 import { fechaLimiteTimestamp } from '../../utils/deadline'
+import { submissionDocId } from '../../utils/submissionId'
 import FileDropzone from '../../components/FileDropzone'
 import { htmlToPlainText, sanitizeHtml, toRichHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
@@ -954,8 +955,11 @@ export default function SubjectPage() {
           sinEntrega: true,
           fechaEntrega: serverTimestamp(),
         }
-        const ref = await addDoc(collection(db, 'submissions'), data)
-        setGradeSubMap((prev) => ({ ...prev, [key]: { id: ref.id, ...data } }))
+        // Id determinista + merge:true (A12 · H5 · R22) — ver persistGrade()
+        // en ActivityPage.jsx del docente.
+        const id = submissionDocId(activityId, studentId)
+        await setDoc(doc(db, 'submissions', id), data, { merge: true })
+        setGradeSubMap((prev) => ({ ...prev, [key]: { id, ...data } }))
       }
       toast('Calificación guardada')
       setGradeQuickEdit(null)
@@ -1718,7 +1722,8 @@ export default function SubjectPage() {
     for (let i = 0; i < pairs.length; i += 400) {
       const batch = writeBatch(db)
       pairs.slice(i, i + 400).forEach(({ sid, a, grade }) => {
-        const ref = doc(collection(db, 'submissions'))
+        // Id determinista (A12 · H5 · R22).
+        const ref = doc(db, 'submissions', submissionDocId(a.id, sid))
         batch.set(ref, {
           alumnoId: sid,
           actividadId: a.id,
@@ -3119,7 +3124,8 @@ export default function SubjectPage() {
       for (let i = 0; i < missing.length; i += 400) {
         const batch = writeBatch(db)
         missing.slice(i, i + 400).forEach(({ s, a }) => {
-          const ref = doc(collection(db, 'submissions'))
+          // Id determinista (A12 · H5 · R22).
+          const ref = doc(db, 'submissions', submissionDocId(a.id, s.id))
           const data = {
             alumnoId: s.id,
             actividadId: a.id,

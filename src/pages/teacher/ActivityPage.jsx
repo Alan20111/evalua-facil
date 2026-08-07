@@ -10,9 +10,10 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
-import { updateDoc, addDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
+import { updateDoc, setDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { db } from '../../firebase'
+import { submissionDocId } from '../../utils/submissionId'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -505,8 +506,12 @@ export default function ActivityPage() {
         fechaEntrega: serverTimestamp(),
         ...rubricaEvalPayload,
       }
-      const ref = await addDoc(collection(db, 'submissions'), data)
-      updated = { id: ref.id, ...data }
+      // Id determinista (A12 · H5 · R22) — merge:true por la misma razón que
+      // en ActivityPage.jsx del alumno: si `selected.sub` está desactualizado
+      // y ya existe una entrega real, no la reemplaza a ciegas.
+      const id = submissionDocId(activityId, selected.student.id)
+      await setDoc(doc(db, 'submissions', id), data, { merge: true })
+      updated = { id, ...data }
     }
     setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
     setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
@@ -618,8 +623,10 @@ export default function ActivityPage() {
         sinEntrega: true,
         fechaEntrega: serverTimestamp(),
       }
-      const ref = await addDoc(collection(db, 'submissions'), data)
-      const updated = { id: ref.id, ...data }
+      // Id determinista + merge:true — ver persistGrade() más arriba.
+      const id = submissionDocId(activityId, selected.student.id)
+      await setDoc(doc(db, 'submissions', id), data, { merge: true })
+      const updated = { id, ...data }
       setSubmissions((prev) => ({ ...prev, [selected.student.id]: updated }))
       setSelected((sel) => (sel && sel.student.id === selected.student.id ? { ...sel, sub: updated } : sel))
       setGradeForm({ calificacion: String(cal), comentario: '' })
