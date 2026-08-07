@@ -1117,3 +1117,27 @@ exports.onDocenteCreado = onDocumentWritten('users/{uid}', async (event) => {
   // crearPruebaSiFalta se sale de inmediato, así que no hay ciclo.
   await crearPruebaSiFalta(event.params.uid)
 })
+
+// ── Solo para las pruebas ───────────────────────────────────────────────────
+//
+// La lógica de estas funciones se prueba llamándola directamente contra el
+// emulador de Firestore (`test/servidor.test.mjs`), sin levantar el emulador
+// de Functions — que es caro, lento y solo verificaría el cableado de los
+// disparadores, una línea por función. Decisión del PO, 6-ago-2026.
+//
+// Es un objeto plano, no una función de firebase-functions: el análisis del
+// despliegue solo recoge exportaciones con `__endpoint`, así que esto no se
+// despliega ni cuenta como función. Hay un caso de prueba que lo comprueba.
+exports._pruebas = {
+  calcularPuntosPregunta,
+  calcularCalificacion,
+  resolverPendienteRevision,
+  resolverCalificacionFinal,
+  idsAfectados,
+  actividadVisible,
+  vigenciaDe,
+  recalcularResumenAsistencia,
+  crearPruebaSiFalta,
+  TIPOS_OBJETIVOS,
+  TIPOS_REVISION_MANUAL,
+}
