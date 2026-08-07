@@ -247,7 +247,7 @@ Una auditoría está Completada cuando cumple **las seis**:
 3. **El expediente de evidencias está completo** — las doce piezas de §3, con
    hechos reproducibles en las tres que no admiten palabra: el agujero, su
    cierre y la ausencia de regresiones.
-4. `lint` y `build` limpios; la suite de reglas completa en verde.
+4. `lint` y `build` limpios; **`npm test` completo en verde** — los tres bancos.
 5. Desplegado y verificado en producción.
 6. Este documento actualizado.
 
@@ -255,6 +255,34 @@ Una auditoría está Completada cuando cumple **las seis**:
 legítimo en verde y un ataque en rojo por cada superficie que tocó. Si un módulo
 no se puede cubrir con la suite de reglas, la ficha dice con qué evidencia se
 sustituye — nunca se queda sin ninguna.
+
+## La suite en verde nunca alcanza
+
+Desde que existe el banco de pruebas (6-ago-2026) hay una tentación nueva, y
+conviene nombrarla antes de caer en ella: **cerrar una auditoría porque los
+casos pasan, en vez de porque se verificó la cosa.** El punto 4 es necesario y
+nunca es suficiente. Tres razones, las tres medidas, no supuestas:
+
+- **El emulador no es producción.** El peor hallazgo de A17 —que un archivo
+  borrado se seguía sirviendo treinta días desde el CDN— **era invisible para un
+  emulador**, porque Cloudinary no se emula. Todo lo que dependa de un tercero se
+  comprueba contra producción o no se comprueba.
+- **El emulador de Firestore no exige índices compuestos.** Una consulta puede
+  pasar en verde aquí y fallar en producción por falta de índice. Manda §1.3.
+- **Los casos afirman lo que alguien pensó que había que afirmar.** La primera
+  versión del banco sembraba solo documentos en formato actual, y por eso pasaba
+  mientras producción tenía una fuga real (**R19**). Un caso verde prueba que no
+  se rompió *lo que ese caso mira*.
+
+**Y el número engaña por su lado bueno.** 136 casos no son cobertura: hoy cubren
+**3 de los 10 endpoints** y la lógica de **2 de las 14** Cloud Functions. Al
+informar, se dice qué quedó cubierto, no cuántos casos hay.
+
+**Regla práctica.** Cuando una auditoría afirme que algo *no queda*, *no se ve* o
+*no se puede*, la evidencia es el hecho observado desde fuera —la URL que deja de
+entregar, el documento que ya no está, la respuesta del servidor—, **nunca el
+valor que el propio código devuelve sobre sí mismo**. `borrados: 12` fue cierto y
+no quería decir nada.
 
 ---
 
