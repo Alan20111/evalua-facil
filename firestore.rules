@@ -580,7 +580,20 @@ service cloud.firestore {
       // estado no puede ser 'calificado'; al actualizar aplica
       // studentNoTocaCalificacion(). La nota real la pone la Cloud Function
       // onEvaluacionFinalizada (Admin SDK) o el docente (ownsActivity).
-      allow create: if request.auth != null && (
+      //
+      // A12 · H5 · R22 — el id NO es libre: tiene que ser
+      // `{actividadId}_{alumnoId}`. Antes cada entrega nacía con `addDoc` (id
+      // aleatorio), así que nada impedía crear una SEGUNDA submission para la
+      // misma pareja — doble clic, dos pestañas, o un reintento de red
+      // bastaban. El docente veía una entrega al azar (según el orden, no
+      // garantizado, en que Firestore devolvía la consulta) y en una
+      // evaluación se saltaba el límite de intentos por completo. Con esto,
+      // esa pareja tiene UN SOLO documento posible por construcción: un
+      // segundo "create" en el mismo path es, para Firestore, un UPDATE del
+      // documento existente — sujeto a studentNoTocaCalificacion() más abajo,
+      // no una fila nueva.
+      allow create: if request.auth != null &&
+        submissionId == request.resource.data.actividadId + '_' + request.resource.data.alumnoId && (
         (
           ownsStudentDoc(request.resource.data.alumnoId) &&
           enrollmentMatchesActivity(request.resource.data.alumnoId, request.resource.data.actividadId) &&
