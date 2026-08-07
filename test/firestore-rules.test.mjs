@@ -79,6 +79,21 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
     docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', fechaLimiteTS: HACE_1_DIA,
     extensionesTS: { ST_JUAN: EN_1_DIA },
   })
+
+  // ── A13 · fixtures de asistencia ────────────────────────────────────────────
+  await setDoc(doc(db, 'attendance', 'AT_T1_OWN'), {
+    asignaturaId: 'S1', docenteId: T1, fecha: '2026-07-01', slot: 1, parcial: 1,
+    presentes: { ST_JUAN: true },
+  })
+  await setDoc(doc(db, 'attendanceSummaries', 'ST_JUAN'), {
+    asignaturaId: 'S1', total: { asist: 5, inasist: 1, justif: 0, total: 6 }, registros: [],
+  })
+  await setDoc(doc(db, 'asuetos', 'AS_T2_OWN'), {
+    docenteId: T2, fecha: '2026-08-01', clases: true,
+  })
+  await setDoc(doc(db, 'vacaciones', 'VAC_T2_OWN'), {
+    docenteId: T2, fechaInicio: '2026-07-15', fechaFin: '2026-07-31', clases: true,
+  })
 })
 
 const asT1 = testEnv.authenticatedContext(T1).firestore()
@@ -786,6 +801,66 @@ ok('A09 · …but correcting its grade requires landing back in range')
 
 await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'SUB_LEGADO09'), { calificacion: 9.5 }))
 ok('A09 · …and bringing it down into range works')
+
+// ── A13 · Asistencia, resumen y días no laborables ───────────────────────────
+// Reglas: attendance (isDocente/isAdmin lee; docenteActivo+ownsSubject crea;
+// docenteActivo+propio docente actualiza/borra) · attendanceSummaries (solo el
+// propio alumno lee vía ownsStudentDoc; nadie escribe desde el cliente, solo el
+// Admin SDK) · asuetos/vacaciones (dueño lee y escribe).
+
+await assertSucceeds(setDoc(doc(asT1, 'attendance', 'AT_NEW'), {
+  asignaturaId: 'S1', docenteId: T1, fecha: '2026-08-07', slot: 1, parcial: 2, presentes: {},
+})); ok('A13 · teacher CAN create attendance for own subject')
+
+await assertFails(setDoc(doc(asT2, 'attendance', 'AT_INTRUSO'), {
+  asignaturaId: 'S1', docenteId: T2, fecha: '2026-08-07', slot: 1, parcial: 2, presentes: {},
+})); ok('A13 · foreign teacher CANNOT create attendance for another subject')
+
+await assertFails(updateDoc(doc(asT2, 'attendance', 'AT_T1_OWN'), {
+  'presentes.ST_JUAN': false,
+})); ok('A13 · foreign teacher CANNOT update attendance owned by another teacher')
+
+await assertFails(deleteDoc(doc(asT2, 'attendance', 'AT_T1_OWN')))
+ok('A13 · foreign teacher CANNOT delete attendance owned by another teacher')
+
+await assertFails(getDoc(doc(asJuan, 'attendance', 'AT_T1_OWN')))
+ok('A13 · student CANNOT read attendance (teacher/admin only)')
+
+await assertSucceeds(getDoc(doc(asJuan, 'attendanceSummaries', 'ST_JUAN')))
+ok('A13 · student CAN read own attendanceSummaries')
+
+await assertFails(getDoc(doc(asT2, 'attendanceSummaries', 'ST_JUAN')))
+ok('A13 · teacher CANNOT read a student\'s attendanceSummaries')
+
+await assertFails(setDoc(doc(asJuan, 'attendanceSummaries', 'ST_JUAN'), {
+  asignaturaId: 'S1', total: { asist: 99 },
+})); ok('A13 · student CANNOT write to attendanceSummaries (Admin SDK only)')
+
+await assertFails(setDoc(doc(asT1, 'attendanceSummaries', 'ST_JUAN'), {
+  asignaturaId: 'S1', total: { asist: 99 },
+})); ok('A13 · teacher CANNOT write to attendanceSummaries (Admin SDK only)')
+
+await assertSucceeds(setDoc(doc(asT1, 'asuetos', 'AS_T1_NEW'), {
+  docenteId: T1, fecha: '2026-09-01', clases: true,
+})); ok('A13 · teacher CAN create own asueto')
+
+await assertFails(setDoc(doc(asT1, 'asuetos', 'AS_EVIL'), {
+  docenteId: T2, fecha: '2026-09-01', clases: true,
+})); ok('A13 · teacher CANNOT create asueto attributed to another teacher')
+
+await assertFails(getDoc(doc(asT1, 'asuetos', 'AS_T2_OWN')))
+ok('A13 · teacher CANNOT read another teacher\'s asueto')
+
+await assertSucceeds(setDoc(doc(asT1, 'vacaciones', 'VAC_T1_NEW'), {
+  docenteId: T1, fechaInicio: '2026-09-15', fechaFin: '2026-09-30', clases: true,
+})); ok('A13 · teacher CAN create own vacaciones')
+
+await assertFails(setDoc(doc(asT1, 'vacaciones', 'VAC_EVIL'), {
+  docenteId: T2, fechaInicio: '2026-09-15', fechaFin: '2026-09-30', clases: true,
+})); ok('A13 · teacher CANNOT create vacaciones attributed to another teacher')
+
+await assertFails(getDoc(doc(asT1, 'vacaciones', 'VAC_T2_OWN')))
+ok('A13 · teacher CANNOT read another teacher\'s vacaciones')
 
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
