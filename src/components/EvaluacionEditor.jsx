@@ -566,7 +566,12 @@ export default function EvaluacionEditor({
       const savedSection = seccionDestino
       setFocusSectionId(savedSection)
       setPreguntaForm(emptyPregunta()); setShowPreguntaForm(false); setSeccionDestino(null)
-      if (savedSection) setTimeout(() => document.getElementById(`agregar-seccion-${savedSection}`)?.focus(), 80)
+      setTimeout(() => {
+        if (savedSection) {
+          document.getElementById(`seccion-grupo-${savedSection}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          document.getElementById(`preg-item-${nuevoId}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+        }
+      }, 120)
       toast('Pregunta agregada')
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
@@ -1571,8 +1576,12 @@ export default function EvaluacionEditor({
                               required placeholder="Tema (obligatorio, ej. Fracciones)" className="w-full px-3 py-1.5 rounded border border-outline-variant text-sm bg-surface" />
                           )}
                           <div className="flex gap-2 pt-1">
-                            <button type="button" onClick={() => { setShowPreguntaForm(false); setSeccionDestino(null); setPreguntaForm(emptyPregunta()) }}
-                              className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                            <button type="button" onClick={() => {
+                              const dest = seccionDestino
+                              setFocusSectionId(dest)
+                              setShowPreguntaForm(false); setSeccionDestino(null); setPreguntaForm(emptyPregunta())
+                              setTimeout(() => document.getElementById(`agregar-seccion-${dest}`)?.focus(), 80)
+                            }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                             <button type="submit" disabled={savingPregunta}
                               className="flex-1 py-2 text-sm font-medium text-white rounded disabled:opacity-60" style={{ background: '#d97706' }}>
                               {savingPregunta ? 'Guardando…' : 'Guardar reactivo'}
