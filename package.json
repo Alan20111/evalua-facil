@@ -30,7 +30,6 @@
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.3",
     "@elevenlabs/elevenlabs-js": "^2.59.0",
-    "@emailjs/browser": "^4.4.1",
     "@fontsource-variable/outfit": "^5.2.8",
     "@tiptap/extension-color": "^3.27.1",
     "@tiptap/extension-image": "^3.27.1",
