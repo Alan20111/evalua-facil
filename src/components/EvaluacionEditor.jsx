@@ -1316,8 +1316,10 @@ export default function EvaluacionEditor({
                       {isSeccion && !isActiveSection && (
                         <div className="flex items-center gap-1 px-2 py-1.5 rounded" style={{ background: 'var(--accent-light)' }}>
                           <FolderOpen size={13} className="text-accent flex-shrink-0" />
-                          <span className="text-xs font-semibold text-on-surface flex-1 min-w-0 truncate">{grupo.seccion.nombre}</span>
-                          <span className="text-xs text-muted flex-shrink-0 mr-1">({grupo.preguntas.length})</span>
+                          <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
+                            <span className="text-xs font-semibold text-on-surface truncate">{grupo.seccion.nombre}</span>
+                            <span className="text-xs font-medium text-accent flex-shrink-0">({grupo.preguntas.length})</span>
+                          </div>
                           <button type="button" onClick={() => seccionesCtl.mover(grupo.seccion.id, 'up')}
                             disabled={seccionesCtl.secciones[0]?.id === grupo.seccion.id || seccionesCtl.guardando}
                             aria-label="Subir sección"
