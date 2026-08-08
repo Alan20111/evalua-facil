@@ -239,6 +239,9 @@ export default function EvaluacionEditor({
   // the accent highlight — the most recently edited/created one. Starting a
   // new edit/creation moves the focus there.
   const [glowId, setGlowId] = useState(null)
+  // Última sección que estuvo activa — permanece ámbar hasta que el usuario
+  // abre una edición en otra sección o en otro reactivo.
+  const [focusSectionId, setFocusSectionId] = useState(null)
   // Snapshots taken when an edit form opens — Guardar stays disabled until
   // something actually changed
   const bancoEditSnap = useRef(null)
@@ -569,6 +572,7 @@ export default function EvaluacionEditor({
   }
 
   function openEditPregunta(p) {
+    setFocusSectionId(null)
     setEditingPreguntaId(p.id)
     const opciones = opcionesFromExisting(p)
     const base = {
@@ -618,9 +622,10 @@ export default function EvaluacionEditor({
         data.origenBancoId = bancoRef.id
       }
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
-      const seccionDest = preguntaEditForm.seccionId || 'sueltas'
+      const seccionDest = preguntaEditForm.seccionId || null
+      setFocusSectionId(seccionDest)
       setEditingPreguntaId(null); setGlowId(id); toast('Pregunta actualizada')
-      setTimeout(() => document.getElementById(`seccion-grupo-${seccionDest}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 120)
+      setTimeout(() => document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 120)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
   }
@@ -1274,7 +1279,7 @@ export default function EvaluacionEditor({
                   const editandoEstaSeccion = isSeccion && seccionesCtl.editando?.id === grupo.seccion.id
                   const editingInThisGroup = editingPreguntaId != null && grupo.preguntas.some((p) => p.id === editingPreguntaId)
                   const addingInThisGroup = isSeccion && showPreguntaForm && seccionDestino === grupo.seccion.id
-                  const isActiveSection = isSeccion && (editandoEstaSeccion || editingInThisGroup || addingInThisGroup)
+                  const isActiveSection = isSeccion && (editandoEstaSeccion || editingInThisGroup || addingInThisGroup || focusSectionId === grupo.seccion.id)
                   const pregEditando = editingInThisGroup ? preguntas.find((p) => p.id === editingPreguntaId) : null
                   return (
                     <div key={grupo.seccion?.id || 'sueltas'}
@@ -1295,7 +1300,7 @@ export default function EvaluacionEditor({
                           ultima={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id}
                           disabled={savingPregunta || seccionesCtl.guardando}
                           onMover={(dir) => seccionesCtl.mover(grupo.seccion.id, dir)}
-                          onEditar={() => seccionesCtl.setEditando(grupo.seccion)}
+                          onEditar={() => { setFocusSectionId(null); seccionesCtl.setEditando(grupo.seccion) }}
                           onEliminar={() => seccionesCtl.setPorBorrar(grupo.seccion)}
                         />
                       )}
@@ -1303,8 +1308,8 @@ export default function EvaluacionEditor({
                         <SeccionForm
                           inicial={seccionesCtl.editando}
                           guardando={seccionesCtl.guardando}
-                          onGuardar={seccionesCtl.guardar}
-                          onCancelar={() => seccionesCtl.setEditando(null)}
+                          onGuardar={(data) => { seccionesCtl.guardar(data); setFocusSectionId(grupo.seccion.id) }}
+                          onCancelar={() => { seccionesCtl.setEditando(null); setFocusSectionId(grupo.seccion.id) }}
                         />
                       )}
                       {/* Sección inactiva: encabezado compacto, solo nombre + acciones */}
@@ -1321,7 +1326,7 @@ export default function EvaluacionEditor({
                             disabled={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id || seccionesCtl.guardando}
                             aria-label="Bajar sección"
                             className="p-0.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"><ChevronDown size={13} /></button>
-                          <button type="button" onClick={() => seccionesCtl.setEditando(grupo.seccion)}
+                          <button type="button" onClick={() => { setFocusSectionId(null); seccionesCtl.setEditando(grupo.seccion) }}
                             disabled={seccionesCtl.guardando}
                             aria-label="Editar sección"
                             className="p-0.5 text-slate-400 hover:text-accent rounded"><Pencil size={12} /></button>
@@ -1495,9 +1500,10 @@ export default function EvaluacionEditor({
                           <div className="flex gap-2 pt-1">
                             <button type="button" onClick={() => {
                               const pid = editingPreguntaId
-                              const seccionDest = preguntaEditForm?.seccionId || 'sueltas'
+                              const seccionDest = preguntaEditForm?.seccionId || null
+                              setFocusSectionId(seccionDest)
                               setEditingPreguntaId(null); setGlowId(pid)
-                              setTimeout(() => document.getElementById(`seccion-grupo-${seccionDest}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 120)
+                              setTimeout(() => document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 120)
                             }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                             <button type="submit" disabled={savingPregunta || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current}
                               className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
