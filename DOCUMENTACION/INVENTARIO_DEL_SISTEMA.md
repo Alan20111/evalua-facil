@@ -1,7 +1,7 @@
 # Plan Maestro de Validación — Evalúa Fácil
 
 **Documento oficial de aseguramiento de calidad** · Última actualización:
-7 de agosto de 2026 · Commit `bf44493` · Rama `main`
+7 de agosto de 2026 · Commit `d7a24f3` · Rama `main`
 
 ---
 
