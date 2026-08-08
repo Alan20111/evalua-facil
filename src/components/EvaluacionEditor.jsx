@@ -1273,7 +1273,7 @@ export default function EvaluacionEditor({
                       style={isSeccion ? { border: '2px solid var(--accent)', background: 'var(--accent-light)' } : {}}>
 
                       {/* Encabezado de sección — las flechas ↑↓ mueven la SECCIÓN, no los reactivos */}
-                      {isSeccion && (
+                      {isSeccion && seccionesCtl.editando?.id !== grupo.seccion.id && (
                         <SeccionHeader
                           seccion={grupo.seccion}
                           total={grupo.preguntas.length}
@@ -1283,6 +1283,15 @@ export default function EvaluacionEditor({
                           onMover={(dir) => seccionesCtl.mover(grupo.seccion.id, dir)}
                           onEditar={() => seccionesCtl.setEditando(grupo.seccion)}
                           onEliminar={() => seccionesCtl.setPorBorrar(grupo.seccion)}
+                        />
+                      )}
+                      {/* Formulario de edición de sección — inline, reemplaza el header */}
+                      {isSeccion && seccionesCtl.editando?.id === grupo.seccion.id && (
+                        <SeccionForm
+                          inicial={seccionesCtl.editando}
+                          guardando={seccionesCtl.guardando}
+                          onGuardar={seccionesCtl.guardar}
+                          onCancelar={() => seccionesCtl.setEditando(null)}
                         />
                       )}
                       {!isSeccion && seccionesCtl.secciones.length > 0 && grupo.preguntas.length > 0 && (
