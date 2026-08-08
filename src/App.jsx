@@ -105,9 +105,10 @@ function TeacherLayoutRoute() {
 }
 
 function ProtectedStudent({ children }) {
-  const { currentUser, loading } = useAuth()
+  const { currentUser, userProfile, loading } = useAuth()
   if (loading) return null
   if (!currentUser) return <Navigate to="/alumno" replace />
+  if (userProfile && userProfile.role !== 'alumno') return <Navigate to="/dashboard" replace />
   return children
 }
 
