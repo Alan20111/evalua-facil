@@ -376,7 +376,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
         </InfoDisclosure>
         <button type="button" onClick={openAdd}
           data-tooltip={canCreate ? 'Nuevo aviso' : blockedTooltip}
-          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-50">
+          className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
           <Plus size={16} /> Nuevo aviso
         </button>
       </div>
@@ -546,7 +546,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     Cancelar
                   </button>
                   <button type="submit" disabled={saving}
-                    className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-50">
+                    className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
                     {saving ? 'Guardando…' : 'Publicar'}
                   </button>
                 </div>
@@ -597,11 +597,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                       ) : (
                         <div className="flex flex-col flex-shrink-0">
                           <button type="button" onClick={() => movePlantilla(i, -1)} disabled={i === 0} aria-label="Subir"
-                            className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-20 disabled:hover:text-slate-400">
+                            className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-40 disabled:hover:text-slate-400">
                             <ChevronUp size={14} />
                           </button>
                           <button type="button" onClick={() => movePlantilla(i, 1)} disabled={i === plantillas.length - 1} aria-label="Bajar"
-                            className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-20 disabled:hover:text-slate-400">
+                            className="p-0.5 text-slate-400 hover:text-accent disabled:opacity-40 disabled:hover:text-slate-400">
                             <ChevronDown size={14} />
                           </button>
                         </div>
@@ -668,7 +668,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     Cancelar
                   </button>
                   <button type="submit" disabled={savingPlantilla}
-                    className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-50">
+                    className="px-4 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors disabled:opacity-60">
                     {savingPlantilla ? 'Guardando…' : 'Guardar'}
                   </button>
                 </div>
@@ -745,7 +745,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 Cancelar
               </button>
               <button type="button" onClick={handleDelete} disabled={deleting}
-                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors disabled:opacity-50">
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 transition-colors disabled:opacity-60">
                 {deleting ? 'Eliminando…' : 'Eliminar'}
               </button>
             </div>
