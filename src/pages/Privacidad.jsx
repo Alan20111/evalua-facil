@@ -117,7 +117,7 @@ export default function Privacidad() {
               para que el docente pueda revisarlos sin descargarlos).
             </li>
             <li>
-              <span className="font-semibold text-on-surface">EmailJS</span>{' '}
+              <span className="font-semibold text-on-surface">Brevo</span>{' '}
               (envío de correos operativos).
             </li>
             <li>
