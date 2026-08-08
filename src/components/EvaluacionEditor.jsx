@@ -1263,6 +1263,7 @@ export default function EvaluacionEditor({
                   <p className="text-sm text-slate-400 text-center py-4">Aún no hay reactivos.</p>
                 )}
 
+                <div className="space-y-3">
                 {grupos.map((grupo) => {
                   const isSeccion = !!grupo.seccion
                   const editandoEstaSeccion = isSeccion && seccionesCtl.editando?.id === grupo.seccion.id
@@ -1272,10 +1273,12 @@ export default function EvaluacionEditor({
                   const pregEditando = editingInThisGroup ? preguntas.find((p) => p.id === editingPreguntaId) : null
                   return (
                     <div key={grupo.seccion?.id || 'sueltas'}
-                      className={isActiveSection ? 'rounded-card p-3 space-y-2' : 'space-y-1.5'}
+                      className={isActiveSection ? 'rounded-card p-3 space-y-2' : isSeccion ? 'rounded-card p-2 space-y-1.5' : 'space-y-1.5'}
                       style={isActiveSection
                         ? { border: '2px solid #d97706', background: 'rgba(251,191,36,0.10)' }
-                        : {}}>
+                        : isSeccion
+                          ? { border: '1px solid var(--outline-variant)' }
+                          : {}}>
 
                       {/* Sección activa: SeccionHeader completo o SeccionForm */}
                       {isSeccion && isActiveSection && !editandoEstaSeccion && (
@@ -1520,6 +1523,7 @@ export default function EvaluacionEditor({
                     </div>
                   )
                 })}
+                </div>
 
                 {showPreguntaForm ? (
                   <form onSubmit={handleAddPregunta} className="border-2 border-accent rounded-card p-4 space-y-3"
