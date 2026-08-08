@@ -564,6 +564,7 @@ export default function EvaluacionEditor({
         setPreguntas((prev) => prev.map((q) => q.id === nuevoId ? { ...q, origenBancoId: bancoRef.id } : q))
       }
       const savedSection = seccionDestino
+      setFocusSectionId(savedSection)
       setPreguntaForm(emptyPregunta()); setShowPreguntaForm(false); setSeccionDestino(null)
       if (savedSection) setTimeout(() => document.getElementById(`agregar-seccion-${savedSection}`)?.focus(), 80)
       toast('Pregunta agregada')
@@ -625,7 +626,10 @@ export default function EvaluacionEditor({
       const seccionDest = preguntaEditForm.seccionId || null
       setFocusSectionId(seccionDest)
       setEditingPreguntaId(null); setGlowId(id); toast('Pregunta actualizada')
-      setTimeout(() => document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 120)
+      setTimeout(() => {
+        document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+        document.getElementById(`preg-item-${id}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+      }, 120)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
   }
@@ -1344,13 +1348,14 @@ export default function EvaluacionEditor({
                         <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
                           {grupo.preguntas.map((p) => (
                             <div key={p.id} id={`preg-item-${p.id}`}
-                              className="flex-shrink-0 rounded-card bg-surface flex flex-col"
+                              className="flex-shrink-0 rounded-card flex flex-col"
                               style={{
                                 width: '15rem',
+                                background: p.id === glowId ? 'rgba(251,191,36,0.08)' : 'var(--surface)',
                                 border: editingPreguntaId === p.id
                                   ? '2px solid #d97706'
                                   : p.id === glowId
-                                    ? '1.5px solid var(--accent)'
+                                    ? '2px solid #d97706'
                                     : '1px solid var(--outline-variant)',
                               }}>
                               <div className="p-3 flex flex-col flex-1">
@@ -1503,7 +1508,10 @@ export default function EvaluacionEditor({
                               const seccionDest = preguntaEditForm?.seccionId || null
                               setFocusSectionId(seccionDest)
                               setEditingPreguntaId(null); setGlowId(pid)
-                              setTimeout(() => document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 120)
+                              setTimeout(() => {
+                                document.getElementById(`seccion-grupo-${seccionDest || 'sueltas'}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+                                document.getElementById(`preg-item-${pid}`)?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+                              }, 120)
                             }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                             <button type="submit" disabled={savingPregunta || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current}
                               className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
@@ -1518,7 +1526,7 @@ export default function EvaluacionEditor({
                         <button
                           type="button"
                           id={`agregar-seccion-${grupo.seccion.id}`}
-                          onClick={() => { setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
+                          onClick={() => { setFocusSectionId(null); setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
                           disabled={savingPregunta || seccionesCtl.guardando}
                           className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-card text-sm font-semibold transition-colors disabled:opacity-40 hover:opacity-80"
                           style={{ border: '2px dashed #d97706', color: '#d97706' }}
@@ -1530,7 +1538,7 @@ export default function EvaluacionEditor({
                         <button
                           type="button"
                           id={`agregar-seccion-${grupo.seccion.id}`}
-                          onClick={() => { setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
+                          onClick={() => { setFocusSectionId(null); setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
                           disabled={savingPregunta || seccionesCtl.guardando}
                           className="w-full flex items-center justify-center gap-1 py-1 text-xs text-muted hover:text-accent transition-colors disabled:opacity-40"
                         >
