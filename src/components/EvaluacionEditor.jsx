@@ -1323,25 +1323,32 @@ export default function EvaluacionEditor({
                           onCancelar={() => { seccionesCtl.setEditando(null); setFocusSectionId(grupo.seccion.id) }}
                         />
                       )}
-                      {/* Sección inactiva: encabezado compacto, solo nombre + acciones */}
+                      {/* Sección inactiva: encabezado compacto — clicar la tira la activa */}
                       {isSeccion && !isActiveSection && (
-                        <div className="flex items-center gap-1 px-2 py-1.5 rounded" style={{ background: 'var(--accent-light)' }}>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setFocusSectionId(grupo.seccion.id)}
+                          onKeyDown={(e) => e.key === 'Enter' && setFocusSectionId(grupo.seccion.id)}
+                          className="flex items-center gap-1 px-2 py-1.5 rounded cursor-pointer hover:opacity-80 transition-opacity"
+                          style={{ background: 'var(--accent-light)' }}
+                        >
                           <FolderOpen size={13} className="text-accent flex-shrink-0" />
                           <span className="text-xs font-semibold text-on-surface truncate flex-1 min-w-0">{grupo.seccion.nombre}</span>
                           <span className="text-xs font-medium text-accent flex-shrink-0">({grupo.preguntas.length})</span>
-                          <button type="button" onClick={() => seccionesCtl.mover(grupo.seccion.id, 'up')}
+                          <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.mover(grupo.seccion.id, 'up') }}
                             disabled={seccionesCtl.secciones[0]?.id === grupo.seccion.id || seccionesCtl.guardando}
                             aria-label="Subir sección"
                             className="p-0.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"><ChevronUp size={13} /></button>
-                          <button type="button" onClick={() => seccionesCtl.mover(grupo.seccion.id, 'down')}
+                          <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.mover(grupo.seccion.id, 'down') }}
                             disabled={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id || seccionesCtl.guardando}
                             aria-label="Bajar sección"
                             className="p-0.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"><ChevronDown size={13} /></button>
-                          <button type="button" onClick={() => { setFocusSectionId(null); seccionesCtl.setEditando(grupo.seccion) }}
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setFocusSectionId(null); seccionesCtl.setEditando(grupo.seccion) }}
                             disabled={seccionesCtl.guardando}
                             aria-label="Editar sección"
                             className="p-0.5 text-slate-400 hover:text-accent rounded"><Pencil size={12} /></button>
-                          <button type="button" onClick={() => seccionesCtl.setPorBorrar(grupo.seccion)}
+                          <button type="button" onClick={(e) => { e.stopPropagation(); seccionesCtl.setPorBorrar(grupo.seccion) }}
                             aria-label="Eliminar sección"
                             className="p-0.5 text-slate-400 hover:text-error rounded"><Trash2 size={12} /></button>
                         </div>
@@ -1600,17 +1607,6 @@ export default function EvaluacionEditor({
                           style={{ border: '2px dashed #d97706', color: '#d97706' }}
                         >
                           <Plus size={15} /> Agregar reactivo a esta sección
-                        </button>
-                      )}
-                      {isSeccion && !isActiveSection && (
-                        <button
-                          type="button"
-                          id={`agregar-seccion-${grupo.seccion.id}`}
-                          onClick={() => { setFocusSectionId(null); setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
-                          disabled={savingPregunta || seccionesCtl.guardando}
-                          className="w-full flex items-center justify-center gap-1 py-1 text-xs text-muted hover:text-accent transition-colors disabled:opacity-40"
-                        >
-                          <Plus size={11} /> Agregar reactivo
                         </button>
                       )}
                     </div>
