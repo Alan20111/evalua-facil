@@ -55,6 +55,12 @@ function nombreDe(perfil) {
   return perfil?.nombreMostrar || perfil?.nombre || perfil?.username || ''
 }
 
+function htmlEscape(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function correoTrial(nombre, urgente) {
   const saludo = nombre ? `Hola ${nombre},` : 'Hola,'
   const cuerpo = [
@@ -104,11 +110,16 @@ function correoRetencion(nombre, urgente) {
 }
 
 export default async function handler(req, res) {
-  if (process.env.CRON_SECRET) {
-    const auth = req.headers.authorization || ''
-    if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
-      return res.status(401).json({ error: 'No autorizado' })
-    }
+  // CRON_SECRET es obligatorio: un cron que manda correos a todos los docentes
+  // no puede quedar abierto. Si la variable falta en Vercel, falla rápido en
+  // vez de dejar el endpoint público.
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    return res.status(500).json({ error: 'CRON_SECRET no configurado' })
+  }
+  const auth = req.headers.authorization || ''
+  if (auth !== `Bearer ${cronSecret}`) {
+    return res.status(401).json({ error: 'No autorizado' })
   }
 
   const db = getDb()
@@ -154,7 +165,7 @@ export default async function handler(req, res) {
       const perfil = perfilSnap.data()
       if (!perfil.email) continue
 
-      const nombre = nombreDe(perfil)
+      const nombre = htmlEscape(nombreDe(perfil))
       const { subject, html } = tipo === 'trial' ? correoTrial(nombre, urgente)
         : tipo === 'sub' ? correoSuscripcion(nombre, urgente)
         : correoRetencion(nombre, urgente)
