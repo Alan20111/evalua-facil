@@ -1765,6 +1765,22 @@ export default function EvaluacionEditor({
                   />
                 )}
               </div>
+              {/* Selector de sección destino — solo cuando el examen tiene secciones */}
+              {seccionesCtl.secciones.length > 0 && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-muted flex-shrink-0">Agregar a:</span>
+                  <select
+                    value={seccionDestino || ''}
+                    onChange={(e) => setSeccionDestino(e.target.value || null)}
+                    className="flex-1 text-xs px-2 py-1.5 rounded border border-outline-variant bg-surface"
+                  >
+                    <option value="">Sin sección</option>
+                    {seccionesCtl.secciones.map((s) => (
+                      <option key={s.id} value={s.id}>{s.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {/* Barra de selección múltiple — pedido explícito: agregar
                   varios reactivos de un jalón. */}
               {selectedBancoIds.size > 0 && (
