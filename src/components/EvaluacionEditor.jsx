@@ -618,6 +618,7 @@ export default function EvaluacionEditor({
       }
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
       setEditingPreguntaId(null); setGlowId(id); toast('Pregunta actualizada')
+      setTimeout(() => document.getElementById(`preg-item-${id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 80)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setSavingPregunta(false) }
   }
@@ -1487,7 +1488,11 @@ export default function EvaluacionEditor({
                             </>
                           )}
                           <div className="flex gap-2 pt-1">
-                            <button type="button" onClick={() => { setEditingPreguntaId(null); setGlowId(editingPreguntaId) }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
+                            <button type="button" onClick={() => {
+                              const pid = editingPreguntaId
+                              setEditingPreguntaId(null); setGlowId(pid)
+                              setTimeout(() => document.getElementById(`preg-item-${pid}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 80)
+                            }} className="flex-1 py-2 text-sm text-muted">Cancelar</button>
                             <button type="submit" disabled={savingPregunta || JSON.stringify(preguntaEditForm) === preguntaEditSnap.current}
                               className="flex-1 py-2 bg-accent text-white text-sm font-medium rounded disabled:opacity-60">
                               {savingPregunta ? 'Guardando…' : 'Guardar cambios'}
