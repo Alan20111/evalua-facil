@@ -608,13 +608,15 @@ export default function EvaluacionEditor({
       const data = { ...buildPreguntaData(preguntaEditForm), imagenUrl, ...camposSeccion }
       await actualizarPregunta(currentActivityId, id, data)
       if (preguntaEditForm.guardarEnBanco) {
-        await addDoc(collection(db, 'bancoReactivos'), {
+        const bancoRef = await addDoc(collection(db, 'bancoReactivos'), {
           docenteId: auth.currentUser.uid, tipo: data.tipo, enunciado: data.enunciado,
           opciones: data.opciones, respuestaCorrecta: data.respuestaCorrecta,
           tema: preguntaEditForm.tema.trim() || null,
           materia: subject?.nombre || null, asignaturaId: subjectId || null,
           createdAt: serverTimestamp(),
         })
+        await actualizarPregunta(currentActivityId, id, { origenBancoId: bancoRef.id })
+        data.origenBancoId = bancoRef.id
       }
       setPreguntas((prev) => prev.map((p) => p.id === id ? { ...p, ...data } : p))
       setEditingPreguntaId(null); setGlowId(id); toast('Pregunta actualizada')
