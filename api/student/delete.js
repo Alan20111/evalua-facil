@@ -48,9 +48,21 @@ export default async function handler(req, res) {
     const assets = new Map()
     if (body.photoURL) extraerAssets({ url: body.photoURL }, assets)
 
+    // Estado personal: notificaciones + aviso-estado + agenda propia (R13).
+    // Con alumnoId se resuelven sin índice compuesto.
+    // avisoLecturas se omite a propósito: son registros de auditoría inmutables.
+    const [bitacora, guardados, ocultos, eventos] = await Promise.all([
+      db.collection('notificationLog').where('uid', '==', uid).get(),
+      db.collection('avisoGuardados').where('alumnoId', '==', uid).get(),
+      db.collection('avisoOcultos').where('alumnoId', '==', uid).get(),
+      db.collection('studentEvents').where('alumnoId', '==', uid).get(),
+    ])
+
     const refs = [db.collection('notificationSettings').doc(uid)]
-    const bitacora = await db.collection('notificationLog').where('uid', '==', uid).get()
     bitacora.docs.forEach((d) => refs.push(d.ref))
+    guardados.docs.forEach((d) => refs.push(d.ref))
+    ocultos.docs.forEach((d) => refs.push(d.ref))
+    eventos.docs.forEach((d) => refs.push(d.ref))
 
     const batch = db.batch()
     refs.forEach((r) => batch.delete(r))
