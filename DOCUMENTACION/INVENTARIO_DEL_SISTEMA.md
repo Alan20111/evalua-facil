@@ -1,7 +1,7 @@
 # Plan Maestro de Validación — Evalúa Fácil
 
 **Documento oficial de aseguramiento de calidad** · Última actualización:
-7 de agosto de 2026 · Commit `1b2405a` · Rama `main`
+7 de agosto de 2026 · Commit `bf44493` · Rama `main`
 
 ---
 
@@ -2446,8 +2446,8 @@ lo contrario convierte esta tabla en una lista de buenas intenciones.
 | **F2** · Personas y su información | A07 → A10 → A11 → *A17* | **Cerrada** · 6-ago-2026 — las cuatro Completadas; A17 pasó sus cinco puntos. Dos criterios de cierre dependen de terceros y quedan a la vista como riesgos (R7 por RO-1, R16 por Alan) |
 | **F3** · El trabajo académico | A08 → A09 → A12 → A13 → A18 | **Cerrada** · 7-ago-2026 — las cinco Completadas |
 | **F4** · Lo que sale del sistema | A14 → A15 → A16 → A21 | **En proceso** — A14+A21 Completadas, A15 H1 completa (pendiente dispositivo), A16 análisis completo (cierre manual pendiente) |
-| **F5** · Superficie y entorno | A19 → A20 → A23 | **En proceso** — A19 Completada, siguen A20 y A23 |
-| **F6** · Cumplimiento y operación | A22 → A24 | Pendiente |
+| **F5** · Superficie y entorno | A19 → A20 → A23 | **En proceso** — A19+A23 H1 Completadas (A23 visual pendiente), A20 análisis completo (cierre manual pendiente) |
+| **F6** · Cumplimiento y operación | A22 → A24 | **En proceso** — A22 Completada, sigue A24 |
 
 ## Por auditoría
 
@@ -2474,16 +2474,16 @@ Ordenada por número para poder buscarla; el orden de ejecución es el de arriba
 | A17 | Archivos y multimedia | F2 | M17 | Alto | **Completada** | 6-ago-2026 | `6b7f026` · [#1007](https://github.com/Alan20111/evalua-facil/pull/1007) — cierra R3 y R14; antes `fc13c4e` · [#1002](https://github.com/Alan20111/evalua-facil/pull/1002) |
 | A18 | Calendario y agenda | F3 | M13 | Alto | **Completada** | 7-ago-2026 | H1: `f4e356a` · [#1035](https://github.com/Alan20111/evalua-facil/pull/1035) · H2: `d5224d8` · [#1036](https://github.com/Alan20111/evalua-facil/pull/1036) · H3: `a10c65f` · [#1037](https://github.com/Alan20111/evalua-facil/pull/1037) |
 | A19 | Navegación y guardianes de ruta | F5 | M21, M31 | Alto | **Completada** | 7-ago-2026 | H1: `1b2405a` · [#1045](https://github.com/Alan20111/evalua-facil/pull/1045) — ProtectedStudent añade chequeo de rol; matriz 28 rutas × 4 identidades completa |
-| A20 | Aplicación Android | F5 | M23 | Alto | Pendiente | — | — |
+| A20 | Aplicación Android | F5 | M23 | Alto | **Análisis completado** · cierre manual pendiente | 7-ago-2026 | Permisos mínimos ✓, sin secretos en bundle ✓, diferencias app/web documentadas. Cierre requiere compilación + prueba en dispositivo |
 | A21 | Correo transaccional | F4 | M15 | Alto | **Completada** | 7-ago-2026 | H1+H2+D1: `34f36c3` · [#1043](https://github.com/Alan20111/evalua-facil/pull/1043) — CRON_SECRET obligatorio, htmlEscape en nombre, @emailjs/browser eliminado |
-| A22 | Seguridad de datos y privacidad | F6 | M27 | Alto | Pendiente | — | — |
-| A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | Pendiente | — | — |
+| A22 | Seguridad de datos y privacidad | F6 | M27 | Alto | **Completada** | 7-ago-2026 | H1: `bf44493` · [#1047](https://github.com/Alan20111/evalua-facil/pull/1047) — EmailJS→Brevo en aviso. DOMPurify: 0 XSS. R4 (90d borrado) y consentimiento: decisión producto |
+| A23 | Interfaz, accesibilidad y consistencia | F5 | M22, M32, M31 | Medio | **Completada (H1)** · cierre visual pendiente | 7-ago-2026 | H1: `e9a6b62` · [#1048](https://github.com/Alan20111/evalua-facil/pull/1048) — 12 violaciones disabled:opacity corregidas; `check:design` verde. Cierre requiere evidencia visual en 4 anchos × 2 temas |
 | A24 | Operación, secretos y despliegue | F6 | M28, M33 | Alto | Pendiente | — | — |
 
-**Avance: 18 de 24 auditorías (75.0%) · 4 de 7 fases cerradas (F0, F1, F2 y F3).**
+**Avance: 20 de 24 auditorías (83.3%) · 4 de 7 fases cerradas (F0, F1, F2 y F3).**
 Casos de prueba automatizados: **245** — 39 de unidad, 212 de reglas, 31 de
 servidor (37 antes de la primera auditoría, todos de reglas). Siguiente:
-**A20 · Aplicación Android** y **A23 · Interfaz** (F5 en proceso) — A19 cerrada 7-ago-2026. Entre la Fase 2 y la 3
+**A24 · Operación** (F6) — A23 H1 cerrada 7-ago-2026. Entre la Fase 2 y la 3
 se construyó la **infraestructura mínima de pruebas** (ficha al final de §8).
 
 **La Fase 2 cierra con dos asuntos abiertos que no son suyos.** Decisión del
