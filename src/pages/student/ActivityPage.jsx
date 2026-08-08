@@ -138,7 +138,19 @@ export default function StudentActivityPage() {
         navigate('/alumno/dashboard')
         return
       }
-      const actData = { id: actSnap.id, ...actSnap.data() }
+      let actData = { id: actSnap.id, ...actSnap.data() }
+
+      // numPreguntas en Firestore puede quedar desactualizado si el maestro
+      // guarda la configuración antes de agregar todas las preguntas. Contamos
+      // la subcolección para que el resumen siempre muestre el total real.
+      if (actData.tipo === 'evaluacion') {
+        try {
+          const pregSnap = await getDocs(collection(db, 'activities', activityId, 'preguntas'))
+          if (actData.evaluacion) {
+            actData = { ...actData, evaluacion: { ...actData.evaluacion, numPreguntas: pregSnap.size } }
+          }
+        } catch { /* non-fatal: cae al valor guardado en Firestore */ }
+      }
 
       // Subject is needed before the gate check below — a whole parcial can be
       // hidden from students at the subject level, which must override an

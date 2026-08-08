@@ -451,7 +451,7 @@ export default function EvaluacionEditor({
     }
     // "Ahora (guardar para que se publique)" enciende la bandera al guardar para
     // que el estudiante lo vea de inmediato; la bandera es permanente.
-    const toSave = { ...configForm }
+    const toSave = { ...configForm, numPreguntas: preguntas.length }
     toSave.publicarResultados = toSave.publicarResultados || 'inmediato'
     toSave.publicarRespuestas = toSave.publicarRespuestas || 'inmediato'
     if (toSave.publicarResultados === 'ahora') toSave.resultadosPublicados = true
@@ -507,6 +507,7 @@ export default function EvaluacionEditor({
   async function syncNumPreguntas(total) {
     if (!currentActivityId) return
     await updateDoc(doc(db, 'activities', currentActivityId), { 'evaluacion.numPreguntas': total })
+    setConfigForm((f) => ({ ...f, numPreguntas: total }))
   }
 
   // ── Secciones (opcionales) ──────────────────────────────────────────────
