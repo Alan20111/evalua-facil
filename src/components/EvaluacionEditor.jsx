@@ -15,7 +15,7 @@ import { sanitizeHtml, toRichHtml, htmlToPlainText, richTextContentClass } from 
 import { repartirPonderacionParejo } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy, Scale, CheckSquare, Square,
-  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight, ChevronUp, ChevronDown,
+  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight, ChevronUp, ChevronDown, FolderOpen,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
@@ -1267,18 +1267,18 @@ export default function EvaluacionEditor({
                   const isSeccion = !!grupo.seccion
                   const editandoEstaSeccion = isSeccion && seccionesCtl.editando?.id === grupo.seccion.id
                   const editingInThisGroup = editingPreguntaId != null && grupo.preguntas.some((p) => p.id === editingPreguntaId)
+                  const addingInThisGroup = isSeccion && showPreguntaForm && seccionDestino === grupo.seccion.id
+                  const isActiveSection = isSeccion && (editandoEstaSeccion || editingInThisGroup || addingInThisGroup)
                   const pregEditando = editingInThisGroup ? preguntas.find((p) => p.id === editingPreguntaId) : null
                   return (
                     <div key={grupo.seccion?.id || 'sueltas'}
-                      className={`space-y-2${isSeccion ? ' rounded-card p-3' : ''}`}
-                      style={isSeccion
-                        ? editandoEstaSeccion
-                          ? { border: '2px solid #d97706', background: 'rgba(251,191,36,0.10)' }
-                          : { border: '2px solid var(--accent)', background: 'var(--accent-light)' }
+                      className={isActiveSection ? 'rounded-card p-3 space-y-2' : 'space-y-1.5'}
+                      style={isActiveSection
+                        ? { border: '2px solid #d97706', background: 'rgba(251,191,36,0.10)' }
                         : {}}>
 
-                      {/* Encabezado de sección — las flechas ↑↓ mueven la SECCIÓN, no los reactivos */}
-                      {isSeccion && seccionesCtl.editando?.id !== grupo.seccion.id && (
+                      {/* Sección activa: SeccionHeader completo o SeccionForm */}
+                      {isSeccion && isActiveSection && !editandoEstaSeccion && (
                         <SeccionHeader
                           seccion={grupo.seccion}
                           total={grupo.preguntas.length}
@@ -1290,14 +1290,36 @@ export default function EvaluacionEditor({
                           onEliminar={() => seccionesCtl.setPorBorrar(grupo.seccion)}
                         />
                       )}
-                      {/* Formulario de edición de sección — inline, reemplaza el header */}
-                      {isSeccion && seccionesCtl.editando?.id === grupo.seccion.id && (
+                      {isSeccion && editandoEstaSeccion && (
                         <SeccionForm
                           inicial={seccionesCtl.editando}
                           guardando={seccionesCtl.guardando}
                           onGuardar={seccionesCtl.guardar}
                           onCancelar={() => seccionesCtl.setEditando(null)}
                         />
+                      )}
+                      {/* Sección inactiva: encabezado compacto, solo nombre + acciones */}
+                      {isSeccion && !isActiveSection && (
+                        <div className="flex items-center gap-1 px-0.5">
+                          <FolderOpen size={13} className="text-accent flex-shrink-0" />
+                          <span className="text-xs font-semibold text-on-surface flex-1 min-w-0 truncate">{grupo.seccion.nombre}</span>
+                          <span className="text-xs text-muted flex-shrink-0 mr-1">({grupo.preguntas.length})</span>
+                          <button type="button" onClick={() => seccionesCtl.mover(grupo.seccion.id, 'up')}
+                            disabled={seccionesCtl.secciones[0]?.id === grupo.seccion.id || seccionesCtl.guardando}
+                            aria-label="Subir sección"
+                            className="p-0.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"><ChevronUp size={13} /></button>
+                          <button type="button" onClick={() => seccionesCtl.mover(grupo.seccion.id, 'down')}
+                            disabled={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id || seccionesCtl.guardando}
+                            aria-label="Bajar sección"
+                            className="p-0.5 text-slate-400 hover:text-accent rounded disabled:opacity-40"><ChevronDown size={13} /></button>
+                          <button type="button" onClick={() => seccionesCtl.setEditando(grupo.seccion)}
+                            disabled={seccionesCtl.guardando}
+                            aria-label="Editar sección"
+                            className="p-0.5 text-slate-400 hover:text-accent rounded"><Pencil size={12} /></button>
+                          <button type="button" onClick={() => seccionesCtl.setPorBorrar(grupo.seccion)}
+                            aria-label="Eliminar sección"
+                            className="p-0.5 text-slate-400 hover:text-error rounded"><Trash2 size={12} /></button>
+                        </div>
                       )}
                       {!isSeccion && seccionesCtl.secciones.length > 0 && grupo.preguntas.length > 0 && (
                         <p className="text-xs font-semibold uppercase tracking-wide text-muted px-1">Sin sección</p>
@@ -1312,7 +1334,7 @@ export default function EvaluacionEditor({
                               style={{
                                 width: '15rem',
                                 border: editingPreguntaId === p.id
-                                  ? '2px solid var(--accent)'
+                                  ? '2px solid #d97706'
                                   : p.id === glowId
                                     ? '1.5px solid var(--accent)'
                                     : '1px solid var(--outline-variant)',
@@ -1362,7 +1384,10 @@ export default function EvaluacionEditor({
                                       className="p-1 text-slate-400 hover:text-accent rounded disabled:opacity-40" data-tooltip="Mover después"><ChevronDown size={15} /></button>
                                   </div>
                                   <div className="flex gap-0.5">
-                                    <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-1 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={14} /></button>
+                                    {p.origenBancoId
+                                      ? <span className="p-1 text-emerald-600 inline-flex" title="Ya está en el banco"><Library size={14} /></span>
+                                      : <button type="button" aria-label="Guardar en mi banco" onClick={() => handleGuardarEnBanco(p)} className="p-1 text-slate-400 hover:text-accent rounded" data-tooltip="Guardar en mi banco"><Library size={14} /></button>
+                                    }
                                     <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)}
                                       className={`p-1 rounded ${editingPreguntaId === p.id ? 'text-accent' : 'text-slate-400 hover:text-accent'}`} data-tooltip="Editar"><Pencil size={14} /></button>
                                     <button type="button" aria-label="Duplicar" onClick={() => handleDuplicatePregunta(p)} className="p-1 text-slate-400 hover:text-accent rounded" data-tooltip="Duplicar"><Copy size={14} /></button>
@@ -1378,8 +1403,8 @@ export default function EvaluacionEditor({
                       {/* Formulario de edición — aparece debajo del scroll, ocupa el ancho completo */}
                       {editingInThisGroup && preguntaEditForm && (
                         <form id={`edit-form-${editingPreguntaId}`} onSubmit={(e) => handleSavePreguntaEdit(e, editingPreguntaId)}
-                          className="border-2 rounded-card p-4 space-y-3 bg-surface" style={{ borderColor: 'var(--accent)' }}>
-                          <p className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2" style={{ color: 'var(--accent)' }}>
+                          className="border-2 rounded-card p-4 space-y-3 bg-surface" style={{ borderColor: isActiveSection ? '#d97706' : 'var(--accent)' }}>
+                          <p className="text-xs font-semibold uppercase tracking-wide flex items-center gap-2" style={{ color: isActiveSection ? '#d97706' : 'var(--accent)' }}>
                             Editando · Pregunta {numeroDePregunta[editingPreguntaId]}
                             {pregEditando?.origenBancoId && (
                               <span className="normal-case font-normal text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
@@ -1468,17 +1493,28 @@ export default function EvaluacionEditor({
                         </form>
                       )}
 
-                      {/* Botón "Agregar reactivo a esta sección" — siempre al fondo de la sección */}
-                      {isSeccion && (
+                      {/* Agregar reactivo: prominente en sección activa, compacto en inactiva */}
+                      {isSeccion && isActiveSection && (
                         <button
                           type="button"
                           id={`agregar-seccion-${grupo.seccion.id}`}
                           onClick={() => { setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
                           disabled={savingPregunta || seccionesCtl.guardando}
                           className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-card text-sm font-semibold transition-colors disabled:opacity-40 hover:opacity-80"
-                          style={{ border: '2px dashed var(--accent)', color: 'var(--accent)' }}
+                          style={{ border: '2px dashed #d97706', color: '#d97706' }}
                         >
                           <Plus size={15} /> Agregar reactivo a esta sección
+                        </button>
+                      )}
+                      {isSeccion && !isActiveSection && (
+                        <button
+                          type="button"
+                          id={`agregar-seccion-${grupo.seccion.id}`}
+                          onClick={() => { setSeccionDestino(grupo.seccion.id); setShowPreguntaForm(true) }}
+                          disabled={savingPregunta || seccionesCtl.guardando}
+                          className="w-full flex items-center justify-center gap-1 py-1 text-xs text-muted hover:text-accent transition-colors disabled:opacity-40"
+                        >
+                          <Plus size={11} /> Agregar reactivo
                         </button>
                       )}
                     </div>
