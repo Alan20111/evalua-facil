@@ -1597,7 +1597,7 @@ export default function EvaluacionEditor({
                         </form>
                       )}
                       {/* Botón agregar — solo cuando el form no está abierto en esta sección */}
-                      {isSeccion && isActiveSection && !addingInThisGroup && (
+                      {isSeccion && isActiveSection && !addingInThisGroup && !editandoEstaSeccion && (
                         <button
                           type="button"
                           id={`agregar-seccion-${grupo.seccion.id}`}
