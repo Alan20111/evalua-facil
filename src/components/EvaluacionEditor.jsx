@@ -1265,12 +1265,17 @@ export default function EvaluacionEditor({
 
                 {grupos.map((grupo) => {
                   const isSeccion = !!grupo.seccion
+                  const editandoEstaSeccion = isSeccion && seccionesCtl.editando?.id === grupo.seccion.id
                   const editingInThisGroup = editingPreguntaId != null && grupo.preguntas.some((p) => p.id === editingPreguntaId)
                   const pregEditando = editingInThisGroup ? preguntas.find((p) => p.id === editingPreguntaId) : null
                   return (
                     <div key={grupo.seccion?.id || 'sueltas'}
                       className={`space-y-2${isSeccion ? ' rounded-card p-3' : ''}`}
-                      style={isSeccion ? { border: '2px solid var(--accent)', background: 'var(--accent-light)' } : {}}>
+                      style={isSeccion
+                        ? editandoEstaSeccion
+                          ? { border: '2px solid #d97706', background: 'rgba(251,191,36,0.10)' }
+                          : { border: '2px solid var(--accent)', background: 'var(--accent-light)' }
+                        : {}}>
 
                       {/* Encabezado de sección — las flechas ↑↓ mueven la SECCIÓN, no los reactivos */}
                       {isSeccion && seccionesCtl.editando?.id !== grupo.seccion.id && (
