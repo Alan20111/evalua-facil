@@ -1245,7 +1245,9 @@ export default function EvaluacionEditor({
         <div className="bg-surface-card rounded-card shadow-card overflow-hidden" style={{ border: '1px solid var(--accent)' }}>
           <div className="px-4 py-3 flex items-center justify-between"
             style={{ background: 'var(--accent-light)', borderBottom: '1px solid var(--accent)' }}>
-            <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>Preguntas</h2>
+            <h2 className="font-semibold" style={{ color: 'var(--accent)' }}>
+              Preguntas {preguntas.length > 0 && <span className="font-normal">({preguntas.length})</span>}
+            </h2>
             {preguntas.length > 0 && (
               <span className={`text-sm font-semibold ${Math.abs(ponderacionUsada - 10) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
                 {parseFloat(ponderacionUsada.toFixed(2))} / 10 pts
